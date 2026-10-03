@@ -968,6 +968,7 @@
    ],
    "referenced_by": [
     "access_log.device_id",
+    "clinical_notes.device_id",
     "sessions.device_id"
    ],
    "sensitivity": "personal",
@@ -1099,6 +1100,7 @@
     "expenses.branch_id",
     "invoices.branch_id",
     "leave_blocks.branch_id",
+    "membership_branches.branch_id",
     "queue_tokens.branch_id",
     "rooms.branch_id",
     "working_hours.branch_id"
@@ -1484,13 +1486,6 @@
      "note": "invited, active, suspended, left"
     },
     {
-     "name": "branch_ids",
-     "type": "uuid[]",
-     "nullable": true,
-     "ref": null,
-     "note": "null means all branches"
-    },
-    {
      "name": "pin_hash",
      "type": "text",
      "nullable": true,
@@ -1514,6 +1509,7 @@
     "daily_closings.closed_by",
     "document_extractions.confirmed_by",
     "medical_history_items.verified_by",
+    "membership_branches.membership_id",
     "note_addenda.author_id",
     "observations.verified_by",
     "payments.received_by",
@@ -1525,6 +1521,34 @@
     "specialty_records.verified_by",
     "staff_advances.membership_id"
    ],
+   "sensitivity": "internal",
+   "offline": "read_only"
+  },
+  {
+   "name": "membership_branches",
+   "domain": "tenancy",
+   "purpose": "Which branches a staff member works at. No rows means every branch.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "Primary key (org_id, membership_id, branch_id). Branch-scoped permissions read this table.",
+   "cols": [
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "branches",
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
    "sensitivity": "internal",
    "offline": "read_only"
   },
@@ -2735,7 +2759,7 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
-   "notes": "Reading a note writes access_log. Corrections go in note_addenda.",
+   "notes": "Signed notes never change and are never merged automatically. If a change synced from a device collides with a note already signed on the server, it is kept as a separate note with status conflict, linked by conflicts_with_id, and flagged to its author, who resolves it by marking one version entered_in_error with a reason. Reading a note writes access_log; corrections go in note_addenda.",
    "cols": [
     {
      "name": "encounter_id",
@@ -2784,7 +2808,7 @@
      "type": "note_status",
      "nullable": false,
      "ref": null,
-     "note": "draft, signed"
+     "note": "draft, signed, conflict, entered_in_error"
     },
     {
      "name": "signed_at",
@@ -2799,9 +2823,31 @@
      "nullable": true,
      "ref": "memberships",
      "note": ""
+    },
+    {
+     "name": "conflicts_with_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "clinical_notes",
+     "note": "the version this one collided with during sync"
+    },
+    {
+     "name": "device_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "devices",
+     "note": "where it was written, for offline sync"
+    },
+    {
+     "name": "error_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "required when marked entered_in_error"
     }
    ],
    "referenced_by": [
+    "clinical_notes.conflicts_with_id",
     "note_addenda.note_id",
     "voice_notes.draft_note_id"
    ],
@@ -3331,7 +3377,8 @@
    "referenced_by": [
     "prescription_alerts.prescription_id",
     "prescription_items.prescription_id",
-    "prescriptions.supersedes_id"
+    "prescriptions.supersedes_id",
+    "share_links.prescription_id"
    ],
    "sensitivity": "health",
    "offline": "read_write"
@@ -3783,6 +3830,7 @@
     "consent_forms.signature_attachment_id",
     "document_extractions.attachment_id",
     "imports.file_attachment_id",
+    "share_links.attachment_id",
     "voice_notes.attachment_id"
    ],
    "sensitivity": "health",
@@ -5268,7 +5316,8 @@
     "invoice_items.invoice_id",
     "invoices.replaces_invoice_id",
     "payment_allocations.invoice_id",
-    "promo_redemptions.invoice_id"
+    "promo_redemptions.invoice_id",
+    "share_links.invoice_id"
    ],
    "sensitivity": "financial",
    "offline": "server_only"
@@ -6627,7 +6676,7 @@
      "type": "consent_purpose",
      "nullable": false,
      "ref": null,
-     "note": "care, referral, insurance, research"
+     "note": "care, referral, insurance"
     },
     {
      "name": "data_categories",
@@ -6676,7 +6725,7 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
-   "notes": "Every open is written to access_log with purpose patient_self.",
+   "notes": "Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource (none for upload_request), so a link can only ever open a record of the same clinic. Every open is written to access_log with purpose patient_self.",
    "cols": [
     {
      "name": "token_hash",
@@ -6693,11 +6742,25 @@
      "note": "prescription, invoice, report, upload_request"
     },
     {
-     "name": "resource_id",
+     "name": "prescription_id",
      "type": "uuid",
-     "nullable": false,
-     "ref": null,
+     "nullable": true,
+     "ref": "prescriptions",
      "note": ""
+    },
+    {
+     "name": "invoice_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "invoices",
+     "note": ""
+    },
+    {
+     "name": "attachment_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "attachments",
+     "note": "a report"
     },
     {
      "name": "patient_id",

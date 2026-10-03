@@ -2,6 +2,19 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-03: Final review before freezing the foundation
+
+A third review found the design ready to implement. Four small changes were applied:
+
+- **Offline signing conflicts:** signed clinical records are never merged automatically. A change that collides with a note already signed on the server is kept as a separate note with status `conflict`, linked by `conflicts_with_id`. Its author resolves it by marking one version `entered_in_error` with a reason. "Latest change wins" applies only to non-clinical fields.
+- **Share links** use typed, tenant-aware foreign keys (`prescription_id`, `invoice_id`, `attachment_id`) with a check constraint, instead of a generic resource id.
+- **Branch access** moves from an array on `memberships` to a `membership_branches` table. No rows means every branch.
+- **Consent purposes** are care, referral and insurance. Research consent is out of scope; adding it later needs its own decision and ethics review.
+
+**Phase 1A scope is frozen,** and the web portal and doctor phone app ship together, as decided. The golden clinic journey is the hard build order, so each step works end to end before the next starts. New ideas go to 1B or Phase 2.
+
+**Next:** freeze the foundation schema and write the first migrations.
+
 ## 2026-10-03: Cloudflare, domains and startup credits
 
 **One Cloudflare account for all Sakalya products,** owned by the company identity, with each product in its own zones and teammates as members. The same rule applies to Google Cloud and Supabase: one company login, separate projects per product.

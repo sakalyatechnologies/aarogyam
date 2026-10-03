@@ -125,7 +125,9 @@ Clinics in India lose connectivity, so the phone apps keep working without it.
 | **Read only** | Doctors, hours, price list, medicines, templates, settings |
 | **Online only** | Issuing bill and prescription numbers, collecting online payments, sending messages, permissions and plans |
 
-Changes made offline sync when the connection returns. If two devices change the same record, notes and specialty records keep both versions for the doctor to choose; simple fields keep the latest change and the audit log keeps the other.
+Changes made offline sync when the connection returns.
+- **Clinical records are never merged automatically.** If a note was signed on one device and a conflicting change arrives from another, both versions are kept. The second is marked as a conflict, and the doctor resolves it by marking one version "entered in error" with a reason. Specialty records work the same way.
+- **Simple fields keep the latest change,** such as a phone number or an appointment time. The audit log keeps the other value.
 
 ## Features
 
@@ -171,7 +173,7 @@ AI is an accelerator, never the product: Aarogyam works fully without it.
 | Phase | Scope | Done when |
 |---|---|---|
 | **0. Foundation** | Multi-tenancy, identity, permissions, audit, consent, offline architecture, CI/CD, staging | A clinic created in the console signs in at its own subdomain; clinics provably can't see each other's data |
-| **1A. Dental** | Core Clinic OS plus the Dental pack: Today, Patient 360, appointments and queue, visits, tooth chart, treatment plans, prescriptions (Quick Rx, allergy check, print and patient link), bills and payments, staff, voice notes, onboarding, website linking, web portal, doctor mobile app | 3–5 dental clinics run their whole day on Aarogyam for 30+ days and stop using their old software. We measure time saved, appointments, collections, notes and retention. |
+| **1A. Dental** (scope frozen; built in golden-journey order: patient → appointment → arrival → visit → dental chart → treatment → prescription → bill → payment → follow-up) | Core Clinic OS plus the Dental pack: Today, Patient 360, appointments and queue, visits, tooth chart, treatment plans, prescriptions (Quick Rx, allergy check, print and patient link), bills and payments, staff, voice notes, onboarding, website linking, web portal, doctor mobile app | 3–5 dental clinics run their whole day on Aarogyam for 30+ days and stop using their old software. We measure time saved, appointments, collections, notes and retention. |
 | **1B. Platform proof** | General Medicine pack on the same Core | A GP clinic runs on Aarogyam without Core changes, proving the pack architecture |
 | **2. Growth** | Self-serve onboarding, website templates, plans and billing, AI-drafted notes and past-visit summaries, prescription safety checks, Smart Scan, teleconsultation, the patient page, prescription analytics, gynecology and pediatrics, campaigns, multi-branch, inventory depth, ABDM M1 and M2 | Clinics pay and onboard on their own |
 | **3. Patient network** | Aarogyam Patient, cross-clinic records by consent, families, booking, referrals, labs, ABDM M3 | Patients hold records from two or more clinics |

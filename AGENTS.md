@@ -1,12 +1,12 @@
-# AGENTS.md: arogyam
+# AGENTS.md: aarogyam
 
-Arogyam is a multi-specialty clinic and patient health platform run by Sakalya Technologies. This repository holds the product: the Rust API and workers, database migrations, the clinic portal and console, the phone apps, and the specialty module definitions.
+Aarogyam is a multi-specialty clinic and patient health platform run by Sakalya Technologies. This repository holds the product: the Rust API and workers, database migrations, the clinic portal and console, the phone apps, and the specialty module definitions.
 
 Patient health data lives here. Every rule below exists to protect it.
 
 ## Read before writing code
 
-0. `docs/product.md`: what Arogyam is, who uses it, features and phases.
+0. `docs/product.md`: what Aarogyam is, who uses it, features and phases.
 1. `docs/guidelines/principles.md`, then the rest of `docs/guidelines/` and `docs/vendor/`: the shared Sakalya rules, copied from `sakalya-backend` by `scripts/sync-guidelines.sh`. Edit them there.
 2. `docs/architecture.md`: layers, crates, tenancy, and how a request flows.
 3. `docs/database.md`: every table, column and relationship (generated; edit `docs/schema/model.py` and run `python3 scripts/gen_schema_docs.py`). `docs/data-model.md` has the identifier and schema rules.
@@ -27,7 +27,7 @@ Scope every command to what you changed. See `docs/guidelines/build-speed.md`.
 
 ## Product rules (on top of the shared rules)
 
-1. **The clinic comes from the host name.** `smilecatchers.arogyam.app` means clinic `smilecatchers`. Never read the clinic from a header, path segment or body. The API checks the host against the caller's memberships.
+1. **The clinic comes from the host name.** `smilecatchers.aarogyam.app` means clinic `smilecatchers`. Never read the clinic from a header, path segment or body. The API checks the host against the caller's memberships.
 2. **Clinic data is only read inside a scoped transaction.** Use `sakalya_db::Db::begin_scoped` through the product's `ClinicTx` wrapper. Never query clinic tables with `Db::pool()`.
 3. **Every clinic table has `org_id`, row-level security, and composite foreign keys** that include `org_id`. A migration that adds a clinic table without all three fails review.
 4. **Every route declares its permission** with a typed extractor such as `Require<PatientsRead>`. A test fails the build if a route has none.

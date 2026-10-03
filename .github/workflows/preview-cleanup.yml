@@ -20,5 +20,5 @@ jobs:
           service_account: ${{ vars.GCP_DEPLOY_SA }}
       - uses: google-github-actions/setup-gcloud@v2
       - run: |
-          gcloud run services update-traffic arogyam-api --project "${{ vars.GCP_PROJECT_ID }}" \
+          gcloud run services update-traffic aarogyam-api --project "${{ vars.GCP_PROJECT_ID }}" \
             --region asia-south1 --remove-tags "pr-${{ github.event.pull_request.number }}" --quiet || true

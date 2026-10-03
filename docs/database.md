@@ -83,7 +83,7 @@ flowchart LR
 3. **Assistant**: Visit opened; vitals and intake note recorded. (`encounters`, `observations`, `clinical_notes`)
 4. **Doctor**: Dictates a note, adds an X-ray, updates the tooth chart; every view is logged. (`voice_notes`, `attachments`, `specialty_records`, `clinical_notes`, `access_log`)
 5. **Doctor**: Root canal done on tooth 36: stock deducted, crown sent to the lab, prescription issued. (`procedures`, `stock_movements`, `lab_orders`, `prescriptions`, `prescription_items`)
-6. **Doctor**: Prescription printed on the clinic letterhead with the Arogyam footer and QR; the patient gets an expiring WhatsApp link. (`document_templates`, `share_links`, `access_log`)
+6. **Doctor**: Prescription printed on the clinic letterhead with the Aarogyam footer and QR; the patient gets an expiring WhatsApp link. (`document_templates`, `share_links`, `access_log`)
 7. **Front desk**: Bill SC/26-27/000318 issued and paid by UPI. (`invoices`, `invoice_items`, `payments`, `payment_allocations`)
 8. **System**: Receipt sent on WhatsApp, a follow-up recall created, all changes audited. (`outbox_events`, `messages`, `recalls`, `audit_events`)
 
@@ -102,7 +102,7 @@ flowchart LR
 
 ### A request checks access
 
-1. **Host**: smilecatchers.arogyam.app resolves to the clinic. (`org_domains`, `organizations`)
+1. **Host**: smilecatchers.aarogyam.app resolves to the clinic. (`org_domains`, `organizations`)
 2. **Session**: JWT verified, session still active. (`users`, `sessions`)
 3. **Membership**: User is an active member whose role allows patients.read. (`memberships`, `roles`, `role_permissions`)
 4. **Plan and flags**: Feature is in the plan and released to this clinic. (`subscriptions`, `plan_features`, `entitlement_overrides`, `feature_flags`, `flag_rules`)
@@ -487,7 +487,7 @@ Host names that resolve to a clinic: its portal and its website.
 | Column | Type | Notes |
 |---|---|---|
 | `org_id` | `uuid` | → `organizations` |
-| `hostname` | `text` | unique: smilecatchers.arogyam.app, smilecatchers.in |
+| `hostname` | `text` | unique: smilecatchers.aarogyam.app, smilecatchers.in |
 | `kind` | `domain_kind` | portal, website |
 | `is_primary` | `bool` |  |
 | `cloudflare_hostname_id` | `text?` |  |
@@ -753,7 +753,7 @@ Patient-level history: past conditions, surgeries, long-term medicines, habits, 
 
 ### `patient_links`
 
-Phase 3: connects a patient's own Arogyam account to their record at each clinic.
+Phase 3: connects a patient's own Aarogyam account to their record at each clinic.
 
 *User-scoped: rows belong to one signed-in user · sensitivity: health · offline: server only*
 
@@ -1137,7 +1137,7 @@ A prescription from a visit: shown to staff and the patient, printed with the cl
 | `template_id` | `uuid?` | → `document_templates`. print layout |
 | `pdf_asset_id` | `uuid?` | → `assets` |
 
-Issued prescriptions never change: a correction cancels and reissues. The print shows the doctor's name, qualifications and registration number, generic names in capitals, the clinic's branding, and a small 'Prescribed with Arogyam' footer with a QR code that opens the verified copy.
+Issued prescriptions never change: a correction cancels and reissues. The print shows the doctor's name, qualifications and registration number, generic names in capitals, the clinic's branding, and a small 'Prescribed with Aarogyam' footer with a QR code that opens the verified copy.
 
 Referenced by: `prescription_alerts.prescription_id`, `prescription_items.prescription_id`, `prescriptions.supersedes_id`
 
@@ -1307,7 +1307,7 @@ Print and form layouts: prescriptions, bills, consent forms, certificates, lette
 | `pack` | `text?` |  |
 | `is_default` | `bool` |  |
 
-org_id is null for Arogyam's default layouts, which clinics copy and adjust.
+org_id is null for Aarogyam's default layouts, which clinics copy and adjust.
 
 Referenced by: `consent_forms.template_id`, `prescriptions.template_id`
 
@@ -2168,7 +2168,7 @@ Every grant and revocation is audited. The clinic owns its record; the patient c
 
 ### `share_links` (★ foundation)
 
-Expiring links that let a patient open a prescription, bill or report: arogyam.app/r/…
+Expiring links that let a patient open a prescription, bill or report: aarogyam.app/r/…
 
 *Clinic-scoped: org_id + row-level security · sensitivity: health · offline: server only*
 

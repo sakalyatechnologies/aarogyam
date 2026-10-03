@@ -1,16 +1,16 @@
-# Arogyam: product brief
+# Aarogyam: product brief
 
 *Ārogyaṁ dhana sampadā*: health is wealth.
 
-**North star.** A doctor opens Arogyam and it feels built for their specialty, their clinic and their way of working.
+**North star.** A doctor opens Aarogyam and it feels built for their specialty, their clinic and their way of working.
 
-**One line.** Arogyam is the operating system for every kind of clinic in India, which grows into one place where patients keep their health records from every doctor they visit.
+**One line.** Aarogyam is the operating system for every kind of clinic in India, which grows into one place where patients keep their health records from every doctor they visit.
 
 Read this first for context. Technical detail lives in `architecture.md`, `database.md`, `decisions.md` and `cicd.md`.
 
 ## Vision
 
-A doctor opens Arogyam and sees today's work, laid out for their specialty. Everything around the consultation (booking, records, prescriptions, bills, stock, staff, reminders, a website) runs itself. Later, a patient opens Arogyam and sees their dental, general, gynecology and cardiology history together, shared only with the doctors they choose.
+A doctor opens Aarogyam and sees today's work, laid out for their specialty. Everything around the consultation (booking, records, prescriptions, bills, stock, staff, reminders, a website) runs itself. Later, a patient opens Aarogyam and sees their dental, general, gynecology and cardiology history together, shared only with the doctors they choose.
 
 ## The problem
 
@@ -22,7 +22,7 @@ A doctor opens Arogyam and sees today's work, laid out for their specialty. Ever
 
 ## Product structure
 
-Customers see one brand. Internally Arogyam has three parts:
+Customers see one brand. Internally Aarogyam has three parts:
 
 | Part | Holds | Who uses it |
 |---|---|---|
@@ -50,7 +50,7 @@ Onboarding is a signature experience. Target: a clinic is ready, self-served, in
 1. **What kind of practice do you run?** Dentist, general physician, gynecologist, pediatrician and more. This picks the Specialty Pack.
 2. **How do you practice?** Solo, with assistants, multi-doctor, or multiple branches.
 3. **What do you use today?** Paper, Excel, or other software. This decides the import path.
-4. **Do you have a website?** If yes, connect it and add booking. If no, Arogyam offers one.
+4. **Do you have a website?** If yes, connect it and add booking. If no, Aarogyam offers one.
 5. **Staff, services and fees, hours** (including split shifts), and **branding** from the logo.
 6. **Bring your patients** in, and switch on reminders.
 7. **Your clinic is ready.**
@@ -66,22 +66,22 @@ One screen per patient:
 - **Specialty Pack views:** for example the tooth chart.
 
 ### Voice to note
-The doctor taps the microphone and speaks in English, Hindi, Marathi or Hinglish. Arogyam transcribes the recording and, from phase 2, drafts a structured note (complaint, history, examination, assessment, treatment) for the doctor to review, edit and sign. AI never diagnoses on its own and nothing enters the record unsigned.
+The doctor taps the microphone and speaks in English, Hindi, Marathi or Hinglish. Aarogyam transcribes the recording and, from phase 2, drafts a structured note (complaint, history, examination, assessment, treatment) for the doctor to review, edit and sign. AI never diagnoses on its own and nothing enters the record unsigned.
 
 ### Before and after the consultation
 - **Past-visit summary** (phase 2): a short AI summary of the patient's previous visits before the doctor starts. It only summarises what's recorded.
-- **Smart Scan** (phase 2): photograph a paper lab report or old file. Arogyam extracts values (HbA1c, haemoglobin, BP) into the record once the doctor confirms. It also helps clinics move off paper during onboarding.
+- **Smart Scan** (phase 2): photograph a paper lab report or old file. Aarogyam extracts values (HbA1c, haemoglobin, BP) into the record once the doctor confirms. It also helps clinics move off paper during onboarding.
 
 ### Prescriptions
 - **Writing:** doctors write prescriptions from favourites and the medicine list, in the patient's language. **Quick Rx:** repeat the last prescription, or start from favourites saved per diagnosis.
-- **Safety checks:** the doctor always decides; Arogyam warns.
+- **Safety checks:** the doctor always decides; Aarogyam warns.
   - **Phase 1A:** a warning when a medicine matches a recorded allergy.
   - **Phase 2:** drug interactions, contraindications, pregnancy and breastfeeding cautions, child dosing and precautions, from a licensed Indian drug database.
   - **Overrides:** each override is recorded with its reason.
 - **Printing:**
   - **Layout:** on the clinic's letterhead or plain paper (A4, A5 or thermal).
   - **Contents:** the doctor's name, qualifications and registration number, with generic names in capitals.
-  - **Arogyam footer:** a small "Prescribed with Arogyam" line plus a QR code that opens the verified digital copy. Higher plans may later remove the footer.
+  - **Aarogyam footer:** a small "Prescribed with Aarogyam" line plus a QR code that opens the verified digital copy. Higher plans may later remove the footer.
 - **Changes:** an issued prescription never changes. A correction cancels it and issues a new one.
 - **Staff access:** staff see every prescription in Patient 360 and can reprint.
 - **Patient access:**
@@ -157,25 +157,25 @@ Changes made offline sync when the connection returns. If two devices change the
 
 - **Patient app:** records from every clinic, family profiles, booking, bills, consent and "who viewed my record".
 - **ABDM integration:** ABHA IDs and sharing records through the national health stack.
-- **Referrals** between Arogyam doctors, with records attached by consent.
+- **Referrals** between Aarogyam doctors, with records attached by consent.
 - **Lab and pharmacy integrations.**
 - **Insurance claims** through NHCX.
 - **Treatment financing.**
 - **Devices and wearables.**
 - **An assistant.**
 
-AI is an accelerator, never the product: Arogyam works fully without it.
+AI is an accelerator, never the product: Aarogyam works fully without it.
 
 ## Goals and phases
 
 | Phase | Scope | Done when |
 |---|---|---|
 | **0. Foundation** | Multi-tenancy, identity, permissions, audit, consent, offline architecture, CI/CD, staging | A clinic created in the console signs in at its own subdomain; clinics provably can't see each other's data |
-| **1A. Dental** | Core Clinic OS plus the Dental pack: Today, Patient 360, appointments and queue, visits, tooth chart, treatment plans, prescriptions (Quick Rx, allergy check, print and patient link), bills and payments, staff, voice notes, onboarding, website linking, web portal, doctor mobile app | 3–5 dental clinics run their whole day on Arogyam for 30+ days and stop using their old software. We measure time saved, appointments, collections, notes and retention. |
-| **1B. Platform proof** | General Medicine pack on the same Core | A GP clinic runs on Arogyam without Core changes, proving the pack architecture |
+| **1A. Dental** | Core Clinic OS plus the Dental pack: Today, Patient 360, appointments and queue, visits, tooth chart, treatment plans, prescriptions (Quick Rx, allergy check, print and patient link), bills and payments, staff, voice notes, onboarding, website linking, web portal, doctor mobile app | 3–5 dental clinics run their whole day on Aarogyam for 30+ days and stop using their old software. We measure time saved, appointments, collections, notes and retention. |
+| **1B. Platform proof** | General Medicine pack on the same Core | A GP clinic runs on Aarogyam without Core changes, proving the pack architecture |
 | **2. Growth** | Self-serve onboarding, website templates, plans and billing, AI-drafted notes and past-visit summaries, prescription safety checks, Smart Scan, teleconsultation, the patient page, prescription analytics, gynecology and pediatrics, campaigns, multi-branch, inventory depth, ABDM M1 and M2 | Clinics pay and onboard on their own |
-| **3. Patient network** | Arogyam Patient, cross-clinic records by consent, families, booking, referrals, labs, ABDM M3 | Patients hold records from two or more clinics |
-| **4. Health Finance** | Insurance claims, treatment financing, devices, more specialties | A claim or financed treatment completes inside Arogyam |
+| **3. Patient network** | Aarogyam Patient, cross-clinic records by consent, families, booking, referrals, labs, ABDM M3 | Patients hold records from two or more clinics |
+| **4. Health Finance** | Insurance claims, treatment financing, devices, more specialties | A claim or financed treatment completes inside Aarogyam |
 
 ## Business model
 
@@ -187,7 +187,7 @@ AI is an accelerator, never the product: Arogyam works fully without it.
 
 ## Compared with existing clinic software
 
-Established products (for example HealthPlix) lead with prescription-centred records, medication safety checks, teleconsultation and AI helpers around the prescription. Arogyam matches those, and differs in five ways:
+Established products (for example HealthPlix) lead with prescription-centred records, medication safety checks, teleconsultation and AI helpers around the prescription. Aarogyam matches those, and differs in five ways:
 1. **Specialty depth:** visual Specialty Packs such as the tooth chart.
 2. **Voice:** notes in Indian languages and Hinglish.
 3. **The whole clinic:** stock, lab work, payroll, consultant fees and recalls run in one place.
@@ -226,6 +226,6 @@ Established products (for example HealthPlix) lead with prescription-centred rec
 - **Pilots:**
   - Which 3–5 dental clinics after Smile Catchers?
   - Which software do they use today, so import works from it?
-- **Patient relationship:** in phase 3, a patient can join Arogyam and see records created by clinics. We need to define in product and legal terms what the clinic controls, what the patient controls, and what happens when a patient leaves a clinic.
+- **Patient relationship:** in phase 3, a patient can join Aarogyam and see records created by clinics. We need to define in product and legal terms what the clinic controls, what the patient controls, and what happens when a patient leaves a clinic.
 - **Pricing:** per plan, and whether the website is paid or free.
-- **Domains:** final names and the trademark search for "Arogyam".
+- **Domains:** final names and the trademark search for "Aarogyam".

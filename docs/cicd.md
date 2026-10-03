@@ -6,7 +6,7 @@ Push code, and the pipeline tests it, deploys it, and tells you where to look. T
 
 | You do | Pipeline does | You see |
 |---|---|---|
-| Open or update a pull request touching the API | CI (fmt, clippy, tests with Postgres, docs, audit), build the image, deploy a **preview revision** on staging with no traffic | A PR comment with the preview's own URL, e.g. `https://pr-42---arogyam-api-….a.run.app` |
+| Open or update a pull request touching the API | CI (fmt, clippy, tests with Postgres, docs, audit), build the image, deploy a **preview revision** on staging with no traffic | A PR comment with the preview's own URL, e.g. `https://pr-42---aarogyam-api-….a.run.app` |
 | Merge to `main` | CI, build once, deploy that exact image to **staging** (smoke test, then 100%) | The job summary with URL and revision; staging is live in minutes |
 | Approve the `production` deployment (one click in GitHub, also on the mobile app) | Deploy the **same image** to production at 10%, watch errors for 10 minutes, then 100%, or roll back automatically | The job summary; a failed canary leaves production on the previous revision |
 | Close the pull request | Remove the preview tag | Nothing to clean up by hand |
@@ -33,8 +33,8 @@ Previews cost nothing: Cloud Run tagged revisions without traffic scale to zero.
 
 ## One-time setup (about an hour, all free)
 
-1. **GitHub:** create the `arogyam` and `sakalya-backend` repositories in the `sakalyatechnologies` organisation and push. In `sakalya-backend` settings, allow its workflows to be used by other repositories in the organisation (Settings → Actions → Access). Tag `v0.1.0`.
-2. **Google Cloud:** create projects `arogyam-staging`, `arogyam-prod` and `sakalya-artifacts` under one billing account, with a ₹100 budget alert on each.
+1. **GitHub:** create the `aarogyam` and `sakalya-backend` repositories in the `sakalyatechnologies` organisation and push. In `sakalya-backend` settings, allow its workflows to be used by other repositories in the organisation (Settings → Actions → Access). Tag `v0.1.0`.
+2. **Google Cloud:** create projects `sakalya-clinic-staging`, `sakalya-clinic-prod` and `sakalya-artifacts` under one billing account, with a ₹100 budget alert on each.
 3. **Artifact Registry:** in `sakalya-artifacts`, create a Docker repository `services` in `asia-south1`. Give both environments' Cloud Run service agents read access.
 4. **Workload Identity Federation:** one pool for GitHub, restricted to the `sakalyatechnologies` organisation; a deploy service account per project with Cloud Run Admin, Artifact Registry Writer (artifacts project only) and Logs Viewer.
 5. **GitHub Environments:**
@@ -47,5 +47,5 @@ Previews cost nothing: Cloud Run tagged revisions without traffic scale to zero.
 ## Watching a deploy
 
 - GitHub's job summary lists the URL, revision and image for every deploy.
-- `sk errors --project arogyam-prod --service arogyam-api --since 30m` summarises errors after a release.
-- `sk slow --project arogyam-prod --service arogyam-api` shows whether a release made anything slower.
+- `sk errors --project sakalya-clinic-prod --service aarogyam-api --since 30m` summarises errors after a release.
+- `sk slow --project sakalya-clinic-prod --service aarogyam-api` shows whether a release made anything slower.

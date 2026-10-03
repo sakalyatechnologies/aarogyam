@@ -1,4 +1,4 @@
-"""Arogyam database design: the single source for docs/database.md and the schema explorer.
+"""Aarogyam database design: the single source for docs/database.md and the schema explorer.
 
 Edit this file, then run `python3 scripts/gen_schema_docs.py`.
 
@@ -129,7 +129,7 @@ TABLES = [
     T(name="org_domains", domain="tenancy", rls="global", star=True,
       purpose="Host names that resolve to a clinic: its portal and its website.",
       cols=["org_id uuid -> organizations",
-            "hostname text | unique: smilecatchers.arogyam.app, smilecatchers.in",
+            "hostname text | unique: smilecatchers.aarogyam.app, smilecatchers.in",
             "kind domain_kind | portal, website", "is_primary bool",
             "cloudflare_hostname_id text?", "verified_at timestamptz?"],
       notes="Read on every request to resolve the tenant; cached in memory."),
@@ -213,7 +213,7 @@ TABLES = [
             "kind history_kind | condition, surgery, long_term_medication, habit, family_history",
             "description text", "code_system code_system? | icd10, icd11, snomed, loinc, custom", "code text?", "code_display text?", "code_version text?", "since date?", "active bool", "source record_source | clinician, assistant, patient, import, device, ai_draft, abdm", "verified_by uuid? -> memberships", "verified_at timestamptz?"]),
     T(name="patient_links", domain="people", rls="user",
-      purpose="Phase 3: connects a patient's own Arogyam account to their record at each clinic.",
+      purpose="Phase 3: connects a patient's own Aarogyam account to their record at each clinic.",
       cols=["user_id uuid -> users", "org_id uuid -> organizations", "patient_id uuid -> patients",
             "verified_via link_method | otp, abha, clinic_confirmed", "verified_at timestamptz",
             "revoked_at timestamptz?"],
@@ -323,7 +323,7 @@ TABLES = [
             "signed_by uuid? -> memberships", "cancel_reason text?",
             "supersedes_id uuid? -> prescriptions | the prescription this one replaces",
             "template_id uuid? -> document_templates | print layout", "pdf_asset_id uuid? -> assets"],
-      notes="Issued prescriptions never change: a correction cancels and reissues. The print shows the doctor's name, qualifications and registration number, generic names in capitals, the clinic's branding, and a small 'Prescribed with Arogyam' footer with a QR code that opens the verified copy."),
+      notes="Issued prescriptions never change: a correction cancels and reissues. The print shows the doctor's name, qualifications and registration number, generic names in capitals, the clinic's branding, and a small 'Prescribed with Aarogyam' footer with a QR code that opens the verified copy."),
     T(name="prescription_items", domain="clinical", rls="clinic", star=True,
       purpose="One medicine on a prescription.",
       cols=["prescription_id uuid -> prescriptions", "drug_id uuid? -> drug_catalog",
@@ -376,7 +376,7 @@ TABLES = [
       cols=["kind doc_template_kind | prescription, invoice, consent, certificate, letter", "name text",
             "paper paper_size | a4, a5, thermal_80mm", "uses_letterhead bool | print on pre-printed paper",
             "body text | with placeholders", "pack text?", "is_default bool"],
-      notes="org_id is null for Arogyam's default layouts, which clinics copy and adjust."),
+      notes="org_id is null for Aarogyam's default layouts, which clinics copy and adjust."),
     T(name="prescription_alerts", domain="clinical", rls="clinic",
       purpose="Safety warnings raised while prescribing, and what the doctor did about them.",
       cols=["prescription_id uuid -> prescriptions", "prescription_item_id uuid? -> prescription_items",
@@ -614,7 +614,7 @@ TABLES = [
             "starts_at timestamptz", "expires_at timestamptz?", "revoked_at timestamptz?"],
       notes="Every grant and revocation is audited. The clinic owns its record; the patient controls sharing across clinics."),
     T(name="share_links", domain="trust", rls="clinic", star=True,
-      purpose="Expiring links that let a patient open a prescription, bill or report: arogyam.app/r/…",
+      purpose="Expiring links that let a patient open a prescription, bill or report: aarogyam.app/r/…",
       cols=["token_hash text | the link holds the token; only its hash is stored",
             "resource share_resource | prescription, invoice, report, upload_request", "resource_id uuid",
             "patient_id uuid -> patients", "channel channel | whatsapp, sms, email",
@@ -674,7 +674,7 @@ JOURNEYS = [
         ("Assistant", ["encounters", "observations", "clinical_notes"], "Visit opened; vitals and intake note recorded."),
         ("Doctor", ["voice_notes", "attachments", "specialty_records", "clinical_notes", "access_log"], "Dictates a note, adds an X-ray, updates the tooth chart; every view is logged."),
         ("Doctor", ["procedures", "stock_movements", "lab_orders", "prescriptions", "prescription_items"], "Root canal done on tooth 36: stock deducted, crown sent to the lab, prescription issued."),
-        ("Doctor", ["document_templates", "share_links", "access_log"], "Prescription printed on the clinic letterhead with the Arogyam footer and QR; the patient gets an expiring WhatsApp link."),
+        ("Doctor", ["document_templates", "share_links", "access_log"], "Prescription printed on the clinic letterhead with the Aarogyam footer and QR; the patient gets an expiring WhatsApp link."),
         ("Front desk", ["invoices", "invoice_items", "payments", "payment_allocations"], "Bill SC/26-27/000318 issued and paid by UPI."),
         ("System", ["outbox_events", "messages", "recalls", "audit_events"], "Receipt sent on WhatsApp, a follow-up recall created, all changes audited."),
     ]),
@@ -690,7 +690,7 @@ JOURNEYS = [
         ("Report", ["daily_closings"], "A ledger view joins both sides; exported to Excel by the worker."),
     ]),
     ("access", "A request checks access", [
-        ("Host", ["org_domains", "organizations"], "smilecatchers.arogyam.app resolves to the clinic."),
+        ("Host", ["org_domains", "organizations"], "smilecatchers.aarogyam.app resolves to the clinic."),
         ("Session", ["users", "sessions"], "JWT verified, session still active."),
         ("Membership", ["memberships", "roles", "role_permissions"], "User is an active member whose role allows patients.read."),
         ("Plan and flags", ["subscriptions", "plan_features", "entitlement_overrides", "feature_flags", "flag_rules"], "Feature is in the plan and released to this clinic."),

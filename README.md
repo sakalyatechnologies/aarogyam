@@ -1,8 +1,8 @@
-# Arogyam
+# Aarogyam
 
 *Ārogyaṁ dhana sampadā*: health is wealth.
 
-A multi-specialty clinic platform: a portal and phone apps for doctors and their staff, specialty-specific views (starting with dental and general medicine), and later a patient app that brings records from every Arogyam clinic together.
+A multi-specialty clinic platform: a portal and phone apps for doctors and their staff, specialty-specific views (starting with dental and general medicine), and later a patient app that brings records from every Aarogyam clinic together.
 
 - What it is, who it is for, features and phases: [`docs/product.md`](docs/product.md)
 - Rules for humans and agents: [`AGENTS.md`](AGENTS.md)

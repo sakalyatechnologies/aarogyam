@@ -1127,7 +1127,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "unique: smilecatchers.arogyam.app, smilecatchers.in"
+     "note": "unique: smilecatchers.aarogyam.app, smilecatchers.in"
     },
     {
      "name": "kind",
@@ -2007,7 +2007,7 @@
   {
    "name": "patient_links",
    "domain": "people",
-   "purpose": "Phase 3: connects a patient's own Arogyam account to their record at each clinic.",
+   "purpose": "Phase 3: connects a patient's own Aarogyam account to their record at each clinic.",
    "rls": "user",
    "star": false,
    "partitioned": false,
@@ -3220,7 +3220,7 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
-   "notes": "Issued prescriptions never change: a correction cancels and reissues. The print shows the doctor's name, qualifications and registration number, generic names in capitals, the clinic's branding, and a small 'Prescribed with Arogyam' footer with a QR code that opens the verified copy.",
+   "notes": "Issued prescriptions never change: a correction cancels and reissues. The print shows the doctor's name, qualifications and registration number, generic names in capitals, the clinic's branding, and a small 'Prescribed with Aarogyam' footer with a QR code that opens the verified copy.",
    "cols": [
     {
      "name": "number",
@@ -3956,7 +3956,7 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
-   "notes": "org_id is null for Arogyam's default layouts, which clinics copy and adjust.",
+   "notes": "org_id is null for Aarogyam's default layouts, which clinics copy and adjust.",
    "cols": [
     {
      "name": "kind",
@@ -6672,7 +6672,7 @@
   {
    "name": "share_links",
    "domain": "trust",
-   "purpose": "Expiring links that let a patient open a prescription, bill or report: arogyam.app/r/\u2026",
+   "purpose": "Expiring links that let a patient open a prescription, bill or report: aarogyam.app/r/\u2026",
    "rls": "clinic",
    "star": true,
    "partitioned": false,
@@ -7245,7 +7245,7 @@
       "share_links",
       "access_log"
      ],
-     "what": "Prescription printed on the clinic letterhead with the Arogyam footer and QR; the patient gets an expiring WhatsApp link."
+     "what": "Prescription printed on the clinic letterhead with the Aarogyam footer and QR; the patient gets an expiring WhatsApp link."
     },
     {
      "actor": "Front desk",
@@ -7353,7 +7353,7 @@
       "org_domains",
       "organizations"
      ],
-     "what": "smilecatchers.arogyam.app resolves to the clinic."
+     "what": "smilecatchers.aarogyam.app resolves to the clinic."
     },
     {
      "actor": "Session",

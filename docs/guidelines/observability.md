@@ -17,7 +17,7 @@ Enough to reconstruct any request, little enough to read and cheap to store:
 - **One `info` line per request**, written by `sakalya-http` when the response is sent: route, status, latency, tenant, user.
 - **One `info` line per business event**, with an `event` field: `appointment.booked`, `invoice.paid`, `message.sent`.
 - **`warn`** for handled surprises (a retry, a provider timeout, a skipped message). **`error`** only when a person should look.
-- **`debug`** is off in staging and production. Turn it on for one module with the filter (`info,arogyam_notify=debug`), not globally.
+- **`debug`** is off in staging and production. Turn it on for one module with the filter (`info,aarogyam_notify=debug`), not globally.
 - Never log inside tight loops. Log a summary after the loop.
 
 ## Event names
@@ -74,7 +74,7 @@ Log-based metrics built on these fields give error rate, latency by route and ev
 - `sk tenant <id>`: one tenant's requests, failures, events and errors.
 - `sk events`: counts of each business event.
 
-Sources: `--file app.log` (or stdin, for local runs piped through), or `--project <gcp-project> --since 1h --service arogyam-api` for Cloud Logging through the `gcloud` CLI.
+Sources: `--file app.log` (or stdin, for local runs piped through), or `--project <gcp-project> --since 1h --service aarogyam-api` for Cloud Logging through the `gcloud` CLI.
 
 ## Turning detail up and down
 
@@ -83,10 +83,10 @@ Levels are configuration, never code changes:
 | Situation | Filter |
 |---|---|
 | Local development | `debug,hyper=info,sqlx=warn,h2=info` |
-| Staging | `info,arogyam=debug` |
+| Staging | `info,aarogyam=debug` |
 | Production | `info` |
 | Investigating one clinic in production | `info,[tenant{tenant_id=<id>}]=debug` for 30 minutes |
-| Investigating one module | `info,arogyam_notify=debug` for 30 minutes |
+| Investigating one module | `info,aarogyam_notify=debug` for 30 minutes |
 
 `sakalya_telemetry::init` returns a `LogControl`. `set_filter_for(directives, duration)` applies a filter and restores the configured one when the time runs out. Products store the override (filter plus expiry) as a platform setting that every instance polls, so one change in the console reaches all Cloud Run instances, and nobody forgets to turn debug off.
 

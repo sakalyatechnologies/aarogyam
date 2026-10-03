@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id as \"id!\" from app.search_patients($1, $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "33b489c8ef6656b4b3e30c2560eda585aab218d2cdd919ebf7b6e468871392c6"
+}

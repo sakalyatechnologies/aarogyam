@@ -7,6 +7,10 @@
 //! Queries on clinic data run inside a scoped transaction (`ClinicTx`), never on the bare pool.
 
 use sqlx::migrate::Migrator;
+
+pub mod console;
+pub mod lookups;
+pub mod patients;
 use sqlx::{Executor as _, PgPool};
 
 /// The migrations in `db/migrations/`, embedded at compile time.

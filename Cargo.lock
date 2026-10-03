@@ -23,8 +23,15 @@ version = "0.1.0"
 name = "aarogyam-dal"
 version = "0.1.0"
 dependencies = [
+ "aarogyam-domain",
+ "sakalya-db",
+ "serde",
+ "serde_json",
  "sqlx",
  "thiserror",
+ "time",
+ "tracing",
+ "uuid",
  "whoami",
 ]
 

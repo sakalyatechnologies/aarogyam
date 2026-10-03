@@ -1,0 +1,4 @@
+# Build sqlx queries against the committed .sqlx/ metadata, so no database is needed to compile.
+# Regenerate after changing a query: scripts/sqlx-prepare.sh
+[env]
+SQLX_OFFLINE = "true"

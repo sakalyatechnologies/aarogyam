@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.db_health() as \"health!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "health!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "4cc327ccda04d89cf4f1c38b1774b9cecc2f0f1fa842763f7d3ac4968c38af9d"
+}

@@ -11,6 +11,7 @@ repository = "https://github.com/sakalyatechnologies/aarogyam"
 
 [workspace.dependencies]
 # Shared Sakalya crates, by tag. A local .cargo/config.toml may [patch] them to a checkout.
+sakalya-types = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
 sakalya-config = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
 sakalya-telemetry = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
 sakalya-http = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
@@ -22,6 +23,7 @@ aarogyam-api = { path = "crates/aarogyam-api" }
 
 # Third party: the versions and features sakalya-backend pins, so both resolve to one copy.
 serde = { version = "1.0.229", default-features = false, features = ["std", "derive"] }
+time = { version = "0.3.55", default-features = false, features = ["std", "macros", "serde", "formatting", "parsing"] }
 thiserror = { version = "2.0.21", default-features = false, features = ["std"] }
 clap = { version = "4.6.7", default-features = false, features = ["std", "derive", "help", "usage", "error-context"] }
 figment = { version = "0.10.19", default-features = false, features = ["env", "toml"] }

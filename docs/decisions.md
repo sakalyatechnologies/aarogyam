@@ -2,6 +2,21 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-03: Gaps found against existing clinic software
+
+**Added.**
+- **Prescription safety:** an allergy check in Phase 1A. Drug interactions, contraindications, pregnancy and breastfeeding cautions, child dosing and precautions from a licensed drug database in Phase 2. Overrides are recorded with a reason (`prescription_alerts`).
+- **Quick Rx:** repeat the last prescription and favourites per diagnosis (1A); AI suggestions later.
+- **Phase 2 additions:**
+  - Smart Scan (`document_extractions`, confirmed before use)
+  - AI past-visit summaries
+  - teleconsultation, moved from phase 4 (`teleconsult_sessions`)
+  - a light patient page on share links
+  - doctor-facing prescription analytics
+- **Pricing hypotheses:** bundled message credits and support tiers per plan.
+
+**Not adopted.** Diagnostic decision support (conflicts with "AI never diagnoses" and may be regulated as a medical device) and paid research on clinic data (a trust risk for a privacy-first product).
+
 ## 2026-10-03: Review outcomes (product brief and database)
 
 Two independent reviews were checked against the repository; agreed points are recorded here.

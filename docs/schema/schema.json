@@ -1512,12 +1512,14 @@
     "clinical_notes.signed_by",
     "conditions.verified_by",
     "daily_closings.closed_by",
+    "document_extractions.confirmed_by",
     "medical_history_items.verified_by",
     "note_addenda.author_id",
     "observations.verified_by",
     "payments.received_by",
     "payroll_entries.membership_id",
     "practitioners.membership_id",
+    "prescription_alerts.acted_by",
     "prescriptions.signed_by",
     "salary_structures.membership_id",
     "specialty_records.verified_by",
@@ -1764,6 +1766,7 @@
     "consent_forms.patient_id",
     "contact_preferences.patient_id",
     "data_requests.patient_id",
+    "document_extractions.patient_id",
     "encounters.patient_id",
     "family_links.patient_id",
     "family_links.related_patient_id",
@@ -2375,7 +2378,8 @@
     "appointment_events.appointment_id",
     "booking_requests.appointment_id",
     "encounters.appointment_id",
-    "queue_tokens.appointment_id"
+    "queue_tokens.appointment_id",
+    "teleconsult_sessions.appointment_id"
    ],
    "sensitivity": "personal",
    "offline": "read_write"
@@ -2491,6 +2495,69 @@
    "referenced_by": [],
    "sensitivity": "personal",
    "offline": "read_write"
+  },
+  {
+   "name": "teleconsult_sessions",
+   "domain": "scheduling",
+   "purpose": "A video or audio consultation attached to an appointment.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "Follows the 2020 Telemedicine Practice Guidelines; the prescription is issued in the usual way afterwards.",
+   "cols": [
+    {
+     "name": "appointment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "appointments",
+     "note": ""
+    },
+    {
+     "name": "provider",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "video service used"
+    },
+    {
+     "name": "room_ref",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "the provider's room id, never a public link"
+    },
+    {
+     "name": "status",
+     "type": "tele_status",
+     "nullable": false,
+     "ref": null,
+     "note": "scheduled, live, ended, failed"
+    },
+    {
+     "name": "started_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "ended_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "patient_joined_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "care_episodes",
@@ -3139,6 +3206,8 @@
     }
    ],
    "referenced_by": [
+    "drug_interactions.drug_a_id",
+    "drug_interactions.drug_b_id",
     "prescription_items.drug_id"
    ],
    "sensitivity": "public",
@@ -3260,6 +3329,7 @@
     }
    ],
    "referenced_by": [
+    "prescription_alerts.prescription_id",
     "prescription_items.prescription_id",
     "prescriptions.supersedes_id"
    ],
@@ -3360,7 +3430,9 @@
      "note": "in the prescription's language"
     }
    ],
-   "referenced_by": [],
+   "referenced_by": [
+    "prescription_alerts.prescription_item_id"
+   ],
    "sensitivity": "health",
    "offline": "read_write"
   },
@@ -3709,6 +3781,7 @@
    "referenced_by": [
     "consent_forms.pdf_attachment_id",
     "consent_forms.signature_attachment_id",
+    "document_extractions.attachment_id",
     "imports.file_attachment_id",
     "voice_notes.attachment_id"
    ],
@@ -3941,6 +4014,188 @@
    ],
    "sensitivity": "internal",
    "offline": "read_only"
+  },
+  {
+   "name": "prescription_alerts",
+   "domain": "clinical",
+   "purpose": "Safety warnings raised while prescribing, and what the doctor did about them.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "Overrides are kept with their reason for medico-legal review.",
+   "cols": [
+    {
+     "name": "prescription_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "prescriptions",
+     "note": ""
+    },
+    {
+     "name": "prescription_item_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "prescription_items",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "alert_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "allergy, interaction, contraindication, pregnancy, lactation, pediatric_dose, duplicate, precaution"
+    },
+    {
+     "name": "severity",
+     "type": "alert_severity",
+     "nullable": false,
+     "ref": null,
+     "note": "info, caution, serious"
+    },
+    {
+     "name": "message",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "source",
+     "type": "alert_source",
+     "nullable": false,
+     "ref": null,
+     "note": "allergy_record, drug_database, ai"
+    },
+    {
+     "name": "action",
+     "type": "alert_action",
+     "nullable": false,
+     "ref": null,
+     "note": "accepted_change, overridden, dismissed"
+    },
+    {
+     "name": "override_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "acted_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "drug_interactions",
+   "domain": "clinical",
+   "purpose": "Licensed reference data: which medicines interact, how badly, and why.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "Loaded from a licensed Indian drug database; contraindications and pregnancy categories sit alongside it.",
+   "cols": [
+    {
+     "name": "drug_a_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "drug_catalog",
+     "note": ""
+    },
+    {
+     "name": "drug_b_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "drug_catalog",
+     "note": ""
+    },
+    {
+     "name": "severity",
+     "type": "alert_severity",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "source_version",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "public",
+   "offline": "read_only"
+  },
+  {
+   "name": "document_extractions",
+   "domain": "clinical",
+   "purpose": "Smart Scan: values read from a photographed paper report, waiting for confirmation.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "Nothing enters observations until a person confirms it; confirmed rows carry source = import.",
+   "cols": [
+    {
+     "name": "attachment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "attachments",
+     "note": ""
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "extraction_status",
+     "nullable": false,
+     "ref": null,
+     "note": "pending, extracted, confirmed, rejected"
+    },
+    {
+     "name": "extracted",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "test names, values, units, dates"
+    },
+    {
+     "name": "confirmed_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "confirmed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "consent_forms",
@@ -6435,7 +6690,7 @@
      "type": "share_resource",
      "nullable": false,
      "ref": null,
-     "note": "prescription, invoice, report"
+     "note": "prescription, invoice, report, upload_request"
     },
     {
      "name": "resource_id",

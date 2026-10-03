@@ -68,8 +68,16 @@ One screen per patient:
 ### Voice to note
 The doctor taps the microphone and speaks in English, Hindi, Marathi or Hinglish. Arogyam transcribes the recording and, from phase 2, drafts a structured note (complaint, history, examination, assessment, treatment) for the doctor to review, edit and sign. AI never diagnoses on its own and nothing enters the record unsigned.
 
+### Before and after the consultation
+- **Past-visit summary** (phase 2): a short AI summary of the patient's previous visits before the doctor starts. It only summarises what's recorded.
+- **Smart Scan** (phase 2): photograph a paper lab report or old file. Arogyam extracts values (HbA1c, haemoglobin, BP) into the record once the doctor confirms. It also helps clinics move off paper during onboarding.
+
 ### Prescriptions
-- **Writing:** doctors write prescriptions from favourites and the medicine list, in the patient's language.
+- **Writing:** doctors write prescriptions from favourites and the medicine list, in the patient's language. **Quick Rx:** repeat the last prescription, or start from favourites saved per diagnosis.
+- **Safety checks:** the doctor always decides; Arogyam warns.
+  - **Phase 1A:** a warning when a medicine matches a recorded allergy.
+  - **Phase 2:** drug interactions, contraindications, pregnancy and breastfeeding cautions, child dosing and precautions, from a licensed Indian drug database.
+  - **Overrides:** each override is recorded with its reason.
 - **Printing:**
   - **Layout:** on the clinic's letterhead or plain paper (A4, A5 or thermal).
   - **Contents:** the doctor's name, qualifications and registration number, with generic names in capitals.
@@ -139,6 +147,9 @@ Changes made offline sync when the connection returns. If two devices change the
   - **Phase 1:** connect an existing website and add booking.
   - **Phase 2:** about five excellent templates filled from the clinic's details (logo, colours, photos, services, doctors, hours, contact, domain). Each lives in its own repository, built and deployed automatically.
   - **Later:** AI-written copy.
+- **Teleconsultation** (phase 2): a video link from the appointment, then an e-prescription, under the 2020 Telemedicine Practice Guidelines.
+- **Patient page** (phase 2): before the full app, patients open a light page from their link to see prescriptions and bills and upload old reports.
+- **Prescription analytics** (phase 2): prescribing patterns for the doctor's own review, such as top diagnoses and medicines and repeat rates. Shown only to the clinic; never sold or shared.
 - **Super admin console:** clinics, users, usage, revenue, website traffic and messaging costs; plans and feature rollouts; time-limited support access; a quality page fed from a separate operations store.
 - **Plans:** a feature appears only when it is released (flag), included in the plan (entitlement), and allowed for the person (permission).
 
@@ -148,7 +159,6 @@ Changes made offline sync when the connection returns. If two devices change the
 - **ABDM integration:** ABHA IDs and sharing records through the national health stack.
 - **Referrals** between Arogyam doctors, with records attached by consent.
 - **Lab and pharmacy integrations.**
-- **Teleconsultation.**
 - **Insurance claims** through NHCX.
 - **Treatment financing.**
 - **Devices and wearables.**
@@ -161,18 +171,28 @@ AI is an accelerator, never the product: Arogyam works fully without it.
 | Phase | Scope | Done when |
 |---|---|---|
 | **0. Foundation** | Multi-tenancy, identity, permissions, audit, consent, offline architecture, CI/CD, staging | A clinic created in the console signs in at its own subdomain; clinics provably can't see each other's data |
-| **1A. Dental** | Core Clinic OS plus the Dental pack: Today, Patient 360, appointments and queue, visits, tooth chart, treatment plans, prescriptions (print and patient link), bills and payments, staff, voice notes, onboarding, website linking, web portal, doctor mobile app | 3–5 dental clinics run their whole day on Arogyam for 30+ days and stop using their old software. We measure time saved, appointments, collections, notes and retention. |
+| **1A. Dental** | Core Clinic OS plus the Dental pack: Today, Patient 360, appointments and queue, visits, tooth chart, treatment plans, prescriptions (Quick Rx, allergy check, print and patient link), bills and payments, staff, voice notes, onboarding, website linking, web portal, doctor mobile app | 3–5 dental clinics run their whole day on Arogyam for 30+ days and stop using their old software. We measure time saved, appointments, collections, notes and retention. |
 | **1B. Platform proof** | General Medicine pack on the same Core | A GP clinic runs on Arogyam without Core changes, proving the pack architecture |
-| **2. Growth** | Self-serve onboarding, website templates, plans and billing, AI-drafted notes, gynecology and pediatrics, campaigns, multi-branch, inventory depth, ABDM M1 and M2 | Clinics pay and onboard on their own |
+| **2. Growth** | Self-serve onboarding, website templates, plans and billing, AI-drafted notes and past-visit summaries, prescription safety checks, Smart Scan, teleconsultation, the patient page, prescription analytics, gynecology and pediatrics, campaigns, multi-branch, inventory depth, ABDM M1 and M2 | Clinics pay and onboard on their own |
 | **3. Patient network** | Arogyam Patient, cross-clinic records by consent, families, booking, referrals, labs, ABDM M3 | Patients hold records from two or more clinics |
-| **4. Health Finance** | Insurance claims, treatment financing, teleconsultation, devices, more specialties | A claim or financed treatment completes inside Arogyam |
+| **4. Health Finance** | Insurance claims, treatment financing, devices, more specialties | A claim or financed treatment completes inside Arogyam |
 
 ## Business model
 
 - **Subscription per clinic:** Solo, Clinic, Pro and Enterprise plans.
-- **Add-ons:** message credits, AI minutes, extra branches, storage.
+- **Included per plan:** monthly WhatsApp and SMS credits, and a support tier (standard or priority).
+- **Add-ons:** extra message credits, AI minutes, extra branches, storage.
 - **Pass-through costs:** messages are passed through at cost.
 - **Not fixed yet:** prices are not set. Pilots test willingness to pay separately for core software, reminders and WhatsApp, the website, AI documentation, extra doctors, branches and storage. One hypothesis to test: the website may work better as a free way to win clinics than as a Pro feature.
+
+## Compared with existing clinic software
+
+Established products (for example HealthPlix) lead with prescription-centred records, medication safety checks, teleconsultation and AI helpers around the prescription. Arogyam matches those, and differs in five ways:
+1. **Specialty depth:** visual Specialty Packs such as the tooth chart.
+2. **Voice:** notes in Indian languages and Hinglish.
+3. **The whole clinic:** stock, lab work, payroll, consultant fees and recalls run in one place.
+4. **Branding:** per-clinic white-labeling and websites.
+5. **Trust:** offline-first phones, an access ledger and patient-controlled consent.
 
 ## Product principles
 
@@ -187,7 +207,8 @@ AI is an accelerator, never the product: Arogyam works fully without it.
 ## Not doing (for now)
 
 - **In-patient hospital workflows:** wards, beds, operating theatres.
-- **AI that diagnoses on its own.**
+- **AI that diagnoses on its own,** or decision support that suggests diagnoses. Rule-based care reminders, such as "HbA1c due", are fine.
+- **Selling data or research access:** no paid research projects built on clinic or patient data.
 - **Holding clinics' money:** patients pay clinics directly.
 - **Markets outside India**, until the India product is proven.
 

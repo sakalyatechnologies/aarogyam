@@ -744,6 +744,248 @@
    "referenced_by": []
   },
   {
+   "name": "quality_runs",
+   "domain": "platform",
+   "purpose": "One run of a test suite: CI unit and integration, end-to-end, canary or load test.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "Written by CI (JUnit upload) and the canary runner through the console API.",
+   "cols": [
+    {
+     "name": "suite",
+     "type": "test_suite",
+     "nullable": false,
+     "ref": null,
+     "note": "unit, integration, e2e_web, e2e_mobile, canary, load"
+    },
+    {
+     "name": "environment",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "ci, staging, production"
+    },
+    {
+     "name": "repository",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "commit_sha",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "branch",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "trigger",
+     "type": "run_trigger",
+     "nullable": false,
+     "ref": null,
+     "note": "push, pull_request, schedule, deploy, manual"
+    },
+    {
+     "name": "status",
+     "type": "run_status",
+     "nullable": false,
+     "ref": null,
+     "note": "running, passed, failed, cancelled"
+    },
+    {
+     "name": "started_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "finished_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "total",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "passed",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "failed",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "skipped",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "flaky",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "passed only on retry"
+    },
+    {
+     "name": "run_url",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "link to the CI job"
+    }
+   ],
+   "referenced_by": [
+    "canary_checks.last_run_id",
+    "quality_results.run_id"
+   ]
+  },
+  {
+   "name": "quality_results",
+   "domain": "platform",
+   "purpose": "Each test or canary step in a run, with its outcome and timing.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "Partition or prune after 90 days; the console keeps daily aggregates.",
+   "cols": [
+    {
+     "name": "run_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "quality_runs",
+     "note": ""
+    },
+    {
+     "name": "test_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "file",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "result_status",
+     "nullable": false,
+     "ref": null,
+     "note": "passed, failed, skipped, flaky"
+    },
+    {
+     "name": "duration_ms",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "attempts",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "error_message",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "trimmed, no patient data"
+    },
+    {
+     "name": "request_id",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "canary steps: open with sk request"
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "canary_checks",
+   "domain": "platform",
+   "purpose": "The canary journeys that run on a schedule, per environment.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "sign_in, book_appointment, write_note, issue_bill"
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "environment",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "staging, production"
+    },
+    {
+     "name": "interval_minutes",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "enabled",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "last_run_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "quality_runs",
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
    "name": "users",
    "domain": "iam",
    "purpose": "Anyone who signs in: staff, doctors, patients, Sakalya staff.",
@@ -6327,6 +6569,37 @@
       "patients"
      ],
      "what": "Row-level security limits every query to this clinic."
+    }
+   ]
+  },
+  {
+   "key": "quality",
+   "title": "Test results reach the super admin",
+   "steps": [
+    {
+     "actor": "CI",
+     "tables": [
+      "quality_runs",
+      "quality_results"
+     ],
+     "what": "Every pull request and merge uploads unit, integration and end-to-end results."
+    },
+    {
+     "actor": "Canary runner",
+     "tables": [
+      "canary_checks",
+      "quality_runs",
+      "quality_results"
+     ],
+     "what": "Every 15 minutes each journey runs against the demo clinic; failures carry the request ID."
+    },
+    {
+     "actor": "Console",
+     "tables": [
+      "quality_runs",
+      "quality_results"
+     ],
+     "what": "Quality page: status per suite and environment, pass-rate trend, flaky tests, failing request IDs to open with sk."
     }
    ]
   },

@@ -5,9 +5,9 @@
 | Component | Tech | Runs on |
 |---|---|---|
 | API | Rust, Axum, `sakalya-*` crates | Cloud Run, Mumbai |
-| Worker (notifications, transcription, exports, website builds) | Rust, Postgres queue | Cloud Run, Mumbai |
+| Worker (notifications, exports, website builds) | Rust, a Postgres outbox table; woken by Cloud Scheduler calling an internal endpoint, because Cloud Run gives no CPU between requests | Cloud Run, Mumbai |
 | Database, sign-in, files | Postgres 17, Supabase Auth, Supabase Storage | Supabase, Mumbai |
-| Clinic portal, console | TypeScript, React (UI comes later) | Cloudflare |
+| Clinic portal, console | TypeScript, React, `sakalya-web` components | Cloudflare |
 | Clinic apps | Kotlin Multiplatform shared logic, Compose (Android), SwiftUI (iOS) | Stores |
 | Clinic websites | Astro, one repository per clinic, built automatically | Cloudflare |
 
@@ -23,40 +23,59 @@ aarogyam/
     aarogyam-notify/      notification rules, templates, channels, outbox worker
     aarogyam-server/      binary: config, telemetry, wiring
   db/migrations/         SQL migrations, append-only
-  db/seed/               synthetic clinics, patients and visits
-  contracts/openapi.json generated from the API, committed
+  db/checks/             schema rules every migration must keep (run by the database tests)
+  db/seed/               synthetic clinics and patients for local development
+  docs/api/openapi.json  generated from the API, committed
   specialties/           module definitions as data
   mobile/                Kotlin Multiplatform shared module, Android and iOS apps
-  web/                   portal and console
-  infra/                 OpenTofu for Google Cloud, Supabase, Cloudflare
+  web/apps/portal        clinic portal: owners, doctors, front desk
+  web/apps/console       Sakalya super-admin console
+  web/packages/          shared web code, such as the typed API client
+  scripts/dev-db.sh      local Postgres shaped like Supabase
 ```
 
 Crates split further by module (patients, appointments, billing) only when build times or ownership call for it.
 
 ## A request, end to end
 
-1. Cloudflare receives `https://smilecatchers.aarogyam.example/api/v1/patients/SC-1042` and forwards it to Cloud Run.
-2. `sakalya-http` assigns a request ID and opens the request span.
-3. Auth middleware verifies the JWT (`sakalya-auth`), checks the session is still active, and records `user_id` on the span.
-4. Tenancy middleware resolves `smilecatchers` to a clinic, checks the user's membership, and records `tenant_id`.
-5. The route's permission extractor checks `patients.read` against the membership's role, then the plan and feature flags.
-6. The handler calls a use case in `aarogyam-app`, which opens a `ClinicTx` (scoped transaction), so row-level security limits every query to this clinic.
-7. Reading a patient chart writes an `access_log` row. Changes write `audit_events` rows through triggers.
-8. Errors become `ApiError` responses; the client gets a code, a message and the request ID header.
+1. Cloudflare receives `https://smilecatchers.aarogyam.example/api/v1/patients/…`. A small Worker forwards it to Cloud Run with the original host in `X-Forwarded-Host`, the client IP in `cf-connecting-ip`, and a secret edge header.
+2. `sakalya-http` rejects requests without the edge secret (except `/healthz`), assigns a request ID, and opens the request span. Locally there is no edge: the real `Host` header is used.
+3. `app.resolve_host` turns `smilecatchers.aarogyam.example` into a clinic (cached briefly). Unknown or unverified hosts get `404`.
+4. `sakalya-auth` verifies the Supabase JWT (ES256 against cached keys) and rejects anonymous sessions.
+5. `app.authorize` returns, in one round trip, the user, their membership and role in this clinic, the role's permissions, and whether the session was revoked (cached about 30 seconds). Not a member, suspended, or revoked: `404`/`403`.
+6. The route's permission extractor (`Require<PatientsRead>`) checks the permission, then the plan and feature flags.
+7. The handler calls a use case in `aarogyam-app`, which opens a `ClinicTx`: one statement starts the transaction, switches to `app_user` and sets the clinic, user and request ID, so row-level security limits every query to this clinic.
+8. Reading a patient's record writes an access record row. Changes write the change history through triggers.
+9. Errors become `ApiError` responses: a code, a message without patient data, and the request ID header.
+
+## Trust boundaries
+
+- **The edge.** The Cloud Run URL is public, so anyone could call it directly and fake the host or client IP. The API trusts `X-Forwarded-Host` and `cf-connecting-ip` only when the request carries the Worker's secret header; otherwise it refuses the request.
+- **Clinic from the host only.** Never from a header the client controls, a path segment or the body. The phone apps first call the neutral host (`app.aarogyam.example/api/v1/me`) to list the user's clinics, then call that clinic's own host.
+- **The database.** The API logs in as `aarogyam_api`, which can do nothing on its own: clinic data only inside a `ClinicTx` (as `app_user`, under row-level security), and before the clinic is known only the three lookup functions. Migrations run as the owner. See `data-model.md`.
+- **The console** sits behind Cloudflare Access, and the API also checks the caller's platform role.
+- **Background jobs.** Cloud Scheduler calls `/internal/…` endpoints with a Google-signed token; the worker claims outbox rows with `FOR UPDATE SKIP LOCKED`. The live queue screen polls with ETags instead of holding connections open.
+
+## Database connections
+
+- Through Supabase's pooler (Supavisor) in **session mode**: sqlx's prepared statements are safe there, and it works over IPv4, which Cloud Run uses. At most 5 connections per instance, and a cap on instances, keep within the free tier's pool.
+- TLS with certificate verification (`verify-full` with Supabase's CA) everywhere except local.
+- Timeouts on every transaction (statement and idle-in-transaction), so a request cut short on Cloud Run can't hold locks.
+- Migrations run in session mode as the owner, from the `aarogyam migrate` command.
 
 ## Environments
 
 | | Local | Staging | Production |
 |---|---|---|---|
 | API | `localhost:8080` | project `sakalya-clinic-staging` | project `sakalya-clinic-prod` |
-| Clinic hosts | `smilecatchers.localtest.me:8080` | `*.aarogyam-staging.example`, or `workers.dev` with the clinic in the path until a domain is bought | `*.aarogyam.example` |
+| Clinic hosts | `sunrise.localtest.me:8080` (seeded) | a wildcard staging domain, chosen when staging is set up | `*.aarogyam.example` |
 | Database | local Postgres | Supabase free project | Supabase Pro project |
 | Data | seeded fakes | synthetic | real |
 | Logs | pretty, `debug` | Cloud Logging, `info,aarogyam=debug` | Cloud Logging, `info`; per-clinic debug for 30 minutes on demand |
 
 `localtest.me` and its subdomains resolve to `127.0.0.1`, so host-based tenancy works locally without editing `/etc/hosts`.
 
-Domains are not chosen yet, so docs use the reserved placeholder `aarogyam.example`. Until a domain exists, staging runs on free `workers.dev` and `run.app` addresses, and a non-production setting may read the clinic from the URL path. Production only ever reads it from the host name.
+Domains are not chosen yet, so docs use the reserved placeholder `aarogyam.example`. Every environment reads the clinic from the host name; there is no path-based mode, so staging waits for a wildcard domain.
 
 ## Cloudflare
 

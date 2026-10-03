@@ -1,5 +1,29 @@
 # CI and CD
 
+> **Parked on 3 Oct 2026** until staging is needed. Every workflow runs only when started by hand. Until then the local pre-commit hook is the quality gate: format, clippy with warnings as errors, all tests including the database tests, cargo-deny, and the schema-docs check.
+
+## When we resume
+
+GitHub Free gives private repositories no environments, environment secrets, branch protection or deploy approvals (checked against the GitHub API on 3 Oct), so the pipeline must not depend on them. MyDwarpal already works this way:
+
+- **Build and deploy in Google Cloud Build,** triggered by pushes (2,500 free build minutes a month). `main` goes to production and a staging branch to staging; the mapping is committed in `cloudbuild.yaml`, with a guard that refuses to put any other branch on production. Cloud Build's GitHub connection can read private repositories.
+- **GitHub Actions only for tests,** inside the 2,000 free minutes that all private repositories share.
+- **Private library repositories** are read with a read-only token kept in Secret Manager.
+- **Migrations** run (`aarogyam migrate`, as a Cloud Run job) before traffic moves.
+
+### Fix before the first deploy (from the 3 Oct review)
+
+- Add the migration step. Pull-request previews would share the staging database, so drop them.
+- Replace the 10% canary, which proves nothing at pilot traffic and sleeps for 10 billed minutes, with a smoke test, a synthetic clinic journey, and a scripted rollback to the revision that had the most traffic.
+- `--no-traffic` fails when creating a new service.
+- The deploy account needs `iam.serviceAccountUser`. Run the service as its own runtime account, not the default compute account (which has Editor), from a committed service file with at most 2–3 instances.
+- One service account and Workload Identity condition per environment (branch and workflow), since environment-scoped variables don't exist on the free plan.
+- Docker: the same Debian release for builder and runtime, `# syntax` on line 1, and the binary built once in CI and copied into the image.
+- Pin third-party actions by commit; set `permissions` and `timeout-minutes` on every workflow.
+- Artifact Registry with scanning off and a cleanup policy; logs in an `asia-south1` bucket.
+
+## Original design (reference; superseded where it relies on GitHub environments)
+
 Push code, and the pipeline tests it, deploys it, and tells you where to look. The workflows here call reusable ones in `sakalya-backend`, so every Sakalya project behaves the same way.
 
 ## What happens when

@@ -66,7 +66,7 @@ One screen per patient:
 - **Specialty Pack views:** for example the tooth chart.
 
 ### Voice to note
-The doctor taps the microphone and speaks in English, Hindi, Marathi or Hinglish. Aarogyam transcribes the recording and, from phase 2, drafts a structured note (complaint, history, examination, assessment, treatment) for the doctor to review, edit and sign. AI never diagnoses on its own and nothing enters the record unsigned.
+The doctor taps the microphone and speaks in English, Hindi, Marathi or Hinglish. In 1A the phone's own dictation turns speech into text for free, and the recording is kept with the note. Later Aarogyam transcribes the recording itself and, from phase 2, drafts a structured note (complaint, history, examination, assessment, treatment) for the doctor to review, edit and sign. AI never diagnoses on its own and nothing enters the record unsigned.
 
 ### Before and after the consultation
 - **Past-visit summary** (phase 2): a short AI summary of the patient's previous visits before the doctor starts. It only summarises what's recorded.
@@ -85,7 +85,8 @@ The doctor taps the microphone and speaks in English, Hindi, Marathi or Hinglish
 - **Changes:** an issued prescription never changes. A correction cancels it and issues a new one.
 - **Staff access:** staff see every prescription in Patient 360 and can reprint.
 - **Patient access:**
-  - **Now:** patients get an expiring WhatsApp or SMS link that opens after a one-time code.
+  - **Pilot:** the clinic sends an expiring link from its own WhatsApp (a free click-to-chat message), and the patient opens it with a PIN printed on the paper prescription; wrong guesses are limited. No SMS or WhatsApp API fees, and no DLT registration needed to start.
+  - **After DLT and Meta verification:** the link opens with a one-time code sent to the patient's phone.
   - **Later:** the patient app shows prescriptions from every clinic.
 
 ## Who it is for
@@ -113,11 +114,11 @@ Access is **role plus permissions plus scope**. A role is a starting bundle. The
 - **Who owns what:** the clinic owns its clinical record and its legal duties; the patient controls whether records are shared across clinics.
 - **Consent** is a first-class record: who may see what, for which purpose and data categories, granted when, expiring when, revoked when, and from which source. Every change is audited.
 - **Access ledger:** every sensitive view records who, what, why, when and from which device. Patients can see who viewed their records. Privacy becomes a trust feature, not only a compliance duty.
-- **Isolation:** each clinic's data is isolated in the database itself. Sakalya staff can't see patient records unless the clinic grants time-limited access.
+- **Isolation:** each clinic's data is isolated in the database itself. Sakalya staff have no routine access to patient records: support works through time-limited access the clinic grants, and direct database access is a logged break-glass procedure.
 
 ## Works offline
 
-Clinics in India lose connectivity, so the phone apps keep working without it.
+Clinics in India lose connectivity, so the phone apps keep working without it. **In 1A the app is online-first:** it keeps a local copy of what the doctor needs to read, and anything written offline waits in a durable queue of drafts on the device, sent with idempotency keys when the connection returns. A full sync engine is a Phase 2 decision (PowerSync's cloud has no India region; self-hosting needs an always-on server).
 
 | Offline | Works |
 |---|---|
@@ -127,7 +128,7 @@ Clinics in India lose connectivity, so the phone apps keep working without it.
 
 Changes made offline sync when the connection returns.
 - **Clinical records are never merged automatically.** If a note was signed on one device and a conflicting change arrives from another, both versions are kept. The second is marked as a conflict, and the doctor resolves it by marking one version "entered in error" with a reason. Specialty records work the same way.
-- **Simple fields keep the latest change,** such as a phone number or an appointment time. The audit log keeps the other value.
+- **Simple fields keep the latest change,** such as a phone number or an appointment time. The change history keeps the other value.
 
 ## Features
 
@@ -135,7 +136,7 @@ Changes made offline sync when the connection returns.
 
 - **Dashboard:** patient totals and demographics, registrations, appointments, visits and treatments by period and type.
 - **Patients:** search by ID, name or mobile; custom and smart-card IDs; referral source; medical history; families; import from old software.
-- **Appointments:** day, week, month and list views; doctor and chair lanes; walk-in tokens; confirmations; no-show tracking.
+- **Appointments:** day, week, month and list views; doctor and chair lanes; walk-in tokens; confirmations; no-show tracking. Two appointments can never share a chair at the same time; a dentist booked in two chairs at once gets a warning, not a block.
 - **Clinical:** visits, notes, vitals, diagnoses, prescriptions, treatment plans with estimates, photos and X-rays, signed consent forms.
 - **Clinic operations:** lab work and lab payments, materials and stock with automatic deduction, equipment maintenance, staff salaries and advances, consultant fees.
 - **Money:** price list, bills with a financial-year series, payments by cash, UPI or card, refunds, expenses, daily closing, finance reports with Excel export.

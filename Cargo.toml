@@ -10,9 +10,20 @@ publish = false
 repository = "https://github.com/sakalyatechnologies/aarogyam"
 
 [workspace.dependencies]
+# Shared Sakalya crates, by tag. A local .cargo/config.toml may [patch] them to a checkout.
+sakalya-http = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
+sakalya-db = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
+
 # Third party: the versions and features sakalya-backend pins, so both resolve to one copy.
 thiserror = { version = "2.0.21", default-features = false, features = ["std"] }
+secrecy = { version = "0.10.3", default-features = false, features = ["serde"] }
+tokio = { version = "1.53.1", default-features = false, features = ["rt", "time"] }
+axum = { version = "0.8.9", default-features = false, features = ["tokio", "http1", "http2", "json", "query", "matched-path", "original-uri"] }
+tower = { version = "0.5.3", default-features = false }
 sqlx = { version = "0.9.0", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls-aws-lc-rs", "uuid", "time", "macros", "migrate"] }
+
+# Third party, product only
+utoipa = { version = "6.0.0", default-features = false, features = ["macros"] }
 
 # Workaround: sqlx 0.9.0 builds whoami without `std`, so a database URL without a user name
 # connects as "anonymous" instead of the OS user. This restores libpq's default, which local

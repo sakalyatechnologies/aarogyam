@@ -2,6 +2,12 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-03: Clinics own their patient rows
+
+**Decision.** Replace the shared `persons` table with clinic-owned `patients` rows. Cross-clinic views use `patient_links` (a patient's own account verified against each clinic's record) plus `consents`.
+
+**Why.** With a shared person row, one clinic's edits to a name or phone number would show up at another clinic, and matching people automatically across clinics risks merging strangers. Under the DPDP Act each clinic is the data fiduciary for its own records, so each keeps its own copy, and the patient decides what is joined.
+
 ## 2026-10-02: Repositories
 
 **Decision.** Three kinds of repository:

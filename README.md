@@ -6,7 +6,7 @@ A multi-specialty clinic platform: a portal and phone apps for doctors and their
 
 - Rules for humans and agents: [`AGENTS.md`](AGENTS.md)
 - How it fits together: [`docs/architecture.md`](docs/architecture.md)
-- Data model: [`docs/data-model.md`](docs/data-model.md)
+- Data model: [`docs/data-model.md`](docs/data-model.md) and every table in [`docs/database.md`](docs/database.md)
 - Decisions: [`docs/decisions.md`](docs/decisions.md)
 
 Shared Rust foundations (types, config, telemetry, HTTP, auth, database, test kit) live in [`sakalya-platform`](../sakalya-platform).

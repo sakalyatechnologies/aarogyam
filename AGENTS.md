@@ -8,7 +8,7 @@ Patient health data lives here. Every rule below exists to protect it.
 
 1. `docs/guidelines/` and `docs/vendor/`: the shared Sakalya engineering rules, copied from `sakalya-platform`. Edit them there, then copy them here.
 2. `docs/architecture.md`: layers, crates, tenancy, and how a request flows.
-3. `docs/data-model.md`: identifiers, schema rules and table groups.
+3. `docs/database.md`: every table, column and relationship (generated; edit `docs/schema/model.py` and run `python3 scripts/gen_schema_docs.py`). `docs/data-model.md` has the identifier and schema rules.
 4. `docs/decisions.md`: decisions already made. Don't reopen them in code; propose a change in that file instead.
 
 ## Commands

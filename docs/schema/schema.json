@@ -1,0 +1,6365 @@
+{
+ "domains": [
+  {
+   "key": "platform",
+   "label": "Platform",
+   "purpose": "Run by Sakalya: plans, billing clinics, feature rollout, support, platform analytics. Console only."
+  },
+  {
+   "key": "iam",
+   "label": "Identity",
+   "purpose": "People who sign in, their sessions and devices. One user can belong to many clinics."
+  },
+  {
+   "key": "tenancy",
+   "label": "Clinic setup",
+   "purpose": "The clinic itself: branches, domains, rooms, modules, roles, staff memberships, numbering."
+  },
+  {
+   "key": "people",
+   "label": "Patients and doctors",
+   "purpose": "Each clinic's own patient records, identifiers, families, referral sources and practitioners."
+  },
+  {
+   "key": "scheduling",
+   "label": "Scheduling",
+   "purpose": "Appointments, their history, and the walk-in token queue."
+  },
+  {
+   "key": "clinical",
+   "label": "Clinical",
+   "purpose": "Visits, notes, vitals, diagnoses, prescriptions, procedures, treatment plans, files and specialty data."
+  },
+  {
+   "key": "ops",
+   "label": "Clinic operations",
+   "purpose": "Lab work, inventory and stock, equipment maintenance, payroll and consultant fees."
+  },
+  {
+   "key": "billing",
+   "label": "Money",
+   "purpose": "Price list, bills, payments, refunds, expenses and daily cash closing."
+  },
+  {
+   "key": "notify",
+   "label": "Notifications",
+   "purpose": "Templates, rules, consent, recalls, campaigns, promo codes, the outbox and every message sent."
+  },
+  {
+   "key": "web",
+   "label": "Websites",
+   "purpose": "Generated clinic websites, their versions, booking requests and traffic."
+  },
+  {
+   "key": "trust",
+   "label": "Trust and audit",
+   "purpose": "Patient consents, who viewed what, every change, and data-rights requests."
+  },
+  {
+   "key": "onboarding",
+   "label": "Onboarding",
+   "purpose": "First-login progress and data imports from old software."
+  }
+ ],
+ "tables": [
+  {
+   "name": "plans",
+   "domain": "platform",
+   "purpose": "Subscription plans clinics can buy (Solo, Clinic, Pro, Enterprise).",
+   "rls": "global",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "code",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique: solo, clinic, pro, enterprise"
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "monthly_price_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "yearly_price_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "is_public",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "hidden plans for custom deals"
+    },
+    {
+     "name": "sort_order",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "plan_features.plan_id",
+    "subscriptions.plan_id"
+   ]
+  },
+  {
+   "name": "features",
+   "domain": "platform",
+   "purpose": "Every feature that a plan can include or limit.",
+   "rls": "global",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique, e.g. website_builder, whatsapp_campaigns"
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "feature_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "boolean or limit"
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "entitlement_overrides.feature_id",
+    "plan_features.feature_id",
+    "usage_counters.feature_id"
+   ]
+  },
+  {
+   "name": "plan_features",
+   "domain": "platform",
+   "purpose": "What each plan includes, and its limits.",
+   "rls": "global",
+   "star": true,
+   "partitioned": false,
+   "notes": "Primary key (plan_id, feature_id).",
+   "cols": [
+    {
+     "name": "plan_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "plans",
+     "note": ""
+    },
+    {
+     "name": "feature_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "features",
+     "note": ""
+    },
+    {
+     "name": "included",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "limit_value",
+     "type": "int",
+     "nullable": true,
+     "ref": null,
+     "note": "e.g. 2000 messages a month"
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "subscriptions",
+   "domain": "platform",
+   "purpose": "Which plan a clinic is on and whether it is paid up.",
+   "rls": "global",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "organizations",
+     "note": ""
+    },
+    {
+     "name": "plan_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "plans",
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "subscription_status",
+     "nullable": false,
+     "ref": null,
+     "note": "trialing, active, past_due, paused, canceled"
+    },
+    {
+     "name": "period_start",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "period_end",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "trial_ends_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "razorpay_subscription_id",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "canceled_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "saas_invoices.subscription_id"
+   ]
+  },
+  {
+   "name": "saas_invoices",
+   "domain": "platform",
+   "purpose": "Sakalya's own GST invoices to clinics for the subscription.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "organizations",
+     "note": ""
+    },
+    {
+     "name": "subscription_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "subscriptions",
+     "note": ""
+    },
+    {
+     "name": "number",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "Sakalya's invoice series"
+    },
+    {
+     "name": "amount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "gst_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "saas_invoice_status",
+     "nullable": false,
+     "ref": null,
+     "note": "issued, paid, void"
+    },
+    {
+     "name": "razorpay_payment_id",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "issued_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "entitlement_overrides",
+   "domain": "platform",
+   "purpose": "Per-clinic exceptions to the plan: promos, grandfathering, custom deals.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "organizations",
+     "note": ""
+    },
+    {
+     "name": "feature_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "features",
+     "note": ""
+    },
+    {
+     "name": "included",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "limit_value",
+     "type": "int",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "reason",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "granted_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "platform_users",
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "usage_counters",
+   "domain": "platform",
+   "purpose": "How much of each limited feature a clinic used this month.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "Primary key (org_id, feature_id, period). Incremented by the API and worker.",
+   "cols": [
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "organizations",
+     "note": ""
+    },
+    {
+     "name": "feature_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "features",
+     "note": ""
+    },
+    {
+     "name": "period",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": "first day of the month"
+    },
+    {
+     "name": "used",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "feature_flags",
+   "domain": "platform",
+   "purpose": "Switches that release a feature gradually, separate from plans.",
+   "rls": "global",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique"
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "default_on",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "kill_switch",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "forces off everywhere"
+    }
+   ],
+   "referenced_by": [
+    "flag_rules.flag_id"
+   ]
+  },
+  {
+   "name": "flag_rules",
+   "domain": "platform",
+   "purpose": "Who a flag is on for: named clinics, a percentage, a plan, a platform or app version.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "flag_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "feature_flags",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "flag_rule_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "org_list, percentage, plan, platform, min_app_version"
+    },
+    {
+     "name": "value",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "priority",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "platform_users",
+   "domain": "platform",
+   "purpose": "Sakalya staff who can use the console, and their role.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "role",
+     "type": "platform_role",
+     "nullable": false,
+     "ref": null,
+     "note": "owner, support, onboarding, analyst"
+    },
+    {
+     "name": "active",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "entitlement_overrides.granted_by",
+    "support_grants.platform_user_id"
+   ]
+  },
+  {
+   "name": "support_grants",
+   "domain": "platform",
+   "purpose": "Time-limited permission a clinic gives Sakalya support to look inside its data.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "organizations",
+     "note": ""
+    },
+    {
+     "name": "granted_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "platform_user_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "platform_users",
+     "note": "null means any support agent"
+    },
+    {
+     "name": "scope",
+     "type": "support_scope",
+     "nullable": false,
+     "ref": null,
+     "note": "settings_only, read_records"
+    },
+    {
+     "name": "starts_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "revoked_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "announcements",
+   "domain": "platform",
+   "purpose": "Release notes and notices shown inside the clinic apps.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "title",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "body",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "audience",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "plans, roles, platforms"
+    },
+    {
+     "name": "starts_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "ends_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "org_daily_stats",
+   "domain": "platform",
+   "purpose": "Per-clinic daily counts for the console. Counts only, never patient data.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "Primary key (org_id, day). Written nightly, copied to BigQuery.",
+   "cols": [
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "organizations",
+     "note": ""
+    },
+    {
+     "name": "day",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "active_users",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "new_patients",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "appointments",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "visits",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "billed_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "messages_sent",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "storage_bytes",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "users",
+   "domain": "iam",
+   "purpose": "Anyone who signs in: staff, doctors, patients, Sakalya staff.",
+   "rls": "user",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "auth_uid",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": "Supabase Auth user id, unique"
+    },
+    {
+     "name": "phone_e164",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "unique"
+    },
+    {
+     "name": "email",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "display_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "locale",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "en-IN, hi-IN, mr-IN ..."
+    },
+    {
+     "name": "status",
+     "type": "user_status",
+     "nullable": false,
+     "ref": null,
+     "note": "active, disabled"
+    },
+    {
+     "name": "last_seen_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "access_log.actor_user_id",
+    "audit_events.actor_user_id",
+    "devices.user_id",
+    "invitations.invited_by",
+    "memberships.user_id",
+    "messages.user_id",
+    "notifications.user_id",
+    "patient_links.user_id",
+    "platform_users.user_id",
+    "sessions.user_id",
+    "support_grants.granted_by"
+   ]
+  },
+  {
+   "name": "sessions",
+   "domain": "iam",
+   "purpose": "Signed-in sessions, so a stolen phone or idle PC can be signed out.",
+   "rls": "user",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "provider_session_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": "session_id claim in the JWT"
+    },
+    {
+     "name": "device_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "devices",
+     "note": ""
+    },
+    {
+     "name": "audience",
+     "type": "session_audience",
+     "nullable": false,
+     "ref": null,
+     "note": "clinic, patient, platform"
+    },
+    {
+     "name": "last_active_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "revoked_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "revoke_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "devices",
+   "domain": "iam",
+   "purpose": "Phones and browsers a user signs in from, with push tokens.",
+   "rls": "user",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "platform",
+     "type": "device_platform",
+     "nullable": false,
+     "ref": null,
+     "note": "android, ios, web"
+    },
+    {
+     "name": "model",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "app_version",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "push_token",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "push_token_updated_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "sessions.device_id"
+   ]
+  },
+  {
+   "name": "organizations",
+   "domain": "tenancy",
+   "purpose": "A clinic business, the tenant. Everything clinic-owned points here.",
+   "rls": "global",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "slug",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique, the subdomain: smilecatchers"
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "legal_name",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "number_prefix",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "SC in SC-1042"
+    },
+    {
+     "name": "status",
+     "type": "org_status",
+     "nullable": false,
+     "ref": null,
+     "note": "trial, active, suspended, churned"
+    },
+    {
+     "name": "timezone",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "default Asia/Kolkata"
+    },
+    {
+     "name": "gstin",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "consents.grantee_org_id",
+    "entitlement_overrides.org_id",
+    "org_daily_stats.org_id",
+    "org_domains.org_id",
+    "patient_links.org_id",
+    "saas_invoices.org_id",
+    "subscriptions.org_id",
+    "support_grants.org_id",
+    "usage_counters.org_id"
+   ]
+  },
+  {
+   "name": "branches",
+   "domain": "tenancy",
+   "purpose": "Locations of a clinic. Single-location clinics have one.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "slug",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique per clinic"
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "address",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "phone_e164",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "is_default",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "appointments.branch_id",
+    "daily_closings.branch_id",
+    "encounters.branch_id",
+    "equipment.branch_id",
+    "expenses.branch_id",
+    "invoices.branch_id",
+    "leave_blocks.branch_id",
+    "queue_tokens.branch_id",
+    "rooms.branch_id",
+    "working_hours.branch_id"
+   ]
+  },
+  {
+   "name": "org_domains",
+   "domain": "tenancy",
+   "purpose": "Host names that resolve to a clinic: its portal and its website.",
+   "rls": "global",
+   "star": true,
+   "partitioned": false,
+   "notes": "Read on every request to resolve the tenant; cached in memory.",
+   "cols": [
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "organizations",
+     "note": ""
+    },
+    {
+     "name": "hostname",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique: smilecatchers.arogyam.app, smilecatchers.in"
+    },
+    {
+     "name": "kind",
+     "type": "domain_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "portal, website"
+    },
+    {
+     "name": "is_primary",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cloudflare_hostname_id",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "verified_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "slug_history",
+   "domain": "tenancy",
+   "purpose": "Old slugs, so renamed clinics, doctors and pages keep redirecting.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "entity",
+     "type": "slug_entity",
+     "nullable": false,
+     "ref": null,
+     "note": "organization, practitioner, site_page"
+    },
+    {
+     "name": "entity_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "old_slug",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "changed_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "rooms",
+   "domain": "tenancy",
+   "purpose": "Chairs, rooms and labs that appointments can be booked into.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "room_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "chair, room, lab"
+    },
+    {
+     "name": "active",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "appointments.room_id"
+   ]
+  },
+  {
+   "name": "org_modules",
+   "domain": "tenancy",
+   "purpose": "Specialty modules switched on for a clinic, with their settings.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "module_key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "dental, general, obstetrics, pediatrics ..."
+    },
+    {
+     "name": "enabled_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "settings",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "e.g. tooth numbering FDI or Universal"
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "org_settings",
+   "domain": "tenancy",
+   "purpose": "One row per clinic: branding, bill and prescription settings, defaults.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "branding",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "colours, logo asset"
+    },
+    {
+     "name": "billing",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "GST, bill footer"
+    },
+    {
+     "name": "prescription",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "letterhead layout"
+    },
+    {
+     "name": "notifications",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "quiet hours, sender"
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "assets",
+   "domain": "tenancy",
+   "purpose": "Non-medical files: logos, signatures, generated PDFs, website images.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "Stored in a different bucket from patient attachments.",
+   "cols": [
+    {
+     "name": "kind",
+     "type": "asset_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "logo, signature, pdf, site_image"
+    },
+    {
+     "name": "storage_key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "mime_type",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "size_bytes",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "expenses.receipt_asset_id",
+    "invoices.pdf_asset_id",
+    "practitioners.signature_asset_id",
+    "prescriptions.pdf_asset_id"
+   ]
+  },
+  {
+   "name": "roles",
+   "domain": "tenancy",
+   "purpose": "Named bundles of permissions. Seeded from templates; owners can add their own.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "owner, doctor, consultant, finance, front_desk, assistant, or custom"
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "is_template",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "invitations.role_id",
+    "memberships.role_id",
+    "role_permissions.role_id"
+   ]
+  },
+  {
+   "name": "role_permissions",
+   "domain": "tenancy",
+   "purpose": "What a role may do: module.action plus a scope.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "Primary key (org_id, role_id, permission).",
+   "cols": [
+    {
+     "name": "role_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "roles",
+     "note": ""
+    },
+    {
+     "name": "permission",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "patients.read, finance.view, mask.patient_phone"
+    },
+    {
+     "name": "scope",
+     "type": "permission_scope",
+     "nullable": false,
+     "ref": null,
+     "note": "all, own, assigned"
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "memberships",
+   "domain": "tenancy",
+   "purpose": "A user's place in a clinic: role, branches, status. The link between users and clinics.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "role_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "roles",
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "membership_status",
+     "nullable": false,
+     "ref": null,
+     "note": "invited, active, suspended, left"
+    },
+    {
+     "name": "branch_ids",
+     "type": "uuid[]",
+     "nullable": true,
+     "ref": null,
+     "note": "null means all branches"
+    },
+    {
+     "name": "pin_hash",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "quick switch on shared PCs"
+    },
+    {
+     "name": "joined_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "clinical_notes.author_id",
+    "clinical_notes.signed_by",
+    "daily_closings.closed_by",
+    "note_addenda.author_id",
+    "payments.received_by",
+    "payroll_entries.membership_id",
+    "practitioners.membership_id",
+    "salary_structures.membership_id",
+    "staff_advances.membership_id"
+   ]
+  },
+  {
+   "name": "invitations",
+   "domain": "tenancy",
+   "purpose": "Pending invites to join a clinic.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "phone_e164",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "email",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "role_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "roles",
+     "note": ""
+    },
+    {
+     "name": "invited_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "token_hash",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "accepted_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "number_sequences",
+   "domain": "tenancy",
+   "purpose": "Counters behind readable numbers: SC-1042, V-2026-0318, SC/26-27/000318.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "Primary key (org_id, kind, period). Incremented with UPDATE ... RETURNING inside the same transaction.",
+   "cols": [
+    {
+     "name": "kind",
+     "type": "sequence_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "patient, visit, invoice, prescription, lab_order"
+    },
+    {
+     "name": "period",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "financial year such as 26-27, or empty"
+    },
+    {
+     "name": "next_value",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "patients",
+   "domain": "people",
+   "purpose": "A clinic's own record of a patient. Two clinics never share this row.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "Name search uses a pg_trgm index. Duplicate warning on the same phone number.",
+   "cols": [
+    {
+     "name": "number",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "SC-1042, unique per clinic, used in URLs"
+    },
+    {
+     "name": "full_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "sex",
+     "type": "sex",
+     "nullable": false,
+     "ref": null,
+     "note": "female, male, other, unknown"
+    },
+    {
+     "name": "date_of_birth",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "age_estimate_years",
+     "type": "smallint",
+     "nullable": true,
+     "ref": null,
+     "note": "when the date of birth is unknown"
+    },
+    {
+     "name": "phone_e164",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "indexed"
+    },
+    {
+     "name": "alt_phone_e164",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "email",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "address",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "preferred_language",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "blood_group",
+     "type": "blood_group",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "referral_source_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "referral_sources",
+     "note": ""
+    },
+    {
+     "name": "referred_by_patient_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "tags",
+     "type": "text[]",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "patient_status",
+     "nullable": false,
+     "ref": null,
+     "note": "active, inactive, deceased, merged"
+    },
+    {
+     "name": "merged_into_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "last_visit_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "access_log.patient_id",
+    "allergies.patient_id",
+    "appointments.patient_id",
+    "attachments.patient_id",
+    "clinical_notes.patient_id",
+    "conditions.patient_id",
+    "consent_forms.patient_id",
+    "contact_preferences.patient_id",
+    "data_requests.patient_id",
+    "encounters.patient_id",
+    "family_links.patient_id",
+    "family_links.related_patient_id",
+    "invoices.patient_id",
+    "lab_orders.patient_id",
+    "medical_history_items.patient_id",
+    "messages.patient_id",
+    "observations.patient_id",
+    "patient_identifiers.patient_id",
+    "patient_links.patient_id",
+    "patients.merged_into_id",
+    "patients.referred_by_patient_id",
+    "payments.patient_id",
+    "prescriptions.patient_id",
+    "procedures.patient_id",
+    "promo_redemptions.patient_id",
+    "queue_tokens.patient_id",
+    "recalls.patient_id",
+    "specialty_records.patient_id",
+    "treatment_plans.patient_id"
+   ]
+  },
+  {
+   "name": "patient_identifiers",
+   "domain": "people",
+   "purpose": "Extra IDs for a patient: custom file number, smart card, ABHA, legacy import.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "Unique (org_id, kind, value).",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "identifier_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "custom, smart_card, abha_number, abha_address, legacy"
+    },
+    {
+     "name": "value",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "family_links",
+   "domain": "people",
+   "purpose": "Relationships between patients in the same clinic: parent, child, spouse, guardian.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "related_patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "relation",
+     "type": "relation_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "parent, child, spouse, guardian, other"
+    },
+    {
+     "name": "can_manage",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "guardian may act for this patient"
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "referral_sources",
+   "domain": "people",
+   "purpose": "Where patients come from, for the finance and marketing filters.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "referral_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "patient, doctor, online, walk_in, camp, insurance, other"
+    },
+    {
+     "name": "active",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "patients.referral_source_id"
+   ]
+  },
+  {
+   "name": "medical_history_items",
+   "domain": "people",
+   "purpose": "History captured at registration: conditions, surgeries, habits, family history.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "history_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "condition, surgery, medication, habit, family_history"
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "code",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "ICD-10 or SNOMED when known"
+    },
+    {
+     "name": "since",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "active",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "patient_links",
+   "domain": "people",
+   "purpose": "Phase 3: connects a patient's own Arogyam account to their record at each clinic.",
+   "rls": "user",
+   "star": false,
+   "partitioned": false,
+   "notes": "This is the single-umbrella view: one person, many clinic records, joined only by verified links.",
+   "cols": [
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "organizations",
+     "note": ""
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "verified_via",
+     "type": "link_method",
+     "nullable": false,
+     "ref": null,
+     "note": "otp, abha, clinic_confirmed"
+    },
+    {
+     "name": "verified_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "revoked_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "consents.patient_link_id"
+   ]
+  },
+  {
+   "name": "practitioners",
+   "domain": "people",
+   "purpose": "Doctors who see patients at the clinic, with registration and fees.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "slug",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "public page: dr-kiran-patil"
+    },
+    {
+     "name": "display_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "qualifications",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "council",
+     "type": "registration_council",
+     "nullable": false,
+     "ref": null,
+     "note": "nmc, state, dci, ayush ..."
+    },
+    {
+     "name": "registration_number",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "specialties",
+     "type": "text[]",
+     "nullable": false,
+     "ref": null,
+     "note": "module keys"
+    },
+    {
+     "name": "signature_asset_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "assets",
+     "note": ""
+    },
+    {
+     "name": "default_fee_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "is_visiting",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "visiting consultant"
+    },
+    {
+     "name": "calendar_color",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "appointments.practitioner_id",
+    "booking_requests.practitioner_id",
+    "consultant_fee_rules.practitioner_id",
+    "consultant_payouts.practitioner_id",
+    "encounters.practitioner_id",
+    "invoice_items.practitioner_id",
+    "lab_orders.practitioner_id",
+    "leave_blocks.practitioner_id",
+    "prescriptions.practitioner_id",
+    "procedures.practitioner_id",
+    "treatment_plans.practitioner_id",
+    "working_hours.practitioner_id"
+   ]
+  },
+  {
+   "name": "working_hours",
+   "domain": "people",
+   "purpose": "Weekly hours per clinic or doctor. Split shifts are two rows.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "practitioners",
+     "note": "null means clinic hours"
+    },
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "weekday",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": "1 Monday to 7 Sunday"
+    },
+    {
+     "name": "starts",
+     "type": "time",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "ends",
+     "type": "time",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "valid_from",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "valid_to",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "leave_blocks",
+   "domain": "people",
+   "purpose": "Time a doctor or branch is unavailable.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "practitioners",
+     "note": ""
+    },
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "starts_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "ends_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "appointments",
+   "domain": "scheduling",
+   "purpose": "A booked slot with a doctor, optionally in a room or chair.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "An exclusion constraint on (org_id, practitioner_id, time range) stops double booking.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "practitioners",
+     "note": ""
+    },
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "room_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "rooms",
+     "note": ""
+    },
+    {
+     "name": "starts_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "ends_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "appointment_status",
+     "nullable": false,
+     "ref": null,
+     "note": "scheduled, confirmed, arrived, in_progress, completed, cancelled, no_show"
+    },
+    {
+     "name": "kind",
+     "type": "appointment_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "new, follow_up, procedure, teleconsult"
+    },
+    {
+     "name": "reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "source",
+     "type": "booking_source",
+     "nullable": false,
+     "ref": null,
+     "note": "front_desk, phone, website, app, whatsapp"
+    },
+    {
+     "name": "cancel_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "appointment_events.appointment_id",
+    "booking_requests.appointment_id",
+    "encounters.appointment_id",
+    "queue_tokens.appointment_id"
+   ]
+  },
+  {
+   "name": "appointment_events",
+   "domain": "scheduling",
+   "purpose": "Every status change of an appointment, for history and no-show reports.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "appointment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "appointments",
+     "note": ""
+    },
+    {
+     "name": "from_status",
+     "type": "appointment_status",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "to_status",
+     "type": "appointment_status",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "note",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "queue_tokens",
+   "domain": "scheduling",
+   "purpose": "Walk-in tokens shown on the waiting-room screen.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "Unique (org_id, branch_id, day, token_number).",
+   "cols": [
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "day",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "token_number",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "appointment_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "appointments",
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "token_status",
+     "nullable": false,
+     "ref": null,
+     "note": "waiting, called, in_room, done, skipped"
+    },
+    {
+     "name": "called_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "encounters",
+   "domain": "clinical",
+   "purpose": "One visit: everything clinical from that day hangs off it.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "number",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "V-2026-0318"
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "practitioners",
+     "note": ""
+    },
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "appointment_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "appointments",
+     "note": ""
+    },
+    {
+     "name": "started_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "ended_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "encounter_status",
+     "nullable": false,
+     "ref": null,
+     "note": "open, closed"
+    },
+    {
+     "name": "chief_complaint",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "appointments.encounter_id",
+    "attachments.encounter_id",
+    "clinical_notes.encounter_id",
+    "conditions.encounter_id",
+    "invoices.encounter_id",
+    "observations.encounter_id",
+    "prescriptions.encounter_id",
+    "procedures.encounter_id",
+    "specialty_records.encounter_id",
+    "voice_notes.encounter_id"
+   ]
+  },
+  {
+   "name": "clinical_notes",
+   "domain": "clinical",
+   "purpose": "Doctor and intake notes. Signed notes never change.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "Reading a note writes access_log. Corrections go in note_addenda.",
+   "cols": [
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "encounters",
+     "note": ""
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "author_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "note_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "soap, progress, procedure, intake, front_desk"
+    },
+    {
+     "name": "body",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "sections: subjective, objective, assessment, plan"
+    },
+    {
+     "name": "source",
+     "type": "note_source",
+     "nullable": false,
+     "ref": null,
+     "note": "typed, voice, ai_draft"
+    },
+    {
+     "name": "status",
+     "type": "note_status",
+     "nullable": false,
+     "ref": null,
+     "note": "draft, signed"
+    },
+    {
+     "name": "signed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "signed_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "note_addenda.note_id",
+    "voice_notes.draft_note_id"
+   ]
+  },
+  {
+   "name": "note_addenda",
+   "domain": "clinical",
+   "purpose": "Corrections and additions to a signed note, with their own author and time.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "note_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "clinical_notes",
+     "note": ""
+    },
+    {
+     "name": "author_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "body",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "observations",
+   "domain": "clinical",
+   "purpose": "Measurements: BP, pulse, temperature, SpO2, weight, height, sugar.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "observation_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "bp_systolic, bp_diastolic, pulse, temperature, spo2, weight, height, blood_sugar ..."
+    },
+    {
+     "name": "value_num",
+     "type": "numeric",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "unit",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "loinc_code",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "recorded_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "conditions",
+   "domain": "clinical",
+   "purpose": "Diagnoses, coded where possible.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": ""
+    },
+    {
+     "name": "code_system",
+     "type": "code_system",
+     "nullable": false,
+     "ref": null,
+     "note": "icd10, snomed, custom"
+    },
+    {
+     "name": "code",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "label",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "condition_status",
+     "nullable": false,
+     "ref": null,
+     "note": "active, resolved"
+    },
+    {
+     "name": "onset",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "allergies",
+   "domain": "clinical",
+   "purpose": "Allergies, shown as a warning banner on the patient.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "substance",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "reaction",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "severity",
+     "type": "severity",
+     "nullable": false,
+     "ref": null,
+     "note": "mild, moderate, severe"
+    },
+    {
+     "name": "active",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "drug_catalog",
+   "domain": "clinical",
+   "purpose": "Shared list of medicines (brand, generic, strength) for quick prescribing.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "brand_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "generic_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "strength",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "form",
+     "type": "drug_form",
+     "nullable": false,
+     "ref": null,
+     "note": "tablet, syrup, injection ..."
+    },
+    {
+     "name": "manufacturer",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "prescription_items.drug_id"
+   ]
+  },
+  {
+   "name": "prescriptions",
+   "domain": "clinical",
+   "purpose": "A prescription issued in a visit, printed or sent as a PDF.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "number",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "RX-0412"
+    },
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "encounters",
+     "note": ""
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "practitioners",
+     "note": ""
+    },
+    {
+     "name": "issued_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "language",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "notes",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "rx_status",
+     "nullable": false,
+     "ref": null,
+     "note": "draft, issued, cancelled"
+    },
+    {
+     "name": "pdf_asset_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "assets",
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "prescription_items.prescription_id"
+   ]
+  },
+  {
+   "name": "prescription_items",
+   "domain": "clinical",
+   "purpose": "One medicine on a prescription.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "prescription_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "prescriptions",
+     "note": ""
+    },
+    {
+     "name": "drug_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "drug_catalog",
+     "note": ""
+    },
+    {
+     "name": "drug_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "as printed"
+    },
+    {
+     "name": "dose",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "frequency",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "1-0-1"
+    },
+    {
+     "name": "timing",
+     "type": "dose_timing",
+     "nullable": false,
+     "ref": null,
+     "note": "before_food, after_food, bedtime, sos"
+    },
+    {
+     "name": "duration_days",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "instructions",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "procedures",
+   "domain": "clinical",
+   "purpose": "Treatment actually done (or planned for today), linked to the price list.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "Marking done deducts stock via procedure_materials and can create a lab_order.",
+   "cols": [
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "encounters",
+     "note": ""
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "practitioners",
+     "note": ""
+    },
+    {
+     "name": "price_item_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "price_items",
+     "note": ""
+    },
+    {
+     "name": "label",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "site",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "specialty location, e.g. tooth 36, surfaces O and D"
+    },
+    {
+     "name": "status",
+     "type": "procedure_status",
+     "nullable": false,
+     "ref": null,
+     "note": "planned, done"
+    },
+    {
+     "name": "performed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "amount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "treatment_plan_item_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "treatment_plan_items",
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "consent_forms.procedure_id",
+    "invoice_items.procedure_id",
+    "lab_orders.procedure_id",
+    "recalls.source_procedure_id",
+    "stock_movements.procedure_id"
+   ]
+  },
+  {
+   "name": "treatment_plans",
+   "domain": "clinical",
+   "purpose": "A proposed course of treatment with a cost estimate, accepted or declined by the patient.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "practitioners",
+     "note": ""
+    },
+    {
+     "name": "title",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "plan_status",
+     "nullable": false,
+     "ref": null,
+     "note": "proposed, accepted, in_progress, completed, declined"
+    },
+    {
+     "name": "estimate_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "accepted_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "treatment_plan_items.plan_id"
+   ]
+  },
+  {
+   "name": "treatment_plan_items",
+   "domain": "clinical",
+   "purpose": "Steps of a treatment plan, in phases.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "plan_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "treatment_plans",
+     "note": ""
+    },
+    {
+     "name": "price_item_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "price_items",
+     "note": ""
+    },
+    {
+     "name": "label",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "site",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "phase",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "estimate_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "plan_item_status",
+     "nullable": false,
+     "ref": null,
+     "note": "pending, done, dropped"
+    }
+   ],
+   "referenced_by": [
+    "procedures.treatment_plan_item_id"
+   ]
+  },
+  {
+   "name": "attachments",
+   "domain": "clinical",
+   "purpose": "Patient files: photos, X-rays, reports, documents, audio, signed consent.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "Served only through short-lived signed URLs after a permission check.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "attachment_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "photo, xray, report, document, audio, consent"
+    },
+    {
+     "name": "storage_key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "private bucket"
+    },
+    {
+     "name": "mime_type",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "size_bytes",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "taken_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "caption",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "site",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "e.g. tooth 36"
+    }
+   ],
+   "referenced_by": [
+    "consent_forms.pdf_attachment_id",
+    "consent_forms.signature_attachment_id",
+    "imports.file_attachment_id",
+    "voice_notes.attachment_id"
+   ]
+  },
+  {
+   "name": "voice_notes",
+   "domain": "clinical",
+   "purpose": "A recorded note, its transcription status and the draft it produced.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "attachment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "attachments",
+     "note": ""
+    },
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "encounters",
+     "note": ""
+    },
+    {
+     "name": "duration_ms",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "language",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "transcript_status",
+     "type": "transcript_status",
+     "nullable": false,
+     "ref": null,
+     "note": "pending, processing, done, failed"
+    },
+    {
+     "name": "transcript",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "draft_note_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "clinical_notes",
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "specialty_records",
+   "domain": "clinical",
+   "purpose": "Specialty-specific data as versioned JSON: tooth chart, pregnancy, growth.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "New rows supersede old ones, so the chart's history is kept.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": ""
+    },
+    {
+     "name": "module",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "dental, obstetrics, pediatrics ..."
+    },
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "dental_chart, pregnancy, growth"
+    },
+    {
+     "name": "schema_version",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "data",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "validated against the module schema on write"
+    },
+    {
+     "name": "valid_from",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "document_templates",
+   "domain": "clinical",
+   "purpose": "Consent forms, certificates and letter templates a clinic uses.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "kind",
+     "type": "doc_template_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "consent, certificate, letter"
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "body",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "with placeholders"
+    },
+    {
+     "name": "module",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "consent_forms.template_id"
+   ]
+  },
+  {
+   "name": "consent_forms",
+   "domain": "clinical",
+   "purpose": "A signed procedure consent.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "template_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "document_templates",
+     "note": ""
+    },
+    {
+     "name": "procedure_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "procedures",
+     "note": ""
+    },
+    {
+     "name": "signed_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "signature_attachment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "attachments",
+     "note": ""
+    },
+    {
+     "name": "pdf_attachment_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "attachments",
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "lab_vendors",
+   "domain": "ops",
+   "purpose": "Outside labs: dental labs for crowns, pathology, radiology.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "phone_e164",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "lab_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "dental_lab, pathology, radiology"
+    }
+   ],
+   "referenced_by": [
+    "lab_orders.vendor_id",
+    "lab_payments.vendor_id"
+   ]
+  },
+  {
+   "name": "lab_orders",
+   "domain": "ops",
+   "purpose": "Work sent to a lab, its due date and status.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "number",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "vendor_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "lab_vendors",
+     "note": ""
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "practitioners",
+     "note": ""
+    },
+    {
+     "name": "procedure_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "procedures",
+     "note": ""
+    },
+    {
+     "name": "work_type",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "crown, bridge, denture, blood test"
+    },
+    {
+     "name": "details",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "shade, tooth"
+    },
+    {
+     "name": "sent_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "due_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "received_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "lab_status",
+     "nullable": false,
+     "ref": null,
+     "note": "draft, sent, received, fitted, cancelled"
+    },
+    {
+     "name": "cost_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "lab_payments.lab_order_id"
+   ]
+  },
+  {
+   "name": "lab_payments",
+   "domain": "ops",
+   "purpose": "Money paid to labs.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "vendor_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "lab_vendors",
+     "note": ""
+    },
+    {
+     "name": "lab_order_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "lab_orders",
+     "note": ""
+    },
+    {
+     "name": "amount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "paid_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "method",
+     "type": "payment_method",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "reference",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "suppliers",
+   "domain": "ops",
+   "purpose": "Where materials are bought.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "phone_e164",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "gstin",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "stock_batches.supplier_id"
+   ]
+  },
+  {
+   "name": "inventory_items",
+   "domain": "ops",
+   "purpose": "Materials and medicines the clinic stocks.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "sku",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "unit",
+     "type": "stock_unit",
+     "nullable": false,
+     "ref": null,
+     "note": "piece, ml, g, box, pack"
+    },
+    {
+     "name": "category",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "reorder_level",
+     "type": "numeric",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "active",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "procedure_materials.item_id",
+    "stock_batches.item_id",
+    "stock_movements.item_id"
+   ]
+  },
+  {
+   "name": "stock_batches",
+   "domain": "ops",
+   "purpose": "Received stock by batch, with expiry and cost.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "item_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "inventory_items",
+     "note": ""
+    },
+    {
+     "name": "supplier_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "suppliers",
+     "note": ""
+    },
+    {
+     "name": "batch_no",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "expiry",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "quantity",
+     "type": "numeric",
+     "nullable": false,
+     "ref": null,
+     "note": "remaining"
+    },
+    {
+     "name": "unit_cost_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "received_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "stock_movements.batch_id"
+   ]
+  },
+  {
+   "name": "stock_movements",
+   "domain": "ops",
+   "purpose": "Every change in stock: purchase, use, adjustment, expiry. Stock history comes from here.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "item_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "inventory_items",
+     "note": ""
+    },
+    {
+     "name": "batch_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "stock_batches",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "stock_move",
+     "nullable": false,
+     "ref": null,
+     "note": "purchase, consume, adjust, expire, return"
+    },
+    {
+     "name": "quantity",
+     "type": "numeric",
+     "nullable": false,
+     "ref": null,
+     "note": "signed"
+    },
+    {
+     "name": "procedure_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "procedures",
+     "note": ""
+    },
+    {
+     "name": "reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "procedure_materials",
+   "domain": "ops",
+   "purpose": "Materials a treatment uses, so stock deducts itself.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "price_item_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "price_items",
+     "note": ""
+    },
+    {
+     "name": "item_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "inventory_items",
+     "note": ""
+    },
+    {
+     "name": "quantity",
+     "type": "numeric",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "equipment",
+   "domain": "ops",
+   "purpose": "Chairs, autoclaves, X-ray units and their service schedule.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "serial_no",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "purchased_at",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "warranty_until",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "service_interval_days",
+     "type": "int",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "maintenance_logs.equipment_id"
+   ]
+  },
+  {
+   "name": "maintenance_logs",
+   "domain": "ops",
+   "purpose": "Services and repairs done on equipment, and when the next is due.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "equipment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "equipment",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "maintenance_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "service, repair, amc"
+    },
+    {
+     "name": "done_at",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cost_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "vendor",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "next_due_at",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "notes",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "salary_structures",
+   "domain": "ops",
+   "purpose": "A staff member's monthly salary from a date.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "monthly_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "effective_from",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "payroll_entries",
+   "domain": "ops",
+   "purpose": "Salary paid for a month, with deductions and advances recovered.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "month",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "gross_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "deductions_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "advance_recovered_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "net_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "paid_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "method",
+     "type": "payment_method",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "staff_advances",
+   "domain": "ops",
+   "purpose": "Salary advances given to staff and how much is recovered.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "amount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "given_at",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "recovered_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "consultant_fee_rules",
+   "domain": "ops",
+   "purpose": "How a visiting consultant is paid: a percentage or fixed amount per treatment.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "practitioners",
+     "note": ""
+    },
+    {
+     "name": "price_item_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "price_items",
+     "note": "null means all"
+    },
+    {
+     "name": "kind",
+     "type": "fee_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "percent_bps, fixed"
+    },
+    {
+     "name": "value",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "consultant_payouts",
+   "domain": "ops",
+   "purpose": "Payments made to consultants for a period.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "practitioners",
+     "note": ""
+    },
+    {
+     "name": "period_start",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "period_end",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "amount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "paid_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "method",
+     "type": "payment_method",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "price_items",
+   "domain": "billing",
+   "purpose": "The clinic's price list. Seeded from the specialty, then edited.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "code",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "Root canal, Scaling, Consultation"
+    },
+    {
+     "name": "module",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "category",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "price_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "tax_rate_bps",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "0 or 1800"
+    },
+    {
+     "name": "active",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "consultant_fee_rules.price_item_id",
+    "invoice_items.price_item_id",
+    "procedure_materials.price_item_id",
+    "procedures.price_item_id",
+    "treatment_plan_items.price_item_id"
+   ]
+  },
+  {
+   "name": "invoices",
+   "domain": "billing",
+   "purpose": "A bill to a patient. Totals are stored; balance is derived.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "number",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "SC/26-27/000318"
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": ""
+    },
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "doc_type",
+     "type": "invoice_doc",
+     "nullable": false,
+     "ref": null,
+     "note": "tax_invoice, bill_of_supply"
+    },
+    {
+     "name": "status",
+     "type": "invoice_status",
+     "nullable": false,
+     "ref": null,
+     "note": "draft, issued, partially_paid, paid, void"
+    },
+    {
+     "name": "issued_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "subtotal_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "discount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "tax_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "total_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "paid_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "promo_code_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "promo_codes",
+     "note": ""
+    },
+    {
+     "name": "pdf_asset_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "assets",
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "invoice_items.invoice_id",
+    "payment_allocations.invoice_id",
+    "promo_redemptions.invoice_id"
+   ]
+  },
+  {
+   "name": "invoice_items",
+   "domain": "billing",
+   "purpose": "Lines on a bill, each optionally tied to a procedure and doctor.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "invoice_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "invoices",
+     "note": ""
+    },
+    {
+     "name": "price_item_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "price_items",
+     "note": ""
+    },
+    {
+     "name": "procedure_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "procedures",
+     "note": ""
+    },
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "practitioners",
+     "note": ""
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "quantity",
+     "type": "numeric",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "unit_price_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "discount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "tax_rate_bps",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "tax_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "total_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "payments",
+   "domain": "billing",
+   "purpose": "Money received from a patient, by any method.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "received_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "amount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "method",
+     "type": "payment_method",
+     "nullable": false,
+     "ref": null,
+     "note": "cash, upi, card, bank_transfer, cheque, razorpay, insurance"
+    },
+    {
+     "name": "reference",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "UPI ref, cheque no"
+    },
+    {
+     "name": "received_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "razorpay_payment_id",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "payment_allocations.payment_id",
+    "refunds.payment_id"
+   ]
+  },
+  {
+   "name": "payment_allocations",
+   "domain": "billing",
+   "purpose": "Which bills a payment pays, so advances and partial payments work.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "payment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "payments",
+     "note": ""
+    },
+    {
+     "name": "invoice_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "invoices",
+     "note": ""
+    },
+    {
+     "name": "amount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "refunds",
+   "domain": "billing",
+   "purpose": "Money returned to a patient.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "payment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "payments",
+     "note": ""
+    },
+    {
+     "name": "amount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "reason",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "refunded_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "method",
+     "type": "payment_method",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "expense_categories",
+   "domain": "billing",
+   "purpose": "Rent, electricity, salaries, consumables and so on.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "expenses.category_id"
+   ]
+  },
+  {
+   "name": "expenses",
+   "domain": "billing",
+   "purpose": "Money the clinic spends.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "category_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "expense_categories",
+     "note": ""
+    },
+    {
+     "name": "amount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "paid_at",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "method",
+     "type": "payment_method",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "vendor",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "notes",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "receipt_asset_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "assets",
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "daily_closings",
+   "domain": "billing",
+   "purpose": "End-of-day cash count against what the system expects.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "day",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cash_expected_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cash_counted_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "closed_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "closed_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "message_templates",
+   "domain": "notify",
+   "purpose": "Message text per channel and language. Clinic rows override platform defaults.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "org_id is null for platform defaults; this table allows that.",
+   "cols": [
+    {
+     "name": "key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "appointment_reminder, birthday, recall_cleaning ..."
+    },
+    {
+     "name": "channel",
+     "type": "channel",
+     "nullable": false,
+     "ref": null,
+     "note": "whatsapp, sms, email, push"
+    },
+    {
+     "name": "language",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "body",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "category",
+     "type": "message_category",
+     "nullable": false,
+     "ref": null,
+     "note": "transactional, promotional"
+    },
+    {
+     "name": "provider_template_id",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "Meta or DLT template id"
+    },
+    {
+     "name": "approval",
+     "type": "approval_status",
+     "nullable": false,
+     "ref": null,
+     "note": "draft, pending, approved, rejected"
+    }
+   ],
+   "referenced_by": [
+    "campaigns.template_id",
+    "messages.template_id"
+   ]
+  },
+  {
+   "name": "notification_rules",
+   "domain": "notify",
+   "purpose": "When to message: on an event, before an appointment, on birthdays, on recalls.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "trigger",
+     "type": "rule_trigger",
+     "nullable": false,
+     "ref": null,
+     "note": "event, before_appointment, birthday, recall"
+    },
+    {
+     "name": "event_key",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "booking.confirmed, invoice.paid ..."
+    },
+    {
+     "name": "offset_minutes",
+     "type": "int",
+     "nullable": true,
+     "ref": null,
+     "note": "e.g. -1440 for a day before"
+    },
+    {
+     "name": "template_key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "channels",
+     "type": "channel[]",
+     "nullable": false,
+     "ref": null,
+     "note": "in order of preference"
+    },
+    {
+     "name": "conditions",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "active",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "messages.rule_id"
+   ]
+  },
+  {
+   "name": "contact_preferences",
+   "domain": "notify",
+   "purpose": "Per patient and channel: may we message them, and was promotional consent given?",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "Primary key (org_id, patient_id, channel).",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "channel",
+     "type": "channel",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "transactional_ok",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "promotional_ok",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "consented_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "consent_source",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "opted_out_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "recalls",
+   "domain": "notify",
+   "purpose": "Follow-ups that are due: cleaning in six months, BP review, vaccine.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "cleaning, bp_review, vaccine, anc_visit"
+    },
+    {
+     "name": "due_on",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "recall_status",
+     "nullable": false,
+     "ref": null,
+     "note": "due, notified, booked, dismissed"
+    },
+    {
+     "name": "source_procedure_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "procedures",
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "audiences",
+   "domain": "notify",
+   "purpose": "Saved patient filters for campaigns: age, sex, treatment, doctor, fees, history.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "filter",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "estimated_count",
+     "type": "int",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "campaigns.audience_id"
+   ]
+  },
+  {
+   "name": "campaigns",
+   "domain": "notify",
+   "purpose": "A one-off or scheduled send to an audience: health tips, offers.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "audience_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "audiences",
+     "note": ""
+    },
+    {
+     "name": "template_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "message_templates",
+     "note": ""
+    },
+    {
+     "name": "scheduled_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "campaign_status",
+     "nullable": false,
+     "ref": null,
+     "note": "draft, scheduled, sending, sent, cancelled"
+    },
+    {
+     "name": "cost_estimate_paise",
+     "type": "bigint",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "messages.campaign_id"
+   ]
+  },
+  {
+   "name": "promo_codes",
+   "domain": "notify",
+   "purpose": "Discount codes a clinic can share.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "code",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique per clinic"
+    },
+    {
+     "name": "kind",
+     "type": "discount_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "percent_bps, fixed"
+    },
+    {
+     "name": "value",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "valid_from",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "valid_to",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "max_uses",
+     "type": "int",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "used_count",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "applies_to",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "price items or categories"
+    }
+   ],
+   "referenced_by": [
+    "invoices.promo_code_id",
+    "promo_redemptions.promo_code_id"
+   ]
+  },
+  {
+   "name": "promo_redemptions",
+   "domain": "notify",
+   "purpose": "Each use of a promo code on a bill.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "promo_code_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "promo_codes",
+     "note": ""
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "invoice_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "invoices",
+     "note": ""
+    },
+    {
+     "name": "discount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "redeemed_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "outbox_events",
+   "domain": "notify",
+   "purpose": "Events written in the same transaction as the change, for the worker to act on.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "Guarantees a message is never lost or sent for a change that rolled back.",
+   "cols": [
+    {
+     "name": "event_key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "appointment.booked, invoice.paid, report.uploaded"
+    },
+    {
+     "name": "payload",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "ids only, no patient details"
+    },
+    {
+     "name": "processed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "messages",
+   "domain": "notify",
+   "purpose": "Every message scheduled or sent, with its outcome and cost.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": true,
+   "notes": "",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "channel",
+     "type": "channel",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "template_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "message_templates",
+     "note": ""
+    },
+    {
+     "name": "rule_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "notification_rules",
+     "note": ""
+    },
+    {
+     "name": "campaign_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "campaigns",
+     "note": ""
+    },
+    {
+     "name": "scheduled_for",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "message_status",
+     "nullable": false,
+     "ref": null,
+     "note": "scheduled, queued, sent, delivered, read, failed, skipped"
+    },
+    {
+     "name": "skip_reason",
+     "type": "skip_reason",
+     "nullable": true,
+     "ref": null,
+     "note": "no_consent, quiet_hours, duplicate, quota"
+    },
+    {
+     "name": "dedupe_key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique, e.g. reminder:appt-id:24h"
+    },
+    {
+     "name": "provider",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "provider_message_id",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cost_paise",
+     "type": "bigint",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "sent_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "message_events.message_id"
+   ]
+  },
+  {
+   "name": "message_events",
+   "domain": "notify",
+   "purpose": "Delivery receipts from providers: sent, delivered, read, failed.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": true,
+   "notes": "",
+   "cols": [
+    {
+     "name": "message_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "messages",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "details",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "notifications",
+   "domain": "notify",
+   "purpose": "The in-app notification feed for staff.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "title",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "entity_ref",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "type and id to open"
+    },
+    {
+     "name": "read_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "sites",
+   "domain": "web",
+   "purpose": "A clinic's generated website: template family, repository and live version.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "family",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "template family key"
+    },
+    {
+     "name": "template_version",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "repo_full_name",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "sakalyatechnologies/site-smilecatchers"
+    },
+    {
+     "name": "status",
+     "type": "site_status",
+     "nullable": false,
+     "ref": null,
+     "note": "draft, building, live, failed"
+    },
+    {
+     "name": "config",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "from onboarding answers"
+    },
+    {
+     "name": "live_version_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "site_versions",
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "booking_requests.site_id",
+    "site_versions.site_id"
+   ]
+  },
+  {
+   "name": "site_versions",
+   "domain": "web",
+   "purpose": "Each publish of a site, so any version can be restored.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "site_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "sites",
+     "note": ""
+    },
+    {
+     "name": "config",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "commit_sha",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "build_status",
+     "type": "build_status",
+     "nullable": false,
+     "ref": null,
+     "note": "queued, building, succeeded, failed"
+    },
+    {
+     "name": "built_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "deployed_url",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "sites.live_version_id"
+   ]
+  },
+  {
+   "name": "booking_requests",
+   "domain": "web",
+   "purpose": "Booking requests from the website, before they become appointments.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "site_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "sites",
+     "note": ""
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "phone_e164",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "practitioners",
+     "note": ""
+    },
+    {
+     "name": "preferred_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "message",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "booking_status",
+     "nullable": false,
+     "ref": null,
+     "note": "new, contacted, booked, spam"
+    },
+    {
+     "name": "appointment_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "appointments",
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "site_daily_stats",
+   "domain": "web",
+   "purpose": "Website visits and bookings per day, for the clinic and the console.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "Primary key (org_id, day). Imported from Cloudflare Web Analytics.",
+   "cols": [
+    {
+     "name": "day",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "visits",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "unique_visitors",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "booking_requests",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "consents",
+   "domain": "trust",
+   "purpose": "Phase 3: a patient lets one clinic see records from another, for a purpose and time.",
+   "rls": "user",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "patient_link_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patient_links",
+     "note": ""
+    },
+    {
+     "name": "grantee_org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "organizations",
+     "note": ""
+    },
+    {
+     "name": "scope",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "record kinds"
+    },
+    {
+     "name": "purpose",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "starts_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "revoked_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "access_log",
+   "domain": "trust",
+   "purpose": "Who opened which patient record, when. Patients can see this.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": true,
+   "notes": "Append-only: the app role can insert but never update or delete.",
+   "cols": [
+    {
+     "name": "actor_user_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "actor_kind",
+     "type": "actor_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "staff, patient, support"
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "resource",
+     "type": "access_resource",
+     "nullable": false,
+     "ref": null,
+     "note": "chart, note, attachment, invoice, export"
+    },
+    {
+     "name": "resource_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "action",
+     "type": "access_action",
+     "nullable": false,
+     "ref": null,
+     "note": "view, download, print, export"
+    },
+    {
+     "name": "at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "request_id",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "audit_events",
+   "domain": "trust",
+   "purpose": "Every insert, update and delete, written by triggers.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": true,
+   "notes": "Append-only. org_id may be null for platform tables.",
+   "cols": [
+    {
+     "name": "table_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "row_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "action",
+     "type": "audit_action",
+     "nullable": false,
+     "ref": null,
+     "note": "insert, update, delete"
+    },
+    {
+     "name": "actor_user_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "changed_fields",
+     "type": "text[]",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "old",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "sensitive fields masked"
+    },
+    {
+     "name": "new",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "sensitive fields masked"
+    },
+    {
+     "name": "at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "request_id",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "data_requests",
+   "domain": "trust",
+   "purpose": "Patients' DPDP requests: export, correction, erasure.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "data_request_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "export, correction, erasure"
+    },
+    {
+     "name": "status",
+     "type": "request_status",
+     "nullable": false,
+     "ref": null,
+     "note": "received, in_progress, done, rejected"
+    },
+    {
+     "name": "requested_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "completed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "notes",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "onboarding_progress",
+   "domain": "onboarding",
+   "purpose": "Where a new clinic is in the first-login wizard, and its answers.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "One row per clinic.",
+   "cols": [
+    {
+     "name": "steps",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "step key to answers"
+    },
+    {
+     "name": "completed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  },
+  {
+   "name": "imports",
+   "domain": "onboarding",
+   "purpose": "A data import from Excel or old software.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "kind",
+     "type": "import_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "patients, appointments, invoices"
+    },
+    {
+     "name": "source",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "excel, csv, legacy app name"
+    },
+    {
+     "name": "file_attachment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "attachments",
+     "note": ""
+    },
+    {
+     "name": "mapping",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "column mapping"
+    },
+    {
+     "name": "status",
+     "type": "import_status",
+     "nullable": false,
+     "ref": null,
+     "note": "uploaded, mapped, running, done, failed"
+    },
+    {
+     "name": "total_rows",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "imported_rows",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "failed_rows",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "import_rows.import_id"
+   ]
+  },
+  {
+   "name": "import_rows",
+   "domain": "onboarding",
+   "purpose": "Each row of an import with its result, so failures can be fixed and retried.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "",
+   "cols": [
+    {
+     "name": "import_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "imports",
+     "note": ""
+    },
+    {
+     "name": "row_number",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "raw",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "row_status",
+     "nullable": false,
+     "ref": null,
+     "note": "pending, imported, failed"
+    },
+    {
+     "name": "error",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "entity_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": []
+  }
+ ],
+ "journeys": [
+  {
+   "key": "onboard",
+   "title": "A new clinic signs up",
+   "steps": [
+    {
+     "actor": "Sakalya console",
+     "tables": [
+      "organizations",
+      "org_domains",
+      "subscriptions"
+     ],
+     "what": "Clinic created on a trial plan with its subdomain."
+    },
+    {
+     "actor": "Owner",
+     "tables": [
+      "invitations",
+      "users",
+      "memberships",
+      "roles"
+     ],
+     "what": "Owner accepts the invite and becomes a member with the owner role."
+    },
+    {
+     "actor": "Wizard",
+     "tables": [
+      "onboarding_progress",
+      "org_modules",
+      "org_settings",
+      "price_items",
+      "working_hours",
+      "practitioners"
+     ],
+     "what": "Specialty, branding, prices and hours set up from defaults."
+    },
+    {
+     "actor": "Website",
+     "tables": [
+      "sites",
+      "site_versions",
+      "org_domains"
+     ],
+     "what": "Site generated from answers, repository created, built and deployed."
+    },
+    {
+     "actor": "Import",
+     "tables": [
+      "imports",
+      "import_rows",
+      "patients",
+      "patient_identifiers"
+     ],
+     "what": "Patients brought in from the old software, keeping file numbers."
+    }
+   ]
+  },
+  {
+   "key": "visit",
+   "title": "A patient visits the dentist",
+   "steps": [
+    {
+     "actor": "Front desk",
+     "tables": [
+      "patients",
+      "patient_identifiers",
+      "referral_sources",
+      "number_sequences"
+     ],
+     "what": "New patient registered as SC-1042, or found by name, phone or ID."
+    },
+    {
+     "actor": "Front desk",
+     "tables": [
+      "appointments",
+      "appointment_events",
+      "queue_tokens"
+     ],
+     "what": "Appointment marked arrived; token shown on the waiting screen."
+    },
+    {
+     "actor": "Assistant",
+     "tables": [
+      "encounters",
+      "observations",
+      "clinical_notes"
+     ],
+     "what": "Visit opened; vitals and intake note recorded."
+    },
+    {
+     "actor": "Doctor",
+     "tables": [
+      "voice_notes",
+      "attachments",
+      "specialty_records",
+      "clinical_notes",
+      "access_log"
+     ],
+     "what": "Dictates a note, adds an X-ray, updates the tooth chart; every view is logged."
+    },
+    {
+     "actor": "Doctor",
+     "tables": [
+      "procedures",
+      "stock_movements",
+      "lab_orders",
+      "prescriptions",
+      "prescription_items"
+     ],
+     "what": "Root canal done on tooth 36: stock deducted, crown sent to the lab, prescription issued."
+    },
+    {
+     "actor": "Front desk",
+     "tables": [
+      "invoices",
+      "invoice_items",
+      "payments",
+      "payment_allocations"
+     ],
+     "what": "Bill SC/26-27/000318 issued and paid by UPI."
+    },
+    {
+     "actor": "System",
+     "tables": [
+      "outbox_events",
+      "messages",
+      "recalls",
+      "audit_events"
+     ],
+     "what": "Receipt sent on WhatsApp, a follow-up recall created, all changes audited."
+    }
+   ]
+  },
+  {
+   "key": "remind",
+   "title": "Reminders, birthdays and recalls",
+   "steps": [
+    {
+     "actor": "Rules",
+     "tables": [
+      "notification_rules",
+      "message_templates"
+     ],
+     "what": "Clinic has reminder, birthday and recall rules switched on."
+    },
+    {
+     "actor": "Scheduler",
+     "tables": [
+      "appointments",
+      "patients",
+      "recalls",
+      "messages"
+     ],
+     "what": "Due messages created with a dedupe key, e.g. reminder:appt:24h."
+    },
+    {
+     "actor": "Worker",
+     "tables": [
+      "contact_preferences",
+      "usage_counters",
+      "messages"
+     ],
+     "what": "Consent, quiet hours and quota checked; message sent or skipped with a reason."
+    },
+    {
+     "actor": "Provider",
+     "tables": [
+      "message_events",
+      "messages"
+     ],
+     "what": "Delivery and read receipts recorded; cost metered per clinic."
+    }
+   ]
+  },
+  {
+   "key": "finance",
+   "title": "Month-end finance report",
+   "steps": [
+    {
+     "actor": "Money in",
+     "tables": [
+      "payments",
+      "refunds",
+      "payment_allocations",
+      "invoices"
+     ],
+     "what": "Collections by doctor, treatment, referral source and payment method."
+    },
+    {
+     "actor": "Money out",
+     "tables": [
+      "expenses",
+      "lab_payments",
+      "payroll_entries",
+      "consultant_payouts"
+     ],
+     "what": "Spending by category, lab, staff and consultant."
+    },
+    {
+     "actor": "Report",
+     "tables": [
+      "daily_closings"
+     ],
+     "what": "A ledger view joins both sides; exported to Excel by the worker."
+    }
+   ]
+  },
+  {
+   "key": "access",
+   "title": "A request checks access",
+   "steps": [
+    {
+     "actor": "Host",
+     "tables": [
+      "org_domains",
+      "organizations"
+     ],
+     "what": "smilecatchers.arogyam.app resolves to the clinic."
+    },
+    {
+     "actor": "Session",
+     "tables": [
+      "users",
+      "sessions"
+     ],
+     "what": "JWT verified, session still active."
+    },
+    {
+     "actor": "Membership",
+     "tables": [
+      "memberships",
+      "roles",
+      "role_permissions"
+     ],
+     "what": "User is an active member whose role allows patients.read."
+    },
+    {
+     "actor": "Plan and flags",
+     "tables": [
+      "subscriptions",
+      "plan_features",
+      "entitlement_overrides",
+      "feature_flags",
+      "flag_rules"
+     ],
+     "what": "Feature is in the plan and released to this clinic."
+    },
+    {
+     "actor": "Database",
+     "tables": [
+      "patients"
+     ],
+     "what": "Row-level security limits every query to this clinic."
+    }
+   ]
+  },
+  {
+   "key": "patient",
+   "title": "Phase 3: a patient sees all their clinics",
+   "steps": [
+    {
+     "actor": "Patient",
+     "tables": [
+      "users",
+      "patient_links"
+     ],
+     "what": "Patient signs in with their phone and verifies records at each clinic."
+    },
+    {
+     "actor": "Patient",
+     "tables": [
+      "consents"
+     ],
+     "what": "Patient lets their new cardiologist see their dental and GP records."
+    },
+    {
+     "actor": "Cardiologist",
+     "tables": [
+      "encounters",
+      "prescriptions",
+      "attachments",
+      "access_log"
+     ],
+     "what": "Reads the shared records; the patient sees who looked."
+    }
+   ]
+  }
+ ]
+}

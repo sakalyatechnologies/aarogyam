@@ -19,21 +19,8 @@
 - Specialty data lives in `specialty_records.data` (JSONB) with `module` and `schema_version`.
 - Large append-only tables (audit, access log, messages) are partitioned by month.
 - Name search uses `pg_trgm`; phones are stored in E.164 and indexed.
-- `persons` is one human across clinics; `clinic_patients` is a clinic's relationship with them.
+- Each clinic owns its own `patients` rows; clinics never share a patient row. The patient app (phase 3) joins a person's records across clinics through verified `patient_links` and `consents`.
 
-## Table groups
+## Tables
 
-Around 100 tables at full scope, added only when their feature ships. The foundation needs about 30 (marked ★).
-
-| Group | Tables |
-|---|---|
-| Platform | ★plans, ★features, ★plan_features, ★subscriptions, entitlement_overrides, usage_counters, ★feature_flags, flag_rules, platform_users, support_grants |
-| Tenancy | ★organizations, ★branches, ★org_domains, ★memberships, ★roles, ★role_permissions, ★invitations, rooms_chairs, slug_history |
-| People | ★users, ★sessions, devices, ★practitioners, ★persons, ★clinic_patients, ★patient_identifiers, guardianships, ★referral_sources |
-| Scheduling | ★appointments, ★appointment_events, queue_tokens, ★working_hours, leave_blocks |
-| Clinical | ★encounters, ★clinical_notes, note_addenda, observations, conditions, allergies, prescriptions, prescription_items, procedures, treatment_plans, ★attachments, voice_notes, transcripts, ★specialty_records |
-| Operations | lab_vendors, lab_orders, lab_bills, items, stock_movements, procedure_materials, equipment, maintenance_logs, payroll_entries, consultant_fee_rules, consultant_payouts |
-| Money | ★price_list, ★invoices, ★invoice_items, ★payments, refunds, expenses, daily_closings |
-| Notifications | notification_rules, message_templates, contact_preferences, scheduled_messages, messages, message_events, campaigns, audiences, promo_codes, promo_redemptions |
-| Websites | sites, site_versions, site_domains, booking_requests |
-| Trust | consents, ★access_log, ★audit_events |
+Every table, column and relationship, with diagrams and journeys: [`database.md`](database.md), generated from [`schema/model.py`](schema/model.py) by `scripts/gen_schema_docs.py`.

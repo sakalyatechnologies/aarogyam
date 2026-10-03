@@ -6,7 +6,7 @@ Patient health data lives here. Every rule below exists to protect it.
 
 ## Read before writing code
 
-1. `docs/guidelines/` and `docs/vendor/`: the shared Sakalya engineering rules, copied from `sakalya-platform`. Edit them there, then copy them here.
+1. `docs/guidelines/principles.md`, then the rest of `docs/guidelines/` and `docs/vendor/`: the shared Sakalya rules, copied from `sakalya-platform` by `scripts/sync-guidelines.sh`. Edit them there.
 2. `docs/architecture.md`: layers, crates, tenancy, and how a request flows.
 3. `docs/database.md`: every table, column and relationship (generated; edit `docs/schema/model.py` and run `python3 scripts/gen_schema_docs.py`). `docs/data-model.md` has the identifier and schema rules.
 4. `docs/decisions.md`: decisions already made. Don't reopen them in code; propose a change in that file instead.
@@ -37,6 +37,14 @@ Scope every command to what you changed. See `docs/guidelines/build-speed.md`.
 10. **Messages go through the notification service.** Handlers write an outbox row; they never call SMS, WhatsApp or push providers directly.
 11. **Specialty modules are data.** Forms, templates and vocabularies live in `specialties/` as schemas. Only signature visuals (such as the tooth chart) are code.
 12. **The API contract is generated.** Annotate routes for OpenAPI; the committed spec must match, and breaking changes fail CI.
+
+## Logging
+
+Follow the log budget in `docs/guidelines/observability.md`. Business events use the `Event` enum (`appointment.booked`, `invoice.paid`) in the `event` field. Log IDs only.
+
+## Hooks
+
+Run `scripts/install-hooks.sh` once per clone: a pre-commit hook runs fmt and clippy, and Claude Code formats each Rust file it edits.
 
 ## Done means
 

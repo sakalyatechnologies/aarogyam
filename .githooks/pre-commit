@@ -1,0 +1,8 @@
+#!/bin/sh
+# Blocks commits that would fail CI's format or lint checks. Skips when no Rust files are staged.
+if ! git diff --cached --name-only | grep -qE '\.rs$|Cargo\.(toml|lock)$'; then
+  exit 0
+fi
+export PATH="$HOME/.cargo/bin:$PATH"
+cargo fmt --all --check || { echo "pre-commit: run 'cargo fmt' and stage the changes"; exit 1; }
+cargo clippy --workspace --all-targets --quiet -- -D warnings || { echo "pre-commit: fix the clippy findings above"; exit 1; }

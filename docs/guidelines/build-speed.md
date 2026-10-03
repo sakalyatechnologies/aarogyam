@@ -1,4 +1,4 @@
-<!-- Copied from sakalya-platform. Edit it there, then copy it here. -->
+<!-- Copied from sakalya-platform. Edit it there, then run scripts/sync-guidelines.sh. -->
 
 # Keeping builds fast
 

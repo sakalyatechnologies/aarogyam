@@ -52,6 +52,6 @@ Crates split further by module (patients, appointments, billing) only when build
 | Clinic hosts | `smilecatchers.localtest.me:8080` | `*.arogyam-staging.app` (or path mode until a domain is bought) | `*.arogyam.app` |
 | Database | local Postgres | Supabase free project | Supabase Pro project |
 | Data | seeded fakes | synthetic | real |
-| Logs | pretty terminal | Cloud Logging | Cloud Logging |
+| Logs | pretty, `debug` | Cloud Logging, `info,arogyam=debug` | Cloud Logging, `info`; per-clinic debug for 30 minutes on demand |
 
 `localtest.me` and its subdomains resolve to `127.0.0.1`, so host-based tenancy works locally without editing `/etc/hosts`.

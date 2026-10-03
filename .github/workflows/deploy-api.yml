@@ -1,0 +1,54 @@
+# Pull request -> preview revision on staging with its own URL, commented on the PR.
+# Merge to main -> build once -> staging (100%) -> production canary after one approval.
+name: deploy-api
+
+on:
+  pull_request:
+    paths: ["crates/**", "Cargo.*", "db/**", "Dockerfile"]
+  push:
+    branches: [main]
+    paths: ["crates/**", "Cargo.*", "db/**", "Dockerfile"]
+
+concurrency:
+  group: deploy-api-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: sakalyatechnologies/sakalya-platform/.github/workflows/rust-ci.yml@v0.1.0
+
+  build:
+    needs: ci
+    uses: sakalyatechnologies/sakalya-platform/.github/workflows/build-image.yml@v0.1.0
+    with:
+      image: ${{ vars.IMAGE_REGISTRY }}/arogyam-api
+
+  preview:
+    if: github.event_name == 'pull_request'
+    needs: build
+    uses: sakalyatechnologies/sakalya-platform/.github/workflows/deploy-cloud-run.yml@v0.1.0
+    with:
+      environment: staging
+      service: arogyam-api
+      image: ${{ needs.build.outputs.image }}
+      mode: preview
+
+  staging:
+    if: github.event_name == 'push'
+    needs: build
+    uses: sakalyatechnologies/sakalya-platform/.github/workflows/deploy-cloud-run.yml@v0.1.0
+    with:
+      environment: staging
+      service: arogyam-api
+      image: ${{ needs.build.outputs.image }}
+      mode: promote
+
+  production:
+    if: github.event_name == 'push'
+    needs: [build, staging]
+    uses: sakalyatechnologies/sakalya-platform/.github/workflows/deploy-cloud-run.yml@v0.1.0
+    with:
+      environment: production
+      service: arogyam-api
+      image: ${{ needs.build.outputs.image }}
+      mode: canary

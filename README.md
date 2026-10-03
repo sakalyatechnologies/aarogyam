@@ -4,10 +4,12 @@
 
 A multi-specialty clinic platform: a portal and phone apps for doctors and their staff, specialty-specific views (starting with dental and general medicine), and later a patient app that brings records from every Arogyam clinic together.
 
+- What it is, who it is for, features and phases: [`docs/product.md`](docs/product.md)
 - Rules for humans and agents: [`AGENTS.md`](AGENTS.md)
 - How it fits together: [`docs/architecture.md`](docs/architecture.md)
 - Data model: [`docs/data-model.md`](docs/data-model.md) and every table in [`docs/database.md`](docs/database.md)
 - Decisions: [`docs/decisions.md`](docs/decisions.md)
+- CI and CD: [`docs/cicd.md`](docs/cicd.md)
 
 Shared Rust foundations (types, config, telemetry, HTTP, auth, database, test kit) live in [`sakalya-platform`](../sakalya-platform).
 

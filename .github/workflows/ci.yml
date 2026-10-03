@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  pull_request:
+    paths: ["crates/**", "Cargo.*", "db/**", "rust-toolchain.toml", ".github/workflows/ci.yml"]
+  push:
+    branches: [main]
+    paths: ["crates/**", "Cargo.*", "db/**", "rust-toolchain.toml", ".github/workflows/ci.yml"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    uses: sakalyatechnologies/sakalya-platform/.github/workflows/rust-ci.yml@v0.1.0
+
+  schema-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Database docs match the model
+        run: python3 scripts/gen_schema_docs.py && git diff --exit-code docs/database.md docs/schema/schema.json

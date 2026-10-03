@@ -33,11 +33,14 @@ Previews cost nothing: Cloud Run tagged revisions without traffic scale to zero.
 
 ## One-time setup (about an hour, all free)
 
-1. **GitHub:** create the `aarogyam` and `sakalya-backend` repositories in the `sakalyatechnologies` organisation and push. In `sakalya-backend` settings, allow its workflows to be used by other repositories in the organisation (Settings → Actions → Access). Tag `v0.1.0`.
+1. **GitHub (done 3 Oct):**
+   - `sakalya-backend`, `aarogyam` and `sakalya-web` are private repositories under the `sakalyatechnologies` account. Thek10patil is a collaborator with write access.
+   - `sakalya-backend` allows other repositories owned by this account to use its workflows, and is tagged `v0.1.0`.
+   - In a personal account, only the owner can manage Actions secrets, environments and deploy approvals, so switch with `gh auth switch -u sakalyatechnologies` for those settings.
 2. **Google Cloud:** create projects `sakalya-clinic-staging`, `sakalya-clinic-prod` and `sakalya-artifacts` under one billing account, with a ₹100 budget alert on each.
 3. **Artifact Registry:** in `sakalya-artifacts`, create a Docker repository `services` in `asia-south1`. Give both environments' Cloud Run service agents read access.
 4. **Workload Identity Federation:** one pool for GitHub, restricted to the `sakalyatechnologies` organisation; a deploy service account per project with Cloud Run Admin, Artifact Registry Writer (artifacts project only) and Logs Viewer.
-5. **GitHub Environments:**
+5. **GitHub Environments (as the owner account):**
    - `artifacts`, `staging` and `production`, each with variables `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER` and `GCP_DEPLOY_SA`.
    - `production` requires your approval.
    - A repository variable `IMAGE_REGISTRY = asia-south1-docker.pkg.dev/sakalya-artifacts/services`.

@@ -22,6 +22,12 @@ COLUMN = re.compile(
     r"^(?P<name>\w+)\s+(?P<type>[\w\[\]]+)(?P<null>\?)?(?:\s*->\s*(?P<ref>\w+))?(?:\s*\|\s*(?P<note>.+))?$"
 )
 
+OFFLINE_LABEL = {
+    "read_write": "read and write on devices",
+    "read_only": "read-only on devices",
+    "server_only": "server only",
+}
+
 RLS_LABEL = {
     "clinic": "Clinic-scoped: org_id + row-level security",
     "global": "Platform-wide: no tenant, written by Sakalya or the system",
@@ -73,6 +79,18 @@ def parse() -> dict:
                 referenced_by[c["ref"]].append(f"{t['name']}.{c['name']}")
     for name, t in tables.items():
         t["referenced_by"] = sorted(referenced_by.get(name, []))
+
+    for group in (model.SENSITIVITY_OVERRIDES, model.OFFLINE_READ_WRITE, model.OFFLINE_READ_ONLY):
+        unknown = [name for name in group if name not in tables]
+        if unknown:
+            sys.exit(f"classification names unknown tables: {unknown}")
+    for name, t in tables.items():
+        t["sensitivity"] = model.SENSITIVITY_OVERRIDES.get(name, model.SENSITIVITY_BY_DOMAIN[t["domain"]])
+        t["offline"] = (
+            "read_write" if name in model.OFFLINE_READ_WRITE
+            else "read_only" if name in model.OFFLINE_READ_ONLY
+            else "server_only"
+        )
 
     domain_names = {d[0] for d in model.DOMAINS}
     for t in tables.values():
@@ -166,6 +184,11 @@ def markdown(schema: dict) -> str:
         "- IDs are UUIDv7. Money is `bigint` paise. Times are `timestamptz` in UTC. Enums are Postgres enum types.",
         "- Readable numbers (`SC-1042`, `SC/26-27/000318`) come from `number_sequences`.",
         "- Tables marked *partitioned* are split by month.",
+        "- **Immutable once final:** signed notes (corrections are addenda), issued prescriptions (cancel and reissue), issued bills (void and replace), and observations (a correction supersedes). Readable numbers are assigned by the server at issue, never on a device.",
+        "- **Clinical codes are optional:** free text always works; `code_system`, `code`, `code_display` and `code_version` leave room for ICD, SNOMED and LOINC when interoperability needs them.",
+        "- **Provenance:** important clinical rows record `source` (clinician, assistant, patient, import, device, AI draft, ABDM) and who verified it.",
+        "- **Sensitivity** (public, internal, personal, financial, health) decides what may be logged, exported, sent to analytics, shown to support, or given to AI. **Offline** says whether phones may write a table, only read it, or never hold it.",
+        "- **Schema checks in CI:** every clinic table must have `org_id`, a composite key, tenant-aware foreign keys, row-level security with a policy, and an audit trigger. A test fails the build otherwise.",
         "",
         "## How the areas connect",
         "",
@@ -186,6 +209,12 @@ def markdown(schema: dict) -> str:
             out.append(f"{i}. **{step['actor']}**: {step['what']} ({used})")
         out.append("")
 
+    out += ["## Offline", "", "What the phone apps may do without a connection.", ""]
+    for mode in ("read_write", "read_only"):
+        names = ", ".join(f"`{t['name']}`" for t in tables if t["offline"] == mode)
+        out += [f"- **{OFFLINE_LABEL[mode].capitalize()}:** {names}", ""]
+    out += ["- **Server only:** everything else, including bill and prescription numbers, payments, share links, audit and access logs, permissions and plans.", ""]
+
     for d in schema["domains"]:
         items = by_domain[d["key"]]
         out += [f"## {d['label']} (`{d['key']}`)", "", d["purpose"], "", "```mermaid", mermaid_domain_er(schema, d["key"]), "```", ""]
@@ -196,7 +225,14 @@ def markdown(schema: dict) -> str:
             if t["partitioned"]:
                 flags.append("partitioned")
             flag_text = f" ({', '.join(flags)})" if flags else ""
-            out += [f"### `{t['name']}`{flag_text}", "", t["purpose"], "", f"*{RLS_LABEL[t['rls']]}*", ""]
+            out += [
+                f"### `{t['name']}`{flag_text}",
+                "",
+                t["purpose"],
+                "",
+                f"*{RLS_LABEL[t['rls']]} · sensitivity: {t['sensitivity']} · offline: {OFFLINE_LABEL[t['offline']]}*",
+                "",
+            ]
             out += ["| Column | Type | Notes |", "|---|---|---|"]
             for c in t["cols"]:
                 kind = c["type"] + ("?" if c["nullable"] else "")

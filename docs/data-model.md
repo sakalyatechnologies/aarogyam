@@ -21,6 +21,24 @@
 - Name search uses `pg_trgm`; phones are stored in E.164 and indexed.
 - Each clinic owns its own `patients` rows; clinics never share a patient row. The patient app (phase 3) joins a person's records across clinics through verified `patient_links` and `consents`.
 
+## Clinical data levels
+
+| Level | Holds | Tables |
+|---|---|---|
+| Patient | Allergies, problem list, history, long-term medicines | `allergies`, `conditions`, `medical_history_items` |
+| Episode (optional) | A course of care across visits | `care_episodes` |
+| Visit | Complaint, vitals, notes, procedures, prescriptions, files | `encounters` and the tables hanging off it |
+| Specialty state | Longitudinal pack data such as the tooth chart or a pregnancy | `specialty_records` |
+
+## Rules
+
+- **Immutable once final:** signed notes take addenda, issued prescriptions are cancelled and reissued, issued bills are voided and replaced, and observations are corrected by superseding rows.
+- **Numbers at issue:** readable numbers come from `number_sequences` when the server issues a document, never on a device.
+- **Codes:** clinical codes are optional (`code_system`, `code`, `code_display`, `code_version`).
+- **Provenance:** important clinical rows record `source` and who verified them.
+- **Offline and sensitivity:** every table is classified in `schema/model.py`, and the generated `database.md` shows both.
+- **CI schema checks:** every clinic table needs `org_id`, a composite key, tenant-aware foreign keys, row-level security with a policy, and an audit trigger.
+
 ## Tables
 
 Every table, column and relationship, with diagrams and journeys: [`database.md`](database.md), generated from [`schema/model.py`](schema/model.py) by `scripts/gen_schema_docs.py`.

@@ -67,7 +67,7 @@
    "domain": "platform",
    "purpose": "Subscription plans clinics can buy (Solo, Clinic, Pro, Enterprise).",
    "rls": "global",
-   "star": true,
+   "star": false,
    "partitioned": false,
    "notes": "",
    "cols": [
@@ -117,14 +117,16 @@
    "referenced_by": [
     "plan_features.plan_id",
     "subscriptions.plan_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "features",
    "domain": "platform",
    "purpose": "Every feature that a plan can include or limit.",
    "rls": "global",
-   "star": true,
+   "star": false,
    "partitioned": false,
    "notes": "",
    "cols": [
@@ -161,14 +163,16 @@
     "entitlement_overrides.feature_id",
     "plan_features.feature_id",
     "usage_counters.feature_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "plan_features",
    "domain": "platform",
    "purpose": "What each plan includes, and its limits.",
    "rls": "global",
-   "star": true,
+   "star": false,
    "partitioned": false,
    "notes": "Primary key (plan_id, feature_id).",
    "cols": [
@@ -201,14 +205,16 @@
      "note": "e.g. 2000 messages a month"
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "subscriptions",
    "domain": "platform",
    "purpose": "Which plan a clinic is on and whether it is paid up.",
    "rls": "global",
-   "star": true,
+   "star": false,
    "partitioned": false,
    "notes": "",
    "cols": [
@@ -271,7 +277,9 @@
    ],
    "referenced_by": [
     "saas_invoices.subscription_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "saas_invoices",
@@ -339,7 +347,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "financial",
+   "offline": "server_only"
   },
   {
    "name": "entitlement_overrides",
@@ -400,7 +410,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "usage_counters",
@@ -440,14 +452,16 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "feature_flags",
    "domain": "platform",
    "purpose": "Switches that release a feature gradually, separate from plans.",
    "rls": "global",
-   "star": true,
+   "star": false,
    "partitioned": false,
    "notes": "",
    "cols": [
@@ -482,7 +496,9 @@
    ],
    "referenced_by": [
     "flag_rules.flag_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "flag_rules",
@@ -522,7 +538,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "platform_users",
@@ -558,7 +576,9 @@
    "referenced_by": [
     "entitlement_overrides.granted_by",
     "support_grants.platform_user_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "support_grants",
@@ -619,7 +639,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "announcements",
@@ -666,7 +688,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "org_daily_stats",
@@ -741,249 +765,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
-  },
-  {
-   "name": "quality_runs",
-   "domain": "platform",
-   "purpose": "One run of a test suite: CI unit and integration, end-to-end, canary or load test.",
-   "rls": "global",
-   "star": false,
-   "partitioned": false,
-   "notes": "Written by CI (JUnit upload) and the canary runner through the console API.",
-   "cols": [
-    {
-     "name": "suite",
-     "type": "test_suite",
-     "nullable": false,
-     "ref": null,
-     "note": "unit, integration, e2e_web, e2e_mobile, canary, load"
-    },
-    {
-     "name": "environment",
-     "type": "text",
-     "nullable": false,
-     "ref": null,
-     "note": "ci, staging, production"
-    },
-    {
-     "name": "repository",
-     "type": "text",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "commit_sha",
-     "type": "text",
-     "nullable": true,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "branch",
-     "type": "text",
-     "nullable": true,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "trigger",
-     "type": "run_trigger",
-     "nullable": false,
-     "ref": null,
-     "note": "push, pull_request, schedule, deploy, manual"
-    },
-    {
-     "name": "status",
-     "type": "run_status",
-     "nullable": false,
-     "ref": null,
-     "note": "running, passed, failed, cancelled"
-    },
-    {
-     "name": "started_at",
-     "type": "timestamptz",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "finished_at",
-     "type": "timestamptz",
-     "nullable": true,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "total",
-     "type": "int",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "passed",
-     "type": "int",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "failed",
-     "type": "int",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "skipped",
-     "type": "int",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "flaky",
-     "type": "int",
-     "nullable": false,
-     "ref": null,
-     "note": "passed only on retry"
-    },
-    {
-     "name": "run_url",
-     "type": "text",
-     "nullable": true,
-     "ref": null,
-     "note": "link to the CI job"
-    }
-   ],
-   "referenced_by": [
-    "canary_checks.last_run_id",
-    "quality_results.run_id"
-   ]
-  },
-  {
-   "name": "quality_results",
-   "domain": "platform",
-   "purpose": "Each test or canary step in a run, with its outcome and timing.",
-   "rls": "global",
-   "star": false,
-   "partitioned": false,
-   "notes": "Partition or prune after 90 days; the console keeps daily aggregates.",
-   "cols": [
-    {
-     "name": "run_id",
-     "type": "uuid",
-     "nullable": false,
-     "ref": "quality_runs",
-     "note": ""
-    },
-    {
-     "name": "test_name",
-     "type": "text",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "file",
-     "type": "text",
-     "nullable": true,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "status",
-     "type": "result_status",
-     "nullable": false,
-     "ref": null,
-     "note": "passed, failed, skipped, flaky"
-    },
-    {
-     "name": "duration_ms",
-     "type": "int",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "attempts",
-     "type": "smallint",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "error_message",
-     "type": "text",
-     "nullable": true,
-     "ref": null,
-     "note": "trimmed, no patient data"
-    },
-    {
-     "name": "request_id",
-     "type": "text",
-     "nullable": true,
-     "ref": null,
-     "note": "canary steps: open with sk request"
-    }
-   ],
-   "referenced_by": []
-  },
-  {
-   "name": "canary_checks",
-   "domain": "platform",
-   "purpose": "The canary journeys that run on a schedule, per environment.",
-   "rls": "global",
-   "star": false,
-   "partitioned": false,
-   "notes": "",
-   "cols": [
-    {
-     "name": "key",
-     "type": "text",
-     "nullable": false,
-     "ref": null,
-     "note": "sign_in, book_appointment, write_note, issue_bill"
-    },
-    {
-     "name": "description",
-     "type": "text",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "environment",
-     "type": "text",
-     "nullable": false,
-     "ref": null,
-     "note": "staging, production"
-    },
-    {
-     "name": "interval_minutes",
-     "type": "int",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "enabled",
-     "type": "bool",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "last_run_id",
-     "type": "uuid",
-     "nullable": true,
-     "ref": "quality_runs",
-     "note": ""
-    }
-   ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "users",
@@ -1056,7 +840,9 @@
     "platform_users.user_id",
     "sessions.user_id",
     "support_grants.granted_by"
-   ]
+   ],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "sessions",
@@ -1124,14 +910,16 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "devices",
    "domain": "iam",
    "purpose": "Phones and browsers a user signs in from, with push tokens.",
    "rls": "user",
-   "star": true,
+   "star": false,
    "partitioned": false,
    "notes": "",
    "cols": [
@@ -1179,8 +967,11 @@
     }
    ],
    "referenced_by": [
+    "access_log.device_id",
     "sessions.device_id"
-   ]
+   ],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "organizations",
@@ -1251,7 +1042,9 @@
     "subscriptions.org_id",
     "support_grants.org_id",
     "usage_counters.org_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "read_only"
   },
   {
    "name": "branches",
@@ -1309,7 +1102,9 @@
     "queue_tokens.branch_id",
     "rooms.branch_id",
     "working_hours.branch_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "read_only"
   },
   {
    "name": "org_domains",
@@ -1363,7 +1158,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "slug_history",
@@ -1403,7 +1200,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "rooms",
@@ -1445,7 +1244,9 @@
    ],
    "referenced_by": [
     "appointments.room_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "read_only"
   },
   {
    "name": "org_modules",
@@ -1478,7 +1279,9 @@
      "note": "e.g. tooth numbering FDI or Universal"
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "read_only"
   },
   {
    "name": "org_settings",
@@ -1518,7 +1321,9 @@
      "note": "quiet hours, sender"
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "read_only"
   },
   {
    "name": "assets",
@@ -1563,7 +1368,9 @@
     "invoices.pdf_asset_id",
     "practitioners.signature_asset_id",
     "prescriptions.pdf_asset_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "roles",
@@ -1607,7 +1414,9 @@
     "invitations.role_id",
     "memberships.role_id",
     "role_permissions.role_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "read_only"
   },
   {
    "name": "role_permissions",
@@ -1640,7 +1449,9 @@
      "note": "all, own, assigned"
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "read_only"
   },
   {
    "name": "memberships",
@@ -1695,16 +1506,25 @@
     }
    ],
    "referenced_by": [
+    "allergies.verified_by",
+    "attachments.verified_by",
     "clinical_notes.author_id",
     "clinical_notes.signed_by",
+    "conditions.verified_by",
     "daily_closings.closed_by",
+    "medical_history_items.verified_by",
     "note_addenda.author_id",
+    "observations.verified_by",
     "payments.received_by",
     "payroll_entries.membership_id",
     "practitioners.membership_id",
+    "prescriptions.signed_by",
     "salary_structures.membership_id",
+    "specialty_records.verified_by",
     "staff_advances.membership_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "read_only"
   },
   {
    "name": "invitations",
@@ -1765,7 +1585,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "number_sequences",
@@ -1798,7 +1620,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "patients",
@@ -1807,7 +1631,7 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
-   "notes": "Name search uses a pg_trgm index. Duplicate warning on the same phone number.",
+   "notes": "A phone number is contact information, never identity: families share numbers and numbers change. A merge only sets merged_into_id; records stay on the original patient and reads resolve to the canonical one, so a wrong merge can be undone. Name search uses pg_trgm; same-phone registrations get a duplicate warning, never an automatic merge.",
    "cols": [
     {
      "name": "number",
@@ -1849,7 +1673,7 @@
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "indexed"
+     "note": "contact, never identity; indexed"
     },
     {
      "name": "alt_phone_e164",
@@ -1919,7 +1743,7 @@
      "type": "uuid",
      "nullable": true,
      "ref": "patients",
-     "note": ""
+     "note": "set by a merge, cleared by an unmerge"
     },
     {
      "name": "last_visit_at",
@@ -1934,6 +1758,7 @@
     "allergies.patient_id",
     "appointments.patient_id",
     "attachments.patient_id",
+    "care_episodes.patient_id",
     "clinical_notes.patient_id",
     "conditions.patient_id",
     "consent_forms.patient_id",
@@ -1957,9 +1782,12 @@
     "promo_redemptions.patient_id",
     "queue_tokens.patient_id",
     "recalls.patient_id",
+    "share_links.patient_id",
     "specialty_records.patient_id",
     "treatment_plans.patient_id"
-   ]
+   ],
+   "sensitivity": "personal",
+   "offline": "read_write"
   },
   {
    "name": "patient_identifiers",
@@ -1992,7 +1820,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "read_write"
   },
   {
    "name": "family_links",
@@ -2032,14 +1862,16 @@
      "note": "guardian may act for this patient"
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "referral_sources",
    "domain": "people",
    "purpose": "Where patients come from, for the finance and marketing filters.",
    "rls": "clinic",
-   "star": true,
+   "star": false,
    "partitioned": false,
    "notes": "",
    "cols": [
@@ -2067,12 +1899,14 @@
    ],
    "referenced_by": [
     "patients.referral_source_id"
-   ]
+   ],
+   "sensitivity": "personal",
+   "offline": "read_only"
   },
   {
    "name": "medical_history_items",
    "domain": "people",
-   "purpose": "History captured at registration: conditions, surgeries, habits, family history.",
+   "purpose": "Patient-level history: past conditions, surgeries, long-term medicines, habits, family history.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
@@ -2090,7 +1924,7 @@
      "type": "history_kind",
      "nullable": false,
      "ref": null,
-     "note": "condition, surgery, medication, habit, family_history"
+     "note": "condition, surgery, long_term_medication, habit, family_history"
     },
     {
      "name": "description",
@@ -2100,11 +1934,32 @@
      "note": ""
     },
     {
+     "name": "code_system",
+     "type": "code_system",
+     "nullable": true,
+     "ref": null,
+     "note": "icd10, icd11, snomed, loinc, custom"
+    },
+    {
      "name": "code",
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "ICD-10 or SNOMED when known"
+     "note": ""
+    },
+    {
+     "name": "code_display",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "code_version",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     },
     {
      "name": "since",
@@ -2119,9 +1974,32 @@
      "nullable": false,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "source",
+     "type": "record_source",
+     "nullable": false,
+     "ref": null,
+     "note": "clinician, assistant, patient, import, device, ai_draft, abdm"
+    },
+    {
+     "name": "verified_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "verified_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "read_write"
   },
   {
    "name": "patient_links",
@@ -2177,7 +2055,9 @@
    ],
    "referenced_by": [
     "consents.patient_link_id"
-   ]
+   ],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "practitioners",
@@ -2269,6 +2149,8 @@
    "referenced_by": [
     "appointments.practitioner_id",
     "booking_requests.practitioner_id",
+    "care_episodes.practitioner_id",
+    "consents.grantee_practitioner_id",
     "consultant_fee_rules.practitioner_id",
     "consultant_payouts.practitioner_id",
     "encounters.practitioner_id",
@@ -2279,7 +2161,9 @@
     "procedures.practitioner_id",
     "treatment_plans.practitioner_id",
     "working_hours.practitioner_id"
-   ]
+   ],
+   "sensitivity": "personal",
+   "offline": "read_only"
   },
   {
    "name": "working_hours",
@@ -2340,7 +2224,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "read_only"
   },
   {
    "name": "leave_blocks",
@@ -2387,7 +2273,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "appointments",
@@ -2488,7 +2376,9 @@
     "booking_requests.appointment_id",
     "encounters.appointment_id",
     "queue_tokens.appointment_id"
-   ]
+   ],
+   "sensitivity": "personal",
+   "offline": "read_write"
   },
   {
    "name": "appointment_events",
@@ -2535,14 +2425,16 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "read_write"
   },
   {
    "name": "queue_tokens",
    "domain": "scheduling",
    "purpose": "Walk-in tokens shown on the waiting-room screen.",
    "rls": "clinic",
-   "star": false,
+   "star": true,
    "partitioned": false,
    "notes": "Unique (org_id, branch_id, day, token_number).",
    "cols": [
@@ -2596,16 +2488,92 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "read_write"
+  },
+  {
+   "name": "care_episodes",
+   "domain": "clinical",
+   "purpose": "A course of care spanning visits: a root canal on tooth 36, a pregnancy, a diabetes plan.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "notes": "Optional: visits, treatment plans and specialty records may link to an episode. Built when a pack needs it.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "practitioners",
+     "note": ""
+    },
+    {
+     "name": "pack",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "root_canal, pregnancy, chronic_care ..."
+    },
+    {
+     "name": "title",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "episode_status",
+     "nullable": false,
+     "ref": null,
+     "note": "active, completed, cancelled"
+    },
+    {
+     "name": "started_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "ended_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "encounters.episode_id",
+    "specialty_records.episode_id",
+    "treatment_plans.episode_id"
+   ],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "encounters",
    "domain": "clinical",
-   "purpose": "One visit: everything clinical from that day hangs off it.",
+   "purpose": "One visit. Visit-level clinical data (complaint, vitals, notes, procedures, prescriptions) hangs off it.",
    "rls": "clinic",
    "star": true,
    "partitioned": false,
-   "notes": "",
+   "notes": "Patient-level facts (allergies, active conditions, history) live on the patient and may be updated during a visit; they do not require one.",
    "cols": [
     {
      "name": "number",
@@ -2640,6 +2608,13 @@
      "type": "uuid",
      "nullable": true,
      "ref": "appointments",
+     "note": ""
+    },
+    {
+     "name": "episode_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "care_episodes",
      "note": ""
     },
     {
@@ -2682,7 +2657,9 @@
     "procedures.encounter_id",
     "specialty_records.encounter_id",
     "voice_notes.encounter_id"
-   ]
+   ],
+   "sensitivity": "health",
+   "offline": "read_write"
   },
   {
    "name": "clinical_notes",
@@ -2760,14 +2737,16 @@
    "referenced_by": [
     "note_addenda.note_id",
     "voice_notes.draft_note_id"
-   ]
+   ],
+   "sensitivity": "health",
+   "offline": "read_write"
   },
   {
    "name": "note_addenda",
    "domain": "clinical",
    "purpose": "Corrections and additions to a signed note, with their own author and time.",
    "rls": "clinic",
-   "star": false,
+   "star": true,
    "partitioned": false,
    "notes": "",
    "cols": [
@@ -2793,16 +2772,18 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "observations",
    "domain": "clinical",
    "purpose": "Measurements: BP, pulse, temperature, SpO2, weight, height, sugar.",
    "rls": "clinic",
-   "star": false,
+   "star": true,
    "partitioned": false,
-   "notes": "",
+   "notes": "Values are never edited: a correction is a new row that supersedes the old one, which stays visible as corrected.",
    "cols": [
     {
      "name": "patient_id",
@@ -2840,7 +2821,28 @@
      "note": ""
     },
     {
-     "name": "loinc_code",
+     "name": "code_system",
+     "type": "code_system",
+     "nullable": true,
+     "ref": null,
+     "note": "icd10, icd11, snomed, loinc, custom"
+    },
+    {
+     "name": "code",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "code_display",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "code_version",
      "type": "text",
      "nullable": true,
      "ref": null,
@@ -2852,16 +2854,55 @@
      "nullable": false,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "status",
+     "type": "observation_status",
+     "nullable": false,
+     "ref": null,
+     "note": "final, corrected, entered_in_error"
+    },
+    {
+     "name": "supersedes_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "observations",
+     "note": "the value this one corrects"
+    },
+    {
+     "name": "source",
+     "type": "record_source",
+     "nullable": false,
+     "ref": null,
+     "note": "clinician, assistant, patient, import, device, ai_draft, abdm"
+    },
+    {
+     "name": "verified_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "verified_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [
+    "observations.supersedes_id"
+   ],
+   "sensitivity": "health",
+   "offline": "read_write"
   },
   {
    "name": "conditions",
    "domain": "clinical",
-   "purpose": "Diagnoses, coded where possible.",
+   "purpose": "Diagnoses and the problem list. Patient-level; a visit link records where it was found.",
    "rls": "clinic",
-   "star": false,
+   "star": true,
    "partitioned": false,
    "notes": "",
    "cols": [
@@ -2880,11 +2921,18 @@
      "note": ""
     },
     {
-     "name": "code_system",
-     "type": "code_system",
+     "name": "display_text",
+     "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "icd10, snomed, custom"
+     "note": "what the doctor wrote, always present"
+    },
+    {
+     "name": "code_system",
+     "type": "code_system",
+     "nullable": true,
+     "ref": null,
+     "note": "icd10, icd11, snomed, loinc, custom"
     },
     {
      "name": "code",
@@ -2894,9 +2942,16 @@
      "note": ""
     },
     {
-     "name": "label",
+     "name": "code_display",
      "type": "text",
-     "nullable": false,
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "code_version",
+     "type": "text",
+     "nullable": true,
      "ref": null,
      "note": ""
     },
@@ -2905,7 +2960,7 @@
      "type": "condition_status",
      "nullable": false,
      "ref": null,
-     "note": "active, resolved"
+     "note": "active, resolved, entered_in_error"
     },
     {
      "name": "onset",
@@ -2913,16 +2968,39 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "source",
+     "type": "record_source",
+     "nullable": false,
+     "ref": null,
+     "note": "clinician, assistant, patient, import, device, ai_draft, abdm"
+    },
+    {
+     "name": "verified_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "verified_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "read_write"
   },
   {
    "name": "allergies",
    "domain": "clinical",
-   "purpose": "Allergies, shown as a warning banner on the patient.",
+   "purpose": "Allergies, shown as a warning banner on the patient and on prescriptions.",
    "rls": "clinic",
-   "star": false,
+   "star": true,
    "partitioned": false,
    "notes": "",
    "cols": [
@@ -2941,6 +3019,34 @@
      "note": ""
     },
     {
+     "name": "code_system",
+     "type": "code_system",
+     "nullable": true,
+     "ref": null,
+     "note": "icd10, icd11, snomed, loinc, custom"
+    },
+    {
+     "name": "code",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "code_display",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "code_version",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
      "name": "reaction",
      "type": "text",
      "nullable": true,
@@ -2955,14 +3061,37 @@
      "note": "mild, moderate, severe"
     },
     {
-     "name": "active",
-     "type": "bool",
+     "name": "status",
+     "type": "allergy_status",
      "nullable": false,
+     "ref": null,
+     "note": "active, inactive, entered_in_error"
+    },
+    {
+     "name": "source",
+     "type": "record_source",
+     "nullable": false,
+     "ref": null,
+     "note": "clinician, assistant, patient, import, device, ai_draft, abdm"
+    },
+    {
+     "name": "verified_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "verified_at",
+     "type": "timestamptz",
+     "nullable": true,
      "ref": null,
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "read_write"
   },
   {
    "name": "drug_catalog",
@@ -3011,23 +3140,25 @@
    ],
    "referenced_by": [
     "prescription_items.drug_id"
-   ]
+   ],
+   "sensitivity": "public",
+   "offline": "read_only"
   },
   {
    "name": "prescriptions",
    "domain": "clinical",
-   "purpose": "A prescription issued in a visit, printed or sent as a PDF.",
+   "purpose": "A prescription from a visit: shown to staff and the patient, printed with the clinic letterhead.",
    "rls": "clinic",
-   "star": false,
+   "star": true,
    "partitioned": false,
-   "notes": "",
+   "notes": "Issued prescriptions never change: a correction cancels and reissues. The print shows the doctor's name, qualifications and registration number, generic names in capitals, the clinic's branding, and a small 'Prescribed with Arogyam' footer with a QR code that opens the verified copy.",
    "cols": [
     {
      "name": "number",
      "type": "text",
-     "nullable": false,
+     "nullable": true,
      "ref": null,
-     "note": "RX-0412"
+     "note": "RX-0412, assigned by the server when issued"
     },
     {
      "name": "encounter_id",
@@ -3051,8 +3182,22 @@
      "note": ""
     },
     {
-     "name": "issued_at",
-     "type": "timestamptz",
+     "name": "diagnosis_text",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "advice",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "diet, care, warnings"
+    },
+    {
+     "name": "follow_up_on",
+     "type": "date",
      "nullable": true,
      "ref": null,
      "note": ""
@@ -3062,14 +3207,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": ""
-    },
-    {
-     "name": "notes",
-     "type": "text",
-     "nullable": true,
-     "ref": null,
-     "note": ""
+     "note": "patient's language for instructions"
     },
     {
      "name": "status",
@@ -3077,6 +3215,41 @@
      "nullable": false,
      "ref": null,
      "note": "draft, issued, cancelled"
+    },
+    {
+     "name": "issued_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "signed_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "cancel_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "supersedes_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "prescriptions",
+     "note": "the prescription this one replaces"
+    },
+    {
+     "name": "template_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "document_templates",
+     "note": "print layout"
     },
     {
      "name": "pdf_asset_id",
@@ -3087,15 +3260,18 @@
     }
    ],
    "referenced_by": [
-    "prescription_items.prescription_id"
-   ]
+    "prescription_items.prescription_id",
+    "prescriptions.supersedes_id"
+   ],
+   "sensitivity": "health",
+   "offline": "read_write"
   },
   {
    "name": "prescription_items",
    "domain": "clinical",
    "purpose": "One medicine on a prescription.",
    "rls": "clinic",
-   "star": false,
+   "star": true,
    "partitioned": false,
    "notes": "",
    "cols": [
@@ -3118,7 +3294,35 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "as printed"
+     "note": "as printed; generic name in capitals"
+    },
+    {
+     "name": "code_system",
+     "type": "code_system",
+     "nullable": true,
+     "ref": null,
+     "note": "icd10, icd11, snomed, loinc, custom"
+    },
+    {
+     "name": "code",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "code_display",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "code_version",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     },
     {
      "name": "dose",
@@ -3153,17 +3357,19 @@
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": ""
+     "note": "in the prescription's language"
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "read_write"
   },
   {
    "name": "procedures",
    "domain": "clinical",
    "purpose": "Treatment actually done (or planned for today), linked to the price list.",
    "rls": "clinic",
-   "star": false,
+   "star": true,
    "partitioned": false,
    "notes": "Marking done deducts stock via procedure_materials and can create a lab_order.",
    "cols": [
@@ -3203,6 +3409,34 @@
      "note": ""
     },
     {
+     "name": "code_system",
+     "type": "code_system",
+     "nullable": true,
+     "ref": null,
+     "note": "icd10, icd11, snomed, loinc, custom"
+    },
+    {
+     "name": "code",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "code_display",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "code_version",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
      "name": "site",
      "type": "jsonb",
      "nullable": true,
@@ -3214,7 +3448,7 @@
      "type": "procedure_status",
      "nullable": false,
      "ref": null,
-     "note": "planned, done"
+     "note": "planned, done, entered_in_error"
     },
     {
      "name": "performed_at",
@@ -3244,7 +3478,9 @@
     "lab_orders.procedure_id",
     "recalls.source_procedure_id",
     "stock_movements.procedure_id"
-   ]
+   ],
+   "sensitivity": "health",
+   "offline": "read_write"
   },
   {
    "name": "treatment_plans",
@@ -3267,6 +3503,13 @@
      "type": "uuid",
      "nullable": false,
      "ref": "practitioners",
+     "note": ""
+    },
+    {
+     "name": "episode_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "care_episodes",
      "note": ""
     },
     {
@@ -3300,7 +3543,9 @@
    ],
    "referenced_by": [
     "treatment_plan_items.plan_id"
-   ]
+   ],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "treatment_plan_items",
@@ -3363,7 +3608,9 @@
    ],
    "referenced_by": [
     "procedures.treatment_plan_item_id"
-   ]
+   ],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "attachments",
@@ -3436,6 +3683,27 @@
      "nullable": true,
      "ref": null,
      "note": "e.g. tooth 36"
+    },
+    {
+     "name": "source",
+     "type": "record_source",
+     "nullable": false,
+     "ref": null,
+     "note": "clinician, assistant, patient, import, device, ai_draft, abdm"
+    },
+    {
+     "name": "verified_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "verified_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     }
    ],
    "referenced_by": [
@@ -3443,7 +3711,9 @@
     "consent_forms.signature_attachment_id",
     "imports.file_attachment_id",
     "voice_notes.attachment_id"
-   ]
+   ],
+   "sensitivity": "health",
+   "offline": "read_write"
   },
   {
    "name": "voice_notes",
@@ -3504,16 +3774,18 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "read_write"
   },
   {
    "name": "specialty_records",
    "domain": "clinical",
-   "purpose": "Specialty-specific data as versioned JSON: tooth chart, pregnancy, growth.",
+   "purpose": "Specialty Pack data as versioned JSON. Longitudinal: a tooth chart or pregnancy spans many visits.",
    "rls": "clinic",
    "star": true,
    "partitioned": false,
-   "notes": "New rows supersede old ones, so the chart's history is kept.",
+   "notes": "Each change writes a new row and marks the previous one superseded, so the full history (tooth 36: caries, root canal, crown) is kept.",
    "cols": [
     {
      "name": "patient_id",
@@ -3527,14 +3799,21 @@
      "type": "uuid",
      "nullable": true,
      "ref": "encounters",
+     "note": "the visit that changed it, if any"
+    },
+    {
+     "name": "episode_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "care_episodes",
      "note": ""
     },
     {
-     "name": "module",
+     "name": "pack",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "dental, obstetrics, pediatrics ..."
+     "note": "dental, general, obstetrics, pediatrics ..."
     },
     {
      "name": "kind",
@@ -3555,33 +3834,63 @@
      "type": "jsonb",
      "nullable": false,
      "ref": null,
-     "note": "validated against the module schema on write"
+     "note": "validated against the pack's schema on write"
     },
     {
-     "name": "valid_from",
+     "name": "status",
+     "type": "record_status",
+     "nullable": false,
+     "ref": null,
+     "note": "current, superseded, entered_in_error"
+    },
+    {
+     "name": "effective_at",
      "type": "timestamptz",
      "nullable": false,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "source",
+     "type": "record_source",
+     "nullable": false,
+     "ref": null,
+     "note": "clinician, assistant, patient, import, device, ai_draft, abdm"
+    },
+    {
+     "name": "verified_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "verified_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "read_write"
   },
   {
    "name": "document_templates",
    "domain": "clinical",
-   "purpose": "Consent forms, certificates and letter templates a clinic uses.",
+   "purpose": "Print and form layouts: prescriptions, bills, consent forms, certificates, letters.",
    "rls": "clinic",
-   "star": false,
+   "star": true,
    "partitioned": false,
-   "notes": "",
+   "notes": "org_id is null for Arogyam's default layouts, which clinics copy and adjust.",
    "cols": [
     {
      "name": "kind",
      "type": "doc_template_kind",
      "nullable": false,
      "ref": null,
-     "note": "consent, certificate, letter"
+     "note": "prescription, invoice, consent, certificate, letter"
     },
     {
      "name": "name",
@@ -3591,6 +3900,20 @@
      "note": ""
     },
     {
+     "name": "paper",
+     "type": "paper_size",
+     "nullable": false,
+     "ref": null,
+     "note": "a4, a5, thermal_80mm"
+    },
+    {
+     "name": "uses_letterhead",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "print on pre-printed paper"
+    },
+    {
      "name": "body",
      "type": "text",
      "nullable": false,
@@ -3598,16 +3921,26 @@
      "note": "with placeholders"
     },
     {
-     "name": "module",
+     "name": "pack",
      "type": "text",
      "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "is_default",
+     "type": "bool",
+     "nullable": false,
      "ref": null,
      "note": ""
     }
    ],
    "referenced_by": [
-    "consent_forms.template_id"
-   ]
+    "consent_forms.template_id",
+    "prescriptions.template_id"
+   ],
+   "sensitivity": "internal",
+   "offline": "read_only"
   },
   {
    "name": "consent_forms",
@@ -3661,7 +3994,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "lab_vendors",
@@ -3697,7 +4032,9 @@
    "referenced_by": [
     "lab_orders.vendor_id",
     "lab_payments.vendor_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "lab_orders",
@@ -3795,7 +4132,9 @@
    ],
    "referenced_by": [
     "lab_payments.lab_order_id"
-   ]
+   ],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "lab_payments",
@@ -3849,7 +4188,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "financial",
+   "offline": "server_only"
   },
   {
    "name": "suppliers",
@@ -3884,7 +4225,9 @@
    ],
    "referenced_by": [
     "stock_batches.supplier_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "inventory_items",
@@ -3942,7 +4285,9 @@
     "procedure_materials.item_id",
     "stock_batches.item_id",
     "stock_movements.item_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "stock_batches",
@@ -4005,7 +4350,9 @@
    ],
    "referenced_by": [
     "stock_movements.batch_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "stock_movements",
@@ -4066,7 +4413,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "procedure_materials",
@@ -4099,7 +4448,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "equipment",
@@ -4155,7 +4506,9 @@
    ],
    "referenced_by": [
     "maintenance_logs.equipment_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "maintenance_logs",
@@ -4216,7 +4569,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "salary_structures",
@@ -4249,7 +4604,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "financial",
+   "offline": "server_only"
   },
   {
    "name": "payroll_entries",
@@ -4317,7 +4674,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "financial",
+   "offline": "server_only"
   },
   {
    "name": "staff_advances",
@@ -4357,7 +4716,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "financial",
+   "offline": "server_only"
   },
   {
    "name": "consultant_fee_rules",
@@ -4397,7 +4758,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "consultant_payouts",
@@ -4451,7 +4814,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "financial",
+   "offline": "server_only"
   },
   {
    "name": "price_items",
@@ -4518,7 +4883,9 @@
     "procedure_materials.price_item_id",
     "procedures.price_item_id",
     "treatment_plan_items.price_item_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "read_only"
   },
   {
    "name": "invoices",
@@ -4527,14 +4894,14 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
-   "notes": "",
+   "notes": "Issued bills never change: corrections void and replace. Numbers are never generated offline.",
    "cols": [
     {
      "name": "number",
      "type": "text",
-     "nullable": false,
+     "nullable": true,
      "ref": null,
-     "note": "SC/26-27/000318"
+     "note": "SC/26-27/000318, assigned by the server when issued"
     },
     {
      "name": "patient_id",
@@ -4614,6 +4981,20 @@
      "note": ""
     },
     {
+     "name": "replaces_invoice_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "invoices",
+     "note": "when a voided bill is reissued"
+    },
+    {
+     "name": "void_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
      "name": "promo_code_id",
      "type": "uuid",
      "nullable": true,
@@ -4630,9 +5011,12 @@
    ],
    "referenced_by": [
     "invoice_items.invoice_id",
+    "invoices.replaces_invoice_id",
     "payment_allocations.invoice_id",
     "promo_redemptions.invoice_id"
-   ]
+   ],
+   "sensitivity": "financial",
+   "offline": "server_only"
   },
   {
    "name": "invoice_items",
@@ -4721,7 +5105,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "financial",
+   "offline": "server_only"
   },
   {
    "name": "payments",
@@ -4785,7 +5171,9 @@
    "referenced_by": [
     "payment_allocations.payment_id",
     "refunds.payment_id"
-   ]
+   ],
+   "sensitivity": "financial",
+   "offline": "server_only"
   },
   {
    "name": "payment_allocations",
@@ -4818,7 +5206,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "financial",
+   "offline": "server_only"
   },
   {
    "name": "refunds",
@@ -4865,7 +5255,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "financial",
+   "offline": "server_only"
   },
   {
    "name": "expense_categories",
@@ -4886,7 +5278,9 @@
    ],
    "referenced_by": [
     "expenses.category_id"
-   ]
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "expenses",
@@ -4954,7 +5348,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "financial",
+   "offline": "server_only"
   },
   {
    "name": "daily_closings",
@@ -5008,7 +5404,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "financial",
+   "offline": "server_only"
   },
   {
    "name": "message_templates",
@@ -5072,7 +5470,9 @@
    "referenced_by": [
     "campaigns.template_id",
     "messages.template_id"
-   ]
+   ],
+   "sensitivity": "personal",
+   "offline": "read_only"
   },
   {
    "name": "notification_rules",
@@ -5135,7 +5535,9 @@
    ],
    "referenced_by": [
     "messages.rule_id"
-   ]
+   ],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "contact_preferences",
@@ -5196,7 +5598,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "recalls",
@@ -5243,7 +5647,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "audiences",
@@ -5278,7 +5684,9 @@
    ],
    "referenced_by": [
     "campaigns.audience_id"
-   ]
+   ],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "campaigns",
@@ -5334,7 +5742,9 @@
    ],
    "referenced_by": [
     "messages.campaign_id"
-   ]
+   ],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "promo_codes",
@@ -5405,7 +5815,9 @@
    "referenced_by": [
     "invoices.promo_code_id",
     "promo_redemptions.promo_code_id"
-   ]
+   ],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "promo_redemptions",
@@ -5452,7 +5864,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "outbox_events",
@@ -5485,7 +5899,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "messages",
@@ -5597,7 +6013,9 @@
    ],
    "referenced_by": [
     "message_events.message_id"
-   ]
+   ],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "message_events",
@@ -5637,7 +6055,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "notifications",
@@ -5684,7 +6104,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "sites",
@@ -5741,7 +6163,9 @@
    "referenced_by": [
     "booking_requests.site_id",
     "site_versions.site_id"
-   ]
+   ],
+   "sensitivity": "public",
+   "offline": "server_only"
   },
   {
    "name": "site_versions",
@@ -5797,7 +6221,9 @@
    ],
    "referenced_by": [
     "sites.live_version_id"
-   ]
+   ],
+   "sensitivity": "public",
+   "offline": "server_only"
   },
   {
    "name": "booking_requests",
@@ -5865,7 +6291,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "site_daily_stats",
@@ -5905,16 +6333,18 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "consents",
    "domain": "trust",
-   "purpose": "Phase 3: a patient lets one clinic see records from another, for a purpose and time.",
+   "purpose": "A patient's permission for a clinic or doctor to see records held elsewhere, for a purpose and time.",
    "rls": "user",
    "star": false,
    "partitioned": false,
-   "notes": "",
+   "notes": "Every grant and revocation is audited. The clinic owns its record; the patient controls sharing across clinics.",
    "cols": [
     {
      "name": "patient_link_id",
@@ -5931,18 +6361,32 @@
      "note": ""
     },
     {
-     "name": "scope",
-     "type": "jsonb",
-     "nullable": false,
-     "ref": null,
-     "note": "record kinds"
+     "name": "grantee_practitioner_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "practitioners",
+     "note": ""
     },
     {
      "name": "purpose",
-     "type": "text",
+     "type": "consent_purpose",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "care, referral, insurance, research"
+    },
+    {
+     "name": "data_categories",
+     "type": "text[]",
+     "nullable": false,
+     "ref": null,
+     "note": "e.g. prescriptions, dental, lab_reports"
+    },
+    {
+     "name": "source",
+     "type": "consent_source",
+     "nullable": false,
+     "ref": null,
+     "note": "patient_app, clinic, abdm"
     },
     {
      "name": "starts_at",
@@ -5966,16 +6410,102 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "share_links",
+   "domain": "trust",
+   "purpose": "Expiring links that let a patient open a prescription, bill or report: arogyam.app/r/\u2026",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "notes": "Every open is written to access_log with purpose patient_self.",
+   "cols": [
+    {
+     "name": "token_hash",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "the link holds the token; only its hash is stored"
+    },
+    {
+     "name": "resource",
+     "type": "share_resource",
+     "nullable": false,
+     "ref": null,
+     "note": "prescription, invoice, report"
+    },
+    {
+     "name": "resource_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "channel",
+     "type": "channel",
+     "nullable": false,
+     "ref": null,
+     "note": "whatsapp, sms, email"
+    },
+    {
+     "name": "otp_required",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "a one-time code to the patient's phone before opening"
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "opened_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "open_count",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "revoked_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "access_log",
    "domain": "trust",
-   "purpose": "Who opened which patient record, when. Patients can see this.",
+   "purpose": "The access ledger: who opened which patient record, why, when and from which device. Patients can see it.",
    "rls": "clinic",
    "star": true,
    "partitioned": true,
-   "notes": "Append-only: the app role can insert but never update or delete.",
+   "notes": "Append-only: the app role can insert but never update or delete. Views made offline are queued on the device and uploaded.",
    "cols": [
     {
      "name": "actor_user_id",
@@ -6003,7 +6533,7 @@
      "type": "access_resource",
      "nullable": false,
      "ref": null,
-     "note": "chart, note, attachment, invoice, export"
+     "note": "chart, note, attachment, prescription, invoice, export"
     },
     {
      "name": "resource_id",
@@ -6017,7 +6547,21 @@
      "type": "access_action",
      "nullable": false,
      "ref": null,
-     "note": "view, download, print, export"
+     "note": "view, download, print, share, export"
+    },
+    {
+     "name": "purpose",
+     "type": "access_purpose",
+     "nullable": false,
+     "ref": null,
+     "note": "care, front_desk, billing, support, patient_self, export"
+    },
+    {
+     "name": "device_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "devices",
+     "note": ""
     },
     {
      "name": "at",
@@ -6034,7 +6578,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "audit_events",
@@ -6109,7 +6655,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "data_requests",
@@ -6163,7 +6711,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "onboarding_progress",
@@ -6189,7 +6739,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "imports",
@@ -6259,7 +6811,9 @@
    ],
    "referenced_by": [
     "import_rows.import_id"
-   ]
+   ],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "import_rows",
@@ -6313,7 +6867,9 @@
      "note": ""
     }
    ],
-   "referenced_by": []
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   }
  ],
  "journeys": [
@@ -6426,6 +6982,15 @@
       "prescription_items"
      ],
      "what": "Root canal done on tooth 36: stock deducted, crown sent to the lab, prescription issued."
+    },
+    {
+     "actor": "Doctor",
+     "tables": [
+      "document_templates",
+      "share_links",
+      "access_log"
+     ],
+     "what": "Prescription printed on the clinic letterhead with the Arogyam footer and QR; the patient gets an expiring WhatsApp link."
     },
     {
      "actor": "Front desk",
@@ -6569,37 +7134,6 @@
       "patients"
      ],
      "what": "Row-level security limits every query to this clinic."
-    }
-   ]
-  },
-  {
-   "key": "quality",
-   "title": "Test results reach the super admin",
-   "steps": [
-    {
-     "actor": "CI",
-     "tables": [
-      "quality_runs",
-      "quality_results"
-     ],
-     "what": "Every pull request and merge uploads unit, integration and end-to-end results."
-    },
-    {
-     "actor": "Canary runner",
-     "tables": [
-      "canary_checks",
-      "quality_runs",
-      "quality_results"
-     ],
-     "what": "Every 15 minutes each journey runs against the demo clinic; failures carry the request ID."
-    },
-    {
-     "actor": "Console",
-     "tables": [
-      "quality_runs",
-      "quality_results"
-     ],
-     "what": "Quality page: status per suite and environment, pass-rate trend, flaky tests, failing request IDs to open with sk."
     }
    ]
   },

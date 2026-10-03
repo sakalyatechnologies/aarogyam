@@ -102,7 +102,7 @@ flowchart LR
 
 ### A request checks access
 
-1. **Host**: smilecatchers.aarogyam.app resolves to the clinic. (`org_domains`, `organizations`)
+1. **Host**: smilecatchers.aarogyam.example resolves to the clinic. (`org_domains`, `organizations`)
 2. **Session**: JWT verified, session still active. (`users`, `sessions`)
 3. **Membership**: User is an active member whose role allows patients.read. (`memberships`, `roles`, `role_permissions`)
 4. **Plan and flags**: Feature is in the plan and released to this clinic. (`subscriptions`, `plan_features`, `entitlement_overrides`, `feature_flags`, `flag_rules`)
@@ -487,7 +487,7 @@ Host names that resolve to a clinic: its portal and its website.
 | Column | Type | Notes |
 |---|---|---|
 | `org_id` | `uuid` | → `organizations` |
-| `hostname` | `text` | unique: smilecatchers.aarogyam.app, smilecatchers.in |
+| `hostname` | `text` | unique: smilecatchers.aarogyam.example, smilecatchers.in |
 | `kind` | `domain_kind` | portal, website |
 | `is_primary` | `bool` |  |
 | `cloudflare_hostname_id` | `text?` |  |
@@ -2168,7 +2168,7 @@ Every grant and revocation is audited. The clinic owns its record; the patient c
 
 ### `share_links` (★ foundation)
 
-Expiring links that let a patient open a prescription, bill or report: aarogyam.app/r/…
+Expiring links that let a patient open a prescription, bill or report: aarogyam.example/r/…
 
 *Clinic-scoped: org_id + row-level security · sensitivity: health · offline: server only*
 

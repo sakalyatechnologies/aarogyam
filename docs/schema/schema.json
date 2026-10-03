@@ -1127,7 +1127,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "unique: smilecatchers.aarogyam.app, smilecatchers.in"
+     "note": "unique: smilecatchers.aarogyam.example, smilecatchers.in"
     },
     {
      "name": "kind",
@@ -6672,7 +6672,7 @@
   {
    "name": "share_links",
    "domain": "trust",
-   "purpose": "Expiring links that let a patient open a prescription, bill or report: aarogyam.app/r/\u2026",
+   "purpose": "Expiring links that let a patient open a prescription, bill or report: aarogyam.example/r/\u2026",
    "rls": "clinic",
    "star": true,
    "partitioned": false,
@@ -7353,7 +7353,7 @@
       "org_domains",
       "organizations"
      ],
-     "what": "smilecatchers.aarogyam.app resolves to the clinic."
+     "what": "smilecatchers.aarogyam.example resolves to the clinic."
     },
     {
      "actor": "Session",

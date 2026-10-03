@@ -35,7 +35,7 @@ Crates split further by module (patients, appointments, billing) only when build
 
 ## A request, end to end
 
-1. Cloudflare receives `https://smilecatchers.aarogyam.app/api/v1/patients/SC-1042` and forwards it to Cloud Run.
+1. Cloudflare receives `https://smilecatchers.aarogyam.example/api/v1/patients/SC-1042` and forwards it to Cloud Run.
 2. `sakalya-http` assigns a request ID and opens the request span.
 3. Auth middleware verifies the JWT (`sakalya-auth`), checks the session is still active, and records `user_id` on the span.
 4. Tenancy middleware resolves `smilecatchers` to a clinic, checks the user's membership, and records `tenant_id`.
@@ -49,9 +49,37 @@ Crates split further by module (patients, appointments, billing) only when build
 | | Local | Staging | Production |
 |---|---|---|---|
 | API | `localhost:8080` | project `sakalya-clinic-staging` | project `sakalya-clinic-prod` |
-| Clinic hosts | `smilecatchers.localtest.me:8080` | `*.aarogyam-staging.app` (or path mode until a domain is bought) | `*.aarogyam.app` |
+| Clinic hosts | `smilecatchers.localtest.me:8080` | `*.aarogyam-staging.example`, or `workers.dev` with the clinic in the path until a domain is bought | `*.aarogyam.example` |
 | Database | local Postgres | Supabase free project | Supabase Pro project |
 | Data | seeded fakes | synthetic | real |
 | Logs | pretty, `debug` | Cloud Logging, `info,aarogyam=debug` | Cloud Logging, `info`; per-clinic debug for 30 minutes on demand |
 
 `localtest.me` and its subdomains resolve to `127.0.0.1`, so host-based tenancy works locally without editing `/etc/hosts`.
+
+Domains are not chosen yet, so docs use the reserved placeholder `aarogyam.example`. Until a domain exists, staging runs on free `workers.dev` and `run.app` addresses, and a non-production setting may read the clinic from the URL path. Production only ever reads it from the host name.
+
+## Cloudflare
+
+One Cloudflare account for all Sakalya products, owned by the company identity, with members using their own logins. Each product has its own zones (domains). CI deploy tokens are limited to one product's zones.
+
+Cloudflare stays a thin edge. Business logic lives in the Rust API on Cloud Run, which keeps it portable and avoids lock-in.
+
+| Use | For | Cost |
+|---|---|---|
+| Workers with static assets | Clinic portal, console, clinic websites; a small proxy sends `/api/*` to Cloud Run | Free plan: 100,000 Worker requests a day. Requests served purely from static files don't run Worker code. Paid plan $5/month for 10M requests, when the API proxy needs it. |
+| DNS, TLS, attack protection, firewall rules | Every zone | Free |
+| Cloudflare for SaaS | Clinics' own domains (`www.smilecatchers.in`) | First 100 free, then $0.10 each per month |
+| Access | The super admin console | Free up to 50 users |
+| Turnstile | Bot checks on booking forms and OTP requests | Free |
+| Web Analytics | Clinic website traffic, no cookies | Free |
+| R2 | Public website images only (no download fees) | Free up to 10 GB; needs a card on file |
+| Email Routing | `admin@` and support addresses to existing inboxes | Free |
+
+**Not used, on purpose:**
+- D1, KV, Durable Objects, Queues and Hyperdrive: Postgres and the Rust worker already do these jobs.
+- Workers AI and Images: paid, and not needed.
+- Argo, Load Balancing and Stream: paid add-ons.
+
+Patient files never go to R2. They stay in Mumbai.
+
+**Patient data at the edge:** API traffic passes through Cloudflare's network encrypted and is never cached. Cache rules exclude `/api/*`, and responses carry `Cache-Control: no-store`. Data is stored only in Mumbai. Cloudflare's regional TLS termination is an Enterprise feature; revisit it if a large customer requires in-country termination.

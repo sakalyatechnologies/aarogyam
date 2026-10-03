@@ -2,13 +2,15 @@
 
 *Ārogyaṁ dhana sampadā*: health is wealth.
 
-**One line.** Arogyam is the clinic software every kind of doctor in India can run their whole practice on, which grows into one place where patients keep their health records from every clinic.
+**North star.** A doctor opens Arogyam and it feels built for their specialty, their clinic and their way of working.
+
+**One line.** Arogyam is the operating system for every kind of clinic in India, which grows into one place where patients keep their health records from every doctor they visit.
 
 Read this first for context. Technical detail lives in `architecture.md`, `database.md`, `decisions.md` and `cicd.md`.
 
 ## Vision
 
-A doctor opens Arogyam and it feels built for their specialty, their clinic and their way of working. Everything around the consultation (booking, records, bills, stock, staff, reminders, a website) runs itself. Later, a patient opens Arogyam and sees their dental, general, gynecology and cardiology history together, shared only with the doctors they choose.
+A doctor opens Arogyam and sees today's work, laid out for their specialty. Everything around the consultation (booking, records, prescriptions, bills, stock, staff, reminders, a website) runs itself. Later, a patient opens Arogyam and sees their dental, general, gynecology and cardiology history together, shared only with the doctors they choose.
 
 ## The problem
 
@@ -18,38 +20,104 @@ A doctor opens Arogyam and it feels built for their specialty, their clinic and 
 - Most clinics have no website, or an outdated one, and no time to fix it.
 - Patients carry paper files between doctors; nobody sees the whole picture.
 
-## Goals
+## Product structure
 
-| Horizon | Goal | Proposed measure |
+Customers see one brand. Internally Arogyam has three parts:
+
+| Part | Holds | Who uses it |
 |---|---|---|
-| Phase 1 | Pilot clinics run their whole day on Arogyam | 3–5 clinics stop using their old software for a month |
-| Phase 2 | Clinics pay and onboard without help | Paying clinics; self-serve onboarding under 15 minutes |
-| Phase 3 | Patients hold records from more than one clinic | Patients with records linked from two or more clinics |
-| Phase 4 | Money side of health: claims and financing | A claim or financed treatment completed inside Arogyam |
+| **Clinic OS** | Appointments, Patient 360, clinical records, prescriptions, billing, staff, inventory, communication, website | Doctors and clinic staff |
+| **Patient** (phase 3) | My health, my doctors, records from every clinic, family, consent, insurance | Patients and families |
+| **Platform** | Identity, permissions, consent, notifications, payments, audit, integrations (ABDM, WhatsApp, labs) | Every part |
+
+### Specialty Packs
+
+Clinic OS has a shared **Core** (patients, appointments, visits, notes, prescriptions, billing, staff, documents, consent). Each specialty is a **Specialty Pack** on top of Core: its onboarding questions, forms, data schemas, views, dashboard widgets, vocabulary and permissions. Packs are mostly configuration, so a new specialty is controlled expansion rather than a redesign.
+
+| Pack | Signature views | Phase |
+|---|---|---|
+| Dental | Tooth chart (32 adult, 20 child teeth) with history per tooth, treatment plans, lab work per tooth, dental imaging | 1A |
+| General medicine | Vitals trends, chronic-care panels, quick prescriptions | 1B |
+| Gynecology and obstetrics | Menstrual history, pregnancy timeline, due date, antenatal visits, scan windows | 2 |
+| Pediatrics | Growth percentiles, vaccination schedule, development milestones | 2 |
+| Cardiology, neurology, ophthalmology, orthopedics, dermatology, Ayurveda | Built as doctors use them | 3+ |
+
+## Signature experiences
+
+### First ten minutes: onboarding
+Onboarding is a signature experience. Target: a clinic is ready, self-served, in under 15 minutes.
+
+1. **What kind of practice do you run?** Dentist, general physician, gynecologist, pediatrician and more. This picks the Specialty Pack.
+2. **How do you practice?** Solo, with assistants, multi-doctor, or multiple branches.
+3. **What do you use today?** Paper, Excel, or other software. This decides the import path.
+4. **Do you have a website?** If yes, connect it and add booking. If no, Arogyam offers one.
+5. **Staff, services and fees, hours** (including split shifts), and **branding** from the logo.
+6. **Bring your patients** in, and switch on reminders.
+7. **Your clinic is ready.**
+
+### Today
+A doctor at 9 AM sees today's work, not analytics: today's numbers, who is **Now** (waiting time, the reason, a Start consultation button), and who is **Up next**. Reception sees the queue and arrivals. Owners see the day's money and attention items underneath. Today's work beats dashboards.
+
+### Patient 360
+One screen per patient:
+- **Header:** identity and allergies.
+- **Timeline:** every visit, treatment, prescription and document.
+- **Tabs:** vitals, images, bills and payments, consent, communication, family.
+- **Specialty Pack views:** for example the tooth chart.
+
+### Voice to note
+The doctor taps the microphone and speaks in English, Hindi, Marathi or Hinglish. Arogyam transcribes the recording and, from phase 2, drafts a structured note (complaint, history, examination, assessment, treatment) for the doctor to review, edit and sign. AI never diagnoses on its own and nothing enters the record unsigned.
+
+### Prescriptions
+- **Writing:** doctors write prescriptions from favourites and the medicine list, in the patient's language.
+- **Printing:**
+  - **Layout:** on the clinic's letterhead or plain paper (A4, A5 or thermal).
+  - **Contents:** the doctor's name, qualifications and registration number, with generic names in capitals.
+  - **Arogyam footer:** a small "Prescribed with Arogyam" line plus a QR code that opens the verified digital copy. Higher plans may later remove the footer.
+- **Changes:** an issued prescription never changes. A correction cancels it and issues a new one.
+- **Staff access:** staff see every prescription in Patient 360 and can reprint.
+- **Patient access:**
+  - **Now:** patients get an expiring WhatsApp or SMS link that opens after a one-time code.
+  - **Later:** the patient app shows prescriptions from every clinic.
 
 ## Who it is for
 
 | User | What they need | Where they use it |
 |---|---|---|
-| **Clinic owner** (a doctor) | Run the practice: patients, money, staff, growth. See everything. | Web portal, phone |
-| **Doctor** (associate) | Their schedule, patient history, quick notes and prescriptions | Phone, web |
-| **Visiting consultant** | Only their assigned cases and their fees | Phone |
-| **Front desk** | Appointments, walk-ins, registration, collecting payment, messages | Web on the reception PC |
+| **Clinic owner** (a doctor) | Run the practice: patients, money, staff, growth | Web portal, phone |
+| **Doctor** (associate) | Today's patients, history, quick notes and prescriptions | Phone, web |
+| **Visiting consultant** | Only assigned cases and their fees | Phone |
+| **Front desk** | Appointments, walk-ins, registration, payments, messages | Web on the reception PC |
 | **Assistant or nurse** | Vitals, intake, photos, materials used | Phone or tablet |
 | **Finance** | Bills, payments, expenses, salaries, reports, Excel exports | Web |
 | **Patient and family** (phase 3) | Records from every clinic, bookings, bills, consent | Patient app and web |
 | **Sakalya team** | Onboard clinics, plans, rollouts, support, analytics | Super admin console |
 
-The owner decides what each staff role can see, down to hiding fees or phone numbers.
+Access is **role plus permissions plus scope**. A role is a starting bundle. The owner can switch individual permissions on or off, such as seeing fees, seeing phone numbers, exporting data, deleting documents or managing staff. Each permission is scoped to the clinic, a branch, or assigned patients only.
 
-## What makes it different
+## Trust: identity, consent and the access ledger
 
-1. **Built around the specialty.** Each specialty is a module with its own onboarding questions, forms, views and dashboard: a tooth chart for dentists, a pregnancy timeline for gynecologists, vitals trends for GPs.
-2. **Talk instead of type.** Voice notes in Indian languages and Hinglish, transcribed and later drafted into a structured note the doctor signs.
-3. **Automated by default.** Reminders, birthdays, recalls, stock deduction, lab tracking, daily closing and the clinic website happen without anyone remembering to do them.
-4. **A website in minutes.** Answer a few questions and get a distinct, fast website on the clinic's own domain, with booking built in.
-5. **Private by design.** Each clinic's data is isolated in the database itself, every chart view is logged, and Sakalya staff can't see patient records unless the clinic grants access.
-6. **India first.** Phone sign-in, WhatsApp, UPI, GST-ready bills, Indian languages, works on patchy internet, data stored in India.
+- **Identity:**
+  - A phone number is contact information, never identity, because families share numbers and numbers change.
+  - Inside a clinic, a matching phone number triggers a duplicate warning, never an automatic merge.
+  - Merges keep the full history and can be undone.
+- **Linking across clinics** (phase 3): a patient's account links to their record at each clinic only after verification, by one-time code, ABHA or the clinic confirming.
+- **Who owns what:** the clinic owns its clinical record and its legal duties; the patient controls whether records are shared across clinics.
+- **Consent** is a first-class record: who may see what, for which purpose and data categories, granted when, expiring when, revoked when, and from which source. Every change is audited.
+- **Access ledger:** every sensitive view records who, what, why, when and from which device. Patients can see who viewed their records. Privacy becomes a trust feature, not only a compliance duty.
+- **Isolation:** each clinic's data is isolated in the database itself. Sakalya staff can't see patient records unless the clinic grants time-limited access.
+
+## Works offline
+
+Clinics in India lose connectivity, so the phone apps keep working without it.
+
+| Offline | Works |
+|---|---|
+| **Read and write** | Today's appointments and queue, registering and finding patients (the clinic's recent and scheduled patients are kept on the device), visits, draft notes and signing, vitals, diagnoses, procedures, prescription drafts, photos and voice notes (uploaded when back online), the tooth chart |
+| **Read only** | Doctors, hours, price list, medicines, templates, settings |
+| **Online only** | Issuing bill and prescription numbers, collecting online payments, sending messages, permissions and plans |
+
+Changes made offline sync when the connection returns. If two devices change the same record, notes and specialty records keep both versions for the doctor to choose; simple fields keep the latest change and the audit log keeps the other.
 
 ## Features
 
@@ -58,7 +126,7 @@ The owner decides what each staff role can see, down to hiding fees or phone num
 - **Dashboard:** patient totals and demographics, registrations, appointments, visits and treatments by period and type.
 - **Patients:** search by ID, name or mobile; custom and smart-card IDs; referral source; medical history; families; import from old software.
 - **Appointments:** day, week, month and list views; doctor and chair lanes; walk-in tokens; confirmations; no-show tracking.
-- **Clinical:** visits, notes, vitals, diagnoses, prescriptions with the doctor's registration number, treatment plans with estimates, photos and X-rays, signed consent forms.
+- **Clinical:** visits, notes, vitals, diagnoses, prescriptions, treatment plans with estimates, photos and X-rays, signed consent forms.
 - **Clinic operations:** lab work and lab payments, materials and stock with automatic deduction, equipment maintenance, staff salaries and advances, consultant fees.
 - **Money:** price list, bills with a financial-year series, payments by cash, UPI or card, refunds, expenses, daily closing, finance reports with Excel export.
 - **Messages:** SMS and WhatsApp with templates, history and audience filters, all consent-aware.
@@ -66,78 +134,77 @@ The owner decides what each staff role can see, down to hiding fees or phone num
 
 ### Beyond the baseline
 
-- **Specialty modules:** dental and general medicine first, then gynecology and obstetrics, pediatrics, and more.
-- **Voice notes** with transcription, then AI-drafted notes the doctor approves.
-- **Notification service:** appointment reminders, birthday wishes, recalls (six-month cleaning, BP review, vaccines), health tips and promo codes, with consent, quiet hours and cost tracking.
-- **Automated clinic websites:** questionnaire, generated design, repository, build and deploy, with version history.
-- **Personal onboarding:** specialty, hours (including split shifts), services and prices, branding, website and patient import in one guided flow.
-- **Super admin console:** clinics, users, usage, revenue, website traffic and messaging costs; plans and feature rollouts; time-limited support access.
-- **Plans:** features released by flag, included by plan, and allowed by role.
+- **Specialty Packs**, the signature experiences above, and **automation:** reminders, birthdays, recalls, stock, lab tracking, daily closing.
+- **Clinic websites:**
+  - **Phase 1:** connect an existing website and add booking.
+  - **Phase 2:** about five excellent templates filled from the clinic's details (logo, colours, photos, services, doctors, hours, contact, domain). Each lives in its own repository, built and deployed automatically.
+  - **Later:** AI-written copy.
+- **Super admin console:** clinics, users, usage, revenue, website traffic and messaging costs; plans and feature rollouts; time-limited support access; a quality page fed from a separate operations store.
+- **Plans:** a feature appears only when it is released (flag), included in the plan (entitlement), and allowed for the person (permission).
 
 ### Later
 
 - **Patient app:** records from every clinic, family profiles, booking, bills, consent and "who viewed my record".
-- **ABDM integration:** ABHA IDs and sharing records with other providers through the national health stack.
+- **ABDM integration:** ABHA IDs and sharing records through the national health stack.
 - **Referrals** between Arogyam doctors, with records attached by consent.
 - **Lab and pharmacy integrations.**
 - **Teleconsultation.**
 - **Insurance claims** through NHCX.
 - **Treatment financing.**
-- **A chatbot assistant.**
+- **Devices and wearables.**
+- **An assistant.**
 
-## Specialties
+AI is an accelerator, never the product: Arogyam works fully without it.
 
-| Specialty | Signature view | Phase |
-|---|---|---|
-| Dental | Tooth chart (32 adult, 20 child teeth), treatment plans, lab work per tooth | 1 |
-| General medicine | Vitals trends, chronic-care panels, quick prescriptions | 1 |
-| Gynecology and obstetrics | Pregnancy timeline, due date, scan windows | 2 |
-| Pediatrics | Growth percentiles, vaccination schedule | 2 |
-| Cardiology, neurology, ophthalmology, orthopedics, dermatology, Ayurveda | Specialty views built as doctors use them | 3 |
-
-## Phases
+## Goals and phases
 
 | Phase | Scope | Done when |
 |---|---|---|
-| 0. Foundation | Platform crates, schema with isolation, sign-in, roles, plans and flags, CI/CD, staging | A clinic created in the console signs in at its own subdomain; clinics provably can't see each other's data |
-| 1. Clinic MVP | The whole baseline for dental and general medicine, voice notes, onboarding, website linking, Android app (iOS a sprint behind) | 3–5 pilot clinics run their day on Arogyam for a month |
-| 2. Growth | Website builder, billing for plans, console analytics, gynecology and pediatrics, AI notes, campaigns, multi-branch, ABDM M1 and M2 | Clinics pay and onboard on their own |
-| 3. Patients | Patient app, cross-clinic records by consent, families, booking, referrals, labs, ABDM M3 | Patients hold records from two or more clinics |
-| 4. Wealth | Insurance claims, treatment financing, teleconsultation, more specialties, assistant | A claim or financed treatment completes inside Arogyam |
+| **0. Foundation** | Multi-tenancy, identity, permissions, audit, consent, offline architecture, CI/CD, staging | A clinic created in the console signs in at its own subdomain; clinics provably can't see each other's data |
+| **1A. Dental** | Core Clinic OS plus the Dental pack: Today, Patient 360, appointments and queue, visits, tooth chart, treatment plans, prescriptions (print and patient link), bills and payments, staff, voice notes, onboarding, website linking, web portal, doctor mobile app | 3–5 dental clinics run their whole day on Arogyam for 30+ days and stop using their old software. We measure time saved, appointments, collections, notes and retention. |
+| **1B. Platform proof** | General Medicine pack on the same Core | A GP clinic runs on Arogyam without Core changes, proving the pack architecture |
+| **2. Growth** | Self-serve onboarding, website templates, plans and billing, AI-drafted notes, gynecology and pediatrics, campaigns, multi-branch, inventory depth, ABDM M1 and M2 | Clinics pay and onboard on their own |
+| **3. Patient network** | Arogyam Patient, cross-clinic records by consent, families, booking, referrals, labs, ABDM M3 | Patients hold records from two or more clinics |
+| **4. Health Finance** | Insurance claims, treatment financing, teleconsultation, devices, more specialties | A claim or financed treatment completes inside Arogyam |
 
 ## Business model
 
-- **Subscription per clinic:** Solo, Clinic, Pro and Enterprise plans (prices to be set with pilots).
+- **Subscription per clinic:** Solo, Clinic, Pro and Enterprise plans.
 - **Add-ons:** message credits, AI minutes, extra branches, storage.
-- **Pass-through costs:** SMS and WhatsApp are passed through at cost.
-- **Website builder:** included in Pro.
+- **Pass-through costs:** messages are passed through at cost.
+- **Not fixed yet:** prices are not set. Pilots test willingness to pay separately for core software, reminders and WhatsApp, the website, AI documentation, extra doctors, branches and storage. One hypothesis to test: the website may work better as a free way to win clinics than as a Pro feature.
 
 ## Product principles
 
 1. Every screen should feel made for this doctor's specialty and role.
-2. If a person has to remember to do it, automate it.
-3. Speed at the front desk beats features nobody finds.
-4. Patient data is private by default; sharing is always the patient's or clinic's explicit choice.
+2. Today's work beats dashboards; speed at the front desk beats features nobody finds.
+3. If a person has to remember to do it, automate it.
+4. Patient data is private by default; sharing is always an explicit choice.
 5. Work on a slow connection and a cheap phone.
-6. Spend nothing until real patients, then spend only where it protects them.
+6. AI accelerates; the product stands on its own.
+7. Spend nothing until real patients, then spend only where it protects them.
 
 ## Not doing (for now)
 
 - **In-patient hospital workflows:** wards, beds, operating theatres.
-- **AI that diagnoses on its own:** AI only helps with documentation, and the doctor signs every note.
+- **AI that diagnoses on its own.**
 - **Holding clinics' money:** patients pay clinics directly.
 - **Markets outside India**, until the India product is proven.
 
 ## Compliance
 
-- **India's data protection law (DPDP Act):** core duties apply from May 2027. Clinics are the data fiduciaries for their records.
-- **ABDM:** milestones M1 to M3.
-- **Messaging rules:** DLT-registered SMS templates and approved WhatsApp templates.
+- **DPDP Act and Rules 2025:** commencement is staged. The Rules were notified on 13 November 2025; consent-manager provisions apply after one year, and the major operational duties (notice, consent, security safeguards, breach reporting, retention) apply from about May 2027. Clinics are the data fiduciaries for their records.
+- **ABDM:** milestones M1 (ABHA and registries), M2 (sharing records) and M3 (fetching records), planned across phases 2 and 3.
+- **Messaging rules:** SMS uses DLT-registered templates; WhatsApp templates are approved by Meta. Promotional messages need opt-in.
 - **Advertising:** medical and dental council rules on doctor advertising apply to clinic websites.
+- **Prescriptions:** medical council requirements apply.
 - **Data location:** all patient data stays in India.
 
 ## Open questions
 
-- **Pilots:** which clinics, and which software they use today, so the import works from it?
-- **Pricing** per plan.
-- **Domains:** final domain names and the trademark search for "Arogyam".
+- **Pilots:**
+  - Which 3–5 dental clinics after Smile Catchers?
+  - Which software do they use today, so import works from it?
+- **Patient relationship:** in phase 3, a patient can join Arogyam and see records created by clinics. We need to define in product and legal terms what the clinic controls, what the patient controls, and what happens when a patient leaves a clinic.
+- **Pricing:** per plan, and whether the website is paid or free.
+- **Domains:** final names and the trademark search for "Arogyam".

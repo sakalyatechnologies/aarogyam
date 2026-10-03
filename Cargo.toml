@@ -9,6 +9,16 @@ rust-version = "1.90"
 publish = false
 repository = "https://github.com/sakalyatechnologies/aarogyam"
 
+[workspace.dependencies]
+# Third party: the versions and features sakalya-backend pins, so both resolve to one copy.
+thiserror = { version = "2.0.21", default-features = false, features = ["std"] }
+sqlx = { version = "0.9.0", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls-aws-lc-rs", "uuid", "time", "macros", "migrate"] }
+
+# Workaround: sqlx 0.9.0 builds whoami without `std`, so a database URL without a user name
+# connects as "anonymous" instead of the OS user. This restores libpq's default, which local
+# URLs such as postgres://localhost:5432/aarogyam_dev rely on. Remove once sqlx fixes it.
+whoami = { version = "2.1.3", default-features = false, features = ["std"] }
+
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_docs = "warn"

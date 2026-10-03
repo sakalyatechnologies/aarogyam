@@ -7,7 +7,8 @@ for f in "$src"/docs/guidelines/*.md; do
   { echo "<!-- Copied from sakalya-backend. Edit it there, then run scripts/sync-guidelines.sh. -->"; echo; cat "$f"; } > "docs/guidelines/$(basename "$f")"
 done
 cp "$src"/docs/vendor/* docs/vendor/
-cp "$src"/.githooks/pre-commit .githooks/pre-commit
+# .githooks/pre-commit is not copied: the product's hook extends the shared one (schema docs,
+# database tests). Merge changes from "$src"/.githooks/pre-commit by hand.
 cp "$src"/.claude/hooks/format-rust.sh .claude/hooks/format-rust.sh
 cp "$src"/.claude/settings.json .claude/settings.json
 cp "$src"/scripts/install-hooks.sh scripts/install-hooks.sh

@@ -1,11 +1,11 @@
 name: ci
 
+# Parked until CI/CD is set up (see docs/cicd.md); the local pre-commit hook is the gate.
+# To un-park, trigger on pull_request and on push to main, both with these paths:
+#   paths: ["crates/**", "Cargo.*", "db/**", "config/**", "deny.toml", "rust-toolchain.toml",
+#           "docs/api/**", "docs/schema/**", "scripts/gen_schema_docs.py", ".github/workflows/ci.yml"]
 on:
-  pull_request:
-    paths: ["crates/**", "Cargo.*", "db/**", "rust-toolchain.toml", ".github/workflows/ci.yml"]
-  push:
-    branches: [main]
-    paths: ["crates/**", "Cargo.*", "db/**", "rust-toolchain.toml", ".github/workflows/ci.yml"]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}

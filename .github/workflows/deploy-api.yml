@@ -2,12 +2,9 @@
 # Merge to main -> build once -> staging (100%) -> production canary after one approval.
 name: deploy-api
 
+# Parked until CI/CD is set up (see docs/cicd.md); the local pre-commit hook is the gate.
 on:
-  pull_request:
-    paths: ["crates/**", "Cargo.*", "db/**", "Dockerfile"]
-  push:
-    branches: [main]
-    paths: ["crates/**", "Cargo.*", "db/**", "Dockerfile"]
+  workflow_dispatch:
 
 concurrency:
   group: deploy-api-${{ github.ref }}

@@ -1,9 +1,9 @@
 # Removes a pull request's preview tag from the staging service when the PR closes.
 name: preview-cleanup
 
+# Parked until CI/CD is set up (see docs/cicd.md); the local pre-commit hook is the gate.
 on:
-  pull_request:
-    types: [closed]
+  workflow_dispatch:
 
 permissions:
   contents: read

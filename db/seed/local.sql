@@ -4,6 +4,7 @@
 --
 --   Sunrise Dental     sunrise.localtest.me   owner Asha, doctor Dev, front desk Farah
 --   Lotus Dental Care  lotus.localtest.me     owner Bina; Dev also consults here
+--   Console            Sakalya Admin (platform owner)
 \set ON_ERROR_STOP 1
 begin;
 
@@ -12,6 +13,11 @@ insert into aarogyam.users (id, auth_uid, display_name, email, phone_e164) value
   ('01920000-0000-7000-8000-0000000000a2', 'a1a1a1a1-0000-4000-8000-000000000002', 'Dr Dev Rao', 'dev@sunrise.example', '+919800000002'),
   ('01920000-0000-7000-8000-0000000000a3', 'a1a1a1a1-0000-4000-8000-000000000003', 'Farah Shaikh', 'farah@sunrise.example', '+919800000003'),
   ('01920000-0000-7000-8000-0000000000b1', 'b1b1b1b1-0000-4000-8000-000000000001', 'Bina Joshi', 'bina@lotus.example', '+919800000011');
+
+-- Sakalya staff for the console.
+insert into aarogyam.users (id, auth_uid, display_name, email) values
+  ('01920000-0000-7000-8000-0000000000c1', 'c1c1c1c1-0000-4000-8000-000000000001', 'Sakalya Admin', 'admin@sakalya.example');
+insert into aarogyam.platform_users (user_id, role) values ('01920000-0000-7000-8000-0000000000c1', 'owner');
 
 select app.create_clinic('sunrise', 'Sunrise Dental', 'SD', 'dental', 'sunrise.localtest.me',
                          '01920000-0000-7000-8000-0000000000a1') as sunrise \gset

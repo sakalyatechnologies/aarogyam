@@ -565,9 +565,9 @@
    "domain": "platform",
    "purpose": "Sakalya staff who can use the console, and their role.",
    "rls": "global",
-   "star": false,
+   "star": true,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "mutable",
    "schema": "aarogyam",
    "notes": "",
    "cols": [

@@ -88,7 +88,7 @@ TABLES = [
       cols=["flag_id uuid -> feature_flags",
             "kind flag_rule_kind | org_list, percentage, plan, platform, min_app_version",
             "value jsonb", "priority int"]),
-    T(name="platform_users", domain="platform", rls="global",
+    T(name="platform_users", domain="platform", rls="global", star=True, lifecycle="mutable",
       purpose="Sakalya staff who can use the console, and their role.",
       cols=["user_id uuid -> users", "role platform_role | owner, support, onboarding, analyst",
             "active bool"]),

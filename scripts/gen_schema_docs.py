@@ -28,6 +28,8 @@ OFFLINE_LABEL = {
     "server_only": "server only",
 }
 
+LIFECYCLES = {"mutable", "soft_delete", "finalizable", "append_only", "ephemeral"}
+
 RLS_LABEL = {
     "clinic": "Clinic-scoped: org_id + row-level security",
     "global": "Platform-wide: no tenant, written by Sakalya or the system",
@@ -59,6 +61,8 @@ def parse() -> dict:
             "rls": table["rls"],
             "star": table.get("star", False),
             "partitioned": table.get("partitioned", False),
+            "lifecycle": table.get("lifecycle"),
+            "schema": table.get("schema", "aarogyam"),
             "notes": table.get("notes", ""),
             "cols": cols,
         }
@@ -91,6 +95,23 @@ def parse() -> dict:
             else "read_only" if name in model.OFFLINE_READ_ONLY
             else "server_only"
         )
+
+    for t in tables.values():
+        if t["lifecycle"] is not None and t["lifecycle"] not in LIFECYCLES:
+            sys.exit(f"unknown lifecycle {t['lifecycle']} on {t['name']}")
+        if t["star"] and t["lifecycle"] is None:
+            sys.exit(f"foundation table {t['name']} needs a lifecycle")
+
+    # Foundation tables should only point at foundation tables. Reported, not fatal yet:
+    # each remaining case is resolved (starred or deferred) when its slice is built.
+    outside = sorted(
+        f"{t['name']}.{c['name']} -> {c['ref']}"
+        for t in tables.values()
+        for c in t["cols"]
+        if t["star"] and c["ref"] and not tables[c["ref"]]["star"]
+    )
+    if outside:
+        print("foundation tables pointing outside the foundation:\n  " + "\n  ".join(outside))
 
     domain_names = {d[0] for d in model.DOMAINS}
     for t in tables.values():
@@ -171,24 +192,26 @@ def markdown(schema: dict) -> str:
         "",
         f"{len(tables)} tables in {len(schema['domains'])} areas. "
         f"{len(stars)} are needed for the foundation milestone (marked ★). "
-        "This is the design; once migrations exist they become the truth and this file is regenerated from them.",
+        "This is the design. Tables that are built must match it: a test compares the migrated database with this model.",
         "",
         "## Conventions every table follows",
         "",
         "- **Clinic-scoped tables** also have `org_id uuid -> organizations`, `id uuid`, a primary key of `(org_id, id)`, "
-        "`created_at`, `created_by`, `updated_at`, `updated_by`, and `deleted_at` where rows can be removed. "
-        "Foreign keys include `org_id`, so a row can never point at another clinic's row. "
+        "`created_at`, `created_by`, `updated_at`, `updated_by`, and `deleted_at` when the lifecycle is `soft_delete`. "
+        "Foreign keys include `org_id`, so a row can never point at another clinic's row, and every unique key starts with `org_id`. "
         "Row-level security limits every query to `org_id = app.tenant_id()`.",
-        "- **Platform tables** have `id uuid` as the primary key and no row-level tenant filter; only the console and the system write them.",
+        "- **Platform tables** have `id uuid` as the primary key. Row-level security is on for them too: clinic members read only rows about their own clinic, and only the console and the system write them.",
         "- **User tables** belong to one signed-in user.",
-        "- IDs are UUIDv7. Money is `bigint` paise. Times are `timestamptz` in UTC. Enums are Postgres enum types.",
+        "- **Schemas:** tables live in `aarogyam`, the two logs in `audit`, helper functions in `app`, internal tables in `private`. Nothing goes in `public`, which Supabase exposes through its Data API.",
+        "- **Lifecycle** (mutable, soft delete, finalizable, append-only, ephemeral) decides the columns, triggers and grants: only ephemeral rows can be deleted.",
+        "- IDs are UUIDv7. Money is `bigint` paise. Times are `timestamptz` in UTC. Statuses are `text` with a CHECK constraint listing the allowed values, because Postgres enums can't use an index under row-level security.",
         "- Readable numbers (`SC-1042`, `SC/26-27/000318`) come from `number_sequences`.",
         "- Tables marked *partitioned* are split by month.",
         "- **Immutable once final:** signed notes (corrections are addenda), issued prescriptions (cancel and reissue), issued bills (void and replace), and observations (a correction supersedes). Readable numbers are assigned by the server at issue, never on a device.",
         "- **Clinical codes are optional:** free text always works; `code_system`, `code`, `code_display` and `code_version` leave room for ICD, SNOMED and LOINC when interoperability needs them.",
         "- **Provenance:** important clinical rows record `source` (clinician, assistant, patient, import, device, AI draft, ABDM) and who verified it.",
         "- **Sensitivity** (public, internal, personal, financial, health) decides what may be logged, exported, sent to analytics, shown to support, or given to AI. **Offline** says whether phones may write a table, only read it, or never hold it.",
-        "- **Schema checks in CI:** every clinic table must have `org_id`, a composite key, tenant-aware foreign keys, row-level security with a policy, and an audit trigger. A test fails the build otherwise.",
+        "- **Schema checks in tests:** every table has row-level security with a policy and no privileges for Supabase's `anon` and `authenticated` roles; every clinic table has `org_id`, keys starting with `org_id`, tenant-aware foreign keys with indexes, and an audit trigger. The two logs have no foreign keys. A test fails the build otherwise.",
         "",
         "## How the areas connect",
         "",
@@ -230,7 +253,10 @@ def markdown(schema: dict) -> str:
                 "",
                 t["purpose"],
                 "",
-                f"*{RLS_LABEL[t['rls']]} · sensitivity: {t['sensitivity']} · offline: {OFFLINE_LABEL[t['offline']]}*",
+                f"*{RLS_LABEL[t['rls']]} · sensitivity: {t['sensitivity']} · offline: {OFFLINE_LABEL[t['offline']]}"
+                + (f" · lifecycle: {t['lifecycle'].replace('_', ' ')}" if t["lifecycle"] else "")
+                + (f" · schema: `{t['schema']}`" if t["schema"] != "aarogyam" else "")
+                + "*",
                 "",
             ]
             out += ["| Column | Type | Notes |", "|---|---|---|"]

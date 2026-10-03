@@ -69,6 +69,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -128,6 +130,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -174,6 +178,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "Primary key (plan_id, feature_id).",
    "cols": [
     {
@@ -216,6 +222,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -288,6 +296,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -358,6 +368,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -421,6 +433,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "Primary key (org_id, feature_id, period). Incremented by the API and worker.",
    "cols": [
     {
@@ -463,6 +477,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -507,6 +523,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -549,6 +567,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -587,6 +607,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -650,6 +672,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -699,6 +723,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "Primary key (org_id, day). Written nightly, copied to BigQuery.",
    "cols": [
     {
@@ -776,6 +802,8 @@
    "rls": "user",
    "star": true,
    "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -829,8 +857,6 @@
     }
    ],
    "referenced_by": [
-    "access_log.actor_user_id",
-    "audit_events.actor_user_id",
     "devices.user_id",
     "invitations.invited_by",
     "memberships.user_id",
@@ -851,6 +877,8 @@
    "rls": "user",
    "star": true,
    "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -919,8 +947,10 @@
    "domain": "iam",
    "purpose": "Phones and browsers a user signs in from, with push tokens.",
    "rls": "user",
-   "star": false,
+   "star": true,
    "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -967,7 +997,6 @@
     }
    ],
    "referenced_by": [
-    "access_log.device_id",
     "clinical_notes.device_id",
     "sessions.device_id"
    ],
@@ -981,7 +1010,9 @@
    "rls": "global",
    "star": true,
    "partitioned": false,
-   "notes": "",
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Members can read only their own clinic's row. The console creates clinics through app.create_clinic().",
    "cols": [
     {
      "name": "slug",
@@ -1009,7 +1040,14 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "SC in SC-1042"
+     "note": "1 to 3 capital letters: SC in SC-1042"
+    },
+    {
+     "name": "specialty",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "dental in Phase 1A; general later"
     },
     {
      "name": "status",
@@ -1054,6 +1092,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -1085,11 +1125,25 @@
      "note": ""
     },
     {
+     "name": "gstin",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "when the branch has its own GST registration"
+    },
+    {
+     "name": "state_code",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "GST state code, e.g. 27 for Maharashtra; the place of supply"
+    },
+    {
      "name": "is_default",
      "type": "bool",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "exactly one per clinic"
     }
    ],
    "referenced_by": [
@@ -1115,7 +1169,9 @@
    "rls": "global",
    "star": true,
    "partitioned": false,
-   "notes": "Read on every request to resolve the tenant; cached in memory.",
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Read before the clinic is known, through app.resolve_host(); cached in memory for a short time.",
    "cols": [
     {
      "name": "org_id",
@@ -1129,7 +1185,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "unique: smilecatchers.aarogyam.example, smilecatchers.in"
+     "note": "unique, lower case: smilecatchers.aarogyam.example, smilecatchers.in"
     },
     {
      "name": "kind",
@@ -1157,7 +1213,7 @@
      "type": "timestamptz",
      "nullable": true,
      "ref": null,
-     "note": ""
+     "note": "only verified hosts resolve"
     }
    ],
    "referenced_by": [],
@@ -1171,6 +1227,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -1213,6 +1271,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -1257,6 +1317,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -1292,7 +1354,9 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
-   "notes": "",
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Primary key (org_id): exactly one row per clinic.",
    "cols": [
     {
      "name": "branding",
@@ -1334,6 +1398,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "Stored in a different bucket from patient attachments.",
    "cols": [
     {
@@ -1375,12 +1441,127 @@
    "offline": "server_only"
   },
   {
+   "name": "permissions",
+   "domain": "tenancy",
+   "purpose": "Every permission the API checks, such as patients.read.",
+   "rls": "global",
+   "star": true,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Seeded by migrations from the Rust permission list; a test checks that they match.",
+   "cols": [
+    {
+     "name": "key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique, module.action"
+    },
+    {
+     "name": "module",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "role_templates",
+   "domain": "tenancy",
+   "purpose": "Default roles copied into each new clinic: owner, doctor, front desk, assistant, finance.",
+   "rls": "global",
+   "star": true,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "",
+   "cols": [
+    {
+     "name": "key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique"
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "role_template_permissions.role_template_id"
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "role_template_permissions",
+   "domain": "tenancy",
+   "purpose": "The permissions each default role starts with.",
+   "rls": "global",
+   "star": true,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Primary key (role_template_id, permission).",
+   "cols": [
+    {
+     "name": "role_template_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "role_templates",
+     "note": ""
+    },
+    {
+     "name": "permission",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "a key from permissions"
+    },
+    {
+     "name": "scope",
+     "type": "permission_scope",
+     "nullable": false,
+     "ref": null,
+     "note": "all, own, assigned"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
    "name": "roles",
    "domain": "tenancy",
    "purpose": "Named bundles of permissions. Seeded from templates; owners can add their own.",
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -1427,6 +1608,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
    "notes": "Primary key (org_id, role_id, permission).",
    "cols": [
     {
@@ -1441,7 +1624,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "patients.read, finance.view, mask.patient_phone"
+     "note": "a key from permissions: patients.read, finance.view"
     },
     {
      "name": "scope",
@@ -1462,7 +1645,9 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
-   "notes": "",
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize().",
    "cols": [
     {
      "name": "user_id",
@@ -1529,8 +1714,10 @@
    "domain": "tenancy",
    "purpose": "Which branches a staff member works at. No rows means every branch.",
    "rls": "clinic",
-   "star": false,
+   "star": true,
    "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
    "notes": "Primary key (org_id, membership_id, branch_id). Branch-scoped permissions read this table.",
    "cols": [
     {
@@ -1559,6 +1746,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -1622,21 +1811,30 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
-   "notes": "Primary key (org_id, kind, period). Incremented with UPDATE ... RETURNING inside the same transaction.",
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Primary key (org_id, kind, series, period). app.next_number() issues a number with INSERT ... ON CONFLICT DO UPDATE ... RETURNING in the caller's transaction, so the first number of a new year needs no setup. GST invoice numbers stay within 16 characters.",
    "cols": [
     {
      "name": "kind",
      "type": "sequence_kind",
      "nullable": false,
      "ref": null,
-     "note": "patient, visit, invoice, prescription, lab_order"
+     "note": "patient, visit, invoice, prescription, receipt, lab_order"
+    },
+    {
+     "name": "series",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "main, or a separate series such as one per GSTIN"
     },
     {
      "name": "period",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "financial year such as 26-27, or empty"
+     "note": "financial year such as 26-27 in the clinic's time zone, or empty"
     },
     {
      "name": "next_value",
@@ -1657,7 +1855,9 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
-   "notes": "A phone number is contact information, never identity: families share numbers and numbers change. A merge only sets merged_into_id; records stay on the original patient and reads resolve to the canonical one, so a wrong merge can be undone. Name search uses pg_trgm; same-phone registrations get a duplicate warning, never an automatic merge.",
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
+   "notes": "A phone number is contact information, never identity: families share numbers and numbers change. A merge only sets merged_into_id; records stay on the original patient and reads resolve to the canonical one, so a wrong merge can be undone. Number, phone and name-prefix search use plain indexes; fuzzy name search goes through app.search_patients(), because trigram matching can't use an index under row-level security. Same-phone registrations get a duplicate warning, never an automatic merge.",
    "cols": [
     {
      "name": "number",
@@ -1674,6 +1874,13 @@
      "note": ""
     },
     {
+     "name": "search_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "lower-case name kept by a trigger, for prefix search"
+    },
+    {
      "name": "sex",
      "type": "sex",
      "nullable": false,
@@ -1688,11 +1895,11 @@
      "note": ""
     },
     {
-     "name": "age_estimate_years",
-     "type": "smallint",
-     "nullable": true,
+     "name": "birth_date_estimated",
+     "type": "bool",
+     "nullable": false,
      "ref": null,
-     "note": "when the date of birth is unknown"
+     "note": "date_of_birth was estimated from an age"
     },
     {
      "name": "phone_e164",
@@ -1780,7 +1987,6 @@
     }
    ],
    "referenced_by": [
-    "access_log.patient_id",
     "allergies.patient_id",
     "appointments.patient_id",
     "attachments.patient_id",
@@ -1823,6 +2029,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
    "notes": "Unique (org_id, kind, value).",
    "cols": [
     {
@@ -1858,6 +2066,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -1898,8 +2108,10 @@
    "domain": "people",
    "purpose": "Where patients come from, for the finance and marketing filters.",
    "rls": "clinic",
-   "star": false,
+   "star": true,
    "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -1937,6 +2149,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -2035,6 +2249,8 @@
    "rls": "user",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "This is the single-umbrella view: one person, many clinic records, joined only by verified links.",
    "cols": [
     {
@@ -2093,6 +2309,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -2199,6 +2417,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -2262,6 +2482,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -2311,6 +2533,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
    "notes": "An exclusion constraint on (org_id, practitioner_id, time range) stops double booking.",
    "cols": [
     {
@@ -2415,6 +2639,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -2464,6 +2690,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
    "notes": "Unique (org_id, branch_id, day, token_number).",
    "cols": [
     {
@@ -2527,6 +2755,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "Follows the 2020 Telemedicine Practice Guidelines; the prescription is issued in the usual way afterwards.",
    "cols": [
     {
@@ -2590,6 +2820,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "Optional: visits, treatment plans and specialty records may link to an episode. Built when a pack needs it.",
    "cols": [
     {
@@ -2664,6 +2896,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
    "notes": "Patient-level facts (allergies, active conditions, history) live on the patient and may be updated during a visit; they do not require one.",
    "cols": [
     {
@@ -2759,6 +2993,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "finalizable",
+   "schema": "aarogyam",
    "notes": "Signed notes never change and are never merged automatically. If a change synced from a device collides with a note already signed on the server, it is kept as a separate note with status conflict, linked by conflicts_with_id, and flagged to its author, who resolves it by marking one version entered_in_error with a reason. Reading a note writes access_log; corrections go in note_addenda.",
    "cols": [
     {
@@ -2861,6 +3097,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -2896,6 +3134,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
    "notes": "Values are never edited: a correction is a new row that supersedes the old one, which stays visible as corrected.",
    "cols": [
     {
@@ -3017,6 +3257,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -3115,6 +3357,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -3213,6 +3457,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -3266,6 +3512,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "finalizable",
+   "schema": "aarogyam",
    "notes": "Issued prescriptions never change: a correction cancels and reissues. The print shows the doctor's name, qualifications and registration number, generic names in capitals, the clinic's branding, and a small 'Prescribed with Aarogyam' footer with a QR code that opens the verified copy.",
    "cols": [
     {
@@ -3390,6 +3638,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "finalizable",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -3490,6 +3740,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "finalizable",
+   "schema": "aarogyam",
    "notes": "Marking done deducts stock via procedure_materials and can create a lab_order.",
    "cols": [
     {
@@ -3608,6 +3860,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -3673,6 +3927,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -3738,6 +3994,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
    "notes": "Served only through short-lived signed URLs after a permission check.",
    "cols": [
     {
@@ -3843,6 +4101,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -3906,6 +4166,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
    "notes": "Each change writes a new row and marks the previous one superseded, so the full history (tooth 36: caries, root canal, crown) is kept.",
    "cols": [
     {
@@ -4004,6 +4266,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
    "notes": "org_id is null for Aarogyam's default layouts, which clinics copy and adjust.",
    "cols": [
     {
@@ -4070,6 +4334,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "Overrides are kept with their reason for medico-legal review.",
    "cols": [
     {
@@ -4147,6 +4413,8 @@
    "rls": "global",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "Loaded from a licensed Indian drug database; contraindications and pregnancy categories sit alongside it.",
    "cols": [
     {
@@ -4196,6 +4464,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "Nothing enters observations until a person confirms it; confirmed rows carry source = import.",
    "cols": [
     {
@@ -4252,6 +4522,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -4308,6 +4580,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -4346,6 +4620,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -4446,6 +4722,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -4502,6 +4780,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -4539,6 +4819,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -4599,6 +4881,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -4664,6 +4948,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -4727,6 +5013,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -4762,6 +5050,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -4820,6 +5110,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -4883,6 +5175,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -4918,6 +5212,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -4988,6 +5284,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5030,6 +5328,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5072,6 +5372,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5128,6 +5430,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5197,6 +5501,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "finalizable",
+   "schema": "aarogyam",
    "notes": "Issued bills never change: corrections void and replace. Numbers are never generated offline.",
    "cols": [
     {
@@ -5329,6 +5635,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "finalizable",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5420,6 +5728,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "finalizable",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5486,6 +5796,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5521,6 +5833,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5570,6 +5884,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5593,6 +5909,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5663,6 +5981,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5719,6 +6039,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "org_id is null for platform defaults; this table allows that.",
    "cols": [
     {
@@ -5785,6 +6107,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5850,6 +6174,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "Primary key (org_id, patient_id, channel).",
    "cols": [
     {
@@ -5913,6 +6239,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5962,6 +6290,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -5999,6 +6329,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -6057,6 +6389,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -6130,6 +6464,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -6179,6 +6515,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
    "notes": "Guarantees a message is never lost or sent for a change that rolled back.",
    "cols": [
     {
@@ -6214,6 +6552,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": true,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -6328,6 +6668,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": true,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -6370,6 +6712,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -6419,6 +6763,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -6478,6 +6824,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -6536,6 +6884,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -6606,6 +6956,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "Primary key (org_id, day). Imported from Cloudflare Web Analytics.",
    "cols": [
     {
@@ -6648,6 +7000,8 @@
    "rls": "user",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "Every grant and revocation is audited. The clinic owns its record; the patient controls sharing across clinics.",
    "cols": [
     {
@@ -6725,6 +7079,8 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
    "notes": "Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource (none for upload_request), so a link can only ever open a record of the same clinic. Every open is written to access_log with purpose patient_self.",
    "cols": [
     {
@@ -6819,18 +7175,20 @@
   {
    "name": "access_log",
    "domain": "trust",
-   "purpose": "The access ledger: who opened which patient record, why, when and from which device. Patients can see it.",
+   "purpose": "The access record: who opened which patient record, why, when and from which device. Patients can see it.",
    "rls": "clinic",
    "star": true,
    "partitioned": true,
-   "notes": "Append-only: the app role can insert but never update or delete. Views made offline are queued on the device and uploaded.",
+   "lifecycle": "append_only",
+   "schema": "audit",
+   "notes": "Primary key (org_id, at, id), partitioned by month. No foreign keys, so the ledger never blocks erasure and adds no lock cost; the ids refer to users, patients, devices and share_links. Append-only: the app role can insert but never update or delete. Views made offline are queued on the device and uploaded.",
    "cols": [
     {
      "name": "actor_user_id",
      "type": "uuid",
-     "nullable": false,
-     "ref": "users",
-     "note": ""
+     "nullable": true,
+     "ref": null,
+     "note": "null when a patient opens a share link"
     },
     {
      "name": "actor_kind",
@@ -6843,8 +7201,15 @@
      "name": "patient_id",
      "type": "uuid",
      "nullable": false,
-     "ref": "patients",
+     "ref": null,
      "note": ""
+    },
+    {
+     "name": "share_link_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "when opened through a share link"
     },
     {
      "name": "resource",
@@ -6878,7 +7243,7 @@
      "name": "device_id",
      "type": "uuid",
      "nullable": true,
-     "ref": "devices",
+     "ref": null,
      "note": ""
     },
     {
@@ -6891,7 +7256,7 @@
     {
      "name": "request_id",
      "type": "text",
-     "nullable": false,
+     "nullable": true,
      "ref": null,
      "note": ""
     }
@@ -6903,11 +7268,13 @@
   {
    "name": "audit_events",
    "domain": "trust",
-   "purpose": "Every insert, update and delete, written by triggers.",
+   "purpose": "The change history: every insert, update and delete, written by triggers.",
    "rls": "clinic",
    "star": true,
    "partitioned": true,
-   "notes": "Append-only. org_id may be null for platform tables.",
+   "lifecycle": "append_only",
+   "schema": "audit",
+   "notes": "Primary key (id, at), partitioned by month; org_id is null for platform tables. Written by app.audit_row(), which skips updates that change nothing and records only metadata for inserts into append-only tables. No foreign keys.",
    "cols": [
     {
      "name": "table_name",
@@ -6934,29 +7301,22 @@
      "name": "actor_user_id",
      "type": "uuid",
      "nullable": true,
-     "ref": "users",
-     "note": ""
-    },
-    {
-     "name": "changed_fields",
-     "type": "text[]",
-     "nullable": false,
      "ref": null,
      "note": ""
     },
     {
-     "name": "old",
-     "type": "jsonb",
+     "name": "actor_kind",
+     "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "sensitive fields masked"
+     "note": "staff, patient, support, system"
     },
     {
-     "name": "new",
+     "name": "changes",
      "type": "jsonb",
      "nullable": true,
      "ref": null,
-     "note": "sensitive fields masked"
+     "note": "changed columns only, as {column: [old, new]}, masked per audit_config"
     },
     {
      "name": "at",
@@ -6978,12 +7338,58 @@
    "offline": "server_only"
   },
   {
+   "name": "audit_config",
+   "domain": "trust",
+   "purpose": "Per table: which columns the audit trigger leaves out or masks.",
+   "rls": "global",
+   "star": true,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "audit",
+   "notes": "",
+   "cols": [
+    {
+     "name": "table_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique, schema-qualified"
+    },
+    {
+     "name": "exclude",
+     "type": "text[]",
+     "nullable": false,
+     "ref": null,
+     "note": "not recorded, e.g. last_seen_at"
+    },
+    {
+     "name": "mask",
+     "type": "text[]",
+     "nullable": false,
+     "ref": null,
+     "note": "recorded as changed with the value hashed, e.g. pin_hash"
+    },
+    {
+     "name": "metadata_only",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "record only that the row changed"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
    "name": "data_requests",
    "domain": "trust",
    "purpose": "Patients' DPDP requests: export, correction, erasure.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -7040,6 +7446,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "One row per clinic.",
    "cols": [
     {
@@ -7068,6 +7476,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
@@ -7140,6 +7550,8 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
    "notes": "",
    "cols": [
     {

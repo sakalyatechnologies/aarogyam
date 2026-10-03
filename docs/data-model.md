@@ -11,15 +11,27 @@
 
 ## Schema rules
 
-- Every clinic row has `org_id`; primary keys are `(org_id, id)`; foreign keys include `org_id`.
-- Row-level security on every clinic table: `using (org_id = app.tenant_id())`.
-- Money is `bigint` paise. Times are `timestamptz` in UTC.
-- Soft delete with `deleted_at`. Signed clinical notes are immutable; corrections are addenda.
-- `created_at`, `created_by`, `updated_at`, `updated_by` on every row; triggers append changes to `audit_events`.
-- Specialty data lives in `specialty_records.data` (JSONB) with `module` and `schema_version`.
-- Large append-only tables (audit, access log, messages) are partitioned by month.
-- Name search uses `pg_trgm`; phones are stored in E.164 and indexed.
+- Every clinic row has `org_id`; primary keys are `(org_id, id)`; foreign keys and unique keys include `org_id`. A key without `org_id` would let one clinic detect another clinic's rows.
+- Row-level security on every table. Clinic tables use `org_id = app.tenant_id()`; platform tables let members read only rows about their own clinic.
+- **Schemas:** tables in `aarogyam`, the change history and access record in `audit`, helper functions in `app`, internal tables in `private`. Nothing goes in `public`: Supabase exposes it through its Data API, which stays switched off.
+- **Statuses** are `text` with a CHECK constraint listing the allowed values. Postgres enums can't use an index under row-level security, and their values can't be removed.
+- Money is `bigint` paise. Times are `timestamptz` in UTC; "today" and financial years use the clinic's time zone.
+- **Lifecycle:** each table is `mutable`, `soft_delete`, `finalizable` (frozen once issued or signed), `append_only` or `ephemeral`. It decides the columns, triggers and grants; only ephemeral rows can be deleted.
+- `created_at`, `created_by`, `updated_at`, `updated_by` on every row, set by trigger.
+- **Change history and access record are records, not logs.** `audit.audit_events` keeps who changed what (changed columns only, masked per `audit.audit_config`); `audit.access_log` keeps who opened which patient's record and why. Both are written in the same transaction as the change or the read, partitioned by month, kept about 13 months in the database and then archived to Cloud Storage. They have no foreign keys. Application logs (requests, errors, debug) go to Cloud Logging, never to the database.
+- Specialty data lives in `specialty_records.data` (JSONB) with `module` and `schema_version`; keys used in filters become typed generated columns.
+- **Search:** number, phone and name prefix use plain indexes. Fuzzy name search goes through `app.search_patients()`, because trigram matching can't use an index under row-level security.
 - Each clinic owns its own `patients` rows; clinics never share a patient row. The patient app (phase 3) joins a person's records across clinics through verified `patient_links` and `consents`.
+
+## Database roles
+
+| Role | Logs in | Used by | What it can do |
+|---|---|---|---|
+| `postgres` (Supabase) or the local superuser | yes | migrations only | owns every table and function |
+| `aarogyam_api` | yes, `NOINHERIT` | the API | nothing on its own: inside a clinic transaction it switches to `app_user`; before the clinic is known it may call only the lookup functions (`app.resolve_host`, `app.authorize`, `app.my_clinics`) |
+| `app_user` | no | clinic transactions | read and write its own clinic's rows, under row-level security |
+
+A query the API runs outside a clinic transaction fails with "permission denied" instead of seeing every clinic. Lookup functions are `SECURITY DEFINER` with an empty `search_path`, executable only by `aarogyam_api`, and tested. The worker and console get their own login roles when they're built.
 
 ## Clinical data levels
 
@@ -37,7 +49,7 @@
 - **Codes:** clinical codes are optional (`code_system`, `code`, `code_display`, `code_version`).
 - **Provenance:** important clinical rows record `source` and who verified them.
 - **Offline and sensitivity:** every table is classified in `schema/model.py`, and the generated `database.md` shows both.
-- **CI schema checks:** every clinic table needs `org_id`, a composite key, tenant-aware foreign keys, row-level security with a policy, and an audit trigger.
+- **Schema checks in tests:** every table has row-level security with a policy and no privileges for `anon`, `authenticated` or `PUBLIC`; every clinic table has `org_id`, keys starting with `org_id`, tenant-aware foreign keys with indexes and an audit trigger; lookup functions pin `search_path`; migrations run as a non-superuser shaped like Supabase's `postgres`.
 
 ## Tables
 

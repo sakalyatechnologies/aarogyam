@@ -20,10 +20,16 @@ Scope every command to what you changed. See `docs/guidelines/build-speed.md`.
 | Task | Command |
 |---|---|
 | Fast feedback | `cargo check -p <crate>` |
+| Build the server | `cargo build -p aarogyam-server` (binary `target/debug/aarogyam`) |
 | Tests for one crate | `cargo test -p <crate>` |
-| Database tests | `DATABASE_URL=postgres://postgres@localhost:5432/postgres cargo test -p <crate> -- --include-ignored` |
+| Database tests | `DATABASE_URL=postgres://localhost:5432/postgres cargo test -p <crate> -- --include-ignored` |
 | Lint | `cargo clippy -p <crate> --all-targets -- -D warnings` |
-| Final check before commit | `cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace` |
+| Apply migrations | `cargo run -p aarogyam-server -- migrate` |
+| Run the API | `cargo run -p aarogyam-server -- serve`, then `curl localhost:8080/healthz` |
+| Regenerate the OpenAPI document | `UPDATE_OPENAPI=1 cargo test -p aarogyam-api openapi` |
+| Final check before commit | `cargo fmt --all --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo test --workspace --all-features && cargo deny check` |
+
+Settings come from `config/local.toml` (local defaults, not secret) and `ARO_*` environment variables, which win. `.env.example` lists every variable.
 
 ## Product rules (on top of the shared rules)
 
@@ -38,7 +44,7 @@ Scope every command to what you changed. See `docs/guidelines/build-speed.md`.
 9. **Migrations are append-only.** Never edit a merged migration. Change schemas with expand, then contract, across two releases.
 10. **Messages go through the notification service.** Handlers write an outbox row; they never call SMS, WhatsApp or push providers directly.
 11. **Specialty modules are data.** Forms, templates and vocabularies live in `specialties/` as schemas. Only signature visuals (such as the tooth chart) are code.
-12. **The API contract is generated.** Annotate routes for OpenAPI; the committed spec must match, and breaking changes fail CI.
+12. **The API contract is generated.** Annotate routes for OpenAPI; the committed spec (`docs/api/openapi.json`) must match, and breaking changes fail CI.
 
 ## Logging
 
@@ -46,7 +52,7 @@ Follow the log budget in `docs/guidelines/observability.md`. Business events use
 
 ## Hooks
 
-Run `scripts/install-hooks.sh` once per clone: a pre-commit hook runs fmt and clippy, and Claude Code formats each Rust file it edits.
+Run `scripts/install-hooks.sh` once per clone. The pre-commit hook runs the final check and `cargo machete`, adds the database tests when Postgres answers on localhost, and fails if `docs/database.md` is stale after a change to `docs/schema/model.py`. Claude Code formats each Rust file it edits. CI is parked for now, so the hook is the gate.
 
 ## Done means
 

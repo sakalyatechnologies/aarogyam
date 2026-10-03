@@ -6,8 +6,8 @@
 //!
 //! Queries on clinic data run inside a scoped transaction (`ClinicTx`), never on the bare pool.
 
-use sqlx::PgPool;
 use sqlx::migrate::Migrator;
+use sqlx::{Executor as _, PgPool};
 
 /// The migrations in `db/migrations/`, embedded at compile time.
 static MIGRATOR: Migrator = sqlx::migrate!("../../db/migrations");
@@ -23,7 +23,16 @@ static MIGRATOR: Migrator = sqlx::migrate!("../../db/migrations");
 /// Returns [`MigrateError`] if the database is unreachable, a migration fails (its changes are
 /// rolled back), or a migration that already ran has since been edited.
 pub async fn migrate(pool: &PgPool) -> Result<(), MigrateError> {
-    MIGRATOR.run(pool).await?;
+    let mut conn = pool
+        .acquire()
+        .await
+        .map_err(sqlx::migrate::MigrateError::from)?;
+    // sqlx keeps its ledger (`_sqlx_migrations`) in the first schema on the search path. Keep
+    // it in `private`, out of `public`, which Supabase exposes through its Data API.
+    conn.execute("create schema if not exists private; set search_path to private")
+        .await
+        .map_err(sqlx::migrate::MigrateError::from)?;
+    MIGRATOR.run(&mut *conn).await?;
     Ok(())
 }
 

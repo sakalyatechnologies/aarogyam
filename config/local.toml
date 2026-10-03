@@ -10,9 +10,9 @@ bind = "127.0.0.1:8080"
 [db]
 # The API's login role; row-level security applies to it.
 url = "postgres://aarogyam_api@localhost:5432/aarogyam_dev"
-# The schema owner, used only by `aarogyam migrate`. No user name means your OS user,
-# which is a superuser on a Homebrew Postgres.
-owner_url = "postgres://localhost:5432/aarogyam_dev"
+# The schema owner, used only by `aarogyam migrate`: a non-superuser shaped like Supabase's
+# `postgres`, created by scripts/dev-db.sh, so permission problems show up locally.
+owner_url = "postgres://aarogyam_owner@localhost:5432/aarogyam_dev"
 
 [auth]
 # Supabase Auth as `supabase start` runs it. Placeholders until sign-in is wired in.

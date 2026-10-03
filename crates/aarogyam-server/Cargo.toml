@@ -1,0 +1,32 @@
+[package]
+name = "aarogyam-server"
+description = "The aarogyam binary: configuration, telemetry and wiring for the API and migrations."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "aarogyam"
+path = "src/main.rs"
+
+[dependencies]
+aarogyam-api.workspace = true
+aarogyam-dal.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+sakalya-config.workspace = true
+sakalya-db.workspace = true
+sakalya-http.workspace = true
+sakalya-telemetry.workspace = true
+secrecy.workspace = true
+serde.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tracing.workspace = true
+
+[dev-dependencies]
+figment = { workspace = true, features = ["test"] }
+
+[lints]
+workspace = true

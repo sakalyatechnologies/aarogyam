@@ -1,0 +1,22 @@
+[package]
+name = "aarogyam-api"
+description = "Aarogyam's HTTP API: Axum routes, permission extractors and the OpenAPI document."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dependencies]
+axum.workspace = true
+sakalya-db.workspace = true
+sakalya-http.workspace = true
+utoipa.workspace = true
+
+[dev-dependencies]
+secrecy.workspace = true
+tokio = { workspace = true, features = ["macros"] }
+tower = { workspace = true, features = ["util"] }
+
+[lints]
+workspace = true

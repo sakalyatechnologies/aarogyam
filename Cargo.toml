@@ -1,0 +1,72 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+publish = false
+repository = "https://github.com/sakalyatechnologies/aarogyam"
+
+[workspace.dependencies]
+# Shared Sakalya crates, by tag. A local .cargo/config.toml may [patch] them to a checkout.
+sakalya-config = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
+sakalya-telemetry = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
+sakalya-http = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
+sakalya-db = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
+
+# Our crates
+aarogyam-dal = { path = "crates/aarogyam-dal" }
+aarogyam-api = { path = "crates/aarogyam-api" }
+
+# Third party: the versions and features sakalya-backend pins, so both resolve to one copy.
+serde = { version = "1.0.229", default-features = false, features = ["std", "derive"] }
+thiserror = { version = "2.0.21", default-features = false, features = ["std"] }
+clap = { version = "4.6.7", default-features = false, features = ["std", "derive", "help", "usage", "error-context"] }
+figment = { version = "0.10.19", default-features = false, features = ["env", "toml"] }
+secrecy = { version = "0.10.3", default-features = false, features = ["serde"] }
+tokio = { version = "1.53.1", default-features = false, features = ["rt", "time"] }
+tracing = { version = "0.1.44", default-features = false, features = ["std", "attributes"] }
+axum = { version = "0.8.9", default-features = false, features = ["tokio", "http1", "http2", "json", "query", "matched-path", "original-uri"] }
+tower = { version = "0.5.3", default-features = false }
+sqlx = { version = "0.9.0", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls-aws-lc-rs", "uuid", "time", "macros", "migrate"] }
+
+# Third party, product only
+utoipa = { version = "6.0.0", default-features = false, features = ["macros"] }
+anyhow = { version = "1.0.104", default-features = false, features = ["std"] }
+
+# Workaround: sqlx 0.9.0 builds whoami without `std`, so a database URL without a user name
+# connects as "anonymous" instead of the OS user. This restores libpq's default, which local
+# URLs such as postgres://localhost:5432/aarogyam_dev rely on. Remove once sqlx fixes it.
+whoami = { version = "2.1.3", default-features = false, features = ["std"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+allow_attributes = "deny"
+redundant_clone = "warn"
+clone_on_ref_ptr = "warn"
+module_name_repetitions = "allow"
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.release]
+lto = "thin"
+strip = "debuginfo"

@@ -1,0 +1,25 @@
+# Local development defaults for `aarogyam`. Nothing here is secret.
+# ARO_* environment variables override any value (see .env.example).
+# Deployed services don't read this file; they use environment variables only.
+
+environment = "local"
+
+[http]
+bind = "127.0.0.1:8080"
+
+[db]
+# The API's login role; row-level security applies to it.
+url = "postgres://aarogyam_api@localhost:5432/aarogyam_dev"
+# The schema owner, used only by `aarogyam migrate`. No user name means your OS user,
+# which is a superuser on a Homebrew Postgres.
+owner_url = "postgres://localhost:5432/aarogyam_dev"
+
+[auth]
+# Supabase Auth as `supabase start` runs it. Placeholders until sign-in is wired in.
+issuer = "http://127.0.0.1:54321/auth/v1"
+audience = "authenticated"
+jwks_url = "http://127.0.0.1:54321/auth/v1/.well-known/jwks.json"
+
+[telemetry]
+format = "pretty"
+filter = "debug,hyper=info,sqlx=warn,h2=info"

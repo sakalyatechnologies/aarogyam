@@ -1,8 +1,22 @@
 #!/bin/sh
-# Blocks commits that would fail CI's format or lint checks. Skips when no Rust files are staged.
-if ! git diff --cached --name-only | grep -qE '\.rs$|Cargo\.(toml|lock)$'; then
+# Local quality gate, the same checks CI runs. Skips when no Rust files are staged.
+#   1. format   2. clippy, warnings are errors, all targets and features
+#   3. full test suite   4. dependency hygiene (cargo-deny, cargo-machete) when installed
+# Bypass only in an emergency: git commit --no-verify
+if ! git diff --cached --name-only | grep -qE '\.rs$|Cargo\.(toml|lock)$|deny\.toml$'; then
   exit 0
 fi
-export PATH="$HOME/.cargo/bin:$PATH"
-cargo fmt --all --check || { echo "pre-commit: run 'cargo fmt' and stage the changes"; exit 1; }
-cargo clippy --workspace --all-targets --quiet -- -D warnings || { echo "pre-commit: fix the clippy findings above"; exit 1; }
+export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH"
+fail() { echo "pre-commit: $1"; exit 1; }
+
+cargo fmt --all --check || fail "run 'cargo fmt' and stage the changes"
+cargo clippy --workspace --all-targets --all-features --quiet -- -D warnings || fail "fix the clippy findings above"
+cargo test --workspace --all-features --quiet >/dev/null 2>&1 || { cargo test --workspace --all-features 2>&1 | tail -30; fail "tests failed"; }
+if command -v cargo-deny >/dev/null; then
+  cargo deny --log-level error check >/dev/null 2>&1 || { cargo deny check 2>&1 | grep -E '^error' ; fail "cargo deny found a problem"; }
+else
+  echo "pre-commit: cargo-deny not installed, skipping (brew install cargo-deny)"
+fi
+if command -v cargo-machete >/dev/null; then
+  cargo machete >/dev/null 2>&1 || { cargo machete; fail "unused dependencies"; }
+fi

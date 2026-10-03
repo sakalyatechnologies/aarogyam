@@ -1,10 +1,10 @@
 #!/bin/sh
-# Copies the shared guidelines, vendored references and hooks from a sakalya-platform checkout.
-# Usage: scripts/sync-guidelines.sh [path-to-sakalya-platform]   (default ../sakalya-platform)
+# Copies the shared guidelines, vendored references and hooks from a sakalya-backend checkout.
+# Usage: scripts/sync-guidelines.sh [path-to-sakalya-backend]   (default ../sakalya-backend)
 set -e
-src="${1:-../sakalya-platform}"
+src="${1:-../sakalya-backend}"
 for f in "$src"/docs/guidelines/*.md; do
-  { echo "<!-- Copied from sakalya-platform. Edit it there, then run scripts/sync-guidelines.sh. -->"; echo; cat "$f"; } > "docs/guidelines/$(basename "$f")"
+  { echo "<!-- Copied from sakalya-backend. Edit it there, then run scripts/sync-guidelines.sh. -->"; echo; cat "$f"; } > "docs/guidelines/$(basename "$f")"
 done
 cp "$src"/docs/vendor/* docs/vendor/
 cp "$src"/.githooks/pre-commit .githooks/pre-commit

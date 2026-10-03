@@ -2,6 +2,10 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-03: Platform repositories are named by stack
+
+**Decision.** `sakalya-platform` is renamed `sakalya-backend`, alongside the planned `sakalya-web`, `sakalya-android` and `sakalya-ios`. Crate names keep the `sakalya-` prefix.
+
 ## 2026-10-03: Clinics own their patient rows
 
 **Decision.** Replace the shared `persons` table with clinic-owned `patients` rows. Cross-clinic views use `patient_links` (a patient's own account verified against each clinic's record) plus `consents`.
@@ -12,7 +16,7 @@ Newest first. Change a decision by adding an entry that supersedes it.
 
 **Decision.** Three kinds of repository:
 
-1. `sakalya-platform`: shared, product-agnostic Rust crates, depended on by git tag.
+1. `sakalya-backend`: shared, product-agnostic Rust crates, depended on by git tag.
 2. `arogyam`: one monorepo for the whole product (API, worker, migrations, specialties, phone apps, web, infra).
 3. One repository per clinic website, created automatically when a clinic publishes a site.
 
@@ -48,7 +52,7 @@ Onboarding answers become a site configuration. A GitHub App creates the clinic'
 
 ## Next milestone: foundation
 
-1. Cargo workspace with the six product crates, depending on `sakalya-platform`.
+1. Cargo workspace with the six product crates, depending on `sakalya-backend`.
 2. Migrations for the ★ tables in `data-model.md`, with RLS and policy tests.
 3. Host-based tenancy, session check, typed permission extractors, route-permission audit test.
 4. Patients module end to end as the reference for all other modules.

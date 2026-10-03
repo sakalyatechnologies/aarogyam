@@ -15,18 +15,18 @@ concurrency:
 
 jobs:
   ci:
-    uses: sakalyatechnologies/sakalya-platform/.github/workflows/rust-ci.yml@v0.1.0
+    uses: sakalyatechnologies/sakalya-backend/.github/workflows/rust-ci.yml@v0.1.0
 
   build:
     needs: ci
-    uses: sakalyatechnologies/sakalya-platform/.github/workflows/build-image.yml@v0.1.0
+    uses: sakalyatechnologies/sakalya-backend/.github/workflows/build-image.yml@v0.1.0
     with:
       image: ${{ vars.IMAGE_REGISTRY }}/arogyam-api
 
   preview:
     if: github.event_name == 'pull_request'
     needs: build
-    uses: sakalyatechnologies/sakalya-platform/.github/workflows/deploy-cloud-run.yml@v0.1.0
+    uses: sakalyatechnologies/sakalya-backend/.github/workflows/deploy-cloud-run.yml@v0.1.0
     with:
       environment: staging
       service: arogyam-api
@@ -36,7 +36,7 @@ jobs:
   staging:
     if: github.event_name == 'push'
     needs: build
-    uses: sakalyatechnologies/sakalya-platform/.github/workflows/deploy-cloud-run.yml@v0.1.0
+    uses: sakalyatechnologies/sakalya-backend/.github/workflows/deploy-cloud-run.yml@v0.1.0
     with:
       environment: staging
       service: arogyam-api
@@ -46,7 +46,7 @@ jobs:
   production:
     if: github.event_name == 'push'
     needs: [build, staging]
-    uses: sakalyatechnologies/sakalya-platform/.github/workflows/deploy-cloud-run.yml@v0.1.0
+    uses: sakalyatechnologies/sakalya-backend/.github/workflows/deploy-cloud-run.yml@v0.1.0
     with:
       environment: production
       service: arogyam-api

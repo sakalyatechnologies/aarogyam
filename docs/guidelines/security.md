@@ -1,4 +1,4 @@
-<!-- Copied from sakalya-platform. Edit it there, then run scripts/sync-guidelines.sh. -->
+<!-- Copied from sakalya-backend. Edit it there, then run scripts/sync-guidelines.sh. -->
 
 # Security
 
@@ -10,3 +10,5 @@
 - **Personal data** is masked in `Debug` output (see `PhoneE164`). Tests assert the mask.
 - **Errors** sent to clients never include SQL, stack traces or upstream provider messages.
 - **Dependencies** pass `cargo deny check` (advisories, licences, duplicate versions) in CI.
+- **Throttling** comes from `sakalya-throttle`: baseline rules per IP, per IP on sign-in routes, per user and per tenant, plus rules in configuration and limits in handlers (`Throttle::check`, for example OTP per phone). Use the Postgres store when more than one instance runs. The edge (Cloudflare) adds attack protection in front.
+- **Client IPs** come only from the header the edge proxy sets (`cf-connecting-ip`), and only when the service is reachable through that proxy alone.

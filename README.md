@@ -11,6 +11,6 @@ A multi-specialty clinic platform: a portal and phone apps for doctors and their
 - Decisions: [`docs/decisions.md`](docs/decisions.md)
 - CI and CD: [`docs/cicd.md`](docs/cicd.md)
 
-Shared Rust foundations (types, config, telemetry, HTTP, auth, database, test kit) live in [`sakalya-platform`](../sakalya-platform).
+Shared Rust foundations (types, config, telemetry, HTTP, auth, database, test kit) live in [`sakalya-backend`](../sakalya-backend).
 
 Status: design and guidelines only. Code starts with the foundation milestone in `docs/decisions.md`.

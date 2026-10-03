@@ -1,4 +1,4 @@
-<!-- Copied from sakalya-platform. Edit it there, then run scripts/sync-guidelines.sh. -->
+<!-- Copied from sakalya-backend. Edit it there, then run scripts/sync-guidelines.sh. -->
 
 # Principles for every Sakalya codebase
 
@@ -28,7 +28,7 @@ These hold in every language we use. Each language guide (`rust.md` today; `type
 
 | Library | Language | Holds | State |
 |---|---|---|---|
-| `sakalya-platform` | Rust | Types, config, telemetry, HTTP, auth, database, test kit | In use |
+| `sakalya-backend` | Rust | Types, config, telemetry, HTTP, auth, database, test kit | In use |
 | `sakalya-web` | TypeScript | Design tokens, UI components, API client helpers, Playwright fixtures | When the first web UI starts |
 | `sakalya-android` | Kotlin (KMP) | Typed values, networking, secure storage, Compose components, test helpers | When the Android app starts |
 | `sakalya-ios` | Swift | Swift package with the same pieces for SwiftUI | When the iOS app starts. Needs its own repo, because Swift packages must sit at a repository root. |

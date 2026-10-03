@@ -1,4 +1,4 @@
-<!-- Copied from sakalya-platform. Edit it there, then run scripts/sync-guidelines.sh. -->
+<!-- Copied from sakalya-backend. Edit it there, then run scripts/sync-guidelines.sh. -->
 
 # Observability
 

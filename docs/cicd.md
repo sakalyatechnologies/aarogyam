@@ -1,6 +1,6 @@
 # CI and CD
 
-Push code, and the pipeline tests it, deploys it, and tells you where to look. The workflows here call reusable ones in `sakalya-platform`, so every Sakalya project behaves the same way.
+Push code, and the pipeline tests it, deploys it, and tells you where to look. The workflows here call reusable ones in `sakalya-backend`, so every Sakalya project behaves the same way.
 
 ## What happens when
 
@@ -33,7 +33,7 @@ Previews cost nothing: Cloud Run tagged revisions without traffic scale to zero.
 
 ## One-time setup (about an hour, all free)
 
-1. **GitHub:** create the `arogyam` and `sakalya-platform` repositories in the `sakalyatechnologies` organisation and push. In `sakalya-platform` settings, allow its workflows to be used by other repositories in the organisation (Settings → Actions → Access). Tag `v0.1.0`.
+1. **GitHub:** create the `arogyam` and `sakalya-backend` repositories in the `sakalyatechnologies` organisation and push. In `sakalya-backend` settings, allow its workflows to be used by other repositories in the organisation (Settings → Actions → Access). Tag `v0.1.0`.
 2. **Google Cloud:** create projects `arogyam-staging`, `arogyam-prod` and `sakalya-artifacts` under one billing account, with a ₹100 budget alert on each.
 3. **Artifact Registry:** in `sakalya-artifacts`, create a Docker repository `services` in `asia-south1`. Give both environments' Cloud Run service agents read access.
 4. **Workload Identity Federation:** one pool for GitHub, restricted to the `sakalyatechnologies` organisation; a deploy service account per project with Cloud Run Admin, Artifact Registry Writer (artifacts project only) and Logs Viewer.

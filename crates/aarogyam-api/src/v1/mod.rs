@@ -5,6 +5,7 @@
 pub(crate) mod chart;
 pub(crate) mod console;
 pub(crate) mod facts;
+pub(crate) mod files;
 pub(crate) mod internal;
 pub(crate) mod invitations;
 pub(crate) mod me;
@@ -16,6 +17,7 @@ pub(crate) mod visits;
 pub(crate) mod vitals;
 
 use axum::Router;
+use axum::extract::DefaultBodyLimit;
 use axum::routing::{get, patch, post};
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
@@ -83,6 +85,14 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(treatment::plans).post(treatment::create_plan),
         )
         .route("/treatment-plans/{id}/accept", post(treatment::accept_plan))
+        .route(
+            "/patients/{id}/attachments",
+            get(files::list)
+                .post(files::upload)
+                .layer(DefaultBodyLimit::max(files::MAX_UPLOAD_BODY)),
+        )
+        .route("/attachments/{id}/download", get(files::link))
+        .route("/attachments/{id}/content", get(files::content))
         .route("/staff", get(staff::list))
         .route("/staff/invitations", post(staff::invite))
         .route("/staff/{membership_id}", patch(staff::change))

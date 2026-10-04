@@ -38,6 +38,9 @@ pub struct Config {
     /// Outgoing email (`ARO_EMAIL__*`).
     #[serde(default)]
     pub email: EmailSettings,
+    /// Patient files (`ARO_FILES__*`).
+    #[serde(default)]
+    pub files: FileSettings,
 }
 
 impl Config {
@@ -160,6 +163,27 @@ impl Default for EmailSettings {
             resend_api_key: None,
             from: "Aarogyam <no-reply@aarogyam.example>".to_owned(),
             portal_link: "https://{host}".to_owned(),
+        }
+    }
+}
+
+/// Where patient files are kept and how their download links are signed.
+#[derive(Debug, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct FileSettings {
+    /// Directory for files on local disk (`ARO_FILES__DIR`). Default `var/attachments`.
+    pub dir: std::path::PathBuf,
+    /// Secret for download links, at least 32 bytes (`ARO_FILES__SIGNING_KEY`). Required
+    /// outside the local environment, so links work across instances; locally a random key
+    /// is made at startup.
+    pub signing_key: Option<SecretString>,
+}
+
+impl Default for FileSettings {
+    fn default() -> Self {
+        Self {
+            dir: "var/attachments".into(),
+            signing_key: None,
         }
     }
 }

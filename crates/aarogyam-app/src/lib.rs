@@ -10,6 +10,7 @@ pub mod clock;
 pub mod console;
 pub mod error;
 pub mod facts;
+pub mod files;
 pub mod invitations;
 pub mod outbox;
 pub mod patients;

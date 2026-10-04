@@ -18,6 +18,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::chart::ChartEntry;
+use super::files::Attachment;
 use super::rfc3339;
 use super::treatment::Procedure;
 use super::vitals::Observation;
@@ -204,6 +205,8 @@ pub struct VisitDetail {
     pub chart_entries: Vec<ChartEntry>,
     /// Procedures planned or done in the visit.
     pub procedures: Vec<Procedure>,
+    /// Files attached to the visit.
+    pub attachments: Vec<Attachment>,
 }
 
 impl From<DetailView> for VisitDetail {
@@ -222,6 +225,7 @@ impl From<DetailView> for VisitDetail {
                 .map(ChartEntry::from)
                 .collect(),
             procedures: view.procedures.into_iter().map(Procedure::from).collect(),
+            attachments: view.attachments.into_iter().map(Attachment::from).collect(),
         }
     }
 }

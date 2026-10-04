@@ -6,6 +6,91 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/attachments/{id}/content": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Streams a file through a signed link from `GET /attachments/{id}/download`. The link is the\nproof of access, so no sign-in header is needed (an `<img>` can use it); it works on the\nclinic's own host for five minutes, and every use is written to the access record.",
+        "operationId": "content",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "description": "The signed token from the download link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, with its media type"
+          },
+          "403": {
+            "description": "The link has expired; ask for a new one"
+          },
+          "404": {
+            "description": "Not a valid link for this file on this host"
+          }
+        }
+      }
+    },
+    "/api/v1/attachments/{id}/download": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Issues a five-minute download link for a file. Opening the link writes the access record.",
+        "operationId": "link",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadLink"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such file in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/console/clinics": {
       "get": {
         "tags": [
@@ -977,6 +1062,110 @@
           },
           "404": {
             "description": "No such allergy for this patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/attachments": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's files, newest first.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Uploads a patient file (`multipart/form-data`, field `file` up to 10 MB). Its type is read\nfrom its content; anything but JPEG, PNG, PDF or DICOM is refused.",
+        "operationId": "upload",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a JPEG, PNG, PDF or DICOM file, a bad field, or a visit of another patient"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "413": {
+            "description": "Larger than 10 MB"
           }
         },
         "security": [
@@ -2564,6 +2753,91 @@
           }
         }
       },
+      "Attachment": {
+        "type": "object",
+        "description": "A patient file's details. The bytes come from its download link.",
+        "required": [
+          "id",
+          "kind",
+          "mime_type",
+          "size_bytes",
+          "sha256",
+          "created_at"
+        ],
+        "properties": {
+          "caption": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A caption."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was uploaded (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`photo`, `xray`, `report`, `document`, `audio` or `consent`."
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "`image/jpeg`, `image/png`, `application/pdf` or `application/dicom`, from the content."
+          },
+          "sha256": {
+            "type": "string",
+            "description": "SHA-256 of the content, hex."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Size in bytes."
+          },
+          "taken_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was taken (RFC 3339)."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "FDI number of the tooth it shows.",
+            "minimum": 0
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it belongs to."
+          }
+        }
+      },
+      "AttachmentList": {
+        "type": "object",
+        "description": "A patient's files, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            },
+            "description": "The files."
+          }
+        }
+      },
       "Branding": {
         "type": "object",
         "description": "The portal's look.",
@@ -3226,6 +3500,24 @@
             "type": "integer",
             "format": "int64",
             "description": "Seconds until it expires."
+          }
+        }
+      },
+      "DownloadLink": {
+        "type": "object",
+        "description": "A short-lived link to a file.",
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "description": "When the link stops working (RFC 3339), five minutes from now."
+          },
+          "url": {
+            "type": "string",
+            "description": "Path to fetch on the same clinic host, with the signed token; no sign-in header needed."
           }
         }
       },
@@ -4804,6 +5096,49 @@
           }
         }
       },
+      "UploadForm": {
+        "type": "object",
+        "description": "The form an upload sends (`multipart/form-data`).",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "caption": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A caption, up to 300 characters."
+          },
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "The file: JPEG, PNG, PDF or DICOM, up to 10 MB. Its type is read from its content."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`photo`, `xray`, `report`, `document` (default), `audio` or `consent`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "FDI number of the tooth it shows."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it belongs to."
+          }
+        }
+      },
       "Visit": {
         "type": "object",
         "description": "A visit.",
@@ -4871,9 +5206,17 @@
           "notes",
           "observations",
           "chart_entries",
-          "procedures"
+          "procedures",
+          "attachments"
         ],
         "properties": {
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            },
+            "description": "Files attached to the visit."
+          },
           "chart_entries": {
             "type": "array",
             "items": {

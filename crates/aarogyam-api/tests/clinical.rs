@@ -11,11 +11,16 @@
 
 mod support;
 
-use axum::http::{Method, StatusCode};
+use aarogyam_app::files::LinkSigner;
+use aarogyam_domain::ids::{AttachmentId, ClinicId, UserId};
+use axum::body::{Body, to_bytes};
+use axum::http::{Method, Request, StatusCode};
 use sakalya_db::{DbError, DbErrorKind, Scope};
 use serde_json::{Value, json};
 use support::people::*;
-use support::{ALPHA, BETA, TestApp};
+use support::{ALPHA, BETA, FILE_KEY, TestApp};
+use time::OffsetDateTime;
+use tower::ServiceExt as _;
 use uuid::{Uuid, uuid};
 
 /// A second doctor at Alpha, added by [`add_doctor`].
@@ -1074,6 +1079,236 @@ async fn procedures_carry_out_accepted_plan_items() {
     app.finish().await;
 }
 
+const BOUNDARY: &str = "aarogyam-test-boundary";
+
+/// Uploads `bytes` as the `file` field of a multipart form, with the other fields given.
+async fn upload(
+    app: &TestApp,
+    host: &str,
+    token: &str,
+    patient: &str,
+    bytes: &[u8],
+    fields: &[(&str, &str)],
+) -> (StatusCode, Value) {
+    let mut body = Vec::new();
+    for (name, value) in fields {
+        body.extend_from_slice(
+            format!(
+                "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"
+            )
+            .as_bytes(),
+        );
+    }
+    body.extend_from_slice(
+        format!("--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"x.bin\"\r\nContent-Type: application/octet-stream\r\n\r\n").as_bytes(),
+    );
+    body.extend_from_slice(bytes);
+    body.extend_from_slice(format!("\r\n--{BOUNDARY}--\r\n").as_bytes());
+    let request = Request::post(format!("/api/v1/patients/{patient}/attachments"))
+        .header("host", host)
+        .header("authorization", format!("Bearer {token}"))
+        .header(
+            "content-type",
+            format!("multipart/form-data; boundary={BOUNDARY}"),
+        )
+        .body(Body::from(body))
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
+}
+
+/// Fetches a path without a sign-in header and returns the status, content type and bytes.
+async fn fetch(app: &TestApp, host: &str, path: &str) -> (StatusCode, String, Vec<u8>) {
+    let request = Request::get(path)
+        .header("host", host)
+        .body(Body::empty())
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_owned();
+    let bytes = to_bytes(response.into_body(), 16 * 1024 * 1024)
+        .await
+        .unwrap();
+    (status, content_type, bytes.to_vec())
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn files_upload_by_content_and_download_through_short_lived_links() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let beta = app.token(BETA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let other = register(&app, ALPHA, &owner, "Ravi Kumar").await;
+    let visit = start_visit(&app, &owner, &patient).await;
+    let other_visit = start_visit(&app, &owner, &other).await;
+    let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+    png.extend_from_slice(&[7_u8; 2048]);
+
+    let (status, file) = upload(
+        &app,
+        ALPHA,
+        &owner,
+        &patient,
+        &png,
+        &[
+            ("kind", "xray"),
+            ("tooth", "36"),
+            ("visit_id", &visit),
+            ("caption", "IOPA 36"),
+        ],
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{file}");
+    assert_eq!(file["mime_type"], "image/png");
+    assert_eq!(file["kind"], "xray");
+    assert_eq!(file["tooth"], 36);
+    assert_eq!(file["size_bytes"], png.len());
+    let id = file["id"].as_str().unwrap().to_owned();
+    // Stored under ids only, never a name from the request.
+    let alpha = app.clinic_id("alpha").await;
+    assert!(app.files_dir.join(alpha.to_string()).join(&id).is_file());
+
+    // Refused: wrong content, too large, missing file, bad tooth, another patient's visit.
+    let html = b"<html><script>alert(1)</script></html>";
+    let big = vec![0xFF_u8; 10 * 1024 * 1024 + 1];
+    for (bytes, fields, expected) in [
+        (&html[..], vec![], StatusCode::BAD_REQUEST),
+        (&big[..], vec![], StatusCode::PAYLOAD_TOO_LARGE),
+        (&png[..], vec![("tooth", "99")], StatusCode::BAD_REQUEST),
+        (
+            &png[..],
+            vec![("visit_id", other_visit.as_str())],
+            StatusCode::BAD_REQUEST,
+        ),
+        (&png[..], vec![("colour", "red")], StatusCode::BAD_REQUEST),
+    ] {
+        let (status, error) = upload(&app, ALPHA, &owner, &patient, bytes, &fields).await;
+        assert_eq!(status, expected, "{fields:?}: {error}");
+    }
+    assert_eq!(
+        status_of(
+            &app,
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/patients/{patient}/attachments"),
+            &owner,
+            Some(json!({}))
+        )
+        .await,
+        StatusCode::BAD_REQUEST
+    );
+    // Uploading needs clinical.write and a patient of this clinic.
+    assert_eq!(
+        upload(&app, ALPHA, &assistant, &patient, &png, &[]).await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        upload(&app, BETA, &beta, &patient, &png, &[]).await.0,
+        StatusCode::NOT_FOUND
+    );
+
+    let (_, listed) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/patients/{patient}/attachments"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(listed["items"].as_array().unwrap().len(), 1);
+    let (_, detail) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(detail["attachments"][0]["id"], id.as_str());
+
+    // A link works without a sign-in header, on this clinic's host only, and is recorded.
+    let (status, link) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/attachments/{id}/download"),
+            Some(&assistant),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{link}");
+    let url = link["url"].as_str().unwrap().to_owned();
+    let (status, content_type, bytes) = fetch(&app, ALPHA, &url).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(content_type, "image/png");
+    assert_eq!(bytes, png);
+    let (downloads,): (i64,) = sqlx::query_as(
+        "select count(*) from audit.access_log
+         where resource = 'attachment' and action = 'download' and resource_id = $1::uuid
+           and actor_user_id = '01900000-0000-7000-8000-0000000000a2'",
+    )
+    .bind(&id)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(downloads, 1);
+    assert_eq!(fetch(&app, BETA, &url).await.0, StatusCode::NOT_FOUND);
+    assert_eq!(
+        fetch(&app, ALPHA, &format!("{url}x")).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        fetch(&app, ALPHA, &format!("/api/v1/attachments/{id}/content"))
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+
+    // After five minutes the link stops working.
+    let expired = LinkSigner::new(FILE_KEY).unwrap().sign(
+        ClinicId::from_uuid(alpha),
+        AttachmentId::from_uuid(Uuid::parse_str(&id).unwrap()),
+        UserId::from_uuid(uuid!("01900000-0000-7000-8000-0000000000a1")),
+        OffsetDateTime::now_utc() - time::Duration::seconds(1),
+    );
+    let (status, _, _) = fetch(
+        &app,
+        ALPHA,
+        &format!("/api/v1/attachments/{id}/content?token={expired}"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    // Another clinic's member can't get a link.
+    assert_eq!(
+        status_of(
+            &app,
+            Method::GET,
+            BETA,
+            &format!("/api/v1/attachments/{id}/download"),
+            &beta,
+            None
+        )
+        .await,
+        StatusCode::NOT_FOUND
+    );
+    app.finish().await;
+}
+
 /// Posts `body` as Alpha's owner and returns the new record's id.
 async fn create(app: &TestApp, path: &str, body: Value) -> String {
     let owner = app.token(ALPHA_OWNER);
@@ -1130,6 +1365,8 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
         json!({ "name": "Scaling", "status": "planned" }),
     )
     .await;
+    let (_, file) = upload(app, ALPHA, &owner, &patient, b"%PDF-1.7\n%%EOF", &[]).await;
+    let attachment = file["id"].as_str().unwrap().to_owned();
     let sections = json!({ "sections": { "plan": "x" } });
     let reason = json!({ "reason": "wrong patient" });
     vec![
@@ -1244,6 +1481,16 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             Method::POST,
             format!("/api/v1/treatment-plans/{plan}/accept"),
             Some(json!({})),
+        ),
+        (
+            Method::GET,
+            format!("/api/v1/patients/{patient}/attachments"),
+            None,
+        ),
+        (
+            Method::GET,
+            format!("/api/v1/attachments/{attachment}/download"),
+            None,
         ),
         (Method::POST, format!("/api/v1/visits/{visit}/close"), None),
     ]

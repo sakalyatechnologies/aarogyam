@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::chart::{self, ChartEntryView};
 use crate::error::AppError;
+use crate::files::{self, AttachmentView};
 use crate::scope::staff_scope as scope;
 use crate::treatment::{self, ProcedureView};
 use crate::visits::{self, NoteView, VisitView};
@@ -27,6 +28,8 @@ pub struct VisitDetail {
     pub chart_entries: Vec<ChartEntryView>,
     /// Procedures planned or done in the visit.
     pub procedures: Vec<ProcedureView>,
+    /// Files attached to the visit.
+    pub attachments: Vec<AttachmentView>,
 }
 
 /// Opens a visit with everything recorded in it, and writes the access record.
@@ -47,6 +50,7 @@ pub async fn open_visit(
             observations: vitals::of_visit(tx, id).await?,
             chart_entries: chart::of_visit(tx, id).await?,
             procedures: treatment::of_visit(tx, id).await?,
+            attachments: files::of_visit(tx, id).await?,
             visit: opened.visit,
             notes: opened.notes,
         })

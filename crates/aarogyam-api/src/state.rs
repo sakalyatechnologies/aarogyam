@@ -4,6 +4,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use aarogyam_app::files::Files;
 use aarogyam_dal::lookups::{self, HostClinic};
 use aarogyam_dal::sessions;
 use aarogyam_domain::access::Authorization;
@@ -67,6 +68,7 @@ struct Inner {
     metrics: Arc<ServiceMetrics>,
     throttle: Option<Throttle>,
     notifier: Notifier,
+    files: Option<Files>,
 }
 
 /// Shared state; cheap to clone.
@@ -90,6 +92,7 @@ impl AppState {
                 metrics: Arc::new(ServiceMetrics::new()),
                 throttle: None,
                 notifier: Notifier::log(PortalLinks::default()),
+                files: None,
             }),
         }
     }
@@ -112,6 +115,23 @@ impl AppState {
             inner.notifier = notifier;
         }
         self
+    }
+
+    /// Sets where patient files are stored and how their download links are signed. Without
+    /// it, file routes answer `500`. Call before the state is shared (cloned).
+    #[must_use]
+    pub fn with_files(mut self, files: Files) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.files = Some(files);
+        }
+        self
+    }
+
+    pub(crate) fn files(&self) -> Result<&Files, ApiFailure> {
+        self.inner
+            .files
+            .as_ref()
+            .ok_or_else(|| ApiFailure(ApiError::internal("file storage is not configured")))
     }
 
     pub(crate) fn notifier(&self) -> &Notifier {

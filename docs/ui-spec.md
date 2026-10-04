@@ -254,3 +254,12 @@ The clinic itself never appears in the path — it comes from the host (`sunrise
 - **Toasts:** keep them generic, as the mock mostly already does ("Allergy record opened", not "Meera Shah's allergy record opened"). Audit any new toast text before shipping — none should interpolate a patient's name, phone, or diagnosis.
 - **Contacts:** phone/email stay masked (`Patient.phone`/`email` arrive pre-masked from the API without `patients.contact`) and reveal only on an explicit, per-field click, exactly as `patient-page.tsx`'s `Contact` component already does. Apply the same control anywhere else a phone number could appear (e.g. a future invoice or appointment detail panel) — never default to shown.
 - **Tables showing names:** patient names in on-screen tables (recent patients, invoices, pending payments) are fine — the rule is about URLs, logs, and toasts, not the rendered page.
+
+## Decisions on the data gaps (lead, 3 Oct night)
+
+- Today's hero drops "average rating" (no reviews in the product). "Team today" comes from working hours (M3). Lab-delay and low-stock attention items wait for Phase 2 (ops tables); the attention list shows what M3–M5 provide (late arrivals, unsigned notes, unpaid issued invoices, follow-ups due).
+- Consultant payouts, stock and the message/recall campaign screens are Phase 2: static, clearly marked.
+- Clinic profile: address and phone are the default branch's; the UPI ID lives in `org_settings.billing`. Built in M2's `/settings/clinic`.
+- Patient search filters "has balance" and "follow-up due" arrive with M5.
+- Patient 360's "Message" button is dropped until WhatsApp exists.
+- Staff, sessions, the visit screen and the odontogram follow the same design language; UI agents spec them as they build.

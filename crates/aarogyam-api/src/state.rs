@@ -1,6 +1,7 @@
 //! What every handler can reach: the database, token checks, short-lived lookups and the
 //! host names the API answers on.
 
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -113,6 +114,7 @@ struct Inner {
     allergies: Arc<dyn AllergySource>,
     files: Option<Files>,
     accounts: Option<Arc<dyn SignInAccounts>>,
+    quality_dir: PathBuf,
 }
 
 /// Shared state; cheap to clone.
@@ -139,6 +141,7 @@ impl AppState {
                 allergies: Arc::new(RecordedAllergies),
                 files: None,
                 accounts: None,
+                quality_dir: PathBuf::from("var/quality"),
             }),
         }
     }
@@ -192,6 +195,20 @@ impl AppState {
             inner.accounts = Some(accounts);
         }
         self
+    }
+
+    /// Sets where `scripts/quality-run.sh` writes its run summaries. Default `var/quality`.
+    /// Call before the state is shared (cloned).
+    #[must_use]
+    pub fn with_quality_dir(mut self, dir: PathBuf) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.quality_dir = dir;
+        }
+        self
+    }
+
+    pub(crate) fn quality_dir(&self) -> &Path {
+        &self.inner.quality_dir
     }
 
     pub(crate) fn accounts(&self) -> Option<&dyn SignInAccounts> {

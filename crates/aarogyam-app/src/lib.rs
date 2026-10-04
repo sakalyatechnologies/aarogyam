@@ -22,6 +22,7 @@ pub mod outbox;
 pub mod patients;
 pub mod payments;
 pub mod prescriptions;
+pub mod quality;
 pub mod queue;
 pub mod recalls;
 pub mod record;

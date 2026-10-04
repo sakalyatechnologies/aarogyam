@@ -691,6 +691,50 @@
         ]
       }
     },
+    "/api/v1/console/quality": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Recent quality runs, each suite's pass-rate trend, and the currently failing tests.",
+        "operationId": "quality",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Most recent runs to return (default 30, at most 200)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityReport"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not Sakalya staff"
+          },
+          "404": {
+            "description": "Not the console host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/dev/token": {
       "post": {
         "tags": [
@@ -10862,6 +10906,214 @@
               "$ref": "#/components/schemas/Procedure"
             },
             "description": "The procedures."
+          }
+        }
+      },
+      "QualityFailingTest": {
+        "type": "object",
+        "description": "A test failing in the newest run that recorded it.",
+        "required": [
+          "suite",
+          "test",
+          "message",
+          "run_id"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "suite": {
+            "type": "string"
+          },
+          "test": {
+            "type": "string"
+          }
+        }
+      },
+      "QualityFailure": {
+        "type": "object",
+        "description": "One test that failed within a suite.",
+        "required": [
+          "test",
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Why it failed. Never patient data."
+          },
+          "test": {
+            "type": "string",
+            "description": "The test's name, as its runner reports it."
+          }
+        }
+      },
+      "QualityReport": {
+        "type": "object",
+        "description": "The Quality dashboard.",
+        "required": [
+          "runs",
+          "trend",
+          "failing"
+        ],
+        "properties": {
+          "failing": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QualityFailingTest"
+            },
+            "description": "Tests failing in the newest run."
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QualityRun"
+            },
+            "description": "Newest first."
+          },
+          "trend": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QualityTrend"
+            },
+            "description": "Each suite seen across `runs`."
+          }
+        }
+      },
+      "QualityRun": {
+        "type": "object",
+        "description": "One recorded run.",
+        "required": [
+          "run_id",
+          "started_at",
+          "finished_at",
+          "environment",
+          "commit",
+          "suites"
+        ],
+        "properties": {
+          "commit": {
+            "type": "string",
+            "description": "The git commit the suites ran at."
+          },
+          "environment": {
+            "type": "string",
+            "description": "`local`, `staging` or another environment name."
+          },
+          "finished_at": {
+            "type": "string",
+            "description": "RFC 3339."
+          },
+          "run_id": {
+            "type": "string",
+            "description": "Identifies the run; also its file name's stem."
+          },
+          "started_at": {
+            "type": "string",
+            "description": "RFC 3339."
+          },
+          "suites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QualitySuite"
+            }
+          }
+        }
+      },
+      "QualitySuite": {
+        "type": "object",
+        "description": "One suite's result within a run.",
+        "required": [
+          "name",
+          "kind",
+          "passed",
+          "failed",
+          "skipped",
+          "duration_ms",
+          "failures"
+        ],
+        "properties": {
+          "duration_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QualityFailure"
+            }
+          },
+          "kind": {
+            "type": "string",
+            "description": "`unit`, `db`, `web` or `e2e`."
+          },
+          "name": {
+            "type": "string",
+            "description": "The suite's name, such as `aarogyam-dal (db)` or `portal e2e`."
+          },
+          "passed": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "skipped": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "QualityTrend": {
+        "type": "object",
+        "description": "A suite's pass-rate history across the returned runs, oldest first.",
+        "required": [
+          "name",
+          "kind",
+          "points"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QualityTrendPoint"
+            }
+          }
+        }
+      },
+      "QualityTrendPoint": {
+        "type": "object",
+        "description": "A point on a suite's pass-rate trend.",
+        "required": [
+          "run_id",
+          "started_at",
+          "pass_rate"
+        ],
+        "properties": {
+          "pass_rate": {
+            "type": "number",
+            "format": "double",
+            "description": "Passed over (passed + failed); `1.0` when nothing was graded."
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string"
           }
         }
       },

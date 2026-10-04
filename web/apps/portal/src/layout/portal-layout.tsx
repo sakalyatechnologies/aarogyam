@@ -1,29 +1,15 @@
-import {
-  Building2,
-  CalendarCheck,
-  CalendarRange,
-  ListOrdered,
-  LogOut,
-  MessageSquare,
-  Package,
-  Pill,
-  Settings,
-  Smile,
-  UsersRound,
-  Wallet,
-} from "lucide-react";
 import { useMemo } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 
 import { hasPermission, readBranding, type ClinicAccess } from "@aarogyam/api-client";
-import { ApiErrorNotice, renderRouterLink } from "@aarogyam/app-kit";
+import { ApiErrorNotice } from "@aarogyam/app-kit";
 import { useAuth, useAuthState } from "@aarogyam/auth";
-import { createTheme, parseHexColor, preset } from "@sakalya/tokens";
-import { AppShell, Avatar, Button, Card, EmptyState, IconButton, Menu, Skeleton, ThemeScope, UserChip, type NavEntry } from "@sakalya/ui";
+import { parseHexColor } from "@sakalya/tokens";
+import { Avatar, Button, Card, EmptyState, Skeleton, ThemeScope } from "@sakalya/ui";
 
-import { ClinicProvider, useClinic, useClinicChoice, useMe, useServices, useSession, type ClinicContextValue } from "../clinic.js";
-
-const DEFAULT_BRAND = preset("mint").brand;
+import { ClinicProvider, useClinicChoice, useMe, useServices, useSession, type ClinicContextValue } from "../clinic.js";
+import { MOCKUP_BRAND, mockupTheme } from "./mockup-theme.js";
+import { MockShell } from "./shell.js";
 
 function Loading({ label }: { label: string }) {
   return (
@@ -61,7 +47,7 @@ export function ClinicGate() {
   const session = useSession(api, host);
   const branding = session.data === undefined ? {} : readBranding(session.data.clinic.branding);
   const theme = useMemo(
-    () => createTheme({ brand: parseHexColor(branding.brand ?? "") ?? DEFAULT_BRAND, mode: branding.mode ?? "light" }),
+    () => mockupTheme(parseHexColor(branding.brand ?? "") ?? MOCKUP_BRAND, branding.mode ?? "light"),
     [branding.brand, branding.mode],
   );
 
@@ -114,7 +100,7 @@ export function ClinicGate() {
   return (
     <ClinicProvider value={value}>
       <ThemeScope theme={theme} className="min-h-full">
-        <PortalShell />
+        <MockShell />
       </ThemeScope>
     </ClinicProvider>
   );
@@ -155,76 +141,5 @@ function ChooseClinic({ clinics, onChoose }: { clinics: readonly ClinicAccess[];
         </ul>
       </Card>
     </main>
-  );
-}
-
-function PortalShell() {
-  const { me, access, session, can, switchClinic } = useClinic();
-  const auth = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
-  // Calendar, Billing and Settings show once their screens land; Stock and Messages are Phase 2
-  // per docs/ui-spec.md and stay visible as "coming soon" so the design language is in place.
-  const nav: NavEntry[] = [
-    ...(can("appointments.read") ? [{ id: "today", label: "Today", icon: <CalendarCheck />, href: "/today" }] : []),
-    ...(can("patients.read") ? [{ id: "patients", label: "Patients", icon: <UsersRound />, href: "/patients" }] : []),
-    ...(can("appointments.read") ? [{ id: "calendar", label: "Calendar", icon: <CalendarRange />, href: "/calendar" }] : []),
-    ...(can("appointments.read") ? [{ id: "queue", label: "Queue", icon: <ListOrdered />, href: "/queue" }] : []),
-    ...(can("clinical.read") ? [{ id: "prescriptions", label: "Prescriptions", icon: <Pill />, href: "/prescriptions" }] : []),
-    ...(can("billing.read") ? [{ id: "billing", label: "Billing", icon: <Wallet />, href: "/billing" }] : []),
-    { id: "stock", label: "Stock", icon: <Package />, href: "/stock" },
-    { id: "messages", label: "Messages", icon: <MessageSquare />, href: "/messages" },
-    // Everyone gets a Settings entry for their own sessions; the clinic profile and staff panels
-    // inside show only with settings.manage and staff.manage.
-    { id: "settings", label: "Settings", icon: <Settings />, href: "/settings" },
-  ];
-  const activeId = nav.find((entry) => location.pathname.startsWith(entry.href))?.id ?? "";
-  const others = me.clinics.filter((clinic) => clinic.org_id !== access.org_id);
-  return (
-    <AppShell
-      brand={
-        <div className="flex items-center gap-3">
-          <span className="flex size-11 items-center justify-center rounded-2xl bg-primary text-on-primary">
-            <Smile aria-hidden="true" className="size-6" />
-          </span>
-          <div className="leading-tight">
-            <p className="text-lg font-extrabold tracking-tight text-text">{session.clinic.name}</p>
-            <p className="text-xs text-muted">Dental clinic · Aarogyam</p>
-          </div>
-        </div>
-      }
-      nav={nav}
-      activeId={activeId}
-      renderLink={renderRouterLink}
-      topBarEnd={
-        <>
-          {others.length > 0 ? (
-            <Menu
-              label={access.name}
-              icon={<Building2 aria-hidden="true" />}
-              items={others.map((clinic) => ({ id: clinic.org_id, label: `Switch to ${clinic.name}` }))}
-              onSelect={(id) => {
-                const clinic = others.find((c) => c.org_id === id);
-                if (clinic !== undefined) {
-                  switchClinic(clinic);
-                  void navigate("/");
-                }
-              }}
-            />
-          ) : null}
-          <UserChip name={session.user.display_name} role={access.role_name} />
-          <IconButton
-            label="Sign out"
-            onClick={() => {
-              void auth.signOut();
-            }}
-          >
-            <LogOut aria-hidden="true" className="size-5" />
-          </IconButton>
-        </>
-      }
-    >
-      <Outlet />
-    </AppShell>
   );
 }

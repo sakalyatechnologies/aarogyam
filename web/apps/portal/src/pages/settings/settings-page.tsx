@@ -9,16 +9,12 @@ import {
   Card,
   DataTable,
   Dialog,
-  EmptyState,
   Field,
-  FormActions,
   Menu,
-  PageHeader,
   Pill,
   Select,
   Skeleton,
   Tabs,
-  TextArea,
   TextInput,
   useToast,
   type DataTableColumn,
@@ -26,6 +22,7 @@ import {
   type TabItem,
 } from "@sakalya/ui";
 
+import { MkCard, Toggle } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import {
   useChangeStaffMember,
@@ -40,44 +37,70 @@ import {
 import { ChairsDoctorsPanel } from "./chairs-doctors-panel.js";
 import { PriceListPanel } from "./price-list-panel.js";
 
-/** The clinic's profile, staff, sessions, and the two panels that stay static until Phase 2. */
+/** Clinic profile, notifications and website cards in the mock-up's layout, then the admin panels. */
 export function SettingsPage() {
   const { session, can } = useClinic();
   useDocumentTitle("Settings", session.clinic.name);
   const items: TabItem[] = [
-    ...(can("settings.manage") ? [{ value: "profile", label: "Clinic profile", content: <ProfilePanel /> }] : []),
     ...(can("settings.manage") ? [{ value: "chairs-doctors", label: "Chairs and doctors", content: <ChairsDoctorsPanel /> }] : []),
     ...(can("billing.read") ? [{ value: "price-list", label: "Price list", content: <PriceListPanel /> }] : []),
     ...(can("staff.manage") ? [{ value: "staff", label: "Staff", content: <StaffPanel /> }] : []),
     { value: "sessions", label: "Sessions", content: <SessionsPanel /> },
-    {
-      value: "notifications",
-      label: "Notifications",
-      content: (
-        <EmptyState
-          title="Notifications are static for now"
-          description="Reminder, receipt, recall and low-stock toggles will connect once their modules land."
-        />
-      ),
-    },
-    {
-      value: "website",
-      label: "Website",
-      content: (
-        <EmptyState
-          title="Website is static for now"
-          description="Online booking and a preview link will connect once clinic websites ship, in Phase 2."
-        />
-      ),
-    },
   ];
   return (
-    <>
-      <PageHeader title="Settings" />
-      <Card>
+    <div className="mk-panel">
+      <h1 className="mk-sr">Settings</h1>
+      <div className="mk-grid mk-g2">
+        {can("settings.manage") ? (
+          <MkCard title="Clinic profile" hint="Shown on website, bills & prescriptions">
+            <ProfilePanel />
+          </MkCard>
+        ) : (
+          <MkCard title="Your account" hint="Signed in as">
+            <p className="mk-empty">
+              <b>{session.user.display_name}</b>
+              Only the clinic owner can change the clinic profile.
+            </p>
+          </MkCard>
+        )}
+        <div className="mk-stack">
+          <MkCard title="Notifications" hint="Quiet hours 9 PM – 9 AM IST">
+            {[
+              ["Appointment reminders", "24h + 2h before · WhatsApp"],
+              ["Payment receipts", "Auto-send on collection"],
+              ["Recall campaigns", "Promotional · needs opt-in"],
+              ["Low-stock alerts", "Notify front desk + owner"],
+            ].map(([title, text]) => (
+              <div key={title} className="mk-setrow">
+                <div>
+                  <b>{title}</b>
+                  <p>{text}</p>
+                </div>
+                <Toggle checked={false} disabled label={`${title ?? ""} (not available yet)`} />
+              </div>
+            ))}
+            <p className="mk-hint" style={{ margin: "8px 0 0" }}>
+              These switches connect when Messages and Stock ship.
+            </p>
+          </MkCard>
+          <MkCard title="Website" hint="Clinic websites ship in Phase 2">
+            <div className="mk-setrow">
+              <div>
+                <b>Online booking</b>
+                <p>Accept appointments from website</p>
+              </div>
+              <Toggle checked={false} disabled label="Online booking (not available yet)" />
+            </div>
+            <button type="button" className="mk-btn mk-btn-ghost" style={{ width: "100%" }} disabled>
+              ↗ Preview website
+            </button>
+          </MkCard>
+        </div>
+      </div>
+      <MkCard title="Clinic administration" hint="Chairs, doctors, prices, staff and your signed-in devices">
         <Tabs label="Settings" items={items} />
-      </Card>
-    </>
+      </MkCard>
+    </div>
   );
 }
 
@@ -168,52 +191,50 @@ function ProfileForm({ settings }: { settings: ClinicSettings }) {
     );
   };
 
+  const input = (key: keyof ProfileValues, label: string, extra: { className?: string; placeholder?: string } = {}) => (
+    <>
+      <label className="mk-flabel" htmlFor={`profile-${key}`}>
+        {label}
+      </label>
+      <input id={`profile-${key}`} className={`mk-tin ${extra.className ?? ""}`} placeholder={extra.placeholder} aria-invalid={fieldErrors[key] !== undefined} {...field(key)} />
+      {fieldErrors[key] === undefined ? null : (
+        <p role="alert" className="mk-hint" style={{ color: "var(--red)", margin: "4px 0 0" }}>
+          {fieldErrors[key]}
+        </p>
+      )}
+    </>
+  );
   return (
-    <form onSubmit={onSubmit} className="flex max-w-2xl flex-col gap-5">
-      <Field label="Display name" error={fieldErrors.name} required>
-        <TextInput {...field("name")} />
-      </Field>
-      <Field label="Legal name" hint="As registered, for bills" error={fieldErrors.legal_name}>
-        <TextInput {...field("legal_name")} />
-      </Field>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="GSTIN" error={fieldErrors.gstin}>
-          <TextInput {...field("gstin")} className="font-mono" />
-        </Field>
-        <Field label="Phone" hint="The main branch's" error={fieldErrors.phone}>
-          <TextInput {...field("phone")} />
-        </Field>
+    <form onSubmit={onSubmit} style={{ marginTop: -8 }}>
+      {input("name", "Clinic name")}
+      {input("legal_name", "Legal name")}
+      {input("line1", "Address", { placeholder: "House, building and street" })}
+      <input className="mk-tin" style={{ marginTop: 8 }} aria-label="Address line 2" placeholder="Area or landmark" {...field("line2")} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginTop: 8 }}>
+        <input className="mk-tin" placeholder="City" aria-label="City" {...field("city")} />
+        <input className="mk-tin" placeholder="State" aria-label="State" {...field("state")} />
+        <input className="mk-tin" placeholder="PIN code" aria-label="PIN code" {...field("pincode")} />
       </div>
-      <Field label="UPI ID" hint="Shown on bills, such as clinic@okicici" error={fieldErrors.upi_id}>
-        <TextInput {...field("upi_id")} />
-      </Field>
-      <fieldset className="flex flex-col gap-3">
-        <legend className="text-sm font-semibold text-text">Address</legend>
-        <Field label="Address line 1" hideLabel>
-          <TextInput placeholder="House, building and street" {...field("line1")} />
-        </Field>
-        <Field label="Address line 2" hideLabel>
-          <TextInput placeholder="Area or landmark" {...field("line2")} />
-        </Field>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <TextInput placeholder="City" aria-label="City" {...field("city")} />
-          <TextInput placeholder="State" aria-label="State" {...field("state")} />
-          <TextInput placeholder="PIN code" aria-label="PIN code" {...field("pincode")} />
-        </div>
-      </fieldset>
-      <Field label="Prescription footer" hint="Printed on every prescription" error={fieldErrors.prescription_footer}>
-        <TextArea {...field("prescription_footer")} />
-      </Field>
+      {input("phone", "Phone")}
+      {input("upi_id", "UPI ID", { placeholder: "clinic@okicici" })}
+      {input("gstin", "GSTIN", { className: "mk-mono" })}
+      <label className="mk-flabel" htmlFor="profile-footer">
+        Prescription footer
+      </label>
+      <textarea id="profile-footer" className="mk-tin" rows={2} {...field("prescription_footer")} />
+      {fieldErrors.prescription_footer === undefined ? null : (
+        <p role="alert" className="mk-hint" style={{ color: "var(--red)", margin: "4px 0 0" }}>
+          {fieldErrors.prescription_footer}
+        </p>
+      )}
       {error === undefined ? null : (
-        <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger-text">
+        <p role="alert" className="mk-pill down" style={{ display: "block", marginTop: 12, borderRadius: 12, padding: "10px 14px" }}>
           {error}
         </p>
       )}
-      <FormActions>
-        <Button type="submit" disabled={update.isPending}>
-          {update.isPending ? "Saving…" : "Save changes"}
-        </Button>
-      </FormActions>
+      <button type="submit" className="mk-btn mk-btn-primary" style={{ marginTop: 16 }} disabled={update.isPending}>
+        {update.isPending ? "Saving…" : "Save changes"}
+      </button>
     </form>
   );
 }

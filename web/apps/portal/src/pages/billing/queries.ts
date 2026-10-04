@@ -159,9 +159,9 @@ export function useCollections(range: Partial<DateRange> = {}) {
   });
 }
 
-export function usePendingReport() {
+export function usePendingReport(enabled = true) {
   const { api, access } = useClinic();
-  return useQuery({ queryKey: ["pending-report", access.org_id], queryFn: ({ signal }) => unwrap(api.getPendingReport({ signal })) });
+  return useQuery({ queryKey: ["pending-report", access.org_id], queryFn: ({ signal }) => unwrap(api.getPendingReport({ signal })), enabled });
 }
 
 export function useTodayMoney(enabled = true) {

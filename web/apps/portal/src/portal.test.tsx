@@ -146,10 +146,10 @@ describe("Permissions", () => {
     const user = userEvent.setup();
     renderPortal("/today", { as: PEOPLE.dev });
     await user.click(await screen.findByRole("button", { name: /Lotus Dental Care/ }));
-    expect(await screen.findByText(/Here's today at Lotus Dental Care/)).toBeTruthy();
+    expect(await screen.findByText(/Good (morning|afternoon|evening),/)).toBeTruthy();
     const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
     expect(nav && within(nav).queryByRole("link", { name: "Patients" })).toBeNull();
-    expect(nav && within(nav).getByRole("link", { name: "Today" })).toBeTruthy();
+    expect(nav && within(nav).getByRole("link", { name: /^Today/ })).toBeTruthy();
   });
 
   it("lets an assistant search but not register, and keeps contact details masked", async () => {
@@ -160,18 +160,18 @@ describe("Permissions", () => {
 
   it("shows the day's money to the owner only", async () => {
     renderPortal("/today", { as: PEOPLE.asha });
-    expect(await screen.findByText("Today's collection")).toBeTruthy();
+    expect(await screen.findByText("Revenue today")).toBeTruthy();
   });
 
   it("keeps money off Today for the front desk", async () => {
     renderPortal("/today", { as: PEOPLE.farah });
-    expect(await screen.findByText("Today's appointments")).toBeTruthy();
-    expect(screen.queryByText("Today's collection")).toBeNull();
+    expect(await screen.findByText("Appointments today")).toBeTruthy();
+    expect(screen.queryByText("Revenue today")).toBeNull();
   });
 
   it("shows Stock, Messages and Settings to everyone, since Settings has sessions for any signed-in person", async () => {
     renderPortal("/today", { as: PEOPLE.farah });
-    await screen.findByText("Today's appointments");
+    await screen.findByText("Appointments today");
     const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
     if (nav === undefined) throw new Error("no main navigation");
     expect(within(nav).getByRole("link", { name: "Stock" })).toBeTruthy();
@@ -182,11 +182,11 @@ describe("Permissions", () => {
   it("shows the owner the clinic profile and staff panels, but front desk only sessions", async () => {
     const user = userEvent.setup();
     renderPortal("/today", { as: PEOPLE.asha });
-    await screen.findByText("Today's collection");
+    await screen.findByText("Revenue today");
     const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
     if (nav === undefined) throw new Error("no main navigation");
     await user.click(within(nav).getByRole("link", { name: "Settings" }));
-    expect(await screen.findByRole("tab", { name: "Clinic profile" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Clinic profile" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Staff" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Sessions" })).toBeTruthy();
   });
@@ -194,7 +194,7 @@ describe("Permissions", () => {
   it("hides the clinic profile and staff panels from the front desk", async () => {
     renderPortal("/settings", { as: PEOPLE.farah });
     expect(await screen.findByRole("tab", { name: "Sessions" })).toBeTruthy();
-    expect(screen.queryByRole("tab", { name: "Clinic profile" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Clinic profile" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "Staff" })).toBeNull();
   });
 });
@@ -274,8 +274,8 @@ describe("Patient 360", () => {
 describe("Today enrichment", () => {
   it("shows real chair status, team today and money from /today/money", async () => {
     renderPortal("/today", { as: PEOPLE.asha });
-    await screen.findByText("Today's appointments");
-    expect(screen.getByText("Today's collection")).toBeTruthy();
+    await screen.findByText("Appointments today");
+    expect(screen.getByText("Revenue today")).toBeTruthy();
     expect(screen.getAllByText("Chair 1").length).toBeGreaterThan(0);
     expect(await screen.findByRole("heading", { name: "Revenue mix" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Pending payments" })).toBeTruthy();
@@ -352,7 +352,7 @@ describe("Invitation", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(await screen.findByRole("button", { name: "Join the clinic" }));
 
-    expect(await screen.findByText(/Here's today at Asha Dental Care/)).toBeTruthy();
+    expect(await screen.findByText(/Good (morning|afternoon|evening),/)).toBeTruthy();
   });
 
   it("explains a used or unknown invitation", async () => {

@@ -14,6 +14,7 @@ import { CalendarPage } from "./pages/calendar/calendar-page.js";
 import { ComingSoonPage } from "./pages/coming-soon-page.js";
 import { InvitePage } from "./pages/invite-page.js";
 import { RootPage } from "./pages/landing-page.js";
+import { MessagesPage } from "./pages/messages/messages-page.js";
 import { NotFoundPage } from "./pages/not-found-page.js";
 import { EditPatientPage } from "./pages/patients/edit-patient-page.js";
 import { ImportPage } from "./pages/patients/import-page.js";
@@ -79,10 +80,7 @@ export const routes: RouteObject[] = [
                 path: "stock",
                 element: <ComingSoonPage title="Stock" description="Material and medicine stock levels. Not yet scheduled." />,
               },
-              {
-                path: "messages",
-                element: <ComingSoonPage title="Messages" description="Reminders, recalls and campaigns. Not yet scheduled." />,
-              },
+              { path: "messages", element: <MessagesPage /> },
               { path: "settings", element: <SettingsPage /> },
               { path: "*", element: <NotFoundPage /> },
             ],

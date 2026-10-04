@@ -1,42 +1,15 @@
-import {
-  AlarmClockPlus,
-  Armchair,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  IndianRupee,
-  Play,
-  ReceiptText,
-  UsersRound,
-  XCircle,
-} from "lucide-react";
-import type { ReactNode } from "react";
+import { Download, Play } from "lucide-react";
+import { Link } from "react-router";
 
 import { apiErrorOf, type AppointmentStatus, type PendingItem, type Today, type TodayMoney } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatPercent, formatRupees, formatTime, useDocumentTitle } from "@aarogyam/app-kit";
-import {
-  AttentionList,
-  Avatar,
-  BarChart,
-  Button,
-  Card,
-  DataTable,
-  DonutChart,
-  EmptyState,
-  Link,
-  PageHeader,
-  Pill,
-  PersonList,
-  Skeleton,
-  StatCard,
-  Timeline,
-  type AttentionItem as AttentionRowItem,
-  type DataTableColumn,
-  type Status,
-} from "@sakalya/ui";
+import { ApiErrorNotice, formatRupees, formatTime, useDocumentTitle } from "@aarogyam/app-kit";
+import { EmptyState, Skeleton } from "@sakalya/ui";
 
+import { Bars, Donut, Empty, Kpi, MkAvatar, MkCard, Tag, type TagTone } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
-import { ageSex, patientPath } from "../../lib/patients.js";
+import { usePatientPeek } from "../../layout/peek.js";
+import { patientPath } from "../../lib/patients.js";
+import { compactRupees } from "../../lib/money.js";
 import { useToday } from "../../queries.js";
 import { useTodayMoney } from "../billing/queries.js";
 
@@ -52,221 +25,279 @@ function waitingMinutes(appointment: TodayAppointment, asOf: string): number {
   return appointment.arrived_at == null ? 0 : Math.max(0, Math.round((Date.parse(asOf) - Date.parse(appointment.arrived_at)) / MINUTE));
 }
 
-function statusOf(appointment: TodayAppointment, asOf: string): Status {
-  const icon = (node: ReactNode) => node;
-  const labels: Readonly<Record<AppointmentStatus, Status>> = {
-    booked: { label: "Booked", tone: "neutral" },
-    confirmed: { label: "Confirmed", tone: "info" },
-    arrived: { label: `Waiting ${String(waitingMinutes(appointment, asOf))} min`, tone: "warning", icon: icon(<Clock3 className="size-3.5" />) },
-    in_chair: { label: "In the chair", tone: "primary", icon: icon(<Armchair className="size-3.5" />) },
-    completed: { label: "Completed", tone: "success", icon: icon(<CheckCircle2 className="size-3.5" />) },
-    cancelled: { label: "Cancelled", tone: "neutral", icon: icon(<XCircle className="size-3.5" />) },
-    no_show: { label: "No-show", tone: "danger" },
-  };
-  return labels[appointment.status];
+const TAGS: Readonly<Record<AppointmentStatus, { label: string; tone: TagTone }>> = {
+  booked: { label: "BOOKED", tone: "next" },
+  confirmed: { label: "CONFIRMED", tone: "info" },
+  arrived: { label: "WAITING", tone: "wait" },
+  in_chair: { label: "IN CHAIR", tone: "next" },
+  completed: { label: "DONE", tone: "done" },
+  cancelled: { label: "CANCELLED", tone: "neutral" },
+  no_show: { label: "NO-SHOW", tone: "down" },
+};
+
+function greeting(asOf: string, timeZone: string): string {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone }).format(new Date(asOf)));
+  return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 }
 
-/** Today: who is in the chair now, who is waiting, who is next, and the day's numbers. */
+function longDate(asOf: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone }).formatToParts(new Date(asOf));
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("weekday")} · ${get("day")} ${get("month")} ${get("year")}`;
+}
+
+/** Today: the day at a glance, in the mock-up's layout. Numbers come from the API; gaps show as empty. */
 export function TodayPage() {
   const { session, can } = useClinic();
   useDocumentTitle("Today", session.clinic.name);
   const today = useToday();
-  return (
-    <>
-      <PageHeader title={`Hello, ${session.user.display_name}`} subtitle={`Here's today at ${session.clinic.name}.`} />
-      {today.isPending ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" role="status" aria-label="Loading today">
-          {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton key={index} shape="block" />
-          ))}
-        </div>
-      ) : today.isError && apiErrorOf(today.error)?.status === 404 ? (
-        <EmptyState
-          title="Appointments aren't connected yet"
-          description="Today's schedule and queue appear here once the API serves appointments. Patients work already."
-          action={<Link href="/patients" className="text-sm font-semibold text-primary-text hover:underline">Go to patients</Link>}
-        />
-      ) : today.isError ? (
-        <ApiErrorNotice title="Couldn't load today" error={today.error} onRetry={() => void today.refetch()} />
-      ) : (
-        <TodayBody today={today.data} timeZone={session.clinic.timezone} showMoney={can("finance.view")} />
-      )}
-    </>
+  return today.isPending ? (
+    <div className="mk-panel" role="status" aria-label="Loading today">
+      <h1 className="mk-sr">Today</h1>
+      <div className="mk-kpis">
+        {Array.from({ length: 4 }, (_, index) => (
+          <Skeleton key={index} shape="block" />
+        ))}
+      </div>
+    </div>
+  ) : today.isError && apiErrorOf(today.error)?.status === 404 ? (
+    <EmptyState
+      title="Appointments aren't connected yet"
+      description="Today's schedule and queue appear here once the API serves appointments. Patients work already."
+      action={
+        <Link to="/patients" className="text-sm font-semibold text-primary-text hover:underline">
+          Go to patients
+        </Link>
+      }
+    />
+  ) : today.isError ? (
+    <ApiErrorNotice title="Couldn't load today" error={today.error} onRetry={() => void today.refetch()} />
+  ) : (
+    <TodayBody today={today.data} timeZone={session.clinic.timezone} showMoney={can("finance.view")} />
   );
 }
 
 function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: string; showMoney: boolean }) {
+  const { session, can } = useClinic();
   const money = useTodayMoney(showMoney);
+  const peek = usePatientPeek();
   const booked = today.appointments.filter((a) => a.status !== "cancelled");
   const waiting = booked.filter((a) => a.status === "arrived").sort((a, b) => (a.arrived_at ?? "").localeCompare(b.arrived_at ?? ""));
   const upcoming = booked.filter((a) => a.status === "booked" || a.status === "confirmed");
   const now = booked.find((a) => a.status === "in_chair") ?? waiting[0];
-  const next = [...waiting.filter((a) => a !== now), ...upcoming].slice(0, 3);
-  const hours = today.by_hour.map((bar) => ({
-    label: `${String(bar.hour > 12 ? bar.hour - 12 : bar.hour === 0 ? 12 : bar.hour)} ${bar.hour >= 12 ? "pm" : "am"}`,
-    total: bar.booked,
-    part: bar.completed,
-  }));
+  const nextUp = now === undefined ? upcoming[0] : [...waiting.filter((a) => a !== now), ...upcoming][0];
+  const target = nextUp ?? now;
+  const hours = today.by_hour.map((bar) => {
+    const h12 = bar.hour % 12 === 0 ? 12 : bar.hour % 12;
+    const label = `${String(h12)}${bar.hour >= 12 ? "p" : "a"}`;
+    return { label, value: bar.booked, done: bar.completed > 0 && bar.completed >= bar.booked, tip: `${String(bar.booked)} appts · ${String(bar.completed)} done · ${label}` };
+  });
+  const chairsInUse = today.chairs.filter((c) => c.status === "in_use").length;
+  const firstName = session.user.display_name.split(" ")[0] ?? session.user.display_name;
+  const firstUpcoming = nextUp?.id;
+  const nowTime = formatTime(today.as_of, timeZone);
+  const nowIndex = today.appointments.findIndex((a) => a.starts_at > today.as_of);
+  const rows = today.appointments.flatMap((a, index) => [
+    ...(index === nowIndex ? [{ kind: "now" as const }] : []),
+    { kind: "appointment" as const, a },
+  ]);
+  if (nowIndex === -1 && today.appointments.length > 0) {
+    rows.push({ kind: "now" });
+  }
+  const pendingItems = money.data?.pending ?? [];
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Today's appointments"
-          value={String(today.counts.total)}
-          icon={<CalendarDays className="size-7" />}
-          footer={
-            <p className="text-xs font-semibold text-muted">
-              {today.counts.done} completed · {today.counts.in_chair} in the chair · {today.counts.booked} upcoming
-            </p>
-          }
-        />
-        <StatCard
-          label="Patients waiting"
-          value={String(today.counts.waiting)}
-          tone={today.counts.waiting > 0 ? "warning" : "primary"}
-          icon={<UsersRound className="size-7" />}
-          footer={
-            waiting.length === 0 ? undefined : (
-              <div className="flex flex-col items-start gap-1.5">
-                {waiting.map((a) => (
-                  <Pill key={a.id} tone="warning" icon={<Clock3 className="size-3.5" />}>
-                    {a.patient.number} · {waitingMinutes(a, today.as_of)} min
-                  </Pill>
-                ))}
-              </div>
-            )
-          }
-        />
+    <div className="mk-panel">
+      <div className="mk-hero">
+        <div className="mk-eyebrow">
+          {longDate(today.as_of, timeZone)} · {session.clinic.name}
+        </div>
+        <h1>
+          {greeting(today.as_of, timeZone)}, {firstName}.
+        </h1>
+        <p>
+          {today.counts.total} {today.counts.total === 1 ? "appointment" : "appointments"}, {today.counts.waiting} {today.counts.waiting === 1 ? "patient" : "patients"} waiting.
+          {target === undefined ? (
+            " Nobody else is booked for today."
+          ) : (
+            <>
+              {" "}
+              Your {now === undefined ? "next" : "current"} patient <b style={{ color: "#fff" }}>{target.patient.full_name}</b> {now === undefined ? "is booked" : "is here"}
+              {target.room == null ? "" : ` for ${target.room}`} at {formatTime(target.starts_at, timeZone)}.
+            </>
+          )}
+        </p>
+        <div className="mk-hero-row">
+          {target === undefined ? (
+            <button type="button" className="mk-btn mk-btn-primary" disabled>
+              <Play aria-hidden="true" /> Start next visit
+            </button>
+          ) : (
+            <Link to={patientPath(target.patient)} className="mk-btn mk-btn-primary">
+              <Play aria-hidden="true" /> Start next visit
+            </Link>
+          )}
+          <button
+            type="button"
+            className="mk-btn mk-btn-ghost"
+            onClick={() => {
+              window.print();
+            }}
+          >
+            <Download aria-hidden="true" /> Export day plan
+          </button>
+        </div>
+        <div className="mk-hero-stats">
+          <div>
+            <b>{today.chairs.length === 0 ? "—" : `${String(chairsInUse)} / ${String(today.chairs.length)}`}</b>
+            <span>chairs in use</span>
+          </div>
+          <div>
+            <b>
+              {today.counts.done} / {today.counts.total}
+            </b>
+            <span>visits completed</span>
+          </div>
+          <div>
+            <b>{money.data === undefined ? "—" : compactRupees(money.data.collected_paise)}</b>
+            <span>collected today</span>
+          </div>
+          <div>
+            <b>—</b>
+            <span>avg. rating this week</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mk-ai">
+        <b>✦ Aarogyam AI — morning brief</b>
+        <p>The morning brief (recalls, schedule gaps and stock forecasts) arrives with AI Scribe in a later release.</p>
+      </div>
+
+      <div className="mk-kpis">
+        <Kpi label="Appointments today" value={today.counts.total} pill={`${String(today.counts.done)} done`} pillTone="up" />
+        <Kpi label="Patients waiting" value={today.counts.waiting} warn pill={today.attention.length === 0 ? "none urgent" : `${String(today.attention.length)} need attention`} pillTone="warn" />
         {showMoney ? (
           <>
-            <StatCard
-              label="Today's collection"
-              value={money.data === undefined ? "—" : formatRupees(money.data.collected_paise)}
-              icon={<IndianRupee className="size-7" />}
-              footer={money.data === undefined ? undefined : <p className="text-xs text-muted">{formatRupees(money.data.collected_this_month_paise)} this month</p>}
+            <Kpi
+              label="Revenue today"
+              value={money.data === undefined ? "—" : compactRupees(money.data.collected_paise)}
+              pill={money.data === undefined ? undefined : `${compactRupees(money.data.collected_this_month_paise)} this month`}
+              pillTone="up"
             />
-            <StatCard
-              label="Pending dues"
-              value={money.data === undefined ? "—" : formatRupees(money.data.pending_dues_paise)}
-              tone={money.data !== undefined && money.data.pending_dues_paise > 0 ? "warning" : "primary"}
-              icon={<ReceiptText className="size-7" />}
-              footer={
-                money.data === undefined ? undefined : (
-                  <p className="text-xs text-muted">
-                    {money.data.pending_dues_patients} {money.data.pending_dues_patients === 1 ? "patient" : "patients"}
-                  </p>
-                )
-              }
+            <Kpi
+              label="Pending payments"
+              value={money.data === undefined ? "—" : compactRupees(money.data.pending_dues_paise)}
+              pill={money.data === undefined ? undefined : money.data.pending_dues_paise > 0 ? "follow-up" : "all clear"}
+              pillTone={money.data !== undefined && money.data.pending_dues_paise > 0 ? "down" : "up"}
             />
           </>
         ) : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-4">
-          <Card title="Now">
-            {now === undefined ? (
-              <EmptyState title="Nobody is waiting" description="New arrivals show here." icon={null} />
-            ) : (
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <Link href={patientPath(now.patient)} className="text-xl font-extrabold tracking-tight text-text hover:underline">
-                    {now.patient.full_name}
-                  </Link>
-                  <p className="text-sm text-muted">
-                    {now.patient.number} · {ageSex(now.patient.age_years, now.patient.sex)}
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-text">{now.reason ?? "Consultation"}</p>
-                  <p className="text-sm text-muted">
-                    {now.status === "in_chair"
-                      ? `In the chair since ${formatTime(now.seated_at ?? now.starts_at, timeZone)}`
-                      : `Waiting ${String(waitingMinutes(now, today.as_of))} min`}{" "}
-                    · {now.room ?? "No room"} · {now.practitioner.display_name}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <Button icon={<Play aria-hidden="true" className="size-4" />} disabled aria-describedby="start-note">
-                    Start consultation
-                  </Button>
-                  <p id="start-note" className="text-xs text-muted">
-                    Arrives with visits
-                  </p>
-                </div>
-              </div>
-            )}
-          </Card>
-          <Card title="Today's schedule">
-            {today.appointments.length === 0 ? (
-              <EmptyState title="No appointments today" icon={null} />
-            ) : (
-              <Timeline
-                items={today.appointments.map((a) => ({
-                  id: a.id,
-                  time: formatTime(a.starts_at, timeZone),
-                  title: a.patient.full_name,
-                  subtitle: `${a.patient.number} · ${ageSex(a.patient.age_years, a.patient.sex)}`,
-                  detail: a.reason ?? "Consultation",
-                  detailSub: `${a.room ?? "No room"} · ${a.practitioner.display_name}`,
-                  status: statusOf(a, today.as_of),
-                  current: a === now,
-                }))}
-              />
-            )}
-          </Card>
-        </div>
-        <div className="flex flex-col gap-4">
-          <Card title="Up next">
-            {next.length === 0 ? (
-              <EmptyState title="Nobody else today" icon={null} />
-            ) : (
-              <PersonList
-                items={next.map((a) => ({
-                  id: a.id,
-                  name: a.patient.full_name,
-                  subtitle: `${formatTime(a.starts_at, timeZone)} · ${a.reason ?? "Consultation"}`,
-                  status: statusOf(a, today.as_of),
-                }))}
-              />
-            )}
-          </Card>
-          <Card title="Today by hour">
-            {hours.length === 0 ? (
-              <EmptyState title="No appointments today" icon={null} />
-            ) : (
-              <BarChart data={hours} totalLabel="Booked" partLabel="Completed" categoryLabel="Hour" summary="Appointments booked and completed in each hour today" />
-            )}
-          </Card>
+      <div className="mk-grid mk-g2">
+        <MkCard
+          title="Today's schedule"
+          hint={`Live timeline · ${String(today.counts.total)} appointments`}
+          action={
+            <Link to="/calendar" className="mk-link">
+              Week view →
+            </Link>
+          }
+        >
+          {today.appointments.length === 0 ? (
+            <Empty title="No appointments today" />
+          ) : (
+            <div className="mk-tlwrap">
+              <ol className="mk-tl">
+                {rows.map((row, index) => {
+                  if (row.kind === "now") {
+                    return (
+                      <li key={`now-${String(index)}`} className="mk-now" aria-label={`Now, ${nowTime}`}>
+                        <div>
+                          <span>NOW {nowTime}</span>
+                        </div>
+                      </li>
+                    );
+                  }
+                  const a = row.a;
+                  const tag = a.id === firstUpcoming ? { label: "NEXT", tone: "next" as const } : TAGS[a.status];
+                  const minutes = Math.round((Date.parse(a.ends_at) - Date.parse(a.starts_at)) / MINUTE);
+                  const state = a.status === "completed" ? "done" : a.status === "arrived" ? "wait" : "";
+                  return (
+                    <li key={a.id} className={state}>
+                      <span className="mk-t">{formatTime(a.starts_at, timeZone)}</span>
+                      <span className="mk-d" />
+                      <button
+                        type="button"
+                        className={`mk-ev ${a.id === firstUpcoming ? "next" : ""}`}
+                        onClick={() => {
+                          peek({ id: a.patient.id, name: a.patient.full_name, number: a.patient.number });
+                        }}
+                      >
+                        <MkAvatar name={a.patient.full_name} size="pa" />
+                        <div>
+                          <b>{a.patient.full_name}</b>
+                          <p>
+                            {a.reason ?? "Consultation"} · {a.room ?? "No room"} · {minutes} min
+                            {a.status === "arrived" ? ` · waiting ${String(waitingMinutes(a, today.as_of))} min` : ""}
+                          </p>
+                        </div>
+                        <Tag tone={tag.tone}>{tag.label}</Tag>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          )}
+        </MkCard>
+        <div className="mk-stack">
+          <MkCard title="Attention required" hint="Sorted by clinical priority">
+            <AttentionSection items={today.attention} />
+          </MkCard>
+          <MkCard title="Chair status" hint="Live">
+            <ChairStatus chairs={today.chairs} timeZone={timeZone} />
+          </MkCard>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card title="Attention required">
-          <AttentionSection items={today.attention} />
-        </Card>
-        <Card title="Chair status">
-          <ChairStatusGrid chairs={today.chairs} timeZone={timeZone} />
-        </Card>
+      <div className="mk-grid mk-g2r">
+        <MkCard title="Appointments by hour" hint="Booked vs completed · hover for detail">
+          {hours.length === 0 ? <Empty title="No appointments today" /> : <Bars data={hours} summary="Appointments booked in each hour today" />}
+        </MkCard>
+        <MkCard
+          title="Recent patients"
+          hint="Latest arrivals today"
+          action={
+            can("patients.read") ? (
+              <Link to="/patients" className="mk-link">
+                All patients →
+              </Link>
+            ) : undefined
+          }
+        >
+          <RecentPatients tokens={today.recent_patients} appointments={today.appointments} pending={pendingItems} />
+        </MkCard>
       </div>
 
-      <Card title="Recent patients">
-        <RecentPatientsTable tokens={today.recent_patients} timeZone={timeZone} />
-      </Card>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <div className="mk-grid mk-g3">
         {showMoney ? (
           <>
-            <Card title="Revenue mix">
-              <RevenueMixChart money={money.data} />
-            </Card>
-            <Card title="Pending payments">
-              <PendingPaymentsTable pending={money.data?.pending} />
-            </Card>
+            <MkCard title="Revenue mix" hint="This month · by treatment">
+              <RevenueMix money={money.data} />
+            </MkCard>
+            <MkCard
+              title="Pending payments"
+              hint={money.data === undefined ? "" : `${compactRupees(money.data.pending_dues_paise)} across ${String(pendingItems.length)} ${pendingItems.length === 1 ? "bill" : "bills"}`}
+            >
+              <PendingPayments pending={money.data === undefined ? undefined : pendingItems} />
+            </MkCard>
           </>
         ) : null}
-        <Card title="Team today">
-          <TeamTodayTable team={today.team} />
-        </Card>
+        <MkCard title="Team today" hint={`On duty · ${String(today.team.length)} ${today.team.length === 1 ? "doctor" : "doctors"}`}>
+          <TeamToday team={today.team} />
+        </MkCard>
       </div>
     </div>
   );
@@ -274,83 +305,96 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
 
 function AttentionSection({ items }: { items: readonly TodayAttentionItem[] }) {
   if (items.length === 0) {
-    return <EmptyState title="Nothing needs attention" description="Late arrivals and long waits appear here." icon={null} />;
-  }
-  const rows: AttentionRowItem[] = items.map((item, index) => ({
-    id: item.appointment_id ?? item.queue_token_id ?? `attention-${String(index)}`,
-    title: item.patient.full_name,
-    subtitle: item.message,
-    tone: item.kind === "long_wait" ? "danger" : "warning",
-    icon: item.kind === "long_wait" ? <AlarmClockPlus aria-hidden="true" className="size-4" /> : <Clock3 aria-hidden="true" className="size-4" />,
-    href: patientPath(item.patient),
-  }));
-  return <AttentionList items={rows} />;
-}
-
-function ChairStatusGrid({ chairs, timeZone }: { chairs: readonly TodayChair[]; timeZone: string }) {
-  if (chairs.length === 0) {
-    return <EmptyState title="No chairs set up yet" description="Add chairs in Settings to see their status here." icon={<Armchair className="size-7" />} />;
+    return <Empty title="Nothing needs attention">Late arrivals and long waits appear here.</Empty>;
   }
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {chairs.map((chair) => (
-        <div key={chair.room_id} className="rounded-2xl border border-border p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-bold text-text">{chair.name}</p>
-            <Pill tone={chair.status === "in_use" ? "primary" : "success"}>{chair.status === "in_use" ? "In use" : "Free"}</Pill>
+    <ul className="mk-att">
+      {items.map((item, index) => (
+        <li key={item.appointment_id ?? item.queue_token_id ?? `attention-${String(index)}`}>
+          <span className={`mk-pri ${item.kind === "long_wait" ? "high" : "med"}`} />
+          <div>
+            <b>{item.patient.full_name}</b>
+            <p>{item.message}</p>
           </div>
-          {chair.current ? (
-            <p className="mt-2 text-xs text-muted">
-              <span className="font-semibold text-text">{chair.current.patient.full_name}</span> · {chair.current.practitioner.display_name} · since{" "}
-              {formatTime(chair.current.starts_at, timeZone)}
-            </p>
-          ) : (
-            <p className="mt-2 text-xs text-muted">Nobody in this chair.</p>
-          )}
-          {chair.next ? (
-            <p className="mt-1 text-xs text-muted">
-              Next: {chair.next.patient.full_name} at {formatTime(chair.next.starts_at, timeZone)}
-            </p>
-          ) : null}
+          <Link to={patientPath(item.patient)} className="mk-mini">
+            Review
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ChairStatus({ chairs, timeZone }: { chairs: readonly TodayChair[]; timeZone: string }) {
+  if (chairs.length === 0) {
+    return <Empty title="No chairs set up yet">Add chairs in Settings to see their status here.</Empty>;
+  }
+  return (
+    <div className="mk-chairs">
+      {chairs.map((chair) => (
+        <div key={chair.room_id} className={`mk-chair ${chair.status === "in_use" ? "use" : ""}`}>
+          <b>{chair.name}</b>
+          <div>
+            {chair.current
+              ? `${chair.current.patient.full_name} · ${formatTime(chair.current.starts_at, timeZone)}`
+              : chair.next
+                ? `Free · next ${formatTime(chair.next.starts_at, timeZone)}`
+                : "Free"}
+          </div>
         </div>
       ))}
     </div>
   );
 }
 
-function RecentPatientsTable({ tokens, timeZone }: { tokens: readonly TodayQueueToken[]; timeZone: string }) {
-  const columns: readonly DataTableColumn<TodayQueueToken>[] = [
-    {
-      id: "patient",
-      header: "Patient",
-      cell: (t) => (
-        <Link href={patientPath(t.patient)} className="flex items-center gap-3 font-semibold text-text hover:underline">
-          <Avatar name={t.patient.full_name} size="sm" />
-          {t.patient.full_name}
-        </Link>
-      ),
-    },
-    { id: "token", header: "Token", cell: (t) => `#${String(t.token_number)}` },
-    { id: "time", header: "Arrived", cell: (t) => formatTime(t.issued_at, timeZone) },
-    {
-      id: "status",
-      header: "Status",
-      cell: (t) => (
-        <Pill tone={t.status === "done" ? "success" : t.status === "in_chair" ? "primary" : t.status === "left" ? "neutral" : "warning"}>
-          {t.status === "done" ? "Completed" : t.status === "in_chair" ? "In the chair" : t.status === "left" ? "Left" : "Waiting"}
-        </Pill>
-      ),
-    },
-  ];
+function RecentPatients({ tokens, appointments, pending }: { tokens: readonly TodayQueueToken[]; appointments: Today["appointments"]; pending: readonly PendingItem[] }) {
+  const peek = usePatientPeek();
+  if (tokens.length === 0) {
+    return <Empty title="Nobody has come in yet">Patients who arrive today will show here.</Empty>;
+  }
   return (
-    <DataTable
-      caption="Recent patients"
-      columns={columns}
-      rows={tokens}
-      rowKey={(t) => t.id}
-      pageSize={10}
-      empty={{ title: "Nobody has come in yet", description: "Patients who arrive today will show here." }}
-    />
+    <div className="mk-tablewrap">
+      <table className="mk-table">
+        <caption className="mk-sr">Recent patients</caption>
+        <thead>
+          <tr>
+            <th scope="col">Patient</th>
+            <th scope="col">Treatment</th>
+            <th scope="col">Status</th>
+            <th scope="col">Bill</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tokens.slice(0, 6).map((t) => {
+            const treatment = appointments.find((a) => a.patient.id === t.patient.id)?.reason;
+            const owed = pending.filter((p) => p.patient.id === t.patient.id).reduce((sum, p) => sum + p.balance_paise, 0);
+            return (
+              <tr key={t.id}>
+                <th scope="row">
+                  <button
+                    type="button"
+                    className="mk-pname"
+                    onClick={() => {
+                      peek({ id: t.patient.id, name: t.patient.full_name, number: t.patient.number });
+                    }}
+                  >
+                    <MkAvatar name={t.patient.full_name} />
+                    {t.patient.full_name}
+                  </button>
+                </th>
+                <td>{treatment ?? "—"}</td>
+                <td>
+                  <Tag tone={t.status === "done" ? "done" : t.status === "in_chair" ? "next" : t.status === "left" ? "neutral" : "wait"}>
+                    {t.status === "done" ? "DONE" : t.status === "in_chair" ? "IN CHAIR" : t.status === "left" ? "LEFT" : "WAITING"}
+                  </Tag>
+                </td>
+                <td>{owed > 0 ? formatRupees(owed) : "—"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -365,72 +409,81 @@ const CATEGORY_LABEL: Readonly<Record<string, string>> = {
   other: "Other",
 };
 
-function RevenueMixChart({ money }: { money: TodayMoney | undefined }) {
+function RevenueMix({ money }: { money: TodayMoney | undefined }) {
   if (money === undefined) {
     return <Skeleton shape="block" />;
   }
   if (money.revenue_mix.length === 0) {
-    return <EmptyState title="No bills issued this month" description="The revenue mix appears once bills are issued." icon={null} />;
+    return <Empty title="No bills issued this month">The revenue mix appears once bills are issued.</Empty>;
   }
   return (
-    <DonutChart
+    <Donut
       data={money.revenue_mix.map((m) => ({ label: CATEGORY_LABEL[m.category] ?? m.category, value: m.amount_paise }))}
+      centre={compactRupees(money.revenue_mix.reduce((sum, m) => sum + m.amount_paise, 0))}
       summary="This month's billed amount by category"
-      categoryLabel="Category"
-      valueLabel="Amount"
-      centerValue={formatPercent(money.upi_share_bps / 10_000)}
-      centerLabel="UPI share"
     />
   );
 }
 
-function PendingPaymentsTable({ pending }: { pending: readonly PendingItem[] | undefined }) {
+function PendingPayments({ pending }: { pending: readonly PendingItem[] | undefined }) {
   if (pending === undefined) {
     return <Skeleton shape="block" />;
   }
-  const columns: readonly DataTableColumn<PendingItem>[] = [
-    {
-      id: "patient",
-      header: "Patient",
-      cell: (i) => (
-        <Link href={patientPath(i.patient)} className="font-semibold text-text hover:underline">
-          {i.patient.name}
-        </Link>
-      ),
-    },
-    { id: "number", header: "Bill", cell: (i) => <span className="font-mono text-xs">{i.number ?? "—"}</span> },
-    { id: "balance", header: "Balance", align: "end", cell: (i) => formatRupees(i.balance_paise), sortValue: (i) => i.balance_paise },
-  ];
+  if (pending.length === 0) {
+    return <Empty title="Nothing pending">Every issued bill is paid in full.</Empty>;
+  }
   return (
-    <DataTable
-      caption="Pending payments"
-      columns={columns}
-      rows={pending}
-      rowKey={(i) => i.invoice_id}
-      pageSize={5}
-      empty={{ title: "Nothing pending", description: "Every issued bill is paid in full." }}
-    />
+    <>
+      <div className="mk-tablewrap">
+        <table className="mk-table">
+          <caption className="mk-sr">Pending payments</caption>
+          <tbody>
+            {pending.slice(0, 3).map((i) => (
+              <tr key={i.invoice_id}>
+                <th scope="row">
+                  <Link to={`/billing/invoices/${i.invoice_id}`}>{i.patient.name}</Link>
+                </th>
+                <td>{formatRupees(i.balance_paise)}</td>
+                <td>
+                  <Tag tone={i.paid_paise > 0 ? "info" : "wait"}>{i.paid_paise > 0 ? "PARTIAL" : "DUE"}</Tag>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button type="button" className="mk-btn mk-btn-ghost" style={{ marginTop: 12, width: "100%" }} disabled title="WhatsApp reminders arrive with Messages">
+        Remind all on WhatsApp
+      </button>
+    </>
   );
 }
 
-function TeamTodayTable({ team }: { team: readonly TodayTeamMember[] }) {
-  const columns: readonly DataTableColumn<TodayTeamMember>[] = [
-    { id: "name", header: "Doctor", cell: (t) => t.practitioner.display_name },
-    { id: "shifts", header: "Shift", cell: (t) => t.shifts.map((s) => `${s.starts}–${s.ends}`).join(", ") },
-    { id: "appointments", header: "Appointments", align: "end", cell: (t) => String(t.appointments) },
-    {
-      id: "status",
-      header: "Status",
-      cell: (t) => (t.on_leave ? <Pill tone="warning">On leave</Pill> : <Pill tone="success">Working</Pill>),
-    },
-  ];
+function TeamToday({ team }: { team: readonly TodayTeamMember[] }) {
+  if (team.length === 0) {
+    return <Empty title="Team today isn't available yet">Shows once a doctor has working hours set for today.</Empty>;
+  }
   return (
-    <DataTable
-      caption="Team today"
-      columns={columns}
-      rows={team}
-      rowKey={(t) => t.practitioner.id}
-      empty={{ title: "Team today isn't available yet", description: "Shows once a doctor has working hours set for today." }}
-    />
+    <div className="mk-tablewrap">
+      <table className="mk-table">
+        <caption className="mk-sr">Team today</caption>
+        <tbody>
+          {team.map((t) => (
+            <tr key={t.practitioner.id}>
+              <th scope="row">
+                <span className="mk-pname">
+                  <MkAvatar name={t.practitioner.display_name} />
+                  {t.practitioner.display_name}
+                </span>
+              </th>
+              <td>{t.appointments} visits</td>
+              <td>
+                <Tag tone={t.on_leave ? "wait" : "done"}>{t.on_leave ? "ON LEAVE" : "IN"}</Tag>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

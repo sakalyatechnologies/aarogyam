@@ -6,14 +6,17 @@
 //! this crate adds the clinic's concepts on top: who may act ([`access`]), the permission
 //! catalogue ([`permission`]), typed identifiers ([`ids`]), patients ([`patient`]), patient
 //! search ([`search`]), the clinic's own settings ([`clinic`]), staff ([`staff`]), queued
-//! messages ([`outbox`]) and business event names ([`event`]).
+//! messages ([`outbox`]), appointments, chairs and the queue ([`schedule`]), patient imports
+//! ([`import`]) and business event names ([`event`]).
 
 pub mod access;
 pub mod clinic;
 pub mod event;
 pub mod ids;
+pub mod import;
 pub mod outbox;
 pub mod patient;
 pub mod permission;
+pub mod schedule;
 pub mod search;
 pub mod staff;

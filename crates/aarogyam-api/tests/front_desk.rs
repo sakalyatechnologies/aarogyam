@@ -267,9 +267,18 @@ async fn chairs_doctors_hours_and_leave_follow_permissions() {
         ),
         (Method::GET, hours.clone()),
         (Method::DELETE, leave_path.clone()),
+        (Method::PUT, hours.clone()),
+        (Method::POST, "/api/v1/leave-blocks".to_owned()),
     ] {
-        let body =
-            (method == Method::PATCH).then(|| json!({ "name": "Mine", "display_name": "Mine" }));
+        let body = match method {
+            Method::PATCH => Some(json!({ "name": "Mine", "display_name": "Mine" })),
+            Method::PUT => Some(json!({ "shifts": [] })),
+            Method::POST => Some(json!({
+                "practitioner_id": s.doctor, "starts_at": "2030-01-07T09:00:00+05:30",
+                "ends_at": "2030-01-07T18:00:00+05:30"
+            })),
+            _ => None,
+        };
         let (code, _) = app
             .send(method.clone(), BETA, &path, Some(&beta), body)
             .await;
@@ -972,7 +981,7 @@ async fn patients_import_from_csv_after_a_preview() {
     let existing = patient(&app, ALPHA, &desk, "Old Patient").await;
     let other = patient(&app, ALPHA, &desk, "Other Patient").await;
     let ids_path = format!("/api/v1/patients/{existing}/identifiers");
-    created(
+    let kept = created(
         &app,
         ALPHA,
         &desk,
@@ -1000,10 +1009,18 @@ async fn patients_import_from_csv_after_a_preview() {
         )
         .await;
     assert_eq!(code, StatusCode::BAD_REQUEST);
-    let (code, _) = app
-        .send(Method::GET, BETA, &ids_path, Some(&beta), None)
-        .await;
-    assert_eq!(code, StatusCode::NOT_FOUND);
+    for (method, path) in [
+        (Method::GET, ids_path.clone()),
+        (Method::POST, ids_path.clone()),
+        (Method::DELETE, format!("{ids_path}/{}", id_of(&kept))),
+    ] {
+        let body =
+            (method == Method::POST).then(|| json!({ "kind": "file_number", "value": "B-1" }));
+        let (code, _) = app
+            .send(method.clone(), BETA, &path, Some(&beta), body)
+            .await;
+        assert_eq!(code, StatusCode::NOT_FOUND, "{method} {path}");
+    }
     // Beta may use the same number for its own patient.
     let theirs = patient(&app, BETA, &beta, "Beta Patient").await;
     created(

@@ -270,3 +270,58 @@ pub async fn grant_platform(
     .await?;
     Ok(user_id)
 }
+
+/// Makes the person with `auth_uid` an active member of the clinic `slug` with the role
+/// `role_key`, creating their user record if needed; an existing membership takes the new
+/// role and becomes active. Over the owner connection only (`aarogyam admin add-member`),
+/// for the first owner of a clinic created outside the console. `None` when the clinic or
+/// role doesn't exist.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn add_member(
+    owner: &PgPool,
+    slug: &str,
+    role_key: &str,
+    auth_uid: Uuid,
+    email: &str,
+    display_name: &str,
+) -> Result<Option<Uuid>, DbError> {
+    let mut tx = owner.begin().await?;
+    let role = sqlx::query!(
+        r#"select r.org_id as "org_id!", r.id as "role_id!"
+           from aarogyam.organizations o
+           join aarogyam.roles r on r.org_id = o.id and r.key = $2
+           where o.slug = $1"#,
+        slug,
+        role_key
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    let Some(role) = role else {
+        return Ok(None);
+    };
+    let membership_id = sqlx::query_scalar!(
+        r#"with person as (
+             insert into aarogyam.users as u (auth_uid, email, display_name)
+             values ($3, $4, $5)
+             on conflict (auth_uid) do update set email = coalesce(u.email, excluded.email)
+             returning u.id
+           )
+           insert into aarogyam.memberships as m (org_id, user_id, role_id, status, joined_at)
+           select $1, id, $2, 'active', now() from person
+           on conflict (org_id, user_id) do update
+             set role_id = excluded.role_id, status = 'active',
+                 joined_at = coalesce(m.joined_at, excluded.joined_at)
+           returning m.id"#,
+        role.org_id,
+        role.role_id,
+        auth_uid,
+        email,
+        display_name
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(Some(membership_id))
+}

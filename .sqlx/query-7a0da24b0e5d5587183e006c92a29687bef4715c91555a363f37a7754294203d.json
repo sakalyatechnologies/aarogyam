@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with person as (\n             insert into aarogyam.users as u (auth_uid, email, display_name)\n             values ($3, $4, $5)\n             on conflict (auth_uid) do update set email = coalesce(u.email, excluded.email)\n             returning u.id\n           )\n           insert into aarogyam.memberships as m (org_id, user_id, role_id, status, joined_at)\n           select $1, id, $2, 'active', now() from person\n           on conflict (org_id, user_id) do update\n             set role_id = excluded.role_id, status = 'active',\n                 joined_at = coalesce(m.joined_at, excluded.joined_at)\n           returning m.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.memberships",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7a0da24b0e5d5587183e006c92a29687bef4715c91555a363f37a7754294203d"
+}

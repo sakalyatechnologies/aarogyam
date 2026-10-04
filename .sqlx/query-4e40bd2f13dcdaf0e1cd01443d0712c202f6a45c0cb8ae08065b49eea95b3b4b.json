@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select r.org_id as \"org_id!\", r.id as \"role_id!\"\n           from aarogyam.organizations o\n           join aarogyam.roles r on r.org_id = o.id and r.key = $2\n           where o.slug = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "org_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "org_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "role_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "4e40bd2f13dcdaf0e1cd01443d0712c202f6a45c0cb8ae08065b49eea95b3b4b"
+}

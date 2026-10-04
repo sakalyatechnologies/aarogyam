@@ -811,3 +811,40 @@ async fn bad_or_foreign_invitations_are_refused() {
     assert_eq!(status, StatusCode::NOT_FOUND);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn add_member_bootstraps_a_clinic_owner_over_the_owner_connection() {
+    let app = TestApp::start().await;
+    let newcomer = uuid::Uuid::now_v7();
+    let add = |slug: &'static str, role: &'static str| {
+        aarogyam_dal::console::add_member(
+            &app.owner,
+            slug,
+            role,
+            newcomer,
+            "newcomer@example.com",
+            "Newcomer",
+        )
+    };
+
+    assert_eq!(add("nowhere", "owner").await.unwrap(), None);
+    assert_eq!(add("beta", "no_such_role").await.unwrap(), None);
+    let first = add("beta", "doctor").await.unwrap().unwrap();
+    // Again with another role: the same membership takes the new role.
+    let second = add("beta", "owner").await.unwrap().unwrap();
+    assert_eq!(first, second);
+
+    let token = app.token(newcomer);
+    let (status, session) = app
+        .send(Method::GET, BETA, "/api/v1/session", Some(&token), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{session}");
+    assert_eq!(session["membership"]["role_key"], "owner");
+    // Nothing granted at the other clinic.
+    let (status, _) = app
+        .send(Method::GET, ALPHA, "/api/v1/session", Some(&token), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    app.finish().await;
+}

@@ -1,4 +1,5 @@
-//! The `aarogyam` binary: `serve` runs the HTTP API, `migrate` applies the database migrations.
+//! The `aarogyam` binary: `serve` runs the HTTP API, `migrate` applies the database migrations,
+//! `admin` and `outbox` are operator commands.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -46,6 +47,22 @@ enum Command {
         #[command(subcommand)]
         action: Admin,
     },
+    /// The outgoing-message queue.
+    Outbox {
+        #[command(subcommand)]
+        action: Outbox,
+    },
+}
+
+#[derive(Debug, Clone, Subcommand)]
+enum Outbox {
+    /// Delivers due messages once, or every --every seconds until Ctrl-C. A scheduler (cron,
+    /// a Cloud Run job) runs this where no HTTP scheduler calls the API.
+    Drain {
+        /// Repeat every this many seconds instead of once.
+        #[arg(long, value_name = "SECONDS")]
+        every: Option<u64>,
+    },
 }
 
 #[derive(Debug, Clone, Subcommand)]
@@ -66,6 +83,26 @@ enum Admin {
         #[arg(long)]
         name: Option<String>,
     },
+    /// Make someone an active member of a clinic, such as its first owner when the clinic was
+    /// not created from the console. Finds or creates their Supabase sign-in account unless
+    /// --auth-uid is given.
+    AddMember {
+        /// The clinic's slug, such as `sunrise`.
+        #[arg(long)]
+        clinic: String,
+        /// Their sign-in email address.
+        #[arg(long)]
+        email: String,
+        /// Role key, such as `owner`, `doctor` or `front_desk`.
+        #[arg(long, default_value = "owner")]
+        role: String,
+        /// Their Supabase Auth user id, to skip the Supabase lookup.
+        #[arg(long)]
+        auth_uid: Option<uuid::Uuid>,
+        /// Their name as the clinic shows it; defaults to the part of the email before the @.
+        #[arg(long)]
+        name: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -77,6 +114,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Serve => serve(config).await,
         Command::Migrate => migrate(config).await,
         Command::Admin { action } => admin(config, action).await,
+        Command::Outbox {
+            action: Outbox::Drain { every },
+        } => drain(config, every).await,
     }
 }
 
@@ -92,6 +132,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
     let local = config.environment == Environment::Local;
     let tokens = token_check(&config, local).await?;
     let accounts = accounts(&config)?;
+    let notifier = notifier(&config, local)?;
     let db = Db::connect_lazy(&DbConfig::new(config.db.url))
         .context("db.url is not a valid Postgres URL")?;
     let mut http = config.http.limits();
@@ -112,17 +153,6 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         app: config.hosts.app,
     };
     let throttle = aarogyam_api::standard_throttle().context("invalid throttle rules")?;
-    let links = PortalLinks::new(&config.email.portal_link)
-        .context("email.portal_link must look like https://{host}")?;
-    let notifier = if let Some(key) = config.email.resend_api_key {
-        Notifier::resend(key, &config.email.from, links)
-            .context("could not set up email through Resend")?
-    } else {
-        if !local {
-            tracing::warn!("email.resend_api_key is not set: email goes to the log only");
-        }
-        Notifier::log(links)
-    };
     let signer = if let Some(key) = config.files.signing_key {
         LinkSigner::new(key.expose_secret().as_bytes())
     } else {
@@ -193,6 +223,54 @@ async fn token_check(config: &Config, local: bool) -> anyhow::Result<TokenCheck>
     })
 }
 
+/// Email through Resend when a key is set, otherwise to the log.
+fn notifier(config: &Config, local: bool) -> anyhow::Result<Notifier> {
+    let links = PortalLinks::new(&config.email.portal_link)
+        .context("email.portal_link must look like https://{host}")?;
+    Ok(if let Some(key) = config.email.resend_api_key.clone() {
+        Notifier::resend(key, &config.email.from, links)
+            .context("could not set up email through Resend")?
+    } else {
+        if !local {
+            tracing::warn!("email.resend_api_key is not set: email goes to the log only");
+        }
+        Notifier::log(links)
+    })
+}
+
+/// Delivers due outbox messages over the API connection, once or on a fixed interval.
+async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
+    let local = config.environment == Environment::Local;
+    let notifier = notifier(&config, local)?;
+    let db = Db::connect_lazy(&DbConfig::new(config.db.url.clone()))
+        .context("db.url is not a valid Postgres URL")?;
+    let interval = every.map(|seconds| std::time::Duration::from_secs(seconds.max(1)));
+    loop {
+        match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {
+            Ok(report) => tracing::info!(
+                provider = notifier.email_provider(),
+                claimed = report.claimed,
+                sent = report.sent,
+                retrying = report.retrying,
+                failed = report.failed,
+                purged = report.purged,
+                "outbox drained"
+            ),
+            Err(error) if interval.is_some() => {
+                tracing::warn!(error = %error, "could not drain the outbox; trying again");
+            }
+            Err(error) => return Err(error).context("could not drain the outbox"),
+        }
+        let Some(interval) = interval else {
+            return Ok(());
+        };
+        tokio::select! {
+            () = tokio::time::sleep(interval) => {}
+            _ = tokio::signal::ctrl_c() => return Ok(()),
+        }
+    }
+}
+
 /// Supabase's Admin API when the project URL and secret key are set.
 fn accounts(config: &Config) -> anyhow::Result<Option<SupabaseAdmin>> {
     match (&config.supabase.url, &config.supabase.secret_key) {
@@ -205,53 +283,107 @@ fn accounts(config: &Config) -> anyhow::Result<Option<SupabaseAdmin>> {
 
 /// Runs an administration command over the owner connection.
 async fn admin(config: Config, action: Admin) -> anyhow::Result<()> {
-    let Admin::GrantPlatform {
-        email,
-        role,
-        auth_uid,
-        name,
-    } = action;
-    let email =
-        Email::parse(&email).map_err(|_| anyhow::anyhow!("--email is not an email address"))?;
-    let role = PlatformRole::parse(role.trim())
-        .context("--role must be owner, support, onboarding or analyst")?;
-    let auth_uid = match auth_uid {
-        Some(id) => id,
-        None => accounts(&config)?
-            .context("set SUPABASE_URL and SUPABASE_SECRET_KEY, or pass --auth-uid")?
-            .ensure_user(&email)
+    match action {
+        Admin::GrantPlatform {
+            email,
+            role,
+            auth_uid,
+            name,
+        } => {
+            let role = PlatformRole::parse(role.trim())
+                .context("--role must be owner, support, onboarding or analyst")?;
+            let person = Person::resolve(&config, &email, auth_uid, name).await?;
+            let db = owner_db(&config)?;
+            let user_id = aarogyam_dal::console::grant_platform(
+                db.pool(),
+                person.auth_uid,
+                person.email.as_str(),
+                &person.display_name,
+                role.as_str(),
+            )
             .await
-            .context("could not find or create the Supabase sign-in account")?
-            .uuid(),
-    };
-    let display_name = name
-        .map(|name| name.trim().to_owned())
-        .filter(|name| !name.is_empty())
-        .unwrap_or_else(|| {
-            email
-                .as_str()
-                .split('@')
-                .next()
-                .unwrap_or("staff")
-                .to_owned()
-        });
+            .context("could not grant console access")?;
+            tracing::info!(%user_id, auth_uid = %person.auth_uid, role = role.as_str(), "console access granted");
+        }
+        Admin::AddMember {
+            clinic,
+            email,
+            role,
+            auth_uid,
+            name,
+        } => {
+            let person = Person::resolve(&config, &email, auth_uid, name).await?;
+            let db = owner_db(&config)?;
+            let membership_id = aarogyam_dal::console::add_member(
+                db.pool(),
+                clinic.trim(),
+                role.trim(),
+                person.auth_uid,
+                person.email.as_str(),
+                &person.display_name,
+            )
+            .await
+            .context("could not add the member")?
+            .context("no clinic with that --clinic slug, or it has no role with that --role key")?;
+            tracing::info!(%membership_id, auth_uid = %person.auth_uid, role = role.trim(), "member added");
+        }
+    }
+    Ok(())
+}
+
+/// Who an admin command is about.
+struct Person {
+    auth_uid: uuid::Uuid,
+    email: Email,
+    display_name: String,
+}
+
+impl Person {
+    /// Their Supabase account (found or created unless `auth_uid` is given) and display name.
+    async fn resolve(
+        config: &Config,
+        email: &str,
+        auth_uid: Option<uuid::Uuid>,
+        name: Option<String>,
+    ) -> anyhow::Result<Self> {
+        let email =
+            Email::parse(email).map_err(|_| anyhow::anyhow!("--email is not an email address"))?;
+        let auth_uid = match auth_uid {
+            Some(id) => id,
+            None => accounts(config)?
+                .context("set SUPABASE_URL and SUPABASE_SECRET_KEY, or pass --auth-uid")?
+                .ensure_user(&email)
+                .await
+                .context("could not find or create the Supabase sign-in account")?
+                .uuid(),
+        };
+        let display_name = name
+            .map(|name| name.trim().to_owned())
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| {
+                email
+                    .as_str()
+                    .split('@')
+                    .next()
+                    .unwrap_or("staff")
+                    .to_owned()
+            });
+        Ok(Self {
+            auth_uid,
+            email,
+            display_name,
+        })
+    }
+}
+
+/// The schema owner's connection, which admin commands need.
+fn owner_db(config: &Config) -> anyhow::Result<Db> {
     let url = config
         .db
         .owner_url
+        .clone()
         .context("db.owner_url (ARO_DB__OWNER_URL) is required for admin commands")?;
-    let db = Db::connect_lazy(&DbConfig::new(url))
-        .context("db.owner_url is not a valid Postgres URL")?;
-    let user_id = aarogyam_dal::console::grant_platform(
-        db.pool(),
-        auth_uid,
-        email.as_str(),
-        &display_name,
-        role.as_str(),
-    )
-    .await
-    .context("could not grant console access")?;
-    tracing::info!(%user_id, %auth_uid, role = role.as_str(), "console access granted");
-    Ok(())
+    Db::connect_lazy(&DbConfig::new(url)).context("db.owner_url is not a valid Postgres URL")
 }
 
 /// Applies pending migrations over the owner connection.

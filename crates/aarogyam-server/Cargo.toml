@@ -26,7 +26,8 @@ sakalya-http.workspace = true
 sakalya-telemetry.workspace = true
 secrecy.workspace = true
 serde.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+time = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "time"] }
 tracing.workspace = true
 uuid.workspace = true
 

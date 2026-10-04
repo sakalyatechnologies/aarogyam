@@ -169,24 +169,33 @@ describe("Permissions", () => {
     expect(screen.queryByText("Today's collection")).toBeNull();
   });
 
-  it("shows Stock and Messages as coming soon to everyone, but Settings only to the owner", async () => {
+  it("shows Stock, Messages and Settings to everyone, since Settings has sessions for any signed-in person", async () => {
     renderPortal("/today", { as: PEOPLE.farah });
     await screen.findByText("Today's appointments");
     const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
     if (nav === undefined) throw new Error("no main navigation");
     expect(within(nav).getByRole("link", { name: "Stock" })).toBeTruthy();
     expect(within(nav).getByRole("link", { name: "Messages" })).toBeTruthy();
-    expect(within(nav).queryByRole("link", { name: "Settings" })).toBeNull();
+    expect(within(nav).getByRole("link", { name: "Settings" })).toBeTruthy();
   });
 
-  it("lets the owner open Settings, which says it's coming soon", async () => {
+  it("shows the owner the clinic profile and staff panels, but front desk only sessions", async () => {
     const user = userEvent.setup();
     renderPortal("/today", { as: PEOPLE.asha });
     await screen.findByText("Today's collection");
     const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
     if (nav === undefined) throw new Error("no main navigation");
     await user.click(within(nav).getByRole("link", { name: "Settings" }));
-    expect(await screen.findByText("Settings is coming soon")).toBeTruthy();
+    expect(await screen.findByRole("tab", { name: "Clinic profile" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Staff" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Sessions" })).toBeTruthy();
+  });
+
+  it("hides the clinic profile and staff panels from the front desk", async () => {
+    renderPortal("/settings", { as: PEOPLE.farah });
+    expect(await screen.findByRole("tab", { name: "Sessions" })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "Clinic profile" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Staff" })).toBeNull();
   });
 });
 
@@ -245,6 +254,52 @@ describe("Today enrichment", () => {
     // The fake day's schedule always has some appointments that finished before the fixed clock.
     expect(within(table).getAllByRole("rowheader").length).toBeGreaterThan(0);
     expect(within(table).getAllByText("Completed").length).toBeGreaterThan(0);
+  });
+});
+
+describe("Settings", () => {
+  it("saves the clinic profile", async () => {
+    const user = userEvent.setup();
+    renderPortal("/settings", { as: PEOPLE.asha });
+    const phone = await screen.findByLabelText("Phone");
+    await user.clear(phone);
+    await user.type(phone, "9876501234");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => {
+      expect(screen.getByLabelText("Phone")).toHaveProperty("value", "+919876501234");
+    });
+  });
+
+  it("invites a staff member, who appears as a pending invitation", async () => {
+    const user = userEvent.setup();
+    renderPortal("/settings", { as: PEOPLE.asha });
+    await user.click(await screen.findByRole("tab", { name: "Staff" }));
+    await user.click(await screen.findByRole("button", { name: "Invite" }));
+    await user.type(await screen.findByLabelText(/email/i), "new.doctor@example.com");
+    await screen.findByRole("option", { name: "Doctor" });
+    await user.selectOptions(screen.getByLabelText(/role/i), "doctor");
+    await user.click(screen.getByRole("button", { name: "Send invite" }));
+    expect(await screen.findByText("new.doctor@example.com")).toBeTruthy();
+  });
+
+  it("revokes another session, which disappears from the list", async () => {
+    const user = userEvent.setup();
+    renderPortal("/settings", { as: PEOPLE.asha });
+    await user.click(await screen.findByRole("tab", { name: "Sessions" }));
+    const before = await screen.findAllByRole("button", { name: "End this session" });
+    const [first] = before;
+    if (first === undefined) throw new Error("expected a second session to end");
+    await user.click(first);
+    await waitFor(() => {
+      expect(screen.queryAllByRole("button", { name: "End this session" })).toHaveLength(before.length - 1);
+    });
+  });
+
+  it("hides contact and role management from someone without settings.manage or staff.manage", async () => {
+    renderPortal("/settings", { as: PEOPLE.farah });
+    expect(await screen.findByRole("tab", { name: "Sessions" })).toBeTruthy();
+    expect(screen.queryByLabelText("Phone")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Invite" })).toBeNull();
   });
 });
 

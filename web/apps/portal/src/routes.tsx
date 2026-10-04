@@ -9,6 +9,7 @@ import { NotFoundPage } from "./pages/not-found-page.js";
 import { NewPatientPage } from "./pages/patients/new-patient-page.js";
 import { PatientPage } from "./pages/patients/patient-page.js";
 import { PatientsPage } from "./pages/patients/patients-page.js";
+import { SettingsPage } from "./pages/settings/settings-page.js";
 import { SignInPage } from "./pages/sign-in-page.js";
 import { TodayPage } from "./pages/today/today-page.js";
 
@@ -51,10 +52,7 @@ export const routes: RouteObject[] = [
                 path: "messages",
                 element: <ComingSoonPage title="Messages" description="Reminders, recalls and campaigns. Not yet scheduled." />,
               },
-              {
-                path: "settings",
-                element: <ComingSoonPage title="Settings" description="Clinic profile, notifications and website, once settings lands in M2." />,
-              },
+              { path: "settings", element: <SettingsPage /> },
               { path: "*", element: <NotFoundPage /> },
             ],
           },

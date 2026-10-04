@@ -148,7 +148,9 @@ function PortalShell() {
     ...(can("billing.read") ? [{ id: "billing", label: "Billing", icon: <Wallet />, href: "/billing" }] : []),
     { id: "stock", label: "Stock", icon: <Package />, href: "/stock" },
     { id: "messages", label: "Messages", icon: <MessageSquare />, href: "/messages" },
-    ...(can("settings.manage") ? [{ id: "settings", label: "Settings", icon: <Settings />, href: "/settings" }] : []),
+    // Everyone gets a Settings entry for their own sessions; the clinic profile and staff panels
+    // inside show only with settings.manage and staff.manage.
+    { id: "settings", label: "Settings", icon: <Settings />, href: "/settings" },
   ];
   const activeId = nav.find((entry) => location.pathname.startsWith(entry.href))?.id ?? "";
   const others = me.clinics.filter((clinic) => clinic.org_id !== access.org_id);

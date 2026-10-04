@@ -6,4 +6,6 @@ interface ImportMetaEnv {
   /** Both set: sign in with an email code through Supabase. Otherwise: development sign-in. */
   readonly VITE_SUPABASE_URL?: string;
   readonly VITE_SUPABASE_ANON_KEY?: string;
+  /** The portal's port in invitation links; 5173 in development, none in production. */
+  readonly VITE_PORTAL_PORT?: string;
 }

@@ -8,9 +8,12 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 
 import { hasPermission, unwrap, type ApiClient, type ClinicAccess, type Me, type Permission, type Session } from "@aarogyam/api-client";
 
-const STORAGE_KEY = "aarogyam.portal.clinic";
+/** The clinic chosen in this tab, when one page serves every clinic (fake data). */
+export const CLINIC_STORAGE_KEY = "aarogyam.portal.clinic";
+const STORAGE_KEY = CLINIC_STORAGE_KEY;
 
 export interface Services {
+  mode: "fake" | "http";
   neutral: ApiClient;
   clinic: (host: string) => ApiClient;
 }
@@ -42,21 +45,37 @@ function readStored(): string | null {
   }
 }
 
-/** The clinic to open: this page's own host (production), the tab's last choice, or the only one. */
+/** Where a clinic's portal lives, on this dev server's port: `http://lotus.localtest.me:5173/`. */
+export function clinicUrl(host: string, path = "/"): string {
+  const port = window.location.port === "" ? "" : `:${window.location.port}`;
+  return `${window.location.protocol}//${host}${port}${path}`;
+}
+
+/**
+ * The clinic to open. Against the real API it is always this page's host (the API reads the
+ * clinic from it), and choosing another clinic goes to that clinic's host. With fake data one
+ * page serves every clinic, so the choice is kept for the tab.
+ */
 export function useClinicChoice(me: Me | undefined) {
+  const { mode } = useServices();
   const [chosen, setChosen] = useState<string | null>(readStored);
   const clinics = me?.clinics ?? [];
+  const here = clinics.find((c) => c.host === window.location.hostname);
   const current =
-    clinics.find((c) => c.host === window.location.host) ??
-    clinics.find((c) => c.slug === chosen) ??
-    (clinics.length === 1 ? clinics[0] : undefined);
-  const choose = (slug: string) => {
+    mode === "http" ? here : (here ?? clinics.find((c) => c.slug === chosen) ?? (clinics.length === 1 ? clinics[0] : undefined));
+  const choose = (clinic: ClinicAccess) => {
+    if (mode === "http") {
+      if (clinic.host != null) {
+        window.location.assign(clinicUrl(clinic.host));
+      }
+      return;
+    }
     try {
-      globalThis.sessionStorage.setItem(STORAGE_KEY, slug);
+      globalThis.sessionStorage.setItem(STORAGE_KEY, clinic.slug);
     } catch {
       // The choice then lasts for this page only.
     }
-    setChosen(slug);
+    setChosen(clinic.slug);
   };
   return { clinics, current, choose };
 }
@@ -68,7 +87,7 @@ export interface ClinicContextValue {
   api: ApiClient;
   /** Hides what the member can't use. The API still enforces every permission. */
   can: (permission: Permission) => boolean;
-  switchClinic: (slug: string) => void;
+  switchClinic: (clinic: ClinicAccess) => void;
 }
 
 const ClinicContext = createContext<ClinicContextValue | null>(null);

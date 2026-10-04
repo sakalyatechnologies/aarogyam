@@ -1,7 +1,8 @@
 /**
- * Synthetic data for the fake client: two dental clinics with staff, about sixty patients and a
- * day's schedule, plus console clinics and test results. No real patients: names are random
- * combinations of common names, phones sit in one made-up block and emails use example.com.
+ * Synthetic data for the fake client, matching the API's development seed: the same people
+ * (by auth_uid), the same two fictional clinics and hosts, plus about sixty patients, a day's
+ * schedule, console-only clinics and test results. Names are random combinations of common
+ * names, phones sit in one made-up block and emails use example.com.
  */
 
 import type * as C from "../contract.js";
@@ -33,7 +34,7 @@ export interface FakePlatformUser {
   id: string;
   display_name: string;
   email: string;
-  role: "admin" | "support";
+  role: "owner" | "support" | "onboarding" | "analyst";
   description: string;
 }
 
@@ -44,15 +45,12 @@ export interface FakeClinic {
   /** The clinic host the API resolves this clinic from. */
   host: string;
   timezone: string;
-  theme: C.ClinicTheme;
-  specialty: C.Specialty;
-  status: C.ClinicStatus;
+  specialty: string;
+  status: "trial" | "active" | "suspended" | "churned";
   created_at: string;
-  /** `SC` in `SC-1042`. */
+  /** `SD` in `SD-9`. */
   number_prefix: string;
-  domains: C.ClinicDomain[];
-  owner: { display_name: string; email?: string; phone?: string };
-  plan?: { key: string; name: string };
+  branding: { brand: string; mode: "light" | "dark" };
 }
 
 export interface FakeMembership {
@@ -62,8 +60,10 @@ export interface FakeMembership {
   role: FakeRole;
 }
 
-export interface FakePatient extends C.Patient {
+export interface FakePatient extends Omit<C.Patient, "sex" | "status" | "age_years"> {
   clinic_id: string;
+  sex: C.Sex;
+  status: "active" | "inactive" | "deceased" | "merged";
 }
 
 /** A booked slot today. Its status is worked out from the clock when the day is served. */
@@ -85,7 +85,6 @@ export interface FakeScheduleEntry {
 export interface FakeClinicDay {
   clinic_id: string;
   money: C.TodayMoney;
-  attention: C.TodayAttention[];
 }
 
 export interface Fixtures {
@@ -110,17 +109,17 @@ export const ROLES = {
   owner: {
     key: "owner",
     name: "Owner",
-    permissions: ["patients.read", "patients.write", "appointments.read", "appointments.write", "finance.view"],
+    permissions: ["patients.read", "patients.write", "patients.contact", "appointments.read", "appointments.write", "billing.read", "finance.view"],
   },
   doctor: {
     key: "doctor",
     name: "Doctor",
-    permissions: ["patients.read", "patients.write", "appointments.read", "appointments.write"],
+    permissions: ["patients.read", "patients.write", "patients.contact", "appointments.read", "appointments.write"],
   },
   frontDesk: {
     key: "front_desk",
     name: "Front desk",
-    permissions: ["patients.read", "patients.write", "appointments.read", "appointments.write"],
+    permissions: ["patients.read", "patients.write", "patients.contact", "appointments.read", "appointments.write", "billing.read"],
   },
   assistant: { key: "assistant", name: "Assistant", permissions: ["patients.read", "appointments.read"] },
   consultant: { key: "consultant", name: "Visiting consultant", permissions: ["appointments.read"] },
@@ -132,166 +131,127 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
   const now = options.now ?? new Date();
   const id = (daysAgo = 400): string => fakeUuid(random, new Date(now.getTime() - daysAgo * DAY));
 
-  // Fixed IDs: they double as Supabase auth_uids for POST /api/v1/dev/token against a seeded API.
+  // The API's development seed: the same auth_uids sign in through POST /api/v1/dev/token.
   const users = {
-    anika: {
-      id: "0199a000-0000-7000-8000-000000000001",
-      display_name: "Dr. Anika Rao",
-      email: "anika.rao@example.com",
+    asha: {
+      id: "a1a1a1a1-0000-4000-8000-000000000001",
+      display_name: "Asha Kulkarni",
+      email: "asha.kulkarni@example.com",
       phone: "+919876500011",
-      description: "Owner at Smile Catchers and doctor at Hasya Dental Studio: sees money and can switch clinics.",
+      description: "Owner at Sunrise Dental: sees the day's money and every permission.",
     },
-    farhan: {
-      id: "0199a000-0000-7000-8000-000000000002",
-      display_name: "Dr. Farhan Shaikh",
-      email: "farhan.shaikh@example.com",
-      description: "Associate doctor at Smile Catchers.",
+    dev: {
+      id: "a1a1a1a1-0000-4000-8000-000000000002",
+      display_name: "Dr Dev Rao",
+      email: "dev.rao@example.com",
+      description: "Doctor at Sunrise Dental and visiting consultant at Lotus Dental Care: can switch clinics.",
     },
-    sunita: {
-      id: "0199a000-0000-7000-8000-000000000003",
-      display_name: "Sunita Pawar",
+    farah: {
+      id: "a1a1a1a1-0000-4000-8000-000000000003",
+      display_name: "Farah Shaikh",
       phone: "+919876500013",
-      description: "Front desk at Smile Catchers: registers and finds patients.",
+      description: "Front desk at Sunrise Dental: registers and finds patients.",
     },
-    ravi: {
-      id: "0199a000-0000-7000-8000-000000000004",
-      display_name: "Ravi Kamble",
-      description: "Assistant at Smile Catchers: can look patients up but not register them.",
-    },
-    vivek: {
-      id: "0199a000-0000-7000-8000-000000000005",
-      display_name: "Dr. Vivek Menon",
-      email: "vivek.menon@example.com",
-      description: "Visiting orthodontist at Smile Catchers: sees today's appointments, not the patient list.",
+    bina: {
+      id: "b1b1b1b1-0000-4000-8000-000000000001",
+      display_name: "Bina Joshi",
+      email: "bina.joshi@example.com",
+      description: "Owner at Lotus Dental Care.",
     },
   } satisfies Record<string, FakeUser>;
 
-  const smile: FakeClinic = {
+  const sunrise: FakeClinic = {
     id: id(14),
-    slug: "smilecatchers",
-    name: "Smile Catchers",
-    host: "smilecatchers.localtest.me:8080",
+    slug: "sunrise",
+    name: "Sunrise Dental",
+    host: "sunrise.localtest.me",
     timezone: "Asia/Kolkata",
-    theme: { brand: "#14a89a", mode: "light" },
+    branding: { brand: "#14a89a", mode: "light" },
     specialty: "dental",
-    status: "active",
+    status: "trial",
     created_at: isoDaysAgo(now, 14),
-    number_prefix: "SC",
-    domains: [
-      { hostname: "smilecatchers.aarogyam.example", kind: "portal", is_primary: true, verified_at: isoDaysAgo(now, 14) },
-      { hostname: "www.smilecatchers.example", kind: "website", is_primary: false, verified_at: null },
-    ],
-    owner: { display_name: users.anika.display_name, email: users.anika.email, phone: users.anika.phone },
-    plan: { key: "pilot", name: "Pilot" },
+    number_prefix: "SD",
   };
-  const hasya: FakeClinic = {
+  const lotus: FakeClinic = {
     id: id(6),
-    slug: "hasya",
-    name: "Hasya Dental Studio",
-    host: "hasya.localtest.me:8080",
+    slug: "lotus",
+    name: "Lotus Dental Care",
+    host: "lotus.localtest.me",
     timezone: "Asia/Kolkata",
-    theme: { brand: "#2563eb", mode: "dark" },
+    branding: { brand: "#db2777", mode: "light" },
     specialty: "dental",
     status: "trial",
     created_at: isoDaysAgo(now, 6),
-    number_prefix: "HD",
-    domains: [{ hostname: "hasya.aarogyam.example", kind: "portal", is_primary: true, verified_at: isoDaysAgo(now, 6) }],
-    owner: { display_name: "Dr. Kavita Joshi", email: "kavita.joshi@example.com" },
-    plan: { key: "trial", name: "Trial" },
+    number_prefix: "LD",
   };
 
   const memberships: FakeMembership[] = [
-    { id: id(), user_id: users.anika.id, clinic_id: smile.id, role: ROLES.owner },
-    { id: id(), user_id: users.anika.id, clinic_id: hasya.id, role: ROLES.doctor },
-    { id: id(), user_id: users.farhan.id, clinic_id: smile.id, role: ROLES.doctor },
-    { id: id(), user_id: users.sunita.id, clinic_id: smile.id, role: ROLES.frontDesk },
-    { id: id(), user_id: users.ravi.id, clinic_id: smile.id, role: ROLES.assistant },
-    { id: id(), user_id: users.vivek.id, clinic_id: smile.id, role: ROLES.consultant },
+    { id: id(), user_id: users.asha.id, clinic_id: sunrise.id, role: ROLES.owner },
+    { id: id(), user_id: users.dev.id, clinic_id: sunrise.id, role: ROLES.doctor },
+    { id: id(), user_id: users.dev.id, clinic_id: lotus.id, role: ROLES.consultant },
+    { id: id(), user_id: users.farah.id, clinic_id: sunrise.id, role: ROLES.frontDesk },
+    { id: id(), user_id: users.bina.id, clinic_id: lotus.id, role: ROLES.owner },
   ];
 
-  const smilePatients = makePatients(random, smile, 48, now, 1001, 10_000);
-  const hasyaPatients = makePatients(random, hasya, 12, now, 2001, 20_000);
+
+  const sunrisePatients = makePatients(random, sunrise, 48, now, 1, 10_000);
+  const lotusPatients = makePatients(random, lotus, 12, now, 1, 20_000);
 
   const practitioners = {
-    anika: { id: id(), display_name: users.anika.display_name },
-    farhan: { id: id(), display_name: users.farhan.display_name },
-    vivek: { id: id(), display_name: users.vivek.display_name },
-    kavita: { id: id(), display_name: "Dr. Kavita Joshi" },
+    asha: { id: id(), display_name: users.asha.display_name },
+    dev: { id: id(), display_name: users.dev.display_name },
+    bina: { id: id(), display_name: users.bina.display_name },
   };
 
   const schedule: FakeScheduleEntry[] = [
-    ...makeSchedule(random, smile, smilePatients, now, [
-      { at: "09:00", who: practitioners.anika, room: "Chair 1" },
-      { at: "09:30", who: practitioners.farhan, room: "Chair 2", outcome: "no_show" },
-      { at: "10:00", who: practitioners.anika, room: "Chair 1" },
-      { at: "10:30", who: practitioners.farhan, room: "Chair 2" },
-      { at: "11:00", who: practitioners.anika, room: "Chair 1" },
-      { at: "11:30", who: practitioners.farhan, room: "Chair 2" },
-      { at: "12:00", who: practitioners.anika, room: "Chair 1" },
-      { at: "12:30", who: practitioners.farhan, room: "Chair 2", outcome: "cancelled" },
-      { at: "14:00", who: practitioners.anika, room: "Chair 1" },
-      { at: "14:30", who: practitioners.farhan, room: "Chair 2" },
-      { at: "15:00", who: practitioners.anika, room: "Chair 1" },
-      { at: "16:00", who: practitioners.vivek, room: "Chair 2", reason: "Braces review" },
-      { at: "16:30", who: practitioners.vivek, room: "Chair 2", reason: "Aligner check" },
-      { at: "17:00", who: practitioners.farhan, room: "Chair 1" },
-      { at: "17:30", who: practitioners.anika, room: "Chair 1" },
+    ...makeSchedule(random, sunrise, sunrisePatients, now, [
+      { at: "09:00", who: practitioners.asha, room: "Chair 1" },
+      { at: "09:30", who: practitioners.dev, room: "Chair 2", outcome: "no_show" },
+      { at: "10:00", who: practitioners.asha, room: "Chair 1" },
+      { at: "10:30", who: practitioners.dev, room: "Chair 2" },
+      { at: "11:00", who: practitioners.asha, room: "Chair 1" },
+      { at: "11:30", who: practitioners.dev, room: "Chair 2" },
+      { at: "12:00", who: practitioners.asha, room: "Chair 1" },
+      { at: "12:30", who: practitioners.dev, room: "Chair 2", outcome: "cancelled" },
+      { at: "14:00", who: practitioners.asha, room: "Chair 1" },
+      { at: "14:30", who: practitioners.dev, room: "Chair 2" },
+      { at: "15:00", who: practitioners.asha, room: "Chair 1" },
+      { at: "16:00", who: practitioners.dev, room: "Chair 2", reason: "Braces review" },
+      { at: "16:30", who: practitioners.dev, room: "Chair 2", reason: "Aligner check" },
+      { at: "17:00", who: practitioners.dev, room: "Chair 1" },
+      { at: "17:30", who: practitioners.asha, room: "Chair 1" },
     ]),
-    ...makeSchedule(random, hasya, hasyaPatients, now, [
-      { at: "10:00", who: practitioners.kavita, room: "Chair 1" },
-      { at: "11:00", who: practitioners.anika, room: "Chair 1" },
-      { at: "12:00", who: practitioners.kavita, room: "Chair 1" },
-      { at: "17:00", who: practitioners.anika, room: "Chair 1" },
-      { at: "18:00", who: practitioners.kavita, room: "Chair 1" },
-      { at: "18:30", who: practitioners.anika, room: "Chair 1" },
+    ...makeSchedule(random, lotus, lotusPatients, now, [
+      { at: "10:00", who: practitioners.bina, room: "Chair 1" },
+      { at: "11:00", who: practitioners.asha, room: "Chair 1" },
+      { at: "12:00", who: practitioners.bina, room: "Chair 1" },
+      { at: "17:00", who: practitioners.asha, room: "Chair 1" },
+      { at: "18:00", who: practitioners.bina, room: "Chair 1" },
+      { at: "18:30", who: practitioners.asha, room: "Chair 1" },
     ]),
   ];
 
   const days: FakeClinicDay[] = [
-    {
-      clinic_id: smile.id,
-      money: { collected_paise: 2_850_000, pending_dues_paise: 6_400_000, pending_dues_patients: 5 },
-      attention: [
-        { kind: "follow_up", count: 3 },
-        { kind: "treatment_plan", count: 2 },
-        { kind: "dues", count: 5, amount_paise: 6_400_000 },
-        { kind: "stock", count: 4 },
-        { kind: "lab", count: 1 },
-      ],
-    },
-    {
-      clinic_id: hasya.id,
-      money: { collected_paise: 640_000, pending_dues_paise: 1_250_000, pending_dues_patients: 2 },
-      attention: [
-        { kind: "follow_up", count: 1 },
-        { kind: "dues", count: 2, amount_paise: 1_250_000 },
-      ],
-    },
+    { clinic_id: sunrise.id, money: { collected_paise: 2_850_000, pending_dues_paise: 6_400_000, pending_dues_patients: 5 } },
+    { clinic_id: lotus.id, money: { collected_paise: 640_000, pending_dues_paise: 1_250_000, pending_dues_patients: 2 } },
   ];
 
   const platformUsers: FakePlatformUser[] = [
     {
-      id: "0199a000-0000-7000-8000-0000000000a1",
-      display_name: "Aarav Kulkarni",
-      email: "aarav@sakalya.example",
-      role: "admin",
-      description: "Sakalya admin: creates clinics and watches service health.",
-    },
-    {
-      id: "0199a000-0000-7000-8000-0000000000a2",
-      display_name: "Isha Nair",
-      email: "isha@sakalya.example",
-      role: "support",
-      description: "Sakalya support: looks after clinics day to day.",
+      id: "c1c1c1c1-0000-4000-8000-000000000001",
+      display_name: "Sakalya Admin",
+      email: "admin@sakalya.example",
+      role: "owner",
+      description: "Sakalya platform owner: clinics, service health and quality.",
     },
   ];
 
   return {
     users: Object.values(users),
     platformUsers,
-    clinics: [smile, hasya, ...makeConsoleOnlyClinics(random, now)],
+    clinics: [sunrise, lotus, ...makeConsoleOnlyClinics(random, now)],
     memberships,
-    patients: [...smilePatients, ...hasyaPatients],
+    patients: [...sunrisePatients, ...lotusPatients],
     schedule,
     days,
     quality: createQualityReport(random, now),
@@ -426,7 +386,7 @@ function makeSchedule(
 
 /** Clinics that exist only in the console listing: no staff or patients behind them. */
 function makeConsoleOnlyClinics(random: Random, now: Date): FakeClinic[] {
-  const rows: readonly [string, string, C.ClinicStatus, number, string][] = [
+  const rows: readonly [string, string, FakeClinic["status"], number, string][] = [
     ["Dantashree Dental Clinic", "dantashree", "active", 45, "Dr. Rohini Kale"],
     ["Pearl Smile Dental", "pearlsmile", "active", 38, "Dr. Sameer Naik"],
     ["Sparsh Dental Care", "sparsh", "trial", 9, "Dr. Neha Deshmukh"],
@@ -434,30 +394,19 @@ function makeConsoleOnlyClinics(random: Random, now: Date): FakeClinic[] {
     ["Navi Smile Dental", "navismile", "churned", 120, "Dr. Imran Khan"],
     ["Ujjwal Dental Care", "ujjwal", "trial", 2, "Dr. Pallavi Sawant"],
   ];
-  return rows.map(([name, slug, status, daysAgo, owner]) => {
+  return rows.map(([name, slug, status, daysAgo]) => {
     const createdAt = new Date(now.getTime() - daysAgo * DAY - random.int(0, 600) * 60_000);
-    const first = owner.split(" ")[1] ?? "owner";
     return {
       id: fakeUuid(random, createdAt),
       slug,
       name,
-      host: `${slug}.localtest.me:8080`,
+      host: `${slug}.localtest.me`,
       timezone: "Asia/Kolkata",
-      theme: { brand: "#14a89a", mode: "light" },
+      branding: { brand: "#14a89a", mode: "light" },
       specialty: "dental",
       status,
       created_at: createdAt.toISOString(),
       number_prefix: slug.slice(0, 2).toUpperCase(),
-      domains: [
-        {
-          hostname: `${slug}.aarogyam.example`,
-          kind: "portal",
-          is_primary: true,
-          verified_at: createdAt.toISOString(),
-        },
-      ],
-      owner: { display_name: owner, email: `${first.toLowerCase()}@example.com` },
-      plan: status === "trial" ? { key: "trial", name: "Trial" } : { key: "clinic", name: "Clinic" },
-    };
+    } satisfies FakeClinic;
   });
 }

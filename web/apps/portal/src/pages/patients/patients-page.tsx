@@ -2,15 +2,15 @@ import { Plus, UserRoundSearch } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 
-import type { PatientListItem } from "@aarogyam/api-client";
+import type { Patient } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, useDocumentTitle } from "@aarogyam/app-kit";
 import { Button, Card, DataTable, Link, PageHeader, SearchInput, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
-import { ageSex, patientPath } from "../../lib/patients.js";
-import { usePatientSearch } from "../../queries.js";
+import { ageSex, maskPhone, patientPath } from "../../lib/patients.js";
+import { usePatients } from "../../queries.js";
 
-const COLUMNS: readonly DataTableColumn<PatientListItem>[] = [
+const COLUMNS: readonly DataTableColumn<Patient>[] = [
   {
     id: "name",
     header: "Patient",
@@ -22,7 +22,8 @@ const COLUMNS: readonly DataTableColumn<PatientListItem>[] = [
   },
   { id: "number", header: "Number", cell: (row) => <span className="font-mono text-xs">{row.number}</span> },
   { id: "age", header: "Age and sex", cell: (row) => ageSex(row.age_years, row.sex) },
-  { id: "phone", header: "Phone", cell: (row) => row.phone_masked ?? "—" },
+  // Lists show phones masked; Patient 360 reveals them on request.
+  { id: "phone", header: "Phone", cell: (row) => (row.phone == null ? "—" : maskPhone(row.phone)) },
   { id: "visit", header: "Last visit", align: "end", cell: (row) => (row.last_visit_at == null ? "Not yet" : formatDate(row.last_visit_at)) },
 ];
 
@@ -32,8 +33,8 @@ export function PatientsPage() {
   useDocumentTitle("Patients", session.clinic.name);
   const navigate = useNavigate();
   const [q, setQ] = useState("");
-  const search = usePatientSearch(q);
-  const rows = search.data?.pages.flatMap((page) => page.items) ?? [];
+  const search = usePatients(q);
+  const rows = search.data?.items ?? [];
   const register = can("patients.write") ? (
     <Button
       icon={<Plus aria-hidden="true" className="size-4" />}
@@ -47,7 +48,7 @@ export function PatientsPage() {
 
   return (
     <>
-      <PageHeader title="Patients" {...(q === "" ? { subtitle: "Most recent visits first" } : {})} end={register} />
+      <PageHeader title="Patients" {...(q === "" ? { subtitle: "Recently seen first" } : {})} end={register} />
       <Card>
         <SearchInput
           label="Search patients"
@@ -69,8 +70,7 @@ export function PatientsPage() {
               rows={rows}
               rowKey={(row) => row.id}
               loading={search.isPending}
-              // Pages come from the API ("Show more"). Infinity here renders no rows (sakalya-web bug).
-              pageSize={10_000}
+              pageSize={20}
               empty={
                 q === ""
                   ? { title: "No patients yet", description: "Registered patients show here.", action: register }
@@ -82,13 +82,6 @@ export function PatientsPage() {
                     }
               }
             />
-            {search.hasNextPage ? (
-              <div className="mt-4 flex justify-center">
-                <Button variant="secondary" disabled={search.isFetchingNextPage} onClick={() => void search.fetchNextPage()}>
-                  {search.isFetchingNextPage ? "Loading…" : "Show more"}
-                </Button>
-              </div>
-            ) : null}
           </>
         )}
       </Card>

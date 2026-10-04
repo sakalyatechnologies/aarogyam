@@ -28,8 +28,8 @@ const PLANS: readonly SuitePlan[] = [
 ];
 
 export function createQualityReport(random: Random, now: Date): C.QualityReport {
-  const suites = PLANS.map((plan): C.QualitySuiteStatus => {
-    const trend = Array.from({ length: 14 }, (_, index): C.QualityDay => {
+  const suites = PLANS.map((plan): C.QualityReport["suites"][number] => {
+    const trend = Array.from({ length: 14 }, (_, index): C.QualityReport["suites"][number]["trend"][number] => {
       const day = new Date(now.getTime() - (13 - index) * DAY).toISOString().slice(0, 10);
       const total = Math.max(1, plan.daily + random.int(-Math.ceil(plan.daily * 0.05), Math.ceil(plan.daily * 0.05)));
       const failures = plan.failRate === 0 ? 0 : random.int(0, Math.ceil(total * plan.failRate * 2));
@@ -61,7 +61,7 @@ export function createQualityReport(random: Random, now: Date): C.QualityReport 
     };
   });
 
-  const flakyTests: C.FlakyTest[] = [
+  const flakyTests: C.QualityReport["flaky_tests"][number][] = [
     {
       test_name: "patients::search::recent_first_when_query_is_empty",
       suite: "integration",
@@ -88,7 +88,7 @@ export function createQualityReport(random: Random, now: Date): C.QualityReport 
     },
   ];
 
-  const failure = (hoursAgo: number, plan: Pick<C.FailingRequest, "suite" | "environment" | "test_name" | "error_message">): C.FailingRequest => {
+  const failure = (hoursAgo: number, plan: Pick<C.QualityReport["failing_requests"][number], "suite" | "environment" | "test_name" | "error_message">): C.QualityReport["failing_requests"][number] => {
     const failedAt = new Date(now.getTime() - hoursAgo * HOUR);
     return { request_id: fakeUuid(random, failedAt), failed_at: failedAt.toISOString(), ...plan };
   };

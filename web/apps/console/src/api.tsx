@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, type ReactNode } from "react";
 
-import { unwrap, type ApiClient, type MetricsEnvironment, type MetricsRange, type NewClinic } from "@aarogyam/api-client";
+import { unwrap, type ApiClient, type MetricsRange, type NewClinic } from "@aarogyam/api-client";
 
 const ApiContext = createContext<ApiClient | null>(null);
 
@@ -17,12 +17,12 @@ export function useApi(): ApiClient {
   return client;
 }
 
-/** Service health for a range and environment, refreshed every minute without flashing. */
-export function useMetrics(range: MetricsRange, environment: MetricsEnvironment) {
+/** Service health for a range, refreshed every minute without flashing. */
+export function useMetrics(range: MetricsRange) {
   const api = useApi();
   return useQuery({
-    queryKey: ["metrics", range, environment],
-    queryFn: ({ signal }) => unwrap(api.getMetrics({ range, environment }, { signal })),
+    queryKey: ["metrics", range],
+    queryFn: ({ signal }) => unwrap(api.getMetrics(range, { signal })),
     placeholderData: keepPreviousData,
     refetchInterval: 60_000,
   });

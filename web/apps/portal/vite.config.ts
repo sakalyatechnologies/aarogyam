@@ -14,9 +14,13 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       strictPort: true,
-      // VITE_API_MODE=http with an empty VITE_API_BASE_URL sends /api to the local Rust API.
+      host: "127.0.0.1",
+      // sunrise.localtest.me and app.localtest.me resolve to 127.0.0.1; the API tells hosts apart by name.
+      allowedHosts: [".localtest.me"],
+      // Same-origin /api goes to the local API with the browser's Host header kept
+      // (changeOrigin stays false), because the API picks the clinic or console from it.
       proxy: { "/api": { target: env["VITE_API_PROXY_TARGET"] ?? "http://localhost:8080" } },
     },
-    preview: { port: 4173 },
+    preview: { port: 4173, host: "127.0.0.1", allowedHosts: [".localtest.me"] },
   };
 });

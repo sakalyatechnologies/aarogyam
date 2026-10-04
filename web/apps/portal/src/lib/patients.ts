@@ -1,4 +1,4 @@
-/** How patients are shown. Names never go in URLs or page titles; numbers do. */
+/** How patients are shown. Names never go in URLs or page titles; IDs and numbers do. */
 
 import { useSyncExternalStore } from "react";
 
@@ -39,13 +39,6 @@ export function ageSex(age: number | null | undefined, sex: Sex, estimated = fal
   return `${estimated ? "About " : ""}${String(age)} Y · ${SEX_LABEL[sex]}`;
 }
 
-/** Whole years from a `YYYY-MM-DD` birth date to `today` (`YYYY-MM-DD`). */
-export function ageOn(dateOfBirth: string, today: string): number {
-  const [by = 0, bm = 1, bd = 1] = dateOfBirth.split("-").map(Number);
-  const [ty = 0, tm = 1, td = 1] = today.split("-").map(Number);
-  return Math.max(0, ty - by - (tm < bm || (tm === bm && td < bd) ? 1 : 0));
-}
-
 const subscribe = () => () => undefined;
 const isoToday = () => new Date().toISOString().slice(0, 10);
 
@@ -54,9 +47,9 @@ export function useTodayDate(): string {
   return useSyncExternalStore(subscribe, isoToday, isoToday);
 }
 
-/** Patient 360's address: the clinic number, never the name or phone. */
-export function patientPath(patient: { number: string }): string {
-  return `/patients/${encodeURIComponent(patient.number)}`;
+/** Patient 360's address: the patient's ID, never the name or phone. */
+export function patientPath(patient: { id: string }): string {
+  return `/patients/${encodeURIComponent(patient.id)}`;
 }
 
 /** `+919876543210` → `+91 98765 43210`. */
@@ -65,9 +58,9 @@ export function formatPhone(e164: string): string {
   return e164.startsWith("+91") && national.length === 10 ? `+91 ${national.slice(0, 5)} ${national.slice(5)}` : e164;
 }
 
-/** `+91 ••••• •3210` */
-export function maskPhone(e164: string): string {
-  return e164.startsWith("+91") ? `+91 ••••• •${e164.slice(-4)}` : `•••• ${e164.slice(-4)}`;
+/** `+91 ••••• •3210`. A value the API already masked keeps its last digits the same way. */
+export function maskPhone(phone: string): string {
+  return phone.startsWith("+91") ? `+91 ••••• •${phone.slice(-4)}` : `•••• ${phone.slice(-4)}`;
 }
 
 /** `a•••@example.com` */

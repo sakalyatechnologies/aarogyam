@@ -46,18 +46,32 @@ const FALLBACK_MESSAGES: Readonly<Record<number, string>> = {
 export function parseApiError(status: number, body: unknown, requestId: RequestId | undefined): ApiError {
   const parsed = errorBody.safeParse(body);
   const base: ApiError = parsed.success
-    ? {
-        status,
-        code: parsed.data.error.code,
-        message: parsed.data.error.message,
-        ...(parsed.data.error.field == null ? {} : { field: parsed.data.error.field }),
-      }
+    ? withField(status, parsed.data.error.code, parsed.data.error.message, parsed.data.error.field ?? undefined)
     : {
         status,
         code: "unexpected_status",
         message: FALLBACK_MESSAGES[status] ?? "Something went wrong on our side. Please try again.",
       };
   return requestId === undefined ? base : { ...base, requestId };
+}
+
+const FIELD_PREFIX = /^([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*): (.+)$/s;
+
+/**
+ * Input errors name their field at the start of the message (`phone: invalid phone number`).
+ * The field becomes `field` and the rest, capitalised, the message shown beside it.
+ */
+function withField(status: number, code: string, message: string, field: string | undefined): ApiError {
+  if (field !== undefined) {
+    return { status, code, message, field };
+  }
+  const match = status < 500 ? FIELD_PREFIX.exec(message) : null;
+  const name = match?.[1];
+  const rest = match?.[2];
+  if (name === undefined || rest === undefined) {
+    return { status, code, message };
+  }
+  return { status, code, field: name, message: `${rest.charAt(0).toUpperCase()}${rest.slice(1)}` };
 }
 
 /**

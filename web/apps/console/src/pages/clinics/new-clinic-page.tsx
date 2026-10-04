@@ -1,97 +1,117 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Copy } from "lucide-react";
 import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { z } from "zod";
 
-import { apiErrorOf } from "@aarogyam/api-client";
-import { useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, Card, Field, FormActions, PageHeader, PhoneInput, Select, TextInput, useToast } from "@sakalya/ui";
+import { apiErrorOf, type CreatedClinic } from "@aarogyam/api-client";
+import { formatDateTime, useDocumentTitle } from "@aarogyam/app-kit";
+import { Button, Card, Field, FormActions, PageHeader, Select, TextInput, useToast } from "@sakalya/ui";
 
 import { useCreateClinic } from "../../api.js";
 import { RESERVED_SLUGS, SLUG_PATTERN, slugify } from "./slug.js";
 
-const TIME_ZONES = [
-  { value: "Asia/Kolkata", label: "India (Asia/Kolkata)" },
-  { value: "Asia/Kathmandu", label: "Nepal (Asia/Kathmandu)" },
-  { value: "Asia/Dubai", label: "UAE (Asia/Dubai)" },
-] as const;
-
-const schema = z
-  .object({
-    name: z.string().trim().min(2, "Enter the clinic's name.").max(80, "Keep the name under 80 characters."),
-    slug: z
-      .string()
-      .regex(SLUG_PATTERN, "Use 3 to 30 lowercase letters, digits or single hyphens.")
-      .refine((slug) => !slug.includes("--"), "Use single hyphens only.")
-      .refine((slug) => !RESERVED_SLUGS.has(slug), "That address is reserved."),
-    specialty: z.enum(["dental"]),
-    ownerName: z.string().trim().min(2, "Enter the owner's name."),
-    ownerEmail: z.union([z.literal(""), z.email("Enter a valid email address.")]),
-    ownerPhone: z.union([z.literal(""), z.string().regex(/^[6-9]\d{9}$/, "Enter a 10-digit mobile number.")]),
-    timezone: z.string().min(1),
-  })
-  .refine((values) => values.ownerEmail !== "" || values.ownerPhone !== "", {
-    path: ["ownerEmail"],
-    message: "Give the owner's email or mobile number.",
-  });
+const schema = z.object({
+  name: z.string().trim().min(2, "Enter the clinic's name.").max(80, "Keep the name under 80 characters."),
+  slug: z
+    .string()
+    .regex(SLUG_PATTERN, "Use 3 to 30 lowercase letters, digits or single hyphens.")
+    .refine((slug) => !slug.includes("--"), "Use single hyphens only.")
+    .refine((slug) => !RESERVED_SLUGS.has(slug), "That address is reserved."),
+  specialty: z.enum(["dental"]),
+  ownerEmail: z.email("Enter the owner's email address."),
+});
 
 type Values = z.input<typeof schema>;
 
-/** API field names (snake_case paths) to form fields. */
-const FIELDS: Readonly<Record<string, keyof Values>> = {
-  name: "name",
-  slug: "slug",
-  specialty: "specialty",
-  "owner.display_name": "ownerName",
-  "owner.email": "ownerEmail",
-  "owner.phone": "ownerPhone",
-  timezone: "timezone",
-};
+/** API field names to form fields. A taken address comes back as a 409 with no field. */
+const FIELDS: Readonly<Record<string, keyof Values>> = { name: "name", slug: "slug", specialty: "specialty", owner_email: "ownerEmail" };
+
+/** The owner's invitation. The token rides in the fragment, which browsers never send to a server. */
+export function inviteLink(created: CreatedClinic): string {
+  const port = import.meta.env.VITE_PORTAL_PORT ?? (import.meta.env.DEV ? "5173" : "");
+  return `${window.location.protocol}//${created.portal_host}${port === "" ? "" : `:${port}`}/invite#${created.invite_token}`;
+}
 
 export function NewClinicPage() {
   useDocumentTitle("New clinic", "Sakalya Console");
+  const [created, setCreated] = useState<CreatedClinic>();
+  return created === undefined ? <NewClinicForm onCreated={setCreated} /> : <InvitePanel created={created} />;
+}
+
+function InvitePanel({ created }: { created: CreatedClinic }) {
   const navigate = useNavigate();
   const toast = useToast();
+  const link = inviteLink(created);
+  return (
+    <>
+      <PageHeader title="Clinic created" subtitle={`${created.portal_host} is ready for its owner.`} />
+      <Card className="max-w-2xl">
+        <h2 className="text-lg font-bold text-text">Send the owner this invitation</h2>
+        <p className="mt-1 text-sm text-muted">
+          It works once, for the email you entered, until {formatDateTime(created.invite_expires_at)}. Share it privately: anyone with the link can
+          try to use it.
+        </p>
+        <Field label="Invitation link" className="mt-4">
+          <TextInput readOnly value={link} className="font-mono" onFocus={(event) => { event.currentTarget.select(); }} />
+        </Field>
+        <FormActions className="mt-4">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void navigate("/clinics");
+            }}
+          >
+            Back to clinics
+          </Button>
+          <Button
+            icon={<Copy aria-hidden="true" className="size-4" />}
+            onClick={() => {
+              void navigator.clipboard.writeText(link).then(
+                () => toast.show({ title: "Invitation link copied", tone: "success" }),
+                () => toast.show({ title: "Couldn't copy; select the link and copy it", tone: "warning" }),
+              );
+            }}
+          >
+            Copy link
+          </Button>
+        </FormActions>
+      </Card>
+    </>
+  );
+}
+
+function NewClinicForm({ onCreated }: { onCreated: (created: CreatedClinic) => void }) {
+  const navigate = useNavigate();
   const create = useCreateClinic();
   const [slugEdited, setSlugEdited] = useState(false);
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     mode: "onTouched",
-    defaultValues: { name: "", slug: "", specialty: "dental", ownerName: "", ownerEmail: "", ownerPhone: "", timezone: "Asia/Kolkata" },
+    defaultValues: { name: "", slug: "", specialty: "dental", ownerEmail: "" },
   });
   const { errors, isSubmitting } = form.formState;
+  const slug = useWatch({ control: form.control, name: "slug" });
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      const clinic = await create.mutateAsync({
-        name: values.name.trim(),
-        slug: values.slug,
-        specialty: values.specialty,
-        owner: {
-          display_name: values.ownerName.trim(),
-          ...(values.ownerEmail === "" ? {} : { email: values.ownerEmail }),
-          ...(values.ownerPhone === "" ? {} : { phone: `+91${values.ownerPhone}` }),
-        },
-        timezone: values.timezone,
-      });
-      toast.show({ title: "Clinic created", description: `${clinic.slug}.aarogyam.example is ready for its owner.`, tone: "success" });
-      void navigate("/clinics");
+      onCreated(await create.mutateAsync({ name: values.name.trim(), slug: values.slug, specialty: values.specialty, owner_email: values.ownerEmail }));
     } catch (thrown) {
       const apiError = apiErrorOf(thrown);
-      const field = apiError?.field === undefined ? undefined : FIELDS[apiError.field];
+      const field = apiError?.status === 409 ? "slug" : apiError?.field === undefined ? undefined : FIELDS[apiError.field];
       if (apiError !== undefined && field !== undefined) {
-        form.setError(field, { message: apiError.message }, { shouldFocus: true });
+        const message = apiError.status === 409 ? "That address is already taken." : apiError.message;
+        form.setError(field, { message }, { shouldFocus: true });
       } else {
         form.setError("root", { message: apiError?.message ?? "Couldn't create the clinic. Please try again." });
       }
     }
   });
 
-  const slug = useWatch({ control: form.control, name: "slug" });
   return (
     <>
-      <PageHeader title="New clinic" subtitle="Creates the clinic on a trial and its portal address" />
+      <PageHeader title="New clinic" subtitle="Creates the clinic on a trial, its portal address and the owner's invitation" />
       <Card className="max-w-2xl">
         <form noValidate onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-5">
           <Field label="Clinic name" error={errors.name?.message} required>
@@ -126,20 +146,8 @@ export function NewClinicPage() {
           <Field label="Specialty" error={errors.specialty?.message} required>
             <Select options={[{ value: "dental", label: "Dental" }]} {...form.register("specialty")} />
           </Field>
-          <fieldset className="flex flex-col gap-4 rounded-card border border-border p-4">
-            <legend className="px-1 text-sm font-bold text-text">Owner</legend>
-            <Field label="Owner's name" error={errors.ownerName?.message} required>
-              <TextInput autoComplete="off" {...form.register("ownerName")} />
-            </Field>
-            <Field label="Owner's email" hint="Email or mobile, at least one. The owner signs in with it." error={errors.ownerEmail?.message}>
-              <TextInput type="email" autoComplete="off" {...form.register("ownerEmail")} />
-            </Field>
-            <Field label="Owner's mobile" error={errors.ownerPhone?.message}>
-              <PhoneInput autoComplete="off" {...form.register("ownerPhone")} />
-            </Field>
-          </fieldset>
-          <Field label="Time zone" error={errors.timezone?.message} required>
-            <Select options={TIME_ZONES} {...form.register("timezone")} />
+          <Field label="Owner's email" hint="The owner accepts the invitation with this email." error={errors.ownerEmail?.message} required>
+            <TextInput type="email" autoComplete="off" {...form.register("ownerEmail")} />
           </Field>
           {errors.root?.message === undefined ? null : (
             <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger-text">

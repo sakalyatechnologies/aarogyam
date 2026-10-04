@@ -45,6 +45,8 @@ export interface DevAuthClient extends AuthClientBase {
   kind: "dev";
   people: readonly DevPerson[];
   signInAs: (personId: string) => void;
+  /** Signs in as someone not in the seed, with a fresh random ID, for example to accept an invitation. */
+  signInAsNew: (person: { displayName: string; email: string }) => void;
 }
 
 /** Sign-in with a one-time code sent by email. */

@@ -2,21 +2,20 @@
 
 import type { ApiResult } from "./result.js";
 import type {
-  ClinicId,
-  ConsoleClinicDetail,
+  AcceptInvitation,
   ConsoleClinicPage,
+  CreatedClinic,
   Me,
   Metrics,
-  MetricsEnvironment,
   MetricsRange,
   NewClinic,
   NewPatient,
   Patient,
   PatientId,
-  PatientNumber,
   PatientPage,
   QualityReport,
   Session,
+  Joined,
   Today,
 } from "./schemas.js";
 
@@ -25,36 +24,31 @@ export interface RequestOptions {
   signal?: AbortSignal | undefined;
 }
 
-export interface MetricsQuery {
-  range: MetricsRange;
-  environment?: MetricsEnvironment | undefined;
-}
-
-export interface PatientQuery {
-  /** Name, number or phone. */
-  q?: string | undefined;
+export interface PatientSearch {
+  /** Name, clinic number or phone. Sent in the request body, never in a URL. */
+  q: string;
   limit?: number | undefined;
-  cursor?: string | undefined;
 }
-
-/** A patient reference for URLs and lookups: the clinic number (`SC-1042`) or the ID. */
-export type PatientRef = PatientId | PatientNumber;
 
 /**
  * Calls to the Aarogyam API. A client is bound to one host, and the API resolves the clinic from
- * that host name: use a neutral-host client for `getMe`, a clinic-host client for clinic calls,
- * and a console-host client for console calls.
+ * that host name: `getMe` works on any host, clinic calls need a clinic host, console calls the
+ * console host.
  */
 export interface ApiClient {
-  /** Neutral host: the signed-in user and their clinics. */
+  /** The signed-in user's clinics and the host of each. */
   getMe(options?: RequestOptions): Promise<ApiResult<Me>>;
+  /** Any host: joins the clinic an invitation is for. 404 when unknown, used or expired; 409 when the email differs. */
+  acceptInvitation(input: AcceptInvitation, options?: RequestOptions): Promise<ApiResult<Joined>>;
 
-  /** Clinic host: the clinic, its theme, and the caller's role and permissions. */
+  /** Clinic host: the clinic, its branding, and the caller's role and permissions. */
   getSession(options?: RequestOptions): Promise<ApiResult<Session>>;
-  /** Clinic host: needs `patients.read`. */
-  listPatients(query: PatientQuery, options?: RequestOptions): Promise<ApiResult<PatientPage>>;
-  /** Clinic host: needs `patients.read`. */
-  getPatient(ref: PatientRef, options?: RequestOptions): Promise<ApiResult<Patient>>;
+  /** Clinic host: recently seen patients. Needs `patients.read`. */
+  listPatients(options?: RequestOptions): Promise<ApiResult<PatientPage>>;
+  /** Clinic host: `POST /patients/search`. Needs `patients.read`. */
+  searchPatients(search: PatientSearch, options?: RequestOptions): Promise<ApiResult<PatientPage>>;
+  /** Clinic host: needs `patients.read`; contact details are masked without `patients.contact`. */
+  getPatient(id: PatientId, options?: RequestOptions): Promise<ApiResult<Patient>>;
   /** Clinic host: needs `patients.write`. */
   createPatient(input: NewPatient, options?: RequestOptions): Promise<ApiResult<Patient>>;
   /** Clinic host (draft, fake only): needs `appointments.read`. */
@@ -62,12 +56,10 @@ export interface ApiClient {
 
   /** Console host. */
   listClinics(options?: RequestOptions): Promise<ApiResult<ConsoleClinicPage>>;
-  /** Console host (draft, fake only). */
-  getClinic(id: ClinicId, options?: RequestOptions): Promise<ApiResult<ConsoleClinicDetail>>;
-  /** Console host. */
-  createClinic(input: NewClinic, options?: RequestOptions): Promise<ApiResult<ConsoleClinicDetail>>;
-  /** Console host (draft, fake only): service health for a time range. */
-  getMetrics(query: MetricsQuery, options?: RequestOptions): Promise<ApiResult<Metrics>>;
+  /** Console host: creates the clinic and the owner's invitation. */
+  createClinic(input: NewClinic, options?: RequestOptions): Promise<ApiResult<CreatedClinic>>;
+  /** Console host: service health for a time range. */
+  getMetrics(range: MetricsRange, options?: RequestOptions): Promise<ApiResult<Metrics>>;
   /** Console host (draft, fake only). */
   getQualityReport(options?: RequestOptions): Promise<ApiResult<QualityReport>>;
 }

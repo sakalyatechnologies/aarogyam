@@ -3,7 +3,7 @@ import { createMemoryRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 
 import type { ApiClient } from "@aarogyam/api-client";
-import { createFakeBackend, createFixtures, fakeTokenFor } from "@aarogyam/api-client/fake";
+import { createFakeBackend, createFixtures, fakeTokenFor, type FakeBackend, type Fixtures } from "@aarogyam/api-client/fake";
 import { createQueryClient } from "@aarogyam/app-kit";
 import { createDevAuth } from "@aarogyam/auth";
 
@@ -12,27 +12,45 @@ import { routes } from "../routes.js";
 
 export const NOW = new Date("2026-10-03T05:30:00Z");
 
-/** Users from the fixtures, by first name. */
-export const USERS = {
-  anika: "0199a000-0000-7000-8000-000000000001",
-  sunita: "0199a000-0000-7000-8000-000000000003",
-  ravi: "0199a000-0000-7000-8000-000000000004",
-  vivek: "0199a000-0000-7000-8000-000000000005",
+/** The API's development seed. */
+export const PEOPLE = {
+  asha: "a1a1a1a1-0000-4000-8000-000000000001",
+  dev: "a1a1a1a1-0000-4000-8000-000000000002",
+  farah: "a1a1a1a1-0000-4000-8000-000000000003",
+  bina: "b1b1b1b1-0000-4000-8000-000000000001",
+  admin: "c1c1c1c1-0000-4000-8000-000000000001",
 } as const;
 
-/** Renders the portal at `path`, signed in as `userId`, on fake data; `wrap` can spy on calls. */
-export function renderPortal(path: string, userId: string, wrap: (client: ApiClient) => ApiClient = (client) => client) {
-  const backend = createFakeBackend(createFixtures({ now: NOW }));
+/** A fake API over the seed fixtures, optionally changed first (say, to give someone a narrower role). */
+export function fakeApi(prepare: (fixtures: Fixtures) => void = () => undefined): FakeBackend {
+  const fixtures = createFixtures({ now: NOW });
+  prepare(fixtures);
+  return createFakeBackend(fixtures);
+}
+
+export interface RenderOptions {
+  /** Signed in as this person; signed out when omitted. */
+  as?: string;
+  backend?: FakeBackend;
+  /** Wraps each clinic client, to spy on or stub calls. */
+  wrap?: (client: ApiClient) => ApiClient;
+}
+
+/** Renders the portal at `path` on fake data. */
+export function renderPortal(path: string, { as, backend = fakeApi(), wrap = (client) => client }: RenderOptions = {}) {
   const auth = createDevAuth({
     people: backend.users().map((u) => ({ id: u.id, displayName: u.display_name })),
     tokenFor: fakeTokenFor,
     storage: null,
   });
-  auth.signInAs(userId);
+  if (as !== undefined) {
+    auth.signInAs(as);
+  }
   const services = {
     auth,
-    neutral: backend.client({ getToken: auth.getAccessToken }),
-    clinic: (host: string) => wrap(backend.client({ host, getToken: auth.getAccessToken })),
+    mode: "fake" as const,
+    neutral: backend.client({ getToken: auth.getAccessToken, now: () => NOW }),
+    clinic: (host: string) => wrap(backend.client({ host, getToken: auth.getAccessToken, now: () => NOW })),
   };
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   render(
@@ -40,5 +58,5 @@ export function renderPortal(path: string, userId: string, wrap: (client: ApiCli
       <RouterProvider router={router} />
     </Providers>,
   );
-  return router;
+  return { router, auth, backend };
 }

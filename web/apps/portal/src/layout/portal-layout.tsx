@@ -2,11 +2,11 @@ import { Building2, CalendarCheck, LogOut, Smile, UsersRound } from "lucide-reac
 import { useMemo } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 
-import { hasPermission } from "@aarogyam/api-client";
+import { hasPermission, readBranding, type ClinicAccess } from "@aarogyam/api-client";
 import { ApiErrorNotice, renderRouterLink } from "@aarogyam/app-kit";
 import { useAuth, useAuthState } from "@aarogyam/auth";
 import { createTheme, parseHexColor, preset } from "@sakalya/tokens";
-import { AppShell, Avatar, Card, EmptyState, IconButton, Menu, Skeleton, ThemeScope, UserChip, type NavEntry } from "@sakalya/ui";
+import { AppShell, Avatar, Button, Card, EmptyState, IconButton, Menu, Skeleton, ThemeScope, UserChip, type NavEntry } from "@sakalya/ui";
 
 import { ClinicProvider, useClinic, useClinicChoice, useMe, useServices, useSession, type ClinicContextValue } from "../clinic.js";
 
@@ -34,19 +34,21 @@ export function RequireAuth() {
 }
 
 /**
- * Loads who the user is, settles which clinic they are working in (asking when they belong to
- * several), loads that clinic's session, and applies its white-label theme.
+ * Loads who the user is, settles which clinic they are working in, loads that clinic's session
+ * (role, permissions, branding) and applies its white-label theme.
  */
 export function ClinicGate() {
   const services = useServices();
+  const auth = useAuth();
   const me = useMe();
   const choice = useClinicChoice(me.data);
-  const api = choice.current === undefined ? undefined : services.clinic(choice.current.host);
-  const session = useSession(api, choice.current?.host);
-  const themeInput = session.data?.clinic.theme;
+  const host = choice.current?.host ?? choice.current?.slug;
+  const api = host === undefined ? undefined : services.clinic(host);
+  const session = useSession(api, host);
+  const branding = session.data === undefined ? {} : readBranding(session.data.clinic.branding);
   const theme = useMemo(
-    () => createTheme({ brand: parseHexColor(themeInput?.brand ?? "") ?? DEFAULT_BRAND, mode: themeInput?.mode ?? "light" }),
-    [themeInput],
+    () => createTheme({ brand: parseHexColor(branding.brand ?? "") ?? DEFAULT_BRAND, mode: branding.mode ?? "light" }),
+    [branding.brand, branding.mode],
   );
 
   if (me.isPending) {
@@ -56,7 +58,17 @@ export function ClinicGate() {
     return <ApiErrorNotice title="Couldn't load your clinics" error={me.error} onRetry={() => void me.refetch()} />;
   }
   if (choice.clinics.length === 0) {
-    return <EmptyState title="You're not part of a clinic yet" description="Ask your clinic's owner to invite you." />;
+    return (
+      <EmptyState
+        title="You're not part of a clinic yet"
+        description="Open the invitation link your clinic sent you, or ask the owner to invite you."
+        action={
+          <Button variant="secondary" onClick={() => void auth.signOut()}>
+            Sign out
+          </Button>
+        }
+      />
+    );
   }
   if (choice.current === undefined || api === undefined) {
     return <ChooseClinic clinics={choice.clinics} onChoose={choice.choose} />;
@@ -84,19 +96,25 @@ export function ClinicGate() {
   );
 }
 
-function ChooseClinic({ clinics, onChoose }: { clinics: readonly { slug: string; name: string; role_name: string }[]; onChoose: (slug: string) => void }) {
+function ChooseClinic({ clinics, onChoose }: { clinics: readonly ClinicAccess[]; onChoose: (clinic: ClinicAccess) => void }) {
+  const { mode } = useServices();
+  const strayHost = mode === "http" && window.location.hostname.split(".").length > 2 && !window.location.hostname.startsWith("app.");
   return (
     <main className="mx-auto flex min-h-full max-w-md flex-col justify-center px-4 py-10">
       <Card>
         <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-text">Choose a clinic</h1>
-        <p className="mb-5 text-sm text-muted">You work at more than one clinic. You can switch later from the top bar.</p>
+        <p className="mb-5 text-sm text-muted">
+          {strayHost
+            ? `You aren't a member of the clinic at ${window.location.hostname}. Open one of yours:`
+            : "You work at more than one clinic. You can switch later from the top bar."}
+        </p>
         <ul className="flex flex-col gap-2">
           {clinics.map((clinic) => (
-            <li key={clinic.slug}>
+            <li key={clinic.org_id}>
               <button
                 type="button"
                 onClick={() => {
-                  onChoose(clinic.slug);
+                  onChoose(clinic);
                 }}
                 className="flex w-full items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
@@ -126,7 +144,7 @@ function PortalShell() {
     ...(can("patients.read") ? [{ id: "patients", label: "Patients", icon: <UsersRound />, href: "/patients" }] : []),
   ];
   const activeId = nav.find((entry) => location.pathname.startsWith(entry.href))?.id ?? "";
-  const others = me.clinics.filter((clinic) => clinic.slug !== access.slug);
+  const others = me.clinics.filter((clinic) => clinic.org_id !== access.org_id);
   return (
     <AppShell
       brand={
@@ -149,14 +167,17 @@ function PortalShell() {
             <Menu
               label={access.name}
               icon={<Building2 aria-hidden="true" />}
-              items={others.map((clinic) => ({ id: clinic.slug, label: `Switch to ${clinic.name}` }))}
-              onSelect={(slug) => {
-                switchClinic(slug);
-                void navigate("/");
+              items={others.map((clinic) => ({ id: clinic.org_id, label: `Switch to ${clinic.name}` }))}
+              onSelect={(id) => {
+                const clinic = others.find((c) => c.org_id === id);
+                if (clinic !== undefined) {
+                  switchClinic(clinic);
+                  void navigate("/");
+                }
               }}
             />
           ) : null}
-          <UserChip name={me.user.display_name} role={session.membership.role_name} />
+          <UserChip name={session.user.display_name} role={access.role_name} />
           <IconButton
             label="Sign out"
             onClick={() => {

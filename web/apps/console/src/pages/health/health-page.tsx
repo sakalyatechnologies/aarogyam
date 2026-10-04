@@ -2,7 +2,7 @@ import { AlertTriangle, CheckCircle2, Clock3, Database, Gauge, Globe, OctagonAle
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
-import { metricsEnvironment, metricsRange, type Metrics, type MetricsEnvironment, type MetricsRange } from "@aarogyam/api-client";
+import { metricsRange, type Metrics, type MetricsRange } from "@aarogyam/api-client";
 import {
   ApiErrorNotice,
   DEFAULT_TIME_ZONE,
@@ -36,11 +36,6 @@ const RANGES = [
   { value: "7d", label: "7 days" },
 ] as const;
 
-const ENVIRONMENTS = [
-  { value: "production", label: "Production" },
-  { value: "staging", label: "Staging" },
-] as const;
-
 const RANGE_WORDS: Readonly<Record<MetricsRange, string>> = { "1h": "the last hour", "24h": "the last 24 hours", "7d": "the last 7 days" };
 
 function HealthNote({ health, children }: { health: Health; children: ReactNode }) {
@@ -57,11 +52,7 @@ export function HealthPage() {
   useDocumentTitle("Service health", "Sakalya Console");
   const [params, setParams] = useSearchParams();
   const range = metricsRange.catch("24h").parse(params.get("range"));
-  const environment = metricsEnvironment.catch("production").parse(params.get("env"));
-  const metrics = useMetrics(range, environment);
-  const choose = (next: { range?: MetricsRange; env?: MetricsEnvironment }) => {
-    setParams({ range: next.range ?? range, env: next.env ?? environment }, { replace: true });
-  };
+  const metrics = useMetrics(range);
 
   return (
     <>
@@ -83,16 +74,7 @@ export function HealthPage() {
           options={RANGES}
           value={range}
           onValueChange={(value) => {
-            choose({ range: value });
-          }}
-        />
-        <RadioGroup
-          label="Environment"
-          orientation="horizontal"
-          options={ENVIRONMENTS}
-          value={environment}
-          onValueChange={(value) => {
-            choose({ env: value });
+            setParams({ range: value }, { replace: true });
           }}
         />
       </div>
@@ -105,13 +87,13 @@ export function HealthPage() {
       ) : metrics.isError ? (
         <ApiErrorNotice title="Couldn't load service health" error={metrics.error} onRetry={() => void metrics.refetch()} />
       ) : (
-        <HealthBody metrics={metrics.data} range={range} environment={environment} />
+        <HealthBody metrics={metrics.data} range={range} />
       )}
     </>
   );
 }
 
-function HealthBody({ metrics, range, environment }: { metrics: Metrics; range: MetricsRange; environment: MetricsEnvironment }) {
+function HealthBody({ metrics, range }: { metrics: Metrics; range: MetricsRange }) {
   const { api } = metrics;
   const perMinute = api.requests / RANGE_MINUTES[range];
   const buckets = bucketSeries(api.series, range, DEFAULT_TIME_ZONE);
@@ -198,7 +180,7 @@ function HealthBody({ metrics, range, environment }: { metrics: Metrics; range: 
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <DatabasePanel db={metrics.db} />
-        <EdgePanel edge={metrics.edge} environment={environment} />
+        <EdgePanel edge={metrics.edge} />
       </div>
     </div>
   );
@@ -280,13 +262,13 @@ function DatabasePanel({ db }: { db: Db }) {
   );
 }
 
-function EdgePanel({ edge, environment }: { edge: Metrics["edge"]; environment: MetricsEnvironment }) {
+function EdgePanel({ edge }: { edge: Metrics["edge"] }) {
   if (edge === null) {
     return (
       <Card title="Frontend and edge">
         <EmptyState
           title="Not connected yet"
-          description={`Cloudflare traffic and Core Web Vitals for ${environment} will show here once the analytics feed is connected.`}
+          description="Cloudflare traffic and Core Web Vitals will show here once the analytics feed is connected."
           icon={<Globe className="size-7" />}
         />
       </Card>

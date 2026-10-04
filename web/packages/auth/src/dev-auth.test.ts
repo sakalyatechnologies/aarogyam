@@ -22,7 +22,7 @@ function memoryStorage() {
 
 describe("createDevAuth", () => {
   it("signs in as a seeded person and hands out that person's token", async () => {
-    const auth = createDevAuth({ people, tokenFor: (id) => `fake:${id}`, storage: memoryStorage() });
+    const auth = createDevAuth({ people, tokenFor: (person) => `fake:${person.id}`, storage: memoryStorage() });
     expect(auth.getState()).toEqual({ status: "signed_out" });
     expect(await auth.getAccessToken()).toBeNull();
 
@@ -42,18 +42,34 @@ describe("createDevAuth", () => {
 
   it("remembers the choice across a reload, and forgets it on sign-out", async () => {
     const storage = memoryStorage();
-    createDevAuth({ people, tokenFor: (id) => id, storage }).signInAs("p2");
+    createDevAuth({ people, tokenFor: (person) => person.id, storage }).signInAs("p2");
 
-    const reloaded = createDevAuth({ people, tokenFor: (id) => id, storage });
+    const reloaded = createDevAuth({ people, tokenFor: (person) => person.id, storage });
     expect(reloaded.getState().status).toBe("signed_in");
 
     await reloaded.signOut();
-    expect(createDevAuth({ people, tokenFor: (id) => id, storage }).getState()).toEqual({ status: "signed_out" });
+    expect(createDevAuth({ people, tokenFor: (person) => person.id, storage }).getState()).toEqual({ status: "signed_out" });
   });
 
   it("ignores people who are not in the list", () => {
-    const auth = createDevAuth({ people, tokenFor: (id) => id, storage: null });
+    const auth = createDevAuth({ people, tokenFor: (person) => person.id, storage: null });
     auth.signInAs("intruder");
     expect(auth.getState()).toEqual({ status: "signed_out" });
+  });
+});
+
+describe("createDevAuth: someone new", () => {
+  it("signs in a new person with a random ID and their email, and remembers them", async () => {
+    const storage = memoryStorage();
+    const auth = createDevAuth({ people, tokenFor: (person) => `${person.id}|${person.email ?? ""}`, storage });
+    auth.signInAsNew({ displayName: "Dr Asha Rane", email: "asha@example.com" });
+
+    const state = auth.getState();
+    expect(state.status === "signed_in" && state.user.email).toBe("asha@example.com");
+    expect(await auth.getAccessToken()).toMatch(/^[0-9a-f-]{36}\|asha@example\.com$/);
+    expect(createDevAuth({ people, tokenFor: (person) => person.id, storage }).getState()).toMatchObject({
+      status: "signed_in",
+      user: { displayName: "Dr Asha Rane" },
+    });
   });
 });

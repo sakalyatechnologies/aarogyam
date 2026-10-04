@@ -109,7 +109,7 @@ describe("DevSignIn", () => {
         { id: "p1", displayName: "Aarav Kulkarni", description: "Sakalya admin" },
         { id: "p2", displayName: "Isha Nair" },
       ],
-      tokenFor: (id) => id,
+      tokenFor: (person) => person.id,
       storage: null,
     });
     render(<DevSignIn auth={auth} />);

@@ -28,22 +28,22 @@ const ROUTES: readonly { method: string; route: string; share: number; p95: numb
 ];
 
 /** Requests per minute at a given instant: busy in clinic hours (IST), quiet at night. */
-function requestsPerMinute(at: Date, environment: C.MetricsEnvironment): number {
+function requestsPerMinute(at: Date): number {
   const istHour = (at.getUTCHours() + at.getUTCMinutes() / 60 + 5.5) % 24;
   const busy = istHour >= 9 && istHour < 21 ? 1 : istHour >= 7 && istHour < 23 ? 0.35 : 0.06;
-  return (environment === "production" ? 90 : 8) * busy;
+  return 90 * busy;
 }
 
-export function createMetrics(range: C.MetricsRange, environment: C.MetricsEnvironment, now: Date): C.MetricsResponse {
+export function createMetrics(range: C.MetricsRange, now: Date): C.ServiceMetrics {
   // Stable within an hour, so refetching doesn't make the charts jump.
-  const random = createRandom(Math.floor(now.getTime() / (60 * MINUTE)) * 31 + range.length * 7 + environment.length);
+  const random = createRandom(Math.floor(now.getTime() / (60 * MINUTE)) * 31 + range.length * 7);
   const { points, minutes } = BUCKETS[range];
-  const errorRate = environment === "production" ? 0.004 : 0.011;
+  const errorRate = 0.004;
   const incident = range === "1h" ? -1 : points - Math.ceil(points / 3);
 
   const series = Array.from({ length: points }, (_, index): C.ApiMetricsPoint => {
     const at = new Date(now.getTime() - (points - index) * minutes * MINUTE);
-    const requests = Math.round(requestsPerMinute(at, environment) * minutes * (0.85 + random.next() * 0.3));
+    const requests = Math.round(requestsPerMinute(at) * minutes * (0.85 + random.next() * 0.3));
     const spike = index === incident;
     const errors = Math.round(requests * errorRate * (spike ? 9 : 0.6 + random.next() * 0.8));
     return { at: at.toISOString(), requests, errors, p95_ms: Math.round(spike ? 880 + random.int(0, 200) : 165 + random.int(0, 70)) };
@@ -61,13 +61,12 @@ export function createMetrics(range: C.MetricsRange, environment: C.MetricsEnvir
       method: route.method,
       route: route.route,
       requests: Math.round(requests * route.share),
-      error_rate: Math.min(1, route.errors * (environment === "production" ? 1 : 2.4) * (0.7 + random.next() * 0.6)),
+      error_rate: Math.min(1, route.errors * (0.7 + random.next() * 0.6)),
       p95_ms: p95,
       p99_ms: Math.round(p95 * (2.4 + random.next())),
     };
   }).sort((a, b) => b.requests - a.requests);
 
-  const production = environment === "production";
   return {
     generated_at: now.toISOString(),
     range,
@@ -83,10 +82,10 @@ export function createMetrics(range: C.MetricsRange, environment: C.MetricsEnvir
       routes,
     },
     db: {
-      connections_used: production ? 18 + random.int(0, 6) : 4 + random.int(0, 2),
+      connections_used: 18 + random.int(0, 6),
       connections_max: 60,
-      cache_hit_ratio: production ? 0.9962 : 0.981,
-      size_bytes: production ? 2_791_728_742 : 398_458_880,
+      cache_hit_ratio: 0.9962,
+      size_bytes: 2_791_728_742,
       slow_queries: [
         { query_id: "-4581238471923471289", calls: 1_840, mean_ms: 412.6, total_ms: 759_184 },
         { query_id: "7712093384551029376", calls: 26_310, mean_ms: 88.1, total_ms: 2_317_911 },
@@ -103,8 +102,7 @@ export function createMetrics(range: C.MetricsRange, environment: C.MetricsEnvir
         { name: "patients", live_rows: 48_210, dead_rows: 310, size_bytes: 37_748_736 },
       ],
     },
-    edge: production
-      ? {
+    edge: {
           requests: Math.round(requests * 3.6),
           rate_4xx: 0.006,
           rate_5xx: 0.0004,
@@ -113,7 +111,6 @@ export function createMetrics(range: C.MetricsRange, environment: C.MetricsEnvir
           lcp_p75_ms: 2_140,
           inp_p75_ms: 148,
           cls_p75: 0.04,
-        }
-      : null,
+        },
   };
 }

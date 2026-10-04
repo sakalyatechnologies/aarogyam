@@ -9,7 +9,7 @@ export {
   type DevPerson,
   type EmailCodeAuthClient,
 } from "./auth-client.js";
-export { createDevAuth, type DevAuthOptions } from "./dev-auth.js";
+export { createDevAuth, createParentDomainStorage, type DevAuthOptions } from "./dev-auth.js";
 export { AuthProvider, useAuth, useAuthState, type AuthProviderProps } from "./react.js";
 export {
   DevSignIn,

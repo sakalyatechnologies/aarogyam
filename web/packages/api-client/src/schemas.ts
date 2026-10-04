@@ -2,8 +2,9 @@
  * Runtime decoders for every response, so data entering the apps is validated once at the
  * boundary and carries typed identifiers from then on.
  *
- * Each schema `satisfies` its contract type in `contract.ts`: when generated types replace that
- * file, any disagreement between these decoders and the real API fails the type check.
+ * Each schema `satisfies` its contract type, which comes from the generated OpenAPI types:
+ * when the spec changes, `pnpm --filter @aarogyam/api-client generate` and the type check list
+ * every decoder that no longer agrees.
  */
 
 import { z } from "zod";
@@ -21,10 +22,11 @@ export type ClinicId = z.output<typeof clinicId>;
 export const membershipId = z.string().min(1).brand<"MembershipId">();
 export type MembershipId = z.output<typeof membershipId>;
 
-export const patientId = z.string().min(1).brand<"PatientId">();
+/** A patient's ID: what Patient 360 URLs carry. */
+export const patientId = z.uuid().brand<"PatientId">();
 export type PatientId = z.output<typeof patientId>;
 
-/** The clinic's readable patient number, such as `SC-1042`: safe for URLs, said aloud by staff. */
+/** The clinic's readable patient number, such as `SD-9`: said aloud by staff. */
 export const patientNumber = z
   .string()
   .regex(/^[A-Z][A-Z0-9]{0,7}-\d{1,9}$/)
@@ -53,85 +55,55 @@ const date = z.iso.date();
 const optionalText = z.string().nullable().exactOptional();
 const optionalTimestamp = timestamp.nullable().exactOptional();
 const count = z.number().int().nonnegative();
+const ratio = z.number().min(0).max(1);
+const millis = z.number().nonnegative();
 
 export const sex = z.enum(["female", "male", "other", "unknown"]) satisfies z.ZodType<C.Sex>;
 export type Sex = z.output<typeof sex>;
 
-export const themeMode = z.enum(["light", "dark"]) satisfies z.ZodType<C.ThemeMode>;
+export const themeMode = z.enum(["light", "dark"]);
 export type ThemeMode = z.output<typeof themeMode>;
 
 // Errors -------------------------------------------------------------------------------------
 
 export const errorBody = z.object({
-  error: z.object({
-    code: z.string().min(1),
-    message: z.string(),
-    field: optionalText,
-  }),
+  error: z.object({ code: z.string().min(1), message: z.string(), field: optionalText }),
 }) satisfies z.ZodType<C.ErrorBody>;
 
 // Neutral host -------------------------------------------------------------------------------
 
-const user = z.object({
-  id: userId,
-  display_name: z.string(),
-  email: optionalText,
-  phone_masked: optionalText,
-}) satisfies z.ZodType<C.User>;
-export type User = z.output<typeof user>;
-
-const clinicAccess = z.object({
+const myClinic = z.object({
   org_id: clinicId,
   slug: z.string().min(1),
   name: z.string(),
   role_key: z.string(),
   role_name: z.string(),
-  host: z.string().min(1),
-}) satisfies z.ZodType<C.ClinicAccess>;
-export type ClinicAccess = z.output<typeof clinicAccess>;
+  host: optionalText,
+}) satisfies z.ZodType<C.MyClinic>;
+export type ClinicAccess = z.output<typeof myClinic>;
 
-export const meResponse = z.object({
-  user,
-  clinics: z.array(clinicAccess),
-}) satisfies z.ZodType<C.MeResponse>;
+export const meResponse = z.object({ clinics: z.array(myClinic) }) satisfies z.ZodType<C.Me>;
 export type Me = z.output<typeof meResponse>;
 
 // Clinic host --------------------------------------------------------------------------------
 
+const brandingFields = z.object({
+  brand: z.string().optional().catch(undefined),
+  mode: themeMode.optional().catch(undefined),
+});
+
+/** The parts of a clinic's free-form `branding` the portal understands; anything else is ignored. */
+export function readBranding(value: Record<string, unknown>): { brand?: string | undefined; mode?: ThemeMode | undefined } {
+  const parsed = brandingFields.safeParse(value);
+  return parsed.success ? parsed.data : {};
+}
+
 export const sessionResponse = z.object({
-  clinic: z.object({
-    id: clinicId,
-    slug: z.string().min(1),
-    name: z.string(),
-    timezone: z.string().min(1),
-    theme: z.object({ brand: z.string(), mode: themeMode }),
-  }),
-  membership: z.object({
-    id: membershipId,
-    role_key: z.string(),
-    role_name: z.string(),
-    permissions: z.array(z.string()),
-  }),
-  user,
-}) satisfies z.ZodType<C.SessionResponse>;
+  clinic: z.object({ id: clinicId, slug: z.string().min(1), name: z.string(), timezone: z.string().min(1), branding: z.record(z.string(), z.unknown()) }),
+  membership: z.object({ id: membershipId, role_key: z.string(), permissions: z.array(z.string()) }),
+  user: z.object({ id: userId, display_name: z.string() }),
+}) satisfies z.ZodType<C.Session>;
 export type Session = z.output<typeof sessionResponse>;
-
-const patientListItem = z.object({
-  id: patientId,
-  number: patientNumber,
-  full_name: z.string(),
-  sex,
-  age_years: count.nullable().exactOptional(),
-  phone_masked: optionalText,
-  last_visit_at: optionalTimestamp,
-}) satisfies z.ZodType<C.PatientListItem>;
-export type PatientListItem = z.output<typeof patientListItem>;
-
-export const patientListResponse = z.object({
-  items: z.array(patientListItem),
-  next_cursor: optionalText,
-}) satisfies z.ZodType<C.PatientListResponse>;
-export type PatientPage = z.output<typeof patientListResponse>;
 
 export const patient = z.object({
   id: patientId,
@@ -140,6 +112,8 @@ export const patient = z.object({
   sex,
   date_of_birth: date.nullable().exactOptional(),
   birth_date_estimated: z.boolean(),
+  age_years: count.nullable().exactOptional(),
+  /** Masked by the API unless the member has `patients.contact`. */
   phone: optionalText,
   email: optionalText,
   preferred_language: z.string(),
@@ -148,7 +122,9 @@ export const patient = z.object({
   last_visit_at: optionalTimestamp,
 }) satisfies z.ZodType<C.Patient>;
 export type Patient = z.output<typeof patient>;
-export type PatientStatus = Patient["status"];
+
+export const patientList = z.object({ items: z.array(patient) }) satisfies z.ZodType<C.PatientList>;
+export type PatientPage = z.output<typeof patientList>;
 
 const appointmentStatus = z.enum([
   "scheduled",
@@ -161,11 +137,6 @@ const appointmentStatus = z.enum([
 ]) satisfies z.ZodType<C.AppointmentStatus>;
 export type AppointmentStatus = z.output<typeof appointmentStatus>;
 
-const attentionKind = z.enum(["follow_up", "treatment_plan", "dues", "stock", "lab"]) satisfies z.ZodType<
-  C.AttentionKind
->;
-export type AttentionKind = z.output<typeof attentionKind>;
-
 const todayAppointment = z.object({
   id: appointmentId,
   starts_at: timestamp,
@@ -175,13 +146,7 @@ const todayAppointment = z.object({
   reason: optionalText,
   room: optionalText,
   arrived_at: optionalTimestamp,
-  patient: z.object({
-    id: patientId,
-    number: patientNumber,
-    full_name: z.string(),
-    sex,
-    age_years: count.nullable().exactOptional(),
-  }),
+  patient: z.object({ id: patientId, number: patientNumber, full_name: z.string(), sex, age_years: count.nullable().exactOptional() }),
   practitioner: z.object({ id: practitionerId, display_name: z.string() }),
 }) satisfies z.ZodType<C.TodayAppointment>;
 export type TodayAppointment = z.output<typeof todayAppointment>;
@@ -194,73 +159,93 @@ export const todayResponse = z.object({
     .object({ collected_paise: paise, pending_dues_paise: paise, pending_dues_patients: count })
     .nullable()
     .exactOptional(),
-  attention: z.array(
-    z.object({ kind: attentionKind, count, amount_paise: paise.nullable().exactOptional() }),
-  ),
 }) satisfies z.ZodType<C.TodayResponse>;
 export type Today = z.output<typeof todayResponse>;
 
 // Console host -------------------------------------------------------------------------------
 
-export const specialty = z.enum(["dental"]) satisfies z.ZodType<C.Specialty>;
-export type Specialty = z.output<typeof specialty>;
-
-export const clinicStatus = z.enum(["trial", "active", "suspended", "churned"]) satisfies z.ZodType<
-  C.ClinicStatus
->;
+export const clinicStatus = z.enum(["trial", "active", "suspended", "churned"]);
 export type ClinicStatus = z.output<typeof clinicStatus>;
 
-const consoleClinicFields = {
+const consoleClinic = z.object({
   id: clinicId,
   slug: z.string().min(1),
   name: z.string(),
-  specialty,
+  specialty: z.string(),
   status: clinicStatus,
   created_at: timestamp,
-};
-
-const consoleClinic = z.object(consoleClinicFields) satisfies z.ZodType<C.ConsoleClinic>;
+  portal_host: optionalText,
+  active_members: count,
+  patients: count,
+}) satisfies z.ZodType<C.ConsoleClinic>;
 export type ConsoleClinic = z.output<typeof consoleClinic>;
 
-export const consoleClinicListResponse = z.object({
-  items: z.array(consoleClinic),
-  next_cursor: optionalText,
-}) satisfies z.ZodType<C.ConsoleClinicListResponse>;
-export type ConsoleClinicPage = z.output<typeof consoleClinicListResponse>;
+export const consoleClinics = z.object({ items: z.array(consoleClinic) }) satisfies z.ZodType<C.ConsoleClinics>;
+export type ConsoleClinicPage = z.output<typeof consoleClinics>;
 
-export const consoleClinicDetail = z.object({
-  ...consoleClinicFields,
-  timezone: z.string().min(1),
-  domains: z.array(
-    z.object({
-      hostname: z.string().min(1),
-      kind: z.enum(["portal", "website"]),
-      is_primary: z.boolean(),
-      verified_at: optionalTimestamp,
-    }),
-  ),
-  owner: z.object({ display_name: z.string(), email: optionalText, phone_masked: optionalText }),
-  plan: z.object({ key: z.string(), name: z.string() }).nullable().exactOptional(),
-}) satisfies z.ZodType<C.ConsoleClinicDetail>;
-export type ConsoleClinicDetail = z.output<typeof consoleClinicDetail>;
-export type ClinicDomain = ConsoleClinicDetail["domains"][number];
+/** What creating a clinic returns: its portal host and the owner's one-time invitation. */
+export const createdClinic = z.object({
+  id: clinicId,
+  slug: z.string().min(1),
+  portal_host: z.string().min(1),
+  invitation_id: z.string().min(1),
+  invite_token: z.string().min(1),
+  invite_expires_at: timestamp,
+}) satisfies z.ZodType<C.CreatedClinic>;
+export type CreatedClinic = z.output<typeof createdClinic>;
 
-export const testSuite = z.enum(["unit", "integration", "e2e_web", "e2e_mobile", "canary", "load"]) satisfies z.ZodType<
-  C.TestSuite
->;
-export type TestSuite = z.output<typeof testSuite>;
+export const metricsRange = z.enum(["1h", "24h", "7d"]) satisfies z.ZodType<C.MetricsRange>;
+export type MetricsRange = z.output<typeof metricsRange>;
 
-export const qualityEnvironment = z.enum(["ci", "staging", "production"]) satisfies z.ZodType<
-  C.QualityEnvironment
->;
-export type QualityEnvironment = z.output<typeof qualityEnvironment>;
+export const metricsResponse = z.object({
+  generated_at: timestamp,
+  range: metricsRange,
+  api: z.object({
+    requests: count,
+    success_rate: ratio,
+    rate_4xx: ratio,
+    rate_5xx: ratio,
+    p50_ms: millis,
+    p95_ms: millis,
+    p99_ms: millis,
+    series: z.array(z.object({ at: timestamp, requests: count, errors: count, p95_ms: millis })),
+    routes: z.array(
+      z.object({ method: z.string(), route: z.string(), requests: count, error_rate: ratio, p95_ms: millis, p99_ms: millis }),
+    ),
+  }),
+  db: z.object({
+    connections_used: count,
+    connections_max: count,
+    cache_hit_ratio: ratio,
+    size_bytes: count,
+    slow_queries: z.array(z.object({ query_id: z.string(), calls: count, mean_ms: millis, total_ms: millis })),
+    tables: z.array(z.object({ name: z.string(), live_rows: count, dead_rows: count, size_bytes: count })),
+  }),
+  edge: z
+    .object({
+      requests: count,
+      rate_4xx: ratio,
+      rate_5xx: ratio,
+      cpu_p95_ms: millis,
+      page_views: count,
+      lcp_p75_ms: millis,
+      inp_p75_ms: millis,
+      cls_p75: z.number().nonnegative(),
+    })
+    .nullable(),
+}) satisfies z.ZodType<C.ServiceMetrics>;
+export type Metrics = z.output<typeof metricsResponse>;
+export type ApiMetrics = Metrics["api"];
+export type RouteMetrics = ApiMetrics["routes"][number];
+export type DatabaseMetrics = Metrics["db"];
+export type EdgeMetrics = NonNullable<Metrics["edge"]>;
 
-const runStatus = z.enum(["running", "passed", "failed", "cancelled"]) satisfies z.ZodType<C.RunStatus>;
-export type RunStatus = z.output<typeof runStatus>;
+export const testSuite = z.enum(["unit", "integration", "e2e_web", "e2e_mobile", "canary", "load"]) satisfies z.ZodType<C.TestSuite>;
+export const qualityEnvironment = z.enum(["ci", "staging", "production"]) satisfies z.ZodType<C.QualityEnvironment>;
 
 const qualityRun = z.object({
   id: qualityRunId,
-  status: runStatus,
+  status: z.enum(["running", "passed", "failed", "cancelled"]),
   started_at: timestamp,
   finished_at: optionalTimestamp,
   total: count,
@@ -271,7 +256,6 @@ const qualityRun = z.object({
   commit_sha: optionalText,
   run_url: optionalText,
 }) satisfies z.ZodType<C.QualityRun>;
-export type QualityRun = z.output<typeof qualityRun>;
 
 export const qualityReport = z.object({
   generated_at: timestamp,
@@ -305,82 +289,24 @@ export const qualityReport = z.object({
   ),
 }) satisfies z.ZodType<C.QualityReport>;
 export type QualityReport = z.output<typeof qualityReport>;
-export type QualitySuiteStatus = QualityReport["suites"][number];
-export type FlakyTest = QualityReport["flaky_tests"][number];
-export type FailingRequest = QualityReport["failing_requests"][number];
 
-export const metricsRange = z.enum(["1h", "24h", "7d"]) satisfies z.ZodType<C.MetricsRange>;
-export type MetricsRange = z.output<typeof metricsRange>;
-
-export const metricsEnvironment = z.enum(["staging", "production"]) satisfies z.ZodType<C.MetricsEnvironment>;
-export type MetricsEnvironment = z.output<typeof metricsEnvironment>;
-
-const ratio = z.number().min(0).max(1);
-const millis = z.number().nonnegative();
-
-export const metricsResponse = z.object({
-  generated_at: timestamp,
-  range: metricsRange,
-  api: z.object({
-    requests: count,
-    success_rate: ratio,
-    rate_4xx: ratio,
-    rate_5xx: ratio,
-    p50_ms: millis,
-    p95_ms: millis,
-    p99_ms: millis,
-    series: z.array(z.object({ at: timestamp, requests: count, errors: count, p95_ms: millis })),
-    routes: z.array(
-      z.object({
-        method: z.string(),
-        route: z.string(),
-        requests: count,
-        error_rate: ratio,
-        p95_ms: millis,
-        p99_ms: millis,
-      }),
-    ),
-  }),
-  db: z.object({
-    connections_used: count,
-    connections_max: count,
-    cache_hit_ratio: ratio,
-    size_bytes: count,
-    slow_queries: z.array(z.object({ query_id: z.string(), calls: count, mean_ms: millis, total_ms: millis })),
-    tables: z.array(z.object({ name: z.string(), live_rows: count, dead_rows: count, size_bytes: count })),
-  }),
-  edge: z
-    .object({
-      requests: count,
-      rate_4xx: ratio,
-      rate_5xx: ratio,
-      cpu_p95_ms: millis,
-      page_views: count,
-      lcp_p75_ms: millis,
-      inp_p75_ms: millis,
-      cls_p75: z.number().nonnegative(),
-    })
-    .nullable(),
-}) satisfies z.ZodType<C.MetricsResponse>;
-export type Metrics = z.output<typeof metricsResponse>;
-export type ApiMetrics = Metrics["api"];
-export type RouteMetrics = ApiMetrics["routes"][number];
-export type DatabaseMetrics = Metrics["db"];
-export type SlowQuery = DatabaseMetrics["slow_queries"][number];
-export type TableHealth = DatabaseMetrics["tables"][number];
-export type EdgeMetrics = NonNullable<Metrics["edge"]>;
-
-/** `POST /api/v1/dev/token` (development only). */
+/** `POST /api/v1/dev/token` (development builds of the API only). */
 export const devTokenResponse = z.object({
   access_token: z.string().min(1),
   expires_in: z.number().int().positive(),
 }) satisfies z.ZodType<C.DevTokenResponse>;
-export type DevToken = z.output<typeof devTokenResponse>;
+
+/** `POST /api/v1/invitations/accept`: the clinic joined and the new membership. */
+export const joined = z.object({ org_id: clinicId, membership_id: membershipId }) satisfies z.ZodType<C.Joined>;
+export type Joined = z.output<typeof joined>;
 
 // Requests -----------------------------------------------------------------------------------
 
 /** Body of `POST /api/v1/patients`. */
-export type NewPatient = C.CreatePatientRequest;
+export type NewPatient = C.NewPatient;
 
 /** Body of `POST /api/v1/console/clinics`. */
-export type NewClinic = C.CreateClinicRequest;
+export type NewClinic = C.NewClinic;
+
+/** Body of `POST /api/v1/invitations/accept`. */
+export type AcceptInvitation = C.AcceptInvitation;

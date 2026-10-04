@@ -2,28 +2,36 @@ import { Eye, EyeOff, Mail, Phone } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useParams } from "react-router";
 
-import { patientId, patientNumber, type Patient, type PatientRef } from "@aarogyam/api-client";
+import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, useDocumentTitle } from "@aarogyam/app-kit";
 import { Avatar, Button, Card, EmptyState, Pill, Skeleton, Tabs } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
-import { ageOn, ageSex, formatPhone, languageLabel, maskEmail, maskPhone, useTodayDate } from "../../lib/patients.js";
+import { ageSex, formatPhone, languageLabel, maskEmail, maskPhone } from "../../lib/patients.js";
 import { usePatient } from "../../queries.js";
 import { NotFoundPage } from "../not-found-page.js";
 
-/** The URL carries the clinic number (or ID), validated before it reaches the API. */
-function parseRef(param: string | undefined): PatientRef | undefined {
-  const number = patientNumber.safeParse(param);
-  if (number.success) {
-    return number.data;
-  }
+/** The URL carries the patient's ID, validated before it reaches the API. */
+function parseId(param: string | undefined): PatientId | undefined {
   const id = patientId.safeParse(param);
-  return id.success && /^[0-9a-f-]{36}$/.test(id.data) ? id.data : undefined;
+  return id.success ? id.data : undefined;
 }
 
 /** Shows a contact detail masked until asked; at a busy front desk, screens are seen by others. */
-function Contact({ icon, label, value, masked }: { icon: ReactNode; label: string; value: string; masked: string }) {
+function Contact({ icon, label, value, masked, revealable }: { icon: ReactNode; label: string; value: string; masked: string; revealable: boolean }) {
   const [shown, setShown] = useState(false);
+  if (!revealable) {
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        <span aria-hidden="true" className="text-muted [&>svg]:size-4">
+          {icon}
+        </span>
+        <span className="sr-only">{label}:</span>
+        <span className="font-semibold text-text tabular-nums">{value}</span>
+        <span className="text-xs text-muted">Hidden for your role</span>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center gap-2 text-sm">
       <span aria-hidden="true" className="text-muted [&>svg]:size-4">
@@ -49,12 +57,12 @@ function Contact({ icon, label, value, masked }: { icon: ReactNode; label: strin
 /** Patient 360: who the patient is, then their record by tab. */
 export function PatientPage() {
   const params = useParams();
-  const ref = parseRef(params["ref"]);
-  const patient = usePatient(ref);
+  const id = parseId(params["id"]);
+  const patient = usePatient(id);
   const { session } = useClinic();
   // Titles reach browser history, so they carry the number, never the name.
-  useDocumentTitle(ref, "Patients", session.clinic.name);
-  if (ref === undefined) {
+  useDocumentTitle(patient.data?.number, "Patients", session.clinic.name);
+  if (id === undefined) {
     return <NotFoundPage title="We couldn't find that patient" />;
   }
   if (patient.isPending) {
@@ -71,8 +79,10 @@ export function PatientPage() {
 }
 
 function PatientView({ patient }: { patient: Patient }) {
-  const today = useTodayDate();
-  const age = patient.date_of_birth == null ? null : ageOn(patient.date_of_birth, today);
+  const { can } = useClinic();
+  // Without patients.contact the API sends contact details already masked: show them as they are.
+  const revealable = can("patients.contact");
+  const age = patient.age_years ?? null;
   return (
     <div className="flex flex-col gap-4">
       <Card>
@@ -89,9 +99,11 @@ function PatientView({ patient }: { patient: Patient }) {
               {patient.phone == null ? (
                 <p className="text-sm text-muted">No phone recorded</p>
               ) : (
-                <Contact icon={<Phone />} label="Phone" value={formatPhone(patient.phone)} masked={maskPhone(patient.phone)} />
+                <Contact icon={<Phone />} label="Phone" value={formatPhone(patient.phone)} masked={maskPhone(patient.phone)} revealable={revealable} />
               )}
-              {patient.email == null ? null : <Contact icon={<Mail />} label="Email" value={patient.email} masked={maskEmail(patient.email)} />}
+              {patient.email == null ? null : (
+                <Contact icon={<Mail />} label="Email" value={patient.email} masked={maskEmail(patient.email)} revealable={revealable} />
+              )}
             </div>
           </div>
         </div>

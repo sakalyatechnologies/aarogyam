@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiFailure, createDevTokenSource, createHttpClient, patientNumber, unwrap } from "./index.js";
+import { ApiFailure, createDevTokenSource, createHttpClient, patientId, unwrap } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -22,8 +22,8 @@ function stubFetch(response: Response | (() => Promise<Response>)) {
 }
 
 const patientBody = {
-  id: "0192f1c4-0000-7000-8000-000000000001",
-  number: "SC-1042",
+  id: "01a103b1-ea26-7120-ad93-41b6b4b4ebf2",
+  number: "SD-9",
   full_name: "Test Patient",
   sex: "female",
   date_of_birth: "1990-04-12",
@@ -36,24 +36,22 @@ const patientBody = {
 };
 
 describe("createHttpClient errors", () => {
-  it("reads the API error shape, the field and the x-request-id header", async () => {
-    const { fetch } = stubFetch(
-      json(422, { error: { code: "validation_failed", message: "Enter a valid mobile number.", field: "phone" } }),
-    );
-    const client = createHttpClient("https://smilecatchers.aarogyam.example", () => "token", { fetch });
+  it("reads the API error, takes the field from the message and keeps the x-request-id header", async () => {
+    const { fetch } = stubFetch(json(400, { error: { code: "invalid_request", message: "phone: invalid phone number: too short" } }));
+    const client = createHttpClient("http://sunrise.localtest.me", () => "token", { fetch });
 
     const result = await client.createPatient({ full_name: "Test Patient", sex: "female", phone: "+91123" });
 
     expect(result).toEqual({
       ok: false,
-      error: {
-        status: 422,
-        code: "validation_failed",
-        message: "Enter a valid mobile number.",
-        field: "phone",
-        requestId: REQUEST_ID,
-      },
+      error: { status: 400, code: "invalid_request", message: "Invalid phone number: too short", field: "phone", requestId: REQUEST_ID },
     });
+  });
+
+  it("leaves messages without a field prefix alone", async () => {
+    const { fetch } = stubFetch(json(409, { error: { code: "conflict", message: "that subdomain is taken" } }));
+    const result = await createHttpClient("", () => "token", { fetch }).createClinic({ name: "Sunrise", owner_email: "a@example.com" });
+    expect(result.ok ? null : [result.error.field, result.error.message]).toEqual([undefined, "that subdomain is taken"]);
   });
 
   it("falls back to a safe message when the body is not the API's, without echoing it", async () => {
@@ -77,7 +75,7 @@ describe("createHttpClient errors", () => {
     const { fetch } = stubFetch(json(200, { ...patientBody, sex: "mystery" }));
     const client = createHttpClient("", () => null, { fetch });
 
-    const result = await client.getPatient(patientNumber.parse("SC-1042"));
+    const result = await client.getPatient(patientId.parse("01a103b1-ea26-7120-ad93-41b6b4b4ebf2"));
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -107,7 +105,7 @@ describe("createHttpClient errors", () => {
     const { fetch } = stubFetch(json(403, { error: { code: "forbidden", message: "You don't have permission to do that." } }));
     const client = createHttpClient("", () => "token", { fetch });
 
-    const failure = await unwrap(client.listPatients({})).catch((thrown: unknown) => thrown);
+    const failure = await unwrap(client.listPatients()).catch((thrown: unknown) => thrown);
 
     expect(failure).toBeInstanceOf(ApiFailure);
     expect(failure instanceof ApiFailure ? failure.error.code : null).toBe("forbidden");
@@ -115,26 +113,25 @@ describe("createHttpClient errors", () => {
 });
 
 describe("createHttpClient requests", () => {
-  it("sends the bearer token, asks for JSON and never uses the HTTP cache", async () => {
-    const { fetch, calls } = stubFetch(json(200, { items: [], next_cursor: null }));
-    const client = createHttpClient("https://smilecatchers.aarogyam.example/", () => Promise.resolve("abc"), { fetch });
+  it("searches with a POST body, so the search term never appears in a URL", async () => {
+    const { fetch, calls } = stubFetch(json(200, { items: [] }));
+    const client = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch });
 
-    await client.listPatients({ q: "  rahul ", limit: 20 });
+    await client.searchPatients({ q: "  Ananya Gupta ", limit: 20 });
 
     const call = calls[0];
-    expect(call?.url).toBe("https://smilecatchers.aarogyam.example/api/v1/patients?q=rahul&limit=20");
+    expect(call?.url).toBe("http://sunrise.localtest.me/api/v1/patients/search");
+    expect(call?.init?.method).toBe("POST");
+    expect(call?.init?.body).toBe(JSON.stringify({ q: "Ananya Gupta", limit: 20 }));
     const headers = new Headers(call?.init?.headers);
     expect(headers.get("authorization")).toBe("Bearer abc");
     expect(headers.get("accept")).toBe("application/json");
     expect(call?.init?.cache).toBe("no-store");
   });
 
-  it("sends no authorization header when signed out, and skips empty query values", async () => {
+  it("sends no authorization header when signed out", async () => {
     const { fetch, calls } = stubFetch(json(200, { items: [] }));
-    const client = createHttpClient("", () => null, { fetch });
-
-    await client.listPatients({ q: "", cursor: undefined });
-
+    await createHttpClient("", () => null, { fetch }).listPatients();
     expect(calls[0]?.url).toBe("/api/v1/patients");
     expect(new Headers(calls[0]?.init?.headers).has("authorization")).toBe(false);
   });
@@ -147,7 +144,7 @@ describe("createHttpClient requests", () => {
 
     expect(calls[0]?.init?.method).toBe("POST");
     expect(calls[0]?.init?.body).toBe(JSON.stringify({ full_name: "Test Patient", sex: "female" }));
-    expect(result.ok && result.value.number).toBe("SC-1042");
+    expect(result.ok && result.value.number).toBe("SD-9");
   });
 });
 
@@ -156,16 +153,23 @@ describe("createDevTokenSource", () => {
     const { fetch, calls } = stubFetch(json(200, { access_token: "dev-jwt", expires_in: 3600 }));
     const tokenFor = createDevTokenSource("http://localhost:8080/", { fetch });
 
-    expect(await tokenFor("0199a000-0000-7000-8000-0000000000a1")).toBe("dev-jwt");
-    expect(await tokenFor("0199a000-0000-7000-8000-0000000000a1")).toBe("dev-jwt");
+    const person = { id: "a1a1a1a1-0000-4000-8000-000000000003" };
+    expect(await tokenFor(person)).toBe("dev-jwt");
+    expect(await tokenFor(person)).toBe("dev-jwt");
 
     expect(calls).toHaveLength(1);
     expect(calls[0]?.url).toBe("http://localhost:8080/api/v1/dev/token");
-    expect(calls[0]?.init?.body).toBe(JSON.stringify({ auth_uid: "0199a000-0000-7000-8000-0000000000a1" }));
+    expect(calls[0]?.init?.body).toBe(JSON.stringify({ auth_uid: "a1a1a1a1-0000-4000-8000-000000000003" }));
+  });
+
+  it("puts a new person's email in the token request, for accepting an invitation", async () => {
+    const { fetch, calls } = stubFetch(json(200, { access_token: "dev-jwt", expires_in: 3600 }));
+    await createDevTokenSource("", { fetch })({ id: "d1d1d1d1-0000-4000-8000-000000000009", email: "new@example.com" });
+    expect(calls[0]?.init?.body).toBe(JSON.stringify({ auth_uid: "d1d1d1d1-0000-4000-8000-000000000009", email: "new@example.com" }));
   });
 
   it("gives no token when the API refuses", async () => {
     const { fetch } = stubFetch(json(404, { error: { code: "not_found", message: "Not found." } }));
-    expect(await createDevTokenSource("", { fetch })("x")).toBeNull();
+    expect(await createDevTokenSource("", { fetch })({ id: "x" })).toBeNull();
   });
 });

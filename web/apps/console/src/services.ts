@@ -31,7 +31,7 @@ export async function createServices(env: ConsoleEnv): Promise<ConsoleServices> 
   const auth =
     env.supabase === null
       ? createDevAuth({
-          people: team.map((p) => ({ id: p.id, displayName: p.display_name, email: p.email, description: p.description })),
+          people: team.map((p) => ({ id: p.id, displayName: p.display_name, description: p.description })),
           // Against a local API, seeded people sign in through POST /api/v1/dev/token.
           tokenFor: env.apiMode === "http" ? createDevTokenSource(env.apiBaseUrl) : fakeTokenFor,
           storageKey: "aarogyam.console.dev-auth",
@@ -43,6 +43,6 @@ export async function createServices(env: ConsoleEnv): Promise<ConsoleServices> 
   // A real Supabase session stands in for the first seeded team member, so fake data still loads.
   const standIn = team[0]?.id ?? "";
   const getToken =
-    auth.kind === "dev" ? auth.getAccessToken : async () => ((await auth.getAccessToken()) === null ? null : fakeTokenFor(standIn));
+    auth.kind === "dev" ? auth.getAccessToken : async () => ((await auth.getAccessToken()) === null ? null : fakeTokenFor({ id: standIn }));
   return { auth, api: backend.client({ getToken, latencyMs: 250 }) };
 }

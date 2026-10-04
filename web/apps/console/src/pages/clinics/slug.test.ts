@@ -4,7 +4,7 @@ import { slugify } from "./slug.js";
 
 describe("slugify", () => {
   it.each([
-    ["Smile Catchers", "smile-catchers"],
+    ["Sunrise Dental", "sunrise-dental"],
     ["Dr. Mehta's Dental & Implant Centre", "dr-mehtas-dental-implant"],
     ["  Dantashree   Dental--Clinic ", "dantashree-dental-clinic"],
     ["Clínica Dentária São José", "clinica-dentaria-sao-jose"],

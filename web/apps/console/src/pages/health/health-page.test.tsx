@@ -11,7 +11,7 @@ import { Providers } from "../../app.js";
 import { routes } from "../../routes.js";
 import { bucketSeries } from "./metrics-view.js";
 
-function renderConsole(path: string, signedIn: boolean) {
+function renderConsole(path: string, signedIn: boolean, edgeConnected = true) {
   const backend = createFakeBackend(createFixtures({ now: new Date("2026-10-03T05:30:00Z") }));
   const team = backend.platformUsers();
   const auth = createDevAuth({
@@ -22,7 +22,17 @@ function renderConsole(path: string, signedIn: boolean) {
   if (signedIn) {
     auth.signInAs(team[0]?.id ?? "");
   }
-  const services = { auth, api: backend.client({ getToken: auth.getAccessToken }) };
+  const client = backend.client({ getToken: auth.getAccessToken });
+  const api = edgeConnected
+    ? client
+    : {
+        ...client,
+        getMetrics: async (...args: Parameters<typeof client.getMetrics>) => {
+          const result = await client.getMetrics(...args);
+          return result.ok ? { ...result, value: { ...result.value, edge: null } } : result;
+        },
+      };
+  const services = { auth, api };
   render(
     <Providers services={services} queryClient={createQueryClient()}>
       <RouterProvider router={createMemoryRouter(routes, { initialEntries: [path] })} />
@@ -34,11 +44,11 @@ describe("console", () => {
   it("sends signed-out visitors to sign-in", async () => {
     renderConsole("/health", false);
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Aarav Kulkarni" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sakalya Admin" })).toBeTruthy();
   });
 
   it("shows service health tiles, routes and the database", async () => {
-    renderConsole("/health?range=24h&env=production", true);
+    renderConsole("/health?range=24h", true);
     expect(await screen.findByText("Requests per minute")).toBeTruthy();
     expect(screen.getByText("Success rate")).toBeTruthy();
     expect(screen.getAllByText("/api/v1/today").length).toBeGreaterThan(0);
@@ -47,7 +57,7 @@ describe("console", () => {
   });
 
   it("says edge analytics are not connected when the API has none", async () => {
-    renderConsole("/health?range=1h&env=staging", true);
+    renderConsole("/health?range=1h", true, false);
     expect(await screen.findByText("Not connected yet")).toBeTruthy();
   });
 });

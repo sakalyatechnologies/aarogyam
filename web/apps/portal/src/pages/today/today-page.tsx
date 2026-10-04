@@ -1,7 +1,7 @@
 import { CalendarDays, CheckCircle2, CircleDot, Clock3, IndianRupee, Play, ReceiptText, UsersRound, XCircle } from "lucide-react";
 import type { ReactNode } from "react";
 
-import type { AppointmentStatus, Today, TodayAppointment } from "@aarogyam/api-client";
+import { apiErrorOf, type AppointmentStatus, type Today, type TodayAppointment } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatRupees, formatTime, useDocumentTitle } from "@aarogyam/app-kit";
 import { BarChart, Button, Card, EmptyState, Link, PageHeader, PersonList, Pill, Skeleton, StatCard, Timeline, type Status } from "@sakalya/ui";
 
@@ -43,6 +43,12 @@ export function TodayPage() {
             <Skeleton key={index} shape="block" />
           ))}
         </div>
+      ) : today.isError && apiErrorOf(today.error)?.status === 404 ? (
+        <EmptyState
+          title="Appointments aren't connected yet"
+          description="Today's schedule and queue appear here once the API serves appointments. Patients work already."
+          action={<Link href="/patients" className="text-sm font-semibold text-primary-text hover:underline">Go to patients</Link>}
+        />
       ) : today.isError ? (
         <ApiErrorNotice title="Couldn't load today" error={today.error} onRetry={() => void today.refetch()} />
       ) : (

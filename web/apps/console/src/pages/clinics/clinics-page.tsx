@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 
 import type { ConsoleClinic } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatDate, useDocumentTitle } from "@aarogyam/app-kit";
+import { ApiErrorNotice, formatDate, formatNumber, useDocumentTitle } from "@aarogyam/app-kit";
 import { Button, Card, DataTable, Field, PageHeader, TextInput, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinics } from "../../api.js";
@@ -13,11 +13,13 @@ const COLUMNS: readonly DataTableColumn<ConsoleClinic>[] = [
   { id: "name", header: "Clinic", cell: (row) => <span className="font-semibold">{row.name}</span>, sortValue: (row) => row.name },
   {
     id: "address",
-    header: "Address",
-    cell: (row) => <span className="font-mono text-xs">{row.slug}.aarogyam.example</span>,
+    header: "Portal",
+    cell: (row) => <span className="font-mono text-xs">{row.portal_host ?? `${row.slug} (no host yet)`}</span>,
     sortValue: (row) => row.slug,
   },
-  { id: "specialty", header: "Specialty", cell: () => "Dental" },
+  { id: "specialty", header: "Specialty", cell: (row) => (row.specialty === "dental" ? "Dental" : row.specialty) },
+  { id: "members", header: "Staff", align: "end", cell: (row) => formatNumber(row.active_members), sortValue: (row) => row.active_members },
+  { id: "patients", header: "Patients", align: "end", cell: (row) => formatNumber(row.patients), sortValue: (row) => row.patients },
   { id: "status", header: "Status", cell: (row) => <ClinicStatusPill status={row.status} />, sortValue: (row) => row.status },
   { id: "created", header: "Created", align: "end", cell: (row) => formatDate(row.created_at), sortValue: (row) => row.created_at },
 ];
@@ -29,7 +31,7 @@ export function ClinicsPage() {
   const [filter, setFilter] = useState("");
   const query = filter.trim().toLowerCase();
   const rows = (clinics.data?.items ?? []).filter(
-    (clinic) => query === "" || clinic.name.toLowerCase().includes(query) || clinic.slug.includes(query),
+    (clinic) => query === "" || clinic.name.toLowerCase().includes(query) || clinic.slug.includes(query) || (clinic.portal_host ?? "").includes(query),
   );
   const newClinic = (
     <Button

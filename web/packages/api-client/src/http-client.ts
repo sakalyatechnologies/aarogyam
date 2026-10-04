@@ -2,16 +2,17 @@
 
 import type { z } from "zod";
 
-import type { ApiClient, PatientQuery, RequestOptions } from "./client.js";
+import type { ApiClient } from "./client.js";
 import { failure, parseApiError, success, type ApiResult } from "./result.js";
 import {
-  consoleClinicDetail,
+  consoleClinics,
+  createdClinic,
   devTokenResponse,
-  consoleClinicListResponse,
+  joined,
   meResponse,
   metricsResponse,
   patient,
-  patientListResponse,
+  patientList,
   qualityReport,
   requestId,
   sessionResponse,
@@ -40,7 +41,7 @@ interface Call<T> {
 
 /**
  * Creates a client for the API at `baseUrl`: an origin such as
- * `https://smilecatchers.aarogyam.example`, or `""` for the page's own origin.
+ * `http://sunrise.localtest.me:5173`, or `""` for the page's own origin (the usual case).
  */
 export function createHttpClient(baseUrl: string, getToken: TokenSource, options: HttpClientOptions = {}): ApiClient {
   const send = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
@@ -93,40 +94,29 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
   return {
     getMe: (opts) => call({ method: "GET", path: "/api/v1/me", schema: meResponse, signal: opts?.signal }),
-    getSession: (opts) =>
-      call({ method: "GET", path: "/api/v1/session", schema: sessionResponse, signal: opts?.signal }),
-    listPatients: (query: PatientQuery, opts?: RequestOptions) =>
+    acceptInvitation: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/invitations/accept", schema: joined, body: input, signal: opts?.signal }),
+    getSession: (opts) => call({ method: "GET", path: "/api/v1/session", schema: sessionResponse, signal: opts?.signal }),
+    listPatients: (opts) => call({ method: "GET", path: "/api/v1/patients", schema: patientList, signal: opts?.signal }),
+    searchPatients: (search, opts) =>
       call({
-        method: "GET",
-        path: "/api/v1/patients",
-        schema: patientListResponse,
-        query: { q: query.q?.trim(), limit: query.limit, cursor: query.cursor },
+        method: "POST",
+        path: "/api/v1/patients/search",
+        schema: patientList,
+        body: { q: search.q.trim(), ...(search.limit === undefined ? {} : { limit: search.limit }) },
         signal: opts?.signal,
       }),
-    getPatient: (ref, opts) =>
-      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(ref)}`, schema: patient, signal: opts?.signal }),
+    getPatient: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}`, schema: patient, signal: opts?.signal }),
     createPatient: (input, opts) =>
       call({ method: "POST", path: "/api/v1/patients", schema: patient, body: input, signal: opts?.signal }),
     getToday: (opts) => call({ method: "GET", path: "/api/v1/today", schema: todayResponse, signal: opts?.signal }),
     listClinics: (opts) =>
-      call({ method: "GET", path: "/api/v1/console/clinics", schema: consoleClinicListResponse, signal: opts?.signal }),
-    getClinic: (id, opts) =>
-      call({
-        method: "GET",
-        path: `/api/v1/console/clinics/${encodeURIComponent(id)}`,
-        schema: consoleClinicDetail,
-        signal: opts?.signal,
-      }),
+      call({ method: "GET", path: "/api/v1/console/clinics", schema: consoleClinics, signal: opts?.signal }),
     createClinic: (input, opts) =>
-      call({ method: "POST", path: "/api/v1/console/clinics", schema: consoleClinicDetail, body: input, signal: opts?.signal }),
-    getMetrics: (query, opts) =>
-      call({
-        method: "GET",
-        path: "/api/v1/console/metrics",
-        schema: metricsResponse,
-        query: { range: query.range, environment: query.environment },
-        signal: opts?.signal,
-      }),
+      call({ method: "POST", path: "/api/v1/console/clinics", schema: createdClinic, body: input, signal: opts?.signal }),
+    getMetrics: (range, opts) =>
+      call({ method: "GET", path: "/api/v1/console/metrics", schema: metricsResponse, query: { range }, signal: opts?.signal }),
     getQualityReport: (opts) =>
       call({ method: "GET", path: "/api/v1/console/quality", schema: qualityReport, signal: opts?.signal }),
   };
@@ -175,13 +165,17 @@ function isAbortError(thrown: unknown): boolean {
 }
 
 /**
- * Development sign-in against a local API: trades a seeded person's `auth_uid` for an access
- * token at `POST /api/v1/dev/token`, caching it until a minute before it expires.
+ * Development sign-in against a local API: trades a person's `auth_uid` (and, for someone new,
+ * their email) for an access token at `POST /api/v1/dev/token`, cached until a minute before
+ * it expires.
  */
-export function createDevTokenSource(baseUrl: string, options: HttpClientOptions = {}): (authUid: string) => Promise<string | null> {
+export function createDevTokenSource(
+  baseUrl: string,
+  options: HttpClientOptions = {},
+): (person: { id: string; email?: string | undefined }) => Promise<string | null> {
   const send = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
   const cache = new Map<string, { token: string; until: number }>();
-  return async (authUid) => {
+  return async ({ id: authUid, email }) => {
     const cached = cache.get(authUid);
     if (cached !== undefined && cached.until > Date.now()) {
       return cached.token;
@@ -190,7 +184,8 @@ export function createDevTokenSource(baseUrl: string, options: HttpClientOptions
       const response = await send(`${baseUrl.replace(/\/+$/, "")}/api/v1/dev/token`, {
         method: "POST",
         headers: { accept: "application/json", "content-type": "application/json" },
-        body: JSON.stringify({ auth_uid: authUid }),
+        // A verified email in the token lets a new person accept an invitation.
+        body: JSON.stringify(email === undefined ? { auth_uid: authUid } : { auth_uid: authUid, email }),
         cache: "no-store",
       });
       const decoded = devTokenResponse.safeParse(response.ok ? await readJson(response) : undefined);

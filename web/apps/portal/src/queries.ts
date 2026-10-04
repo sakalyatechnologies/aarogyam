@@ -1,29 +1,28 @@
-import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { unwrap, type NewPatient, type PatientRef } from "@aarogyam/api-client";
+import { unwrap, type NewPatient, type PatientId } from "@aarogyam/api-client";
 
 import { useClinic } from "./clinic.js";
 
-/** Patient data stays in memory only and is keyed by clinic host, so clinics never mix. */
-export function usePatientSearch(q: string) {
+/**
+ * Recent patients while the box is empty, otherwise a search. The term travels in a POST body,
+ * never a URL. Results live only in memory, keyed by clinic host so clinics never mix.
+ */
+export function usePatients(q: string) {
   const { api, access } = useClinic();
-  return useInfiniteQuery({
-    queryKey: ["patients", access.host, q],
-    // "" asks for the first page; later pages pass the API's cursor.
-    queryFn: ({ pageParam, signal }) =>
-      unwrap(api.listPatients({ q, limit: 20, cursor: pageParam === "" ? undefined : pageParam }, { signal })),
-    initialPageParam: "",
-    getNextPageParam: (page) => page.next_cursor ?? undefined,
+  return useQuery({
+    queryKey: ["patients", access.org_id, q],
+    queryFn: ({ signal }) => unwrap(q === "" ? api.listPatients({ signal }) : api.searchPatients({ q, limit: 50 }, { signal })),
     placeholderData: keepPreviousData,
   });
 }
 
-export function usePatient(ref: PatientRef | undefined) {
+export function usePatient(id: PatientId | undefined) {
   const { api, access } = useClinic();
   return useQuery({
-    queryKey: ["patient", access.host, ref],
-    queryFn: ({ signal }) => (ref === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.getPatient(ref, { signal }))),
-    enabled: ref !== undefined,
+    queryKey: ["patient", access.org_id, id],
+    queryFn: ({ signal }) => (id === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.getPatient(id, { signal }))),
+    enabled: id !== undefined,
   });
 }
 
@@ -32,14 +31,14 @@ export function useCreatePatient() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: NewPatient) => unwrap(api.createPatient(input)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["patients", access.host] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["patients", access.org_id] }),
   });
 }
 
 export function useToday() {
   const { api, access } = useClinic();
   return useQuery({
-    queryKey: ["today", access.host],
+    queryKey: ["today", access.org_id],
     queryFn: ({ signal }) => unwrap(api.getToday({ signal })),
     refetchInterval: 60_000,
   });

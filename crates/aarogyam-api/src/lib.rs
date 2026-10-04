@@ -20,6 +20,7 @@
 //! # }
 //! ```
 
+pub mod metrics;
 mod openapi;
 mod v1;
 

@@ -72,6 +72,12 @@ pub enum Event {
     AttachmentUploaded,
     /// A patient file was downloaded.
     AttachmentDownloaded,
+    /// A delivery was added to stock.
+    StockReceived,
+    /// Stock was used.
+    StockUsed,
+    /// Stock was corrected or written off.
+    StockAdjusted,
 }
 
 impl Event {
@@ -113,6 +119,9 @@ impl Event {
             Self::ProcedureCompleted => "procedure.completed",
             Self::AttachmentUploaded => "attachment.uploaded",
             Self::AttachmentDownloaded => "attachment.downloaded",
+            Self::StockReceived => "stock.received",
+            Self::StockUsed => "stock.used",
+            Self::StockAdjusted => "stock.adjusted",
         }
     }
 }

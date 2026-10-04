@@ -4009,8 +4009,7 @@
     "consent_forms.procedure_id",
     "invoice_items.procedure_id",
     "lab_orders.procedure_id",
-    "recalls.source_procedure_id",
-    "stock_movements.procedure_id"
+    "recalls.source_procedure_id"
    ],
    "sensitivity": "health",
    "offline": "read_write"
@@ -4972,7 +4971,7 @@
    "partitioned": false,
    "lifecycle": null,
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Built (migration 0061). Soft delete; names are unique per clinic.",
    "cols": [
     {
      "name": "name",
@@ -4994,6 +4993,20 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "active",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     }
    ],
    "referenced_by": [
@@ -5011,7 +5024,7 @@
    "partitioned": false,
    "lifecycle": null,
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Built (migration 0061). Quantities are whole units. Status is derived: critical (out, or a fifth of the reorder level or less), low (at or below it), expiring (a batch within 30 days), else ok.",
    "cols": [
     {
      "name": "name",
@@ -5021,20 +5034,6 @@
      "note": ""
     },
     {
-     "name": "sku",
-     "type": "text",
-     "nullable": true,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "unit",
-     "type": "stock_unit",
-     "nullable": false,
-     "ref": null,
-     "note": "piece, ml, g, box, pack"
-    },
-    {
      "name": "category",
      "type": "text",
      "nullable": true,
@@ -5042,8 +5041,15 @@
      "note": ""
     },
     {
+     "name": "unit",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "piece, ml, g, box, pack"
+    },
+    {
      "name": "reorder_level",
-     "type": "numeric",
+     "type": "bigint",
      "nullable": false,
      "ref": null,
      "note": ""
@@ -5052,6 +5058,13 @@
      "name": "active",
      "type": "bool",
      "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamptz",
+     "nullable": true,
      "ref": null,
      "note": ""
     }
@@ -5073,7 +5086,7 @@
    "partitioned": false,
    "lifecycle": null,
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Only quantity changes after the delivery (trigger). Use takes the earliest expiry first (FEFO) and never from an expired batch.",
    "cols": [
     {
      "name": "item_id",
@@ -5104,11 +5117,18 @@
      "note": ""
     },
     {
-     "name": "quantity",
-     "type": "numeric",
+     "name": "received_quantity",
+     "type": "bigint",
      "nullable": false,
      "ref": null,
-     "note": "remaining"
+     "note": ""
+    },
+    {
+     "name": "quantity",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "remaining, never below 0"
     },
     {
      "name": "unit_cost_paise",
@@ -5118,8 +5138,8 @@
      "note": ""
     },
     {
-     "name": "received_at",
-     "type": "timestamptz",
+     "name": "received_on",
+     "type": "date",
      "nullable": false,
      "ref": null,
      "note": ""
@@ -5134,13 +5154,13 @@
   {
    "name": "stock_movements",
    "domain": "ops",
-   "purpose": "Every change in stock: purchase, use, adjustment, expiry. Stock history comes from here.",
+   "purpose": "Every change in stock: receive, use, adjustment, expiry. Stock history comes from here.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
    "lifecycle": null,
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Append-only; one row per batch touched; created_by is who. Procedure-linked deduction (procedure_id) comes with procedure_materials.",
    "cols": [
     {
      "name": "item_id",
@@ -5152,44 +5172,30 @@
     {
      "name": "batch_id",
      "type": "uuid",
-     "nullable": true,
+     "nullable": false,
      "ref": "stock_batches",
      "note": ""
     },
     {
      "name": "kind",
-     "type": "stock_move",
+     "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "purchase, consume, adjust, expire, return"
+     "note": "receive, use, adjust, expire"
     },
     {
      "name": "quantity",
-     "type": "numeric",
+     "type": "bigint",
      "nullable": false,
      "ref": null,
      "note": "signed"
-    },
-    {
-     "name": "procedure_id",
-     "type": "uuid",
-     "nullable": true,
-     "ref": "procedures",
-     "note": ""
     },
     {
      "name": "reason",
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": ""
-    },
-    {
-     "name": "at",
-     "type": "timestamptz",
-     "nullable": false,
-     "ref": null,
-     "note": ""
+     "note": "required for adjust and expire"
     }
    ],
    "referenced_by": [],

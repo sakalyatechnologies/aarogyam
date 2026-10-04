@@ -87,6 +87,30 @@ values
   ('CRWN', 'Ceramic crown', 'prosthodontics', '9993', 900000, false, 0),
   ('TPST', 'Sensitivity toothpaste', 'products', '3306', 18000, true, 1800),
   ('MWSH', 'Chlorhexidine mouthwash', 'products', '3004', 15000, true, 1200);
+-- Sunrise's stock: synthetic materials in the shapes of the dashboard (critical, low, ok) and
+-- one batch about to expire.
+select set_config('app.tenant_id', :'sunrise', true) \gset
+insert into aarogyam.suppliers (id, name, phone_e164, gstin) values
+  ('01920000-0000-7000-8000-00000000d001', 'Pune Dental Depot', '+919800010001', '27AABCP1234F1Z5'),
+  ('01920000-0000-7000-8000-00000000d002', 'MedSupply Traders', '+919800010002', null);
+insert into aarogyam.inventory_items (id, name, category, unit, reorder_level) values
+  ('01920000-0000-7000-8000-00000000d101', 'Composite A2', 'restorative', 'piece', 40),
+  ('01920000-0000-7000-8000-00000000d102', 'Brackets 022', 'ortho', 'piece', 30),
+  ('01920000-0000-7000-8000-00000000d103', 'Implant 4.2x10', 'surgical', 'piece', 30),
+  ('01920000-0000-7000-8000-00000000d104', 'Gloves (box)', 'disposables', 'box', 50),
+  ('01920000-0000-7000-8000-00000000d105', 'Anesthetic cartridges', 'anesthesia', 'piece', 20),
+  ('01920000-0000-7000-8000-00000000d106', 'Polish cups', 'disposables', 'piece', 40);
+insert into aarogyam.stock_batches (id, item_id, supplier_id, batch_no, expiry, received_quantity, quantity, unit_cost_paise, received_on)
+values
+  ('01920000-0000-7000-8000-00000000d201', '01920000-0000-7000-8000-00000000d101', '01920000-0000-7000-8000-00000000d001', 'CMP-2611', current_date + 400, 4, 4, 45000, current_date - 40),
+  ('01920000-0000-7000-8000-00000000d202', '01920000-0000-7000-8000-00000000d102', '01920000-0000-7000-8000-00000000d001', 'BRK-0942', null, 32, 32, 8000, current_date - 60),
+  ('01920000-0000-7000-8000-00000000d203', '01920000-0000-7000-8000-00000000d103', '01920000-0000-7000-8000-00000000d002', 'IMP-7710', current_date + 700, 12, 12, 320000, current_date - 90),
+  ('01920000-0000-7000-8000-00000000d204', '01920000-0000-7000-8000-00000000d104', '01920000-0000-7000-8000-00000000d002', 'GLV-3320', current_date + 500, 58, 58, 28000, current_date - 20),
+  ('01920000-0000-7000-8000-00000000d205', '01920000-0000-7000-8000-00000000d105', '01920000-0000-7000-8000-00000000d001', 'ANE-1180', current_date + 21, 10, 10, 1800, current_date - 200),
+  ('01920000-0000-7000-8000-00000000d206', '01920000-0000-7000-8000-00000000d105', '01920000-0000-7000-8000-00000000d001', 'ANE-1275', current_date + 300, 12, 12, 1850, current_date - 15),
+  ('01920000-0000-7000-8000-00000000d207', '01920000-0000-7000-8000-00000000d106', '01920000-0000-7000-8000-00000000d002', null, null, 9, 9, 600, current_date - 30);
+insert into aarogyam.stock_movements (item_id, batch_id, kind, quantity, reason)
+select item_id, id, 'receive', received_quantity, null from aarogyam.stock_batches;
 -- Front desk at Sunrise: two chairs, two doctors with hours, and today's appointments and queue
 -- placed around the moment the seed runs, so Today has live data.
 select set_config('app.tenant_id', :'sunrise', true) \gset

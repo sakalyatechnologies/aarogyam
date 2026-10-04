@@ -13,7 +13,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { API_URL, CONSOLE_URL, PORTAL_URL } from "../src/hosts.js";
 
-const STAMP = Date.now();
+const STAMP = String(Date.now());
 const CLINIC_NAME = `E2E Clinic ${STAMP}`;
 const PATIENT_NAME = `E2E Patient ${STAMP}`;
 
@@ -28,7 +28,7 @@ test.beforeAll(async ({ request }) => {
     request.get(CONSOLE_URL),
     request.get(PORTAL_URL),
   ]);
-  const down = checks.some((result) => result.status === "rejected" || (result.status === "fulfilled" && !result.value.ok()));
+  const down = checks.some((result) => result.status === "rejected" || !result.value.ok());
   test.skip(
     down,
     "The local stack isn't up. Start it first: `cargo run -p aarogyam-server -- serve`, then " +
@@ -94,12 +94,16 @@ test.describe.serial("golden journey", () => {
 
   test("Dr Dev opens the visit, records vitals and signs a note", async ({ page }) => {
     test.skip(patientId === undefined, "the previous test didn't register a patient");
+    const openPatientId = patientId;
+    if (openPatientId === undefined) {
+      return;
+    }
 
     await page.goto(`${PORTAL_URL}/sign-in`);
     await signInAs(page, "Dr Dev Rao");
     await page.waitForURL(/\/today$/);
 
-    await page.goto(`${PORTAL_URL}/patients/${patientId}`);
+    await page.goto(`${PORTAL_URL}/patients/${openPatientId}`);
     await page.getByRole("tab", { name: "Visits" }).click();
     await page.getByRole("button", { name: /Start visit|Continue open visit/ }).click();
     await page.waitForURL(/\/visits\/[^/]+$/);

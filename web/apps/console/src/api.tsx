@@ -102,3 +102,14 @@ export function useRejectApplication() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["applications"] }),
   });
 }
+
+/** The 30 most recent quality runs, refreshed every minute: a run completes every so often, not
+ * on every keystroke. */
+export function useQuality() {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["quality"],
+    queryFn: ({ signal }) => unwrap(api.getQuality(30, { signal })),
+    refetchInterval: 60_000,
+  });
+}

@@ -1,6 +1,7 @@
 //! Patients: register, search, open, edit.
 
 use aarogyam_app::patients::{self as app, EditPatient, PatientView, RegisterPatient};
+use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::PatientId;
 use aarogyam_domain::permission::require::{PatientsRead, PatientsWrite};
 use axum::Json;
@@ -313,5 +314,6 @@ pub(crate) async fn edit(
         OffsetDateTime::now_utc(),
     )
     .await?;
+    tracing::info!(event = Event::PatientUpdated.as_str(), patient_id = %id, "patient updated");
     Ok(Json(view.into()))
 }

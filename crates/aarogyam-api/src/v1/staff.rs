@@ -1,6 +1,7 @@
 //! Staff and roles: who works at the clinic, inviting people, changing roles and access.
 
 use aarogyam_app::staff::{self as app, ChangeMember, InviteStaff, MemberRow};
+use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::MembershipId;
 use aarogyam_domain::permission::require::StaffManage;
 use axum::Json;
@@ -187,6 +188,12 @@ pub(crate) async fn invite(
         OffsetDateTime::now_utc(),
     )
     .await?;
+    tracing::info!(
+        event = Event::StaffInvited.as_str(),
+        invitation_id = %invited.id.uuid(),
+        role_key = %invited.role_key,
+        "staff invited"
+    );
     Ok((
         StatusCode::CREATED,
         Json(CreatedInvitation {
@@ -246,6 +253,13 @@ pub(crate) async fn change(
     )
     .await?;
     state.forget_membership(request.actor.clinic_id, membership_id);
+    tracing::info!(
+        event = Event::MembershipChanged.as_str(),
+        membership_id = %member.id,
+        role_key = %member.role_key,
+        status = %member.status,
+        "membership changed"
+    );
     Ok(Json(member.into()))
 }
 

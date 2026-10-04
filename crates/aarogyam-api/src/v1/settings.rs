@@ -1,6 +1,7 @@
 //! The clinic's own settings.
 
 use aarogyam_app::settings::{self as app, AddressInput, SettingsChanges};
+use aarogyam_domain::event::Event;
 use aarogyam_domain::permission::require::SettingsManage;
 use axum::Json;
 use axum::extract::State;
@@ -173,5 +174,9 @@ pub(crate) async fn update_clinic(
         upi_id: body.upi_id,
     };
     let settings = app::update(state.db(), &request.actor, request.request_id, changes).await?;
+    tracing::info!(
+        event = Event::SettingsChanged.as_str(),
+        "clinic settings changed"
+    );
     Ok(Json(settings.into()))
 }

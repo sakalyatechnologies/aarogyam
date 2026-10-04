@@ -4,6 +4,7 @@
 use aarogyam_app::patients as app;
 use aarogyam_app::sessions as sessions_app;
 use aarogyam_dal::lookups;
+use aarogyam_domain::event::Event;
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -241,5 +242,6 @@ pub(crate) async fn revoke_session(
     let provider_session =
         sessions_app::revoke(state.db(), signed_in.claims.subject().uuid(), id).await?;
     state.forget_session(provider_session);
+    tracing::info!(event = Event::SessionRevoked.as_str(), session_id = %id, "session revoked");
     Ok(StatusCode::NO_CONTENT)
 }

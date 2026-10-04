@@ -334,6 +334,29 @@ export type PriceItemList = Schemas["PriceItemList"];
 export type PatientRef = Schemas["PatientRef"];
 export type Reason = Schemas["Reason"];
 
+// Stock ---------------------------------------------------------------------------------------
+
+export type Supplier = Schemas["Supplier"];
+export type SupplierList = Schemas["SupplierList"];
+export type SupplierValues = Schemas["SupplierValues"];
+export type InventoryItem = Schemas["InventoryItem"];
+export type InventoryItemValues = Schemas["ItemValues"];
+export type InventoryItemList = Schemas["ItemList"];
+export type InventoryItemDetail = Schemas["ItemDetailResponse"];
+export type StockLevel = Schemas["StockLevel"];
+export type StockCounts = Schemas["StockCountsResponse"];
+export type StockSummary = Schemas["StockSummary"];
+export type StockBatch = Schemas["StockBatch"];
+export type StockMovement = Schemas["StockMovement"];
+export type StockChange = Schemas["StockChangeResponse"];
+export type ExpiringBatch = Schemas["ExpiringBatch"];
+export type ExpiringList = Schemas["ExpiringList"];
+export type LowStockAlert = Schemas["LowStockAlert"];
+export type ReceiveStock = Schemas["ReceiveBody"];
+export type UseStock = Schemas["UseBody"];
+export type AdjustStock = Schemas["AdjustBody"];
+export type ExpireBatch = Schemas["ExpireBody"];
+
 export type InvoiceStatus = "draft" | "issued" | "void";
 export type PaymentState = "unpaid" | "partial" | "paid";
 export type PaymentMethod = "cash" | "upi" | "card" | "bank";

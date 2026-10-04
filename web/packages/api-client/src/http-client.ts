@@ -52,6 +52,14 @@ import {
   prescriptionList,
   priceItem,
   priceItemList,
+  expiringList,
+  inventoryItem,
+  inventoryItemDetail,
+  inventoryItemList,
+  stockChange,
+  stockSummary,
+  supplier,
+  supplierList,
   procedure,
   procedureList,
   qualityReport,
@@ -397,6 +405,45 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: "/api/v1/price-items", schema: priceItem, body: input, signal: opts?.signal }),
     changePriceItem: (id, input, opts) =>
       call({ method: "PATCH", path: `/api/v1/price-items/${encodeURIComponent(id)}`, schema: priceItem, body: input, signal: opts?.signal }),
+
+    getStock: (opts) => call({ method: "GET", path: "/api/v1/stock", schema: stockSummary, signal: opts?.signal }),
+    listLowStock: (opts) => call({ method: "GET", path: "/api/v1/stock/low", schema: inventoryItemList, signal: opts?.signal }),
+    listExpiring: (days, opts) =>
+      call({ method: "GET", path: "/api/v1/stock/expiring", schema: expiringList, query: { days }, signal: opts?.signal }),
+    listInventoryItems: (opts) => call({ method: "GET", path: "/api/v1/inventory-items", schema: inventoryItemList, signal: opts?.signal }),
+    getInventoryItem: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/inventory-items/${encodeURIComponent(id)}`, schema: inventoryItemDetail, signal: opts?.signal }),
+    addInventoryItem: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/inventory-items", schema: inventoryItem, body: input, signal: opts?.signal }),
+    changeInventoryItem: (id, input, opts) =>
+      call({
+        method: "PATCH",
+        path: `/api/v1/inventory-items/${encodeURIComponent(id)}`,
+        schema: inventoryItem,
+        body: input,
+        signal: opts?.signal,
+      }),
+    removeInventoryItem: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/inventory-items/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+    listSuppliers: (opts) => call({ method: "GET", path: "/api/v1/suppliers", schema: supplierList, signal: opts?.signal }),
+    addSupplier: (input, opts) => call({ method: "POST", path: "/api/v1/suppliers", schema: supplier, body: input, signal: opts?.signal }),
+    changeSupplier: (id, input, opts) =>
+      call({ method: "PATCH", path: `/api/v1/suppliers/${encodeURIComponent(id)}`, schema: supplier, body: input, signal: opts?.signal }),
+    removeSupplier: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/suppliers/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+    receiveStock: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/stock/receive", schema: stockChange, body: input, signal: opts?.signal }),
+    useStock: (input, opts) => call({ method: "POST", path: "/api/v1/stock/use", schema: stockChange, body: input, signal: opts?.signal }),
+    adjustStock: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/stock/adjust", schema: stockChange, body: input, signal: opts?.signal }),
+    expireBatch: (id, input, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/stock/batches/${encodeURIComponent(id)}/expire`,
+        schema: stockChange,
+        body: input,
+        signal: opts?.signal,
+      }),
 
     listInvoices: (filter, opts) =>
       call({

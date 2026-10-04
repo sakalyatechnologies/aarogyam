@@ -11,7 +11,6 @@ import { NewInvoicePage } from "./pages/billing/new-invoice-page.js";
 import { PendingPaymentsPage } from "./pages/billing/pending-page.js";
 import { ReceiptPrintPage } from "./pages/billing/receipt-print-page.js";
 import { CalendarPage } from "./pages/calendar/calendar-page.js";
-import { ComingSoonPage } from "./pages/coming-soon-page.js";
 import { InvitePage } from "./pages/invite-page.js";
 import { RootPage } from "./pages/landing-page.js";
 import { MessagesPage } from "./pages/messages/messages-page.js";
@@ -30,6 +29,7 @@ import { VerifyPrescriptionPage } from "./pages/public/verify-page.js";
 import { QueuePage } from "./pages/queue/queue-page.js";
 import { RegisterPage } from "./pages/register-page.js";
 import { SettingsPage } from "./pages/settings/settings-page.js";
+import { StockPage } from "./pages/stock/stock-page.js";
 import { VisitPage } from "./pages/visits/visit-page.js";
 import { SignInPage } from "./pages/sign-in-page.js";
 import { TodayPage } from "./pages/today/today-page.js";
@@ -76,10 +76,7 @@ export const routes: RouteObject[] = [
               { path: "billing/invoices/:id", element: <InvoiceDetailPage /> },
               { path: "billing/invoices/:id/print", element: <InvoicePrintPage /> },
               { path: "billing/payments/:id/receipt", element: <ReceiptPrintPage /> },
-              {
-                path: "stock",
-                element: <ComingSoonPage title="Stock" description="Material and medicine stock levels. Not yet scheduled." />,
-              },
+              { path: "stock", element: <StockPage /> },
               { path: "messages", element: <MessagesPage /> },
               { path: "settings", element: <SettingsPage /> },
               { path: "*", element: <NotFoundPage /> },

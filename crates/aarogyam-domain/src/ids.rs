@@ -66,6 +66,12 @@ entities! {
     PatientIdentifier, PatientIdentifierId;
     /// A data import.
     Import, ImportId;
+    /// Where the clinic buys materials.
+    Supplier, SupplierId;
+    /// A material or medicine the clinic keeps in stock.
+    InventoryItem, InventoryItemId;
+    /// A delivery of an item, with its expiry and cost.
+    StockBatch, StockBatchId;
 }
 
 entities! {

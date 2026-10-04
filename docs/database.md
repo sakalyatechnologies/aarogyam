@@ -50,7 +50,7 @@ flowchart LR
   notify -->|4| people
   onboarding -->|1| people
   ops -->|2| billing
-  ops -->|2| clinical
+  ops -->|1| clinical
   ops -->|4| people
   ops -->|4| tenancy
   people -->|1| iam
@@ -1303,7 +1303,7 @@ Treatment actually done (or planned for today) in a visit.
 
 Done procedures are frozen by app.freeze_when() (only done -> entered_in_error). One live procedure per plan item. Marking done will deduct stock via procedure_materials and can create a lab_order.
 
-Referenced by: `consent_forms.procedure_id`, `invoice_items.procedure_id`, `lab_orders.procedure_id`, `recalls.source_procedure_id`, `stock_movements.procedure_id`
+Referenced by: `consent_forms.procedure_id`, `invoice_items.procedure_id`, `lab_orders.procedure_id`, `recalls.source_procedure_id`
 
 ### `treatment_plans` (★ foundation)
 
@@ -1515,7 +1515,7 @@ erDiagram
   inventory_items ||--o{ stock_batches : "item_id"
   suppliers |o--o{ stock_batches : "supplier_id"
   inventory_items ||--o{ stock_movements : "item_id"
-  stock_batches |o--o{ stock_movements : "batch_id"
+  stock_batches ||--o{ stock_movements : "batch_id"
   inventory_items ||--o{ procedure_materials : "item_id"
   equipment ||--o{ maintenance_logs : "equipment_id"
   consultant_fee_rules {
@@ -1598,6 +1598,10 @@ Where materials are bought.
 | `name` | `text` |  |
 | `phone_e164` | `text?` |  |
 | `gstin` | `text?` |  |
+| `active` | `bool` |  |
+| `deleted_at` | `timestamptz?` |  |
+
+Built (migration 0061). Soft delete; names are unique per clinic.
 
 Referenced by: `stock_batches.supplier_id`
 
@@ -1610,11 +1614,13 @@ Materials and medicines the clinic stocks.
 | Column | Type | Notes |
 |---|---|---|
 | `name` | `text` |  |
-| `sku` | `text?` |  |
-| `unit` | `stock_unit` | piece, ml, g, box, pack |
 | `category` | `text?` |  |
-| `reorder_level` | `numeric` |  |
+| `unit` | `text` | piece, ml, g, box, pack |
+| `reorder_level` | `bigint` |  |
 | `active` | `bool` |  |
+| `deleted_at` | `timestamptz?` |  |
+
+Built (migration 0061). Quantities are whole units. Status is derived: critical (out, or a fifth of the reorder level or less), low (at or below it), expiring (a batch within 30 days), else ok.
 
 Referenced by: `procedure_materials.item_id`, `stock_batches.item_id`, `stock_movements.item_id`
 
@@ -1630,27 +1636,30 @@ Received stock by batch, with expiry and cost.
 | `supplier_id` | `uuid?` | → `suppliers` |
 | `batch_no` | `text?` |  |
 | `expiry` | `date?` |  |
-| `quantity` | `numeric` | remaining |
+| `received_quantity` | `bigint` |  |
+| `quantity` | `bigint` | remaining, never below 0 |
 | `unit_cost_paise` | `bigint` |  |
-| `received_at` | `timestamptz` |  |
+| `received_on` | `date` |  |
+
+Only quantity changes after the delivery (trigger). Use takes the earliest expiry first (FEFO) and never from an expired batch.
 
 Referenced by: `stock_movements.batch_id`
 
 ### `stock_movements`
 
-Every change in stock: purchase, use, adjustment, expiry. Stock history comes from here.
+Every change in stock: receive, use, adjustment, expiry. Stock history comes from here.
 
 *Clinic-scoped: org_id + row-level security · sensitivity: internal · offline: server only*
 
 | Column | Type | Notes |
 |---|---|---|
 | `item_id` | `uuid` | → `inventory_items` |
-| `batch_id` | `uuid?` | → `stock_batches` |
-| `kind` | `stock_move` | purchase, consume, adjust, expire, return |
-| `quantity` | `numeric` | signed |
-| `procedure_id` | `uuid?` | → `procedures` |
-| `reason` | `text?` |  |
-| `at` | `timestamptz` |  |
+| `batch_id` | `uuid` | → `stock_batches` |
+| `kind` | `text` | receive, use, adjust, expire |
+| `quantity` | `bigint` | signed |
+| `reason` | `text?` | required for adjust and expire |
+
+Append-only; one row per batch touched; created_by is who. Procedure-linked deduction (procedure_id) comes with procedure_materials.
 
 ### `procedure_materials`
 

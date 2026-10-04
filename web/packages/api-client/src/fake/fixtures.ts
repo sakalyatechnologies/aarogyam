@@ -353,6 +353,54 @@ export interface FakeApplication {
   updated_at: string;
 }
 
+/** Where a clinic buys materials. */
+export interface FakeSupplier {
+  id: string;
+  clinic_id: string;
+  name: string;
+  phone?: string | null;
+  gstin?: string | null;
+  active: boolean;
+}
+
+/** A material or medicine a clinic keeps in stock. */
+export interface FakeInventoryItem {
+  id: string;
+  clinic_id: string;
+  name: string;
+  category?: string | null;
+  unit: "piece" | "ml" | "g" | "box" | "pack";
+  reorder_level: number;
+  active: boolean;
+}
+
+/** A delivery of an item: how much arrived and how much is left. */
+export interface FakeStockBatch {
+  id: string;
+  clinic_id: string;
+  item_id: string;
+  supplier_id?: string | null;
+  batch_no?: string | null;
+  expiry?: string | null;
+  received_quantity: number;
+  quantity: number;
+  unit_cost_paise: number;
+  received_on: string;
+}
+
+/** One change in stock, per batch touched. Never edited. */
+export interface FakeStockMovement {
+  id: string;
+  clinic_id: string;
+  item_id: string;
+  batch_id: string;
+  kind: "receive" | "use" | "adjust" | "expire";
+  quantity: number;
+  reason?: string | null;
+  at: string;
+  by?: string | null;
+}
+
 /** A price list entry. */
 export interface FakePriceItem {
   id: string;
@@ -517,6 +565,10 @@ export interface Fixtures {
   sessions: FakeSession[];
   applications: FakeApplication[];
   priceItems: FakePriceItem[];
+  suppliers: FakeSupplier[];
+  inventoryItems: FakeInventoryItem[];
+  stockBatches: FakeStockBatch[];
+  stockMovements: FakeStockMovement[];
   invoices: FakeInvoice[];
   payments: FakePayment[];
   drugs: FakeDrug[];
@@ -550,6 +602,8 @@ export const ROLES = {
       "finance.view",
       "settings.manage",
       "staff.manage",
+      "inventory.read",
+      "inventory.manage",
     ],
   },
   doctor: {
@@ -564,6 +618,7 @@ export const ROLES = {
       "clinical.read",
       "clinical.write",
       "prescriptions.issue",
+      "inventory.read",
     ],
   },
   frontDesk: {
@@ -577,9 +632,11 @@ export const ROLES = {
       "appointments.write",
       "billing.read",
       "billing.write",
+      "inventory.read",
+      "inventory.manage",
     ],
   },
-  assistant: { key: "assistant", name: "Assistant", permissions: ["patients.read", "appointments.read", "clinical.read"] },
+  assistant: { key: "assistant", name: "Assistant", permissions: ["patients.read", "appointments.read", "clinical.read", "inventory.read"] },
   consultant: { key: "consultant", name: "Visiting consultant", permissions: ["appointments.read", "clinical.read"] },
   finance: {
     key: "finance",
@@ -994,6 +1051,45 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     { id: id(), clinic_id: sunrise.id, name: "Medicines (dispensed)", code: "MED", category: "medicines", price_paise: 20_000, taxable: true, gst_rate: 12, sac_hsn: "3004", active: true },
   ];
 
+  // Stock (Sunrise): the dashboard's six materials, one with a batch about to expire.
+  const dayOn = (days: number): string => new Date(now.getTime() + days * DAY).toISOString().slice(0, 10);
+  const suppliers: FakeSupplier[] = [
+    { id: id(), clinic_id: sunrise.id, name: "Pune Dental Depot", phone: "+919800010001", gstin: "27AABCP1234F1Z5", active: true },
+    { id: id(), clinic_id: sunrise.id, name: "MedSupply Traders", phone: "+919800010002", gstin: null, active: true },
+  ];
+  const [depot, traders] = suppliers;
+  const stockSeed: readonly [name: string, category: string, unit: FakeInventoryItem["unit"], reorder: number, batches: readonly [qty: number, expiryDays: number | null, supplier: FakeSupplier | undefined][]][] = [
+    ["Composite A2", "restorative", "piece", 40, [[4, 400, depot]]],
+    ["Brackets 022", "ortho", "piece", 30, [[32, null, depot]]],
+    ["Implant 4.2×10", "surgical", "piece", 30, [[12, 700, traders]]],
+    ["Gloves (box)", "disposables", "box", 50, [[58, 500, traders]]],
+    ["Anesthetic cartridges", "anesthesia", "piece", 20, [[10, 21, depot], [12, 300, depot]]],
+    ["Polish cups", "disposables", "piece", 40, [[9, null, traders]]],
+  ];
+  const inventoryItems: FakeInventoryItem[] = [];
+  const stockBatches: FakeStockBatch[] = [];
+  const stockMovements: FakeStockMovement[] = [];
+  for (const [name, category, unit, reorder, batches] of stockSeed) {
+    const item: FakeInventoryItem = { id: id(), clinic_id: sunrise.id, name, category, unit, reorder_level: reorder, active: true };
+    inventoryItems.push(item);
+    for (const [quantity, expiryDays, source] of batches) {
+      const batch: FakeStockBatch = {
+        id: id(),
+        clinic_id: sunrise.id,
+        item_id: item.id,
+        supplier_id: source?.id ?? null,
+        batch_no: null,
+        expiry: expiryDays === null ? null : dayOn(expiryDays),
+        received_quantity: quantity,
+        quantity,
+        unit_cost_paise: 2_500,
+        received_on: dayOn(-30),
+      };
+      stockBatches.push(batch);
+      stockMovements.push({ id: id(), clinic_id: sunrise.id, item_id: item.id, batch_id: batch.id, kind: "receive", quantity, reason: null, at: isoDaysAgo(now, 30), by: users.asha.id });
+    }
+  }
+
   function invoiceLine(input: { price_item_id?: string | null; description: string; quantity: number; unit_price_paise: number; gst_rate: number; taxable: boolean; line_no: number }): FakeInvoiceLine {
     const taxablePaise = input.taxable ? input.quantity * input.unit_price_paise : 0;
     const tax = Math.round(taxablePaise * (input.gst_rate / 100));
@@ -1160,6 +1256,10 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     sessions,
     applications,
     priceItems,
+    suppliers,
+    inventoryItems,
+    stockBatches,
+    stockMovements,
     invoices,
     payments,
     drugs,

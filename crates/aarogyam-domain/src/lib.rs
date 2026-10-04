@@ -69,6 +69,7 @@ pub mod event;
 pub mod files;
 pub mod ids;
 pub mod import;
+pub mod inventory;
 pub mod onboarding;
 pub mod outbox;
 pub mod patient;

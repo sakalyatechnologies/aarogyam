@@ -140,6 +140,24 @@ pub struct AttentionPatient {
     pub full_name: String,
 }
 
+/// An item at or below its reorder level, for the front desk's attention list.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct LowStockAlert {
+    /// The item.
+    #[schema(value_type = String)]
+    pub item_id: Uuid,
+    /// Its name.
+    pub name: String,
+    /// Its unit.
+    pub unit: String,
+    /// Units on hand.
+    pub on_hand: i64,
+    /// The reorder level.
+    pub reorder_level: i64,
+    /// `low`, or `critical` when out or at a fifth of the reorder level or less.
+    pub status: String,
+}
+
 /// Today at the clinic. Money tiles arrive with billing.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct TodayResponse {
@@ -161,6 +179,9 @@ pub struct TodayResponse {
     pub team: Vec<TeamMemberToday>,
     /// Late arrivals and long waits, longest first.
     pub attention: Vec<AttentionItem>,
+    /// Stock at or below its reorder level, worst first. Present only for roles with
+    /// `inventory.read`.
+    pub low_stock: Option<Vec<LowStockAlert>>,
 }
 
 impl From<TeamMember> for TeamMemberToday {
@@ -310,6 +331,19 @@ pub(crate) async fn today(
             .map(QueueToken::from)
             .collect(),
         team: today.team.into_iter().map(TeamMemberToday::from).collect(),
+        low_stock: today.low_stock.map(|items| {
+            items
+                .into_iter()
+                .map(|stock| LowStockAlert {
+                    item_id: stock.item.id.uuid(),
+                    name: stock.item.name,
+                    unit: stock.item.unit.as_str().to_owned(),
+                    on_hand: stock.on_hand,
+                    reorder_level: stock.item.reorder_level,
+                    status: stock.status.as_str().to_owned(),
+                })
+                .collect()
+        }),
         attention: today
             .attention
             .into_iter()

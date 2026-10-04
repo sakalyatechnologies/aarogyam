@@ -874,6 +874,229 @@
         }
       }
     },
+    "/api/v1/inventory-items": {
+      "get": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "The clinic's stock items, by name, each with its level.",
+        "operationId": "items",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Adds a stock item.",
+        "operationId": "create_item",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "409": {
+            "description": "An item has this name"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inventory-items/{id}": {
+      "get": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "One item with its deliveries and latest changes.",
+        "operationId": "item",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemDetailResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.read"
+          },
+          "404": {
+            "description": "No such item in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Removes an item from the lists. Only an item with nothing on the shelf can go.",
+        "operationId": "delete_item",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "404": {
+            "description": "No such item in this clinic"
+          },
+          "409": {
+            "description": "The item still has stock"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Changes a stock item.",
+        "operationId": "update_item",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "404": {
+            "description": "No such item in this clinic"
+          },
+          "409": {
+            "description": "An item has this name"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/invitations/accept": {
       "post": {
         "tags": [
@@ -5264,6 +5487,505 @@
         ]
       }
     },
+    "/api/v1/stock": {
+      "get": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Stock levels: units on hand, reorder level and status for every item, with counts for the\nsummary cards.",
+        "operationId": "summary",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/stock/adjust": {
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Corrects stock after a count.",
+        "operationId": "adjust",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockChangeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "404": {
+            "description": "No such item in this clinic"
+          },
+          "409": {
+            "description": "More removed than is on the shelf"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/stock/batches/{id}/expire": {
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Writes off what is left of a batch that has expired.",
+        "operationId": "expire_batch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The batch",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpireBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockChangeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "404": {
+            "description": "No such batch in this clinic"
+          },
+          "409": {
+            "description": "The batch has not expired, or is empty"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/stock/expiring": {
+      "get": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Batches with stock left that expire within `days` days or already have.",
+        "operationId": "expiring",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "description": "Days ahead, 0 to 3650; 30 by default",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpiringList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad number of days"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/stock/low": {
+      "get": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Active items at or below their reorder level, worst first.",
+        "operationId": "low",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/stock/receive": {
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Adds a delivery to stock: a new batch and a `receive` movement.",
+        "operationId": "receive",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockChangeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "404": {
+            "description": "No such item or supplier in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/stock/use": {
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Uses stock: takes from the batches that expire first and skips expired ones. When the usable\nstock is short, nothing is taken.",
+        "operationId": "use_stock",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockChangeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "404": {
+            "description": "No such item in this clinic"
+          },
+          "409": {
+            "description": "Not enough usable stock"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/suppliers": {
+      "get": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "The clinic's suppliers.",
+        "operationId": "suppliers",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Adds a supplier.",
+        "operationId": "create_supplier",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupplierValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Supplier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "409": {
+            "description": "A supplier has this name"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/suppliers/{id}": {
+      "delete": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Removes a supplier from the list. Deliveries already received keep their supplier.",
+        "operationId": "delete_supplier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The supplier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "404": {
+            "description": "No such supplier in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Changes a supplier.",
+        "operationId": "update_supplier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The supplier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupplierValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Supplier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "404": {
+            "description": "No such supplier in this clinic"
+          },
+          "409": {
+            "description": "A supplier has this name"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/today": {
       "get": {
         "tags": [
@@ -5827,6 +6549,37 @@
               "null"
             ],
             "description": "State or union territory."
+          }
+        }
+      },
+      "AdjustBody": {
+        "type": "object",
+        "description": "A count correction.",
+        "required": [
+          "item_id",
+          "quantity",
+          "reason"
+        ],
+        "properties": {
+          "expiry": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Expiry of found stock, `YYYY-MM-DD`."
+          },
+          "item_id": {
+            "type": "string",
+            "description": "The item."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Signed units, not zero: negative takes stock off the shelf (earliest expiry first),\npositive adds found stock as a new batch."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why; required."
           }
         }
       },
@@ -7877,6 +8630,87 @@
           }
         }
       },
+      "ExpireBody": {
+        "type": "object",
+        "description": "A write-off.",
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why; \"expired\" by default."
+          }
+        }
+      },
+      "ExpiringBatch": {
+        "type": "object",
+        "description": "A batch about to expire.",
+        "required": [
+          "batch_id",
+          "item_id",
+          "item_name",
+          "unit",
+          "expiry",
+          "quantity",
+          "days_left"
+        ],
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "The batch."
+          },
+          "batch_no": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The supplier's batch number."
+          },
+          "days_left": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Days until expiry; negative once expired."
+          },
+          "expiry": {
+            "type": "string",
+            "description": "Last day it may be used, `YYYY-MM-DD`."
+          },
+          "item_id": {
+            "type": "string",
+            "description": "The item."
+          },
+          "item_name": {
+            "type": "string",
+            "description": "The item's name."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units left."
+          },
+          "unit": {
+            "type": "string",
+            "description": "The item's unit."
+          }
+        }
+      },
+      "ExpiringList": {
+        "type": "object",
+        "description": "Batches expiring soon.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpiringBatch"
+            },
+            "description": "Earliest first; already expired batches come first."
+          }
+        }
+      },
       "HourBar": {
         "type": "object",
         "description": "Appointments starting in one local hour.",
@@ -7988,6 +8822,47 @@
           "valid": {
             "type": "boolean",
             "description": "Whether the row is (or was) imported."
+          }
+        }
+      },
+      "InventoryItem": {
+        "type": "object",
+        "description": "A stock item.",
+        "required": [
+          "id",
+          "name",
+          "unit",
+          "reorder_level",
+          "active"
+        ],
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "description": "Still stocked."
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Category, such as `restorative` or `disposables`."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name."
+          },
+          "reorder_level": {
+            "type": "integer",
+            "format": "int64",
+            "description": "At or below this the item is low."
+          },
+          "unit": {
+            "type": "string",
+            "description": "`piece`, `ml`, `g`, `box` or `pack`."
           }
         }
       },
@@ -8435,6 +9310,93 @@
           }
         }
       },
+      "ItemDetailResponse": {
+        "type": "object",
+        "description": "An item with its deliveries and latest changes.",
+        "required": [
+          "stock",
+          "batches",
+          "movements"
+        ],
+        "properties": {
+          "batches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockBatch"
+            },
+            "description": "Deliveries, those with stock first."
+          },
+          "movements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockMovement"
+            },
+            "description": "The latest changes, newest first."
+          },
+          "stock": {
+            "$ref": "#/components/schemas/StockLevel",
+            "description": "The item and where it stands."
+          }
+        }
+      },
+      "ItemList": {
+        "type": "object",
+        "description": "The items with their levels.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockLevel"
+            },
+            "description": "By name."
+          }
+        }
+      },
+      "ItemValues": {
+        "type": "object",
+        "description": "An item's values. On a change, fields left out stay as they are and an empty category\nclears it.",
+        "properties": {
+          "active": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Still stocked."
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Category: lower case, digits and `_`."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name; required for a new item."
+          },
+          "reorder_level": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "At or below this the item is low; 0 by default."
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`piece` (default), `ml`, `g`, `box` or `pack`."
+          }
+        }
+      },
       "Joined": {
         "type": "object",
         "description": "The clinic just joined.",
@@ -8501,6 +9463,46 @@
               "$ref": "#/components/schemas/Leave"
             },
             "description": "By start."
+          }
+        }
+      },
+      "LowStockAlert": {
+        "type": "object",
+        "description": "An item at or below its reorder level, for the front desk's attention list.",
+        "required": [
+          "item_id",
+          "name",
+          "unit",
+          "on_hand",
+          "reorder_level",
+          "status"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "The item."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "on_hand": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units on hand."
+          },
+          "reorder_level": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The reorder level."
+          },
+          "status": {
+            "type": "string",
+            "description": "`low`, or `critical` when out or at a fifth of the reorder level or less."
+          },
+          "unit": {
+            "type": "string",
+            "description": "Its unit."
           }
         }
       },
@@ -11294,6 +12296,61 @@
           }
         }
       },
+      "ReceiveBody": {
+        "type": "object",
+        "description": "A delivery.",
+        "required": [
+          "item_id",
+          "quantity"
+        ],
+        "properties": {
+          "batch_no": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The supplier's batch number."
+          },
+          "expiry": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Last day it may be used, `YYYY-MM-DD`."
+          },
+          "item_id": {
+            "type": "string",
+            "description": "The item."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units that arrived, 1 to 1000000."
+          },
+          "received_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Day it arrived, `YYYY-MM-DD`; today by default."
+          },
+          "supplier_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The supplier, if known."
+          },
+          "unit_cost_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Cost of one unit in paise; 0 by default."
+          }
+        }
+      },
       "RegistrationReceived": {
         "type": "object",
         "description": "The one answer to a valid application.",
@@ -11917,6 +12974,303 @@
           }
         }
       },
+      "StockBatch": {
+        "type": "object",
+        "description": "A delivery on the shelf.",
+        "required": [
+          "id",
+          "received_quantity",
+          "quantity",
+          "unit_cost_paise",
+          "received_on"
+        ],
+        "properties": {
+          "batch_no": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The supplier's batch number."
+          },
+          "expiry": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Last day it may be used, `YYYY-MM-DD`."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units left."
+          },
+          "received_on": {
+            "type": "string",
+            "description": "Day it arrived, `YYYY-MM-DD`."
+          },
+          "received_quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units that arrived."
+          },
+          "supplier_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The supplier, if recorded."
+          },
+          "unit_cost_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Cost of one unit in paise."
+          }
+        }
+      },
+      "StockChangeResponse": {
+        "type": "object",
+        "description": "The result of a delivery, use or correction.",
+        "required": [
+          "stock",
+          "movements"
+        ],
+        "properties": {
+          "movements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockMovement"
+            },
+            "description": "What was recorded, one movement per batch touched."
+          },
+          "stock": {
+            "$ref": "#/components/schemas/StockLevel",
+            "description": "The item as it stands now."
+          }
+        }
+      },
+      "StockCountsResponse": {
+        "type": "object",
+        "description": "Items by status, for the summary cards.",
+        "required": [
+          "critical",
+          "low",
+          "expiring",
+          "ok"
+        ],
+        "properties": {
+          "critical": {
+            "type": "integer",
+            "description": "Items out or nearly out.",
+            "minimum": 0
+          },
+          "expiring": {
+            "type": "integer",
+            "description": "Items with a batch expiring within 30 days.",
+            "minimum": 0
+          },
+          "low": {
+            "type": "integer",
+            "description": "Items at or below the reorder level.",
+            "minimum": 0
+          },
+          "ok": {
+            "type": "integer",
+            "description": "Items in good supply.",
+            "minimum": 0
+          }
+        }
+      },
+      "StockLevel": {
+        "type": "object",
+        "description": "An item and where its stock stands.",
+        "required": [
+          "item",
+          "on_hand",
+          "status"
+        ],
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/InventoryItem",
+            "description": "The item."
+          },
+          "next_expiry": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Earliest expiry among batches with stock left, `YYYY-MM-DD`."
+          },
+          "on_hand": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units on hand, all batches."
+          },
+          "status": {
+            "type": "string",
+            "description": "`ok`, `low` (at or below the reorder level), `critical` (out, or at a fifth of the\nreorder level or less) or `expiring` (enough, but a batch expires within 30 days)."
+          }
+        }
+      },
+      "StockMovement": {
+        "type": "object",
+        "description": "A change in stock.",
+        "required": [
+          "id",
+          "batch_id",
+          "kind",
+          "quantity",
+          "at"
+        ],
+        "properties": {
+          "at": {
+            "type": "string",
+            "description": "When (RFC 3339)."
+          },
+          "batch_id": {
+            "type": "string",
+            "description": "The batch touched."
+          },
+          "by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who did it."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`receive`, `use`, `adjust` or `expire`."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Signed units: negative took stock off the shelf."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why, for corrections and write-offs."
+          }
+        }
+      },
+      "StockSummary": {
+        "type": "object",
+        "description": "The stock summary.",
+        "required": [
+          "counts",
+          "items"
+        ],
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/StockCountsResponse",
+            "description": "Active items by status."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockLevel"
+            },
+            "description": "Every item, critical first, then low, expiring and ok; each group by name."
+          }
+        }
+      },
+      "Supplier": {
+        "type": "object",
+        "description": "A supplier.",
+        "required": [
+          "id",
+          "name",
+          "active"
+        ],
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "description": "Still bought from."
+          },
+          "gstin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "GSTIN."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Phone in E.164."
+          }
+        }
+      },
+      "SupplierList": {
+        "type": "object",
+        "description": "The suppliers.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Supplier"
+            },
+            "description": "By name."
+          }
+        }
+      },
+      "SupplierValues": {
+        "type": "object",
+        "description": "A supplier's values. On a change, fields left out stay as they are and an empty string\nclears an optional one.",
+        "properties": {
+          "active": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Still bought from."
+          },
+          "gstin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "GSTIN, 15 characters."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name; required for a new supplier."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Phone; +91 is assumed without a country code."
+          }
+        }
+      },
       "TeamMemberToday": {
         "type": "object",
         "description": "A doctor working today.",
@@ -12228,6 +13582,16 @@
             "type": "string",
             "description": "The clinic's local date, `YYYY-MM-DD`."
           },
+          "low_stock": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LowStockAlert"
+            },
+            "description": "Stock at or below its reorder level, worst first. Present only for roles with\n`inventory.read`."
+          },
           "recent_patients": {
             "type": "array",
             "items": {
@@ -12315,6 +13679,32 @@
               "null"
             ],
             "description": "The visit it belongs to."
+          }
+        }
+      },
+      "UseBody": {
+        "type": "object",
+        "description": "Stock used.",
+        "required": [
+          "item_id",
+          "quantity"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "The item."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units used, 1 to 1000000."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why or for whom, without patient details."
           }
         }
       },
@@ -12641,6 +14031,10 @@
     {
       "name": "registration",
       "description": "Clinics applying to join; public, throttled per IP"
+    },
+    {
+      "name": "inventory",
+      "description": "Stock items, suppliers, deliveries, use and expiry; clinic host only"
     },
     {
       "name": "billing",

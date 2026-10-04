@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select unit_cost_paise from aarogyam.stock_batches\n         where item_id = $1 order by received_on desc, id desc limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "unit_cost_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "unit_cost_paise"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9d5e306f9bc4b1abbc9f7b75d36d08f1ca76c54275f9fd4d13f5fd4f87a8889f"
+}

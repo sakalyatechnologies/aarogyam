@@ -320,6 +320,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's stock items, by name, each with its level. */
+        get: operations["items"];
+        put?: never;
+        /** Adds a stock item. */
+        post: operations["create_item"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory-items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One item with its deliveries and latest changes. */
+        get: operations["item"];
+        put?: never;
+        post?: never;
+        /** Removes an item from the lists. Only an item with nothing on the shelf can go. */
+        delete: operations["delete_item"];
+        options?: never;
+        head?: never;
+        /** Changes a stock item. */
+        patch: operations["update_item"];
+        trace?: never;
+    };
     "/api/v1/invitations/accept": {
         parameters: {
             query?: never;
@@ -1501,6 +1538,167 @@ export interface paths {
         patch: operations["change_staff"];
         trace?: never;
     };
+    "/api/v1/stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stock levels: units on hand, reorder level and status for every item, with counts for the
+         *     summary cards.
+         */
+        get: operations["summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stock/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Corrects stock after a count. */
+        post: operations["adjust"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stock/batches/{id}/expire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Writes off what is left of a batch that has expired. */
+        post: operations["expire_batch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stock/expiring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Batches with stock left that expire within `days` days or already have. */
+        get: operations["expiring"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stock/low": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Active items at or below their reorder level, worst first. */
+        get: operations["low"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stock/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adds a delivery to stock: a new batch and a `receive` movement. */
+        post: operations["receive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stock/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Uses stock: takes from the batches that expire first and skips expired ones. When the usable
+         *     stock is short, nothing is taken.
+         */
+        post: operations["use_stock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/suppliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's suppliers. */
+        get: operations["suppliers"];
+        put?: never;
+        /** Adds a supplier. */
+        post: operations["create_supplier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/suppliers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Removes a supplier from the list. Deliveries already received keep their supplier. */
+        delete: operations["delete_supplier"];
+        options?: never;
+        head?: never;
+        /** Changes a supplier. */
+        patch: operations["update_supplier"];
+        trace?: never;
+    };
     "/api/v1/today": {
         parameters: {
             query?: never;
@@ -1722,6 +1920,21 @@ export interface components {
             pincode?: string | null;
             /** @description State or union territory. */
             state?: string | null;
+        };
+        /** @description A count correction. */
+        AdjustBody: {
+            /** @description Expiry of found stock, `YYYY-MM-DD`. */
+            expiry?: string | null;
+            /** @description The item. */
+            item_id: string;
+            /**
+             * Format: int64
+             * @description Signed units, not zero: negative takes stock off the shelf (earliest expiry first),
+             *     positive adds found stock as a new batch.
+             */
+            quantity: number;
+            /** @description Why; required. */
+            reason: string;
         };
         /** @description Owed by age of the bill. */
         AgingBuckets: {
@@ -2508,6 +2721,41 @@ export interface components {
             /** @description 3 to 500 characters, such as "wrong patient". */
             reason: string;
         };
+        /** @description A write-off. */
+        ExpireBody: {
+            /** @description Why; "expired" by default. */
+            reason?: string | null;
+        };
+        /** @description A batch about to expire. */
+        ExpiringBatch: {
+            /** @description The batch. */
+            batch_id: string;
+            /** @description The supplier's batch number. */
+            batch_no?: string | null;
+            /**
+             * Format: int64
+             * @description Days until expiry; negative once expired.
+             */
+            days_left: number;
+            /** @description Last day it may be used, `YYYY-MM-DD`. */
+            expiry: string;
+            /** @description The item. */
+            item_id: string;
+            /** @description The item's name. */
+            item_name: string;
+            /**
+             * Format: int64
+             * @description Units left.
+             */
+            quantity: number;
+            /** @description The item's unit. */
+            unit: string;
+        };
+        /** @description Batches expiring soon. */
+        ExpiringList: {
+            /** @description Earliest first; already expired batches come first. */
+            items: components["schemas"]["ExpiringBatch"][];
+        };
         /** @description Appointments starting in one local hour. */
         HourBar: {
             /** @description Appointments, not counting cancelled ones. */
@@ -2547,6 +2795,24 @@ export interface components {
             patient_id?: string | null;
             /** @description Whether the row is (or was) imported. */
             valid: boolean;
+        };
+        /** @description A stock item. */
+        InventoryItem: {
+            /** @description Still stocked. */
+            active: boolean;
+            /** @description Category, such as `restorative` or `disposables`. */
+            category?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description Name. */
+            name: string;
+            /**
+             * Format: int64
+             * @description At or below this the item is low.
+             */
+            reorder_level: number;
+            /** @description `piece`, `ml`, `g`, `box` or `pack`. */
+            unit: string;
         };
         /** @description A bill. Amounts are paise; on drafts they are a preview computed from the current lines. */
         Invoice: {
@@ -2768,6 +3034,39 @@ export interface components {
             /** @description Why to go ahead despite the allergy alerts; needed only when there are alerts. */
             override_reason?: string | null;
         };
+        /** @description An item with its deliveries and latest changes. */
+        ItemDetailResponse: {
+            /** @description Deliveries, those with stock first. */
+            batches: components["schemas"]["StockBatch"][];
+            /** @description The latest changes, newest first. */
+            movements: components["schemas"]["StockMovement"][];
+            /** @description The item and where it stands. */
+            stock: components["schemas"]["StockLevel"];
+        };
+        /** @description The items with their levels. */
+        ItemList: {
+            /** @description By name. */
+            items: components["schemas"]["StockLevel"][];
+        };
+        /**
+         * @description An item's values. On a change, fields left out stay as they are and an empty category
+         *     clears it.
+         */
+        ItemValues: {
+            /** @description Still stocked. */
+            active?: boolean | null;
+            /** @description Category: lower case, digits and `_`. */
+            category?: string | null;
+            /** @description Name; required for a new item. */
+            name?: string | null;
+            /**
+             * Format: int64
+             * @description At or below this the item is low; 0 by default.
+             */
+            reorder_level?: number | null;
+            /** @description `piece` (default), `ml`, `g`, `box` or `pack`. */
+            unit?: string | null;
+        };
         /** @description The clinic just joined. */
         Joined: {
             /** @description The new membership. */
@@ -2792,6 +3091,27 @@ export interface components {
         LeaveList: {
             /** @description By start. */
             items: components["schemas"]["Leave"][];
+        };
+        /** @description An item at or below its reorder level, for the front desk's attention list. */
+        LowStockAlert: {
+            /** @description The item. */
+            item_id: string;
+            /** @description Its name. */
+            name: string;
+            /**
+             * Format: int64
+             * @description Units on hand.
+             */
+            on_hand: number;
+            /**
+             * Format: int64
+             * @description The reorder level.
+             */
+            reorder_level: number;
+            /** @description `low`, or `critical` when out or at a fifth of the reorder level or less. */
+            status: string;
+            /** @description Its unit. */
+            unit: string;
         };
         /** @description The signed-in person's clinics. */
         Me: {
@@ -3858,6 +4178,29 @@ export interface components {
             /** @description Soonest first. */
             items: components["schemas"]["Recall"][];
         };
+        /** @description A delivery. */
+        ReceiveBody: {
+            /** @description The supplier's batch number. */
+            batch_no?: string | null;
+            /** @description Last day it may be used, `YYYY-MM-DD`. */
+            expiry?: string | null;
+            /** @description The item. */
+            item_id: string;
+            /**
+             * Format: int64
+             * @description Units that arrived, 1 to 1000000.
+             */
+            quantity: number;
+            /** @description Day it arrived, `YYYY-MM-DD`; today by default. */
+            received_on?: string | null;
+            /** @description The supplier, if known. */
+            supplier_id?: string | null;
+            /**
+             * Format: int64
+             * @description Cost of one unit in paise; 0 by default.
+             */
+            unit_cost_paise?: number | null;
+        };
         /** @description The one answer to a valid application. */
         RegistrationReceived: {
             /** @description What happens next. */
@@ -4092,6 +4435,128 @@ export interface components {
             /** @description Its queue token, once the patient has arrived. */
             queue_token_id?: string | null;
         };
+        /** @description A delivery on the shelf. */
+        StockBatch: {
+            /** @description The supplier's batch number. */
+            batch_no?: string | null;
+            /** @description Last day it may be used, `YYYY-MM-DD`. */
+            expiry?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /**
+             * Format: int64
+             * @description Units left.
+             */
+            quantity: number;
+            /** @description Day it arrived, `YYYY-MM-DD`. */
+            received_on: string;
+            /**
+             * Format: int64
+             * @description Units that arrived.
+             */
+            received_quantity: number;
+            /** @description The supplier, if recorded. */
+            supplier_id?: string | null;
+            /**
+             * Format: int64
+             * @description Cost of one unit in paise.
+             */
+            unit_cost_paise: number;
+        };
+        /** @description The result of a delivery, use or correction. */
+        StockChangeResponse: {
+            /** @description What was recorded, one movement per batch touched. */
+            movements: components["schemas"]["StockMovement"][];
+            /** @description The item as it stands now. */
+            stock: components["schemas"]["StockLevel"];
+        };
+        /** @description Items by status, for the summary cards. */
+        StockCountsResponse: {
+            /** @description Items out or nearly out. */
+            critical: number;
+            /** @description Items with a batch expiring within 30 days. */
+            expiring: number;
+            /** @description Items at or below the reorder level. */
+            low: number;
+            /** @description Items in good supply. */
+            ok: number;
+        };
+        /** @description An item and where its stock stands. */
+        StockLevel: {
+            /** @description The item. */
+            item: components["schemas"]["InventoryItem"];
+            /** @description Earliest expiry among batches with stock left, `YYYY-MM-DD`. */
+            next_expiry?: string | null;
+            /**
+             * Format: int64
+             * @description Units on hand, all batches.
+             */
+            on_hand: number;
+            /**
+             * @description `ok`, `low` (at or below the reorder level), `critical` (out, or at a fifth of the
+             *     reorder level or less) or `expiring` (enough, but a batch expires within 30 days).
+             */
+            status: string;
+        };
+        /** @description A change in stock. */
+        StockMovement: {
+            /** @description When (RFC 3339). */
+            at: string;
+            /** @description The batch touched. */
+            batch_id: string;
+            /** @description The member who did it. */
+            by?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description `receive`, `use`, `adjust` or `expire`. */
+            kind: string;
+            /**
+             * Format: int64
+             * @description Signed units: negative took stock off the shelf.
+             */
+            quantity: number;
+            /** @description Why, for corrections and write-offs. */
+            reason?: string | null;
+        };
+        /** @description The stock summary. */
+        StockSummary: {
+            /** @description Active items by status. */
+            counts: components["schemas"]["StockCountsResponse"];
+            /** @description Every item, critical first, then low, expiring and ok; each group by name. */
+            items: components["schemas"]["StockLevel"][];
+        };
+        /** @description A supplier. */
+        Supplier: {
+            /** @description Still bought from. */
+            active: boolean;
+            /** @description GSTIN. */
+            gstin?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description Name. */
+            name: string;
+            /** @description Phone in E.164. */
+            phone?: string | null;
+        };
+        /** @description The suppliers. */
+        SupplierList: {
+            /** @description By name. */
+            items: components["schemas"]["Supplier"][];
+        };
+        /**
+         * @description A supplier's values. On a change, fields left out stay as they are and an empty string
+         *     clears an optional one.
+         */
+        SupplierValues: {
+            /** @description Still bought from. */
+            active?: boolean | null;
+            /** @description GSTIN, 15 characters. */
+            gstin?: string | null;
+            /** @description Name; required for a new supplier. */
+            name?: string | null;
+            /** @description Phone; +91 is assumed without a country code. */
+            phone?: string | null;
+        };
         /** @description A doctor working today. */
         TeamMemberToday: {
             /** @description Appointments today, not counting cancelled ones. */
@@ -4214,6 +4679,11 @@ export interface components {
             counts: components["schemas"]["TodayCounts"];
             /** @description The clinic's local date, `YYYY-MM-DD`. */
             date: string;
+            /**
+             * @description Stock at or below its reorder level, worst first. Present only for roles with
+             *     `inventory.read`.
+             */
+            low_stock?: components["schemas"]["LowStockAlert"][] | null;
             /** @description The latest patients through the queue today, newest first. */
             recent_patients: components["schemas"]["QueueToken"][];
             /** @description Doctors with working hours today. */
@@ -4249,6 +4719,18 @@ export interface components {
             tooth?: number | null;
             /** @description The visit it belongs to. */
             visit_id?: string | null;
+        };
+        /** @description Stock used. */
+        UseBody: {
+            /** @description The item. */
+            item_id: string;
+            /**
+             * Format: int64
+             * @description Units used, 1 to 1000000.
+             */
+            quantity: number;
+            /** @description Why or for whom, without patient details. */
+            reason?: string | null;
         };
         /** @description What the QR code shows: never patient data. */
         Verification: {
@@ -5151,6 +5633,250 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DrainReport"];
                 };
+            };
+        };
+    };
+    items: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemValues"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItem"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An item has this name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The item */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemDetailResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such item in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The item */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such item in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The item still has stock */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The item */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemValues"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItem"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such item in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An item has this name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -9488,6 +10214,551 @@ export interface operations {
                 content?: never;
             };
             /** @description Your own role, or the last active owner */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockSummary"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    adjust: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockChangeResponse"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such item in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description More removed than is on the shelf */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    expire_batch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The batch */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpireBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockChangeResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such batch in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The batch has not expired, or is empty */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    expiring: {
+        parameters: {
+            query?: {
+                /** @description Days ahead, 0 to 3650; 30 by default */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpiringList"];
+                };
+            };
+            /** @description A bad number of days */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    low: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    receive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiveBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockChangeResponse"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such item or supplier in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    use_stock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UseBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockChangeResponse"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such item in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not enough usable stock */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    suppliers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupplierList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_supplier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierValues"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A supplier has this name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_supplier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The supplier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such supplier in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_supplier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The supplier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierValues"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such supplier in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A supplier has this name */
             409: {
                 headers: {
                     [name: string]: unknown;

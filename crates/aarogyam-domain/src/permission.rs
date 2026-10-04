@@ -36,11 +36,15 @@ pub enum Permission {
     AuditView,
     /// Export data to Excel.
     ReportsExport,
+    /// See stock levels, suppliers and expiry dates.
+    InventoryRead,
+    /// Receive, use and adjust stock; edit items and suppliers.
+    InventoryManage,
 }
 
 impl Permission {
     /// Every permission, in catalogue order.
-    pub const ALL: [Self; 15] = [
+    pub const ALL: [Self; 17] = [
         Self::PatientsRead,
         Self::PatientsWrite,
         Self::PatientsContact,
@@ -56,6 +60,8 @@ impl Permission {
         Self::SettingsManage,
         Self::AuditView,
         Self::ReportsExport,
+        Self::InventoryRead,
+        Self::InventoryManage,
     ];
 
     /// The catalogue key, such as `patients.read`.
@@ -77,6 +83,8 @@ impl Permission {
             Self::SettingsManage => "settings.manage",
             Self::AuditView => "audit.view",
             Self::ReportsExport => "reports.export",
+            Self::InventoryRead => "inventory.read",
+            Self::InventoryManage => "inventory.manage",
         }
     }
 
@@ -253,6 +261,8 @@ required!(
     SettingsManage,
     AuditView,
     ReportsExport,
+    InventoryRead,
+    InventoryManage,
 );
 
 #[cfg(test)]

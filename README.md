@@ -18,7 +18,7 @@ Status: walking skeleton. The API serves sign-in, the clinic session, patients a
 
 ## Quickstart
 
-You need Rust (`rustup` installs the pinned toolchain), Postgres 17, pnpm, and read access to the private `sakalya-backend` and `sakalya-web` repositories (cloned next to this one).
+You need Rust (`rustup` installs the pinned toolchain), Postgres 17, pnpm, and read access to the private `sakalya-backend` and `sakalya-web` repositories. Clone `sakalya-web` next to this repository (the web apps link its source). Cargo fetches `sakalya-backend` v0.2.0 itself, with your git credentials, once `~/.cargo/config.toml` has `[net]` `git-fetch-with-cli = true`.
 
 ```sh
 brew services start postgresql@17         # or any Postgres 17 on localhost:5432

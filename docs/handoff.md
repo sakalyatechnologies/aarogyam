@@ -58,7 +58,7 @@ Seeded people (dev tokens use `auth_uid` as `sub`):
 
 ## Things to know
 
-- **Local library override:** `~/project/.cargo/config.toml` (not in any repo) patches the `sakalya-backend` git dependency to the local checkout and sets `net.git-fetch-with-cli`. `Cargo.lock` was resolved with it, so don't use `--locked` without it.
+- **Library versions:** `aarogyam` depends on `sakalya-backend` **v0.2.0** by tag, pinned in `Cargo.lock`; a fresh clone builds with `--locked` (checked). Cargo fetches the private repository with your git credentials when `~/.cargo/config.toml` (or `~/project/.cargo/config.toml`) sets `[net] git-fetch-with-cli = true`. To change a library and the product together, add a `[patch]` section there temporarily (commented example in `~/project/.cargo/config.toml`), then tag a new library version and drop the patch before committing the product's `Cargo.lock`.
 - **sqlx offline:** `.cargo/config.toml` in this repo sets `SQLX_OFFLINE=true`. After changing a `query!`, run `scripts/sqlx-prepare.sh` (needs the migrated `aarogyam_dev`) and commit `.sqlx/`.
 - **Local roles:** `aarogyam_owner` (Supabase-shaped owner), `aarogyam_api` (API login), `app_user` and the stand-ins `anon`/`authenticated` exist cluster-wide. Library tests use their own `sakalya_test_*` roles.
 - **The pre-commit hook is the gate** (CI is parked): fmt, clippy with warnings as errors, all tests including database tests, cargo-deny, cargo-machete, schema-docs check.

@@ -17,6 +17,7 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use super::chart::ChartEntry;
 use super::rfc3339;
 use super::vitals::Observation;
 use crate::AppState;
@@ -198,6 +199,8 @@ pub struct VisitDetail {
     pub notes: Vec<Note>,
     /// Vital signs recorded in the visit, oldest first; corrected values stay, marked by status.
     pub observations: Vec<Observation>,
+    /// Dental chart entries recorded in the visit.
+    pub chart_entries: Vec<ChartEntry>,
 }
 
 impl From<DetailView> for VisitDetail {
@@ -209,6 +212,11 @@ impl From<DetailView> for VisitDetail {
                 .observations
                 .into_iter()
                 .map(Observation::from)
+                .collect(),
+            chart_entries: view
+                .chart_entries
+                .into_iter()
+                .map(ChartEntry::from)
                 .collect(),
         }
     }

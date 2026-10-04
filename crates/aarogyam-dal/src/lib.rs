@@ -8,6 +8,7 @@
 
 use sqlx::migrate::Migrator;
 
+pub mod chart;
 pub mod clinic;
 pub mod console;
 pub mod facts;

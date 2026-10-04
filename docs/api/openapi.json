@@ -1199,6 +1199,123 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/dental-chart": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's dental chart, with one tooth's history when `tooth` is given.",
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tooth",
+            "in": "query",
+            "description": "FDI tooth number whose full history to include",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DentalChart"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not an FDI tooth number"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Records findings. Each supersedes the current entry for its tooth and surface (a crown,\nimplant or missing tooth also supersedes the tooth's surface entries); the history keeps\neverything. Returns the updated chart.",
+        "operationId": "record",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewChartEntries"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DentalChart"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad tooth, surface or finding, or a visit of another patient"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "The visit is closed, or the chart changed at the same moment"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/visits": {
       "get": {
         "tags": [
@@ -2074,6 +2191,76 @@
           }
         }
       },
+      "ChartEntry": {
+        "type": "object",
+        "description": "A finding on a tooth or one of its surfaces.",
+        "required": [
+          "id",
+          "tooth",
+          "finding",
+          "status",
+          "effective_at"
+        ],
+        "properties": {
+          "effective_at": {
+            "type": "string",
+            "description": "When the finding was made (RFC 3339)."
+          },
+          "finding": {
+            "type": "string",
+            "description": "`sound`, `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinician's remark."
+          },
+          "recorded_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who recorded it."
+          },
+          "status": {
+            "type": "string",
+            "description": "`current`, `superseded` or `entered_in_error`."
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The entry it replaced."
+          },
+          "surface": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`M`, `O`, `D`, `B` or `L`; absent for the whole tooth."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth number: 11-48, or 51-85 for primary teeth.",
+            "minimum": 0
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit that recorded it."
+          }
+        }
+      },
       "ClinicSettings": {
         "type": "object",
         "description": "The clinic's settings.",
@@ -2586,6 +2773,30 @@
           }
         }
       },
+      "DentalChart": {
+        "type": "object",
+        "description": "A patient's dental chart. Teeth without entries are absent: draw them as sound.",
+        "required": [
+          "current",
+          "history"
+        ],
+        "properties": {
+          "current": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChartEntry"
+            },
+            "description": "The current entries, by tooth (the whole-tooth entry first, then surfaces)."
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChartEntry"
+            },
+            "description": "Every entry of the requested tooth, newest first; empty unless `tooth` was given."
+          }
+        }
+      },
       "DevTokenRequest": {
         "type": "object",
         "description": "Who to sign in as.",
@@ -2910,6 +3121,62 @@
           "body": {
             "type": "string",
             "description": "1 to 10,000 characters."
+          }
+        }
+      },
+      "NewChartEntries": {
+        "type": "object",
+        "description": "Findings recorded together.",
+        "required": [
+          "entries"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewChartEntry"
+            },
+            "description": "1 to 64 entries, applied in order."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The open visit they were found in, if any."
+          }
+        }
+      },
+      "NewChartEntry": {
+        "type": "object",
+        "description": "One finding to record.",
+        "required": [
+          "tooth",
+          "finding"
+        ],
+        "properties": {
+          "finding": {
+            "type": "string",
+            "description": "`sound` (clears an earlier finding), `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A remark, up to 500 characters."
+          },
+          "surface": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`M`, `O`, `D`, `B` or `L`; leave out for the whole tooth (crown, missing, implant, root canal and bridge are whole-tooth only)."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int64",
+            "description": "FDI tooth number: 11-48, or 51-85 for primary teeth."
           }
         }
       },
@@ -3838,9 +4105,17 @@
         "required": [
           "visit",
           "notes",
-          "observations"
+          "observations",
+          "chart_entries"
         ],
         "properties": {
+          "chart_entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChartEntry"
+            },
+            "description": "Dental chart entries recorded in the visit."
+          },
           "notes": {
             "type": "array",
             "items": {

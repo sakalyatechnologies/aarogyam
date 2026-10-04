@@ -9,7 +9,8 @@ set local lock_timeout = '5s';
 --   1  comma-separated statuses in which a row is final
 --   2  comma-separated allowed moves out of a final status, as from>to
 --   3  comma-separated columns that may change together with an allowed move (optional)
--- updated_at and updated_by are set by set_row_meta and always ignored.
+-- updated_at and updated_by are set by set_row_meta and always ignored, and so are generated
+-- columns, which a BEFORE trigger sees as null until the row is written.
 create function app.freeze_when() returns trigger
   language plpgsql set search_path = ''
   as $$
@@ -20,7 +21,10 @@ create function app.freeze_when() returns trigger
     move_columns text[] := coalesce(string_to_array(nullif(tg_argv[3], ''), ','), '{}');
     old_status text := to_jsonb(old) ->> status_column;
     new_status text := to_jsonb(new) ->> status_column;
-    ignored text[] := array['updated_at', 'updated_by', status_column] || move_columns;
+    generated text[] := coalesce((select array_agg(a.attname::text) from pg_catalog.pg_attribute a
+                                   where a.attrelid = tg_relid and a.attgenerated <> ''), '{}');
+    ignored text[] := array['updated_at', 'updated_by', status_column] || move_columns || generated;
+    always text[] := array['updated_at', 'updated_by'] || generated;
   begin
     if not (old_status = any (final_statuses)) then
       return new;
@@ -34,8 +38,7 @@ create function app.freeze_when() returns trigger
         raise exception '%.% row is final: % can''t become %', tg_table_schema, tg_table_name, old_status, new_status
           using errcode = 'insufficient_privilege';
       end if;
-    elsif (to_jsonb(old) - array['updated_at', 'updated_by']) is distinct from
-          (to_jsonb(new) - array['updated_at', 'updated_by']) then
+    elsif (to_jsonb(old) - always) is distinct from (to_jsonb(new) - always) then
       raise exception '%.% row is final (%): it can''t change', tg_table_schema, tg_table_name, old_status
         using errcode = 'insufficient_privilege';
     end if;

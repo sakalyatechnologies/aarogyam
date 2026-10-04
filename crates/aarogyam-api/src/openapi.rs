@@ -51,6 +51,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::facts::add_allergy,
         crate::v1::facts::edit_allergy,
         crate::v1::facts::flags,
+        crate::v1::chart::get,
+        crate::v1::chart::record,
         crate::v1::staff::list,
         crate::v1::staff::invite,
         crate::v1::staff::change,

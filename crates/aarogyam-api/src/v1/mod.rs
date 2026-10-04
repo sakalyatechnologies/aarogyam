@@ -2,6 +2,7 @@
 //! [`crate::extract::Require`] (a clinic member with a permission), [`crate::extract::PlatformRequest`]
 //! (Sakalya staff on the console host) or [`crate::extract::SignedIn`] (anyone signed in).
 
+pub(crate) mod chart;
 pub(crate) mod console;
 pub(crate) mod facts;
 pub(crate) mod internal;
@@ -65,6 +66,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             patch(facts::edit_allergy),
         )
         .route("/patients/{id}/clinical-flags", get(facts::flags))
+        .route(
+            "/patients/{id}/dental-chart",
+            get(chart::get).post(chart::record),
+        )
         .route("/staff", get(staff::list))
         .route("/staff/invitations", post(staff::invite))
         .route("/staff/{membership_id}", patch(staff::change))

@@ -653,6 +653,185 @@ async fn allergies_and_flagged_conditions_raise_clinical_flags() {
     app.finish().await;
 }
 
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn dental_chart_entries_supersede_and_keep_history() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let other = register(&app, ALPHA, &owner, "Ravi Kumar").await;
+    let visit = start_visit(&app, &owner, &patient).await;
+    let other_visit = start_visit(&app, &owner, &other).await;
+    let path = format!("/api/v1/patients/{patient}/dental-chart");
+    let record = async |body: Value| {
+        app.send(Method::POST, ALPHA, &path, Some(&owner), Some(body))
+            .await
+    };
+    let current = |chart: &Value| -> Vec<(u64, String, String)> {
+        chart["current"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| {
+                (
+                    e["tooth"].as_u64().unwrap(),
+                    e["surface"].as_str().unwrap_or("-").to_owned(),
+                    e["finding"].as_str().unwrap().to_owned(),
+                )
+            })
+            .collect()
+    };
+
+    let (status, chart) = record(json!({ "visit_id": visit, "entries": [
+        { "tooth": 36, "surface": "O", "finding": "caries" },
+        { "tooth": 36, "surface": "d", "finding": "caries", "note": "shallow" },
+        { "tooth": 11, "finding": "watch" },
+        { "tooth": 55, "finding": "missing" },
+    ] }))
+    .await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    assert_eq!(
+        current(&chart),
+        [
+            (11, "-".into(), "watch".into()),
+            (36, "D".into(), "caries".into()),
+            (36, "O".into(), "caries".into()),
+            (55, "-".into(), "missing".into()),
+        ]
+    );
+    let caries_o = chart["current"][2]["id"].as_str().unwrap().to_owned();
+
+    // A filling supersedes the caries on the same surface only.
+    let (status, chart) =
+        record(json!({ "entries": [{ "tooth": 36, "surface": "O", "finding": "filled" }] })).await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    assert_eq!(
+        current(&chart)[1..3],
+        [
+            (36, "D".into(), "caries".into()),
+            (36, "O".into(), "filled".into())
+        ]
+    );
+    assert_eq!(chart["current"][2]["supersedes_id"], caries_o.as_str());
+    // A crown covers every surface.
+    let (status, chart) = record(json!({ "entries": [{ "tooth": 36, "finding": "crown" }] })).await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    assert_eq!(
+        current(&chart),
+        [
+            (11, "-".into(), "watch".into()),
+            (36, "-".into(), "crown".into()),
+            (55, "-".into(), "missing".into()),
+        ]
+    );
+
+    // The tooth's history keeps everything, newest first.
+    let (status, chart) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("{path}?tooth=36"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    let history: Vec<(&str, &str)> = chart["history"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            (
+                e["finding"].as_str().unwrap(),
+                e["status"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        history,
+        [
+            ("crown", "current"),
+            ("filled", "superseded"),
+            ("caries", "superseded"),
+            ("caries", "superseded"),
+        ]
+    );
+
+    for body in [
+        json!({ "entries": [{ "tooth": 19, "finding": "caries" }] }),
+        json!({ "entries": [{ "tooth": 36, "surface": "X", "finding": "caries" }] }),
+        json!({ "entries": [{ "tooth": 36, "surface": "O", "finding": "crown" }] }),
+        json!({ "entries": [{ "tooth": 36, "finding": "decay" }] }),
+        json!({ "entries": [] }),
+    ] {
+        let (status, error) = record(body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{error}");
+        assert!(
+            error["error"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with("entries"),
+            "{error}"
+        );
+    }
+    let (status, _) = record(
+        json!({ "visit_id": other_visit, "entries": [{ "tooth": 21, "finding": "caries" }] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("{path}?tooth=99"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    // The database keeps one current entry per tooth and surface, and entries never change.
+    let alpha = app.clinic_id("alpha").await;
+    let db = app.api_db();
+    for (statement, kind) in [
+        (
+            "insert into aarogyam.specialty_records (patient_id, module, kind, schema_version, data)
+             values ($1::uuid, 'dental', 'tooth', 1, '{\"tooth\": 36, \"finding\": \"caries\"}')",
+            DbErrorKind::Conflict,
+        ),
+        (
+            "update aarogyam.specialty_records set data = '{\"tooth\": 36, \"finding\": \"sound\"}'
+             where patient_id = $1::uuid and tooth = 36 and status = 'current'",
+            DbErrorKind::Forbidden,
+        ),
+    ] {
+        let error = db
+            .scoped(&Scope::tenant(alpha), async |tx| {
+                sqlx::query(sqlx::AssertSqlSafe(statement))
+                    .bind(&patient)
+                    .execute(tx.conn())
+                    .await
+                    .map_err(DbError::from)
+            })
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind(), kind, "{statement}");
+    }
+
+    // The visit shows the entries recorded in it.
+    let (_, detail) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(detail["chart_entries"].as_array().unwrap().len(), 4);
+    app.finish().await;
+}
+
 /// Posts `body` as Alpha's owner and returns the new record's id.
 async fn create(app: &TestApp, path: &str, body: Value) -> String {
     let owner = app.token(ALPHA_OWNER);

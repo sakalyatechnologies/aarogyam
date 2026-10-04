@@ -7,7 +7,7 @@
 
 import type { z } from "zod";
 
-import type { ApiClient } from "../client.js";
+import type { ApiClient, PatientFilter } from "../client.js";
 import type * as C from "../contract.js";
 import type { TokenSource } from "../http-client.js";
 import { hasPermission, type Permission } from "../permissions.js";
@@ -207,7 +207,22 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
         status: p.status,
         created_at: p.created_at,
         last_visit_at: p.last_visit_at ?? null,
+        ...patientSummary(state, p, clock(), hasPermission(caller.membership.role.permissions, "billing.read")),
       };
+    };
+
+    /** The list filters; the fake has no recalls, so none is ever due. */
+    const filterPatients = (patients: FakePatient[], filter: PatientFilter, caller: Caller): FakePatient[] | Outcome => {
+      if (filter.withBalance === true && !hasPermission(caller.membership.role.permissions, "billing.read")) {
+        return refuse(403, "forbidden", "Your role can't do that.");
+      }
+      const month = localClock(clock(), caller.clinic.timezone).date.slice(0, 7);
+      return patients.filter(
+        (p) =>
+          (filter.withBalance !== true || (patientSummary(state, p, clock(), true).balance_paise ?? 0) > 0) &&
+          filter.recallsDue !== true &&
+          (filter.newThisMonth !== true || localClock(new Date(p.created_at), caller.clinic.timezone).date.slice(0, 7) === month),
+      );
     };
 
     const clinicPatients = (caller: Caller) => state.patients.filter((p) => p.clinic_id === caller.clinic.id && p.status !== "merged");
@@ -282,7 +297,11 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!isCaller(caller)) {
             return caller;
           }
-          const items = searchPatients(clinicPatients(caller), "").slice(0, 50);
+          const filtered = filterPatients(clinicPatients(caller), opts ?? {}, caller);
+          if (!Array.isArray(filtered)) {
+            return filtered;
+          }
+          const items = searchPatients(filtered, "").slice(0, 50);
           return reply({ items: items.map((p) => wirePatient(p, caller)) } satisfies C.PatientList);
         }),
 
@@ -293,7 +312,11 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return caller;
           }
           const limit = Math.min(100, Math.max(1, search.limit ?? 20));
-          const items = searchPatients(clinicPatients(caller), search.q).slice(0, limit);
+          const filtered = filterPatients(clinicPatients(caller), search, caller);
+          if (!Array.isArray(filtered)) {
+            return filtered;
+          }
+          const items = searchPatients(filtered, search.q).slice(0, limit);
           return reply({ items: items.map((p) => wirePatient(p, caller)) } satisfies C.PatientList);
         }),
 
@@ -1722,6 +1745,26 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return notFound;
           }
           return reply(wired satisfies C.Plan);
+        }),
+
+      setPlanItemStatus: (itemId, status, opts) =>
+        respond(S.plan, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.plans.find((p) => p.clinic_id === caller.clinic.id && p.items.some((i) => i.id === itemId));
+          const item = found?.items.find((i) => i.id === itemId);
+          if (found === undefined || item === undefined) {
+            return notFound;
+          }
+          if (item.status !== "accepted") {
+            return refuse(409, "conflict", "Only an accepted item can be finished.");
+          }
+          item.status = status;
+          found.status = found.items.some((i) => i.status === "accepted") ? "in_progress" : "completed";
+          const wired = wirePlan(found, state);
+          return wired === undefined ? notFound : reply(wired satisfies C.Plan);
         }),
 
       listProcedures: (id, opts) =>
@@ -3430,6 +3473,34 @@ function wireShifts(state: Fixtures, practitionerId: string): C.WorkingShift[] {
   return state.workingShifts
     .filter((s) => s.practitioner_id === practitionerId)
     .map((s) => ({ weekday: s.weekday, starts: s.starts, ends: s.ends, branch_id: s.branch_id }));
+}
+
+/** What the list and the record header add to a patient: the next booking and the money. */
+function patientSummary(
+  state: Fixtures,
+  p: FakePatient,
+  now: Date,
+  money: boolean,
+): {
+  next_appointment: { starts_at: string; practitioner: string } | null;
+  balance_paise: number | null;
+  lifetime_paid_paise: number | null;
+  recall_due: boolean;
+} {
+  const next = state.appointments
+    .filter((a) => a.patient_id === p.id && (a.status === "booked" || a.status === "confirmed") && new Date(a.starts_at) >= now)
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
+  const practitioner = next === undefined ? undefined : state.practitioners.find((x) => x.id === next.practitioner_id);
+  const balance = state.invoices
+    .filter((i) => i.patient_id === p.id && i.status === "issued")
+    .reduce((sum, i) => sum + wireInvoice(i, state, false).balance_paise, 0);
+  const paid = state.payments.filter((x) => x.patient_id === p.id && x.status === "received").reduce((sum, x) => sum + x.amount_paise, 0);
+  return {
+    next_appointment: next === undefined || practitioner === undefined ? null : { starts_at: next.starts_at, practitioner: practitioner.display_name },
+    balance_paise: money ? balance : null,
+    lifetime_paid_paise: money ? paid : null,
+    recall_due: false,
+  };
 }
 
 function wirePatientBrief(p: FakePatient, now: Date): C.PatientBrief {

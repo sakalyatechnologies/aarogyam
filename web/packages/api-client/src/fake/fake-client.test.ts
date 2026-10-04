@@ -345,6 +345,21 @@ describe("fake client: sessions", () => {
   });
 });
 
+describe("fake client: patient summaries and filters", () => {
+  it("shows balances, next bookings and filters the list", async () => {
+    const { as } = setup();
+    const api = as(PEOPLE.asha, SUNRISE);
+    const everyone = value(await api.listPatients()).items;
+    const owing = value(await api.listPatients({ withBalance: true })).items;
+    expect(owing.length).toBeGreaterThan(0);
+    expect(owing.map((p) => p.id)).toEqual(everyone.filter((p) => (p.balance_paise ?? 0) > 0).map((p) => p.id));
+    expect(everyone.some((p) => p.next_appointment != null)).toBe(true);
+    expect(everyone.every((p) => !p.recall_due)).toBe(true);
+    expect(value(await api.listPatients({ recallsDue: true })).items).toHaveLength(0);
+    expect(value(await api.searchPatients({ q: "", newThisMonth: true })).items.every((p) => p.created_at.startsWith("2026-10"))).toBe(true);
+  });
+});
+
 describe("fake client: cancellation", () => {
   it("resolves to an aborted error when the signal is already cancelled", async () => {
     const { as } = setup();

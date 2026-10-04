@@ -3,20 +3,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 
 import type { Patient } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatDate, useDocumentTitle } from "@aarogyam/app-kit";
+import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
 import { Button, Card, ChipFilterGroup, DataTable, Link, Pill, SearchInput, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { patientPath } from "../../lib/patients.js";
-import { usePatients } from "../../queries.js";
+import { usePatientList } from "./queries.js";
 
 type QuickFilter = "all" | "with_balance" | "recalls_due" | "new_this_month";
-
-/** The start of this calendar month, in the viewer's local time, as an ISO instant. */
-function startOfThisMonth(): string {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-}
 
 /** Mock-up palette for the initials tile; chosen from the patient number so it stays the same between visits. */
 const TILE_COLOURS = ["#1b734a", "#a86e0f", "#4338ca", "#136650", "#be123c", "#0ea5e9", "#7c3aed"] as const;
@@ -62,9 +56,24 @@ const COLUMNS: readonly DataTableColumn<Patient>[] = [
   },
   { id: "number", header: "File no.", cell: (row) => <span className="font-mono">{row.number}</span> },
   { id: "visit", header: "Last visit", sortValue: (row) => row.last_visit_at, cell: (row) => (row.last_visit_at == null ? "—" : formatDate(row.last_visit_at)) },
-  // The patient list has no next-appointment or balance field yet; show a dash, never a made-up value.
-  { id: "next", header: "Next", cell: () => "—" },
-  { id: "balance", header: "Balance", cell: () => "—" },
+  {
+    id: "next",
+    header: "Next",
+    sortValue: (row) => row.next_appointment?.starts_at,
+    cell: (row) =>
+      row.next_appointment == null ? (
+        "—"
+      ) : (
+        <span title={row.next_appointment.practitioner}>{formatDateTime(row.next_appointment.starts_at)}</span>
+      ),
+  },
+  {
+    id: "balance",
+    header: "Balance",
+    sortValue: (row) => row.balance_paise,
+    // Null without billing.read: a dash, not zero.
+    cell: (row) => (row.balance_paise == null ? "—" : row.balance_paise > 0 ? <span className="font-semibold text-danger">{formatRupees(row.balance_paise)}</span> : formatRupees(0)),
+  },
   {
     id: "status",
     header: "Status",
@@ -81,15 +90,12 @@ export function PatientsPage() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<readonly QuickFilter[]>(["all"]);
-  const search = usePatients(q);
-  const monthStart = startOfThisMonth();
-  // Balances and recalls are not on the patient list yet, so those two filters show nothing rather than guess.
-  const rows = (search.data?.items ?? []).filter((row) => {
-    if (filter[0] === "with_balance" || filter[0] === "recalls_due") {
-      return false;
-    }
-    return filter[0] !== "new_this_month" || row.created_at >= monthStart;
+  const search = usePatientList(q, {
+    withBalance: filter[0] === "with_balance",
+    recallsDue: filter[0] === "recalls_due",
+    newThisMonth: filter[0] === "new_this_month",
   });
+  const rows = search.data?.items ?? [];
   const register = can("patients.write") ? (
     <Button
       icon={<Plus aria-hidden="true" className="size-4" />}
@@ -167,9 +173,11 @@ export function PatientsPage() {
                   }
                 : filter[0] === "new_this_month"
                   ? { title: "No patients registered this month", description: "Switch back to All to see everyone.", action: register }
-                  : filter[0] === "with_balance" || filter[0] === "recalls_due"
-                    ? { title: "Not available yet", description: "Balances and recalls aren't on the patient list yet. Switch back to All." }
-                    : { title: "No patients yet", description: "Registered patients show here.", action: register }
+                  : filter[0] === "with_balance"
+                    ? { title: "No patients with a balance", description: "Switch back to All to see everyone." }
+                    : filter[0] === "recalls_due"
+                      ? { title: "No recalls due", description: "Switch back to All to see everyone." }
+                      : { title: "No patients yet", description: "Registered patients show here.", action: register }
             }
           />
         )}

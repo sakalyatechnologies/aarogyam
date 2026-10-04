@@ -165,6 +165,13 @@ export const patient = z.object({
   status: z.enum(["active", "inactive", "deceased", "merged"]),
   created_at: timestamp,
   last_visit_at: optionalTimestamp,
+  /** The next booked or confirmed appointment; absent on a freshly registered patient. */
+  next_appointment: z.object({ starts_at: timestamp, practitioner: z.string() }).nullable().exactOptional(),
+  /** Owed on issued bills; null without `billing.read`. */
+  balance_paise: paise.nullable().exactOptional(),
+  /** Received in total; null without `billing.read`. */
+  lifetime_paid_paise: paise.nullable().exactOptional(),
+  recall_due: z.boolean(),
 }) satisfies z.ZodType<C.Patient>;
 export type Patient = z.output<typeof patient>;
 
@@ -932,6 +939,9 @@ export type PlanStatus = z.output<typeof planStatus>;
 
 export const planItemStatus = z.enum(["proposed", "accepted", "done", "cancelled"]) satisfies z.ZodType<C.PlanItemStatus>;
 export type PlanItemStatus = z.output<typeof planItemStatus>;
+
+/** The statuses `PATCH /api/v1/treatment-plan-items/{id}` accepts. */
+export type FinishedItemStatus = "done" | "cancelled";
 
 const planItem = z.object({
   id: z.string().min(1),

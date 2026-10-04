@@ -5,19 +5,19 @@ members = ["crates/*"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.90"
+rust-version = "1.99"
 publish = false
 repository = "https://github.com/sakalyatechnologies/aarogyam"
 
 [workspace.dependencies]
 # Shared Sakalya crates, by tag. A local .cargo/config.toml may [patch] them to a checkout.
-sakalya-throttle = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
-sakalya-types = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
-sakalya-config = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
-sakalya-telemetry = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
-sakalya-http = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
-sakalya-auth = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
-sakalya-db = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
+sakalya-throttle = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.0" }
+sakalya-types = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.0" }
+sakalya-config = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.0" }
+sakalya-telemetry = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.0" }
+sakalya-http = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.0" }
+sakalya-auth = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.0" }
+sakalya-db = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.0" }
 
 # Our crates
 aarogyam-dal = { path = "crates/aarogyam-dal" }

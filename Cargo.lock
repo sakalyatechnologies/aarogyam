@@ -1730,7 +1730,8 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
 name = "sakalya-auth"
-version = "0.1.0"
+version = "0.2.0"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
 dependencies = [
  "http",
  "jsonwebtoken",
@@ -1746,7 +1747,8 @@ dependencies = [
 
 [[package]]
 name = "sakalya-config"
-version = "0.1.0"
+version = "0.2.0"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
 dependencies = [
  "figment",
  "serde",
@@ -1755,7 +1757,8 @@ dependencies = [
 
 [[package]]
 name = "sakalya-db"
-version = "0.1.0"
+version = "0.2.0"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
 dependencies = [
  "sakalya-http",
  "secrecy",
@@ -1768,7 +1771,8 @@ dependencies = [
 
 [[package]]
 name = "sakalya-http"
-version = "0.1.0"
+version = "0.2.0"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
 dependencies = [
  "axum",
  "http",
@@ -1785,7 +1789,8 @@ dependencies = [
 
 [[package]]
 name = "sakalya-telemetry"
-version = "0.1.0"
+version = "0.2.0"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
 dependencies = [
  "serde",
  "serde_json",
@@ -1797,7 +1802,8 @@ dependencies = [
 
 [[package]]
 name = "sakalya-throttle"
-version = "0.1.0"
+version = "0.2.0"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
 dependencies = [
  "axum",
  "http",
@@ -1810,7 +1816,8 @@ dependencies = [
 
 [[package]]
 name = "sakalya-types"
-version = "0.1.0"
+version = "0.2.0"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
 dependencies = [
  "serde",
  "thiserror",
@@ -3101,7 +3108,3 @@ name = "zmij"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
-
-[[patch.unused]]
-name = "sakalya-testkit"
-version = "0.1.0"

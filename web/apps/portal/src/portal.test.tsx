@@ -234,6 +234,41 @@ describe("Patient 360", () => {
     await user.click(await screen.findByRole("tab", { name: "Clinical flags" }));
     expect(await screen.findByText("No clinical flags recorded yet")).toBeTruthy();
   });
+
+  it("edits a patient's name and returns to their record", async () => {
+    const user = userEvent.setup();
+    let path = "";
+    const backend = fakeApi((fixtures) => {
+      const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
+      const patient = fixtures.patients.find((p) => p.clinic_id === sunrise?.id);
+      path = `/patients/${patient?.id ?? ""}`;
+    });
+    renderPortal(path, { as: PEOPLE.farah, backend });
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    const name = await screen.findByLabelText(/full name/i);
+    await user.clear(name);
+    await user.type(name, "Updated Patient Name");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByRole("heading", { name: "Updated Patient Name" })).toBeTruthy();
+  });
+
+  it("hides phone and email from editing without patients.contact", async () => {
+    const user = userEvent.setup();
+    let path = "";
+    const backend = fakeApi((fixtures) => {
+      const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
+      const membership = fixtures.memberships.find((m) => m.user_id === PEOPLE.farah);
+      const patient = fixtures.patients.find((p) => p.clinic_id === sunrise?.id);
+      if (membership !== undefined) membership.role = { key: "writer_only", name: "Writer only", permissions: ["patients.read", "patients.write"] };
+      path = `/patients/${patient?.id ?? ""}`;
+    });
+    renderPortal(path, { as: PEOPLE.farah, backend });
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await screen.findByLabelText(/full name/i);
+    expect(screen.queryByLabelText(/mobile/i)).toBeNull();
+    expect(screen.queryByLabelText(/email/i)).toBeNull();
+    expect(screen.getByText(/need the contact permission/)).toBeTruthy();
+  });
 });
 
 describe("Today enrichment", () => {

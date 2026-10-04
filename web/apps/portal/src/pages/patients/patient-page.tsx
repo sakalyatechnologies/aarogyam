@@ -1,13 +1,13 @@
-import { Eye, EyeOff, Mail, Phone } from "lucide-react";
+import { Eye, EyeOff, Mail, Pencil, Phone } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 
 import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, useDocumentTitle } from "@aarogyam/app-kit";
 import { Avatar, Button, Card, EmptyState, Pill, Skeleton, Tabs } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
-import { ageSex, formatPhone, languageLabel, maskEmail, maskPhone } from "../../lib/patients.js";
+import { ageSex, formatPhone, languageLabel, maskEmail, maskPhone, patientPath } from "../../lib/patients.js";
 import { usePatient } from "../../queries.js";
 import { NotFoundPage } from "../not-found-page.js";
 
@@ -80,6 +80,7 @@ export function PatientPage() {
 
 function PatientView({ patient }: { patient: Patient }) {
   const { can } = useClinic();
+  const navigate = useNavigate();
   // Without patients.contact the API sends contact details already masked: show them as they are.
   const revealable = can("patients.contact");
   const age = patient.age_years ?? null;
@@ -106,6 +107,17 @@ function PatientView({ patient }: { patient: Patient }) {
               )}
             </div>
           </div>
+          {can("patients.write") ? (
+            <Button
+              variant="secondary"
+              icon={<Pencil aria-hidden="true" className="size-4" />}
+              onClick={() => {
+                void navigate(`${patientPath(patient)}/edit`);
+              }}
+            >
+              Edit
+            </Button>
+          ) : null}
         </div>
       </Card>
       <Card>

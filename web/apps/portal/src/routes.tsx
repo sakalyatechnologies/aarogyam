@@ -8,6 +8,7 @@ import { ComingSoonPage } from "./pages/coming-soon-page.js";
 import { InvitePage } from "./pages/invite-page.js";
 import { NotFoundPage } from "./pages/not-found-page.js";
 import { EditPatientPage } from "./pages/patients/edit-patient-page.js";
+import { ImportPage } from "./pages/patients/import-page.js";
 import { NewPatientPage } from "./pages/patients/new-patient-page.js";
 import { PatientPage } from "./pages/patients/patient-page.js";
 import { PatientsPage } from "./pages/patients/patients-page.js";
@@ -38,6 +39,7 @@ export const routes: RouteObject[] = [
               { path: "today", element: <TodayPage /> },
               { path: "patients", element: <PatientsPage /> },
               { path: "patients/new", element: <NewPatientPage /> },
+              { path: "patients/import", element: <ImportPage /> },
               { path: "patients/:id", element: <PatientPage /> },
               { path: "patients/:id/edit", element: <EditPatientPage /> },
               { path: "calendar", element: <CalendarPage /> },

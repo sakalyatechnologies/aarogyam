@@ -1,4 +1,4 @@
-import { Plus, UserRoundSearch } from "lucide-react";
+import { Plus, Upload, UserRoundSearch } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -55,10 +55,24 @@ export function PatientsPage() {
       New patient
     </Button>
   ) : undefined;
+  const actions = can("patients.write") ? (
+    <>
+      <Button
+        variant="secondary"
+        icon={<Upload aria-hidden="true" className="size-4" />}
+        onClick={() => {
+          void navigate("/patients/import");
+        }}
+      >
+        Import
+      </Button>
+      {register}
+    </>
+  ) : undefined;
 
   return (
     <>
-      <PageHeader title="Patients" {...(q === "" ? { subtitle: "Recently seen first" } : {})} end={register} />
+      <PageHeader title="Patients" {...(q === "" ? { subtitle: "Recently seen first" } : {})} end={actions} />
       <Card>
         <SearchInput
           label="Search patients"

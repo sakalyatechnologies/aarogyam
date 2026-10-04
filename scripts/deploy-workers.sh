@@ -3,17 +3,21 @@
 # <api-origin> (a scripts/tunnel-up.sh tunnel today, a Cloud Run URL later). Reads credentials
 # from git-ignored .env files and never echoes their values.
 #
-# Usage: scripts/deploy-workers.sh <api-origin>
+# Usage: scripts/deploy-workers.sh <api-origin> [clinic-worker-name]
+#   With a clinic Worker name (such as aarogyam-suhasya), deploys only the portal under that
+#   name. workers.dev has no wildcard subdomains, so each demo clinic gets its own Worker at
+#   <name>.<account subdomain>.workers.dev, matching the API's ARO_HOSTS__PORTAL_HOST_TEMPLATE.
 #   DEMO_DEV_SIGNIN=1 scripts/deploy-workers.sh <api-origin>   # skip Supabase; use the API's
 #                                                               # dev-token sign-in (local API,
 #                                                               # ARO_ENVIRONMENT=local, only)
 set -euo pipefail
 
-if [ $# -ne 1 ]; then
-  echo "Usage: $0 <api-origin>" >&2
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+  echo "Usage: $0 <api-origin> [clinic-worker-name]" >&2
   exit 1
 fi
 API_ORIGIN="$1"
+CLINIC_WORKER="${2:-}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
@@ -76,17 +80,27 @@ deploy_app() {
       pnpm build
   )
 
-  echo "== ${worker_name}: setting EDGE_SECRET =="
-  (cd "$worker_dir" && printf '%s' "$EDGE_SECRET" | npx wrangler secret put EDGE_SECRET)
-
+  # Deploy first so a new Worker exists before its secret is set; until then the API ignores
+  # its forwarded host.
   echo "== ${worker_name}: deploying =="
-  (cd "$worker_dir" && npx wrangler deploy --var "API_ORIGIN:${API_ORIGIN}")
+  (cd "$worker_dir" && npx wrangler deploy --name "$worker_name" --var "API_ORIGIN:${API_ORIGIN}")
+
+  echo "== ${worker_name}: setting EDGE_SECRET =="
+  (cd "$worker_dir" && printf '%s' "$EDGE_SECRET" | npx wrangler secret put EDGE_SECRET --name "$worker_name")
 }
+
+SUBDOMAIN="${CLOUDFLARE_WORKERS_SUBDOMAIN:-<subdomain>}"
+if [ -n "$CLINIC_WORKER" ]; then
+  deploy_app "web/apps/portal" "deploy/cloudflare/portal" "$CLINIC_WORKER"
+  echo ""
+  echo "Deployed https://${CLINIC_WORKER}.${SUBDOMAIN}.workers.dev (API origin: ${API_ORIGIN})"
+  exit 0
+fi
 
 deploy_app "web/apps/portal" "deploy/cloudflare/portal" "aarogyam-portal"
 deploy_app "web/apps/console" "deploy/cloudflare/console" "aarogyam-console"
 
 echo ""
 echo "Deployed. API origin: ${API_ORIGIN}"
-echo "  Portal:  https://aarogyam-portal.aarogyam.workers.dev"
-echo "  Console: https://aarogyam-console.aarogyam.workers.dev"
+echo "  Portal:  https://aarogyam-portal.${SUBDOMAIN}.workers.dev"
+echo "  Console: https://aarogyam-console.${SUBDOMAIN}.workers.dev"

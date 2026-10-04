@@ -1,12 +1,18 @@
 -- Local development data: two fictional clinics with synthetic patients. Never real people.
 -- Runs as the owner (scripts/dev-db.sh --seed) after migrations; safe to run once per database.
 -- Fixed IDs so the dev sign-in can mint tokens for these people (auth_uid = token `sub`).
+-- Portal hosts come from the psql variable portal_host_template, the API's
+-- hosts.portal_host_template (`{slug}.localtest.me` locally; see docs/deploy.md for the demo).
 --
 --   Sunrise Dental     sunrise.localtest.me   owner Asha, doctor Dev, front desk Farah; two chairs and
 --                                             today's appointments and queue around the time of seeding
 --   Lotus Dental Care  lotus.localtest.me     owner Bina; Dev also consults here
 --   Console            Sakalya Admin (platform owner)
 \set ON_ERROR_STOP 1
+\if :{?portal_host_template}
+\else
+  \set portal_host_template '{slug}.localtest.me'
+\endif
 begin;
 
 insert into aarogyam.users (id, auth_uid, display_name, email, phone_e164) values
@@ -20,9 +26,9 @@ insert into aarogyam.users (id, auth_uid, display_name, email) values
   ('01920000-0000-7000-8000-0000000000c1', 'c1c1c1c1-0000-4000-8000-000000000001', 'Sakalya Admin', 'admin@sakalya.example');
 insert into aarogyam.platform_users (user_id, role) values ('01920000-0000-7000-8000-0000000000c1', 'owner');
 
-select app.create_clinic('sunrise', 'Sunrise Dental', 'SD', 'dental', 'sunrise.localtest.me',
+select app.create_clinic('sunrise', 'Sunrise Dental', 'SD', 'dental', replace(:'portal_host_template', '{slug}', 'sunrise'),
                          '01920000-0000-7000-8000-0000000000a1') as sunrise \gset
-select app.create_clinic('lotus', 'Lotus Dental Care', 'LD', 'dental', 'lotus.localtest.me',
+select app.create_clinic('lotus', 'Lotus Dental Care', 'LD', 'dental', replace(:'portal_host_template', '{slug}', 'lotus'),
                          '01920000-0000-7000-8000-0000000000b1') as lotus \gset
 
 insert into aarogyam.memberships (org_id, user_id, role_id, status, joined_at)

@@ -1,4 +1,18 @@
-/** Clinic addresses: `<slug>.aarogyam.example`. The API has the final say; this guides typing. */
+/** Clinic addresses, such as `<slug>.aarogyam.example`. The API has the final say; this guides typing. */
+
+/** The portal host pattern, the same as the API's `hosts.portal_host_template`. */
+const HOST_TEMPLATE = import.meta.env.VITE_PORTAL_HOST_TEMPLATE ?? "{slug}.aarogyam.example";
+
+/** The text around the slug in a portal host: `["", ".aarogyam.example"]`. */
+export const HOST_AFFIXES: readonly [string, string] = (() => {
+  const [before = "", after = ""] = HOST_TEMPLATE.split("{slug}");
+  return [before, after];
+})();
+
+/** The portal host a slug gets: `sunrise` → `sunrise.aarogyam.example`. */
+export function portalHost(slug: string): string {
+  return `${HOST_AFFIXES[0]}${slug}${HOST_AFFIXES[1]}`;
+}
 
 export const SLUG_MAX = 30;
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/;

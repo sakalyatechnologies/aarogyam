@@ -8,4 +8,6 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_ANON_KEY?: string;
   /** The portal's port in invitation links; 5173 in development, none in production. */
   readonly VITE_PORTAL_PORT?: string;
+  /** Portal host pattern with `{slug}`, matching the API; default `{slug}.aarogyam.example`. */
+  readonly VITE_PORTAL_HOST_TEMPLATE?: string;
 }

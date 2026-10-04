@@ -10,7 +10,7 @@ import { formatDateTime, useDocumentTitle } from "@aarogyam/app-kit";
 import { Button, Card, Field, FormActions, PageHeader, Select, TextInput, useToast } from "@sakalya/ui";
 
 import { useCreateClinic } from "../../api.js";
-import { RESERVED_SLUGS, SLUG_PATTERN, slugify } from "./slug.js";
+import { HOST_AFFIXES, RESERVED_SLUGS, SLUG_PATTERN, portalHost, slugify } from "./slug.js";
 
 const schema = z.object({
   name: z.string().trim().min(2, "Enter the clinic's name.").max(80, "Keep the name under 80 characters."),
@@ -128,14 +128,15 @@ function NewClinicForm({ onCreated }: { onCreated: (created: CreatedClinic) => v
           </Field>
           <Field
             label="Address"
-            hint={`The portal will live at ${slug === "" ? "<address>" : slug}.aarogyam.example. Filled in from the name; edit it if you like.`}
+            hint={`The portal will live at ${portalHost(slug === "" ? "<address>" : slug)}. Filled in from the name; edit it if you like.`}
             error={errors.slug?.message}
             required
           >
             <TextInput
               spellCheck={false}
               autoCapitalize="none"
-              endAddon=".aarogyam.example"
+              {...(HOST_AFFIXES[0] === "" ? {} : { startAddon: HOST_AFFIXES[0] })}
+              endAddon={HOST_AFFIXES[1]}
               {...form.register("slug", {
                 onChange: (event: { target: { value: string } }) => {
                   setSlugEdited(event.target.value !== "");

@@ -4,13 +4,13 @@ import { useNavigate } from "react-router";
 
 import type { Patient } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, Card, ChipFilterGroup, DataTable, Link, PageHeader, SearchInput, type DataTableColumn } from "@sakalya/ui";
+import { Button, Card, ChipFilterGroup, DataTable, Link, Pill, SearchInput, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
-import { ageSex, maskPhone, patientPath } from "../../lib/patients.js";
+import { patientPath } from "../../lib/patients.js";
 import { usePatients } from "../../queries.js";
 
-type QuickFilter = "all" | "new_this_month";
+type QuickFilter = "all" | "with_balance" | "recalls_due" | "new_this_month";
 
 /** The start of this calendar month, in the viewer's local time, as an ISO instant. */
 function startOfThisMonth(): string {
@@ -18,21 +18,60 @@ function startOfThisMonth(): string {
   return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 }
 
+/** Mock-up palette for the initials tile; chosen from the patient number so it stays the same between visits. */
+const TILE_COLOURS = ["#1b734a", "#a86e0f", "#4338ca", "#136650", "#be123c", "#0ea5e9", "#7c3aed"] as const;
+
+function tileColour(key: string): string {
+  let sum = 0;
+  for (const ch of key) {
+    sum += ch.charCodeAt(0);
+  }
+  return TILE_COLOURS[sum % TILE_COLOURS.length] ?? TILE_COLOURS[0];
+}
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase())
+    .join("")
+    .slice(0, 3);
+}
+
 const COLUMNS: readonly DataTableColumn<Patient>[] = [
   {
     id: "name",
     header: "Patient",
+    sortValue: (row) => row.full_name,
     cell: (row) => (
-      <Link href={patientPath(row)} className="font-semibold text-primary-text hover:underline">
-        {row.full_name}
-      </Link>
+      <span className="flex items-center gap-2.5">
+        {/* The tile is decoration: the name beside it is the accessible label. */}
+        <span
+          aria-hidden="true"
+          className="grid size-8 flex-none place-items-center rounded-[11px] text-xs font-extrabold text-white"
+          style={{ background: tileColour(row.number) }}
+        >
+          {initials(row.full_name)}
+        </span>
+        <Link href={patientPath(row)} className="font-semibold text-text hover:underline">
+          {row.full_name}
+        </Link>
+        {row.age_years == null ? null : <span className="font-normal text-muted">· {row.age_years}y</span>}
+      </span>
     ),
   },
-  { id: "number", header: "Number", cell: (row) => <span className="font-mono text-xs">{row.number}</span> },
-  { id: "age", header: "Age and sex", cell: (row) => ageSex(row.age_years, row.sex) },
-  // Lists show phones masked; Patient 360 reveals them on request.
-  { id: "phone", header: "Phone", cell: (row) => (row.phone == null ? "—" : maskPhone(row.phone)) },
-  { id: "visit", header: "Last visit", align: "end", cell: (row) => (row.last_visit_at == null ? "Not yet" : formatDate(row.last_visit_at)) },
+  { id: "number", header: "File no.", cell: (row) => <span className="font-mono">{row.number}</span> },
+  { id: "visit", header: "Last visit", sortValue: (row) => row.last_visit_at, cell: (row) => (row.last_visit_at == null ? "—" : formatDate(row.last_visit_at)) },
+  // The patient list has no next-appointment or balance field yet; show a dash, never a made-up value.
+  { id: "next", header: "Next", cell: () => "—" },
+  { id: "balance", header: "Balance", cell: () => "—" },
+  {
+    id: "status",
+    header: "Status",
+    cell: (row) => (
+      <Pill tone={row.status === "active" ? "success" : "warning"}>{row.status === "active" ? "ACTIVE" : row.status.toUpperCase()}</Pill>
+    ),
+  },
 ];
 
 /** Find a patient by name, clinic number or phone. The search never goes in the page URL. */
@@ -44,7 +83,13 @@ export function PatientsPage() {
   const [filter, setFilter] = useState<readonly QuickFilter[]>(["all"]);
   const search = usePatients(q);
   const monthStart = startOfThisMonth();
-  const rows = (search.data?.items ?? []).filter((row) => filter[0] !== "new_this_month" || row.created_at >= monthStart);
+  // Balances and recalls are not on the patient list yet, so those two filters show nothing rather than guess.
+  const rows = (search.data?.items ?? []).filter((row) => {
+    if (filter[0] === "with_balance" || filter[0] === "recalls_due") {
+      return false;
+    }
+    return filter[0] !== "new_this_month" || row.created_at >= monthStart;
+  });
   const register = can("patients.write") ? (
     <Button
       icon={<Plus aria-hidden="true" className="size-4" />}
@@ -72,53 +117,61 @@ export function PatientsPage() {
 
   return (
     <>
-      <PageHeader title="Patients" {...(q === "" ? { subtitle: "Recently seen first" } : {})} end={actions} />
-      <Card>
+      <h1 className="sr-only">Patients</h1>
+      <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
         <SearchInput
           label="Search patients"
-          placeholder="Name, clinic number or phone"
+          placeholder="Search by name, phone, file no…"
           value={q}
           onValueChange={setQ}
-          className="mb-4 max-w-xl"
+          className="w-full sm:w-auto sm:min-w-60"
         />
         <ChipFilterGroup
           label="Filter patients"
           value={filter}
           onValueChange={setFilter}
-          className="mb-4"
           options={[
             { value: "all", label: "All" },
+            { value: "with_balance", label: "With balance" },
+            { value: "recalls_due", label: "Recalls due" },
             { value: "new_this_month", label: "New this month" },
           ]}
         />
+        <div className="flex flex-wrap gap-2 sm:ms-auto">{actions}</div>
+      </div>
+      <Card>
+        <h2 className="text-[15px] font-extrabold tracking-tight text-text">
+          Patients <span className="font-medium text-muted">· {search.isPending ? "…" : rows.length.toLocaleString("en-IN")} records</span>
+        </h2>
+        <p className="mb-4 mt-1 text-[12.5px] text-muted">Open a patient name for Patient 360</p>
         <p role="status" className="sr-only">
           {search.isFetching ? "Searching" : `${String(rows.length)} patients shown`}
         </p>
         {search.isError ? (
           <ApiErrorNotice title="Couldn't search patients" error={search.error} onRetry={() => void search.refetch()} />
         ) : (
-          <>
-            <DataTable
-              caption="Patients"
-              columns={COLUMNS}
-              rows={rows}
-              rowKey={(row) => row.id}
-              loading={search.isPending}
-              pageSize={20}
-              empty={
-                q !== ""
-                  ? {
-                      title: "No patients match your search",
-                      description: "Check the spelling, or search by clinic number or the last digits of the phone.",
-                      icon: <UserRoundSearch className="size-7" />,
-                      action: register,
-                    }
-                  : filter[0] === "new_this_month"
-                    ? { title: "No patients registered this month", description: "Switch back to All to see everyone.", action: register }
+          <DataTable
+            caption="Patients"
+            columns={COLUMNS}
+            rows={rows}
+            rowKey={(row) => row.id}
+            loading={search.isPending}
+            pageSize={20}
+            empty={
+              q !== ""
+                ? {
+                    title: "No patients match your search",
+                    description: "Check the spelling, or search by clinic number or the last digits of the phone.",
+                    icon: <UserRoundSearch className="size-7" />,
+                    action: register,
+                  }
+                : filter[0] === "new_this_month"
+                  ? { title: "No patients registered this month", description: "Switch back to All to see everyone.", action: register }
+                  : filter[0] === "with_balance" || filter[0] === "recalls_due"
+                    ? { title: "Not available yet", description: "Balances and recalls aren't on the patient list yet. Switch back to All." }
                     : { title: "No patients yet", description: "Registered patients show here.", action: register }
-              }
-            />
-          </>
+            }
+          />
         )}
       </Card>
     </>

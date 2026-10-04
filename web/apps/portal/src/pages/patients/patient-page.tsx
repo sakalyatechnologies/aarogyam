@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router";
 
 import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, useDocumentTitle } from "@aarogyam/app-kit";
-import { Avatar, Button, Card, Pill, Skeleton, Tabs } from "@sakalya/ui";
+import { Button, Card, Skeleton, Tabs } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { ageSex, formatPhone, languageLabel, maskEmail, maskPhone, patientPath } from "../../lib/patients.js";
@@ -92,38 +92,62 @@ function PatientView({ patient }: { patient: Patient }) {
   const age = patient.age_years ?? null;
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <div className="flex flex-wrap items-start gap-4">
-          <Avatar name={patient.full_name} />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-extrabold tracking-tight text-text">{patient.full_name}</h1>
-              <Pill tone="primary">{patient.number}</Pill>
-              {patient.status === "active" ? null : <Pill tone="warning">{patient.status === "inactive" ? "Inactive" : patient.status}</Pill>}
+      <Card className="overflow-hidden !p-0">
+        <div className="bg-gradient-to-br from-primary-hover to-primary p-6 text-on-primary">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] tracking-[0.1em] opacity-80">PATIENT 360</p>
+              <h1 className="mb-0.5 mt-1.5 text-[22px] font-bold">{patient.full_name}</h1>
+              <p className="text-[13px] opacity-85">
+                {patient.number} · {ageSex(age, patient.sex, patient.birth_date_estimated)}
+                {patient.status === "active" ? "" : ` · ${patient.status === "inactive" ? "Inactive" : patient.status}`}
+              </p>
             </div>
-            <p className="mt-1 text-sm text-muted">{ageSex(age, patient.sex, patient.birth_date_estimated)}</p>
-            <div className="mt-3 flex flex-col gap-1">
-              {patient.phone == null ? (
-                <p className="text-sm text-muted">No phone recorded</p>
-              ) : (
-                <Contact icon={<Phone />} label="Phone" value={formatPhone(patient.phone)} masked={maskPhone(patient.phone)} revealable={revealable} />
-              )}
-              {patient.email == null ? null : (
-                <Contact icon={<Mail />} label="Email" value={patient.email} masked={maskEmail(patient.email)} revealable={revealable} />
-              )}
-            </div>
+            {can("patients.write") ? (
+              <Button
+                variant="secondary"
+                icon={<Pencil aria-hidden="true" className="size-4" />}
+                onClick={() => {
+                  void navigate(`${patientPath(patient)}/edit`);
+                }}
+              >
+                Edit
+              </Button>
+            ) : null}
           </div>
-          {can("patients.write") ? (
+        </div>
+        <div className="px-6 py-5">
+          <dl className="text-[13px]">
+            <Kv label="Last visit" value={patient.last_visit_at == null ? "—" : formatDate(patient.last_visit_at)} />
+            {/* No next-appointment, lifetime-value or outstanding-balance field on the patient yet. */}
+            <Kv label="Next appointment" value="—" />
+            <Kv label="Lifetime value" value="—" />
+            <Kv label="Outstanding" value="—" />
+          </dl>
+          <div className="mt-3 flex flex-col gap-1">
+            {patient.phone == null ? (
+              <p className="text-sm text-muted">No phone recorded</p>
+            ) : (
+              <Contact icon={<Phone />} label="Phone" value={formatPhone(patient.phone)} masked={maskPhone(patient.phone)} revealable={revealable} />
+            )}
+            {patient.email == null ? null : (
+              <Contact icon={<Mail />} label="Email" value={patient.email} masked={maskEmail(patient.email)} revealable={revealable} />
+            )}
+          </div>
+          <div className="mt-4 flex gap-2">
             <Button
-              variant="secondary"
-              icon={<Pencil aria-hidden="true" className="size-4" />}
+              className="flex-1 justify-center"
               onClick={() => {
-                void navigate(`${patientPath(patient)}/edit`);
+                void navigate("/calendar");
               }}
             >
-              Edit
+              + Follow-up
             </Button>
-          ) : null}
+            {/* Messaging isn't built yet: disabled, not a button that pretends. */}
+            <Button variant="secondary" className="flex-1 justify-center" disabled title="Coming soon">
+              ✉ Message
+            </Button>
+          </div>
         </div>
       </Card>
       <Card>
@@ -169,6 +193,15 @@ function PatientView({ patient }: { patient: Patient }) {
           ]}
         />
       </Card>
+    </div>
+  );
+}
+
+function Kv({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between border-b border-dashed border-border py-[9px] last:border-0">
+      <dt className="text-muted">{label}</dt>
+      <dd className="font-bold text-text">{value}</dd>
     </div>
   );
 }

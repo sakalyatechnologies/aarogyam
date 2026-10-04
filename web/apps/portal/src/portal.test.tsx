@@ -125,11 +125,11 @@ describe("Patients search", () => {
     });
     const table = await screen.findByRole("table", { name: "Patients" });
     await within(table).findByText("New This Month");
-    expect(within(table).getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual(["New This Month", "Registered Long Ago"]);
+    expect(within(table).getAllByRole("link").map((cell) => cell.textContent)).toEqual(["New This Month", "Registered Long Ago"]);
 
     await user.click(screen.getByRole("button", { name: "New this month" }));
     await waitFor(() => {
-      expect(within(screen.getByRole("table", { name: "Patients" })).getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual([
+      expect(within(screen.getByRole("table", { name: "Patients" })).getAllByRole("link").map((cell) => cell.textContent)).toEqual([
         "New This Month",
       ]);
     });

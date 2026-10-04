@@ -103,6 +103,7 @@ dependencies = [
  "aarogyam-api",
  "aarogyam-app",
  "aarogyam-dal",
+ "aarogyam-domain",
  "aarogyam-notify",
  "anyhow",
  "clap",
@@ -112,11 +113,11 @@ dependencies = [
  "sakalya-db",
  "sakalya-http",
  "sakalya-telemetry",
- "sakalya-throttle",
  "secrecy",
  "serde",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

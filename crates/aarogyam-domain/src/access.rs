@@ -227,6 +227,17 @@ pub enum PlatformRole {
 }
 
 impl PlatformRole {
+    /// The stored value.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Owner => "owner",
+            Self::Support => "support",
+            Self::Onboarding => "onboarding",
+            Self::Analyst => "analyst",
+        }
+    }
+
     /// Parses the stored value.
     #[must_use]
     pub fn parse(text: &str) -> Option<Self> {

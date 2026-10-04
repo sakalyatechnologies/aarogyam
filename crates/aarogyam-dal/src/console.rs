@@ -236,3 +236,37 @@ pub async fn clinic_invitations(
     .await?;
     Ok(rows)
 }
+
+/// Makes the person with `auth_uid` active Sakalya staff with `role`, creating their user
+/// record if needed. Over the owner connection only (`aarogyam admin grant-platform`): the API
+/// role can't write these tables.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn grant_platform(
+    owner: &PgPool,
+    auth_uid: Uuid,
+    email: &str,
+    display_name: &str,
+    role: &str,
+) -> Result<Uuid, DbError> {
+    let user_id = sqlx::query_scalar!(
+        r#"with person as (
+             insert into aarogyam.users as u (auth_uid, email, display_name)
+             values ($1, $2, $3)
+             on conflict (auth_uid) do update set email = coalesce(u.email, excluded.email)
+             returning u.id
+           )
+           insert into aarogyam.platform_users as p (user_id, role, active)
+           select id, $4, true from person
+           on conflict (user_id) do update set role = excluded.role, active = true
+           returning p.user_id"#,
+        auth_uid,
+        email,
+        display_name,
+        role
+    )
+    .fetch_one(owner)
+    .await?;
+    Ok(user_id)
+}

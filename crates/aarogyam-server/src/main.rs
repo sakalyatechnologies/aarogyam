@@ -4,7 +4,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use aarogyam_api::{AppState, DevTokens, Hosts, TokenCheck};
+use aarogyam_app::accounts::{SignInAccounts as _, SupabaseAdmin};
 use aarogyam_app::files::{Files, LinkSigner, LocalDisk};
+use aarogyam_domain::access::PlatformRole;
+use aarogyam_domain::patient::Email;
 use aarogyam_notify::{Notifier, PortalLinks};
 use aarogyam_server::config::{AuthMode, Config};
 use anyhow::Context;
@@ -31,13 +34,38 @@ struct Cli {
     command: Option<Command>,
 }
 
-#[derive(Debug, Clone, Copy, Default, Subcommand)]
+#[derive(Debug, Clone, Default, Subcommand)]
 enum Command {
     /// Serve the HTTP API until SIGTERM or Ctrl-C (the default).
     #[default]
     Serve,
     /// Apply pending database migrations over the schema owner's connection, then exit.
     Migrate,
+    /// Administration over the schema owner's connection.
+    Admin {
+        #[command(subcommand)]
+        action: Admin,
+    },
+}
+
+#[derive(Debug, Clone, Subcommand)]
+enum Admin {
+    /// Make someone Sakalya staff who can use the console. Finds or creates their Supabase
+    /// sign-in account (needs the Supabase URL and secret key) unless --auth-uid is given.
+    GrantPlatform {
+        /// Their sign-in email address.
+        #[arg(long)]
+        email: String,
+        /// Console role: owner, support, onboarding or analyst.
+        #[arg(long, default_value = "owner")]
+        role: String,
+        /// Their Supabase Auth user id, to skip the Supabase lookup.
+        #[arg(long)]
+        auth_uid: Option<uuid::Uuid>,
+        /// Their name as the console shows it; defaults to the part of the email before the @.
+        #[arg(long)]
+        name: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -48,6 +76,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command.unwrap_or_default() {
         Command::Serve => serve(config).await,
         Command::Migrate => migrate(config).await,
+        Command::Admin { action } => admin(config, action).await,
     }
 }
 
@@ -62,6 +91,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
     );
     let local = config.environment == Environment::Local;
     let tokens = token_check(&config, local).await?;
+    let accounts = accounts(&config)?;
     let db = Db::connect_lazy(&DbConfig::new(config.db.url))
         .context("db.url is not a valid Postgres URL")?;
     let mut http = config.http.limits();
@@ -107,7 +137,13 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         tracing::warn!("patient files are kept on local disk until object storage is set up");
     }
     let files = Files::new(Arc::new(LocalDisk::new(config.files.dir)), signer);
-    let state = AppState::new(db, http, tokens, hosts)
+    let mut state = AppState::new(db, http, tokens, hosts);
+    if let Some(admin) = accounts {
+        state = state.with_accounts(Arc::new(admin));
+    } else if !local {
+        tracing::warn!("supabase.secret_key is not set: invited people get no sign-in account");
+    }
+    let state = state
         .with_throttle(throttle)
         .with_notifier(notifier)
         .with_files(files);
@@ -155,6 +191,67 @@ async fn token_check(config: &Config, local: bool) -> anyhow::Result<TokenCheck>
     } else {
         TokenCheck::Supabase(verifier)
     })
+}
+
+/// Supabase's Admin API when the project URL and secret key are set.
+fn accounts(config: &Config) -> anyhow::Result<Option<SupabaseAdmin>> {
+    match (&config.supabase.url, &config.supabase.secret_key) {
+        (Some(url), Some(key)) => Ok(Some(
+            SupabaseAdmin::new(url, key.clone()).context("supabase.url / supabase.secret_key")?,
+        )),
+        _ => Ok(None),
+    }
+}
+
+/// Runs an administration command over the owner connection.
+async fn admin(config: Config, action: Admin) -> anyhow::Result<()> {
+    let Admin::GrantPlatform {
+        email,
+        role,
+        auth_uid,
+        name,
+    } = action;
+    let email =
+        Email::parse(&email).map_err(|_| anyhow::anyhow!("--email is not an email address"))?;
+    let role = PlatformRole::parse(role.trim())
+        .context("--role must be owner, support, onboarding or analyst")?;
+    let auth_uid = match auth_uid {
+        Some(id) => id,
+        None => accounts(&config)?
+            .context("set SUPABASE_URL and SUPABASE_SECRET_KEY, or pass --auth-uid")?
+            .ensure_user(&email)
+            .await
+            .context("could not find or create the Supabase sign-in account")?
+            .uuid(),
+    };
+    let display_name = name
+        .map(|name| name.trim().to_owned())
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| {
+            email
+                .as_str()
+                .split('@')
+                .next()
+                .unwrap_or("staff")
+                .to_owned()
+        });
+    let url = config
+        .db
+        .owner_url
+        .context("db.owner_url (ARO_DB__OWNER_URL) is required for admin commands")?;
+    let db = Db::connect_lazy(&DbConfig::new(url))
+        .context("db.owner_url is not a valid Postgres URL")?;
+    let user_id = aarogyam_dal::console::grant_platform(
+        db.pool(),
+        auth_uid,
+        email.as_str(),
+        &display_name,
+        role.as_str(),
+    )
+    .await
+    .context("could not grant console access")?;
+    tracing::info!(%user_id, %auth_uid, role = role.as_str(), "console access granted");
+    Ok(())
 }
 
 /// Applies pending migrations over the owner connection.

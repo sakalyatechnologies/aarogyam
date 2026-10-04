@@ -1837,8 +1837,8 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
 name = "sakalya-auth"
-version = "0.2.0"
-source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
+version = "0.2.1"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.1#88103292e3d1cbde83a1bbe5be7bcc59c1b19d0b"
 dependencies = [
  "http",
  "jsonwebtoken",
@@ -1854,8 +1854,8 @@ dependencies = [
 
 [[package]]
 name = "sakalya-config"
-version = "0.2.0"
-source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
+version = "0.2.1"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.1#88103292e3d1cbde83a1bbe5be7bcc59c1b19d0b"
 dependencies = [
  "figment",
  "serde",
@@ -1864,8 +1864,8 @@ dependencies = [
 
 [[package]]
 name = "sakalya-db"
-version = "0.2.0"
-source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
+version = "0.2.1"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.1#88103292e3d1cbde83a1bbe5be7bcc59c1b19d0b"
 dependencies = [
  "sakalya-http",
  "secrecy",
@@ -1878,8 +1878,8 @@ dependencies = [
 
 [[package]]
 name = "sakalya-http"
-version = "0.2.0"
-source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
+version = "0.2.1"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.1#88103292e3d1cbde83a1bbe5be7bcc59c1b19d0b"
 dependencies = [
  "axum",
  "http",
@@ -1896,8 +1896,8 @@ dependencies = [
 
 [[package]]
 name = "sakalya-telemetry"
-version = "0.2.0"
-source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
+version = "0.2.1"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.1#88103292e3d1cbde83a1bbe5be7bcc59c1b19d0b"
 dependencies = [
  "serde",
  "serde_json",
@@ -1909,8 +1909,8 @@ dependencies = [
 
 [[package]]
 name = "sakalya-testkit"
-version = "0.2.0"
-source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
+version = "0.2.1"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.1#88103292e3d1cbde83a1bbe5be7bcc59c1b19d0b"
 dependencies = [
  "axum",
  "jsonwebtoken",
@@ -1924,8 +1924,8 @@ dependencies = [
 
 [[package]]
 name = "sakalya-throttle"
-version = "0.2.0"
-source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
+version = "0.2.1"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.1#88103292e3d1cbde83a1bbe5be7bcc59c1b19d0b"
 dependencies = [
  "axum",
  "http",
@@ -1938,8 +1938,8 @@ dependencies = [
 
 [[package]]
 name = "sakalya-types"
-version = "0.2.0"
-source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.0#9497d5dc360b7cfe7ef67d1b0d865f693c2023b0"
+version = "0.2.1"
+source = "git+https://github.com/sakalyatechnologies/sakalya-backend?tag=v0.2.1#88103292e3d1cbde83a1bbe5be7bcc59c1b19d0b"
 dependencies = [
  "serde",
  "thiserror",

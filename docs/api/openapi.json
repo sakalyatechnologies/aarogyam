@@ -6584,7 +6584,7 @@
         ],
         "properties": {
           "author": {
-            "$ref": "#/components/schemas/Member",
+            "$ref": "#/components/schemas/MemberRef",
             "description": "Who wrote it."
           },
           "body": {
@@ -9716,6 +9716,24 @@
           }
         }
       },
+      "MemberRef": {
+        "type": "object",
+        "description": "A member named on a clinical record: who saw the patient, wrote a note or acted.\n\nNot the staff list's `Member`, which carries the whole membership.",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Their membership."
+          },
+          "name": {
+            "type": "string",
+            "description": "Their display name."
+          }
+        }
+      },
       "MethodTotal": {
         "type": "object",
         "description": "Money received by one method.",
@@ -10564,7 +10582,7 @@
             "description": "Addenda, oldest first."
           },
           "author": {
-            "$ref": "#/components/schemas/Member",
+            "$ref": "#/components/schemas/MemberRef",
             "description": "Who wrote it; only they may edit or sign it."
           },
           "conflicts_with_id": {
@@ -11342,7 +11360,7 @@
             "description": "When the patient accepted it (RFC 3339)."
           },
           "clinician": {
-            "$ref": "#/components/schemas/Member",
+            "$ref": "#/components/schemas/MemberRef",
             "description": "The member who proposed it."
           },
           "created_at": {
@@ -11960,7 +11978,7 @@
         ],
         "properties": {
           "clinician": {
-            "$ref": "#/components/schemas/Member",
+            "$ref": "#/components/schemas/MemberRef",
             "description": "The member who did it."
           },
           "code": {
@@ -13516,7 +13534,7 @@
           "by": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/Member",
+                "$ref": "#/components/schemas/MemberRef",
                 "description": "The member responsible."
               },
               {
@@ -13932,7 +13950,7 @@
             "description": "Why the patient came."
           },
           "clinician": {
-            "$ref": "#/components/schemas/Member",
+            "$ref": "#/components/schemas/MemberRef",
             "description": "The member responsible."
           },
           "ended_at": {

@@ -1383,7 +1383,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           const events: C.TimelineEvent[] = [];
           for (const v of state.visits.filter((entry) => entry.clinic_id === caller.clinic.id && entry.patient_id === id)) {
-            const clinician = memberOf(state, v.clinician_membership_id);
+            const clinician = memberRefOf(state, v.clinician_membership_id);
             events.push({
               id: v.id,
               kind: "visit",
@@ -1401,7 +1401,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             if (parentVisit === undefined) {
               continue;
             }
-            const author = memberOf(state, n.author_membership_id);
+            const author = memberRefOf(state, n.author_membership_id);
             events.push({
               id: n.id,
               kind: "note",
@@ -1417,7 +1417,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           for (const p of state.procedures.filter(
             (entry) => entry.clinic_id === caller.clinic.id && entry.patient_id === id && entry.status !== "entered_in_error",
           )) {
-            const clinician = memberOf(state, p.clinician_membership_id);
+            const clinician = memberRefOf(state, p.clinician_membership_id);
             events.push({
               id: p.id,
               kind: "procedure",
@@ -4017,9 +4017,14 @@ function wireQueueToken(token: FakeQueueToken, state: Fixtures, now: Date): C.Qu
   };
 }
 
-function memberOf(state: Fixtures, membershipId: string): C.Member | undefined {
+/** The member a clinical record names, as the API shows them there: ID and display name. */
+function memberRefOf(state: Fixtures, membershipId: string): C.MemberRef | undefined {
   const membership = state.memberships.find((m) => m.id === membershipId);
-  return membership === undefined ? undefined : wireMember(membership, state);
+  if (membership === undefined) {
+    return undefined;
+  }
+  const member = wireMember(membership, state);
+  return { id: member.id, name: member.display_name };
 }
 
 function wireAllergy(a: FakeAllergy): C.Allergy {
@@ -4055,7 +4060,7 @@ function wireCondition(c: FakeCondition): C.Condition {
 }
 
 function wireVisit(v: FakeVisit, state: Fixtures): C.Visit | undefined {
-  const clinician = memberOf(state, v.clinician_membership_id);
+  const clinician = memberRefOf(state, v.clinician_membership_id);
   if (clinician === undefined) {
     return undefined;
   }
@@ -4073,12 +4078,12 @@ function wireVisit(v: FakeVisit, state: Fixtures): C.Visit | undefined {
 }
 
 function wireNote(n: FakeNote, state: Fixtures): C.Note | undefined {
-  const author = memberOf(state, n.author_membership_id);
+  const author = memberRefOf(state, n.author_membership_id);
   if (author === undefined) {
     return undefined;
   }
   const addenda = n.addenda.flatMap((addendum): C.Addendum[] => {
-    const addendumAuthor = memberOf(state, addendum.author_membership_id);
+    const addendumAuthor = memberRefOf(state, addendum.author_membership_id);
     return addendumAuthor === undefined ? [] : [{ id: addendum.id, author: addendumAuthor, body: addendum.body, created_at: addendum.created_at }];
   });
   return {
@@ -4114,7 +4119,7 @@ function wireObservation(o: FakeObservation): C.Observation {
 }
 
 function wirePlan(p: FakePlan, state: Fixtures): C.Plan | undefined {
-  const clinician = memberOf(state, p.clinician_membership_id);
+  const clinician = memberRefOf(state, p.clinician_membership_id);
   if (clinician === undefined) {
     return undefined;
   }
@@ -4157,7 +4162,7 @@ function markPlanItemDone(state: Fixtures, itemId: string, procedureId: string):
 }
 
 function wireProcedure(p: FakeProcedure, state: Fixtures): C.Procedure | undefined {
-  const clinician = memberOf(state, p.clinician_membership_id);
+  const clinician = memberRefOf(state, p.clinician_membership_id);
   if (clinician === undefined) {
     return undefined;
   }

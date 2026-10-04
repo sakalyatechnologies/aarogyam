@@ -27,9 +27,11 @@ use crate::AppState;
 use crate::extract::Require;
 use crate::failure::ApiFailure;
 
-/// A member named on a clinical record.
+/// A member named on a clinical record: who saw the patient, wrote a note or acted.
+///
+/// Not the staff list's `Member`, which carries the whole membership.
 #[derive(Debug, Serialize, ToSchema)]
-pub struct Member {
+pub struct MemberRef {
     /// Their membership.
     #[schema(value_type = String)]
     pub id: Uuid,
@@ -37,7 +39,7 @@ pub struct Member {
     pub name: String,
 }
 
-impl From<MemberView> for Member {
+impl From<MemberView> for MemberRef {
     fn from(view: MemberView) -> Self {
         Self {
             id: view.id.uuid(),
@@ -58,7 +60,7 @@ pub struct Visit {
     #[schema(value_type = String)]
     pub patient_id: Uuid,
     /// The member responsible.
-    pub clinician: Member,
+    pub clinician: MemberRef,
     /// The appointment it was started from.
     #[schema(value_type = Option<String>)]
     pub appointment_id: Option<Uuid>,
@@ -115,7 +117,7 @@ pub struct Addendum {
     #[schema(value_type = String)]
     pub id: Uuid,
     /// Who wrote it.
-    pub author: Member,
+    pub author: MemberRef,
     /// The text.
     pub body: String,
     /// When (RFC 3339).
@@ -152,7 +154,7 @@ pub struct Note {
     /// The sections.
     pub sections: NoteSections,
     /// Who wrote it; only they may edit or sign it.
-    pub author: Member,
+    pub author: MemberRef,
     /// When it was signed (RFC 3339).
     pub signed_at: Option<String>,
     /// For a conflict: the signed note it collided with.
@@ -601,7 +603,7 @@ pub struct TimelineEvent {
     /// The record's status.
     pub status: Option<String>,
     /// The member responsible.
-    pub by: Option<Member>,
+    pub by: Option<MemberRef>,
     /// The fee in paise, for procedures.
     pub amount_paise: Option<i64>,
 }
@@ -674,7 +676,7 @@ pub(crate) async fn timeline(
                 title: event.title,
                 detail: event.detail,
                 status: event.status,
-                by: event.by.map(Member::from),
+                by: event.by.map(MemberRef::from),
                 amount_paise: event.amount.map(sakalya_types::Paise::get),
             })
             .collect(),

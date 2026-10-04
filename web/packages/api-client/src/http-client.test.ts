@@ -167,6 +167,24 @@ describe("createHttpClient requests", () => {
     expect(result.ok && result.value.number).toBe("SD-9");
   });
 
+  it("decodes a started visit, whose clinician is a member reference, not a staff member", async () => {
+    const body = {
+      id: "01a103b1-ea26-7120-ad93-41b6b4b4ec01",
+      number: "V-1",
+      patient_id: patientBody.id,
+      clinician: { id: "01a103b1-ea26-7120-ad93-41b6b4b4ec02", name: "Dr Test" },
+      chief_complaint: null,
+      status: "open",
+      started_at: "2026-10-01T04:30:00Z",
+    };
+    const { fetch } = stubFetch(json(201, body));
+    const client = createHttpClient("", () => "token", { fetch });
+
+    const result = await client.startVisit(patientId.parse(patientBody.id), {});
+
+    expect(result.ok && result.value.clinician.name).toBe("Dr Test");
+  });
+
   it("edits a patient with PATCH", async () => {
     const { fetch, calls } = stubFetch(json(200, patientBody));
     const client = createHttpClient("", () => "token", { fetch });

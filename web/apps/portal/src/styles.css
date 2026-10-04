@@ -1,0 +1,15 @@
+@import "tailwindcss";
+@import "@sakalya/ui/theme.css";
+@source "../node_modules/@sakalya/ui/src";
+@source "../node_modules/@aarogyam/auth/src";
+@source "../node_modules/@aarogyam/app-kit/src";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}

@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "paths": {
+      "react": ["./node_modules/@types/react/index.d.ts"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "react-dom": ["./node_modules/@types/react-dom/index.d.ts"],
+      "react-dom/*": ["./node_modules/@types/react-dom/*"]
+    }
+  }
+}

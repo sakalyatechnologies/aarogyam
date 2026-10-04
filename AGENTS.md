@@ -27,7 +27,11 @@ Scope every command to what you changed. See `docs/guidelines/build-speed.md`.
 | Apply migrations | `cargo run -p aarogyam-server -- migrate` |
 | Run the API | `cargo run -p aarogyam-server -- serve`, then `curl localhost:8080/healthz` |
 | Regenerate the OpenAPI document | `UPDATE_OPENAPI=1 cargo test -p aarogyam-api openapi` |
+| Regenerate sqlx query data after changing a query | `scripts/sqlx-prepare.sh` |
 | Final check before commit | `cargo fmt --all --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo test --workspace --all-features && cargo deny check` |
+| Web: install (needs `../sakalya-web`, installed) | `pnpm install` |
+| Web: dev servers | `pnpm dev:portal` (5173), `pnpm dev:console` (5174) |
+| Web: final check before commit | `pnpm check` |
 
 Settings come from `config/local.toml` (local defaults, not secret) and `ARO_*` environment variables, which win. `.env.example` lists every variable.
 

@@ -7,6 +7,8 @@ import { failure, parseApiError, success, type ApiResult } from "./result.js";
 import {
   allergy,
   allergyList,
+  plan,
+  planList,
   applications,
   appointmentList,
   approvedApplication,
@@ -280,6 +282,13 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         body: input,
         signal: opts?.signal,
       }),
+
+    listPlans: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/treatment-plans`, schema: planList, signal: opts?.signal }),
+    createPlan: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/treatment-plans`, schema: plan, body: input, signal: opts?.signal }),
+    acceptPlan: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/treatment-plans/${encodeURIComponent(id)}/accept`, schema: plan, body: input, signal: opts?.signal }),
 
     listProcedures: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/procedures`, schema: procedureList, signal: opts?.signal }),

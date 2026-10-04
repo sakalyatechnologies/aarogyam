@@ -3,6 +3,7 @@
 import type { ApiResult } from "./result.js";
 import type {
   AcceptInvitation,
+  Acceptance,
   AllergyFields,
   AllergyId,
   AllergyPage,
@@ -54,6 +55,7 @@ import type {
   NewAppointmentBody,
   NewAddendum,
   NewChartEntries,
+  NewPlan,
   NewClinic,
   NewClinicInvitation,
   NewInvitation,
@@ -72,6 +74,8 @@ import type {
   Patient,
   PatientChanges,
   PatientId,
+  PlanId,
+  PlanPage,
   PatientImport,
   PatientPage,
   Payment,
@@ -293,6 +297,13 @@ export interface ApiClient {
   recordProcedure(visitId: VisitId, input: NewProcedure, options?: RequestOptions): Promise<ApiResult<Procedure>>;
   /** Clinic host: marks a planned procedure done. Needs `clinical.write`. */
   completeProcedure(id: ProcedureId, options?: RequestOptions): Promise<ApiResult<Procedure>>;
+
+  /** Clinic host: a patient's treatment plans, newest first. Needs `clinical.read`. */
+  listPlans(id: PatientId, options?: RequestOptions): Promise<ApiResult<PlanPage>>;
+  /** Clinic host: proposes a treatment plan with an estimate per item. Needs `clinical.write`. */
+  createPlan(id: PatientId, input: NewPlan, options?: RequestOptions): Promise<ApiResult<PlanPage["items"][number]>>;
+  /** Clinic host: records the patient's acceptance of a proposed plan. Needs `clinical.write`. */
+  acceptPlan(id: PlanId, input: Acceptance, options?: RequestOptions): Promise<ApiResult<PlanPage["items"][number]>>;
 
   /** Clinic host: a patient's dental chart; teeth without entries are sound. Needs `clinical.read`. */
   getDentalChart(id: PatientId, tooth?: number, options?: RequestOptions): Promise<ApiResult<DentalChart>>;

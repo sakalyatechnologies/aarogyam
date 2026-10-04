@@ -16,6 +16,8 @@ import * as S from "../schemas.js";
 import {
   ROLES,
   type FakeAllergy,
+  type FakePlan,
+  type FakePlanItem,
   type FakeAlert,
   type FakeApplication,
   type FakeAppointment,
@@ -1621,6 +1623,107 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({ items: created.map(wireObservation) } satisfies C.ObservationList);
         }),
 
+      listPlans: (id, opts) =>
+        respond(S.planList, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const items = state.plans
+            .filter((p) => p.clinic_id === caller.clinic.id && p.patient_id === id)
+            .sort((a, b) => b.created_at.localeCompare(a.created_at))
+            .flatMap((p) => {
+              const wired = wirePlan(p, state);
+              return wired === undefined ? [] : [wired];
+            });
+          return reply({ items } satisfies C.PlanList);
+        }),
+
+      createPlan: (id, input, opts) =>
+        respond(S.plan, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const title = input.title.trim();
+          if (title.length < 1 || title.length > 200) {
+            return invalid("title", "must be 1 to 200 characters");
+          }
+          if (input.items.length < 1 || input.items.length > 50) {
+            return invalid("items", "give 1 to 50 items");
+          }
+          const items: FakePlanItem[] = [];
+          for (const item of input.items) {
+            const name = (item.name ?? "").trim();
+            if (name.length < 1 || name.length > 200) {
+              return invalid("items", "each item needs a name of 1 to 200 characters");
+            }
+            if (!Number.isInteger(item.estimate_paise) || item.estimate_paise < 0) {
+              return invalid("items", "each estimate must be zero or more paise");
+            }
+            items.push({
+              id: fakeUuid(random, clock()),
+              name,
+              tooth: item.tooth ?? null,
+              surfaces: parseSurfaces(item.surfaces),
+              phase: item.phase ?? 1,
+              estimate_paise: item.estimate_paise,
+              status: "proposed",
+              procedure_id: null,
+            });
+          }
+          const record: FakePlan = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            patient_id: id,
+            visit_id: input.visit_id ?? null,
+            clinician_membership_id: caller.membership.id,
+            title,
+            status: "proposed",
+            items,
+            created_at: clock().toISOString(),
+            accepted_at: null,
+          };
+          state.plans.push(record);
+          const wired = wirePlan(record, state);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply(wired satisfies C.Plan);
+        }),
+
+      acceptPlan: (id, input, opts) =>
+        respond(S.plan, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.plans.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "proposed") {
+            return refuse(409, "conflict", "Only a proposed plan can be accepted.");
+          }
+          const chosen = input.item_ids ?? found.items.map((i) => i.id);
+          for (const item of found.items) {
+            item.status = chosen.includes(item.id) ? "accepted" : "cancelled";
+          }
+          found.status = "accepted";
+          found.accepted_at = clock().toISOString();
+          const wired = wirePlan(found, state);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply(wired satisfies C.Plan);
+        }),
+
       listProcedures: (id, opts) =>
         respond(S.procedureList, opts?.signal, async () => {
           const caller = await inClinic("clinical.read");
@@ -1677,6 +1780,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             created_at: now,
           };
           state.procedures.push(record);
+          if (record.plan_item_id != null && record.status === "done") {
+            markPlanItemDone(state, record.plan_item_id, record.id);
+          }
           const wired = wireProcedure(record, state);
           if (wired === undefined) {
             return notFound;
@@ -3478,6 +3584,49 @@ function wireObservation(o: FakeObservation): C.Observation {
     error_reason: o.error_reason ?? null,
     recorded_at: o.recorded_at,
   };
+}
+
+function wirePlan(p: FakePlan, state: Fixtures): C.Plan | undefined {
+  const clinician = memberOf(state, p.clinician_membership_id);
+  if (clinician === undefined) {
+    return undefined;
+  }
+  return {
+    id: p.id,
+    patient_id: p.patient_id,
+    visit_id: p.visit_id ?? null,
+    clinician,
+    title: p.title,
+    status: p.status,
+    items: p.items.map((i) => ({
+      id: i.id,
+      name: i.name,
+      code: i.code ?? null,
+      tooth: i.tooth ?? null,
+      surfaces: i.surfaces,
+      phase: i.phase,
+      estimate_paise: i.estimate_paise,
+      status: i.status,
+      procedure_id: i.procedure_id ?? null,
+    })),
+    estimate_paise: p.items.filter((i) => i.status !== "cancelled").reduce((sum, i) => sum + i.estimate_paise, 0),
+    created_at: p.created_at,
+    accepted_at: p.accepted_at ?? null,
+  };
+}
+
+/** A done procedure carrying out a plan item finishes the item, and the plan once every kept item is done. */
+function markPlanItemDone(state: Fixtures, itemId: string, procedureId: string): void {
+  for (const plan of state.plans) {
+    const item = plan.items.find((i) => i.id === itemId);
+    if (item === undefined) {
+      continue;
+    }
+    item.status = "done";
+    item.procedure_id = procedureId;
+    const kept = plan.items.filter((i) => i.status !== "cancelled");
+    plan.status = kept.every((i) => i.status === "done") ? "completed" : "in_progress";
+  }
 }
 
 function wireProcedure(p: FakeProcedure, state: Fixtures): C.Procedure | undefined {

@@ -276,6 +276,31 @@ export interface FakeProcedure {
   created_at: string;
 }
 
+export interface FakePlanItem {
+  id: string;
+  name: string;
+  code?: C.Code | null;
+  tooth?: number | null;
+  surfaces: C.ToothSurface[];
+  phase: number;
+  estimate_paise: number;
+  status: C.PlanItemStatus;
+  procedure_id?: string | null;
+}
+
+export interface FakePlan {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  visit_id?: string | null;
+  clinician_membership_id: string;
+  title: string;
+  status: C.PlanStatus;
+  items: FakePlanItem[];
+  created_at: string;
+  accepted_at?: string | null;
+}
+
 export interface FakeChartEntry {
   id: string;
   clinic_id: string;
@@ -487,6 +512,7 @@ export interface Fixtures {
   observations: FakeObservation[];
   procedures: FakeProcedure[];
   chartEntries: FakeChartEntry[];
+  plans: FakePlan[];
   attachments: FakeAttachment[];
   sessions: FakeSession[];
   applications: FakeApplication[];
@@ -1129,6 +1155,7 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     observations,
     procedures,
     chartEntries,
+    plans: [],
     attachments,
     sessions,
     applications,

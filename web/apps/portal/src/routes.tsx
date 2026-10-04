@@ -3,6 +3,7 @@ import { Navigate, Outlet, type RouteObject } from "react-router";
 import { RouterLinks } from "@aarogyam/app-kit";
 
 import { ClinicGate, RequireAuth } from "./layout/portal-layout.js";
+import { CalendarPage } from "./pages/calendar/calendar-page.js";
 import { ComingSoonPage } from "./pages/coming-soon-page.js";
 import { InvitePage } from "./pages/invite-page.js";
 import { NotFoundPage } from "./pages/not-found-page.js";
@@ -38,10 +39,7 @@ export const routes: RouteObject[] = [
               { path: "patients/new", element: <NewPatientPage /> },
               { path: "patients/:id", element: <PatientPage /> },
               { path: "patients/:id/edit", element: <EditPatientPage /> },
-              {
-                path: "calendar",
-                element: <ComingSoonPage title="Calendar" description="Book and see the week at a glance, once appointment booking lands in M3." />,
-              },
+              { path: "calendar", element: <CalendarPage /> },
               {
                 path: "billing",
                 element: <ComingSoonPage title="Billing" description="Collections, invoices and payments, once billing lands in M5." />,

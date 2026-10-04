@@ -1,4 +1,4 @@
-export type { ApiClient, PatientSearch, RequestOptions } from "./client.js";
+export type { ApiClient, AppointmentFilter, DateRange, PatientSearch, RequestOptions } from "./client.js";
 export { createDevTokenSource, createHttpClient, type HttpClientOptions, type TokenSource } from "./http-client.js";
 export { PERMISSIONS, hasPermission, type Permission } from "./permissions.js";
 export {

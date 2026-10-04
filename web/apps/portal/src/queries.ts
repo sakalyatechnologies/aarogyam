@@ -2,16 +2,32 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import {
   unwrap,
+  type AppointmentChanges,
+  type AppointmentFilter,
+  type AppointmentId,
   type ClinicSettingsChanges,
+  type DateRange,
+  type LeaveId,
   type MemberChanges,
   type MembershipId,
+  type NewAppointmentBody,
   type NewInvitation,
+  type NewLeave,
   type NewPatient,
   type PatientChanges,
   type PatientId,
+  type PatientImport,
+  type PractitionerFields,
+  type PractitionerId,
+  type QueueTokenId,
+  type RoomFields,
+  type RoomId,
   type SessionId,
+  type StatusChange,
+  type TokenStatusChange,
+  type WalkInBody,
+  type WorkingHours,
 } from "@aarogyam/api-client";
-
 import { useClinic } from "./clinic.js";
 
 /**
@@ -134,5 +150,209 @@ export function useRevokeSession() {
   return useMutation({
     mutationFn: (id: SessionId) => unwrap(api.revokeMySession(id)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["my-sessions"] }),
+  });
+}
+
+// Rooms and practitioners (Settings -> Chairs and doctors, and the Calendar's pickers) ---------
+
+export function useRooms() {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["rooms", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.listRooms({ signal })),
+  });
+}
+
+export function useAddRoom() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: RoomFields) => unwrap(api.addRoom(input)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["rooms", access.org_id] }),
+  });
+}
+
+export function useChangeRoom() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, changes }: { id: RoomId; changes: RoomFields }) => unwrap(api.changeRoom(id, changes)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["rooms", access.org_id] }),
+  });
+}
+
+export function useRemoveRoom() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: RoomId) => unwrap(api.removeRoom(id)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["rooms", access.org_id] }),
+  });
+}
+
+export function usePractitioners() {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["practitioners", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.listPractitioners({ signal })),
+  });
+}
+
+export function useAddPractitioner() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PractitionerFields) => unwrap(api.addPractitioner(input)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["practitioners", access.org_id] }),
+  });
+}
+
+export function useChangePractitioner() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, changes }: { id: PractitionerId; changes: PractitionerFields }) => unwrap(api.changePractitioner(id, changes)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["practitioners", access.org_id] }),
+  });
+}
+
+export function useRemovePractitioner() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: PractitionerId) => unwrap(api.removePractitioner(id)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["practitioners", access.org_id] }),
+  });
+}
+
+export function useWorkingHours(id: PractitionerId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["working-hours", access.org_id, id],
+    queryFn: ({ signal }) => (id === undefined ? Promise.reject(new Error("no practitioner")) : unwrap(api.getWorkingHours(id, { signal }))),
+    enabled: id !== undefined,
+  });
+}
+
+export function useSetWorkingHours() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, hours }: { id: PractitionerId; hours: WorkingHours }) => unwrap(api.setWorkingHours(id, hours)),
+    onSuccess: (_hours, { id }) => queryClient.invalidateQueries({ queryKey: ["working-hours", access.org_id, id] }),
+  });
+}
+
+export function useLeave(range: DateRange) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["leave", access.org_id, range.from, range.to],
+    queryFn: ({ signal }) => unwrap(api.listLeave(range, { signal })),
+  });
+}
+
+export function useAddLeave() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NewLeave) => unwrap(api.addLeave(input)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["leave", access.org_id] }),
+  });
+}
+
+export function useRemoveLeave() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: LeaveId) => unwrap(api.removeLeave(id)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["leave", access.org_id] }),
+  });
+}
+
+// Calendar and appointments ---------------------------------------------------------------------
+
+export function useAppointments(filter: AppointmentFilter) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["appointments", access.org_id, filter.from, filter.to, filter.roomId, filter.practitionerId],
+    queryFn: ({ signal }) => unwrap(api.listAppointments(filter, { signal })),
+    placeholderData: keepPreviousData,
+  });
+}
+
+function invalidateSchedule(queryClient: ReturnType<typeof useQueryClient>, orgId: string) {
+  void queryClient.invalidateQueries({ queryKey: ["appointments", orgId] });
+  void queryClient.invalidateQueries({ queryKey: ["today", orgId] });
+  void queryClient.invalidateQueries({ queryKey: ["queue", orgId] });
+}
+
+export function useBookAppointment() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NewAppointmentBody) => unwrap(api.bookAppointment(input)),
+    onSuccess: () => { invalidateSchedule(queryClient, access.org_id); },
+  });
+}
+
+export function useChangeAppointment() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, changes }: { id: AppointmentId; changes: AppointmentChanges }) => unwrap(api.changeAppointment(id, changes)),
+    onSuccess: () => { invalidateSchedule(queryClient, access.org_id); },
+  });
+}
+
+export function useSetAppointmentStatus() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, change }: { id: AppointmentId; change: StatusChange }) => unwrap(api.setAppointmentStatus(id, change)),
+    onSuccess: () => { invalidateSchedule(queryClient, access.org_id); },
+  });
+}
+
+// Queue -------------------------------------------------------------------------------------
+
+export function useQueue(date?: string) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["queue", access.org_id, date],
+    queryFn: ({ signal }) => unwrap(api.listQueue(date, { signal })),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useAddWalkIn() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: WalkInBody) => unwrap(api.addWalkIn(input)),
+    onSuccess: () => { invalidateSchedule(queryClient, access.org_id); },
+  });
+}
+
+export function useSetQueueStatus() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, change }: { id: QueueTokenId; change: TokenStatusChange }) => unwrap(api.setQueueStatus(id, change)),
+    onSuccess: () => { invalidateSchedule(queryClient, access.org_id); },
+  });
+}
+
+// Patient import ------------------------------------------------------------------------------
+
+export function useImportPatients() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PatientImport) => unwrap(api.importPatients(input)),
+    onSuccess: (result) => {
+      if (result.mode === "commit") {
+        void queryClient.invalidateQueries({ queryKey: ["patients", access.org_id] });
+      }
+    },
   });
 }

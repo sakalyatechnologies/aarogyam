@@ -521,6 +521,7 @@ function ShellFrame() {
               <button
                 type="button"
                 className="mk-btn mk-btn-primary"
+                aria-label="Schedule an appointment"
                 onClick={() => {
                   void navigate("/calendar?book=1");
                 }}

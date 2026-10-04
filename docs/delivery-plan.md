@@ -35,6 +35,20 @@ The web portal stays one slice behind the API. The doctor app starts after M3 an
 | Request pipeline, patients and console API, dev sign-in, throttling, metrics | Done, tested on a real database |
 | Clinic portal and Sakalya console | Done on fake data; switching to the real API |
 
+## Queued: move generic code into the shared repositories
+
+Next when there is bandwidth, after the 4 Oct demo. One planned pass, then `sakalya-backend` v0.3 and new `sakalya-web` packages, with Aarogyam switched to them.
+
+| Generic piece, now in Aarogyam | Moves to |
+|---|---|
+| Email sending (Resend) and the outbox worker (`aarogyam-notify`) | `sakalya-backend`: `sakalya-notify` |
+| Supabase Admin client (accounts for invitations) | `sakalya-auth` |
+| Service-metrics collector, short-lived cache, one-time token helpers | `sakalya-http` / `sakalya-telemetry` |
+| Development sign-in token issuer | `sakalya-testkit` / `sakalya-auth` |
+| Supabase sign-in flow (code and link, callback page) | `sakalya-web`: `@sakalya/auth` |
+| API client helpers (error shape, request IDs, idempotency keys) | `sakalya-web`: `@sakalya/api` |
+| Fastlane, Maestro, mobile session handling (from MyDwarpal) | future `sakalya-android` / `sakalya-ios` |
+
 ## Review follow-ups scheduled later
 
 | Item | When |

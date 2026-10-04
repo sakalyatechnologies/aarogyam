@@ -50,6 +50,8 @@ Settings come from `config/local.toml` (local defaults, not secret) and `ARO_*` 
 11. **Specialty modules are data.** Forms, templates and vocabularies live in `specialties/` as schemas. Only signature visuals (such as the tooth chart) are code.
 12. **The API contract is generated.** Annotate routes for OpenAPI; the committed spec (`docs/api/openapi.json`) must match, and breaking changes fail CI.
 
+13. **Generic code moves to the shared repositories.** A piece with no clinic concept in it (email sending, auth plumbing, metrics, UI flows) built here moves to `sakalya-backend` or `sakalya-web` within a week, or as soon as a second product needs it. Until then, keep it free of product types so the move is mechanical.
+
 ## Logging
 
 Follow the log budget in `docs/guidelines/observability.md`. Business events use the `Event` enum (`appointment.booked`, `invoice.paid`) in the `event` field. Log IDs only.

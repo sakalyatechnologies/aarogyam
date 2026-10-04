@@ -20,6 +20,24 @@ pub fn clinic_today(timezone: &str, now: OffsetDateTime) -> time::Date {
     now.to_offset(clinic_offset(timezone)).date()
 }
 
+/// The instant a clinic's day begins (local midnight).
+#[must_use]
+pub fn day_start(timezone: &str, date: time::Date) -> OffsetDateTime {
+    time::PrimitiveDateTime::new(date, time::Time::MIDNIGHT).assume_offset(clinic_offset(timezone))
+}
+
+/// The instants covering clinic days `from` to `to`, both included: `[start of from, start of
+/// the day after to)`.
+#[must_use]
+pub fn day_range(
+    timezone: &str,
+    from: time::Date,
+    to: time::Date,
+) -> (OffsetDateTime, OffsetDateTime) {
+    let end = to.next_day().unwrap_or(to);
+    (day_start(timezone, from), day_start(timezone, end))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -32,5 +50,8 @@ mod tests {
         assert_eq!(clinic_today("Asia/Kolkata", before), date!(2027 - 03 - 31));
         assert_eq!(clinic_today("Asia/Kolkata", after), date!(2027 - 04 - 01));
         assert_eq!(clinic_today("Europe/London", after), date!(2027 - 03 - 31));
+        let (start, end) = day_range("Asia/Kolkata", date!(2027 - 03 - 31), date!(2027 - 03 - 31));
+        assert_eq!(start, datetime!(2027-03-30 18:30 UTC));
+        assert_eq!(end, datetime!(2027-03-31 18:30 UTC));
     }
 }

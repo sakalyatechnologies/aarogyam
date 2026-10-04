@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.invoice_items\n             (id, invoice_id, line_no, price_item_id, procedure_id, description, sac_hsn, category,\n              quantity, unit_price_paise, discount_paise, tax_rate_bps)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int2",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Int8",
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1a886844ce11e0b2d8f10c39d9357ab0627eb910353332a7c2bbd0714977b7cd"
+}

@@ -1,0 +1,360 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select i.id, i.number, i.patient_id, p.full_name as patient_name, p.number as patient_number,\n                  i.encounter_id, i.branch_id, i.doc_type, i.status, i.place_of_supply, i.notes,\n                  i.issued_at, i.supplier, i.recipient, i.subtotal_paise, i.discount_paise,\n                  i.taxable_paise, i.cgst_paise, i.sgst_paise, i.igst_paise, i.tax_paise,\n                  i.round_off_paise, i.total_paise,\n                  coalesce(paid.amount, 0)::bigint as \"paid_paise!\",\n                  coalesce(paid.methods, '{}') as \"methods!\",\n                  i.replaces_invoice_id, i.void_reason, i.voided_at, i.created_at\n           from aarogyam.invoices i\n           join aarogyam.patients p on p.org_id = i.org_id and p.id = i.patient_id\n           left join lateral (\n             select sum(a.amount_paise) as amount,\n                    array_agg(distinct m.method order by m.method) as methods\n             from aarogyam.payment_allocations a\n             join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id\n             where a.org_id = i.org_id and a.invoice_id = i.id and m.status = 'received'\n           ) paid on true\n           where ($1::uuid is null or i.id = $1)\n             and ($2::text is null or i.status = $2)\n             and ($3::uuid is null or i.patient_id = $3)\n             and ($4::timestamptz is null or coalesce(i.issued_at, i.created_at) >= $4)\n             and ($5::timestamptz is null or coalesce(i.issued_at, i.created_at) < $5)\n             and (not $6 or (i.status = 'issued' and i.total_paise > coalesce(paid.amount, 0)))\n           order by coalesce(i.issued_at, i.created_at) desc, i.id desc\n           limit $7",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "patient_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "full_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "patient_number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "encounter_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "encounter_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "branch_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "branch_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "doc_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "doc_type"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "place_of_supply",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "place_of_supply"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "notes",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "notes"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "issued_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "issued_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "supplier",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "supplier"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "recipient",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "recipient"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "subtotal_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "subtotal_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "discount_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "discount_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "taxable_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "taxable_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "cgst_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "cgst_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "sgst_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "sgst_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "igst_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "igst_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "tax_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "tax_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "round_off_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "round_off_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 22,
+        "name": "total_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "total_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 23,
+        "name": "paid_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 24,
+        "name": "methods!",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 25,
+        "name": "replaces_invoice_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "replaces_invoice_id"
+          }
+        }
+      },
+      {
+        "ordinal": 26,
+        "name": "void_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "void_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 27,
+        "name": "voided_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "voided_at"
+          }
+        }
+      },
+      {
+        "ordinal": 28,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "7221c0e72f370f04179cf6db9924fb05cd353a8bab1e4e9198b1a45d71085da3"
+}

@@ -1,0 +1,83 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select i.id, i.patient_id, i.status, i.total_paise, i.place_of_supply,\n                  coalesce((select sum(a.amount_paise)\n                            from aarogyam.payment_allocations a\n                            join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id\n                            where a.org_id = i.org_id and a.invoice_id = i.id and m.status = 'received'),\n                           0)::bigint as \"paid_paise!\"\n           from aarogyam.invoices i\n           where i.id = any($1)\n           order by i.id\n           for update of i",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "total_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "total_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "place_of_supply",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "place_of_supply"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "paid_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      null
+    ]
+  },
+  "hash": "372d1517e5ebf4adc6384b09ce99bee643bc30000e673ff3c6f61a1ae5768220"
+}

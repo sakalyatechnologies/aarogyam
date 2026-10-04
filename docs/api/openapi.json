@@ -213,6 +213,349 @@
         ]
       }
     },
+    "/api/v1/invoices": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Bills, newest first, without lines.",
+        "operationId": "list_invoices",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "draft, issued or void",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First clinic day, YYYY-MM-DD (issue date; start date for drafts)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last clinic day, included",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patient_id",
+            "in": "query",
+            "description": "One patient's bills",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Most rows, 1 to 200 (default 50)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad filter"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Starts a draft bill for a patient.",
+        "operationId": "create_invoice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewInvoice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/invoices/{id}": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Opens a bill with its lines. Writes the access record.",
+        "operationId": "get_invoice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The bill",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.read"
+          },
+          "404": {
+            "description": "No such bill in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Edits a draft bill. Issued and void bills never change.",
+        "operationId": "edit_invoice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The bill",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.write"
+          },
+          "404": {
+            "description": "No such bill in this clinic"
+          },
+          "409": {
+            "description": "The bill is issued or void"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/invoices/{id}/issue": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Issues a draft: GST per line (CGST and SGST, or IGST across states), round-off to the\nrupee, a number in the clinic's financial year, and the printed facts captured. Final.",
+        "operationId": "issue_invoice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The bill",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The bill has no lines"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.write"
+          },
+          "404": {
+            "description": "No such bill in this clinic"
+          },
+          "409": {
+            "description": "Already issued or void"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/invoices/{id}/void": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Voids a bill with a reason. It is kept with its number; bill again to correct it.",
+        "operationId": "void_invoice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The bill",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reason"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No reason given"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.write"
+          },
+          "404": {
+            "description": "No such bill in this clinic"
+          },
+          "409": {
+            "description": "Already void, or payments still count towards it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me": {
       "get": {
         "tags": [
@@ -517,6 +860,386 @@
           },
           "404": {
             "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/payments": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Payments received, newest first.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First clinic day, YYYY-MM-DD",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last clinic day, included",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Most rows, 1 to 500 (default 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad date"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Records a payment against issued bills and issues a receipt number. Needs an\n`Idempotency-Key` header.",
+        "operationId": "record",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique per payment; a retry sends the same key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewPayment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Already recorded with this key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input, a missing key, or an allocation past a bill's balance or the payment"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.write"
+          },
+          "404": {
+            "description": "No such patient or bill in this clinic"
+          },
+          "409": {
+            "description": "The key was used for a different payment, or a bill isn't issued"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/payments/{id}": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "One payment, for its receipt.",
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The payment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.read"
+          },
+          "404": {
+            "description": "No such payment in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/payments/{id}/void": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Voids a payment with a reason. The bills it paid show their balance again.",
+        "operationId": "void",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The payment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reason"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No reason given"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.write"
+          },
+          "404": {
+            "description": "No such payment in this clinic"
+          },
+          "409": {
+            "description": "Already void"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/price-items": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "The clinic's price list.",
+        "operationId": "price_items",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceItemList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Adds a price list entry.",
+        "operationId": "create_price_item",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PriceItemValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "409": {
+            "description": "Another entry has this code"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/price-items/{id}": {
+      "patch": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Changes a price list entry. Issued bills keep what they printed.",
+        "operationId": "update_price_item",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The price list entry",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PriceItemValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such entry in this clinic"
+          },
+          "409": {
+            "description": "Another entry has this code"
           }
         },
         "security": [
@@ -895,6 +1618,25 @@
               "null"
             ],
             "description": "State or union territory."
+          }
+        }
+      },
+      "Allocation": {
+        "type": "object",
+        "description": "Part of a payment going to a bill.",
+        "required": [
+          "invoice_id",
+          "amount_paise"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise; no more than the bill's balance."
+          },
+          "invoice_id": {
+            "type": "string",
+            "description": "The bill: issued, of the same patient."
           }
         }
       },
@@ -1284,6 +2026,416 @@
           }
         }
       },
+      "Invoice": {
+        "type": "object",
+        "description": "A bill. Amounts are paise; on drafts they are a preview computed from the current lines.",
+        "required": [
+          "id",
+          "patient",
+          "status",
+          "subtotal_paise",
+          "discount_paise",
+          "taxable_paise",
+          "cgst_paise",
+          "sgst_paise",
+          "igst_paise",
+          "tax_paise",
+          "round_off_paise",
+          "total_paise",
+          "paid_paise",
+          "balance_paise",
+          "methods",
+          "created_at",
+          "items"
+        ],
+        "properties": {
+          "balance_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Left to pay on an issued bill."
+          },
+          "cgst_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Central GST."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When the draft was started."
+          },
+          "discount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Sum of discounts."
+          },
+          "doc_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`tax_invoice` or `bill_of_supply`, once issued."
+          },
+          "encounter_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it bills."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "igst_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Integrated GST."
+          },
+          "issued_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When issued (RFC 3339)."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceLine"
+            },
+            "description": "Lines; empty in lists."
+          },
+          "methods": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Methods of the payments towards it."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Notes printed on the bill."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`SD/26-27/000318`, once issued."
+          },
+          "paid_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paid so far."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientRef",
+            "description": "The patient."
+          },
+          "payment_state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "For issued bills: `unpaid`, `partial` or `paid`, derived from payments."
+          },
+          "place_of_supply": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Place of supply state code, when set."
+          },
+          "recipient": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "The patient as printed: name and number."
+          },
+          "replaces_invoice_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The voided bill this one replaces."
+          },
+          "round_off_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Rounding to the rupee, -50 to 50."
+          },
+          "sgst_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "State GST."
+          },
+          "status": {
+            "type": "string",
+            "description": "`draft`, `issued` or `void`."
+          },
+          "subtotal_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Sum of quantity times unit price."
+          },
+          "supplier": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "The clinic as printed: name, legal name, GSTIN, state code, address, phone."
+          },
+          "tax_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "All GST."
+          },
+          "taxable_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What GST is charged on."
+          },
+          "total_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What the patient pays."
+          },
+          "void_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was voided."
+          },
+          "voided_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was voided."
+          }
+        }
+      },
+      "InvoiceEdit": {
+        "type": "object",
+        "description": "Changes to a draft. Fields left out stay; `items` replaces every line; an empty string\nclears `encounter_id`, `place_of_supply` or `notes`.",
+        "properties": {
+          "encounter_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it bills."
+          },
+          "items": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/InvoiceLineInput"
+            },
+            "description": "New lines."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Notes."
+          },
+          "place_of_supply": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Place of supply state code."
+          }
+        }
+      },
+      "InvoiceLine": {
+        "type": "object",
+        "description": "A bill line.",
+        "required": [
+          "line_no",
+          "description",
+          "quantity",
+          "unit_price_paise",
+          "discount_paise",
+          "gst_rate",
+          "taxable_paise",
+          "cgst_paise",
+          "sgst_paise",
+          "igst_paise",
+          "total_paise"
+        ],
+        "properties": {
+          "cgst_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Central GST."
+          },
+          "description": {
+            "type": "string",
+            "description": "As printed."
+          },
+          "discount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Discount on the line."
+          },
+          "gst_rate": {
+            "type": "integer",
+            "format": "int32",
+            "description": "GST percentage.",
+            "minimum": 0
+          },
+          "igst_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Integrated GST."
+          },
+          "line_no": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Position, from 1."
+          },
+          "price_item_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The price list entry."
+          },
+          "procedure_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The procedure it bills."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How many."
+          },
+          "sac_hsn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SAC or HSN."
+          },
+          "sgst_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "State GST."
+          },
+          "taxable_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Taxable value."
+          },
+          "total_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Taxable value plus GST."
+          },
+          "unit_price_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Price of one, in paise."
+          }
+        }
+      },
+      "InvoiceLineInput": {
+        "type": "object",
+        "description": "A line on a draft: from a price list entry, whose values fill whatever is left out, or\nfree text with a description and a unit price.",
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "As printed."
+          },
+          "discount_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Discount on the whole line, in paise."
+          },
+          "gst_rate": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "GST percentage: 0, 5, 12 or 18.",
+            "minimum": 0
+          },
+          "price_item_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The price list entry."
+          },
+          "procedure_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The procedure it bills."
+          },
+          "quantity": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How many, 1 by default.",
+            "minimum": 0
+          },
+          "sac_hsn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SAC or HSN."
+          },
+          "unit_price_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Price of one, in paise."
+          }
+        }
+      },
+      "InvoiceList": {
+        "type": "object",
+        "description": "Bills.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Invoice"
+            },
+            "description": "Newest first."
+          }
+        }
+      },
       "Joined": {
         "type": "object",
         "description": "The clinic just joined.",
@@ -1553,6 +2705,54 @@
           }
         }
       },
+      "NewInvoice": {
+        "type": "object",
+        "description": "A new draft bill.",
+        "required": [
+          "patient_id"
+        ],
+        "properties": {
+          "encounter_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it bills."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceLineInput"
+            },
+            "description": "Lines."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Notes printed on the bill."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "place_of_supply": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "GST state code of the place of supply, when not the branch's state (IGST applies)."
+          },
+          "replaces_invoice_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The voided bill this one replaces."
+          }
+        }
+      },
       "NewPatient": {
         "type": "object",
         "description": "A patient to register.",
@@ -1607,6 +2807,44 @@
               "null"
             ],
             "description": "`female`, `male`, `other` or `unknown` (default)."
+          }
+        }
+      },
+      "NewPayment": {
+        "type": "object",
+        "description": "A payment to record. Send an `Idempotency-Key` header (a UUID per payment form); a retry\nwith the same key returns the first payment instead of recording another.",
+        "required": [
+          "patient_id",
+          "method",
+          "amount_paise"
+        ],
+        "properties": {
+          "allocations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Allocation"
+            },
+            "description": "The bills it pays; what is left over stays as an advance."
+          },
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise, more than zero."
+          },
+          "method": {
+            "type": "string",
+            "description": "`cash`, `upi`, `card` or `bank`."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "Who paid."
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UPI or card reference."
           }
         }
       },
@@ -1768,6 +3006,123 @@
           }
         }
       },
+      "PatientRef": {
+        "type": "object",
+        "description": "A patient as a bill or payment names them.",
+        "required": [
+          "id",
+          "name",
+          "number"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name."
+          },
+          "number": {
+            "type": "string",
+            "description": "Number, such as `SD-1042`."
+          }
+        }
+      },
+      "Payment": {
+        "type": "object",
+        "description": "A payment and its receipt number.",
+        "required": [
+          "id",
+          "number",
+          "patient",
+          "received_at",
+          "amount_paise",
+          "method",
+          "status",
+          "allocated_paise",
+          "unallocated_paise",
+          "allocations"
+        ],
+        "properties": {
+          "allocated_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Allocated to bills."
+          },
+          "allocations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Allocation"
+            },
+            "description": "The bills it pays."
+          },
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "method": {
+            "type": "string",
+            "description": "`cash`, `upi`, `card` or `bank`."
+          },
+          "number": {
+            "type": "string",
+            "description": "Receipt number, such as `RC/26-27/000042`."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientRef",
+            "description": "Who paid."
+          },
+          "received_at": {
+            "type": "string",
+            "description": "When (RFC 3339)."
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UPI or card reference."
+          },
+          "status": {
+            "type": "string",
+            "description": "`received` or `void`."
+          },
+          "unallocated_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Left as an advance."
+          },
+          "void_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was voided."
+          }
+        }
+      },
+      "PaymentList": {
+        "type": "object",
+        "description": "Payments.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Payment"
+            },
+            "description": "Newest first."
+          }
+        }
+      },
       "PendingInvitation": {
         "type": "object",
         "description": "An invitation not yet accepted.",
@@ -1800,6 +3155,162 @@
           "role_key": {
             "type": "string",
             "description": "The role they will get."
+          }
+        }
+      },
+      "PriceItem": {
+        "type": "object",
+        "description": "A price list entry.",
+        "required": [
+          "id",
+          "name",
+          "price_paise",
+          "taxable",
+          "gst_rate",
+          "active"
+        ],
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "description": "Offered."
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Revenue-mix category, such as `endodontics` or `medicines`."
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Short code, unique in the clinic."
+          },
+          "gst_rate": {
+            "type": "integer",
+            "format": "int32",
+            "description": "GST percentage: 0, 5, 12 or 18.",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name, as printed on bills."
+          },
+          "price_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Default price in paise."
+          },
+          "sac_hsn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SAC (9993 for health care) or HSN code."
+          },
+          "taxable": {
+            "type": "boolean",
+            "description": "Whether GST applies. Health care by a clinical establishment is exempt."
+          }
+        }
+      },
+      "PriceItemList": {
+        "type": "object",
+        "description": "The price list.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriceItem"
+            },
+            "description": "Entries by name."
+          }
+        }
+      },
+      "PriceItemValues": {
+        "type": "object",
+        "description": "A price list entry's values. On a change, fields left out stay as they are and an empty\nstring clears an optional one.",
+        "properties": {
+          "active": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Offered."
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Revenue-mix category: lower case, digits and `_`."
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Short code: letters, digits, `-` and `_`."
+          },
+          "gst_rate": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "GST percentage: 0, 5, 12 or 18.",
+            "minimum": 0
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name; required for a new entry."
+          },
+          "price_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Default price in paise; required for a new entry."
+          },
+          "sac_hsn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SAC or HSN: 4 to 8 digits."
+          },
+          "taxable": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether GST applies (medicines and products); false (exempt) by default unless a rate\nis given."
+          }
+        }
+      },
+      "Reason": {
+        "type": "object",
+        "description": "A reason, for voiding or cancelling.",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Why, 3 to 500 characters."
           }
         }
       },
@@ -2088,6 +3599,10 @@
     {
       "name": "settings",
       "description": "A clinic's own settings; clinic host only"
+    },
+    {
+      "name": "billing",
+      "description": "Price list, bills, payments and receipts; clinic host only"
     },
     {
       "name": "console",

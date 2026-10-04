@@ -8,6 +8,8 @@
 
 use sqlx::migrate::Migrator;
 
+pub mod access;
+pub mod billing;
 pub mod clinic;
 pub mod console;
 pub mod invitations;

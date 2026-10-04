@@ -1,0 +1,208 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, line_no, price_item_id, procedure_id, description, sac_hsn, category, quantity,\n                  unit_price_paise, discount_paise, tax_rate_bps, taxable_paise, cgst_paise, sgst_paise,\n                  igst_paise, total_paise\n           from aarogyam.invoice_items where invoice_id = $1 order by line_no",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "line_no",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "line_no"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "price_item_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "price_item_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "procedure_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "procedure_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "sac_hsn",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "sac_hsn"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "category",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "category"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "quantity",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "quantity"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "unit_price_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "unit_price_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "discount_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "discount_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "tax_rate_bps",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "tax_rate_bps"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "taxable_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "taxable_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "cgst_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "cgst_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "sgst_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "sgst_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "igst_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "igst_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "total_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoice_items",
+            "name": "total_paise"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b2be1a547de984272dd37bece7adc737c218ea2804f85d4b98e6ee90e48ed95e"
+}

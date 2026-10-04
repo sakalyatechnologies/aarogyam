@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.invoices\n           set status = 'issued', number = $2, financial_year = $3, doc_type = $4, issued_at = $5,\n               issued_by = $6, supplier = $7, recipient = $8, subtotal_paise = $9, discount_paise = $10,\n               taxable_paise = $11, cgst_paise = $12, sgst_paise = $13, igst_paise = $14,\n               tax_paise = $15, round_off_paise = $16, total_paise = $17\n           where id = $1 and status = 'draft'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Uuid",
+        "Jsonb",
+        "Jsonb",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ccf1cd72e91ee9f66d89c71fe51f16cb4aa33d794ecdc157cfade14a168d9493"
+}

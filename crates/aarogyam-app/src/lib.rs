@@ -5,12 +5,14 @@
 //! security limits every query to the caller's clinic. HTTP handlers in `aarogyam-api` call
 //! these; nothing here knows about HTTP.
 
+pub mod billing;
 pub mod clock;
 pub mod console;
 pub mod error;
 pub mod invitations;
 pub mod outbox;
 pub mod patients;
+pub mod payments;
 mod scope;
 pub mod sessions;
 pub mod settings;

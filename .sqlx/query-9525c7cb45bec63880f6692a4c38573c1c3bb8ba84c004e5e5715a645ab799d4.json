@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.clear_draft_invoice_lines($1) as cleared",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cleared",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "9525c7cb45bec63880f6692a4c38573c1c3bb8ba84c004e5e5715a645ab799d4"
+}

@@ -1,0 +1,171 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select m.id, m.number, m.patient_id, p.full_name as patient_name, p.number as patient_number,\n                  m.received_at, m.amount_paise, m.method, m.reference, m.status, m.void_reason,\n                  m.request_hash,\n                  coalesce((select sum(a.amount_paise) from aarogyam.payment_allocations a\n                            where a.org_id = m.org_id and a.payment_id = m.id), 0)::bigint as \"allocated_paise!\"\n           from aarogyam.payments m\n           join aarogyam.patients p on p.org_id = m.org_id and p.id = m.patient_id\n           where ($1::uuid is null or m.id = $1)\n             and ($2::text is null or m.idempotency_key = $2)\n             and ($3::timestamptz is null or m.received_at >= $3)\n             and ($4::timestamptz is null or m.received_at < $4)\n           order by m.received_at desc, m.id desc\n           limit $5",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.payments",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.payments",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.payments",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "patient_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "full_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "patient_number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "received_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.payments",
+            "name": "received_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "amount_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.payments",
+            "name": "amount_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "method",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.payments",
+            "name": "method"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "reference",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.payments",
+            "name": "reference"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.payments",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "void_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.payments",
+            "name": "void_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "request_hash",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.payments",
+            "name": "request_hash"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "allocated_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "6fcc58bc62956542187c7bff592cfa7e34aaaa4631a7a37f39069f98e5861207"
+}

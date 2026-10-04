@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.payments\n             (id, number, patient_id, received_at, amount_paise, method, reference, received_by,\n              idempotency_key, request_hash)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Timestamptz",
+        "Int8",
+        "Text",
+        "Text",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c09b5220a88a98c31e12e8137fc46117bb203c2d001f4cbabcf89bf28382eee4"
+}

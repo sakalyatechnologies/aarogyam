@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.invoices set encounter_id = $2, place_of_supply = $3, notes = $4\n           where id = $1 and status = 'draft'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e66db65fd204cdca7afb07c520ff018e4c49ea0aeed58ba185db9b796b235eca"
+}

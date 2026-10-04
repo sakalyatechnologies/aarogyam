@@ -25,7 +25,7 @@ Scope every command to what you changed. See `docs/guidelines/build-speed.md`.
 | Lint | `cargo clippy -p <crate> --all-targets -- -D warnings` |
 | Final check before commit | `cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace` |
 | Web: install (needs `../sakalya-web`, installed) | `pnpm install` |
-| Web: console dev server | `pnpm dev:console` |
+| Web: dev servers (fake data) | `pnpm dev:portal` (5173), `pnpm dev:console` (5174) |
 | Web: final check before commit | `pnpm check` |
 
 ## Product rules (on top of the shared rules)

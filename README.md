@@ -22,9 +22,10 @@ The clinic portal and the Sakalya console live in `web/`: a pnpm workspace with 
 ```sh
 (cd ../sakalya-web && pnpm install)
 pnpm install
-pnpm dev:console   # http://localhost:5174: fake data, development sign-in
+pnpm dev:portal    # http://localhost:5173: clinic portal on fake data
+pnpm dev:console   # http://localhost:5174: Sakalya console on fake data
 pnpm check         # typecheck, lint, tests, build
 ```
 
-Settings go in `web/apps/<app>/.env.local`: `VITE_API_MODE=fake|http` (default `fake`), `VITE_API_BASE_URL` (default: same origin, proxied to `localhost:8080` in dev), and `VITE_SUPABASE_URL` plus `VITE_SUPABASE_ANON_KEY` for email-code sign-in (otherwise development sign-in, never in a production `http` build).
+Settings go in `web/apps/<app>/.env.local`: `VITE_API_MODE=fake|http` (default `fake`), `VITE_API_BASE_URL` (default: same origin, proxied to `localhost:8080` in dev), and `VITE_SUPABASE_URL` plus `VITE_SUPABASE_ANON_KEY` for email-code sign-in. Without them, development sign-in picks a seeded person (via `POST /api/v1/dev/token` in `http` mode); a production `http` build refuses to start without Supabase.
 

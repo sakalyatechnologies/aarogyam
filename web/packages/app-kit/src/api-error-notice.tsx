@@ -1,7 +1,5 @@
-import { AlertTriangle, RotateCw } from "lucide-react";
-
 import { apiErrorOf } from "@aarogyam/api-client";
-import { Button, EmptyState } from "@sakalya/ui";
+import { ErrorState } from "@sakalya/ui";
 
 export interface ApiErrorNoticeProps {
   /** What failed, in the user's words, such as "Couldn't load clinics". */
@@ -18,28 +16,14 @@ export interface ApiErrorNoticeProps {
  */
 export function ApiErrorNotice({ title, error, onRetry, className }: ApiErrorNoticeProps) {
   const apiError = apiErrorOf(error);
-  const message = apiError?.message ?? "Something went wrong. Please try again.";
   return (
-    <div role="alert" className={className}>
-      <EmptyState
-        title={title}
-        description={message}
-        icon={<AlertTriangle className="size-7" />}
-        action={
-          <div className="flex flex-col items-center gap-3">
-            {onRetry === undefined ? null : (
-              <Button variant="secondary" icon={<RotateCw aria-hidden="true" className="size-4" />} onClick={onRetry}>
-                Try again
-              </Button>
-            )}
-            {apiError?.requestId === undefined ? null : (
-              <p className="text-xs text-muted">
-                Reference <span className="font-mono select-all">{apiError.requestId}</span>
-              </p>
-            )}
-          </div>
-        }
-      />
-    </div>
+    <ErrorState
+      title={title}
+      description={apiError?.message ?? "Something went wrong. Please try again."}
+      requestId={apiError?.requestId}
+      requestIdLabel="Reference"
+      {...(onRetry === undefined ? {} : { onRetry })}
+      {...(className === undefined ? {} : { className })}
+    />
   );
 }

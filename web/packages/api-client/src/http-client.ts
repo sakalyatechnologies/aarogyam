@@ -269,6 +269,9 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(visitId)}/notes`, schema: note, body: content, signal: opts?.signal }),
     signNote: (id, opts) => call({ method: "POST", path: `/api/v1/notes/${encodeURIComponent(id)}/sign`, schema: note, signal: opts?.signal }),
 
+    addAddendum: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/notes/${encodeURIComponent(id)}/addenda`, schema: note, body: input, signal: opts?.signal }),
+
     recordObservations: (visitId, input, opts) =>
       call({
         method: "POST",

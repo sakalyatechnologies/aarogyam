@@ -52,6 +52,7 @@ import type {
   MetricsRange,
   MySessions,
   NewAppointmentBody,
+  NewAddendum,
   NewChartEntries,
   NewClinic,
   NewClinicInvitation,
@@ -279,6 +280,9 @@ export interface ApiClient {
   createNote(visitId: VisitId, content: NoteContent, options?: RequestOptions): Promise<ApiResult<Note>>;
   /** Clinic host: signs a note; it can no longer change except by addendum. Needs `clinical.write`. */
   signNote(id: NoteId, options?: RequestOptions): Promise<ApiResult<Note>>;
+
+  /** Clinic host: adds an addendum to a signed note; addenda are never edited or removed. Needs `clinical.write`. */
+  addAddendum(id: NoteId, input: NewAddendum, options?: RequestOptions): Promise<ApiResult<Note>>;
 
   /** Clinic host: records vital signs together. Needs `clinical.write`. */
   recordObservations(visitId: VisitId, input: NewReadings, options?: RequestOptions): Promise<ApiResult<ObservationPage>>;

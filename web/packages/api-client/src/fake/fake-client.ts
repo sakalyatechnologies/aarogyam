@@ -1553,6 +1553,31 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(wired satisfies C.Note);
         }),
 
+      addAddendum: (id, input, opts) =>
+        respond(S.note, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.notes.find((n) => n.id === id && n.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "signed") {
+            return refuse(409, "conflict", "Only a signed note takes an addendum.");
+          }
+          const body = input.body.trim();
+          if (body.length < 1 || body.length > 10_000) {
+            return invalid("body", "must be 1 to 10,000 characters");
+          }
+          found.addenda.push({ id: fakeUuid(random, clock()), author_membership_id: caller.membership.id, body, created_at: clock().toISOString() });
+          const wired = wireNote(found, state);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply(wired satisfies C.Note);
+        }),
+
       recordObservations: (visitIdValue, input, opts) =>
         respond(S.observationList, opts?.signal, async () => {
           const caller = await inClinic("clinical.write");

@@ -1,4 +1,4 @@
-import { Check, Lock, Plus } from "lucide-react";
+import { Check, Lock, MessageSquarePlus, Plus } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "react-router";
 
@@ -15,7 +15,7 @@ import {
   type VisitId,
 } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDateTime, useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, Card, EmptyState, Field, PageHeader, Pill, Select, Skeleton, TextInput, useToast } from "@sakalya/ui";
+import { Button, Card, Dialog, EmptyState, Field, PageHeader, Pill, Select, Skeleton, TextArea, TextInput, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { patientPath } from "../../lib/patients.js";
@@ -29,6 +29,7 @@ import {
   useVisit,
 } from "../../queries.js";
 import { NotFoundPage } from "../not-found-page.js";
+import { useAddAddendum } from "./queries.js";
 
 const OBSERVATION_KINDS: readonly { value: ObservationKind; label: string; unit: string }[] = [
   { value: "bp_systolic", label: "BP systolic", unit: "mmHg" },
@@ -118,7 +119,7 @@ function VisitView({ patientId, detail }: { patientId: PatientId; detail: NonNul
         </p>
       )}
       <div className="flex flex-col gap-4">
-        <NotesCard visitId={visit.id} notes={detail.notes} canWrite={canWrite && isOpen} />
+        <NotesCard visitId={visit.id} notes={detail.notes} canWrite={canWrite && isOpen} canAddend={canWrite} />
         <VitalsCard visitId={visit.id} observations={detail.observations} canWrite={canWrite && isOpen} />
         <ProceduresCard visitId={visit.id} patientId={patientId} procedures={detail.procedures} canWrite={canWrite && isOpen} />
         {detail.chart_entries.length === 0 ? null : (
@@ -138,7 +139,7 @@ function VisitView({ patientId, detail }: { patientId: PatientId; detail: NonNul
   );
 }
 
-function NotesCard({ visitId, notes, canWrite }: { visitId: VisitId; notes: readonly Note[]; canWrite: boolean }) {
+function NotesCard({ visitId, notes, canWrite, canAddend }: { visitId: VisitId; notes: readonly Note[]; canWrite: boolean; canAddend: boolean }) {
   const createNote = useCreateNote(visitId);
   const [drafting, setDrafting] = useState(false);
   const toast = useToast();
@@ -178,7 +179,7 @@ function NotesCard({ visitId, notes, canWrite }: { visitId: VisitId; notes: read
       ) : (
         <div className="flex flex-col gap-4">
           {notes.map((note) => (
-            <NoteCard key={note.id} visitId={visitId} note={note} />
+            <NoteCard key={note.id} visitId={visitId} note={note} canAddend={canAddend} />
           ))}
         </div>
       )}
@@ -186,8 +187,9 @@ function NotesCard({ visitId, notes, canWrite }: { visitId: VisitId; notes: read
   );
 }
 
-function NoteCard({ visitId, note }: { visitId: VisitId; note: Note }) {
+function NoteCard({ visitId, note, canAddend }: { visitId: VisitId; note: Note; canAddend: boolean }) {
   const sign = useSignNote(visitId);
+  const [addending, setAddending] = useState(false);
   const toast = useToast();
   const sections = note.sections;
   const isDraft = note.status === "draft";
@@ -215,6 +217,43 @@ function NoteCard({ visitId, note }: { visitId: VisitId; note: Note }) {
         <NoteSection label="Assessment" value={sections.assessment} />
         <NoteSection label="Plan" value={sections.plan} />
       </dl>
+      {note.addenda.length === 0 ? null : (
+        <div className="mt-3 border-t border-border pt-3">
+          <h4 className="text-xs font-semibold text-muted">Addenda</h4>
+          <ul aria-label="Addenda" className="mt-1 flex flex-col gap-2">
+            {note.addenda.map((a) => (
+              <li key={a.id} className="text-sm">
+                <p className="text-text">{a.body}</p>
+                <p className="text-xs text-muted">
+                  {a.author.display_name} · {formatDateTime(a.created_at)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {note.status === "signed" && canAddend ? (
+        <div className="mt-3 flex justify-end">
+          <Button
+            variant="secondary"
+            icon={<MessageSquarePlus aria-hidden="true" className="size-4" />}
+            onClick={() => {
+              setAddending(true);
+            }}
+          >
+            Add addendum
+          </Button>
+        </div>
+      ) : null}
+      {addending ? (
+        <AddendumDialog
+          visitId={visitId}
+          noteId={note.id}
+          onOpenChange={() => {
+            setAddending(false);
+          }}
+        />
+      ) : null}
       {isDraft ? (
         <div className="mt-3 flex justify-end">
           <Button
@@ -230,6 +269,63 @@ function NoteCard({ visitId, note }: { visitId: VisitId; note: Note }) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function AddendumDialog({ visitId, noteId, onOpenChange }: { visitId: VisitId; noteId: NoteId; onOpenChange: () => void }) {
+  const [body, setBody] = useState("");
+  const [error, setError] = useState<string | undefined>(undefined);
+  const add = useAddAddendum(visitId);
+  const toast = useToast();
+
+  const submit = () => {
+    setError(undefined);
+    add.mutate(
+      { id: noteId, body: body.trim() },
+      {
+        onSuccess: () => {
+          toast.show({ title: "Addendum added", tone: "success" });
+          onOpenChange();
+        },
+        onError: (thrown) => {
+          setError(apiErrorOf(thrown)?.message ?? "Couldn't add that addendum. Please try again.");
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={onOpenChange}
+      title="Add an addendum"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onOpenChange}>
+            Cancel
+          </Button>
+          <Button onClick={submit} disabled={body.trim() === "" || add.isPending}>
+            {add.isPending ? "Saving…" : "Save"}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Field label="Addendum" required hint="A signed note never changes; this is added beneath it.">
+          <TextArea
+            value={body}
+            onChange={(event) => {
+              setBody(event.target.value);
+            }}
+          />
+        </Field>
+        {error === undefined ? null : (
+          <p role="alert" className="text-sm font-medium text-danger-text">
+            {error}
+          </p>
+        )}
+      </div>
+    </Dialog>
   );
 }
 

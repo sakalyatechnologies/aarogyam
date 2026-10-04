@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) as \"count!\" from aarogyam.appointments\n           where deleted_at is null and ends_at > $3\n             and status not in ('cancelled', 'no_show', 'completed')\n             and (room_id = $1 or practitioner_id = $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1577f0a18cadad3b6d795ce13c9c07aa6353c55779b8c5ef4413276b727a325f"
+}

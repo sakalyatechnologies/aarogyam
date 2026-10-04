@@ -1,0 +1,106 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.practitioners\n             (id, membership_id, display_name, registration_number, specialty, calendar_color, active)\n           values ($1, $2, $3, $4, $5, $6, $7)\n           returning id, membership_id, display_name, registration_number, specialty, calendar_color, active",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "membership_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "membership_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "display_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "registration_number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "registration_number"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "specialty",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "specialty"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "calendar_color",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "calendar_color"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "active",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "active"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "27fe1d597783ae030deed7ebd0feae1b546700a754a8244272a1ec241a84e04c"
+}

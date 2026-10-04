@@ -38,4 +38,18 @@ entities! {
     Message, MessageId;
     /// A sign-in session.
     Session, SessionId;
+    /// A chair, room or lab that appointments are booked into.
+    Room, RoomId;
+    /// A doctor who sees patients.
+    Practitioner, PractitionerId;
+    /// A time a doctor is away.
+    LeaveBlock, LeaveBlockId;
+    /// A booked slot.
+    Appointment, AppointmentId;
+    /// A waiting-room token.
+    QueueToken, QueueTokenId;
+    /// Another number a patient is known by.
+    PatientIdentifier, PatientIdentifierId;
+    /// A data import.
+    Import, ImportId;
 }

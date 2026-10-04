@@ -8,12 +8,17 @@
 
 use sqlx::migrate::Migrator;
 
+pub mod appointments;
 pub mod clinic;
 pub mod console;
+pub mod identifiers;
+pub mod imports;
 pub mod invitations;
 pub mod lookups;
 pub mod outbox;
 pub mod patients;
+pub mod queue;
+pub mod schedule;
 pub mod sessions;
 pub mod settings;
 pub mod staff;

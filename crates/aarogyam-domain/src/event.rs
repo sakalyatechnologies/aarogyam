@@ -20,6 +20,18 @@ pub enum Event {
     MessageRetried,
     /// A queued message failed for the last time.
     MessageFailed,
+    /// An appointment was booked.
+    AppointmentBooked,
+    /// An appointment was moved, reassigned or edited.
+    AppointmentChanged,
+    /// An appointment's status changed.
+    AppointmentStatusChanged,
+    /// A waiting-room token was issued.
+    QueueTokenIssued,
+    /// Patients were imported from a file.
+    PatientsImported,
+    /// A chair, doctor, working hours or leave changed.
+    ScheduleSetupChanged,
 }
 
 impl Event {
@@ -35,6 +47,12 @@ impl Event {
             Self::MessageSent => "message.sent",
             Self::MessageRetried => "message.retried",
             Self::MessageFailed => "message.failed",
+            Self::AppointmentBooked => "appointment.booked",
+            Self::AppointmentChanged => "appointment.changed",
+            Self::AppointmentStatusChanged => "appointment.status_changed",
+            Self::QueueTokenIssued => "queue_token.issued",
+            Self::PatientsImported => "patients.imported",
+            Self::ScheduleSetupChanged => "schedule_setup.changed",
         }
     }
 }

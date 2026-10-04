@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.working_hours (practitioner_id, branch_id, weekday, starts, ends)\n           select $1, b, w, s, e\n           from unnest($2::uuid[], $3::smallint[], $4::time[], $5::time[]) as t(b, w, s, e)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray",
+        "Int2Array",
+        "TimeArray",
+        "TimeArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "39d86d2525976e21e1ebb966a5de45ccc0d616128faa43b31e5b634b90d49417"
+}

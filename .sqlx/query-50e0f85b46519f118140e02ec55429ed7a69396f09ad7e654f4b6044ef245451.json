@@ -1,0 +1,77 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select practitioner_id, branch_id, weekday, starts, ends\n           from aarogyam.working_hours\n           where ($1::uuid is null or practitioner_id = $1)\n             and ($2::smallint is null or weekday = $2)\n           order by practitioner_id, weekday, starts",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "practitioner_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.working_hours",
+            "name": "practitioner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "branch_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.working_hours",
+            "name": "branch_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "weekday",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.working_hours",
+            "name": "weekday"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "starts",
+        "type_info": "Time",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.working_hours",
+            "name": "starts"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "ends",
+        "type_info": "Time",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.working_hours",
+            "name": "ends"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "50e0f85b46519f118140e02ec55429ed7a69396f09ad7e654f4b6044ef245451"
+}

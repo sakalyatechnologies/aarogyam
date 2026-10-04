@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.practitioners set deleted_at = now(), active = false\n           where id = $1 and deleted_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "85c4f63aa7e0b5f93305a60e3fbf2f2b306c0a349e0e153f0989ec49979d909e"
+}

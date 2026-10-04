@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.import_rows (import_id, row_number, raw, status, error, patient_id)\n           select $1, * from unnest($2::int[], $3::jsonb[], $4::text[], $5::text[], $6::uuid[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4Array",
+        "JsonbArray",
+        "TextArray",
+        "TextArray",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d69f4fd9dee7afa5691da318b080b1ae7f95687592205842601b629c16270482"
+}

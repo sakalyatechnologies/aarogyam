@@ -1153,7 +1153,6 @@
     "equipment.branch_id",
     "expenses.branch_id",
     "invoices.branch_id",
-    "leave_blocks.branch_id",
     "membership_branches.branch_id",
     "queue_tokens.branch_id",
     "rooms.branch_id",
@@ -1269,9 +1268,9 @@
    "domain": "tenancy",
    "purpose": "Chairs, rooms and labs that appointments can be booked into.",
    "rls": "clinic",
-   "star": false,
+   "star": true,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "soft_delete",
    "schema": "aarogyam",
    "notes": "",
    "cols": [
@@ -1287,7 +1286,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "unique per branch"
     },
     {
      "name": "kind",
@@ -1299,6 +1298,13 @@
     {
      "name": "active",
      "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "sort_order",
+     "type": "smallint",
      "nullable": false,
      "ref": null,
      "note": ""
@@ -1434,7 +1440,6 @@
    "referenced_by": [
     "expenses.receipt_asset_id",
     "invoices.pdf_asset_id",
-    "practitioners.signature_asset_id",
     "prescriptions.pdf_asset_id"
    ],
    "sensitivity": "internal",
@@ -1820,21 +1825,21 @@
      "type": "sequence_kind",
      "nullable": false,
      "ref": null,
-     "note": "patient, visit, invoice, prescription, receipt, lab_order"
+     "note": "patient, visit, invoice, prescription, receipt, lab_order, queue_token"
     },
     {
      "name": "series",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "main, or a separate series such as one per GSTIN"
+     "note": "main, a separate series such as one per GSTIN, or a branch for queue tokens"
     },
     {
      "name": "period",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "financial year such as 26-27 in the clinic's time zone, or empty"
+     "note": "financial year such as 26-27 or a local date for queue tokens, in the clinic's time zone; or empty"
     },
     {
      "name": "next_value",
@@ -2000,6 +2005,7 @@
     "encounters.patient_id",
     "family_links.patient_id",
     "family_links.related_patient_id",
+    "import_rows.patient_id",
     "invoices.patient_id",
     "lab_orders.patient_id",
     "medical_history_items.patient_id",
@@ -2025,7 +2031,7 @@
   {
    "name": "patient_identifiers",
    "domain": "people",
-   "purpose": "Extra IDs for a patient: custom file number, smart card, ABHA, legacy import.",
+   "purpose": "Extra IDs for a patient: the clinic's file number, smart card, ABHA, legacy import.",
    "rls": "clinic",
    "star": true,
    "partitioned": false,
@@ -2045,7 +2051,7 @@
      "type": "identifier_kind",
      "nullable": false,
      "ref": null,
-     "note": "custom, smart_card, abha_number, abha_address, legacy"
+     "note": "file_number, legacy, smart_card, abha_number, abha_address"
     },
     {
      "name": "value",
@@ -2311,21 +2317,14 @@
    "partitioned": false,
    "lifecycle": "soft_delete",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Built in M3 with the columns the calendar needs. Planned: slug (public page), qualifications, council, signature_asset_id -> assets, default_fee_paise, is_visiting.",
    "cols": [
     {
      "name": "membership_id",
      "type": "uuid",
-     "nullable": false,
+     "nullable": true,
      "ref": "memberships",
-     "note": ""
-    },
-    {
-     "name": "slug",
-     "type": "text",
-     "nullable": false,
-     "ref": null,
-     "note": "public page: dr-kiran-patil"
+     "note": "null for a visiting consultant without a sign-in"
     },
     {
      "name": "display_name",
@@ -2335,57 +2334,29 @@
      "note": ""
     },
     {
-     "name": "qualifications",
-     "type": "text",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "council",
-     "type": "registration_council",
-     "nullable": false,
-     "ref": null,
-     "note": "nmc, state, dci, ayush ..."
-    },
-    {
      "name": "registration_number",
      "type": "text",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "specialties",
-     "type": "text[]",
-     "nullable": false,
-     "ref": null,
-     "note": "module keys"
-    },
-    {
-     "name": "signature_asset_id",
-     "type": "uuid",
      "nullable": true,
-     "ref": "assets",
-     "note": ""
-    },
-    {
-     "name": "default_fee_paise",
-     "type": "bigint",
-     "nullable": false,
      "ref": null,
      "note": ""
     },
     {
-     "name": "is_visiting",
-     "type": "bool",
-     "nullable": false,
+     "name": "specialty",
+     "type": "text",
+     "nullable": true,
      "ref": null,
-     "note": "visiting consultant"
+     "note": ""
     },
     {
      "name": "calendar_color",
      "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "#RRGGBB"
+    },
+    {
+     "name": "active",
+     "type": "bool",
      "nullable": false,
      "ref": null,
      "note": ""
@@ -2404,6 +2375,7 @@
     "leave_blocks.practitioner_id",
     "prescriptions.practitioner_id",
     "procedures.practitioner_id",
+    "queue_tokens.practitioner_id",
     "treatment_plans.practitioner_id",
     "working_hours.practitioner_id"
    ],
@@ -2419,14 +2391,14 @@
    "partitioned": false,
    "lifecycle": "ephemeral",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Replaced as a whole per doctor. Clinic hours and valid_from/valid_to are planned.",
    "cols": [
     {
      "name": "practitioner_id",
      "type": "uuid",
-     "nullable": true,
+     "nullable": false,
      "ref": "practitioners",
-     "note": "null means clinic hours"
+     "note": ""
     },
     {
      "name": "branch_id",
@@ -2455,20 +2427,6 @@
      "nullable": false,
      "ref": null,
      "note": ""
-    },
-    {
-     "name": "valid_from",
-     "type": "date",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "valid_to",
-     "type": "date",
-     "nullable": true,
-     "ref": null,
-     "note": ""
     }
    ],
    "referenced_by": [],
@@ -2478,26 +2436,19 @@
   {
    "name": "leave_blocks",
    "domain": "people",
-   "purpose": "Time a doctor or branch is unavailable.",
+   "purpose": "Time a doctor is unavailable. Booking into it is allowed with a warning.",
    "rls": "clinic",
-   "star": false,
+   "star": true,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "ephemeral",
    "schema": "aarogyam",
    "notes": "",
    "cols": [
     {
      "name": "practitioner_id",
      "type": "uuid",
-     "nullable": true,
+     "nullable": false,
      "ref": "practitioners",
-     "note": ""
-    },
-    {
-     "name": "branch_id",
-     "type": "uuid",
-     "nullable": true,
-     "ref": "branches",
      "note": ""
     },
     {
@@ -2535,7 +2486,7 @@
    "partitioned": false,
    "lifecycle": "soft_delete",
    "schema": "aarogyam",
-   "notes": "An exclusion constraint on (org_id, practitioner_id, time range) stops double booking.",
+   "notes": "An exclusion constraint on (org_id, room_id, time range) for active rows (not cancelled, not no-show, not deleted) stops two bookings in one chair; a doctor in two chairs at once is a warning, not an error. Status changes follow the transition table in aarogyam_domain::schedule. Visits point at appointments, not the other way round.",
    "cols": [
     {
      "name": "patient_id",
@@ -2584,14 +2535,14 @@
      "type": "appointment_status",
      "nullable": false,
      "ref": null,
-     "note": "scheduled, confirmed, arrived, in_progress, completed, cancelled, no_show"
+     "note": "booked, confirmed, arrived, in_chair, completed, cancelled, no_show"
     },
     {
      "name": "kind",
      "type": "appointment_kind",
      "nullable": false,
      "ref": null,
-     "note": "new, follow_up, procedure, teleconsult"
+     "note": "new, follow_up, procedure, emergency"
     },
     {
      "name": "reason",
@@ -2599,6 +2550,13 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "notes",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "front-desk note"
     },
     {
      "name": "source",
@@ -2612,13 +2570,27 @@
      "type": "text",
      "nullable": true,
      "ref": null,
+     "note": "required when cancelled"
+    },
+    {
+     "name": "arrived_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
      "note": ""
     },
     {
-     "name": "encounter_id",
-     "type": "uuid",
+     "name": "seated_at",
+     "type": "timestamptz",
      "nullable": true,
-     "ref": "encounters",
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "completed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
      "note": ""
     }
    ],
@@ -2651,6 +2623,13 @@
      "note": ""
     },
     {
+     "name": "kind",
+     "type": "appointment_event_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "booked, changed, status"
+    },
+    {
      "name": "from_status",
      "type": "appointment_status",
      "nullable": true,
@@ -2660,9 +2639,16 @@
     {
      "name": "to_status",
      "type": "appointment_status",
-     "nullable": false,
+     "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "changes",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "{column: [old, new]} for times, room and doctor"
     },
     {
      "name": "at",
@@ -2692,7 +2678,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Unique (org_id, branch_id, day, token_number).",
+   "notes": "Unique (org_id, branch_id, day, token_number) and one token per appointment. Numbers come from number_sequences (kind queue_token, series = branch, period = local date).",
    "cols": [
     {
      "name": "branch_id",
@@ -2706,7 +2692,7 @@
      "type": "date",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "clinic's local date"
     },
     {
      "name": "token_number",
@@ -2727,6 +2713,13 @@
      "type": "uuid",
      "nullable": true,
      "ref": "appointments",
+     "note": "null for a walk-in"
+    },
+    {
+     "name": "practitioner_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "practitioners",
      "note": ""
     },
     {
@@ -2734,10 +2727,24 @@
      "type": "token_status",
      "nullable": false,
      "ref": null,
-     "note": "waiting, called, in_room, done, skipped"
+     "note": "waiting, in_chair, done, left"
+    },
+    {
+     "name": "issued_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
     },
     {
      "name": "called_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "done_at",
      "type": "timestamptz",
      "nullable": true,
      "ref": null,
@@ -2972,7 +2979,6 @@
     }
    ],
    "referenced_by": [
-    "appointments.encounter_id",
     "attachments.encounter_id",
     "clinical_notes.encounter_id",
     "conditions.encounter_id",
@@ -4087,7 +4093,6 @@
     "consent_forms.pdf_attachment_id",
     "consent_forms.signature_attachment_id",
     "document_extractions.attachment_id",
-    "imports.file_attachment_id",
     "share_links.attachment_id",
     "voice_notes.attachment_id"
    ],
@@ -7539,44 +7544,37 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "append_only",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "M3 imports CSV text sent in the request and records only committed imports; uploads from files, appointments and invoices are planned.",
    "cols": [
     {
      "name": "kind",
      "type": "import_kind",
      "nullable": false,
      "ref": null,
-     "note": "patients, appointments, invoices"
+     "note": "patients"
     },
     {
      "name": "source",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "excel, csv, legacy app name"
-    },
-    {
-     "name": "file_attachment_id",
-     "type": "uuid",
-     "nullable": false,
-     "ref": "attachments",
-     "note": ""
+     "note": "csv"
     },
     {
      "name": "mapping",
      "type": "jsonb",
      "nullable": false,
      "ref": null,
-     "note": "column mapping"
+     "note": "our field to the file's column"
     },
     {
      "name": "status",
      "type": "import_status",
      "nullable": false,
      "ref": null,
-     "note": "uploaded, mapped, running, done, failed"
+     "note": "done, failed"
     },
     {
      "name": "total_rows",
@@ -7613,7 +7611,7 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "append_only",
    "schema": "aarogyam",
    "notes": "",
    "cols": [
@@ -7629,21 +7627,21 @@
      "type": "int",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "line in the file, header is 1"
     },
     {
      "name": "raw",
      "type": "jsonb",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "the row's mapped values"
     },
     {
      "name": "status",
      "type": "row_status",
      "nullable": false,
      "ref": null,
-     "note": "pending, imported, failed"
+     "note": "imported, failed"
     },
     {
      "name": "error",
@@ -7653,10 +7651,10 @@
      "note": ""
     },
     {
-     "name": "entity_id",
+     "name": "patient_id",
      "type": "uuid",
      "nullable": true,
-     "ref": null,
+     "ref": "patients",
      "note": ""
     }
    ],

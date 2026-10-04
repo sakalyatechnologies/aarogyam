@@ -2,7 +2,8 @@
 -- Runs as the owner (scripts/dev-db.sh --seed) after migrations; safe to run once per database.
 -- Fixed IDs so the dev sign-in can mint tokens for these people (auth_uid = token `sub`).
 --
---   Sunrise Dental     sunrise.localtest.me   owner Asha, doctor Dev, front desk Farah
+--   Sunrise Dental     sunrise.localtest.me   owner Asha, doctor Dev, front desk Farah; two chairs and
+--                                             today's appointments and queue around the time of seeding
 --   Lotus Dental Care  lotus.localtest.me     owner Bina; Dev also consults here
 --   Console            Sakalya Admin (platform owner)
 \set ON_ERROR_STOP 1
@@ -63,5 +64,82 @@ from (values
   ('Aditya Kapoor', 'male', date '2005-03-15', '+919820000004'),
   ('Lakshmi Rao', 'female', date '1958-09-09', '+919820000005')
 ) as p(name, sex, dob, phone);
+
+-- Front desk at Sunrise: two chairs, two doctors with hours, and today's appointments and queue
+-- placed around the moment the seed runs, so Today has live data.
+select set_config('app.tenant_id', :'sunrise', true) \gset
+select id as sunrise_branch, replace(id::text, '-', '') as sunrise_series
+from aarogyam.branches where org_id = :'sunrise' and is_default \gset
+select date_trunc('hour', now()) + floor(extract(minute from now()) / 5) * interval '5 minutes' as base,
+       (now() at time zone 'Asia/Kolkata')::date::text as clinic_day \gset
+
+insert into aarogyam.rooms (id, branch_id, name, sort_order) values
+  ('01920000-0000-7000-8000-00000000c101', :'sunrise_branch', 'Chair 1', 1),
+  ('01920000-0000-7000-8000-00000000c102', :'sunrise_branch', 'Chair 2', 2);
+
+insert into aarogyam.practitioners (id, membership_id, display_name, registration_number, specialty, calendar_color)
+select d.id, m.id, d.name, d.registration, d.specialty, d.color
+from (values
+  ('01920000-0000-7000-8000-00000000d101'::uuid, '01920000-0000-7000-8000-0000000000a2'::uuid,
+   'Dr Dev Rao', 'A-12345', 'Endodontics', '#136650'),
+  ('01920000-0000-7000-8000-00000000d102'::uuid, '01920000-0000-7000-8000-0000000000a1'::uuid,
+   'Dr Asha Kulkarni', 'A-23456', 'Orthodontics', '#4F46E5')
+) as d(id, user_id, name, registration, specialty, color)
+join aarogyam.memberships m on m.org_id = :'sunrise' and m.user_id = d.user_id;
+
+-- Every day, so the dashboard always has a team; Dev works split shifts.
+insert into aarogyam.working_hours (practitioner_id, branch_id, weekday, starts, ends)
+select h.doctor, :'sunrise_branch', d, h.starts::time, h.ends::time
+from (values
+  ('01920000-0000-7000-8000-00000000d101'::uuid, '09:00', '13:00'),
+  ('01920000-0000-7000-8000-00000000d101'::uuid, '17:00', '21:00'),
+  ('01920000-0000-7000-8000-00000000d102'::uuid, '10:00', '14:00')
+) as h(doctor, starts, ends)
+cross join generate_series(1, 7) as d;
+
+-- Offsets from now: one seen, one in the chair, one late, one waiting, one no-show, two to come.
+insert into aarogyam.appointments
+  (id, patient_id, practitioner_id, branch_id, room_id, starts_at, ends_at, status, kind, reason,
+   arrived_at, seated_at, completed_at)
+select a.id, p.id, a.doctor, :'sunrise_branch', a.room,
+       :'base'::timestamptz + a.starts, :'base'::timestamptz + a.starts + a.length, a.status, a.kind, a.reason,
+       :'base'::timestamptz + a.arrived, :'base'::timestamptz + a.seated, :'base'::timestamptz + a.completed
+from (values
+  ('01920000-0000-7000-8000-00000000e101'::uuid, 'SD-1', '01920000-0000-7000-8000-00000000d101'::uuid,
+   '01920000-0000-7000-8000-00000000c101'::uuid, interval '-2 hours', interval '30 minutes', 'completed',
+   'follow_up', 'Scaling', interval '-125 minutes', interval '-2 hours', interval '-90 minutes'),
+  ('01920000-0000-7000-8000-00000000e102'::uuid, 'SD-2', '01920000-0000-7000-8000-00000000d101'::uuid,
+   '01920000-0000-7000-8000-00000000c101'::uuid, interval '-20 minutes', interval '45 minutes', 'in_chair',
+   'procedure', 'Root canal, sitting 2', interval '-30 minutes', interval '-20 minutes', null::interval),
+  ('01920000-0000-7000-8000-00000000e103'::uuid, 'SD-3', '01920000-0000-7000-8000-00000000d102'::uuid,
+   '01920000-0000-7000-8000-00000000c102'::uuid, interval '-25 minutes', interval '30 minutes', 'booked',
+   'follow_up', 'Braces review', null::interval, null::interval, null::interval),
+  ('01920000-0000-7000-8000-00000000e104'::uuid, 'SD-4', '01920000-0000-7000-8000-00000000d102'::uuid,
+   '01920000-0000-7000-8000-00000000c102'::uuid, interval '10 minutes', interval '30 minutes', 'arrived',
+   'new', 'Toothache', interval '-35 minutes', null::interval, null::interval),
+  ('01920000-0000-7000-8000-00000000e105'::uuid, 'SD-5', '01920000-0000-7000-8000-00000000d101'::uuid,
+   '01920000-0000-7000-8000-00000000c102'::uuid, interval '-3 hours', interval '30 minutes', 'no_show',
+   'follow_up', 'Filling check', null::interval, null::interval, null::interval),
+  ('01920000-0000-7000-8000-00000000e106'::uuid, 'SD-6', '01920000-0000-7000-8000-00000000d101'::uuid,
+   '01920000-0000-7000-8000-00000000c101'::uuid, interval '1 hour', interval '30 minutes', 'booked',
+   'new', 'Consultation', null::interval, null::interval, null::interval),
+  ('01920000-0000-7000-8000-00000000e107'::uuid, 'SD-7', '01920000-0000-7000-8000-00000000d102'::uuid,
+   '01920000-0000-7000-8000-00000000c102'::uuid, interval '90 minutes', interval '30 minutes', 'confirmed',
+   'procedure', 'Aligner fitting', null::interval, null::interval, null::interval)
+) as a(id, number, doctor, room, starts, length, status, kind, reason, arrived, seated, completed)
+join aarogyam.patients p on p.org_id = :'sunrise' and p.number = a.number;
+
+insert into aarogyam.appointment_events (appointment_id, kind, at)
+select id, 'booked', starts_at - interval '1 day' from aarogyam.appointments where org_id = :'sunrise';
+
+-- Queue tokens for the arrivals, numbered in arrival order; the sequence continues from them.
+insert into aarogyam.queue_tokens
+  (branch_id, day, token_number, patient_id, appointment_id, practitioner_id, status, issued_at, called_at, done_at)
+select branch_id, :'clinic_day'::date, row_number() over (order by arrived_at), patient_id, id, practitioner_id,
+       case status when 'arrived' then 'waiting' when 'in_chair' then 'in_chair' else 'done' end,
+       arrived_at, seated_at, completed_at
+from aarogyam.appointments
+where org_id = :'sunrise' and arrived_at is not null;
+select app.reserve_numbers('queue_token', 3, :'sunrise_series', :'clinic_day') as next_token \gset
 
 commit;

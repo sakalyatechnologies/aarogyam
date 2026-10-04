@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.queue_tokens\n           set status = $2,\n               called_at = case when $2 in ('in_chair', 'done') then coalesce(called_at, $3) else called_at end,\n               done_at = case when $2 in ('done', 'left') then coalesce(done_at, $3) else done_at end\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f2fdd3c9514f9f19fe26d401a4e0fdb958dae7adadee4cd40528d7e9ba141527"
+}

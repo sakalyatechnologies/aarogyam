@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router";
 
 import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, useDocumentTitle } from "@aarogyam/app-kit";
-import { Avatar, Button, Card, EmptyState, Pill, Skeleton, Tabs } from "@sakalya/ui";
+import { Avatar, Button, Card, Pill, Skeleton, Tabs } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { ageSex, formatPhone, languageLabel, maskEmail, maskPhone, patientPath } from "../../lib/patients.js";
@@ -13,6 +13,7 @@ import { NotFoundPage } from "../not-found-page.js";
 import { ClinicalFlagsPanel } from "./clinical-flags-panel.js";
 import { DentalChartPanel } from "./dental-chart-panel.js";
 import { FilesPanel } from "./files-panel.js";
+import { BillsPanel, PrescriptionsPanel } from "./records-panels.js";
 import { VisitsPanel } from "./visits-panel.js";
 
 /** The URL carries the patient's ID, validated before it reaches the API. */
@@ -156,13 +157,14 @@ function PatientView({ patient }: { patient: Patient }) {
               ? [
                   { value: "visits", label: "Visits", content: <VisitsPanel patientId={patient.id} /> },
                   { value: "dental-chart", label: "Dental chart", content: <DentalChartPanel patientId={patient.id} /> },
+                  { value: "prescriptions", label: "Prescriptions", content: <PrescriptionsPanel patientId={patient.id} /> },
                   { value: "files", label: "Files", content: <FilesPanel patientId={patient.id} /> },
                 ]
               : []),
             {
               value: "billing",
               label: "Billing",
-              content: <EmptyState title="No bills yet" description="Bills, payments and dues will appear here, once billing lands in M5." />,
+              content: <BillsPanel patientId={patient.id} />,
             },
           ]}
         />

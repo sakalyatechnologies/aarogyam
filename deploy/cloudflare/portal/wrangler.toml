@@ -1,0 +1,22 @@
+# Clinic portal Worker: static assets from the Vite build, `/api/*` proxied to the API.
+# `API_ORIGIN` is overridden at deploy time (`wrangler deploy --var API_ORIGIN:<url>`) so the
+# same config points at a Cloudflare Tunnel today and the Cloud Run URL later. `EDGE_SECRET` is
+# a Worker *secret*, set separately with `wrangler secret put` — never put it here.
+name = "aarogyam-portal"
+main = "worker.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[assets]
+# Built by `pnpm --filter @aarogyam/portal build` before `wrangler deploy` (see
+# scripts/deploy-workers.sh); VITE_* build-time vars (VITE_API_MODE, VITE_SUPABASE_URL,
+# VITE_SUPABASE_ANON_KEY) are passed to that build step, not read by the Worker itself.
+directory = "../../../web/apps/portal/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[vars]
+# Placeholder; always overridden at deploy time.
+API_ORIGIN = "http://localhost:8080"

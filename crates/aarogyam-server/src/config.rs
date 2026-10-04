@@ -58,7 +58,8 @@ impl Config {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct HttpSettings {
-    /// Address to listen on (`ARO_HTTP__BIND`). Default `0.0.0.0:8080`, which Cloud Run expects.
+    /// Address to listen on (`ARO_HTTP__BIND`). Default `0.0.0.0:$PORT` (`8080` if `PORT` is
+    /// unset), since Cloud Run assigns the port through that variable rather than `ARO_*`.
     pub bind: SocketAddr,
     /// Longest a request may run before the client gets a 503, in seconds
     /// (`ARO_HTTP__REQUEST_TIMEOUT_SECS`). Default 30.
@@ -84,8 +85,12 @@ impl HttpSettings {
 
 impl Default for HttpSettings {
     fn default() -> Self {
+        let port = std::env::var("PORT")
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(8080);
         Self {
-            bind: SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8080)),
+            bind: SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)),
             request_timeout_secs: 30,
             body_limit_bytes: 1024 * 1024,
             edge_secret: None,

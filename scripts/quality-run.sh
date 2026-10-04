@@ -71,10 +71,12 @@ end_suite web
 # :8080, portal :5173 on sunrise.localtest.me, console :5174). It never starts that stack itself:
 # recording a run must not be the thing that stands up a dev environment.
 begin_suite e2e "golden journey (Playwright)" e2e
+# E2E_API_URL, E2E_CONSOLE_URL and E2E_PORTAL_URL (the suite's own variables) point it at another
+# local stack; web/e2e refuses anything that isn't localhost or *.localtest.me.
 stack_up() {
-  curl -fsS -o /dev/null -m 3 "http://localhost:8080/healthz" &&
-    curl -fsS -o /dev/null -m 3 "http://console.localtest.me:5174/" &&
-    curl -fsS -o /dev/null -m 3 "http://sunrise.localtest.me:5173/"
+  curl -fsS -o /dev/null -m 3 "${E2E_API_URL:-http://localhost:8080}/healthz" &&
+    curl -fsS -o /dev/null -m 3 "${E2E_CONSOLE_URL:-http://console.localtest.me:5174}/" &&
+    curl -fsS -o /dev/null -m 3 "${E2E_PORTAL_URL:-http://sunrise.localtest.me:5173}/"
 }
 if [ -d web/e2e ] && stack_up; then
   (cd web/e2e && npx playwright test --reporter=json) >"$WORK/e2e.playwright.json" 2>"$WORK/e2e.stderr.log"

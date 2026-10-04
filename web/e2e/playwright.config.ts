@@ -6,6 +6,9 @@ import { defineConfig } from "@playwright/test";
  * (`cargo run -p aarogyam-server -- serve` and `pnpm dev:portal` / `pnpm dev:console` with
  * `VITE_API_MODE=http`). `src/hosts.ts` refuses to run this suite against anything else.
  */
+// One stamp for the whole run, shared with the worker Playwright restarts after a failure.
+process.env["E2E_STAMP"] ??= String(Date.now());
+
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: false,

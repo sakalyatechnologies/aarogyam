@@ -1,7 +1,7 @@
 /**
  * The golden journey, end to end against a real local stack: the console creates a clinic; the
  * portal registers a patient, books and arrives an appointment, then a doctor records vitals and
- * signs a note. Billing is skipped (pending UI; see the last test).
+ * signs a note and issues a prescription; the front desk bills and takes a cash payment.
  *
  * Seed-independent: every record this suite creates has a unique name (a run-specific stamp), so
  * it tolerates whatever else the seed or other runs have left behind, and can run again and
@@ -13,13 +13,21 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { API_URL, CONSOLE_URL, PORTAL_URL } from "../src/hosts.js";
 
-const STAMP = String(Date.now());
+const STAMP = process.env["E2E_STAMP"] ?? String(Date.now());
 const CLINIC_NAME = `E2E Clinic ${STAMP}`;
 const PATIENT_NAME = `E2E Patient ${STAMP}`;
 
 /** Clicks a seeded person's button on the dev sign-in picker (`DevSignIn` in `@aarogyam/auth`). */
 async function signInAs(page: Page, personName: string): Promise<void> {
   await page.getByRole("button", { name: personName }).click();
+}
+
+/** Opens the run's patient from the Patients list, found by name: no state crosses tests. */
+async function openPatient(page: Page): Promise<void> {
+  await page.goto(`${PORTAL_URL}/patients`);
+  await page.getByLabel("Search patients").fill(PATIENT_NAME);
+  await page.getByRole("link", { name: PATIENT_NAME }).click();
+  await page.waitForURL(/\/patients\/(?!new)[^/]+$/);
 }
 
 test.beforeAll(async ({ request }) => {
@@ -37,11 +45,25 @@ test.beforeAll(async ({ request }) => {
   );
 });
 
-// One client's state (the new patient's id) crosses from the second test to the third, so they
-// share a file-level variable; `describe.serial` keeps them in order on one worker.
-let patientId: string | undefined;
+// Failed API calls become annotations on the test, so a red run says which request failed.
+test.beforeEach(async ({ page }, testInfo) => {
+  // Browsers only offer crypto.randomUUID on secure origins, and the local hosts are plain http:
+  // the portal's billing screens need it, so supply it here (a dev-host quirk, not a product need).
+  await page.addInitScript(() => {
+    if (typeof crypto.randomUUID !== "function") {
+      Object.defineProperty(crypto, "randomUUID", {
+        value: () => "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (Number(c) ^ (Math.random() * 16) >> (Number(c) / 4)).toString(16)),
+      });
+    }
+  });
+  page.on("response", (response) => {
+    if (response.status() >= 400 && response.url().includes("/api/")) {
+      testInfo.annotations.push({ type: "api-error", description: `${String(response.status())} ${response.request().method()} ${new URL(response.url()).pathname}` });
+    }
+  });
+});
 
-test.describe.serial("golden journey", () => {
+test.describe("golden journey", () => {
   test("Sakalya Admin creates a clinic from the console", async ({ page }) => {
     await page.goto(`${CONSOLE_URL}/sign-in`);
     await signInAs(page, "Sakalya Admin");
@@ -71,8 +93,6 @@ test.describe.serial("golden journey", () => {
     // Starting from /patients/new, so the match must exclude it: otherwise waitForURL resolves
     // on the page we're already on, before the submission has gone anywhere.
     await page.waitForURL((url) => /^\/patients\/[^/]+$/.test(url.pathname) && url.pathname !== "/patients/new");
-    patientId = new URL(page.url()).pathname.split("/").at(-1);
-    expect(patientId).toBeTruthy();
 
     // Book the appointment with Dr Dev Rao, today, at the default time.
     await page.goto(`${PORTAL_URL}/calendar`);
@@ -93,17 +113,12 @@ test.describe.serial("golden journey", () => {
   });
 
   test("Dr Dev opens the visit, records vitals and signs a note", async ({ page }) => {
-    test.skip(patientId === undefined, "the previous test didn't register a patient");
-    const openPatientId = patientId;
-    if (openPatientId === undefined) {
-      return;
-    }
 
     await page.goto(`${PORTAL_URL}/sign-in`);
     await signInAs(page, "Dr Dev Rao");
     await page.waitForURL(/\/today$/);
 
-    await page.goto(`${PORTAL_URL}/patients/${openPatientId}`);
+    await openPatient(page);
     await page.getByRole("tab", { name: "Visits" }).click();
     await page.getByRole("button", { name: /Start visit|Continue open visit/ }).click();
     await page.waitForURL(/\/visits\/[^/]+$/);
@@ -121,12 +136,43 @@ test.describe.serial("golden journey", () => {
     await expect(page.getByText("SOAP")).toBeVisible();
     await page.getByRole("button", { name: "Sign" }).click();
     await expect(page.getByText("Note signed")).toBeVisible();
+
   });
 
-  test("front desk creates and issues a bill, records a cash payment", () => {
-    // Pending UI: the portal's Billing page is still "Coming soon" (web/apps/portal/src/routes.tsx),
-    // so there is nothing yet for this suite to drive. Un-skip once price list, invoice and
-    // payment screens land (M5 backend is already built: crates/aarogyam-api/src/v1/billing.rs).
-    test.skip(true, "pending UI: the portal has no billing screens yet, only a Coming soon page");
+  test("Dr Dev prescribes a medicine and issues the prescription", async ({ page }) => {
+    await page.goto(`${PORTAL_URL}/sign-in`);
+    await signInAs(page, "Dr Dev Rao");
+    await page.waitForURL(/\/today$/);
+    // One catalogue medicine, issued (a new patient has no allergies to block it).
+    await openPatient(page);
+    await page.goto(`${page.url()}/prescriptions`);
+    await page.getByRole("button", { name: "New prescription" }).click();
+    await page.waitForURL(/\/prescriptions\/[^/]+$/);
+    await page.getByLabel("Search a medicine").fill("Amoxicillin");
+    await page.locator("button", { hasText: "Amoxicillin" }).first().click();
+    await page.getByRole("button", { name: "Issue prescription" }).click();
+    await expect(page.getByText("Prescription issued")).toBeVisible();
+  });
+
+  test("front desk creates and issues a bill, records a cash payment", async ({ page }) => {
+    await page.goto(`${PORTAL_URL}/sign-in`);
+    await signInAs(page, "Farah Shaikh");
+    await page.waitForURL(/\/today$/);
+
+    await page.goto(`${PORTAL_URL}/billing/invoices/new`);
+    await page.getByLabel("Find the patient").fill(PATIENT_NAME);
+    await page.getByRole("button", { name: new RegExp(PATIENT_NAME) }).click();
+    // The seeded "Consultation" price item, chosen by value so currency formatting can't matter.
+    const item = page.getByLabel("Item");
+    const value = await item.locator("option", { hasText: "Consultation" }).first().getAttribute("value");
+    await item.selectOption(value ?? "");
+    await page.getByRole("button", { name: "Save as draft" }).click();
+    await page.waitForURL(/\/billing\/invoices\/(?!new)[^/]+$/);
+
+    await page.getByRole("button", { name: "Issue bill" }).click();
+    await page.getByRole("button", { name: "Record payment" }).click();
+    // Amount defaults to the balance and method to cash; the dialog's button shares the trigger's name.
+    await page.getByRole("dialog").getByRole("button", { name: "Record payment" }).click();
+    await expect(page.getByText(/Receipt .* recorded/)).toBeVisible();
   });
 });

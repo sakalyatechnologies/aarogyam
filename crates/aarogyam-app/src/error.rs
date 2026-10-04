@@ -25,6 +25,9 @@ pub enum AppError {
     /// The request conflicts with existing data (for example a taken subdomain).
     #[error("{0}")]
     Conflict(&'static str),
+    /// A rule beyond the permission forbids it (only owners may make owners).
+    #[error("forbidden: {0}")]
+    Forbidden(&'static str),
     /// The database failed or refused.
     #[error(transparent)]
     Db(#[from] DbError),

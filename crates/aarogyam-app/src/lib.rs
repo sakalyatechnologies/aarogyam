@@ -14,6 +14,7 @@ pub mod patients;
 mod scope;
 pub mod sessions;
 pub mod settings;
+pub mod staff;
 pub mod tokens;
 
 pub use error::AppError;

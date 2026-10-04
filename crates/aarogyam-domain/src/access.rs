@@ -79,6 +79,17 @@ pub enum MembershipStatus {
 }
 
 impl MembershipStatus {
+    /// The stored value.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Invited => "invited",
+            Self::Active => "active",
+            Self::Suspended => "suspended",
+            Self::Left => "left",
+        }
+    }
+
     /// Parses the stored value.
     #[must_use]
     pub fn parse(text: &str) -> Option<Self> {

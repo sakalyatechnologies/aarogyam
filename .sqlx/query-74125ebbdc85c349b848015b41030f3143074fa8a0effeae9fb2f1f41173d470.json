@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select hostname from aarogyam.org_domains\n           where kind = 'portal' and is_primary and verified_at is not null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hostname",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_domains",
+            "name": "hostname"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "74125ebbdc85c349b848015b41030f3143074fa8a0effeae9fb2f1f41173d470"
+}

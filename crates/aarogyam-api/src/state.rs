@@ -7,7 +7,7 @@ use std::time::Duration;
 use aarogyam_dal::lookups::{self, HostClinic};
 use aarogyam_dal::sessions;
 use aarogyam_domain::access::Authorization;
-use aarogyam_domain::ids::ClinicId;
+use aarogyam_domain::ids::{ClinicId, MembershipId};
 use aarogyam_notify::{Notifier, PortalLinks};
 use axum::http::HeaderMap;
 use sakalya_auth::{Claims, JwtVerifier, bearer_token};
@@ -175,6 +175,19 @@ impl AppState {
         self.inner
             .grant_cache
             .remove_where(|(_, _, session), _| *session == provider_session_id);
+    }
+
+    /// Forgets what was cached for a membership, so a role or status change applies to the
+    /// member's next request. Per instance, like [`Self::forget_session`].
+    pub(crate) fn forget_membership(&self, clinic_id: ClinicId, membership_id: MembershipId) {
+        self.inner
+            .grant_cache
+            .remove_where(|(clinic, _, _), found| {
+                *clinic == clinic_id.uuid()
+                    && found
+                        .as_ref()
+                        .is_some_and(|grant| grant.membership_id == membership_id)
+            });
     }
 
     /// The clinic a host belongs to, cached briefly.

@@ -1,0 +1,114 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select m.id, m.user_id, u.display_name, r.key as role_key, r.name as role_name, m.status,\n                  m.joined_at,\n                  coalesce(array_agg(b.id order by b.name) filter (where b.id is not null), '{}')\n                    as \"branch_ids!\",\n                  coalesce(array_agg(b.name order by b.name) filter (where b.id is not null), '{}')\n                    as \"branch_names!\"\n           from aarogyam.memberships m\n           join aarogyam.users u on u.id = m.user_id\n           join aarogyam.roles r on r.org_id = m.org_id and r.id = m.role_id\n           left join aarogyam.membership_branches mb on mb.org_id = m.org_id and mb.membership_id = m.id\n           left join aarogyam.branches b\n             on b.org_id = mb.org_id and b.id = mb.branch_id and b.deleted_at is null\n           where m.id = $1\n           group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.memberships",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.memberships",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "display_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.users",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "role_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "role_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.memberships",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "joined_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.memberships",
+            "name": "joined_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "branch_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "branch_names!",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "1f158db8045eb850b66d62be60754cab2e31b99a571e6bf0f23aa9dd339b4e80"
+}

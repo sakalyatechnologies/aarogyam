@@ -25,7 +25,6 @@ dependencies = [
  "time",
  "tokio",
  "tower",
- "tracing",
  "utoipa",
  "uuid",
 ]

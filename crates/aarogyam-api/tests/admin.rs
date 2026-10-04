@@ -414,3 +414,400 @@ async fn clinics_see_and_queue_only_their_own_messages() {
     assert_eq!(forged.kind(), DbErrorKind::Forbidden);
     app.finish().await;
 }
+
+/// The membership id of the member called `name`, as the owner's staff list shows it.
+async fn membership(app: &TestApp, owner: &str, name: &str) -> String {
+    let (status, staff) = app
+        .send(Method::GET, ALPHA, "/api/v1/staff", Some(owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{staff}");
+    staff["members"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|member| member["display_name"] == name)
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn staff_and_roles_stay_within_the_clinic() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let (status, staff) = app
+        .send(Method::GET, ALPHA, "/api/v1/staff", Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let members = staff["members"].as_array().unwrap();
+    assert_eq!(members.len(), 4);
+    let desk = members
+        .iter()
+        .find(|member| member["display_name"] == "Farah Desk")
+        .unwrap();
+    assert_eq!(desk["role_key"], "front_desk");
+    assert_eq!(desk["role_name"], "Front desk");
+    assert_eq!(desk["status"], "active");
+    assert_eq!(desk["branches"], json!([]));
+
+    let (status, roles) = app
+        .send(Method::GET, ALPHA, "/api/v1/roles", Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let roles = roles["items"].as_array().unwrap();
+    assert_eq!(roles.len(), 7);
+    let owner_role = roles.iter().find(|role| role["key"] == "owner").unwrap();
+    assert!(
+        owner_role["permissions"]
+            .as_array()
+            .unwrap()
+            .contains(&json!({ "key": "staff.manage", "scope": "all" }))
+    );
+
+    // Front desk lacks staff.manage.
+    let front_desk = app.token(ALPHA_FRONT_DESK);
+    for path in ["/api/v1/staff", "/api/v1/roles"] {
+        let (status, _) = app
+            .send(Method::GET, ALPHA, path, Some(&front_desk), None)
+            .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{path}");
+    }
+    // Beta's owner sees only Beta's staff, and can't touch Alpha's.
+    let beta = app.token(BETA_OWNER);
+    let (status, _) = app
+        .send(Method::GET, ALPHA, "/api/v1/staff", Some(&beta), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (_, theirs) = app
+        .send(Method::GET, BETA, "/api/v1/staff", Some(&beta), None)
+        .await;
+    assert_eq!(theirs["members"].as_array().unwrap().len(), 1);
+    let path = format!("/api/v1/staff/{}", desk["id"].as_str().unwrap());
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            BETA,
+            &path,
+            Some(&beta),
+            Some(json!({ "status": "suspended" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn suspending_or_changing_a_member_takes_effect_at_once() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let path = format!(
+        "/api/v1/staff/{}",
+        membership(&app, &owner, "Farah Desk").await
+    );
+    // The desk's grant is now cached.
+    let (status, _) = app
+        .send(Method::GET, ALPHA, "/api/v1/session", Some(&desk), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, member) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &path,
+            Some(&owner),
+            Some(json!({ "status": "suspended" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{member}");
+    assert_eq!(member["status"], "suspended");
+    let (status, _) = app
+        .send(Method::GET, ALPHA, "/api/v1/session", Some(&desk), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &path,
+            Some(&owner),
+            Some(json!({ "status": "active", "role_key": "assistant" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, session) = app
+        .send(Method::GET, ALPHA, "/api/v1/session", Some(&desk), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(session["membership"]["role_key"], "assistant");
+    // The new role applies at once: an assistant can't register patients.
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/patients",
+            Some(&desk),
+            Some(json!({ "full_name": "Asha Rao" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    for (body, field) in [
+        (json!({ "status": "invited" }), "status"),
+        (json!({ "status": "fired" }), "status"),
+        (json!({ "role_key": "wizard" }), "role_key"),
+    ] {
+        let (status, error) = app
+            .send(Method::PATCH, ALPHA, &path, Some(&owner), Some(body))
+            .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{error}");
+        assert!(
+            error["error"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with(field)
+        );
+    }
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &path,
+            Some(&desk),
+            Some(json!({ "status": "left" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn owners_keep_the_clinic_and_their_own_roles() {
+    let app = TestApp::start().await;
+    let asha = app.token(ALPHA_OWNER);
+    let own = format!(
+        "/api/v1/staff/{}",
+        membership(&app, &asha, "Asha Owner").await
+    );
+    let assistant = format!(
+        "/api/v1/staff/{}",
+        membership(&app, &asha, "Arun Assistant").await
+    );
+    let desk = format!(
+        "/api/v1/staff/{}",
+        membership(&app, &asha, "Farah Desk").await
+    );
+    for (body, message) in [
+        (
+            json!({ "role_key": "doctor" }),
+            "you can't change your own role",
+        ),
+        (
+            json!({ "status": "left" }),
+            "the clinic needs at least one active owner",
+        ),
+    ] {
+        let (status, error) = app
+            .send(Method::PATCH, ALPHA, &own, Some(&asha), Some(body))
+            .await;
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert!(
+            error["error"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with(message)
+        );
+    }
+
+    // A manager who isn't an owner can't make or touch owners.
+    sqlx::raw_sql(
+        "insert into aarogyam.role_permissions (org_id, role_id, permission)
+         select org_id, id, 'staff.manage' from aarogyam.roles where key = 'nothing'",
+    )
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    let manager = app.token(ALPHA_NOTHING);
+    for (path, body) in [
+        (&desk, json!({ "role_key": "owner" })),
+        (&own, json!({ "status": "suspended" })),
+    ] {
+        let (status, _) = app
+            .send(Method::PATCH, ALPHA, path, Some(&manager), Some(body))
+            .await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+    }
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/staff/invitations",
+            Some(&manager),
+            Some(json!({ "email": "new.owner@alpha.test", "role_key": "owner" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    // With a second owner, the first may go; the second is then the last.
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &assistant,
+            Some(&asha),
+            Some(json!({ "role_key": "owner" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let arun = app.token(ALPHA_ASSISTANT);
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &own,
+            Some(&arun),
+            Some(json!({ "status": "suspended" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = app
+        .send(Method::GET, ALPHA, "/api/v1/session", Some(&asha), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &assistant,
+            Some(&arun),
+            Some(json!({ "status": "left" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn an_invitation_is_emailed_through_the_outbox_and_accepted() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let invite = json!({ "email": " Ravi@Alpha.test ", "role_key": "doctor" });
+    let (status, created) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/staff/invitations",
+            Some(&owner),
+            Some(invite),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    assert_eq!(created["email"], "ravi@alpha.test");
+    let token = created["invite_token"].as_str().unwrap().to_owned();
+    assert_eq!(token.len(), 43);
+    let (_, staff) = app
+        .send(Method::GET, ALPHA, "/api/v1/staff", Some(&owner), None)
+        .await;
+    assert_eq!(staff["invitations"][0]["email"], "ravi@alpha.test");
+
+    // The email was queued with the invitation, carrying the token until it is sent.
+    let (recipient, payload, secret): (String, serde_json::Value, Option<String>) =
+        sqlx::query_as(
+            "select recipient, payload, secret from aarogyam.outbox_events where event_key = 'staff.invited'",
+        )
+        .fetch_one(&app.owner)
+        .await
+        .unwrap();
+    assert_eq!(recipient, "ravi@alpha.test");
+    assert_eq!(payload["portal_host"], ALPHA);
+    assert_eq!(payload["role_name"], "Doctor");
+    assert_eq!(secret.as_deref(), Some(token.as_str()));
+    let (_, report) = app
+        .send(
+            Method::POST,
+            "localhost",
+            "/api/v1/internal/outbox/drain",
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(report["sent"], 1);
+    let (secret,): (Option<String>,) = sqlx::query_as("select secret from aarogyam.outbox_events")
+        .fetch_one(&app.owner)
+        .await
+        .unwrap();
+    assert_eq!(secret, None);
+
+    // Ravi signs in with that address and joins as a doctor.
+    let ravi = app
+        .tokens
+        .mint_with_email(uuid::Uuid::now_v7(), Some("ravi@alpha.test"))
+        .unwrap();
+    let (status, _) = app
+        .send(
+            Method::POST,
+            "app.localtest.me",
+            "/api/v1/invitations/accept",
+            Some(&ravi),
+            Some(json!({ "token": token, "display_name": "Dr Ravi" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, session) = app
+        .send(Method::GET, ALPHA, "/api/v1/session", Some(&ravi), None)
+        .await;
+    assert_eq!(session["membership"]["role_key"], "doctor");
+
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn bad_or_foreign_invitations_are_refused() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    for (body, field) in [
+        (json!({ "email": "ravi", "role_key": "doctor" }), "email"),
+        (
+            json!({ "email": "x@alpha.test", "role_key": "wizard" }),
+            "role_key",
+        ),
+    ] {
+        let (status, error) = app
+            .send(
+                Method::POST,
+                ALPHA,
+                "/api/v1/staff/invitations",
+                Some(&owner),
+                Some(body),
+            )
+            .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{error}");
+        assert!(
+            error["error"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with(field)
+        );
+    }
+    let beta = app.token(BETA_OWNER);
+    let body = json!({ "email": "spy@beta.test", "role_key": "owner" });
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/staff/invitations",
+            Some(&beta),
+            Some(body),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    app.finish().await;
+}

@@ -8,9 +8,10 @@ pub(crate) mod invitations;
 pub(crate) mod me;
 pub(crate) mod patients;
 pub(crate) mod settings;
+pub(crate) mod staff;
 
 use axum::Router;
-use axum::routing::{get, post};
+use axum::routing::{get, patch, post};
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
@@ -28,6 +29,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/patients", get(patients::recent).post(patients::register))
         .route("/patients/search", post(patients::search))
         .route("/patients/{id}", get(patients::open).patch(patients::edit))
+        .route("/staff", get(staff::list))
+        .route("/staff/invitations", post(staff::invite))
+        .route("/staff/{membership_id}", patch(staff::change))
+        .route("/roles", get(staff::roles))
         .route(
             "/settings/clinic",
             get(settings::get_clinic).patch(settings::update_clinic),

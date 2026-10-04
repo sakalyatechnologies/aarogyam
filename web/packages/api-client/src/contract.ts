@@ -304,6 +304,82 @@ export type Attachment = Schemas["Attachment"];
 export type AttachmentList = Schemas["AttachmentList"];
 export type DownloadLink = Schemas["DownloadLink"];
 
+// Onboarding: registration, applications, clinic detail (M2.5) ------------------------------------
+
+export type NewRegistration = Schemas["NewRegistration"];
+export type RegistrationReceived = Schemas["RegistrationReceived"];
+export type ApplicationStatus = "pending" | "approved" | "rejected";
+export type Application = Schemas["Application"];
+export type Applications = Schemas["Applications"];
+export type ApproveApplication = Schemas["ApproveApplication"];
+export type ApprovedApplication = Schemas["ApprovedApplication"];
+export type RejectApplication = Schemas["RejectApplication"];
+
+export type ClinicMemberStatus = "invited" | "active" | "suspended" | "left";
+export type ClinicMember = Schemas["ClinicMember"];
+export type ClinicInvitation = Schemas["ClinicInvitation"];
+export type ClinicDetail = Schemas["ClinicDetail"];
+export type NewClinicInvitation = Schemas["NewClinicInvitation"];
+export type ClinicInvited = Schemas["ClinicInvited"];
+
+// Billing (M5) --------------------------------------------------------------------------------
+
+export type Drug = Schemas["Drug"];
+export type DrugList = Schemas["DrugList"];
+export type DrugSearch = Schemas["DrugSearch"];
+
+export type PriceItem = Schemas["PriceItem"];
+export type PriceItemValues = Schemas["PriceItemValues"];
+export type PriceItemList = Schemas["PriceItemList"];
+
+export type PatientRef = Schemas["PatientRef"];
+export type Reason = Schemas["Reason"];
+
+export type InvoiceStatus = "draft" | "issued" | "void";
+export type PaymentState = "unpaid" | "partial" | "paid";
+export type PaymentMethod = "cash" | "upi" | "card" | "bank";
+
+export type InvoiceLine = Schemas["InvoiceLine"];
+export type InvoiceLineInput = Schemas["InvoiceLineInput"];
+export type Invoice = Schemas["Invoice"];
+export type InvoiceList = Schemas["InvoiceList"];
+export type NewInvoice = Schemas["NewInvoice"];
+export type InvoiceEdit = Schemas["InvoiceEdit"];
+
+export type Allocation = Schemas["Allocation"];
+export type Payment = Schemas["Payment"];
+export type PaymentList = Schemas["PaymentList"];
+export type NewPayment = Schemas["NewPayment"];
+
+export type DayTotal = Schemas["DayTotal"];
+export type MethodTotal = Schemas["MethodTotal"];
+export type MixItem = Schemas["MixItem"];
+export type Collections = Schemas["Collections"];
+export type AgingBuckets = Schemas["AgingBuckets"];
+export type PendingItem = Schemas["PendingItem"];
+export type PendingReport = Schemas["PendingReport"];
+export type TodayMoney = Schemas["TodayMoney"];
+
+// Prescriptions (M5) ----------------------------------------------------------------------------
+
+export type PrescriptionStatus = "draft" | "issued" | "cancelled";
+export type AlertSeverity = "info" | "caution" | "serious";
+
+export type RxItem = Schemas["RxItem"];
+export type RxValues = Schemas["RxValues"];
+export type PrintData = Schemas["PrintData"];
+export type Alert = Schemas["Alert"];
+export type Prescription = Schemas["Prescription"];
+export type PrescriptionList = Schemas["PrescriptionList"];
+export type IssueRequest = Schemas["IssueRequest"];
+export type IssueBlocked = Schemas["IssueBlocked"];
+export type CancelRequest = Schemas["CancelRequest"];
+export type Cancelled = Schemas["Cancelled"];
+export type ShareLink = Schemas["ShareLink"];
+export type SharedPreview = Schemas["SharedPreview"];
+export type OpenRequest = Schemas["OpenRequest"];
+export type Verification = Schemas["Verification"];
+
 export type TestSuite = "unit" | "integration" | "e2e_web" | "e2e_mobile" | "canary" | "load";
 export type QualityEnvironment = "ci" | "staging" | "production";
 export type RunStatus = "running" | "passed" | "failed" | "cancelled";

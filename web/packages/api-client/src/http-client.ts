@@ -7,11 +7,17 @@ import { failure, parseApiError, success, type ApiResult } from "./result.js";
 import {
   allergy,
   allergyList,
+  applications,
   appointmentList,
+  approvedApplication,
   attachment,
   attachmentList,
+  cancelled,
+  clinicDetail,
+  clinicInvited,
   clinicSettings,
   clinicalFlags,
+  collections,
   condition,
   conditionList,
   consoleClinics,
@@ -20,7 +26,10 @@ import {
   dentalChart,
   devTokenResponse,
   downloadLink,
+  drugList,
   importResult,
+  invoice,
+  invoiceList,
   joined,
   leave,
   leaveList,
@@ -32,23 +41,35 @@ import {
   observationList,
   patient,
   patientList,
+  payment,
+  paymentList,
+  pendingReport,
   practitioner,
   practitionerList,
+  prescription,
+  prescriptionList,
+  priceItem,
+  priceItemList,
   procedure,
   procedureList,
   qualityReport,
   queueDay,
   queueToken,
+  registrationReceived,
   requestId,
   room,
   roomList,
   rolesResponse,
   savedAppointment,
   sessionResponse,
+  shareLink,
+  sharedPreview,
   staffResponse,
   statusChanged,
   timeline,
+  todayMoney,
   todayResponse,
+  verification,
   visit,
   visitDetail,
   visitList,
@@ -73,6 +94,8 @@ interface Call<T> {
   schema: z.ZodType<T>;
   query?: Query;
   body?: unknown;
+  /** Extra request headers, such as `Idempotency-Key`. */
+  headers?: Readonly<Record<string, string>>;
   signal?: AbortSignal | undefined;
 }
 
@@ -84,11 +107,16 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
   const send = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
   const root = baseUrl.replace(/\/+$/, "");
 
-  async function call<T>({ method, path, schema, query, body, signal }: Call<T>): Promise<ApiResult<T>> {
+  async function call<T>({ method, path, schema, query, body, headers: extraHeaders, signal }: Call<T>): Promise<ApiResult<T>> {
     const headers = new Headers({ accept: "application/json" });
     const token = await getToken();
     if (token !== null && token !== "") {
       headers.set("authorization", `Bearer ${token}`);
+    }
+    if (extraHeaders !== undefined) {
+      for (const [key, value] of Object.entries(extraHeaders)) {
+        headers.set(key, value);
+      }
     }
     // Patient data must never sit in the browser's HTTP cache.
     const init: RequestInit = { method, headers, cache: "no-store" };
@@ -302,6 +330,124 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "GET", path: "/api/v1/console/metrics", schema: metricsResponse, query: { range }, signal: opts?.signal }),
     getQualityReport: (opts) =>
       call({ method: "GET", path: "/api/v1/console/quality", schema: qualityReport, signal: opts?.signal }),
+
+    submitRegistration: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/registrations", schema: registrationReceived, body: input, signal: opts?.signal }),
+
+    listApplications: (status, opts) =>
+      call({ method: "GET", path: "/api/v1/console/applications", schema: applications, query: { status }, signal: opts?.signal }),
+    approveApplication: (id, input, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/console/applications/${encodeURIComponent(id)}/approve`,
+        schema: approvedApplication,
+        body: input,
+        signal: opts?.signal,
+      }),
+    rejectApplication: (id, input, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/console/applications/${encodeURIComponent(id)}/reject`,
+        schema: voidResponse,
+        body: input,
+        signal: opts?.signal,
+      }),
+    getClinicDetail: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/console/clinics/${encodeURIComponent(id)}`, schema: clinicDetail, signal: opts?.signal }),
+    inviteToClinic: (id, input, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/console/clinics/${encodeURIComponent(id)}/invitations`,
+        schema: clinicInvited,
+        body: input,
+        signal: opts?.signal,
+      }),
+
+    searchDrugs: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/drugs/search", schema: drugList, body: input, signal: opts?.signal }),
+
+    listPriceItems: (opts) => call({ method: "GET", path: "/api/v1/price-items", schema: priceItemList, signal: opts?.signal }),
+    addPriceItem: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/price-items", schema: priceItem, body: input, signal: opts?.signal }),
+    changePriceItem: (id, input, opts) =>
+      call({ method: "PATCH", path: `/api/v1/price-items/${encodeURIComponent(id)}`, schema: priceItem, body: input, signal: opts?.signal }),
+
+    listInvoices: (filter, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/invoices",
+        schema: invoiceList,
+        query: { status: filter.status, from: filter.from, to: filter.to, patient_id: filter.patientId },
+        signal: opts?.signal,
+      }),
+    getInvoice: (id, opts) => call({ method: "GET", path: `/api/v1/invoices/${encodeURIComponent(id)}`, schema: invoice, signal: opts?.signal }),
+    createInvoice: (input, opts) => call({ method: "POST", path: "/api/v1/invoices", schema: invoice, body: input, signal: opts?.signal }),
+    editInvoice: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/invoices/${encodeURIComponent(id)}`, schema: invoice, body: changes, signal: opts?.signal }),
+    issueInvoice: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/invoices/${encodeURIComponent(id)}/issue`, schema: invoice, signal: opts?.signal }),
+    voidInvoice: (id, reason, opts) =>
+      call({ method: "POST", path: `/api/v1/invoices/${encodeURIComponent(id)}/void`, schema: invoice, body: reason, signal: opts?.signal }),
+
+    listPayments: (range, opts) =>
+      call({ method: "GET", path: "/api/v1/payments", schema: paymentList, query: { from: range.from, to: range.to }, signal: opts?.signal }),
+    getPayment: (id, opts) => call({ method: "GET", path: `/api/v1/payments/${encodeURIComponent(id)}`, schema: payment, signal: opts?.signal }),
+    recordPayment: (input, idempotencyKey, opts) =>
+      call({
+        method: "POST",
+        path: "/api/v1/payments",
+        schema: payment,
+        body: input,
+        headers: { "Idempotency-Key": idempotencyKey },
+        signal: opts?.signal,
+      }),
+    voidPayment: (id, reason, opts) =>
+      call({ method: "POST", path: `/api/v1/payments/${encodeURIComponent(id)}/void`, schema: payment, body: reason, signal: opts?.signal }),
+
+    getCollections: (range, opts) =>
+      call({ method: "GET", path: "/api/v1/reports/collections", schema: collections, query: { from: range.from, to: range.to }, signal: opts?.signal }),
+    getPendingReport: (opts) => call({ method: "GET", path: "/api/v1/reports/pending", schema: pendingReport, signal: opts?.signal }),
+    getTodayMoney: (opts) => call({ method: "GET", path: "/api/v1/today/money", schema: todayMoney, signal: opts?.signal }),
+
+    listPrescriptions: (patientId, opts) =>
+      call({
+        method: "GET",
+        path: `/api/v1/patients/${encodeURIComponent(patientId)}/prescriptions`,
+        schema: prescriptionList,
+        signal: opts?.signal,
+      }),
+    getLastPrescription: (patientId, opts) =>
+      call({
+        method: "GET",
+        path: `/api/v1/patients/${encodeURIComponent(patientId)}/prescriptions/last`,
+        schema: prescription,
+        signal: opts?.signal,
+      }),
+    getPrescription: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/prescriptions/${encodeURIComponent(id)}`, schema: prescription, signal: opts?.signal }),
+    createPrescription: (patientId, input, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/patients/${encodeURIComponent(patientId)}/prescriptions`,
+        schema: prescription,
+        body: input,
+        signal: opts?.signal,
+      }),
+    editPrescription: (id, input, opts) =>
+      call({ method: "PATCH", path: `/api/v1/prescriptions/${encodeURIComponent(id)}`, schema: prescription, body: input, signal: opts?.signal }),
+    issuePrescription: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/prescriptions/${encodeURIComponent(id)}/issue`, schema: prescription, body: input, signal: opts?.signal }),
+    cancelPrescription: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/prescriptions/${encodeURIComponent(id)}/cancel`, schema: cancelled, body: input, signal: opts?.signal }),
+    createShareLink: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/prescriptions/${encodeURIComponent(id)}/share`, schema: shareLink, signal: opts?.signal }),
+
+    getSharedPreview: (token, opts) =>
+      call({ method: "GET", path: `/api/v1/shared/${encodeURIComponent(token)}`, schema: sharedPreview, signal: opts?.signal }),
+    openShared: (token, pin, opts) =>
+      call({ method: "POST", path: `/api/v1/shared/${encodeURIComponent(token)}/open`, schema: prescription, body: { pin }, signal: opts?.signal }),
+    verifyPrescription: (token, opts) =>
+      call({ method: "GET", path: `/api/v1/verify/prescriptions/${encodeURIComponent(token)}`, schema: verification, signal: opts?.signal }),
   };
 }
 

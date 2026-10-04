@@ -1068,6 +1068,450 @@ export type AttachmentPage = z.output<typeof attachmentList>;
 export const downloadLink = z.object({ url: z.string().min(1), expires_at: timestamp }) satisfies z.ZodType<C.DownloadLink>;
 export type DownloadLink = z.output<typeof downloadLink>;
 
+// Onboarding: registration, applications, clinic detail (M2.5) ------------------------------------
+
+export const applicationId = z.string().min(1).brand<"ApplicationId">();
+export type ApplicationId = z.output<typeof applicationId>;
+
+/** Body of `POST /api/v1/registrations`. */
+export type NewRegistration = C.NewRegistration;
+
+export const registrationReceived = z.object({ status: z.string(), message: z.string() }) satisfies z.ZodType<C.RegistrationReceived>;
+export type RegistrationReceived = z.output<typeof registrationReceived>;
+
+export const applicationStatus = z.enum(["pending", "approved", "rejected"]) satisfies z.ZodType<C.ApplicationStatus>;
+export type ApplicationStatus = z.output<typeof applicationStatus>;
+
+export const application = z.object({
+  id: applicationId,
+  clinic_name: z.string(),
+  city: z.string(),
+  specialty: z.string(),
+  contact_name: z.string(),
+  email: z.string(),
+  phone: optionalText,
+  message: optionalText,
+  status: z.string(),
+  submissions: z.number().int(),
+  clinic_id: clinicId.nullable().exactOptional(),
+  decided_at: optionalTimestamp,
+  decided_by: optionalText,
+  decision_reason: optionalText,
+  created_at: timestamp,
+  updated_at: timestamp,
+}) satisfies z.ZodType<C.Application>;
+export type Application = z.output<typeof application>;
+
+export const applications = z.object({ items: z.array(application) }) satisfies z.ZodType<C.Applications>;
+export type Applications = z.output<typeof applications>;
+
+/** Body of `POST /api/v1/console/applications/{id}/approve`. */
+export type ApproveApplication = C.ApproveApplication;
+
+export const approvedApplication = z.object({
+  clinic_id: clinicId,
+  slug: z.string().min(1),
+  portal_host: z.string().min(1),
+  invitation_id: invitationId,
+  invite_link: z.string().min(1),
+  invite_expires_at: timestamp,
+  account_ready: z.boolean(),
+}) satisfies z.ZodType<C.ApprovedApplication>;
+export type ApprovedApplication = z.output<typeof approvedApplication>;
+
+/** Body of `POST /api/v1/console/applications/{id}/reject`. */
+export type RejectApplication = C.RejectApplication;
+
+export const clinicMemberStatus = z.enum(["invited", "active", "suspended", "left"]) satisfies z.ZodType<C.ClinicMemberStatus>;
+export type ClinicMemberStatus = z.output<typeof clinicMemberStatus>;
+
+export const clinicMember = z.object({
+  membership_id: membershipId,
+  display_name: z.string(),
+  email: optionalText,
+  role_key: z.string(),
+  role_name: z.string(),
+  status: z.string(),
+  joined_at: optionalTimestamp,
+}) satisfies z.ZodType<C.ClinicMember>;
+export type ClinicMember = z.output<typeof clinicMember>;
+
+export const clinicInvitation = z.object({
+  id: invitationId,
+  email: optionalText,
+  role_key: z.string(),
+  role_name: z.string(),
+  expires_at: timestamp,
+  created_at: timestamp,
+}) satisfies z.ZodType<C.ClinicInvitation>;
+export type ClinicInvitation = z.output<typeof clinicInvitation>;
+
+export const clinicDetail = z.object({
+  id: clinicId,
+  slug: z.string().min(1),
+  name: z.string(),
+  specialty: z.string(),
+  status: clinicStatus,
+  timezone: z.string().min(1),
+  created_at: timestamp,
+  hosts: z.array(z.string()),
+  active_members: count,
+  patients: count,
+  pending_invitations: count,
+  members: z.array(clinicMember),
+  invitations: z.array(clinicInvitation),
+}) satisfies z.ZodType<C.ClinicDetail>;
+export type ClinicDetail = z.output<typeof clinicDetail>;
+
+/** Body of `POST /api/v1/console/clinics/{id}/invitations`. */
+export type NewClinicInvitation = C.NewClinicInvitation;
+
+export const clinicInvited = z.object({
+  id: invitationId,
+  email: z.string(),
+  role_key: z.string(),
+  invite_link: z.string().min(1),
+  expires_at: timestamp,
+  account_ready: z.boolean(),
+}) satisfies z.ZodType<C.ClinicInvited>;
+export type ClinicInvited = z.output<typeof clinicInvited>;
+
+// Billing (M5) --------------------------------------------------------------------------------
+
+export const drugId = z.string().min(1).brand<"DrugId">();
+export type DrugId = z.output<typeof drugId>;
+
+export const drug = z.object({
+  id: drugId,
+  generic_name: z.string(),
+  brand_name: optionalText,
+  form: z.string(),
+  strength: z.string(),
+  default_dose: z.string(),
+  default_frequency: z.string(),
+  default_timing: optionalText,
+  default_duration_days: count.nullable().exactOptional(),
+}) satisfies z.ZodType<C.Drug>;
+export type Drug = z.output<typeof drug>;
+
+export const drugList = z.object({ items: z.array(drug) }) satisfies z.ZodType<C.DrugList>;
+export type DrugList = z.output<typeof drugList>;
+
+/** Body of `POST /api/v1/drugs/search`. */
+export type DrugSearch = C.DrugSearch;
+
+export const priceItemId = z.string().min(1).brand<"PriceItemId">();
+export type PriceItemId = z.output<typeof priceItemId>;
+
+export const priceItem = z.object({
+  id: priceItemId,
+  name: z.string(),
+  code: optionalText,
+  category: optionalText,
+  price_paise: paise,
+  taxable: z.boolean(),
+  gst_rate: z.number().int(),
+  sac_hsn: optionalText,
+  active: z.boolean(),
+}) satisfies z.ZodType<C.PriceItem>;
+export type PriceItem = z.output<typeof priceItem>;
+
+export const priceItemList = z.object({ items: z.array(priceItem) }) satisfies z.ZodType<C.PriceItemList>;
+export type PriceItemPage = z.output<typeof priceItemList>;
+
+/** Body of `POST`/`PATCH /api/v1/price-items`. */
+export type PriceItemValues = C.PriceItemValues;
+
+export const patientRef = z.object({ id: patientId, name: z.string(), number: patientNumber }) satisfies z.ZodType<C.PatientRef>;
+export type PatientRef = z.output<typeof patientRef>;
+
+/** Body of a void with a reason: `POST /invoices/{id}/void`, `POST /payments/{id}/void`. */
+export type Reason = C.Reason;
+
+export const invoiceId = z.string().min(1).brand<"InvoiceId">();
+export type InvoiceId = z.output<typeof invoiceId>;
+
+export const invoiceStatus = z.enum(["draft", "issued", "void"]) satisfies z.ZodType<C.InvoiceStatus>;
+export type InvoiceStatus = z.output<typeof invoiceStatus>;
+
+export const invoiceLine = z.object({
+  line_no: z.number().int(),
+  description: z.string(),
+  price_item_id: priceItemId.nullable().exactOptional(),
+  procedure_id: procedureId.nullable().exactOptional(),
+  quantity: z.number().int(),
+  unit_price_paise: paise,
+  discount_paise: paise,
+  gst_rate: z.number().int(),
+  sac_hsn: optionalText,
+  taxable_paise: paise,
+  cgst_paise: paise,
+  sgst_paise: paise,
+  igst_paise: paise,
+  total_paise: paise,
+}) satisfies z.ZodType<C.InvoiceLine>;
+export type InvoiceLine = z.output<typeof invoiceLine>;
+
+export const invoice = z.object({
+  id: invoiceId,
+  status: invoiceStatus,
+  number: optionalText,
+  patient: patientRef,
+  encounter_id: optionalText,
+  items: z.array(invoiceLine),
+  subtotal_paise: paise,
+  discount_paise: paise,
+  taxable_paise: paise,
+  cgst_paise: paise,
+  sgst_paise: paise,
+  igst_paise: paise,
+  tax_paise: paise,
+  round_off_paise: paise,
+  total_paise: paise,
+  paid_paise: paise,
+  balance_paise: paise,
+  payment_state: z.string().nullable().exactOptional(),
+  methods: z.array(z.string()),
+  notes: optionalText,
+  place_of_supply: optionalText,
+  doc_type: optionalText,
+  recipient: z.record(z.string(), z.unknown()).nullable().exactOptional(),
+  supplier: z.record(z.string(), z.unknown()).nullable().exactOptional(),
+  replaces_invoice_id: invoiceId.nullable().exactOptional(),
+  void_reason: optionalText,
+  voided_at: optionalTimestamp,
+  created_at: timestamp,
+  issued_at: optionalTimestamp,
+}) satisfies z.ZodType<C.Invoice>;
+export type Invoice = z.output<typeof invoice>;
+
+export const invoiceList = z.object({ items: z.array(invoice) }) satisfies z.ZodType<C.InvoiceList>;
+export type InvoicePage = z.output<typeof invoiceList>;
+
+/** Body of `POST /api/v1/invoices`. */
+export type NewInvoice = C.NewInvoice;
+/** Body of `PATCH /api/v1/invoices/{id}`. */
+export type InvoiceEdit = C.InvoiceEdit;
+
+export const paymentId = z.string().min(1).brand<"PaymentId">();
+export type PaymentId = z.output<typeof paymentId>;
+
+export const paymentMethod = z.enum(["cash", "upi", "card", "bank"]) satisfies z.ZodType<C.PaymentMethod>;
+export type PaymentMethod = z.output<typeof paymentMethod>;
+
+export const allocation = z.object({ invoice_id: invoiceId, amount_paise: paise }) satisfies z.ZodType<C.Allocation>;
+export type Allocation = z.output<typeof allocation>;
+
+export const payment = z.object({
+  id: paymentId,
+  number: z.string(),
+  status: z.string(),
+  patient: patientRef,
+  method: z.string(),
+  amount_paise: paise,
+  allocated_paise: paise,
+  unallocated_paise: paise,
+  allocations: z.array(allocation),
+  reference: optionalText,
+  received_at: timestamp,
+  void_reason: optionalText,
+}) satisfies z.ZodType<C.Payment>;
+export type Payment = z.output<typeof payment>;
+
+export const paymentList = z.object({ items: z.array(payment) }) satisfies z.ZodType<C.PaymentList>;
+export type PaymentPage = z.output<typeof paymentList>;
+
+/** Body of `POST /api/v1/payments`; sent with an `Idempotency-Key` header. */
+export type NewPayment = C.NewPayment;
+
+export const dayTotal = z.object({ date, amount_paise: paise, payments: count }) satisfies z.ZodType<C.DayTotal>;
+export type DayTotal = z.output<typeof dayTotal>;
+
+export const methodTotal = z.object({
+  method: z.string(),
+  amount_paise: paise,
+  payments: count,
+  share_bps: z.number().int(),
+}) satisfies z.ZodType<C.MethodTotal>;
+export type MethodTotal = z.output<typeof methodTotal>;
+
+export const mixItem = z.object({ category: z.string(), amount_paise: paise, share_bps: z.number().int() }) satisfies z.ZodType<C.MixItem>;
+export type MixItem = z.output<typeof mixItem>;
+
+export const collections = z.object({
+  from: date,
+  to: date,
+  collected_paise: paise,
+  invoiced_paise: paise,
+  outstanding_paise: paise,
+  invoices: count,
+  payments: count,
+  by_day: z.array(dayTotal),
+  by_week: z.array(dayTotal),
+  by_method: z.array(methodTotal),
+  revenue_mix: z.array(mixItem),
+}) satisfies z.ZodType<C.Collections>;
+export type Collections = z.output<typeof collections>;
+
+export const agingBuckets = z.object({
+  "0_30": count,
+  "31_60": count,
+  "61_90": count,
+  "90_plus": count,
+}) satisfies z.ZodType<C.AgingBuckets>;
+export type AgingBuckets = z.output<typeof agingBuckets>;
+
+export const pendingItem = z.object({
+  invoice_id: invoiceId,
+  number: optionalText,
+  patient: patientRef,
+  total_paise: paise,
+  paid_paise: paise,
+  balance_paise: paise,
+  issued_at: optionalTimestamp,
+  age_days: z.number().int(),
+  bucket: z.string(),
+}) satisfies z.ZodType<C.PendingItem>;
+export type PendingItem = z.output<typeof pendingItem>;
+
+export const pendingReport = z.object({
+  outstanding_paise: paise,
+  patients: count,
+  buckets: agingBuckets,
+  items: z.array(pendingItem),
+}) satisfies z.ZodType<C.PendingReport>;
+export type PendingReport = z.output<typeof pendingReport>;
+
+export const todayMoney = z.object({
+  date,
+  collected_paise: paise,
+  collected_this_month_paise: paise,
+  invoiced_paise: paise,
+  invoices_today: count,
+  payments_today: count,
+  pending_dues_paise: paise,
+  pending_dues_patients: count,
+  pending: z.array(pendingItem),
+  revenue_mix: z.array(mixItem),
+  upi_share_bps: z.number().int(),
+}) satisfies z.ZodType<C.TodayMoney>;
+export type TodayMoney = z.output<typeof todayMoney>;
+
+// Prescriptions (M5) ----------------------------------------------------------------------------
+
+export const prescriptionId = z.string().min(1).brand<"PrescriptionId">();
+export type PrescriptionId = z.output<typeof prescriptionId>;
+
+export const prescriptionStatus = z.enum(["draft", "issued", "cancelled"]) satisfies z.ZodType<C.PrescriptionStatus>;
+export type PrescriptionStatus = z.output<typeof prescriptionStatus>;
+
+export const alertSeverity = z.enum(["info", "caution", "serious"]) satisfies z.ZodType<C.AlertSeverity>;
+export type AlertSeverity = z.output<typeof alertSeverity>;
+
+export const alert = z.object({
+  kind: z.string(),
+  severity: z.string(),
+  message: z.string(),
+  line_no: z.number().int().nullable().exactOptional(),
+  action: optionalText,
+  override_reason: optionalText,
+}) satisfies z.ZodType<C.Alert>;
+export type Alert = z.output<typeof alert>;
+
+export const rxItem = z.object({
+  drug_id: drugId.nullable().exactOptional(),
+  drug_name: optionalText,
+  form: optionalText,
+  strength: optionalText,
+  dose: optionalText,
+  frequency: optionalText,
+  timing: optionalText,
+  duration_days: count.nullable().exactOptional(),
+  instructions: optionalText,
+}) satisfies z.ZodType<C.RxItem>;
+export type RxItem = z.output<typeof rxItem>;
+
+/** Body of `POST`/`PATCH` of a draft prescription. */
+export type RxValues = C.RxValues;
+
+export const printData = z.object({
+  letterhead: z.record(z.string(), z.unknown()),
+  doctor: z.record(z.string(), z.unknown()),
+  patient: z.record(z.string(), z.unknown()),
+  footer: optionalText,
+  verify_path: z.string(),
+  brand_line: z.string(),
+}) satisfies z.ZodType<C.PrintData>;
+export type PrintData = z.output<typeof printData>;
+
+export const prescription = z.object({
+  id: prescriptionId,
+  status: prescriptionStatus,
+  number: optionalText,
+  patient: patientRef,
+  encounter_id: optionalText,
+  diagnosis_text: optionalText,
+  items: z.array(rxItem),
+  advice: optionalText,
+  follow_up_on: optionalText,
+  language: z.string(),
+  alerts: z.array(alert),
+  override_reason: optionalText,
+  supersedes_id: prescriptionId.nullable().exactOptional(),
+  superseded_by: prescriptionId.nullable().exactOptional(),
+  cancel_reason: optionalText,
+  cancelled_at: optionalTimestamp,
+  created_at: timestamp,
+  issued_at: optionalTimestamp,
+  print: printData.nullable().exactOptional(),
+}) satisfies z.ZodType<C.Prescription>;
+export type Prescription = z.output<typeof prescription>;
+
+export const prescriptionList = z.object({ items: z.array(prescription) }) satisfies z.ZodType<C.PrescriptionList>;
+export type PrescriptionPage = z.output<typeof prescriptionList>;
+
+/** Body of `POST /api/v1/prescriptions/{id}/issue`. */
+export type IssueRequest = C.IssueRequest;
+
+export const issueBlocked = z.object({ code: z.string(), alerts: z.array(alert) }) satisfies z.ZodType<C.IssueBlocked>;
+export type IssueBlocked = z.output<typeof issueBlocked>;
+
+/** Body of `POST /api/v1/prescriptions/{id}/cancel`. */
+export type CancelRequest = C.CancelRequest;
+
+export const cancelled = z.object({
+  cancelled: prescription,
+  draft: prescription.nullable().exactOptional(),
+}) satisfies z.ZodType<C.Cancelled>;
+export type Cancelled = z.output<typeof cancelled>;
+
+export const shareLink = z.object({
+  id: z.string().min(1),
+  token: z.string().min(1),
+  pin: z.string().min(1),
+  expires_at: timestamp,
+}) satisfies z.ZodType<C.ShareLink>;
+export type ShareLink = z.output<typeof shareLink>;
+
+export const sharedPreview = z.object({
+  resource: z.string(),
+  state: z.string(),
+  clinic_name: z.string(),
+  expires_at: timestamp,
+}) satisfies z.ZodType<C.SharedPreview>;
+export type SharedPreview = z.output<typeof sharedPreview>;
+
+/** Body of `POST /api/v1/shared/{token}/open`. */
+export type OpenRequest = C.OpenRequest;
+
+export const verification = z.object({
+  status: z.string(),
+  number: optionalText,
+  clinic_name: z.string(),
+  issued_on: optionalText,
+}) satisfies z.ZodType<C.Verification>;
+export type Verification = z.output<typeof verification>;
+
 // Requests -----------------------------------------------------------------------------------
 
 /** Body of `POST /api/v1/patients`. */

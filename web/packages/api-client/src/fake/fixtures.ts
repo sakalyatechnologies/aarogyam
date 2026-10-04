@@ -308,6 +308,166 @@ export interface FakeAttachment {
   url: string;
 }
 
+/** A clinic's application to join Aarogyam, console-only. */
+export interface FakeApplication {
+  id: string;
+  clinic_name: string;
+  city: string;
+  specialty: string;
+  contact_name: string;
+  email: string;
+  phone?: string | null;
+  message?: string | null;
+  status: "pending" | "approved" | "rejected";
+  submissions: number;
+  clinic_id?: string | null;
+  decided_at?: string | null;
+  decided_by?: string | null;
+  decision_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A price list entry. */
+export interface FakePriceItem {
+  id: string;
+  clinic_id: string;
+  name: string;
+  code?: string | null;
+  category?: string | null;
+  price_paise: number;
+  taxable: boolean;
+  gst_rate: number;
+  sac_hsn?: string | null;
+  active: boolean;
+}
+
+/** A bill line, as billed (GST split and totals computed when the line is added). */
+export interface FakeInvoiceLine {
+  line_no: number;
+  description: string;
+  price_item_id?: string | null;
+  procedure_id?: string | null;
+  quantity: number;
+  unit_price_paise: number;
+  discount_paise: number;
+  gst_rate: number;
+  sac_hsn?: string | null;
+  taxable_paise: number;
+  cgst_paise: number;
+  sgst_paise: number;
+  igst_paise: number;
+  total_paise: number;
+}
+
+/** A bill. Draft totals are a live preview of `items`; issued bills freeze what they printed. */
+export interface FakeInvoice {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  status: "draft" | "issued" | "void";
+  number?: string | null;
+  encounter_id?: string | null;
+  items: FakeInvoiceLine[];
+  notes?: string | null;
+  place_of_supply?: string | null;
+  replaces_invoice_id?: string | null;
+  void_reason?: string | null;
+  voided_at?: string | null;
+  created_at: string;
+  issued_at?: string | null;
+}
+
+/** A payment, with the bills it covers. */
+export interface FakePayment {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  number: string;
+  status: "received" | "void";
+  method: "cash" | "upi" | "card" | "bank";
+  amount_paise: number;
+  allocations: { invoice_id: string; amount_paise: number }[];
+  reference?: string | null;
+  received_at: string;
+  void_reason?: string | null;
+  idempotency_key: string;
+}
+
+/** An entry in the shared medicine catalogue (clinic-agnostic). */
+export interface FakeDrug {
+  id: string;
+  generic_name: string;
+  brand_name?: string | null;
+  form: string;
+  strength: string;
+  default_dose: string;
+  default_frequency: string;
+  default_timing?: string | null;
+  default_duration_days?: number | null;
+}
+
+/** One medicine on a prescription. */
+export interface FakeRxItem {
+  drug_id?: string | null;
+  drug_name?: string | null;
+  form?: string | null;
+  strength?: string | null;
+  dose?: string | null;
+  frequency?: string | null;
+  timing?: string | null;
+  duration_days?: number | null;
+  instructions?: string | null;
+}
+
+/** An allergy or other safety alert recorded when a prescription was issued. */
+export interface FakeAlert {
+  kind: string;
+  severity: "info" | "caution" | "serious";
+  message: string;
+  line_no?: number | null;
+  action?: string | null;
+  override_reason?: string | null;
+}
+
+export interface FakePrescription {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  status: "draft" | "issued" | "cancelled";
+  number?: string | null;
+  encounter_id?: string | null;
+  diagnosis_text?: string | null;
+  items: FakeRxItem[];
+  advice?: string | null;
+  follow_up_on?: string | null;
+  language: string;
+  alerts: FakeAlert[];
+  override_reason?: string | null;
+  supersedes_id?: string | null;
+  superseded_by?: string | null;
+  cancel_reason?: string | null;
+  cancelled_at?: string | null;
+  created_at: string;
+  issued_at?: string | null;
+  /** The QR code's token, set once issued. */
+  verify_token?: string | null;
+  issued_by_membership_id?: string | null;
+}
+
+/** A patient-facing link to one issued prescription, locked after too many wrong PINs. */
+export interface FakeShareLink {
+  id: string;
+  clinic_id: string;
+  prescription_id: string;
+  token: string;
+  pin: string;
+  created_at: string;
+  expires_at: string;
+  failed_attempts: number;
+  locked: boolean;
+}
+
 export interface Fixtures {
   users: FakeUser[];
   platformUsers: FakePlatformUser[];
@@ -329,6 +489,13 @@ export interface Fixtures {
   chartEntries: FakeChartEntry[];
   attachments: FakeAttachment[];
   sessions: FakeSession[];
+  applications: FakeApplication[];
+  priceItems: FakePriceItem[];
+  invoices: FakeInvoice[];
+  payments: FakePayment[];
+  drugs: FakeDrug[];
+  prescriptions: FakePrescription[];
+  shareLinks: FakeShareLink[];
   quality: C.QualityReport;
 }
 
@@ -352,6 +519,8 @@ export const ROLES = {
       "clinical.read",
       "clinical.write",
       "billing.read",
+      "billing.write",
+      "prescriptions.issue",
       "finance.view",
       "settings.manage",
       "staff.manage",
@@ -368,15 +537,29 @@ export const ROLES = {
       "appointments.write",
       "clinical.read",
       "clinical.write",
+      "prescriptions.issue",
     ],
   },
   frontDesk: {
     key: "front_desk",
     name: "Front desk",
-    permissions: ["patients.read", "patients.write", "patients.contact", "appointments.read", "appointments.write", "billing.read"],
+    permissions: [
+      "patients.read",
+      "patients.write",
+      "patients.contact",
+      "appointments.read",
+      "appointments.write",
+      "billing.read",
+      "billing.write",
+    ],
   },
   assistant: { key: "assistant", name: "Assistant", permissions: ["patients.read", "appointments.read", "clinical.read"] },
   consultant: { key: "consultant", name: "Visiting consultant", permissions: ["appointments.read", "clinical.read"] },
+  finance: {
+    key: "finance",
+    name: "Finance",
+    permissions: ["patients.read", "billing.read", "billing.write", "finance.view"],
+  },
 } as const satisfies Record<string, FakeRole>;
 
 /** Builds the full synthetic data set. Deterministic for a given seed and `now`. */
@@ -726,6 +909,207 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     },
   ]);
 
+  // Applications to join Aarogyam (console only; unrelated to the seeded clinics above).
+  const applications: FakeApplication[] = [
+    {
+      id: id(),
+      clinic_name: "Smile Care Dental",
+      city: "Pune",
+      specialty: "dental",
+      contact_name: "Rohit Deshmukh",
+      email: "rohit@smilecare.example",
+      phone: "+919876501234",
+      message: "We're a two-chair clinic looking to go digital.",
+      status: "pending",
+      submissions: 1,
+      created_at: isoDaysAgo(now, 2),
+      updated_at: isoDaysAgo(now, 2),
+    },
+    {
+      id: id(),
+      clinic_name: "Riverside Family Dentistry",
+      city: "Nashik",
+      specialty: "dental",
+      contact_name: "Priya Kulkarni",
+      email: "priya@riversidedental.example",
+      phone: null,
+      message: null,
+      status: "pending",
+      submissions: 2,
+      created_at: isoDaysAgo(now, 5),
+      updated_at: isoDaysAgo(now, 1),
+    },
+    {
+      id: id(),
+      clinic_name: "Wellness General Clinic",
+      city: "Nagpur",
+      specialty: "general",
+      contact_name: "Imran Shaikh",
+      email: "imran@wellnessgeneral.example",
+      phone: "+919876505678",
+      message: "Interested after seeing Sunrise Dental's portal.",
+      status: "rejected",
+      submissions: 1,
+      decided_at: isoDaysAgo(now, 10),
+      decided_by: platformUsers[0]?.id ?? null,
+      decision_reason: "Outside the dental/general pilot area for now.",
+      created_at: isoDaysAgo(now, 14),
+      updated_at: isoDaysAgo(now, 10),
+    },
+  ];
+
+  // Price list (Sunrise only; health-care services are GST-exempt, medicines are taxable).
+  const priceItems: FakePriceItem[] = [
+    { id: id(), clinic_id: sunrise.id, name: "Consultation", code: "CONS", category: "consultation", price_paise: 50_000, taxable: false, gst_rate: 0, sac_hsn: "9993", active: true },
+    { id: id(), clinic_id: sunrise.id, name: "Scaling and polishing", code: "SCAL", category: "preventive", price_paise: 150_000, taxable: false, gst_rate: 0, sac_hsn: "9993", active: true },
+    { id: id(), clinic_id: sunrise.id, name: "Composite filling", code: "FILL", category: "restorative", price_paise: 180_000, taxable: false, gst_rate: 0, sac_hsn: "9993", active: true },
+    { id: id(), clinic_id: sunrise.id, name: "Root canal treatment", code: "RCT", category: "endodontics", price_paise: 600_000, taxable: false, gst_rate: 0, sac_hsn: "9993", active: true },
+    { id: id(), clinic_id: sunrise.id, name: "Tooth extraction", code: "EXT", category: "oral_surgery", price_paise: 120_000, taxable: false, gst_rate: 0, sac_hsn: "9993", active: true },
+    { id: id(), clinic_id: sunrise.id, name: "Medicines (dispensed)", code: "MED", category: "medicines", price_paise: 20_000, taxable: true, gst_rate: 12, sac_hsn: "3004", active: true },
+  ];
+
+  function invoiceLine(input: { price_item_id?: string | null; description: string; quantity: number; unit_price_paise: number; gst_rate: number; taxable: boolean; line_no: number }): FakeInvoiceLine {
+    const taxablePaise = input.taxable ? input.quantity * input.unit_price_paise : 0;
+    const tax = Math.round(taxablePaise * (input.gst_rate / 100));
+    const cgst = Math.round(tax / 2);
+    const sgst = tax - cgst;
+    return {
+      line_no: input.line_no,
+      description: input.description,
+      price_item_id: input.price_item_id ?? null,
+      procedure_id: null,
+      quantity: input.quantity,
+      unit_price_paise: input.unit_price_paise,
+      discount_paise: 0,
+      gst_rate: input.gst_rate,
+      sac_hsn: null,
+      taxable_paise: input.quantity * input.unit_price_paise,
+      cgst_paise: cgst,
+      sgst_paise: sgst,
+      igst_paise: 0,
+      total_paise: input.quantity * input.unit_price_paise + tax,
+    };
+  }
+
+  const scaling = priceItems[1];
+  const filling = priceItems[2];
+  const invoicePatientA = sunrisePatients[0];
+  const invoicePatientB = sunrisePatients[1];
+  const invoices: FakeInvoice[] = [];
+  const payments: FakePayment[] = [];
+
+  if (invoicePatientA !== undefined && scaling !== undefined) {
+    const line = invoiceLine({ price_item_id: scaling.id, description: scaling.name, quantity: 1, unit_price_paise: scaling.price_paise, gst_rate: 0, taxable: false, line_no: 1 });
+    const invoice: FakeInvoice = {
+      id: id(),
+      clinic_id: sunrise.id,
+      patient_id: invoicePatientA.id,
+      status: "issued",
+      number: "SD/26-27/000001",
+      items: [line],
+      notes: null,
+      created_at: isoDaysAgo(now, 6),
+      issued_at: isoDaysAgo(now, 6),
+    };
+    invoices.push(invoice);
+    payments.push({
+      id: id(),
+      clinic_id: sunrise.id,
+      patient_id: invoicePatientA.id,
+      number: "RC/26-27/000001",
+      status: "received",
+      method: "upi",
+      amount_paise: line.total_paise,
+      allocations: [{ invoice_id: invoice.id, amount_paise: line.total_paise }],
+      reference: "UPI-REF-001",
+      received_at: isoDaysAgo(now, 6),
+      idempotency_key: `seed-${invoice.id}`,
+    });
+  }
+
+  if (invoicePatientB !== undefined && filling !== undefined) {
+    const line = invoiceLine({ price_item_id: filling.id, description: filling.name, quantity: 1, unit_price_paise: filling.price_paise, gst_rate: 0, taxable: false, line_no: 1 });
+    const invoice: FakeInvoice = {
+      id: id(),
+      clinic_id: sunrise.id,
+      patient_id: invoicePatientB.id,
+      status: "issued",
+      number: "SD/26-27/000002",
+      items: [line],
+      notes: null,
+      created_at: isoDaysAgo(now, 2),
+      issued_at: isoDaysAgo(now, 2),
+    };
+    invoices.push(invoice);
+    const partial = Math.round(line.total_paise / 2);
+    payments.push({
+      id: id(),
+      clinic_id: sunrise.id,
+      patient_id: invoicePatientB.id,
+      number: "RC/26-27/000002",
+      status: "received",
+      method: "cash",
+      amount_paise: partial,
+      allocations: [{ invoice_id: invoice.id, amount_paise: partial }],
+      reference: null,
+      received_at: isoDaysAgo(now, 2),
+      idempotency_key: `seed-${invoice.id}`,
+    });
+  }
+
+  // A shared medicine catalogue, common dental and general-practice drugs.
+  const drugs: FakeDrug[] = [
+    { id: id(), generic_name: "AMOXICILLIN", brand_name: "Mox", form: "capsule", strength: "500 mg", default_dose: "1 capsule", default_frequency: "1-1-1", default_timing: "after_food", default_duration_days: 5 },
+    { id: id(), generic_name: "METRONIDAZOLE", brand_name: "Flagyl", form: "tablet", strength: "400 mg", default_dose: "1 tablet", default_frequency: "1-1-1", default_timing: "after_food", default_duration_days: 5 },
+    { id: id(), generic_name: "IBUPROFEN", brand_name: "Brufen", form: "tablet", strength: "400 mg", default_dose: "1 tablet", default_frequency: "1-0-1", default_timing: "after_food", default_duration_days: 3 },
+    { id: id(), generic_name: "PARACETAMOL", brand_name: "Crocin", form: "tablet", strength: "650 mg", default_dose: "1 tablet", default_frequency: "1-1-1", default_timing: "after_food", default_duration_days: 3 },
+    { id: id(), generic_name: "DICLOFENAC", brand_name: "Voveran", form: "tablet", strength: "50 mg", default_dose: "1 tablet", default_frequency: "1-0-1", default_timing: "after_food", default_duration_days: 3 },
+    { id: id(), generic_name: "AZITHROMYCIN", brand_name: "Azithral", form: "tablet", strength: "500 mg", default_dose: "1 tablet", default_frequency: "1-0-0", default_timing: "after_food", default_duration_days: 3 },
+    { id: id(), generic_name: "CHLORHEXIDINE", brand_name: "Hexidine", form: "mouthwash", strength: "0.2%", default_dose: "10 ml rinse", default_frequency: "0-0-2", default_timing: "after_food", default_duration_days: 7 },
+    { id: id(), generic_name: "KETOROLAC", brand_name: "Ketorol", form: "tablet", strength: "10 mg", default_dose: "1 tablet", default_frequency: "1-0-1", default_timing: "after_food", default_duration_days: 3 },
+    { id: id(), generic_name: "PANTOPRAZOLE", brand_name: "Pantocid", form: "tablet", strength: "40 mg", default_dose: "1 tablet", default_frequency: "1-0-0", default_timing: "before_food", default_duration_days: 5 },
+    { id: id(), generic_name: "DOXYCYCLINE", brand_name: "Doxy", form: "capsule", strength: "100 mg", default_dose: "1 capsule", default_frequency: "1-0-1", default_timing: "after_food", default_duration_days: 7 },
+    { id: id(), generic_name: "CETIRIZINE", brand_name: "Cetrizine", form: "tablet", strength: "10 mg", default_dose: "1 tablet", default_frequency: "0-0-1", default_timing: "bedtime", default_duration_days: 5 },
+    { id: id(), generic_name: "CLINDAMYCIN", brand_name: "Clincin", form: "capsule", strength: "300 mg", default_dose: "1 capsule", default_frequency: "1-1-1", default_timing: "after_food", default_duration_days: 5 },
+    { id: id(), generic_name: "TRANEXAMIC ACID", brand_name: "Tranexa", form: "tablet", strength: "500 mg", default_dose: "1 tablet", default_frequency: "1-1-1", default_timing: "after_food", default_duration_days: 3 },
+    { id: id(), generic_name: "BENZOCAINE GEL", brand_name: "Mucopain", form: "gel", strength: "20%", default_dose: "apply locally", default_frequency: "sos", default_timing: "sos", default_duration_days: null },
+    { id: id(), generic_name: "MULTIVITAMIN", brand_name: "Becosules", form: "capsule", strength: "—", default_dose: "1 capsule", default_frequency: "1-0-0", default_timing: "after_food", default_duration_days: 10 },
+  ];
+
+  // One issued prescription on the past visit, so Quick Rx and Patient 360 have something to show.
+  const amoxicillin = drugs[0];
+  const ibuprofen = drugs[2];
+  const prescriptions: FakePrescription[] =
+    visitPatient === undefined || pastVisit === undefined
+      ? []
+      : [
+          {
+            id: id(),
+            clinic_id: sunrise.id,
+            patient_id: visitPatient.id,
+            status: "issued",
+            number: "RX-1",
+            encounter_id: pastVisit.id,
+            diagnosis_text: "Dental caries, 46",
+            items: [
+              amoxicillin === undefined
+                ? { drug_name: "AMOXICILLIN", strength: "500 mg", dose: "1 capsule", frequency: "1-1-1", timing: "after_food", duration_days: 5 }
+                : { drug_id: amoxicillin.id, drug_name: amoxicillin.generic_name, form: amoxicillin.form, strength: amoxicillin.strength, dose: amoxicillin.default_dose, frequency: amoxicillin.default_frequency, timing: amoxicillin.default_timing ?? null, duration_days: amoxicillin.default_duration_days ?? null },
+              ibuprofen === undefined
+                ? { drug_name: "IBUPROFEN", strength: "400 mg", dose: "1 tablet", frequency: "1-0-1", timing: "after_food", duration_days: 3 }
+                : { drug_id: ibuprofen.id, drug_name: ibuprofen.generic_name, form: ibuprofen.form, strength: ibuprofen.strength, dose: ibuprofen.default_dose, frequency: ibuprofen.default_frequency, timing: ibuprofen.default_timing ?? null, duration_days: ibuprofen.default_duration_days ?? null },
+            ],
+            advice: "Soft diet for two days. Avoid chewing on the treated side.",
+            follow_up_on: null,
+            language: "en-IN",
+            alerts: [],
+            created_at: pastVisit.started_at,
+            issued_at: pastVisit.ended_at ?? pastVisit.started_at,
+          },
+        ];
+
+  const shareLinks: FakeShareLink[] = [];
+
   return {
     users: Object.values(users),
     platformUsers,
@@ -747,6 +1131,13 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     chartEntries,
     attachments,
     sessions,
+    applications,
+    priceItems,
+    invoices,
+    payments,
+    drugs,
+    prescriptions,
+    shareLinks,
     quality: createQualityReport(random, now),
   };
 }

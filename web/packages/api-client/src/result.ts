@@ -1,6 +1,6 @@
 /** Failures are values: every client call resolves to an `ApiResult`, never rejects. */
 
-import { errorBody, type RequestId } from "./schemas.js";
+import { errorBody, issueBlocked, type Alert, type RequestId } from "./schemas.js";
 
 /** Client-side error codes, used when there is no API error body to read. */
 export type ClientErrorCode = "network_error" | "aborted" | "invalid_response" | "unexpected_status";
@@ -16,6 +16,8 @@ export interface ApiError {
   field?: string;
   /** The `x-request-id` header, to quote to support and open with `sk request`. */
   requestId?: RequestId;
+  /** Present on `409 allergy_alerts` from issuing a prescription: what to show before asking for an override reason. */
+  alerts?: Alert[];
 }
 
 export type ApiResult<T> = { ok: true; value: T } | { ok: false; error: ApiError };
@@ -44,6 +46,18 @@ const FALLBACK_MESSAGES: Readonly<Record<number, string>> = {
  * or a stack trace is never shown to anyone.
  */
 export function parseApiError(status: number, body: unknown, requestId: RequestId | undefined): ApiError {
+  if (status === 409) {
+    const blocked = issueBlocked.safeParse(body);
+    if (blocked.success) {
+      return {
+        status,
+        code: blocked.data.code,
+        message: "This prescription has allergy alerts. Review them and give a reason to continue.",
+        alerts: blocked.data.alerts,
+        ...(requestId === undefined ? {} : { requestId }),
+      };
+    }
+  }
   const parsed = errorBody.safeParse(body);
   const base: ApiError = parsed.success
     ? withField(status, parsed.data.error.code, parsed.data.error.message, parsed.data.error.field ?? undefined)

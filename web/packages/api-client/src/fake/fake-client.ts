@@ -16,22 +16,32 @@ import * as S from "../schemas.js";
 import {
   ROLES,
   type FakeAllergy,
+  type FakeAlert,
+  type FakeApplication,
   type FakeAppointment,
   type FakeAttachment,
   type FakeChartEntry,
   type FakeClinic,
   type FakeCondition,
+  type FakeDrug,
+  type FakeInvoice,
+  type FakeInvoiceLine,
   type FakeLeave,
   type FakeMembership,
   type FakeNote,
   type FakeObservation,
   type FakePatient,
+  type FakePayment,
   type FakePlatformUser,
   type FakePractitioner,
+  type FakePrescription,
+  type FakePriceItem,
   type FakeProcedure,
   type FakeQueueToken,
   type FakeRole,
   type FakeRoom,
+  type FakeRxItem,
+  type FakeShareLink,
   type FakeUser,
   type FakeVisit,
   type Fixtures,
@@ -66,7 +76,7 @@ export interface FakeBackend {
   platformUsers(): readonly FakePlatformUser[];
 }
 
-type Outcome = { ok: true; body: unknown } | { ok: false; status: number; body: C.ErrorBody };
+type Outcome = { ok: true; body: unknown } | { ok: false; status: number; body: C.ErrorBody | C.IssueBlocked };
 
 /** A success body; call sites add `satisfies` with the contract type. */
 const reply = (body: unknown): Outcome => ({ ok: true, body });
@@ -74,6 +84,8 @@ const refuse = (status: number, code: string, message: string): Outcome => ({ ok
 /** Input errors as the API sends them: the field, a colon, then what is wrong. */
 const invalid = (field: string, problem: string): Outcome => refuse(400, "invalid_request", `${field}: ${problem}`);
 const notFound = refuse(404, "not_found", "Not found.");
+/** `409` when issuing a prescription hits allergy alerts without an override reason. */
+const blocked = (alerts: C.Alert[]): Outcome => ({ ok: false, status: 409, body: { code: "allergy_alerts", alerts } });
 const OWNER = ROLES.owner;
 
 const RESERVED_SLUGS = new Set(["www", "api", "app", "admin", "console", "status", "mail", "help", "support", "docs", "static", "assets", "test"]);
@@ -99,6 +111,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
   }
   /** Invitations made by createClinic or inviteStaff, by token. */
   const invitations = new Map<string, Invitation>();
+  /** Payment ids already recorded for an `Idempotency-Key`, so a retry returns the first payment. */
+  const paymentByIdempotencyKey = new Map<string, string>();
 
   function roleByKey(key: string): FakeRole | undefined {
     return Object.values(ROLES).find((candidate) => candidate.key === key);
@@ -2023,6 +2037,957 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
       getQualityReport: (opts) =>
         respond(S.qualityReport, opts?.signal, () => inConsole(() => reply(state.quality satisfies C.QualityReport))),
+
+      submitRegistration: (input, opts) =>
+        respond(S.registrationReceived, opts?.signal, () => {
+          const clinicName = input.clinic_name.trim();
+          const city = input.city.trim();
+          const contactName = input.contact_name.trim();
+          const email = input.email.trim();
+          if (clinicName.length < 2) return invalid("clinic_name", "enter the clinic's name");
+          if (city.length < 2) return invalid("city", "enter the clinic's city");
+          if (contactName.length < 2) return invalid("contact_name", "enter a contact name");
+          if (!EMAIL.test(email)) return invalid("email", "invalid email address");
+          const specialty = input.specialty === "general" ? "general" : "dental";
+          const now = clock();
+          const existing = state.applications.find((a) => a.status === "pending" && a.email.toLowerCase() === email.toLowerCase());
+          if (existing !== undefined) {
+            existing.submissions += 1;
+            existing.clinic_name = clinicName;
+            existing.city = city;
+            existing.specialty = specialty;
+            existing.contact_name = contactName;
+            existing.phone = input.phone ?? existing.phone ?? null;
+            existing.message = input.message ?? existing.message ?? null;
+            existing.updated_at = now.toISOString();
+          } else {
+            state.applications.push({
+              id: fakeUuid(random, now),
+              clinic_name: clinicName,
+              city,
+              specialty,
+              contact_name: contactName,
+              email,
+              phone: input.phone ?? null,
+              message: input.message ?? null,
+              status: "pending",
+              submissions: 1,
+              created_at: now.toISOString(),
+              updated_at: now.toISOString(),
+            });
+          }
+          return reply({
+            status: "received",
+            message: "Thanks. We'll be in touch within a couple of working days.",
+          } satisfies C.RegistrationReceived);
+        }),
+
+      listApplications: (status, opts) =>
+        respond(S.applications, opts?.signal, () =>
+          inConsole(() => {
+            const items = state.applications
+              .filter((a) => status === undefined || a.status === status)
+              .sort((a, b) => b.created_at.localeCompare(a.created_at))
+              .map(wireApplication);
+            return reply({ items } satisfies C.Applications);
+          }),
+        ),
+
+      approveApplication: (id, input, opts) =>
+        respond(S.approvedApplication, opts?.signal, async () => {
+          const callerId = await subject();
+          return inConsole(() => {
+            const application = state.applications.find((a) => a.id === id);
+            if (application === undefined || application.status !== "pending") {
+              return notFound;
+            }
+            const slug = input.slug ?? deriveSlug(application.clinic_name);
+            const problem = validateNewClinic(
+              { name: application.clinic_name, slug, specialty: application.specialty, owner_email: application.email },
+              slug,
+              state.clinics,
+            );
+            if (problem !== null) {
+              return problem;
+            }
+            const now = clock();
+            const clinic: FakeClinic = {
+              id: fakeUuid(random, now),
+              slug,
+              name: application.clinic_name,
+              host: `${slug}.localtest.me`,
+              timezone: "Asia/Kolkata",
+              branding: { brand: "#14a89a", mode: "light" },
+              specialty: application.specialty,
+              status: "trial",
+              created_at: now.toISOString(),
+              number_prefix: slug.slice(0, 2).toUpperCase(),
+            };
+            state.clinics.push(clinic);
+            const invitationId = fakeUuid(random, now);
+            const token = random.hex(32);
+            const expiresAt = new Date(now.getTime() + 7 * 86_400_000).toISOString();
+            invitations.set(token, {
+              id: invitationId,
+              clinicId: clinic.id,
+              email: application.email,
+              roleKey: "owner",
+              createdAt: now.toISOString(),
+              expiresAt,
+              used: false,
+            });
+            application.status = "approved";
+            application.clinic_id = clinic.id;
+            application.decided_at = now.toISOString();
+            application.decided_by = callerId ?? null;
+            application.updated_at = now.toISOString();
+            return reply({
+              clinic_id: clinic.id,
+              slug,
+              portal_host: clinic.host,
+              invitation_id: invitationId,
+              invite_link: `https://${clinic.host}/invite#${token}`,
+              invite_expires_at: expiresAt,
+              account_ready: true,
+            } satisfies C.ApprovedApplication);
+          });
+        }),
+
+      rejectApplication: (id, input, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const callerId = await subject();
+          return inConsole(() => {
+            const application = state.applications.find((a) => a.id === id);
+            if (application === undefined || application.status !== "pending") {
+              return notFound;
+            }
+            const now = clock();
+            application.status = "rejected";
+            application.decided_at = now.toISOString();
+            application.decided_by = callerId ?? null;
+            application.decision_reason = input.reason ?? null;
+            application.updated_at = now.toISOString();
+            return { ok: true, body: undefined };
+          });
+        }),
+
+      getClinicDetail: (id, opts) =>
+        respond(S.clinicDetail, opts?.signal, () =>
+          inConsole(() => {
+            const clinic = state.clinics.find((c) => c.id === id);
+            if (clinic === undefined) {
+              return notFound;
+            }
+            const members = state.memberships.filter((m) => m.clinic_id === clinic.id).map((m) => wireClinicMember(m, state));
+            const now = clock().toISOString();
+            const pending = [...invitations.entries()]
+              .filter(([, inv]) => inv.clinicId === clinic.id && !inv.used && inv.expiresAt > now)
+              .map(
+                ([, inv]): C.ClinicInvitation => ({
+                  id: inv.id,
+                  email: inv.email,
+                  role_key: inv.roleKey,
+                  role_name: roleByKey(inv.roleKey)?.name ?? inv.roleKey,
+                  expires_at: inv.expiresAt,
+                  created_at: inv.createdAt,
+                }),
+              )
+              .sort((a, b) => b.created_at.localeCompare(a.created_at));
+            return reply({
+              id: clinic.id,
+              slug: clinic.slug,
+              name: clinic.name,
+              specialty: clinic.specialty,
+              status: clinic.status,
+              timezone: clinic.timezone,
+              created_at: clinic.created_at,
+              hosts: [clinic.host],
+              active_members: members.filter((m) => m.status === "active").length,
+              patients: state.patients.filter((p) => p.clinic_id === clinic.id).length,
+              pending_invitations: pending.length,
+              members,
+              invitations: pending,
+            } satisfies C.ClinicDetail);
+          }),
+        ),
+
+      inviteToClinic: (id, input, opts) =>
+        respond(S.clinicInvited, opts?.signal, () =>
+          inConsole(() => {
+            const clinic = state.clinics.find((c) => c.id === id);
+            if (clinic === undefined) {
+              return notFound;
+            }
+            if (!EMAIL.test(input.email)) {
+              return invalid("email", "invalid email address");
+            }
+            const role = roleByKey(input.role_key);
+            if (role === undefined) {
+              return invalid("role_key", "unknown role");
+            }
+            const now = clock();
+            const invitationId = fakeUuid(random, now);
+            const token = random.hex(32);
+            const expiresAt = new Date(now.getTime() + 7 * 86_400_000).toISOString();
+            invitations.set(token, {
+              id: invitationId,
+              clinicId: clinic.id,
+              email: input.email,
+              roleKey: role.key,
+              createdAt: now.toISOString(),
+              expiresAt,
+              used: false,
+            });
+            return reply({
+              id: invitationId,
+              email: input.email,
+              role_key: role.key,
+              invite_link: `https://${clinic.host}/invite#${token}`,
+              expires_at: expiresAt,
+              account_ready: true,
+            } satisfies C.ClinicInvited);
+          }),
+        ),
+
+      searchDrugs: (input, opts) =>
+        respond(S.drugList, opts?.signal, async () => {
+          const caller = await inClinic("prescriptions.issue");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const q = (input.q ?? "").trim().toLowerCase();
+          const limit = input.limit ?? 20;
+          const matches = state.drugs.filter(
+            (d) => q === "" || d.generic_name.toLowerCase().includes(q) || (d.brand_name ?? "").toLowerCase().includes(q) || d.strength.toLowerCase().includes(q),
+          );
+          const sorted = matches.sort((a, b) => {
+            const aStarts = a.generic_name.toLowerCase().startsWith(q) ? 0 : 1;
+            const bStarts = b.generic_name.toLowerCase().startsWith(q) ? 0 : 1;
+            return aStarts - bStarts || a.generic_name.localeCompare(b.generic_name);
+          });
+          return reply({ items: sorted.slice(0, limit).map(wireDrug) } satisfies C.DrugList);
+        }),
+
+      listPriceItems: (opts) =>
+        respond(S.priceItemList, opts?.signal, async () => {
+          const caller = await inClinic("billing.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const items = state.priceItems
+            .filter((p) => p.clinic_id === caller.clinic.id)
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map(wirePriceItem);
+          return reply({ items } satisfies C.PriceItemList);
+        }),
+
+      addPriceItem: (input, opts) =>
+        respond(S.priceItem, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const name = (input.name ?? "").trim();
+          if (name.length < 1) {
+            return invalid("name", "name is required");
+          }
+          const price = input.price_paise;
+          if (price == null || !Number.isInteger(price) || price < 0) {
+            return invalid("price_paise", "price_paise is required");
+          }
+          const code = input.code == null || input.code === "" ? null : input.code;
+          if (code !== null && state.priceItems.some((p) => p.clinic_id === caller.clinic.id && p.code === code)) {
+            return refuse(409, "conflict", "another entry has this code");
+          }
+          const gstRate = input.gst_rate ?? 0;
+          const taxable = input.taxable ?? gstRate > 0;
+          const item: FakePriceItem = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            name,
+            code,
+            category: input.category ?? null,
+            price_paise: price,
+            taxable,
+            gst_rate: gstRate,
+            sac_hsn: input.sac_hsn ?? null,
+            active: input.active ?? true,
+          };
+          state.priceItems.push(item);
+          return reply(wirePriceItem(item) satisfies C.PriceItem);
+        }),
+
+      changePriceItem: (id, input, opts) =>
+        respond(S.priceItem, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const item = state.priceItems.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (item === undefined) {
+            return notFound;
+          }
+          if (input.code !== undefined) {
+            const code = input.code === "" || input.code === null ? null : input.code;
+            if (code !== null && state.priceItems.some((p) => p.id !== item.id && p.clinic_id === caller.clinic.id && p.code === code)) {
+              return refuse(409, "conflict", "another entry has this code");
+            }
+            item.code = code;
+          }
+          if (input.name != null) item.name = input.name;
+          if (input.category !== undefined) item.category = input.category === "" ? null : input.category;
+          if (input.price_paise != null) item.price_paise = input.price_paise;
+          if (input.taxable != null) item.taxable = input.taxable;
+          if (input.gst_rate != null) item.gst_rate = input.gst_rate;
+          if (input.sac_hsn !== undefined) item.sac_hsn = input.sac_hsn === "" ? null : input.sac_hsn;
+          if (input.active != null) item.active = input.active;
+          return reply(wirePriceItem(item) satisfies C.PriceItem);
+        }),
+
+      listInvoices: (filter, opts) =>
+        respond(S.invoiceList, opts?.signal, async () => {
+          const caller = await inClinic("billing.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          let items = state.invoices.filter((i) => i.clinic_id === caller.clinic.id);
+          if (filter.status !== undefined) items = items.filter((i) => i.status === filter.status);
+          if (filter.patientId !== undefined) items = items.filter((i) => i.patient_id === filter.patientId);
+          const from = filter.from;
+          const to = filter.to;
+          if (from !== undefined) items = items.filter((i) => (i.issued_at ?? i.created_at).slice(0, 10) >= from);
+          if (to !== undefined) items = items.filter((i) => (i.issued_at ?? i.created_at).slice(0, 10) <= to);
+          const sorted = items.sort((a, b) => (b.issued_at ?? b.created_at).localeCompare(a.issued_at ?? a.created_at)).slice(0, 50);
+          return reply({ items: sorted.map((i) => wireInvoice(i, state, true)) } satisfies C.InvoiceList);
+        }),
+
+      getInvoice: (id, opts) =>
+        respond(S.invoice, opts?.signal, async () => {
+          const caller = await inClinic("billing.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.invoices.find((i) => i.id === id && i.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          return reply(wireInvoice(found, state, false) satisfies C.Invoice);
+        }),
+
+      createInvoice: (input, opts) =>
+        respond(S.invoice, opts?.signal, async () => {
+          const caller = await inClinic("billing.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const patient = state.patients.find((p) => p.id === input.patient_id && p.clinic_id === caller.clinic.id);
+          if (patient === undefined) {
+            return notFound;
+          }
+          const clinicPriceItems = state.priceItems.filter((p) => p.clinic_id === caller.clinic.id);
+          const lines: FakeInvoiceLine[] = [];
+          let lineNo = 1;
+          for (const rawLine of input.items ?? []) {
+            const built = buildInvoiceLine(lineNo, rawLine, clinicPriceItems);
+            if ("error" in built) {
+              return built.error;
+            }
+            lines.push(built.line);
+            lineNo += 1;
+          }
+          const now = clock();
+          const invoiceRecord: FakeInvoice = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            patient_id: patient.id,
+            status: "draft",
+            encounter_id: input.encounter_id ?? null,
+            items: lines,
+            notes: input.notes ?? null,
+            place_of_supply: input.place_of_supply ?? null,
+            replaces_invoice_id: input.replaces_invoice_id ?? null,
+            created_at: now.toISOString(),
+          };
+          state.invoices.push(invoiceRecord);
+          return reply(wireInvoice(invoiceRecord, state, false) satisfies C.Invoice);
+        }),
+
+      editInvoice: (id, changes, opts) =>
+        respond(S.invoice, opts?.signal, async () => {
+          const caller = await inClinic("billing.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.invoices.find((i) => i.id === id && i.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "draft") {
+            return refuse(409, "conflict", "the bill is issued or void");
+          }
+          if (changes.items !== undefined && changes.items !== null) {
+            const clinicPriceItems = state.priceItems.filter((p) => p.clinic_id === caller.clinic.id);
+            const lines: FakeInvoiceLine[] = [];
+            let lineNo = 1;
+            for (const rawLine of changes.items) {
+              const built = buildInvoiceLine(lineNo, rawLine, clinicPriceItems);
+              if ("error" in built) {
+                return built.error;
+              }
+              lines.push(built.line);
+              lineNo += 1;
+            }
+            found.items = lines;
+          }
+          if (changes.encounter_id !== undefined) found.encounter_id = changes.encounter_id === "" ? null : changes.encounter_id;
+          if (changes.notes !== undefined) found.notes = changes.notes === "" ? null : changes.notes;
+          if (changes.place_of_supply !== undefined) found.place_of_supply = changes.place_of_supply === "" ? null : changes.place_of_supply;
+          return reply(wireInvoice(found, state, false) satisfies C.Invoice);
+        }),
+
+      issueInvoice: (id, opts) =>
+        respond(S.invoice, opts?.signal, async () => {
+          const caller = await inClinic("billing.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.invoices.find((i) => i.id === id && i.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "draft") {
+            return refuse(409, "conflict", "already issued or void");
+          }
+          if (found.items.length === 0) {
+            return refuse(400, "invalid_request", "the bill has no lines");
+          }
+          const now = clock();
+          found.status = "issued";
+          found.number = nextInvoiceNumber(state, caller.clinic);
+          found.issued_at = now.toISOString();
+          return reply(wireInvoice(found, state, false) satisfies C.Invoice);
+        }),
+
+      voidInvoice: (id, reason, opts) =>
+        respond(S.invoice, opts?.signal, async () => {
+          const caller = await inClinic("billing.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.invoices.find((i) => i.id === id && i.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "issued") {
+            return refuse(409, "conflict", "already void, or not issued");
+          }
+          if (reason.reason.trim().length < 3) {
+            return invalid("reason", "give a short reason");
+          }
+          if (paymentsFor(state, found.id).length > 0) {
+            return refuse(409, "conflict", "payments still count towards it");
+          }
+          found.status = "void";
+          found.void_reason = reason.reason;
+          found.voided_at = clock().toISOString();
+          return reply(wireInvoice(found, state, false) satisfies C.Invoice);
+        }),
+
+      listPayments: (range, opts) =>
+        respond(S.paymentList, opts?.signal, async () => {
+          const caller = await inClinic("billing.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          let items = state.payments.filter((p) => p.clinic_id === caller.clinic.id);
+          const from = range.from;
+          const to = range.to;
+          if (from !== undefined) items = items.filter((p) => p.received_at.slice(0, 10) >= from);
+          if (to !== undefined) items = items.filter((p) => p.received_at.slice(0, 10) <= to);
+          const sorted = items.sort((a, b) => b.received_at.localeCompare(a.received_at)).slice(0, 100);
+          return reply({ items: sorted.map((p) => wirePayment(p, state)) } satisfies C.PaymentList);
+        }),
+
+      getPayment: (id, opts) =>
+        respond(S.payment, opts?.signal, async () => {
+          const caller = await inClinic("billing.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.payments.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          return reply(wirePayment(found, state) satisfies C.Payment);
+        }),
+
+      recordPayment: (input, idempotencyKey, opts) =>
+        respond(S.payment, opts?.signal, async () => {
+          const caller = await inClinic("billing.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (idempotencyKey.trim() === "") {
+            return invalid("idempotency_key", "an Idempotency-Key is required");
+          }
+          const already = paymentByIdempotencyKey.get(idempotencyKey);
+          if (already !== undefined) {
+            const existing = state.payments.find((p) => p.id === already);
+            if (existing !== undefined) {
+              return reply(wirePayment(existing, state) satisfies C.Payment);
+            }
+          }
+          const patient = state.patients.find((p) => p.id === input.patient_id && p.clinic_id === caller.clinic.id);
+          if (patient === undefined) {
+            return notFound;
+          }
+          if (!Number.isInteger(input.amount_paise) || input.amount_paise <= 0) {
+            return invalid("amount_paise", "must be more than zero");
+          }
+          const method = input.method;
+          if (method !== "cash" && method !== "upi" && method !== "card" && method !== "bank") {
+            return invalid("method", "unknown payment method");
+          }
+          const allocations: { invoice_id: string; amount_paise: number }[] = [];
+          let allocatedTotal = 0;
+          for (const alloc of input.allocations ?? []) {
+            const invoiceFound = state.invoices.find((i) => i.id === alloc.invoice_id && i.clinic_id === caller.clinic.id && i.patient_id === patient.id);
+            if (invoiceFound === undefined) {
+              return notFound;
+            }
+            if (invoiceFound.status !== "issued") {
+              return refuse(409, "conflict", "a bill isn't issued");
+            }
+            const wired = wireInvoice(invoiceFound, state, false);
+            if (alloc.amount_paise > wired.balance_paise) {
+              return invalid("allocations", "an allocation is past a bill's balance");
+            }
+            allocations.push({ invoice_id: invoiceFound.id, amount_paise: alloc.amount_paise });
+            allocatedTotal += alloc.amount_paise;
+          }
+          if (allocatedTotal > input.amount_paise) {
+            return invalid("allocations", "allocations can't exceed the payment");
+          }
+          const now = clock();
+          const paymentRecord: FakePayment = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            patient_id: patient.id,
+            number: nextReceiptNumber(state, caller.clinic),
+            status: "received",
+            method,
+            amount_paise: input.amount_paise,
+            allocations,
+            reference: input.reference ?? null,
+            received_at: now.toISOString(),
+            idempotency_key: idempotencyKey,
+          };
+          state.payments.push(paymentRecord);
+          paymentByIdempotencyKey.set(idempotencyKey, paymentRecord.id);
+          return reply(wirePayment(paymentRecord, state) satisfies C.Payment);
+        }),
+
+      voidPayment: (id, reason, opts) =>
+        respond(S.payment, opts?.signal, async () => {
+          const caller = await inClinic("billing.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.payments.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "received") {
+            return refuse(409, "conflict", "already void");
+          }
+          if (reason.reason.trim().length < 3) {
+            return invalid("reason", "give a short reason");
+          }
+          found.status = "void";
+          found.void_reason = reason.reason;
+          return reply(wirePayment(found, state) satisfies C.Payment);
+        }),
+
+      getCollections: (range, opts) =>
+        respond(S.collections, opts?.signal, async () => {
+          const caller = await inClinic("finance.view");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const now = clock();
+          const to = range.to ?? dateOnly(now);
+          const from = range.from ?? dateOnly(new Date(new Date(`${to}T00:00:00Z`).getTime() - 6 * 86_400_000));
+          if (from > to) {
+            return invalid("from", "must be before to");
+          }
+          const days = Math.round((new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / 86_400_000) + 1;
+          if (days > 366) {
+            return invalid("from", "the range is too long");
+          }
+          const clinicPayments = state.payments.filter(
+            (p) => p.clinic_id === caller.clinic.id && p.status === "received" && p.received_at.slice(0, 10) >= from && p.received_at.slice(0, 10) <= to,
+          );
+          const invoicesInRange = state.invoices.filter(
+            (i) => i.clinic_id === caller.clinic.id && i.status === "issued" && (i.issued_at ?? "").slice(0, 10) >= from && (i.issued_at ?? "").slice(0, 10) <= to,
+          );
+          const outstanding = state.invoices
+            .filter((i) => i.clinic_id === caller.clinic.id && i.status === "issued")
+            .reduce((sum, i) => sum + wireInvoice(i, state, false).balance_paise, 0);
+          return reply({
+            from,
+            to,
+            collected_paise: clinicPayments.reduce((sum, p) => sum + p.amount_paise, 0),
+            invoiced_paise: invoicesInRange.reduce((sum, i) => sum + computeInvoiceAmounts(i.items).total_paise, 0),
+            outstanding_paise: outstanding,
+            invoices: invoicesInRange.length,
+            payments: clinicPayments.length,
+            by_day: buildDayTotals(clinicPayments, from, to),
+            by_week: buildWeekTotals(clinicPayments, from, to),
+            by_method: buildMethodTotals(clinicPayments),
+            revenue_mix: buildRevenueMix(invoicesInRange, state.priceItems.filter((p) => p.clinic_id === caller.clinic.id)),
+          } satisfies C.Collections);
+        }),
+
+      getPendingReport: (opts) =>
+        respond(S.pendingReport, opts?.signal, async () => {
+          const caller = await inClinic("finance.view");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const items = pendingItemsFor(state, caller.clinic.id, clock()).sort((a, b) => (a.issued_at ?? "").localeCompare(b.issued_at ?? ""));
+          const buckets = { "0_30": 0, "31_60": 0, "61_90": 0, "90_plus": 0 };
+          for (const item of items) {
+            buckets[item.bucket] += 1;
+          }
+          return reply({
+            outstanding_paise: items.reduce((sum, i) => sum + i.balance_paise, 0),
+            patients: new Set(items.map((i) => i.patient.id)).size,
+            buckets,
+            items,
+          } satisfies C.PendingReport);
+        }),
+
+      getTodayMoney: (opts) =>
+        respond(S.todayMoney, opts?.signal, async () => {
+          const caller = await inClinic("finance.view");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const now = clock();
+          const today = dateOnly(now);
+          const monthStart = `${today.slice(0, 7)}-01`;
+          const paymentsToday = state.payments.filter(
+            (p) => p.clinic_id === caller.clinic.id && p.status === "received" && p.received_at.slice(0, 10) === today,
+          );
+          const paymentsThisMonth = state.payments.filter(
+            (p) => p.clinic_id === caller.clinic.id && p.status === "received" && p.received_at.slice(0, 10) >= monthStart && p.received_at.slice(0, 10) <= today,
+          );
+          const invoicesToday = state.invoices.filter(
+            (i) => i.clinic_id === caller.clinic.id && i.status === "issued" && (i.issued_at ?? "").slice(0, 10) === today,
+          );
+          const invoicesThisMonth = state.invoices.filter(
+            (i) => i.clinic_id === caller.clinic.id && i.status === "issued" && (i.issued_at ?? "").slice(0, 10) >= monthStart && (i.issued_at ?? "").slice(0, 10) <= today,
+          );
+          const pending = pendingItemsFor(state, caller.clinic.id, now);
+          const pendingTop5 = [...pending].sort((a, b) => b.balance_paise - a.balance_paise).slice(0, 5);
+          const methodTotalsThisMonth = buildMethodTotals(paymentsThisMonth);
+          return reply({
+            date: today,
+            collected_paise: paymentsToday.reduce((sum, p) => sum + p.amount_paise, 0),
+            collected_this_month_paise: paymentsThisMonth.reduce((sum, p) => sum + p.amount_paise, 0),
+            invoiced_paise: invoicesToday.reduce((sum, i) => sum + computeInvoiceAmounts(i.items).total_paise, 0),
+            invoices_today: invoicesToday.length,
+            payments_today: paymentsToday.length,
+            pending: pendingTop5,
+            pending_dues_paise: pending.reduce((sum, i) => sum + i.balance_paise, 0),
+            pending_dues_patients: new Set(pending.map((i) => i.patient.id)).size,
+            revenue_mix: buildRevenueMix(invoicesThisMonth, state.priceItems.filter((p) => p.clinic_id === caller.clinic.id)),
+            upi_share_bps: methodTotalsThisMonth.find((m) => m.method === "upi")?.share_bps ?? 0,
+          } satisfies C.TodayMoney);
+        }),
+
+      listPrescriptions: (patientId, opts) =>
+        respond(S.prescriptionList, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const patient = state.patients.find((p) => p.id === patientId && p.clinic_id === caller.clinic.id);
+          if (patient === undefined) {
+            return notFound;
+          }
+          const items = state.prescriptions
+            .filter((rx) => rx.patient_id === patientId && rx.clinic_id === caller.clinic.id)
+            .sort((a, b) => (b.issued_at ?? b.created_at).localeCompare(a.issued_at ?? a.created_at))
+            .map((rx) => wirePrescription(rx, state));
+          return reply({ items } satisfies C.PrescriptionList);
+        }),
+
+      getLastPrescription: (patientId, opts) =>
+        respond(S.prescription, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const patient = state.patients.find((p) => p.id === patientId && p.clinic_id === caller.clinic.id);
+          if (patient === undefined) {
+            return notFound;
+          }
+          const last = state.prescriptions
+            .filter((rx) => rx.patient_id === patientId && rx.clinic_id === caller.clinic.id && rx.status === "issued")
+            .sort((a, b) => (b.issued_at ?? "").localeCompare(a.issued_at ?? ""))[0];
+          if (last === undefined) {
+            return notFound;
+          }
+          return reply(wirePrescription(last, state) satisfies C.Prescription);
+        }),
+
+      getPrescription: (id, opts) =>
+        respond(S.prescription, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.prescriptions.find((rx) => rx.id === id && rx.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          return reply(wirePrescription(found, state) satisfies C.Prescription);
+        }),
+
+      createPrescription: (patientId, input, opts) =>
+        respond(S.prescription, opts?.signal, async () => {
+          const caller = await inClinic("prescriptions.issue");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const patient = state.patients.find((p) => p.id === patientId && p.clinic_id === caller.clinic.id);
+          if (patient === undefined) {
+            return notFound;
+          }
+          const itemsResult = buildRxItems(input.items ?? []);
+          if ("error" in itemsResult) {
+            return itemsResult.error;
+          }
+          const now = clock();
+          const rx: FakePrescription = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            patient_id: patient.id,
+            status: "draft",
+            encounter_id: input.encounter_id ?? null,
+            diagnosis_text: input.diagnosis_text ?? null,
+            items: itemsResult.items,
+            advice: input.advice ?? null,
+            follow_up_on: input.follow_up_on ?? null,
+            language: input.language ?? patient.preferred_language,
+            alerts: [],
+            created_at: now.toISOString(),
+            issued_by_membership_id: caller.membership.id,
+          };
+          state.prescriptions.push(rx);
+          return reply(wirePrescription(rx, state) satisfies C.Prescription);
+        }),
+
+      editPrescription: (id, input, opts) =>
+        respond(S.prescription, opts?.signal, async () => {
+          const caller = await inClinic("prescriptions.issue");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.prescriptions.find((rx) => rx.id === id && rx.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "draft") {
+            return refuse(409, "conflict", "issued or cancelled");
+          }
+          if (input.items !== undefined && input.items !== null) {
+            const itemsResult = buildRxItems(input.items);
+            if ("error" in itemsResult) {
+              return itemsResult.error;
+            }
+            found.items = itemsResult.items;
+          }
+          if (input.encounter_id !== undefined) found.encounter_id = input.encounter_id === "" ? null : input.encounter_id;
+          if (input.diagnosis_text !== undefined) found.diagnosis_text = input.diagnosis_text === "" ? null : input.diagnosis_text;
+          if (input.advice !== undefined) found.advice = input.advice === "" ? null : input.advice;
+          if (input.follow_up_on !== undefined) found.follow_up_on = input.follow_up_on === "" ? null : input.follow_up_on;
+          if (input.language != null) found.language = input.language;
+          return reply(wirePrescription(found, state) satisfies C.Prescription);
+        }),
+
+      issuePrescription: (id, input, opts) =>
+        respond(S.prescription, opts?.signal, async () => {
+          const caller = await inClinic("prescriptions.issue");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.prescriptions.find((rx) => rx.id === id && rx.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "draft") {
+            return refuse(409, "conflict", "already issued or void");
+          }
+          if (found.items.length === 0) {
+            return refuse(400, "invalid_request", "no medicines");
+          }
+          const detected = findAllergyAlerts(state, found.patient_id, caller.clinic.id, found.items, state.drugs);
+          const overrideReason = input.override_reason ?? undefined;
+          if (detected.length > 0 && (overrideReason === undefined || overrideReason.trim() === "")) {
+            return blocked(detected.map((a) => ({ ...a, line_no: a.line_no ?? null, action: null, override_reason: null })));
+          }
+          const now = clock();
+          found.status = "issued";
+          found.number = nextPrescriptionNumber(state, caller.clinic);
+          found.issued_at = now.toISOString();
+          found.issued_by_membership_id = caller.membership.id;
+          found.verify_token = random.hex(24);
+          if (detected.length > 0) {
+            found.alerts = detected.map((a) => ({ ...a, action: "overridden", override_reason: overrideReason ?? null }));
+            found.override_reason = overrideReason ?? null;
+          }
+          return reply(wirePrescription(found, state) satisfies C.Prescription);
+        }),
+
+      cancelPrescription: (id, input, opts) =>
+        respond(S.cancelled, opts?.signal, async () => {
+          const caller = await inClinic("prescriptions.issue");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.prescriptions.find((rx) => rx.id === id && rx.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "issued") {
+            return refuse(409, "conflict", "not issued");
+          }
+          if (input.reason.trim().length < 3) {
+            return invalid("reason", "give a short reason");
+          }
+          const now = clock();
+          found.status = "cancelled";
+          found.cancel_reason = input.reason;
+          found.cancelled_at = now.toISOString();
+          let draft: FakePrescription | undefined;
+          if (input.reissue !== false) {
+            draft = {
+              id: fakeUuid(random, now),
+              clinic_id: caller.clinic.id,
+              patient_id: found.patient_id,
+              status: "draft",
+              encounter_id: found.encounter_id ?? null,
+              diagnosis_text: found.diagnosis_text ?? null,
+              items: found.items.map((i) => ({ ...i })),
+              advice: found.advice ?? null,
+              follow_up_on: found.follow_up_on ?? null,
+              language: found.language,
+              alerts: [],
+              supersedes_id: found.id,
+              created_at: now.toISOString(),
+              issued_by_membership_id: caller.membership.id,
+            };
+            state.prescriptions.push(draft);
+            found.superseded_by = draft.id;
+          }
+          return reply({
+            cancelled: wirePrescription(found, state),
+            draft: draft === undefined ? null : wirePrescription(draft, state),
+          } satisfies C.Cancelled);
+        }),
+
+      createShareLink: (id, opts) =>
+        respond(S.shareLink, opts?.signal, async () => {
+          const caller = await inClinic("prescriptions.issue");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.prescriptions.find((rx) => rx.id === id && rx.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "issued") {
+            return refuse(409, "conflict", "not issued");
+          }
+          const now = clock();
+          const link: FakeShareLink = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            prescription_id: found.id,
+            token: random.hex(32),
+            pin: String(random.int(100_000, 999_999)),
+            created_at: now.toISOString(),
+            expires_at: new Date(now.getTime() + 7 * 86_400_000).toISOString(),
+            failed_attempts: 0,
+            locked: false,
+          };
+          state.shareLinks.push(link);
+          return reply({ id: link.id, token: link.token, pin: link.pin, expires_at: link.expires_at } satisfies C.ShareLink);
+        }),
+
+      getSharedPreview: (token, opts) =>
+        respond(S.sharedPreview, opts?.signal, () => {
+          const link = state.shareLinks.find((l) => l.token === token);
+          if (link === undefined) {
+            return notFound;
+          }
+          const clinic = state.clinics.find((c) => c.id === link.clinic_id);
+          const now = clock();
+          const linkState = link.locked ? "locked" : new Date(link.expires_at) < now ? "expired" : "usable";
+          return reply({
+            resource: "prescription",
+            state: linkState,
+            clinic_name: clinic?.name ?? "",
+            expires_at: link.expires_at,
+          } satisfies C.SharedPreview);
+        }),
+
+      openShared: (token, pin, opts) =>
+        respond(S.prescription, opts?.signal, () => {
+          const link = state.shareLinks.find((l) => l.token === token);
+          if (link === undefined) {
+            return notFound;
+          }
+          const now = clock();
+          if (new Date(link.expires_at) < now) {
+            return refuse(410, "expired", "This link has expired.");
+          }
+          if (link.locked) {
+            return refuse(423, "locked", "This link is locked after too many wrong PINs.");
+          }
+          if (link.pin !== pin) {
+            link.failed_attempts += 1;
+            const left = Math.max(0, 5 - link.failed_attempts);
+            if (left === 0) {
+              link.locked = true;
+              return refuse(423, "locked", "Too many wrong PINs. Ask the clinic for a new link.");
+            }
+            return refuse(403, "forbidden", `Wrong PIN. ${String(left)} ${left === 1 ? "try" : "tries"} left.`);
+          }
+          link.failed_attempts = 0;
+          const rx = state.prescriptions.find((r) => r.id === link.prescription_id);
+          if (rx === undefined) {
+            return notFound;
+          }
+          return reply(wirePrescription(rx, state) satisfies C.Prescription);
+        }),
+
+      verifyPrescription: (token, opts) =>
+        respond(S.verification, opts?.signal, () => {
+          const rx = state.prescriptions.find((r) => r.verify_token === token);
+          if (rx === undefined) {
+            return notFound;
+          }
+          const clinic = state.clinics.find((c) => c.id === rx.clinic_id);
+          return reply({
+            status: rx.status === "cancelled" ? "cancelled" : "valid",
+            number: rx.number ?? null,
+            clinic_name: clinic?.name ?? "",
+            issued_on: rx.issued_at == null ? null : rx.issued_at.slice(0, 10),
+          } satisfies C.Verification);
+        }),
     };
   }
 
@@ -2764,5 +3729,489 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date): C.TodayResp
     attention,
     recent_patients,
     team,
+  };
+}
+
+// Onboarding: applications, clinic detail -------------------------------------------------------
+
+function wireApplication(a: FakeApplication): C.Application {
+  return {
+    id: a.id,
+    clinic_name: a.clinic_name,
+    city: a.city,
+    specialty: a.specialty,
+    contact_name: a.contact_name,
+    email: a.email,
+    phone: a.phone ?? null,
+    message: a.message ?? null,
+    status: a.status,
+    submissions: a.submissions,
+    clinic_id: a.clinic_id ?? null,
+    decided_at: a.decided_at ?? null,
+    decided_by: a.decided_by ?? null,
+    decision_reason: a.decision_reason ?? null,
+    created_at: a.created_at,
+    updated_at: a.updated_at,
+  };
+}
+
+/** A membership plus its person's name, email and status, for the console's clinic detail. */
+function wireClinicMember(m: FakeMembership, state: Fixtures): C.ClinicMember {
+  const user = state.users.find((u) => u.id === m.user_id);
+  return {
+    membership_id: m.id,
+    display_name: user?.display_name ?? "Unknown",
+    email: user?.email ?? null,
+    role_key: m.role.key,
+    role_name: m.role.name,
+    status: m.status ?? "active",
+    joined_at: m.joined_at ?? null,
+  };
+}
+
+// Billing: price list, invoices, payments, reports -----------------------------------------------
+
+function wireDrug(d: FakeDrug): C.Drug {
+  return {
+    id: d.id,
+    generic_name: d.generic_name,
+    brand_name: d.brand_name ?? null,
+    form: d.form,
+    strength: d.strength,
+    default_dose: d.default_dose,
+    default_frequency: d.default_frequency,
+    default_timing: d.default_timing ?? null,
+    default_duration_days: d.default_duration_days ?? null,
+  };
+}
+
+function wirePriceItem(p: FakePriceItem): C.PriceItem {
+  return {
+    id: p.id,
+    name: p.name,
+    code: p.code ?? null,
+    category: p.category ?? null,
+    price_paise: p.price_paise,
+    taxable: p.taxable,
+    gst_rate: p.gst_rate,
+    sac_hsn: p.sac_hsn ?? null,
+    active: p.active,
+  };
+}
+
+function patientRefFor(state: Fixtures, patientId: string): C.PatientRef {
+  const patient = state.patients.find((p) => p.id === patientId);
+  return patient === undefined ? { id: patientId, name: "Unknown", number: "?" } : { id: patient.id, name: patient.full_name, number: patient.number };
+}
+
+/** Builds one bill line from a price list entry or free text, computing GST on the discounted base. */
+function buildInvoiceLine(
+  lineNo: number,
+  input: C.InvoiceLineInput,
+  priceItems: readonly FakePriceItem[],
+): { line: FakeInvoiceLine } | { error: Outcome } {
+  const priced = input.price_item_id == null ? undefined : priceItems.find((p) => p.id === input.price_item_id);
+  if (input.price_item_id != null && priced === undefined) {
+    return { error: invalid("items", "unknown price list entry") };
+  }
+  const description = input.description ?? priced?.name;
+  if (description == null || description.trim() === "") {
+    return { error: invalid("items", "description is required for a free-text line") };
+  }
+  const quantity = input.quantity ?? 1;
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    return { error: invalid("items", "quantity must be at least 1") };
+  }
+  const unitPrice = input.unit_price_paise ?? priced?.price_paise;
+  if (unitPrice == null) {
+    return { error: invalid("items", "unit_price_paise is required for a free-text line") };
+  }
+  const gstRate = input.gst_rate ?? priced?.gst_rate ?? 0;
+  const taxable = priced?.taxable ?? gstRate > 0;
+  const discount = input.discount_paise ?? 0;
+  const grossTaxable = Math.max(0, quantity * unitPrice - discount);
+  const taxablePaise = taxable ? grossTaxable : 0;
+  const tax = Math.round(taxablePaise * (gstRate / 100));
+  const cgst = Math.round(tax / 2);
+  const sgst = tax - cgst;
+  return {
+    line: {
+      line_no: lineNo,
+      description,
+      price_item_id: input.price_item_id ?? null,
+      procedure_id: input.procedure_id ?? null,
+      quantity,
+      unit_price_paise: unitPrice,
+      discount_paise: discount,
+      gst_rate: gstRate,
+      sac_hsn: input.sac_hsn ?? priced?.sac_hsn ?? null,
+      taxable_paise: taxablePaise,
+      cgst_paise: cgst,
+      sgst_paise: sgst,
+      igst_paise: 0,
+      total_paise: grossTaxable + tax,
+    },
+  };
+}
+
+function wireInvoiceLine(l: FakeInvoiceLine): C.InvoiceLine {
+  return {
+    line_no: l.line_no,
+    description: l.description,
+    price_item_id: l.price_item_id ?? null,
+    procedure_id: l.procedure_id ?? null,
+    quantity: l.quantity,
+    unit_price_paise: l.unit_price_paise,
+    discount_paise: l.discount_paise,
+    gst_rate: l.gst_rate,
+    sac_hsn: l.sac_hsn ?? null,
+    taxable_paise: l.taxable_paise,
+    cgst_paise: l.cgst_paise,
+    sgst_paise: l.sgst_paise,
+    igst_paise: l.igst_paise,
+    total_paise: l.total_paise,
+  };
+}
+
+function computeInvoiceAmounts(items: readonly FakeInvoiceLine[]) {
+  const subtotal_paise = items.reduce((sum, l) => sum + l.quantity * l.unit_price_paise, 0);
+  const discount_paise = items.reduce((sum, l) => sum + l.discount_paise, 0);
+  const taxable_paise = items.reduce((sum, l) => sum + l.taxable_paise, 0);
+  const cgst_paise = items.reduce((sum, l) => sum + l.cgst_paise, 0);
+  const sgst_paise = items.reduce((sum, l) => sum + l.sgst_paise, 0);
+  const igst_paise = items.reduce((sum, l) => sum + l.igst_paise, 0);
+  const rawTotal = items.reduce((sum, l) => sum + l.total_paise, 0);
+  const rounded = Math.round(rawTotal / 100) * 100;
+  return {
+    subtotal_paise,
+    discount_paise,
+    taxable_paise,
+    cgst_paise,
+    sgst_paise,
+    igst_paise,
+    tax_paise: cgst_paise + sgst_paise + igst_paise,
+    round_off_paise: rounded - rawTotal,
+    total_paise: rounded,
+  };
+}
+
+function paymentsFor(state: Fixtures, invoiceId: string): FakePayment[] {
+  return state.payments.filter((p) => p.status === "received" && p.allocations.some((a) => a.invoice_id === invoiceId));
+}
+
+function wireInvoice(inv: FakeInvoice, state: Fixtures, forList: boolean): C.Invoice {
+  const clinic = state.clinics.find((c) => c.id === inv.clinic_id);
+  const patient = state.patients.find((p) => p.id === inv.patient_id);
+  const amounts = computeInvoiceAmounts(inv.items);
+  const coveringPayments = paymentsFor(state, inv.id);
+  const paidPaise = coveringPayments.reduce((sum, p) => sum + (p.allocations.find((a) => a.invoice_id === inv.id)?.amount_paise ?? 0), 0);
+  const balance = inv.status === "issued" ? Math.max(0, amounts.total_paise - paidPaise) : 0;
+  const paymentState: string | null = inv.status === "issued" ? (paidPaise <= 0 ? "unpaid" : balance > 0 ? "partial" : "paid") : null;
+  return {
+    id: inv.id,
+    status: inv.status,
+    number: inv.number ?? null,
+    patient: patient === undefined ? { id: inv.patient_id, name: "Unknown", number: "?" } : { id: patient.id, name: patient.full_name, number: patient.number },
+    encounter_id: inv.encounter_id ?? null,
+    items: forList ? [] : inv.items.map(wireInvoiceLine),
+    subtotal_paise: amounts.subtotal_paise,
+    discount_paise: amounts.discount_paise,
+    taxable_paise: amounts.taxable_paise,
+    cgst_paise: amounts.cgst_paise,
+    sgst_paise: amounts.sgst_paise,
+    igst_paise: amounts.igst_paise,
+    tax_paise: amounts.tax_paise,
+    round_off_paise: amounts.round_off_paise,
+    total_paise: amounts.total_paise,
+    paid_paise: paidPaise,
+    balance_paise: balance,
+    payment_state: paymentState,
+    methods: [...new Set(coveringPayments.map((p) => p.method))],
+    notes: inv.notes ?? null,
+    place_of_supply: inv.place_of_supply ?? null,
+    doc_type: inv.status === "issued" ? "tax_invoice" : null,
+    recipient: patient === undefined ? null : { name: patient.full_name, number: patient.number },
+    supplier: clinic === undefined ? null : { name: clinic.name, legal_name: clinic.legal_name ?? null, gstin: clinic.gstin ?? null },
+    replaces_invoice_id: inv.replaces_invoice_id ?? null,
+    void_reason: inv.void_reason ?? null,
+    voided_at: inv.voided_at ?? null,
+    created_at: inv.created_at,
+    issued_at: inv.issued_at ?? null,
+  };
+}
+
+function wirePayment(p: FakePayment, state: Fixtures): C.Payment {
+  const allocated = p.allocations.reduce((sum, a) => sum + a.amount_paise, 0);
+  return {
+    id: p.id,
+    number: p.number,
+    status: p.status,
+    patient: patientRefFor(state, p.patient_id),
+    method: p.method,
+    amount_paise: p.amount_paise,
+    allocated_paise: allocated,
+    unallocated_paise: p.amount_paise - allocated,
+    allocations: p.allocations.map((a) => ({ invoice_id: a.invoice_id, amount_paise: a.amount_paise })),
+    reference: p.reference ?? null,
+    received_at: p.received_at,
+    void_reason: p.void_reason ?? null,
+  };
+}
+
+function nextInvoiceNumber(state: Fixtures, clinic: FakeClinic): string {
+  const count = state.invoices.filter((i) => i.clinic_id === clinic.id && i.number != null).length;
+  return `${clinic.number_prefix}/26-27/${String(count + 1).padStart(6, "0")}`;
+}
+
+function nextReceiptNumber(state: Fixtures, clinic: FakeClinic): string {
+  const count = state.payments.filter((p) => p.clinic_id === clinic.id).length;
+  return `RC/26-27/${String(count + 1).padStart(6, "0")}`;
+}
+
+function nextPrescriptionNumber(state: Fixtures, clinic: FakeClinic): string {
+  const count = state.prescriptions.filter((p) => p.clinic_id === clinic.id && p.number != null).length;
+  return `RX-${String(count + 1)}`;
+}
+
+function dateOnly(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function eachDate(from: string, to: string): string[] {
+  const dates: string[] = [];
+  let cursor = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  while (cursor.getTime() <= end.getTime()) {
+    dates.push(dateOnly(cursor));
+    cursor = new Date(cursor.getTime() + 86_400_000);
+  }
+  return dates;
+}
+
+function weekStart(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  const day = d.getUTCDay();
+  const diff = day === 0 ? 6 : day - 1;
+  return dateOnly(new Date(d.getTime() - diff * 86_400_000));
+}
+
+function buildDayTotals(payments: readonly FakePayment[], from: string, to: string): C.DayTotal[] {
+  return eachDate(from, to).map((date) => {
+    const dayPayments = payments.filter((p) => p.received_at.slice(0, 10) === date);
+    return { date, amount_paise: dayPayments.reduce((sum, p) => sum + p.amount_paise, 0), payments: dayPayments.length };
+  });
+}
+
+function buildWeekTotals(payments: readonly FakePayment[], from: string, to: string): C.DayTotal[] {
+  const weeks = new Map<string, { amount: number; count: number }>();
+  for (const date of eachDate(from, to)) {
+    const key = weekStart(date);
+    if (!weeks.has(key)) {
+      weeks.set(key, { amount: 0, count: 0 });
+    }
+  }
+  for (const p of payments) {
+    const key = weekStart(p.received_at.slice(0, 10));
+    const bucket = weeks.get(key) ?? { amount: 0, count: 0 };
+    bucket.amount += p.amount_paise;
+    bucket.count += 1;
+    weeks.set(key, bucket);
+  }
+  return [...weeks.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => ({ date, amount_paise: v.amount, payments: v.count }));
+}
+
+function buildMethodTotals(payments: readonly FakePayment[]): C.MethodTotal[] {
+  const total = payments.reduce((sum, p) => sum + p.amount_paise, 0);
+  const byMethod = new Map<string, { amount: number; count: number }>();
+  for (const p of payments) {
+    const bucket = byMethod.get(p.method) ?? { amount: 0, count: 0 };
+    bucket.amount += p.amount_paise;
+    bucket.count += 1;
+    byMethod.set(p.method, bucket);
+  }
+  return [...byMethod.entries()].map(([method, v]) => ({
+    method,
+    amount_paise: v.amount,
+    payments: v.count,
+    share_bps: total === 0 ? 0 : Math.round((v.amount / total) * 10_000),
+  }));
+}
+
+function buildRevenueMix(invoices: readonly FakeInvoice[], priceItems: readonly FakePriceItem[]): C.MixItem[] {
+  const total = invoices.reduce((sum, i) => sum + computeInvoiceAmounts(i.items).total_paise, 0);
+  const byCategory = new Map<string, number>();
+  for (const invoice of invoices) {
+    for (const line of invoice.items) {
+      const category = (line.price_item_id == null ? undefined : priceItems.find((p) => p.id === line.price_item_id)?.category) ?? "other";
+      byCategory.set(category, (byCategory.get(category) ?? 0) + line.total_paise);
+    }
+  }
+  return [...byCategory.entries()].map(([category, amount]) => ({
+    category,
+    amount_paise: amount,
+    share_bps: total === 0 ? 0 : Math.round((amount / total) * 10_000),
+  }));
+}
+
+function agingBucketFor(ageDays: number): "0_30" | "31_60" | "61_90" | "90_plus" {
+  if (ageDays <= 30) return "0_30";
+  if (ageDays <= 60) return "31_60";
+  if (ageDays <= 90) return "61_90";
+  return "90_plus";
+}
+
+/** Issued bills with a balance, for both the pending report and Today's money. */
+function pendingItemsFor(state: Fixtures, clinicId: string, now: Date): (C.PendingItem & { ageDays: number; bucket: "0_30" | "31_60" | "61_90" | "90_plus" })[] {
+  return state.invoices
+    .filter((i) => i.clinic_id === clinicId && i.status === "issued")
+    .map((invoice) => {
+      const wired = wireInvoice(invoice, state, false);
+      const issuedAt = invoice.issued_at ?? invoice.created_at;
+      const ageDays = Math.max(0, Math.floor((now.getTime() - new Date(issuedAt).getTime()) / 86_400_000));
+      const bucket = agingBucketFor(ageDays);
+      return {
+        invoice_id: invoice.id,
+        number: invoice.number ?? null,
+        patient: wired.patient,
+        total_paise: wired.total_paise,
+        paid_paise: wired.paid_paise,
+        balance_paise: wired.balance_paise,
+        issued_at: invoice.issued_at ?? null,
+        age_days: ageDays,
+        bucket,
+        ageDays,
+      };
+    })
+    .filter((item) => item.balance_paise > 0);
+}
+
+// Prescriptions -----------------------------------------------------------------------------------
+
+function wireRxItem(i: FakeRxItem): C.RxItem {
+  return {
+    drug_id: i.drug_id ?? null,
+    drug_name: i.drug_name ?? null,
+    form: i.form ?? null,
+    strength: i.strength ?? null,
+    dose: i.dose ?? null,
+    frequency: i.frequency ?? null,
+    timing: i.timing ?? null,
+    duration_days: i.duration_days ?? null,
+    instructions: i.instructions ?? null,
+  };
+}
+
+function wireAlert(a: FakeAlert): C.Alert {
+  return {
+    kind: a.kind,
+    severity: a.severity,
+    message: a.message,
+    line_no: a.line_no ?? null,
+    action: a.action ?? null,
+    override_reason: a.override_reason ?? null,
+  };
+}
+
+function buildRxItems(items: readonly C.RxItem[]): { items: FakeRxItem[] } | { error: Outcome } {
+  const built: FakeRxItem[] = [];
+  for (const item of items) {
+    if ((item.drug_id == null || item.drug_id === "") && (item.drug_name == null || item.drug_name.trim() === "")) {
+      return { error: invalid("items", "give a catalogue drug or a free-text name") };
+    }
+    built.push({
+      drug_id: item.drug_id ?? null,
+      drug_name: item.drug_name ?? null,
+      form: item.form ?? null,
+      strength: item.strength ?? null,
+      dose: item.dose ?? null,
+      frequency: item.frequency ?? null,
+      timing: item.timing ?? null,
+      duration_days: item.duration_days ?? null,
+      instructions: item.instructions ?? null,
+    });
+  }
+  return { items: built };
+}
+
+/** Matches a prescription's medicines against the patient's active allergies, by substance text. */
+function findAllergyAlerts(
+  state: Fixtures,
+  patientId: string,
+  clinicId: string,
+  items: readonly FakeRxItem[],
+  drugs: readonly FakeDrug[],
+): FakeAlert[] {
+  const allergies = state.allergies.filter((a) => a.patient_id === patientId && a.clinic_id === clinicId && a.status === "active");
+  if (allergies.length === 0) {
+    return [];
+  }
+  const alerts: FakeAlert[] = [];
+  items.forEach((item, index) => {
+    const catalog = item.drug_id == null ? undefined : drugs.find((d) => d.id === item.drug_id);
+    const names = [item.drug_name, catalog?.generic_name, catalog?.brand_name]
+      .filter((n): n is string => n != null && n !== "")
+      .map((n) => n.toLowerCase());
+    for (const allergy of allergies) {
+      const substance = allergy.substance.toLowerCase();
+      if (names.some((name) => name.includes(substance) || substance.includes(name))) {
+        alerts.push({
+          kind: "allergy",
+          severity: allergy.severity === "severe" ? "serious" : allergy.severity === "moderate" ? "caution" : "info",
+          message: `${item.drug_name ?? catalog?.generic_name ?? "This medicine"} may conflict with a recorded allergy to ${allergy.substance}.`,
+          line_no: index + 1,
+        });
+      }
+    }
+  });
+  return alerts;
+}
+
+function buildPrintData(rx: FakePrescription, state: Fixtures): C.PrintData {
+  const clinic = state.clinics.find((c) => c.id === rx.clinic_id);
+  const patient = state.patients.find((p) => p.id === rx.patient_id);
+  const membership = rx.issued_by_membership_id == null ? undefined : state.memberships.find((m) => m.id === rx.issued_by_membership_id);
+  const practitioner = membership === undefined ? undefined : state.practitioners.find((pr) => pr.membership_id === membership.id);
+  const doctorUser = membership === undefined ? undefined : state.users.find((u) => u.id === membership.user_id);
+  return {
+    letterhead: {
+      name: clinic?.name ?? "",
+      legal_name: clinic?.legal_name ?? null,
+      gstin: clinic?.gstin ?? null,
+      address: { ...(clinic?.address ?? {}) },
+      phone: clinic?.phone ?? null,
+      brand: clinic?.branding.brand ?? "#14a89a",
+    },
+    doctor: { display_name: practitioner?.display_name ?? doctorUser?.display_name ?? null, registration_number: practitioner?.registration_number ?? null },
+    patient:
+      patient === undefined
+        ? {}
+        : { name: patient.full_name, number: patient.number, age_years: ageYears(patient.date_of_birth, new Date()), sex: patient.sex },
+    footer: clinic?.prescription_footer ?? null,
+    verify_path: `/verify/prescriptions/${rx.verify_token ?? ""}`,
+    brand_line: "Prescribed with Aarogyam",
+  };
+}
+
+function wirePrescription(rx: FakePrescription, state: Fixtures): C.Prescription {
+  return {
+    id: rx.id,
+    status: rx.status,
+    number: rx.number ?? null,
+    patient: patientRefFor(state, rx.patient_id),
+    encounter_id: rx.encounter_id ?? null,
+    diagnosis_text: rx.diagnosis_text ?? null,
+    items: rx.items.map(wireRxItem),
+    advice: rx.advice ?? null,
+    follow_up_on: rx.follow_up_on ?? null,
+    language: rx.language,
+    alerts: rx.alerts.map(wireAlert),
+    override_reason: rx.override_reason ?? null,
+    supersedes_id: rx.supersedes_id ?? null,
+    superseded_by: rx.superseded_by ?? null,
+    cancel_reason: rx.cancel_reason ?? null,
+    cancelled_at: rx.cancelled_at ?? null,
+    created_at: rx.created_at,
+    issued_at: rx.issued_at ?? null,
+    print: rx.status === "issued" ? buildPrintData(rx, state) : null,
   };
 }

@@ -11,6 +11,8 @@ export const PERMISSIONS = [
   "clinical.read",
   "clinical.write",
   "billing.read",
+  "billing.write",
+  "prescriptions.issue",
   /** Fake only, for Today's money tiles, until the API has a finance permission. */
   "finance.view",
   "settings.manage",

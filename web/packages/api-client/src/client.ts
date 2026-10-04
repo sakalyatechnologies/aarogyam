@@ -5,15 +5,26 @@ import type {
   AcceptInvitation,
   AllergyFields,
   AllergyPage,
+  ApplicationId,
+  ApplicationStatus,
+  Applications,
   AppointmentChanges,
   AppointmentId,
   AppointmentPage,
+  ApproveApplication,
+  ApprovedApplication,
   Attachment,
   AttachmentId,
   AttachmentPage,
+  Cancelled,
+  CancelRequest,
+  ClinicDetail,
+  ClinicId,
+  ClinicInvited,
   ClinicSettings,
   ClinicSettingsChanges,
   ClinicalFlags,
+  Collections,
   ConditionFields,
   ConditionPage,
   ConsoleClinicPage,
@@ -21,7 +32,14 @@ import type {
   CreatedInvitation,
   DentalChart,
   DownloadLink,
+  DrugList,
+  DrugSearch,
   ImportResult,
+  Invoice,
+  InvoiceEdit,
+  InvoiceId,
+  InvoicePage,
+  IssueRequest,
   Leave,
   LeaveId,
   LeavePage,
@@ -35,11 +53,15 @@ import type {
   NewAppointmentBody,
   NewChartEntries,
   NewClinic,
+  NewClinicInvitation,
   NewInvitation,
+  NewInvoice,
   NewLeave,
   NewPatient,
+  NewPayment,
   NewProcedure,
   NewReadings,
+  NewRegistration,
   NewVisit,
   Note,
   NoteContent,
@@ -50,10 +72,21 @@ import type {
   PatientId,
   PatientImport,
   PatientPage,
+  Payment,
+  PaymentId,
+  PaymentPage,
+  PendingReport,
   Practitioner,
   PractitionerFields,
   PractitionerId,
   PractitionerPage,
+  Prescription,
+  PrescriptionId,
+  PrescriptionPage,
+  PriceItem,
+  PriceItemId,
+  PriceItemPage,
+  PriceItemValues,
   Procedure,
   ProcedureId,
   ProcedurePage,
@@ -61,21 +94,29 @@ import type {
   QueueDayPage,
   QueueToken,
   QueueTokenId,
+  Reason,
+  RegistrationReceived,
+  RejectApplication,
   Roles,
   Room,
   RoomFields,
   RoomId,
   RoomPage,
+  RxValues,
   SavedAppointment,
   Session,
   SessionId,
+  ShareLink,
+  SharedPreview,
   Staff,
   StatusChange,
   StatusChanged,
   Joined,
   Timeline,
+  TodayMoney,
   TokenStatusChange,
   Today,
+  Verification,
   Visit,
   VisitDetail,
   VisitId,
@@ -257,4 +298,84 @@ export interface ApiClient {
   uploadAttachment(id: PatientId, form: FormData, options?: RequestOptions): Promise<ApiResult<Attachment>>;
   /** Clinic host: a short-lived link to download a file. Needs `clinical.read`. */
   getDownloadLink(id: AttachmentId, options?: RequestOptions): Promise<ApiResult<DownloadLink>>;
+
+  /** Any host: applies to join Aarogyam. Throttled per IP; the same answer whether or not the address already applied. */
+  submitRegistration(input: NewRegistration, options?: RequestOptions): Promise<ApiResult<RegistrationReceived>>;
+
+  /** Console host: applications, newest first. */
+  listApplications(status: ApplicationStatus | undefined, options?: RequestOptions): Promise<ApiResult<Applications>>;
+  /** Console host: approves an application, creating the clinic, the owner's account and invitation. */
+  approveApplication(id: ApplicationId, input: ApproveApplication, options?: RequestOptions): Promise<ApiResult<ApprovedApplication>>;
+  /** Console host: rejects an application with an optional reason. */
+  rejectApplication(id: ApplicationId, input: RejectApplication, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Console host: one clinic, with its staff and pending invitations. */
+  getClinicDetail(id: ClinicId, options?: RequestOptions): Promise<ApiResult<ClinicDetail>>;
+  /** Console host: invites a doctor or other staff member to a clinic, by email and role. */
+  inviteToClinic(id: ClinicId, input: NewClinicInvitation, options?: RequestOptions): Promise<ApiResult<ClinicInvited>>;
+
+  /** Clinic host: finds medicines in the shared catalogue. Needs `prescriptions.issue`. */
+  searchDrugs(input: DrugSearch, options?: RequestOptions): Promise<ApiResult<DrugList>>;
+
+  /** Clinic host: the clinic's price list. Needs `billing.read`. */
+  listPriceItems(options?: RequestOptions): Promise<ApiResult<PriceItemPage>>;
+  /** Clinic host: adds a price list entry. Needs `settings.manage`. */
+  addPriceItem(input: PriceItemValues, options?: RequestOptions): Promise<ApiResult<PriceItem>>;
+  /** Clinic host: changes a price list entry. Needs `settings.manage`. */
+  changePriceItem(id: PriceItemId, input: PriceItemValues, options?: RequestOptions): Promise<ApiResult<PriceItem>>;
+
+  /** Clinic host: bills, newest first, without lines. Needs `billing.read`. */
+  listInvoices(
+    filter: { status?: string | undefined; patientId?: PatientId | undefined } & Partial<DateRange>,
+    options?: RequestOptions,
+  ): Promise<ApiResult<InvoicePage>>;
+  /** Clinic host: opens a bill with its lines. Needs `billing.read`. */
+  getInvoice(id: InvoiceId, options?: RequestOptions): Promise<ApiResult<Invoice>>;
+  /** Clinic host: starts a draft bill for a patient. Needs `billing.write`. */
+  createInvoice(input: NewInvoice, options?: RequestOptions): Promise<ApiResult<Invoice>>;
+  /** Clinic host: edits a draft bill. Needs `billing.write`. */
+  editInvoice(id: InvoiceId, changes: InvoiceEdit, options?: RequestOptions): Promise<ApiResult<Invoice>>;
+  /** Clinic host: issues a draft: GST per line, a number, frozen. Needs `billing.write`. */
+  issueInvoice(id: InvoiceId, options?: RequestOptions): Promise<ApiResult<Invoice>>;
+  /** Clinic host: voids a bill with a reason. Needs `billing.write`. */
+  voidInvoice(id: InvoiceId, reason: Reason, options?: RequestOptions): Promise<ApiResult<Invoice>>;
+
+  /** Clinic host: payments received, newest first. Needs `billing.read`. */
+  listPayments(range: Partial<DateRange>, options?: RequestOptions): Promise<ApiResult<PaymentPage>>;
+  /** Clinic host: one payment, for its receipt. Needs `billing.read`. */
+  getPayment(id: PaymentId, options?: RequestOptions): Promise<ApiResult<Payment>>;
+  /** Clinic host: records a payment; `idempotencyKey` should be generated once per submission. Needs `billing.write`. */
+  recordPayment(input: NewPayment, idempotencyKey: string, options?: RequestOptions): Promise<ApiResult<Payment>>;
+  /** Clinic host: voids a payment with a reason. Needs `billing.write`. */
+  voidPayment(id: PaymentId, reason: Reason, options?: RequestOptions): Promise<ApiResult<Payment>>;
+
+  /** Clinic host: collections by day, week and method, and the revenue mix. Needs `finance.view`. */
+  getCollections(range: Partial<DateRange>, options?: RequestOptions): Promise<ApiResult<Collections>>;
+  /** Clinic host: issued bills with a balance, oldest first. Needs `finance.view`. */
+  getPendingReport(options?: RequestOptions): Promise<ApiResult<PendingReport>>;
+  /** Clinic host: today's collections, pending dues and revenue mix for the Today screen. Needs `finance.view`. */
+  getTodayMoney(options?: RequestOptions): Promise<ApiResult<TodayMoney>>;
+
+  /** Clinic host: a patient's prescriptions, newest first. Needs `clinical.read`. */
+  listPrescriptions(patientId: PatientId, options?: RequestOptions): Promise<ApiResult<PrescriptionPage>>;
+  /** Clinic host: the patient's last issued prescription, for Quick Rx. Needs `clinical.read`. */
+  getLastPrescription(patientId: PatientId, options?: RequestOptions): Promise<ApiResult<Prescription>>;
+  /** Clinic host: opens a prescription with its print data. Needs `clinical.read`. */
+  getPrescription(id: PrescriptionId, options?: RequestOptions): Promise<ApiResult<Prescription>>;
+  /** Clinic host: starts a draft prescription. Needs `prescriptions.issue`. */
+  createPrescription(patientId: PatientId, input: RxValues, options?: RequestOptions): Promise<ApiResult<Prescription>>;
+  /** Clinic host: edits a draft. Needs `prescriptions.issue`. */
+  editPrescription(id: PrescriptionId, input: RxValues, options?: RequestOptions): Promise<ApiResult<Prescription>>;
+  /** Clinic host: issues a draft; `409` with alerts when an override reason is needed. Needs `prescriptions.issue`. */
+  issuePrescription(id: PrescriptionId, input: IssueRequest, options?: RequestOptions): Promise<ApiResult<Prescription>>;
+  /** Clinic host: cancels an issued prescription, starting a corrected draft by default. Needs `prescriptions.issue`. */
+  cancelPrescription(id: PrescriptionId, input: CancelRequest, options?: RequestOptions): Promise<ApiResult<Cancelled>>;
+  /** Clinic host: makes a seven-day link with a PIN for the patient to open the prescription. Needs `prescriptions.issue`. */
+  createShareLink(id: PrescriptionId, options?: RequestOptions): Promise<ApiResult<ShareLink>>;
+
+  /** Any host, public: whether a share link exists and which clinic sent it. */
+  getSharedPreview(token: string, options?: RequestOptions): Promise<ApiResult<SharedPreview>>;
+  /** Any host, public: opens a shared prescription with its PIN. */
+  openShared(token: string, pin: string, options?: RequestOptions): Promise<ApiResult<Prescription>>;
+  /** Any host, public: the QR code's check that a prescription is genuine. */
+  verifyPrescription(token: string, options?: RequestOptions): Promise<ApiResult<Verification>>;
 }

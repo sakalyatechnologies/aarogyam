@@ -2,14 +2,33 @@
 //!
 //! [`ServiceMetrics`] keeps a latency histogram and status counts in memory, per minute for the
 //! last 60 minutes and per hour for the last 168 hours, for the whole API and for each method
-//! and route. [`ServiceMetrics::snapshot`] reads a [`Range`] back as an [`ApiSnapshot`]. Each
-//! instance sees only its own requests, so in production the console reads Cloud Monitoring;
-//! this collector serves local runs and tests.
+//! and route. [`track`] is the middleware that feeds it, and [`ServiceMetrics::snapshot`] reads
+//! a [`Range`] back as an [`ApiSnapshot`]. Each instance sees only its own requests, so in
+//! production the console reads Cloud Monitoring; this collector serves local runs and tests.
+//!
+//! # Wiring
+//!
+//! Add [`track`] after the standard layers. It then runs outermost, so it also counts their
+//! timeout and panic responses, yet still after routing, so the matched route is known:
+//!
+//! ```
+//! use std::sync::Arc;
+//!
+//! use aarogyam_api::metrics::{ServiceMetrics, track};
+//! use axum::{Router, middleware, routing::get};
+//! use sakalya_http::HttpConfig;
+//!
+//! let metrics = Arc::new(ServiceMetrics::new());
+//! let routes = Router::new().route("/api/v1/patients/{id}", get(|| async { "patient" }));
+//! let app: Router = sakalya_http::with_standard_layers(routes, &HttpConfig::default())
+//!     .layer(middleware::from_fn_with_state(Arc::clone(&metrics), track));
+//! ```
 //!
 //! # Rules
 //!
-//! - **Routes are templates** such as `/api/v1/patients/{id}`, never raw paths, so no IDs or
-//!   names reach the metrics. At most [`MAX_ROUTES`] method and route pairs are kept apart;
+//! - **Routes are templates** from [`MatchedPath`], such as `/api/v1/patients/{id}`, never raw
+//!   paths, so no IDs or names reach the metrics. Requests that matched no route are counted
+//!   as [`UNMATCHED`]. At most [`MAX_ROUTES`] method and route pairs are kept apart;
 //!   later pairs are counted under the route [`OTHER`]. Methods other than the nine standard
 //!   ones are counted as the method `OTHER`, so invented methods cannot add rows.
 //! - **Success** is any status below 500 except 429 Too Many Requests: a client's mistake is
@@ -28,10 +47,13 @@ use std::collections::HashMap;
 use std::fmt;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
-use std::sync::{Mutex, MutexGuard, PoisonError};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use axum::extract::{MatchedPath, Request, State};
 use axum::http::{Method, StatusCode};
+use axum::middleware::Next;
+use axum::response::Response;
 use serde::Serialize;
 use time::OffsetDateTime;
 
@@ -41,6 +63,28 @@ pub const MAX_ROUTES: usize = 200;
 
 /// The route that pairs past [`MAX_ROUTES`] are counted under.
 pub const OTHER: &str = "other";
+
+/// The route [`track`] records for requests that matched no route.
+pub const UNMATCHED: &str = "unmatched";
+
+/// Middleware that times each request and records it in [`ServiceMetrics`] under its matched
+/// route template, or [`UNMATCHED`]. See the module docs for where to add it.
+///
+/// Latency runs until the response head is ready, so a streamed body is not timed. A request
+/// dropped before it is answered, because the client went away, is not counted.
+pub async fn track(
+    State(metrics): State<Arc<ServiceMetrics>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let method = request.method().clone();
+    let route = request.extensions().get::<MatchedPath>().cloned();
+    let started = Instant::now();
+    let response = next.run(request).await;
+    let route = route.as_ref().map_or(UNMATCHED, MatchedPath::as_str);
+    metrics.record(&method, route, response.status(), started.elapsed());
+    response
+}
 
 /// Upper bounds of the latency buckets in milliseconds; an open bucket follows the last.
 const BOUNDS_MS: [u32; 11] = [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10_000];
@@ -272,7 +316,7 @@ pub struct SeriesPoint {
 pub struct RouteStats {
     /// `GET`, `POST` or another standard method, or `OTHER`.
     pub method: &'static str,
-    /// The route template, such as `/api/v1/patients/{id}`, or [`OTHER`].
+    /// The route template, such as `/api/v1/patients/{id}`, or [`UNMATCHED`] or [`OTHER`].
     pub route: Box<str>,
     /// Requests answered.
     pub requests: u64,

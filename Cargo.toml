@@ -15,6 +15,7 @@ sakalya-types = { git = "https://github.com/sakalyatechnologies/sakalya-backend"
 sakalya-config = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
 sakalya-telemetry = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
 sakalya-http = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
+sakalya-auth = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
 sakalya-db = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
 
 # Our crates
@@ -26,6 +27,7 @@ serde_json = { version = "1.0.151", default-features = false, features = ["std"]
 uuid = { version = "1.26.1", default-features = false, features = ["std", "v7", "serde"] }
 aws-lc-rs = { version = "1.18.1", default-features = false, features = ["aws-lc-sys"] }
 base64 = { version = "0.22.1", default-features = false, features = ["alloc"] }
+jsonwebtoken = { version = "11.1.0", default-features = false, features = ["aws_lc_rs"] }
 serde = { version = "1.0.229", default-features = false, features = ["std", "derive"] }
 time = { version = "0.3.55", default-features = false, features = ["std", "macros", "serde", "formatting", "parsing"] }
 thiserror = { version = "2.0.21", default-features = false, features = ["std"] }

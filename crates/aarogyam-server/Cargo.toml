@@ -16,6 +16,7 @@ aarogyam-api.workspace = true
 aarogyam-dal.workspace = true
 anyhow.workspace = true
 clap.workspace = true
+sakalya-auth.workspace = true
 sakalya-config.workspace = true
 sakalya-db.workspace = true
 sakalya-http.workspace = true

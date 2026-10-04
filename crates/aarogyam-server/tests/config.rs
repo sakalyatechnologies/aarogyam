@@ -27,7 +27,11 @@ fn set_required(jail: &mut Jail) {
         "ARO_DB__URL",
         "postgres://aarogyam_api:hunter2@db.internal/aarogyam",
     );
+    jail.set_env("ARO_AUTH__MODE", "supabase");
     jail.set_env("ARO_AUTH__ISSUER", "https://auth.example/auth/v1");
+    jail.set_env("ARO_HOSTS__PORTAL_DOMAIN", "aarogyam.example");
+    jail.set_env("ARO_HOSTS__CONSOLE", "console.aarogyam.example");
+    jail.set_env("ARO_HOSTS__APP", "app.aarogyam.example");
     jail.set_env("ARO_AUTH__AUDIENCE", "authenticated");
     jail.set_env(
         "ARO_AUTH__JWKS_URL",

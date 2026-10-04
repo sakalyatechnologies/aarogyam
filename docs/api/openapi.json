@@ -6,6 +6,350 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/console/clinics": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Lists every clinic with member and patient counts.",
+        "operationId": "clinics",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleClinics"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not Sakalya staff"
+          },
+          "404": {
+            "description": "Not the console host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Creates a clinic and invites its owner. Owner and onboarding staff only.",
+        "operationId": "create_clinic",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewClinic"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedClinic"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "403": {
+            "description": "Not allowed to create clinics"
+          },
+          "409": {
+            "description": "The subdomain is taken"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/console/metrics": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Service health: API, database and edge.",
+        "operationId": "metrics",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "description": "1h (default), 24h or 7d",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceMetrics"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not Sakalya staff"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dev/token": {
+      "post": {
+        "tags": [
+          "development"
+        ],
+        "summary": "Signs in as a seeded person (local development only).",
+        "operationId": "token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "A token for that person",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": [
+          "session"
+        ],
+        "summary": "The signed-in person's clinics, for the clinic switcher.",
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Finds patients by number, phone or name.",
+        "operationId": "search",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "A number (SD-1042 or 1042), a phone number, or the start of a name; empty lists recent patients",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Most results, 1 to 50 (default 20)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Registers a patient and issues the clinic's next number.",
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewPatient"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Patient"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Opens a patient's record. Every open is written to the access record.",
+        "operationId": "open",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Patient"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/session": {
+      "get": {
+        "tags": [
+          "session"
+        ],
+        "summary": "The clinic, member and permissions for this host. The portal hides what the role can't\ndo; the API still enforces it.",
+        "operationId": "session",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -29,11 +373,559 @@
       }
     }
   },
-  "components": {},
+  "components": {
+    "schemas": {
+      "ConsoleClinic": {
+        "type": "object",
+        "description": "A clinic, with counts only.",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "specialty",
+          "status",
+          "created_at",
+          "active_members",
+          "patients"
+        ],
+        "properties": {
+          "active_members": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Members with an active membership."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was created (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "patients": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Patients, excluding deleted records."
+          },
+          "portal_host": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The portal host name."
+          },
+          "slug": {
+            "type": "string",
+            "description": "Its subdomain."
+          },
+          "specialty": {
+            "type": "string",
+            "description": "`dental` or `general`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`trial`, `active`, `suspended` or `churned`."
+          }
+        }
+      },
+      "ConsoleClinics": {
+        "type": "object",
+        "description": "Every clinic.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsoleClinic"
+            },
+            "description": "Newest first."
+          }
+        }
+      },
+      "CreatedClinic": {
+        "type": "object",
+        "description": "A clinic just created. `invite_token` is shown once; only its hash is stored.",
+        "required": [
+          "id",
+          "slug",
+          "portal_host",
+          "invitation_id",
+          "invite_token",
+          "invite_expires_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "invitation_id": {
+            "type": "string",
+            "description": "The owner's invitation."
+          },
+          "invite_expires_at": {
+            "type": "string",
+            "description": "When the invitation expires (RFC 3339)."
+          },
+          "invite_token": {
+            "type": "string",
+            "description": "The invitation secret, for the link sent to the owner."
+          },
+          "portal_host": {
+            "type": "string",
+            "description": "Its portal host name."
+          },
+          "slug": {
+            "type": "string",
+            "description": "Its subdomain."
+          }
+        }
+      },
+      "DevTokenRequest": {
+        "type": "object",
+        "description": "Who to sign in as.",
+        "required": [
+          "auth_uid"
+        ],
+        "properties": {
+          "auth_uid": {
+            "type": "string",
+            "description": "The person's Supabase Auth id (`users.auth_uid`), from the local seed."
+          }
+        }
+      },
+      "DevTokenResponse": {
+        "type": "object",
+        "description": "A development token.",
+        "required": [
+          "access_token",
+          "expires_in"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Bearer token for the `Authorization` header."
+          },
+          "expires_in": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Seconds until it expires."
+          }
+        }
+      },
+      "Me": {
+        "type": "object",
+        "description": "The signed-in person's clinics.",
+        "required": [
+          "clinics"
+        ],
+        "properties": {
+          "clinics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyClinic"
+            },
+            "description": "Clinics they are invited to or active in, by name."
+          }
+        }
+      },
+      "MyClinic": {
+        "type": "object",
+        "description": "A clinic the person belongs to.",
+        "required": [
+          "org_id",
+          "slug",
+          "name",
+          "role_key",
+          "role_name"
+        ],
+        "properties": {
+          "host": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic portal's host name."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "org_id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "role_key": {
+            "type": "string",
+            "description": "The person's role there, such as `doctor`."
+          },
+          "role_name": {
+            "type": "string",
+            "description": "The role's name."
+          },
+          "slug": {
+            "type": "string",
+            "description": "Its subdomain."
+          }
+        }
+      },
+      "NewClinic": {
+        "type": "object",
+        "description": "A clinic to create.",
+        "required": [
+          "name",
+          "owner_email"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The clinic's name."
+          },
+          "owner_email": {
+            "type": "string",
+            "description": "The owner's email; they are invited as the clinic owner."
+          },
+          "slug": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The subdomain; derived from the name when absent."
+          },
+          "specialty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`dental` (default) or `general`."
+          }
+        }
+      },
+      "NewPatient": {
+        "type": "object",
+        "description": "A patient to register.",
+        "required": [
+          "full_name"
+        ],
+        "properties": {
+          "age_years": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Age in years when the date of birth is unknown.",
+            "minimum": 0
+          },
+          "date_of_birth": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Date of birth (`YYYY-MM-DD`); give this or `age_years`."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email."
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Full name, 1 to 200 characters."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Phone; +91 is assumed without a country code."
+          },
+          "preferred_language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Language tag such as `mr-IN` (default `en-IN`)."
+          },
+          "sex": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`female`, `male`, `other` or `unknown` (default)."
+          }
+        }
+      },
+      "Patient": {
+        "type": "object",
+        "description": "A patient. Phone and email are masked (`+91******3210`) unless the role has `patients.contact`.",
+        "required": [
+          "id",
+          "number",
+          "full_name",
+          "sex",
+          "birth_date_estimated",
+          "preferred_language",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "age_years": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Age in whole years today.",
+            "minimum": 0
+          },
+          "birth_date_estimated": {
+            "type": "boolean",
+            "description": "Whether the date of birth was estimated from an age."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When the record was created (RFC 3339)."
+          },
+          "date_of_birth": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Date of birth (`YYYY-MM-DD`), exact or estimated."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email, masked without `patients.contact`."
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Full name."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "last_visit_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The last visit (RFC 3339), once visits exist."
+          },
+          "number": {
+            "type": "string",
+            "description": "Readable number, such as `SD-1042`."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Phone, masked without `patients.contact`."
+          },
+          "preferred_language": {
+            "type": "string",
+            "description": "Language tag, such as `hi-IN`."
+          },
+          "sex": {
+            "type": "string",
+            "description": "`female`, `male`, `other` or `unknown`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`active`, `inactive`, `deceased` or `merged`."
+          }
+        }
+      },
+      "PatientList": {
+        "type": "object",
+        "description": "Search results.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Patient"
+            },
+            "description": "Matching patients, best first."
+          }
+        }
+      },
+      "ServiceMetrics": {
+        "type": "object",
+        "description": "Service health for the console dashboard.",
+        "required": [
+          "generated_at",
+          "range",
+          "api",
+          "db",
+          "edge"
+        ],
+        "properties": {
+          "api": {
+            "type": "object",
+            "description": "API requests, error rates and latency; `null` until this instance has served traffic."
+          },
+          "db": {
+            "type": "object",
+            "description": "Database connections, cache hit ratio, size, tables and slow statements."
+          },
+          "edge": {
+            "type": "object",
+            "description": "Edge and front-end numbers from Cloudflare; `null` until connected."
+          },
+          "generated_at": {
+            "type": "string",
+            "description": "When this was produced (RFC 3339)."
+          },
+          "range": {
+            "type": "string",
+            "description": "The window: `1h`, `24h` or `7d`."
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "description": "The current clinic session.",
+        "required": [
+          "clinic",
+          "membership",
+          "user"
+        ],
+        "properties": {
+          "clinic": {
+            "$ref": "#/components/schemas/SessionClinic",
+            "description": "The clinic."
+          },
+          "membership": {
+            "$ref": "#/components/schemas/SessionMembership",
+            "description": "The membership and its permissions."
+          },
+          "user": {
+            "$ref": "#/components/schemas/SessionUser",
+            "description": "The member."
+          }
+        }
+      },
+      "SessionClinic": {
+        "type": "object",
+        "description": "The clinic the portal runs in.",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "timezone",
+          "branding"
+        ],
+        "properties": {
+          "branding": {
+            "type": "object",
+            "description": "Branding (brand colour, theme mode)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "slug": {
+            "type": "string",
+            "description": "Its subdomain."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA time zone."
+          }
+        }
+      },
+      "SessionMembership": {
+        "type": "object",
+        "description": "The member's place in the clinic.",
+        "required": [
+          "id",
+          "role_key",
+          "permissions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The membership."
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Permission keys the role holds, such as `patients.read`."
+          },
+          "role_key": {
+            "type": "string",
+            "description": "Role key, such as `front_desk`."
+          }
+        }
+      },
+      "SessionUser": {
+        "type": "object",
+        "description": "The signed-in member.",
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "description": "Their name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The user."
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
   "tags": [
     {
       "name": "health",
       "description": "Liveness for load balancers and Cloud Run"
+    },
+    {
+      "name": "session",
+      "description": "Who is signed in, and where"
+    },
+    {
+      "name": "patients",
+      "description": "A clinic's patients; clinic host only"
+    },
+    {
+      "name": "console",
+      "description": "Sakalya's console; console host only, staff only"
+    },
+    {
+      "name": "development",
+      "description": "Local development only; absent in deployed servers"
     }
   ]
 }

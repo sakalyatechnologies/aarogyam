@@ -11,51 +11,48 @@
 //! # Examples
 //!
 //! ```no_run
-//! use aarogyam_api::{AppState, router};
+//! use aarogyam_api::{AppState, DevTokens, Hosts, TokenCheck, router};
 //! use sakalya_http::HttpConfig;
+//! use secrecy::SecretString;
 //!
 //! # async fn run(db: sakalya_db::Db) -> Result<(), sakalya_http::ServeError> {
-//! let app = router(AppState::new(db, HttpConfig::default()));
+//! let tokens = TokenCheck::Dev(DevTokens::new("aarogyam-dev", "authenticated", SecretString::from("local secret")));
+//! let hosts = Hosts {
+//!     portal_domain: "localtest.me".into(),
+//!     console: "console.localtest.me".into(),
+//!     app: "app.localtest.me".into(),
+//! };
+//! let app = router(AppState::new(db, HttpConfig::default(), tokens, hosts));
 //! sakalya_http::serve(app, "127.0.0.1:8080".parse().expect("valid address")).await
 //! # }
 //! ```
 
+mod cache;
+mod dev;
+mod extract;
+mod failure;
 mod openapi;
+mod state;
 mod v1;
 
 use axum::Router;
-use sakalya_db::Db;
-use sakalya_http::HttpConfig;
 
+pub use dev::DevTokens;
+pub use extract::{ClinicRequest, PlatformRequest, Require, SignedIn};
+pub use failure::ApiFailure;
 #[doc(inline)]
 pub use openapi::openapi;
+pub use state::{AppState, Hosts, TokenCheck};
 
-/// What the routes can reach: the database handle and the HTTP limits. Cheap to clone.
-#[derive(Debug, Clone)]
-pub struct AppState {
-    db: Db,
-    http: HttpConfig,
-}
-
-impl AppState {
-    /// Creates the state from the API's database handle and its HTTP limits.
-    #[must_use]
-    pub fn new(db: Db, http: HttpConfig) -> Self {
-        Self { db, http }
-    }
-
-    /// The database handle that use cases open scoped transactions on.
-    #[must_use]
-    pub fn db(&self) -> &Db {
-        &self.db
-    }
-}
-
-/// Builds the API: `GET /healthz`, the routes under `/api/v1`, and the standard middleware.
+/// Builds the API: `GET /healthz`, the routes under `/api/v1`, and the standard middleware
+/// (request IDs, the edge check, the request span, panic recovery, timeouts, body limits).
+/// The development sign-in route exists only when the state holds development tokens, which
+/// the server allows only in the `local` environment.
 pub fn router(state: AppState) -> Router {
-    let http = state.http.clone();
+    let http = state.http().clone();
+    let local_dev = state.dev_tokens().is_some();
     let routes = Router::new()
-        .nest("/api/v1", v1::routes())
+        .nest("/api/v1", v1::routes(local_dev))
         .with_state(state)
         .merge(sakalya_http::health_routes());
     sakalya_http::with_standard_layers(routes, &http)

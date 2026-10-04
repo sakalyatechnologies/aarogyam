@@ -2,11 +2,14 @@
 
 use std::path::PathBuf;
 
-use aarogyam_api::AppState;
-use aarogyam_server::config::Config;
+use aarogyam_api::{AppState, DevTokens, Hosts, TokenCheck};
+use aarogyam_server::config::{AuthMode, Config};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
+use sakalya_auth::{JwtConfig, JwtVerifier};
+use sakalya_config::Environment;
 use sakalya_db::{Db, DbConfig};
+use sakalya_http::{EdgeConfig, EdgeSecret};
 
 /// Aarogyam's API server.
 #[derive(Debug, Parser)]
@@ -53,9 +56,61 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         version = env!("CARGO_PKG_VERSION"),
         "starting"
     );
+    let local = config.environment == Environment::Local;
     let db = Db::connect_lazy(&DbConfig::new(config.db.url))
         .context("db.url is not a valid Postgres URL")?;
-    let state = AppState::new(db, config.http.limits());
+    let tokens = match config.auth.mode {
+        AuthMode::Dev => {
+            anyhow::ensure!(
+                local,
+                "auth.mode = dev is allowed only when environment = local"
+            );
+            let secret = config
+                .auth
+                .dev_secret
+                .context("auth.dev_secret is required when auth.mode = dev")?;
+            TokenCheck::Dev(DevTokens::new(
+                &config.auth.issuer,
+                &config.auth.audience,
+                secret,
+            ))
+        }
+        AuthMode::Supabase => {
+            let jwks_url = config
+                .auth
+                .jwks_url
+                .context("auth.jwks_url is required when auth.mode = supabase")?;
+            let verifier = JwtVerifier::remote(JwtConfig::new(
+                &config.auth.issuer,
+                &config.auth.audience,
+                &jwks_url,
+            ))
+            .context("auth.jwks_url is not a valid URL")?;
+            if let Err(error) = verifier.prefetch().await {
+                // Not fatal: keys are fetched again on the first sign-in.
+                tracing::warn!(error = %error, "could not fetch the token signing keys at startup");
+            }
+            TokenCheck::Supabase(verifier)
+        }
+    };
+    let mut http = config.http.limits();
+    match config.http.edge_secret {
+        Some(secret) => {
+            let secret =
+                EdgeSecret::new(secret).context("http.edge_secret must be at least 32 bytes")?;
+            http = http.with_edge(EdgeConfig::new(secret));
+        }
+        None => anyhow::ensure!(
+            local,
+            "http.edge_secret is required outside the local environment"
+        ),
+    }
+    let hosts = Hosts {
+        portal_domain: config.hosts.portal_domain,
+        console: config.hosts.console,
+        app: config.hosts.app,
+    };
+    let state = AppState::new(db, http, tokens, hosts);
     sakalya_http::serve(aarogyam_api::router(state), config.http.bind)
         .await
         .context("the server stopped with an error")

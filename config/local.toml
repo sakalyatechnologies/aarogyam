@@ -15,10 +15,18 @@ url = "postgres://aarogyam_api@localhost:5432/aarogyam_dev"
 owner_url = "postgres://aarogyam_owner@localhost:5432/aarogyam_dev"
 
 [auth]
-# Supabase Auth as `supabase start` runs it. Placeholders until sign-in is wired in.
-issuer = "http://127.0.0.1:54321/auth/v1"
+# Local sign-in: the API mints tokens for the seeded people (POST /api/v1/dev/token).
+# Deployed servers use mode = "supabase" with jwks_url; dev mode refuses to start there.
+mode = "dev"
+issuer = "aarogyam-dev"
 audience = "authenticated"
-jwks_url = "http://127.0.0.1:54321/auth/v1/.well-known/jwks.json"
+dev_secret = "local-development-secret-not-for-any-deployed-server"
+
+[hosts]
+# localtest.me and its subdomains resolve to 127.0.0.1, so host-based tenancy works locally.
+portal_domain = "localtest.me"
+console = "console.localtest.me"
+app = "app.localtest.me"
 
 [telemetry]
 format = "pretty"

@@ -30,6 +30,8 @@ pub struct Config {
     pub db: DbSettings,
     /// Sign-in token checks (`ARO_AUTH__*`).
     pub auth: AuthSettings,
+    /// The host names the API answers on (`ARO_HOSTS__*`).
+    pub hosts: HostSettings,
     /// Log format and filter (`ARO_TELEMETRY__FORMAT`, `ARO_TELEMETRY__FILTER`).
     #[serde(default)]
     pub telemetry: TelemetryConfig,
@@ -57,6 +59,10 @@ pub struct HttpSettings {
     pub request_timeout_secs: u64,
     /// Largest request body accepted, in bytes (`ARO_HTTP__BODY_LIMIT_BYTES`). Default 1 MiB.
     pub body_limit_bytes: usize,
+    /// The secret the Cloudflare Worker sends (`ARO_HTTP__EDGE_SECRET`), at least 32 bytes.
+    /// Required outside `local`: without it anyone could call the Cloud Run URL directly and
+    /// claim any host or client IP.
+    pub edge_secret: Option<SecretString>,
 }
 
 impl HttpSettings {
@@ -76,6 +82,7 @@ impl Default for HttpSettings {
             bind: SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8080)),
             request_timeout_secs: 30,
             body_limit_bytes: 1024 * 1024,
+            edge_secret: None,
         }
     }
 }
@@ -92,14 +99,40 @@ pub struct DbSettings {
     pub owner_url: Option<SecretString>,
 }
 
-/// Sign-in token checks for Supabase Auth. Placeholders until `sakalya-auth` is wired in.
+/// How sign-in tokens are checked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthMode {
+    /// Local development only: the API mints and checks its own tokens for the seeded people.
+    Dev,
+    /// Supabase Auth tokens, checked against the project's published keys.
+    Supabase,
+}
+
+/// Sign-in token checks.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthSettings {
+    /// `dev` (only allowed in `local`) or `supabase` (`ARO_AUTH__MODE`).
+    pub mode: AuthMode,
     /// Expected `iss` claim (`ARO_AUTH__ISSUER`), such as `https://<project>.supabase.co/auth/v1`.
     pub issuer: Box<str>,
     /// Expected `aud` claim (`ARO_AUTH__AUDIENCE`); Supabase uses `authenticated`.
     pub audience: Box<str>,
-    /// Where the token signing keys are published (`ARO_AUTH__JWKS_URL`).
-    pub jwks_url: Box<str>,
+    /// Where Supabase publishes its signing keys (`ARO_AUTH__JWKS_URL`); `supabase` mode only.
+    pub jwks_url: Option<Box<str>>,
+    /// Secret for development tokens (`ARO_AUTH__DEV_SECRET`); `dev` mode only.
+    pub dev_secret: Option<SecretString>,
+}
+
+/// The host names the API answers on.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HostSettings {
+    /// Clinic portals are `<slug>.<portal_domain>` (`ARO_HOSTS__PORTAL_DOMAIN`).
+    pub portal_domain: String,
+    /// The Sakalya console host (`ARO_HOSTS__CONSOLE`).
+    pub console: String,
+    /// The neutral host for the phone apps (`ARO_HOSTS__APP`).
+    pub app: String,
 }

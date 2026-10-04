@@ -21,10 +21,47 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         title = "Aarogyam API",
         description = "The clinic platform's API. The clinic comes from the host name."
     ),
-    paths(healthz),
-    tags((name = "health", description = "Liveness for load balancers and Cloud Run"))
+    paths(
+        healthz,
+        crate::v1::me::me,
+        crate::v1::me::session,
+        crate::v1::patients::search,
+        crate::v1::patients::register,
+        crate::v1::patients::open,
+        crate::v1::console::clinics,
+        crate::v1::console::create_clinic,
+        crate::v1::console::metrics,
+        crate::dev::token,
+    ),
+    modifiers(&BearerAuth),
+    tags(
+        (name = "health", description = "Liveness for load balancers and Cloud Run"),
+        (name = "session", description = "Who is signed in, and where"),
+        (name = "patients", description = "A clinic's patients; clinic host only"),
+        (name = "console", description = "Sakalya's console; console host only, staff only"),
+        (name = "development", description = "Local development only; absent in deployed servers")
+    )
 )]
 struct ApiDoc;
+
+/// Declares the `bearer` scheme: a Supabase Auth access token in `Authorization: Bearer …`.
+struct BearerAuth;
+
+impl utoipa::Modify for BearerAuth {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
+        let components = openapi.components.get_or_insert_with(Default::default);
+        components.add_security_scheme(
+            "bearer",
+            SecurityScheme::Http(
+                HttpBuilder::new()
+                    .scheme(HttpAuthScheme::Bearer)
+                    .bearer_format("JWT")
+                    .build(),
+            ),
+        );
+    }
+}
 
 /// Liveness check.
 ///

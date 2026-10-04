@@ -44,6 +44,9 @@ pub struct Config {
     /// The Supabase project (`ARO_SUPABASE__*`, or the `SUPABASE_*` names in `.env.supabase`).
     #[serde(default)]
     pub supabase: SupabaseSettings,
+    /// Where `scripts/quality-run.sh` writes its run summaries (`ARO_QUALITY__DIR`).
+    #[serde(default)]
+    pub quality: QualitySettings,
 }
 
 impl Config {
@@ -259,6 +262,25 @@ impl Default for FileSettings {
         Self {
             dir: "var/attachments".into(),
             signing_key: None,
+        }
+    }
+}
+
+/// Where the Quality dashboard reads recorded test runs from. This store sits outside the
+/// patient database on purpose (a GCS bucket or `BigQuery` dataset once deployed); it never holds
+/// patient data, only test names and failure messages.
+#[derive(Debug, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct QualitySettings {
+    /// Directory of run summaries, one JSON file per run (`ARO_QUALITY__DIR`). Default
+    /// `var/quality`.
+    pub dir: std::path::PathBuf,
+}
+
+impl Default for QualitySettings {
+    fn default() -> Self {
+        Self {
+            dir: "var/quality".into(),
         }
     }
 }

@@ -253,8 +253,8 @@ export interface ApiClient {
   createClinic(input: NewClinic, options?: RequestOptions): Promise<ApiResult<CreatedClinic>>;
   /** Console host: service health for a time range. */
   getMetrics(range: MetricsRange, options?: RequestOptions): Promise<ApiResult<Metrics>>;
-  /** Console host (draft, fake only). */
-  getQualityReport(options?: RequestOptions): Promise<ApiResult<QualityReport>>;
+  /** Console host: recent quality runs, each suite's pass-rate trend, and the newest failures. */
+  getQuality(limit?: number, options?: RequestOptions): Promise<ApiResult<QualityReport>>;
 
   /** Clinic host: Patient 360's safety banner. Needs `patients.read`; substances and conditions need `clinical.read`. */
   getClinicalFlags(id: PatientId, options?: RequestOptions): Promise<ApiResult<ClinicalFlags>>;

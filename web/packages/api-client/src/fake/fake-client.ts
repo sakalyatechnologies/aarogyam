@@ -2204,8 +2204,13 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       getMetrics: (range, opts) =>
         respond(S.metricsResponse, opts?.signal, () => inConsole(() => reply(createMetrics(range, clock()) satisfies C.ServiceMetrics))),
 
-      getQualityReport: (opts) =>
-        respond(S.qualityReport, opts?.signal, () => inConsole(() => reply(state.quality satisfies C.QualityReport))),
+      getQuality: (limit, opts) =>
+        respond(S.qualityReport, opts?.signal, () =>
+          inConsole(() => {
+            const runs = state.quality.runs.slice(0, limit ?? 30);
+            return reply({ ...state.quality, runs } satisfies C.QualityReport);
+          }),
+        ),
 
       submitRegistration: (input, opts) =>
         respond(S.registrationReceived, opts?.signal, () => {

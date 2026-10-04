@@ -228,6 +228,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/quality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent quality runs, each suite's pass-rate trend, and the currently failing tests. */
+        get: operations["quality"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dev/token": {
         parameters: {
             query?: never;
@@ -3706,6 +3723,75 @@ export interface components {
             /** @description The procedures. */
             items: components["schemas"]["Procedure"][];
         };
+        /** @description A test failing in the newest run that recorded it. */
+        QualityFailingTest: {
+            message: string;
+            run_id: string;
+            suite: string;
+            test: string;
+        };
+        /** @description One test that failed within a suite. */
+        QualityFailure: {
+            /** @description Why it failed. Never patient data. */
+            message: string;
+            /** @description The test's name, as its runner reports it. */
+            test: string;
+        };
+        /** @description The Quality dashboard. */
+        QualityReport: {
+            /** @description Tests failing in the newest run. */
+            failing: components["schemas"]["QualityFailingTest"][];
+            /** @description Newest first. */
+            runs: components["schemas"]["QualityRun"][];
+            /** @description Each suite seen across `runs`. */
+            trend: components["schemas"]["QualityTrend"][];
+        };
+        /** @description One recorded run. */
+        QualityRun: {
+            /** @description The git commit the suites ran at. */
+            commit: string;
+            /** @description `local`, `staging` or another environment name. */
+            environment: string;
+            /** @description RFC 3339. */
+            finished_at: string;
+            /** @description Identifies the run; also its file name's stem. */
+            run_id: string;
+            /** @description RFC 3339. */
+            started_at: string;
+            suites: components["schemas"]["QualitySuite"][];
+        };
+        /** @description One suite's result within a run. */
+        QualitySuite: {
+            /** Format: int64 */
+            duration_ms: number;
+            /** Format: int32 */
+            failed: number;
+            failures: components["schemas"]["QualityFailure"][];
+            /** @description `unit`, `db`, `web` or `e2e`. */
+            kind: string;
+            /** @description The suite's name, such as `aarogyam-dal (db)` or `portal e2e`. */
+            name: string;
+            /** Format: int32 */
+            passed: number;
+            /** Format: int32 */
+            skipped: number;
+        };
+        /** @description A suite's pass-rate history across the returned runs, oldest first. */
+        QualityTrend: {
+            kind: string;
+            name: string;
+            points: components["schemas"]["QualityTrendPoint"][];
+        };
+        /** @description A point on a suite's pass-rate trend. */
+        QualityTrendPoint: {
+            /**
+             * Format: double
+             * @description Passed over (passed + failed); `1.0` when nothing was graded.
+             */
+            pass_rate: number;
+            run_id: string;
+            started_at: string;
+        };
         /** @description A day's queue. */
         QueueDay: {
             /** @description The clinic day, `YYYY-MM-DD`. */
@@ -4894,6 +4980,42 @@ export interface operations {
             };
             /** @description Not Sakalya staff */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    quality: {
+        parameters: {
+            query?: {
+                /** @description Most recent runs to return (default 30, at most 200) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualityReport"];
+                };
+            };
+            /** @description Not Sakalya staff */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the console host */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

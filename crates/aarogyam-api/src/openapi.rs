@@ -99,6 +99,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::console::clinics,
         crate::v1::console::create_clinic,
         crate::v1::console::metrics,
+        crate::v1::quality::quality,
         crate::v1::onboarding::clinic,
         crate::v1::onboarding::invite,
         crate::v1::onboarding::applications,

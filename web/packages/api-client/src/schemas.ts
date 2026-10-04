@@ -647,55 +647,58 @@ export type RouteMetrics = ApiMetrics["routes"][number];
 export type DatabaseMetrics = Metrics["db"];
 export type EdgeMetrics = NonNullable<Metrics["edge"]>;
 
-export const testSuite = z.enum(["unit", "integration", "e2e_web", "e2e_mobile", "canary", "load"]) satisfies z.ZodType<C.TestSuite>;
-export const qualityEnvironment = z.enum(["ci", "staging", "production"]) satisfies z.ZodType<C.QualityEnvironment>;
+const qualityFailure = z.object({ test: z.string(), message: z.string() }) satisfies z.ZodType<C.QualityFailure>;
 
-const qualityRun = z.object({
-  id: qualityRunId,
-  status: z.enum(["running", "passed", "failed", "cancelled"]),
-  started_at: timestamp,
-  finished_at: optionalTimestamp,
-  total: count,
+const qualitySuite = z.object({
+  name: z.string(),
+  kind: z.string(),
   passed: count,
   failed: count,
   skipped: count,
-  flaky: count,
-  commit_sha: optionalText,
-  run_url: optionalText,
+  duration_ms: count,
+  failures: z.array(qualityFailure),
+}) satisfies z.ZodType<C.QualitySuite>;
+
+const qualityRun = z.object({
+  run_id: qualityRunId,
+  started_at: timestamp,
+  finished_at: timestamp,
+  environment: z.string(),
+  commit: z.string(),
+  suites: z.array(qualitySuite),
 }) satisfies z.ZodType<C.QualityRun>;
 
+const qualityTrendPoint = z.object({
+  run_id: qualityRunId,
+  started_at: timestamp,
+  pass_rate: z.number().min(0).max(1),
+}) satisfies z.ZodType<C.QualityTrendPoint>;
+
+const qualityTrend = z.object({
+  name: z.string(),
+  kind: z.string(),
+  points: z.array(qualityTrendPoint),
+}) satisfies z.ZodType<C.QualityTrend>;
+
+const qualityFailingTest = z.object({
+  suite: z.string(),
+  test: z.string(),
+  message: z.string(),
+  run_id: qualityRunId,
+}) satisfies z.ZodType<C.QualityFailingTest>;
+
 export const qualityReport = z.object({
-  generated_at: timestamp,
-  suites: z.array(
-    z.object({
-      suite: testSuite,
-      environment: qualityEnvironment,
-      last_run: qualityRun.nullable().exactOptional(),
-      trend: z.array(z.object({ day: date, total: count, passed: count })),
-    }),
-  ),
-  flaky_tests: z.array(
-    z.object({
-      test_name: z.string(),
-      suite: testSuite,
-      environment: qualityEnvironment,
-      flaky_runs: count,
-      total_runs: count,
-      last_seen_at: timestamp,
-    }),
-  ),
-  failing_requests: z.array(
-    z.object({
-      request_id: requestId,
-      suite: testSuite,
-      environment: qualityEnvironment,
-      test_name: z.string(),
-      failed_at: timestamp,
-      error_message: optionalText,
-    }),
-  ),
+  runs: z.array(qualityRun),
+  trend: z.array(qualityTrend),
+  failing: z.array(qualityFailingTest),
 }) satisfies z.ZodType<C.QualityReport>;
 export type QualityReport = z.output<typeof qualityReport>;
+export type QualityFailure = C.QualityFailure;
+export type QualitySuite = C.QualitySuite;
+export type QualityRun = C.QualityRun;
+export type QualityTrendPoint = C.QualityTrendPoint;
+export type QualityTrend = C.QualityTrend;
+export type QualityFailingTest = C.QualityFailingTest;
 
 /** `POST /api/v1/dev/token` (development builds of the API only). */
 export const devTokenResponse = z.object({

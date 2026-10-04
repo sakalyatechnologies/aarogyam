@@ -348,8 +348,14 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: "/api/v1/console/clinics", schema: createdClinic, body: input, signal: opts?.signal }),
     getMetrics: (range, opts) =>
       call({ method: "GET", path: "/api/v1/console/metrics", schema: metricsResponse, query: { range }, signal: opts?.signal }),
-    getQualityReport: (opts) =>
-      call({ method: "GET", path: "/api/v1/console/quality", schema: qualityReport, signal: opts?.signal }),
+    getQuality: (limit, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/console/quality",
+        schema: qualityReport,
+        query: { limit },
+        signal: opts?.signal,
+      }),
 
     submitRegistration: (input, opts) =>
       call({ method: "POST", path: "/api/v1/registrations", schema: registrationReceived, body: input, signal: opts?.signal }),

@@ -167,7 +167,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         tracing::warn!("patient files are kept on local disk until object storage is set up");
     }
     let files = Files::new(Arc::new(LocalDisk::new(config.files.dir)), signer);
-    let mut state = AppState::new(db, http, tokens, hosts);
+    let mut state = AppState::new(db, http, tokens, hosts).with_quality_dir(config.quality.dir);
     if let Some(admin) = accounts {
         state = state.with_accounts(Arc::new(admin));
     } else if !local {

@@ -5,7 +5,6 @@
  * @aarogyam/api-client generate`). Only three kinds of type are written by hand here:
  * 1. Refinements where the spec leaves an object untyped (metrics `api`, `db` and `edge`).
  * 2. The error body, which the spec does not describe.
- * 3. Drafts the API has not built yet, served only by the fake client (console Quality).
  * `schemas.ts` is type-checked against every type here.
  */
 
@@ -380,47 +379,16 @@ export type SharedPreview = Schemas["SharedPreview"];
 export type OpenRequest = Schemas["OpenRequest"];
 export type Verification = Schemas["Verification"];
 
-export type TestSuite = "unit" | "integration" | "e2e_web" | "e2e_mobile" | "canary" | "load";
-export type QualityEnvironment = "ci" | "staging" | "production";
-export type RunStatus = "running" | "passed" | "failed" | "cancelled";
+// Quality dashboard -----------------------------------------------------------------------------
 
-export interface QualityRun {
-  id: string;
-  status: RunStatus;
-  started_at: string;
-  finished_at?: string | null;
-  total: number;
-  passed: number;
-  failed: number;
-  skipped: number;
-  flaky: number;
-  commit_sha?: string | null;
-  run_url?: string | null;
-}
+/** `unit`, `db`, `web` or `e2e`. Kept open (not a literal union) since the recorder names its own
+ * suites; the console shows whatever `kind` it recorded. */
+export type SuiteKind = string;
 
-/** `GET /api/v1/console/quality` (draft, fake only). */
-export interface QualityReport {
-  generated_at: string;
-  suites: {
-    suite: TestSuite;
-    environment: QualityEnvironment;
-    last_run?: QualityRun | null;
-    trend: { day: string; total: number; passed: number }[];
-  }[];
-  flaky_tests: {
-    test_name: string;
-    suite: TestSuite;
-    environment: QualityEnvironment;
-    flaky_runs: number;
-    total_runs: number;
-    last_seen_at: string;
-  }[];
-  failing_requests: {
-    request_id: string;
-    suite: TestSuite;
-    environment: QualityEnvironment;
-    test_name: string;
-    failed_at: string;
-    error_message?: string | null;
-  }[];
-}
+export type QualityFailure = Schemas["QualityFailure"];
+export type QualitySuite = Schemas["QualitySuite"];
+export type QualityRun = Schemas["QualityRun"];
+export type QualityTrendPoint = Schemas["QualityTrendPoint"];
+export type QualityTrend = Schemas["QualityTrend"];
+export type QualityFailingTest = Schemas["QualityFailingTest"];
+export type QualityReport = Schemas["QualityReport"];

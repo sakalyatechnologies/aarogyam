@@ -16,6 +16,7 @@ pub(crate) mod onboarding;
 pub(crate) mod patients;
 pub(crate) mod payments;
 pub(crate) mod prescriptions;
+pub(crate) mod quality;
 pub(crate) mod queue;
 pub(crate) mod recalls;
 pub(crate) mod registrations;
@@ -169,6 +170,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(console::clinics).post(console::create_clinic),
         )
         .route("/console/metrics", get(console::metrics))
+        .route("/console/quality", get(quality::quality))
         .route("/console/clinics/{id}", get(onboarding::clinic))
         .route(
             "/console/clinics/{id}/invitations",

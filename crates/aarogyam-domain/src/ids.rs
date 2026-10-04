@@ -38,4 +38,18 @@ entities! {
     Message, MessageId;
     /// A sign-in session.
     Session, SessionId;
+    /// An entry on the clinic's price list.
+    PriceItem, PriceItemId;
+    /// A bill to a patient.
+    Invoice, InvoiceId;
+    /// Money received from a patient.
+    Payment, PaymentId;
+    /// A medicine in the shared catalogue.
+    Drug, DrugId;
+    /// A prescription.
+    Prescription, PrescriptionId;
+    /// A link a patient opens with a PIN.
+    ShareLink, ShareLinkId;
+    /// A follow-up that falls due.
+    Recall, RecallId;
 }

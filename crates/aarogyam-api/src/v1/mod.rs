@@ -40,6 +40,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/patients/{id}/visits",
             get(visits::list).post(visits::start),
         )
+        .route("/patients/{id}/timeline", get(visits::timeline))
         .route("/visits/{id}", get(visits::open))
         .route("/visits/{id}/close", post(visits::close))
         .route("/visits/{id}/notes", post(visits::create_note))

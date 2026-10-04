@@ -20,6 +20,7 @@ pub mod patients;
 pub mod sessions;
 pub mod settings;
 pub mod staff;
+pub mod timeline;
 pub mod treatment;
 pub mod visits;
 pub mod vitals;

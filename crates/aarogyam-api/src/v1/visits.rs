@@ -11,9 +11,10 @@ use aarogyam_domain::permission::require::{ClinicalRead, ClinicalWrite};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
-use sakalya_http::{ApiJson, ApiPath};
+use sakalya_http::{ApiError, ApiJson, ApiPath, ApiQuery};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use time::format_description::well_known::Rfc3339;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -578,4 +579,104 @@ pub(crate) async fn note_in_error(
     .await?;
     tracing::info!(event = Event::RecordRetracted.as_str(), note_id = %id, "note entered in error");
     Ok(Json(view.into()))
+}
+
+/// One event on a patient's timeline.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct TimelineEvent {
+    /// `visit`, `note` (signed), `procedure` or `attachment`.
+    pub kind: String,
+    /// The record: open it through its own route.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// When it happened (RFC 3339): a visit's start, a note's signing, a procedure's doing.
+    pub at: String,
+    /// The visit it belongs to.
+    #[schema(value_type = Option<String>)]
+    pub visit_id: Option<Uuid>,
+    /// A short title: the visit number, the note kind, the procedure name or the file kind.
+    pub title: String,
+    /// More detail: the chief complaint, the assessment, the tooth or the caption.
+    pub detail: Option<String>,
+    /// The record's status.
+    pub status: Option<String>,
+    /// The member responsible.
+    pub by: Option<Member>,
+    /// The fee in paise, for procedures.
+    pub amount_paise: Option<i64>,
+}
+
+/// A page of a patient's timeline, newest first.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct Timeline {
+    /// The events.
+    pub items: Vec<TimelineEvent>,
+}
+
+/// Which page of the timeline.
+#[derive(Debug, Deserialize)]
+pub struct TimelineQuery {
+    /// Only events before this time (RFC 3339): the `at` of the last event already shown.
+    pub before: Option<String>,
+    /// Most events, 1 to 200 (default 50).
+    pub limit: Option<i64>,
+}
+
+/// A patient's clinical timeline, newest first: visits, signed notes, procedures and files.
+/// Prescriptions and bills join it when they exist. Reading it writes the access record.
+#[utoipa::path(
+    get,
+    path = "/api/v1/patients/{id}/timeline",
+    tag = "clinical",
+    params(
+        ("id" = String, Path, description = "The patient"),
+        ("before" = Option<String>, Query, description = "Only events before this time (RFC 3339)"),
+        ("limit" = Option<i64>, Query, description = "Most events, 1 to 200 (default 50)")
+    ),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = Timeline),
+        (status = 400, description = "before isn't RFC 3339"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.read"),
+        (status = 404, description = "No such patient in this clinic")
+    )
+)]
+pub(crate) async fn timeline(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalRead>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiQuery(query): ApiQuery<TimelineQuery>,
+) -> Result<Json<Timeline>, ApiFailure> {
+    let before = query
+        .before
+        .as_deref()
+        .map(|text| OffsetDateTime::parse(text.trim(), &Rfc3339))
+        .transpose()
+        .map_err(|_| ApiError::bad_request("invalid_request", "before: must be RFC 3339"))?;
+    let events = record::timeline(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        PatientId::from_uuid(id),
+        before,
+        query.limit.unwrap_or(50),
+    )
+    .await?;
+    Ok(Json(Timeline {
+        items: events
+            .into_iter()
+            .map(|event| TimelineEvent {
+                kind: event.kind.as_str().to_owned(),
+                id: event.id,
+                at: rfc3339(event.at),
+                visit_id: event.visit_id.map(EncounterId::uuid),
+                title: event.title,
+                detail: event.detail,
+                status: event.status,
+                by: event.by.map(Member::from),
+                amount_paise: event.amount.map(sakalya_types::Paise::get),
+            })
+            .collect(),
+    }))
 }

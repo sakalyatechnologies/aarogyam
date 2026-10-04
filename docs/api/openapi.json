@@ -1550,6 +1550,73 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/timeline": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's clinical timeline, newest first: visits, signed notes, procedures and files.\nPrescriptions and bills join it when they exist. Reading it writes the access record.",
+        "operationId": "timeline",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "Only events before this time (RFC 3339)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Most events, 1 to 200 (default 50)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Timeline"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "before isn't RFC 3339"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/treatment-plans": {
       "get": {
         "tags": [
@@ -5093,6 +5160,90 @@
               "$ref": "#/components/schemas/Member"
             },
             "description": "Members, active first, then by name."
+          }
+        }
+      },
+      "Timeline": {
+        "type": "object",
+        "description": "A page of a patient's timeline, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimelineEvent"
+            },
+            "description": "The events."
+          }
+        }
+      },
+      "TimelineEvent": {
+        "type": "object",
+        "description": "One event on a patient's timeline.",
+        "required": [
+          "kind",
+          "id",
+          "at",
+          "title"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The fee in paise, for procedures."
+          },
+          "at": {
+            "type": "string",
+            "description": "When it happened (RFC 3339): a visit's start, a note's signing, a procedure's doing."
+          },
+          "by": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Member",
+                "description": "The member responsible."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "More detail: the chief complaint, the assessment, the tooth or the caption."
+          },
+          "id": {
+            "type": "string",
+            "description": "The record: open it through its own route."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`visit`, `note` (signed), `procedure` or `attachment`."
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The record's status."
+          },
+          "title": {
+            "type": "string",
+            "description": "A short title: the visit number, the note kind, the procedure name or the file kind."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it belongs to."
           }
         }
       },

@@ -1309,6 +1309,97 @@ async fn files_upload_by_content_and_download_through_short_lived_links() {
     app.finish().await;
 }
 
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_timeline_lists_the_record_newest_first() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let visit = start_visit(&app, &owner, &patient).await;
+    let signed = create(
+        &app,
+        &format!("/api/v1/visits/{visit}/notes"),
+        json!({ "sections": { "assessment": "Deep caries 36" } }),
+    )
+    .await;
+    app.send(
+        Method::POST,
+        ALPHA,
+        &format!("/api/v1/notes/{signed}/sign"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    // Drafts stay off the timeline.
+    create(
+        &app,
+        &format!("/api/v1/visits/{visit}/notes"),
+        json!({ "sections": { "plan": "draft" } }),
+    )
+    .await;
+    create(
+        &app,
+        &format!("/api/v1/visits/{visit}/procedures"),
+        json!({ "name": "Root canal treatment", "tooth": 36, "price_paise": 450_000 }),
+    )
+    .await;
+    upload(
+        &app,
+        ALPHA,
+        &owner,
+        &patient,
+        b"%PDF-1.7\n%%EOF",
+        &[("caption", "Consent")],
+    )
+    .await;
+
+    let path = format!("/api/v1/patients/{patient}/timeline");
+    let (status, timeline) = app
+        .send(Method::GET, ALPHA, &path, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{timeline}");
+    let items = timeline["items"].as_array().unwrap();
+    let kinds: Vec<&str> = items.iter().map(|e| e["kind"].as_str().unwrap()).collect();
+    assert_eq!(kinds, ["attachment", "procedure", "note", "visit"]);
+    assert_eq!(items[1]["amount_paise"], 450_000);
+    assert_eq!(items[1]["detail"], "tooth 36");
+    assert_eq!(items[2]["detail"], "Deep caries 36");
+    assert_eq!(items[3]["detail"], "Pain lower left");
+    assert_eq!(items[3]["by"]["name"], "Asha Owner");
+    // Paging: events before the second one.
+    let before = items[1]["at"].as_str().unwrap();
+    let (_, page) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("{path}?limit=1&before={}", before.replace('+', "%2B")),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(page["items"].as_array().unwrap().len(), 1);
+    assert_eq!(page["items"][0]["kind"], "note");
+    let (status, _) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("{path}?before=yesterday"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (reads,): (i64,) = sqlx::query_as(
+        "select count(*) from audit.access_log where patient_id = $1::uuid and resource = 'chart'",
+    )
+    .bind(&patient)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(reads, 2);
+    app.finish().await;
+}
+
 /// Posts `body` as Alpha's owner and returns the new record's id.
 async fn create(app: &TestApp, path: &str, body: Value) -> String {
     let owner = app.token(ALPHA_OWNER);

@@ -1,7 +1,7 @@
 /** Treatment plans: list, propose, accept and carry out. Kept apart from the shared `queries.ts`. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { unwrap, type Acceptance, type NewPlan, type PatientId, type PlanId, type PlanItem, type VisitId } from "@aarogyam/api-client";
+import { unwrap, type Acceptance, type FinishedItemStatus, type NewPlan, type PatientId, type PlanId, type PlanItem } from "@aarogyam/api-client";
 
 import { useClinic } from "../../clinic.js";
 
@@ -28,25 +28,12 @@ export function useAcceptPlan(patientId: PatientId) {
   });
 }
 
-/** The API has no item-status call: an item is done when a procedure that carries it out is recorded. */
-export function useCompletePlanItem(patientId: PatientId, visitId: VisitId) {
+/** Marks an accepted plan item done or cancelled; the plan follows (in progress, then completed). */
+export function useSetPlanItemStatus(patientId: PatientId) {
   const { api, access } = useClinic();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (item: PlanItem) =>
-      unwrap(
-        api.recordProcedure(visitId, {
-          name: item.name,
-          ...(item.tooth == null ? {} : { tooth: item.tooth }),
-          surfaces: item.surfaces,
-          plan_item_id: item.id,
-          status: "done",
-        }),
-      ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["plans", access.org_id, patientId] });
-      void queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] });
-      void queryClient.invalidateQueries({ queryKey: ["timeline", access.org_id] });
-    },
+    mutationFn: ({ item, status }: { item: PlanItem; status: FinishedItemStatus }) => unwrap(api.setPlanItemStatus(item.id, status)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["plans", access.org_id, patientId] }),
   });
 }

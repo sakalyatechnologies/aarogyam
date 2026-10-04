@@ -2,17 +2,19 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
+import type { ApiClient } from "@aarogyam/api-client";
+
 import { PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
 
 /** A patient of the first clinic with a visit already open on the visit screen. */
-async function openVisit(user: ReturnType<typeof userEvent.setup>) {
+async function openVisit(user: ReturnType<typeof userEvent.setup>, wrap?: (client: ApiClient) => ApiClient) {
   let path = "";
   const backend = fakeApi((fixtures) => {
     const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
     const patient = fixtures.patients.find((p) => p.clinic_id === sunrise?.id);
     path = `/patients/${patient?.id ?? ""}`;
   });
-  renderPortal(path, { as: PEOPLE.asha, backend });
+  renderPortal(path, { as: PEOPLE.asha, backend, ...(wrap === undefined ? {} : { wrap }) });
   await user.click(await screen.findByRole("tab", { name: "Visits" }));
   await user.click(await screen.findByRole("button", { name: "Start visit" }));
   await screen.findByRole("heading", { name: /^Visit V-/ });
@@ -21,7 +23,14 @@ async function openVisit(user: ReturnType<typeof userEvent.setup>) {
 describe("Treatment plans", () => {
   it("creates a plan with items and accepts it, then marks an item done", async () => {
     const user = userEvent.setup();
-    await openVisit(user);
+    const finished: string[] = [];
+    await openVisit(user, (client) => ({
+      ...client,
+      setPlanItemStatus: (itemId, status, opts) => {
+        finished.push(status);
+        return client.setPlanItemStatus(itemId, status, opts);
+      },
+    }));
     await user.click(await screen.findByRole("button", { name: "New plan" }));
     await user.type(await screen.findByLabelText(/^Title/), "Lower right restoration");
     await user.type(screen.getByLabelText("Procedure 1"), "Root canal");
@@ -38,6 +47,8 @@ describe("Treatment plans", () => {
     await user.click(screen.getByRole("button", { name: "Accept plan" }));
     await user.click(await screen.findByRole("button", { name: "Mark done: Root canal" }));
     expect(await within(items).findByText("done")).toBeTruthy();
+    // The item-status call did it: no procedure was recorded.
+    expect(finished).toEqual(["done"]);
     expect(within(items).getAllByText("accepted")).toHaveLength(1);
   });
 

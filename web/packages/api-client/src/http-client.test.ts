@@ -33,6 +33,7 @@ const patientBody = {
   preferred_language: "mr-IN",
   status: "active",
   created_at: "2026-10-01T04:30:00Z",
+  recall_due: false,
 };
 
 describe("createHttpClient errors", () => {
@@ -127,6 +128,25 @@ describe("createHttpClient requests", () => {
     expect(headers.get("authorization")).toBe("Bearer abc");
     expect(headers.get("accept")).toBe("application/json");
     expect(call?.init?.cache).toBe("no-store");
+  });
+
+  it("sends the list filters as flags and the search filters in the body", async () => {
+    const { fetch, calls } = stubFetch(json(200, { items: [] }));
+    const client = createHttpClient("", () => "abc", { fetch });
+
+    await client.listPatients({ withBalance: true, newThisMonth: true });
+    await client.searchPatients({ q: "Ananya", recallsDue: true });
+
+    expect(calls[0]?.url).toBe("/api/v1/patients?with_balance=true&new_this_month=true");
+    expect(calls[1]?.init?.body).toBe(JSON.stringify({ q: "Ananya", recalls_due: true }));
+  });
+
+  it("patches a plan item's status", async () => {
+    const { fetch, calls } = stubFetch(json(404, { error: { code: "not_found", message: "Not found." } }));
+    await createHttpClient("", () => "abc", { fetch }).setPlanItemStatus("item-1", "done");
+    expect(calls[0]?.url).toBe("/api/v1/treatment-plan-items/item-1");
+    expect(calls[0]?.init?.method).toBe("PATCH");
+    expect(calls[0]?.init?.body).toBe(JSON.stringify({ status: "done" }));
   });
 
   it("sends no authorization header when signed out", async () => {

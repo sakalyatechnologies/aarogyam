@@ -95,7 +95,7 @@ describe("Patients search", () => {
     expect(screen.getAllByRole("button", { name: "New patient" }).length).toBeGreaterThan(0);
   });
 
-  it("narrows the list to patients registered this month with the quick filter", async () => {
+  it("asks the server for patients registered this month with the quick filter", async () => {
     const user = userEvent.setup();
     const patients: Patient[] = [
       {
@@ -107,6 +107,7 @@ describe("Patients search", () => {
         preferred_language: "en-IN",
         status: "active",
         created_at: new Date().toISOString(),
+        recall_due: false,
       },
       {
         id: patientId.parse("22222222-2222-4222-8222-222222222222"),
@@ -117,11 +118,15 @@ describe("Patients search", () => {
         preferred_language: "en-IN",
         status: "active",
         created_at: "2000-01-01T00:00:00.000Z",
+        recall_due: false,
       },
     ];
     renderPortal("/patients", {
       as: PEOPLE.farah,
-      wrap: (client): ApiClient => ({ ...client, listPatients: () => Promise.resolve(success({ items: patients })) }),
+      wrap: (client): ApiClient => ({ ...client, listPatients: (opts) =>
+          // The server narrows the list; the stub does the same for the chip.
+          Promise.resolve(success({ items: opts?.newThisMonth === true ? patients.slice(0, 1) : patients })),
+      }),
     });
     const table = await screen.findByRole("table", { name: "Patients" });
     await within(table).findByText("New This Month");

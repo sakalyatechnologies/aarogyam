@@ -86,6 +86,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::treatment::create_plan,
         crate::v1::treatment::plans,
         crate::v1::treatment::accept_plan,
+        crate::v1::treatment::set_item_status,
         crate::v1::files::upload,
         crate::v1::files::list,
         crate::v1::files::link,

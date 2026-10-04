@@ -1739,6 +1739,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/treatment-plan-items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Marks an accepted plan item done or cancelled; the plan follows (in progress, then completed). */
+        patch: operations["set_item_status"];
+        trace?: never;
+    };
     "/api/v1/treatment-plans/{id}/accept": {
         parameters: {
             query?: never;
@@ -3048,6 +3065,11 @@ export interface components {
             /** @description By name. */
             items: components["schemas"]["StockLevel"][];
         };
+        /** @description The new status of a plan item. */
+        ItemStatusChange: {
+            /** @description `done` or `cancelled`. */
+            status: string;
+        };
         /**
          * @description An item's values. On a change, fields left out stay as they are and an empty category
          *     clears it.
@@ -3459,6 +3481,13 @@ export interface components {
             /** @description Why the patient came, up to 1,000 characters. */
             chief_complaint?: string | null;
         };
+        /** @description A patient's next booking. */
+        NextAppointment: {
+            /** @description The practitioner's name. */
+            practitioner: string;
+            /** @description When it starts (RFC 3339). */
+            starts_at: string;
+        };
         /**
          * @description A clinical note. Signed notes never change: corrections go in addenda, and a mistaken note
          *     is marked `entered_in_error` with a reason.
@@ -3557,6 +3586,11 @@ export interface components {
              * @description Age in whole years today.
              */
             age_years?: number | null;
+            /**
+             * Format: int64
+             * @description Paise owed on issued bills; null without `billing.read`.
+             */
+            balance_paise?: number | null;
             /** @description Whether the date of birth was estimated from an age. */
             birth_date_estimated: boolean;
             /** @description When the record was created (RFC 3339). */
@@ -3571,12 +3605,20 @@ export interface components {
             id: string;
             /** @description The last visit (RFC 3339), once visits exist. */
             last_visit_at?: string | null;
+            /**
+             * Format: int64
+             * @description Paise received in total; null without `billing.read`.
+             */
+            lifetime_paid_paise?: number | null;
+            next_appointment?: components["schemas"]["NextAppointment"] | null;
             /** @description Readable number, such as `SD-1042`. */
             number: string;
             /** @description Phone, masked without `patients.contact`. */
             phone?: string | null;
             /** @description Language tag, such as `hi-IN`. */
             preferred_language: string;
+            /** @description Whether an open recall is due on or before today. */
+            recall_due: boolean;
             /** @description `female`, `male`, `other` or `unknown`. */
             sex: string;
             /** @description `active`, `inactive`, `deceased` or `merged`. */
@@ -4335,11 +4377,17 @@ export interface components {
              * @description Most results, 1 to 50 (default 20).
              */
             limit?: number | null;
+            /** @description Only patients registered this month, in the clinic's time zone. */
+            new_this_month?: boolean;
             /**
              * @description A number (`SD-1042` or `1042`), a phone number, or the start of a name. Empty lists
              *     the most recently registered patients.
              */
             q?: string;
+            /** @description Only patients with an open recall due on or before today. */
+            recalls_due?: boolean;
+            /** @description Only patients with a balance on issued bills (needs `billing.read`). */
+            with_balance?: boolean;
         };
         /** @description Service health for the console dashboard. */
         ServiceMetrics: {
@@ -6771,7 +6819,14 @@ export interface operations {
     };
     recent: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only patients with a balance (needs billing.read) */
+                with_balance?: boolean;
+                /** @description Only patients with an open recall due */
+                recalls_due?: boolean;
+                /** @description Only patients registered this month */
+                new_this_month?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -10833,6 +10888,67 @@ export interface operations {
             };
             /** @description The role lacks finance.view */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_item_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The plan item */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemStatusChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            /** @description The status isn't done or cancelled */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such item in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The item isn't accepted (finished items are frozen) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

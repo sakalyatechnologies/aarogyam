@@ -3,7 +3,7 @@ import { useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router";
 
 import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatDate, useDocumentTitle } from "@aarogyam/app-kit";
+import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
 import { Button, Card, Skeleton, Tabs } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
@@ -119,10 +119,13 @@ function PatientView({ patient }: { patient: Patient }) {
         <div className="px-6 py-5">
           <dl className="text-[13px]">
             <Kv label="Last visit" value={patient.last_visit_at == null ? "—" : formatDate(patient.last_visit_at)} />
-            {/* No next-appointment, lifetime-value or outstanding-balance field on the patient yet. */}
-            <Kv label="Next appointment" value="—" />
-            <Kv label="Lifetime value" value="—" />
-            <Kv label="Outstanding" value="—" />
+            <Kv
+              label="Next appointment"
+              value={patient.next_appointment == null ? "—" : `${formatDateTime(patient.next_appointment.starts_at)} · ${patient.next_appointment.practitioner}`}
+            />
+            {/* Money is null without billing.read: a dash, never a made-up zero. */}
+            <Kv label="Lifetime value" value={patient.lifetime_paid_paise == null ? "—" : formatRupees(patient.lifetime_paid_paise)} />
+            <Kv label="Outstanding" value={patient.balance_paise == null ? "—" : formatRupees(patient.balance_paise)} />
           </dl>
           <div className="mt-3 flex flex-col gap-1">
             {patient.phone == null ? (

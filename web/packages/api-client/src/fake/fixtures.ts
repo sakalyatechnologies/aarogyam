@@ -92,7 +92,8 @@ export interface FakeMembership {
   joined_at?: string;
 }
 
-export interface FakePatient extends Omit<C.Patient, "sex" | "status" | "age_years"> {
+export interface FakePatient
+  extends Omit<C.Patient, "sex" | "status" | "age_years" | "next_appointment" | "balance_paise" | "lifetime_paid_paise" | "recall_due"> {
   clinic_id: string;
   sex: C.Sex;
   status: "active" | "inactive" | "deceased" | "merged";

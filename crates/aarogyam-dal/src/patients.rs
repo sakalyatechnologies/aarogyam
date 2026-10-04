@@ -369,3 +369,122 @@ pub async fn recent(conn: &mut PgConnection, limit: i64) -> Result<Vec<PatientRo
     .await?;
     Ok(rows)
 }
+
+/// What the list and the record header show about a patient beyond the registration: the
+/// next booking, money and recalls. Computed in one query for a set of patients.
+#[derive(Debug, Clone)]
+pub struct SummaryRow {
+    /// The patient.
+    pub patient_id: Uuid,
+    /// When the next booked or confirmed appointment starts.
+    pub next_starts_at: Option<OffsetDateTime>,
+    /// The practitioner of that appointment.
+    pub next_practitioner: Option<String>,
+    /// Issued, non-void bills minus what received payments allocated to them.
+    pub balance_paise: i64,
+    /// Everything received (non-void payments), including unallocated advances.
+    pub lifetime_paid_paise: i64,
+    /// Whether an open recall is due on or before the clinic's today.
+    pub recall_due: bool,
+}
+
+/// Summaries for `ids`, in no particular order.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn summaries(
+    conn: &mut PgConnection,
+    ids: &[Uuid],
+    now: OffsetDateTime,
+    today: Date,
+) -> Result<Vec<SummaryRow>, DbError> {
+    let rows = sqlx::query_as!(
+        SummaryRow,
+        r#"select p.id as "patient_id!",
+                  nx.starts_at as next_starts_at,
+                  nx.display_name as next_practitioner,
+                  (coalesce((select sum(i.total_paise) from aarogyam.invoices i
+                             where i.patient_id = p.id and i.status = 'issued'), 0)
+                   - coalesce((select sum(a.amount_paise)
+                               from aarogyam.invoices i
+                               join aarogyam.payment_allocations a
+                                 on a.org_id = i.org_id and a.invoice_id = i.id and a.patient_id = i.patient_id
+                               join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id
+                               where i.patient_id = p.id and i.status = 'issued' and m.status = 'received'), 0)
+                  )::bigint as "balance_paise!",
+                  coalesce((select sum(m.amount_paise) from aarogyam.payments m
+                            where m.patient_id = p.id and m.status = 'received'), 0)::bigint as "lifetime_paid_paise!",
+                  exists (select 1 from aarogyam.recalls r
+                          where r.patient_id = p.id and r.status in ('due', 'notified')
+                            and r.due_on <= $3) as "recall_due!"
+           from aarogyam.patients p
+           left join lateral (
+             select a.starts_at, pr.display_name
+             from aarogyam.appointments a
+             join aarogyam.practitioners pr on pr.org_id = a.org_id and pr.id = a.practitioner_id
+             where a.patient_id = p.id and a.deleted_at is null
+               and a.status in ('booked', 'confirmed') and a.starts_at >= $2
+             order by a.starts_at
+             limit 1
+           ) nx on true
+           where p.id = any($1)"#,
+        ids,
+        now,
+        today
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// Which registered patients the list shows.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ListFilter {
+    /// Only patients with something left to pay.
+    pub with_balance: bool,
+    /// Only patients with an open recall due.
+    pub recalls_due: bool,
+    /// Only patients registered at or after this instant.
+    pub created_since: Option<OffsetDateTime>,
+}
+
+/// The most recently registered patients matching `filter`, newest first.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn recent_filtered(
+    conn: &mut PgConnection,
+    filter: &ListFilter,
+    today: Date,
+    limit: i64,
+) -> Result<Vec<PatientRow>, DbError> {
+    let rows = sqlx::query_as!(
+        PatientRow,
+        r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated, p.phone_e164,
+                  p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at
+           from aarogyam.patients p
+           where p.deleted_at is null
+             and ($4::timestamptz is null or p.created_at >= $4)
+             and (not $2 or exists (select 1 from aarogyam.recalls r
+                                    where r.patient_id = p.id and r.status in ('due', 'notified')
+                                      and r.due_on <= $3))
+             and (not $1 or (select coalesce(sum(i.total_paise
+                                    - coalesce((select sum(a.amount_paise)
+                                                from aarogyam.payment_allocations a
+                                                join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id
+                                                where a.invoice_id = i.id and a.org_id = i.org_id
+                                                  and m.status = 'received'), 0)), 0)
+                             from aarogyam.invoices i
+                             where i.patient_id = p.id and i.status = 'issued') > 0)
+           order by p.created_at desc
+           limit $5"#,
+        filter.with_balance,
+        filter.recalls_due,
+        today,
+        filter.created_since,
+        limit
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}

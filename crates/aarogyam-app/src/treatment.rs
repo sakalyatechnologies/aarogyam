@@ -649,3 +649,39 @@ pub async fn accept_plan(
     })
     .await
 }
+
+/// Moves an accepted plan item to done or cancelled, then the plan to in progress or
+/// completed. Items that are proposed, done or cancelled are frozen: proposals change only
+/// through the plan's acceptance, and finished items never change.
+///
+/// # Errors
+/// [`AppError::NotFound`] when the item isn't in this clinic; [`AppError::Invalid`] for a
+/// status other than `done` or `cancelled`; [`AppError::Conflict`] unless the item is accepted.
+pub async fn set_item_status(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    item_id: TreatmentPlanItemId,
+    status: &str,
+) -> Result<PlanView, AppError> {
+    actor.require(Permission::ClinicalWrite)?;
+    let status = PlanItemStatus::parse(status).map_err(invalid("status"))?;
+    if !matches!(status, PlanItemStatus::Done | PlanItemStatus::Cancelled) {
+        return Err(AppError::invalid("status", "use done or cancelled"));
+    }
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let item = treatment::get_item_for_update(tx.conn(), item_id.uuid())
+            .await?
+            .ok_or(AppError::NotFound("treatment plan item"))?;
+        if item.status != PlanItemStatus::Accepted.as_str() {
+            return Err(AppError::Conflict("only an accepted item can be finished"));
+        }
+        treatment::set_item_status(tx.conn(), item.id, status.as_str()).await?;
+        let plan = treatment::get_plan(tx.conn(), item.plan_id, false)
+            .await?
+            .ok_or(AppError::NotFound("treatment plan"))?;
+        let mut views = plan_views(tx, vec![plan]).await?;
+        views.pop().ok_or(AppError::Internal("plan vanished"))
+    })
+    .await
+}

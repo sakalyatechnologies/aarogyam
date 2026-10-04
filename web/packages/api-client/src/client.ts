@@ -134,6 +134,7 @@ import type {
   Staff,
   StatusChange,
   StatusChanged,
+  FinishedItemStatus,
   Joined,
   Timeline,
   TodayMoney,
@@ -153,7 +154,17 @@ export interface RequestOptions {
   signal?: AbortSignal | undefined;
 }
 
-export interface PatientSearch {
+/** Which patients the list shows. Flags only, so nothing personal reaches a URL. */
+export interface PatientFilter {
+  /** Issued bills with something left to pay; needs `billing.read`. */
+  withBalance?: boolean | undefined;
+  /** An open recall due on or before today. */
+  recallsDue?: boolean | undefined;
+  /** Registered this month, in the clinic's time zone. */
+  newThisMonth?: boolean | undefined;
+}
+
+export interface PatientSearch extends PatientFilter {
   /** Name, clinic number or phone. Sent in the request body, never in a URL. */
   q: string;
   limit?: number | undefined;
@@ -185,7 +196,7 @@ export interface ApiClient {
   /** Clinic host: the clinic, its branding, and the caller's role and permissions. */
   getSession(options?: RequestOptions): Promise<ApiResult<Session>>;
   /** Clinic host: recently seen patients. Needs `patients.read`. */
-  listPatients(options?: RequestOptions): Promise<ApiResult<PatientPage>>;
+  listPatients(options?: RequestOptions & PatientFilter): Promise<ApiResult<PatientPage>>;
   /** Clinic host: `POST /patients/search`. Needs `patients.read`. */
   searchPatients(search: PatientSearch, options?: RequestOptions): Promise<ApiResult<PatientPage>>;
   /** Clinic host: needs `patients.read`; contact details are masked without `patients.contact`. */
@@ -321,6 +332,8 @@ export interface ApiClient {
   createPlan(id: PatientId, input: NewPlan, options?: RequestOptions): Promise<ApiResult<PlanPage["items"][number]>>;
   /** Clinic host: records the patient's acceptance of a proposed plan. Needs `clinical.write`. */
   acceptPlan(id: PlanId, input: Acceptance, options?: RequestOptions): Promise<ApiResult<PlanPage["items"][number]>>;
+  /** Clinic host: marks an accepted plan item done or cancelled; the plan follows. Needs `clinical.write`; 409 once finished. */
+  setPlanItemStatus(itemId: string, status: FinishedItemStatus, options?: RequestOptions): Promise<ApiResult<PlanPage["items"][number]>>;
 
   /** Clinic host: a patient's dental chart; teeth without entries are sound. Needs `clinical.read`. */
   getDentalChart(id: PatientId, tooth?: number, options?: RequestOptions): Promise<ApiResult<DentalChart>>;

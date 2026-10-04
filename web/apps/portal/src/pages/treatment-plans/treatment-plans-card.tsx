@@ -5,7 +5,7 @@ import { apiErrorOf, type PatientId, type Plan, type VisitId } from "@aarogyam/a
 import { ApiErrorNotice, formatRupees } from "@aarogyam/app-kit";
 import { Button, Card, Dialog, EmptyState, Field, Pill, Skeleton, TextInput, useToast } from "@sakalya/ui";
 
-import { useAcceptPlan, useCompletePlanItem, useCreatePlan, usePlans } from "./queries.js";
+import { useAcceptPlan, useCreatePlan, usePlans, useSetPlanItemStatus } from "./queries.js";
 
 function planTone(status: string): "neutral" | "success" | "warning" | "danger" {
   return status === "completed" ? "success" : status === "declined" ? "danger" : status === "proposed" ? "neutral" : "warning";
@@ -41,7 +41,7 @@ export function TreatmentPlansCard({ patientId, visitId, visitOpen, canWrite }: 
       ) : (
         <div className="flex flex-col gap-4">
           {plans.data.items.map((plan) => (
-            <PlanView key={plan.id} patientId={patientId} visitId={visitId} plan={plan} canCarryOut={canWrite && visitOpen} canWrite={canWrite} />
+            <PlanView key={plan.id} patientId={patientId} plan={plan} canCarryOut={canWrite && visitOpen} canWrite={canWrite} />
           ))}
         </div>
       )}
@@ -58,9 +58,9 @@ export function TreatmentPlansCard({ patientId, visitId, visitOpen, canWrite }: 
   );
 }
 
-function PlanView({ patientId, visitId, plan, canWrite, canCarryOut }: { patientId: PatientId; visitId: VisitId; plan: Plan; canWrite: boolean; canCarryOut: boolean }) {
+function PlanView({ patientId, plan, canWrite, canCarryOut }: { patientId: PatientId; plan: Plan; canWrite: boolean; canCarryOut: boolean }) {
   const accept = useAcceptPlan(patientId);
-  const complete = useCompletePlanItem(patientId, visitId);
+  const finish = useSetPlanItemStatus(patientId);
   const toast = useToast();
   return (
     <div className="rounded-2xl border border-border p-4">
@@ -107,16 +107,19 @@ function PlanView({ patientId, visitId, plan, canWrite, canCarryOut }: { patient
                 variant="ghost"
                 icon={<Check aria-hidden="true" className="size-4" />}
                 aria-label={`Mark done: ${item.name}`}
-                disabled={complete.isPending}
+                disabled={finish.isPending}
                 onClick={() => {
-                  complete.mutate(item, {
-                    onSuccess: () => {
-                      toast.show({ title: "Recorded as done in this visit", tone: "success" });
+                  finish.mutate(
+                    { item, status: "done" },
+                    {
+                      onSuccess: () => {
+                        toast.show({ title: "Marked as done", tone: "success" });
+                      },
+                      onError: (thrown) => {
+                        toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't record that.", tone: "danger" });
+                      },
                     },
-                    onError: (thrown) => {
-                      toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't record that.", tone: "danger" });
-                    },
-                  });
+                  );
                 }}
               >
                 Mark done

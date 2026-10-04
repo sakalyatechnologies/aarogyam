@@ -175,13 +175,30 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     acceptInvitation: (input, opts) =>
       call({ method: "POST", path: "/api/v1/invitations/accept", schema: joined, body: input, signal: opts?.signal }),
     getSession: (opts) => call({ method: "GET", path: "/api/v1/session", schema: sessionResponse, signal: opts?.signal }),
-    listPatients: (opts) => call({ method: "GET", path: "/api/v1/patients", schema: patientList, signal: opts?.signal }),
+    listPatients: (opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/patients",
+        schema: patientList,
+        query: {
+          with_balance: opts?.withBalance === true ? "true" : undefined,
+          recalls_due: opts?.recallsDue === true ? "true" : undefined,
+          new_this_month: opts?.newThisMonth === true ? "true" : undefined,
+        },
+        signal: opts?.signal,
+      }),
     searchPatients: (search, opts) =>
       call({
         method: "POST",
         path: "/api/v1/patients/search",
         schema: patientList,
-        body: { q: search.q.trim(), ...(search.limit === undefined ? {} : { limit: search.limit }) },
+        body: {
+          q: search.q.trim(),
+          ...(search.limit === undefined ? {} : { limit: search.limit }),
+          ...(search.withBalance === true ? { with_balance: true } : {}),
+          ...(search.recallsDue === true ? { recalls_due: true } : {}),
+          ...(search.newThisMonth === true ? { new_this_month: true } : {}),
+        },
         signal: opts?.signal,
       }),
     getPatient: (id, opts) =>
@@ -297,6 +314,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/treatment-plans`, schema: plan, body: input, signal: opts?.signal }),
     acceptPlan: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/treatment-plans/${encodeURIComponent(id)}/accept`, schema: plan, body: input, signal: opts?.signal }),
+    setPlanItemStatus: (itemId, status, opts) =>
+      call({ method: "PATCH", path: `/api/v1/treatment-plan-items/${encodeURIComponent(itemId)}`, schema: plan, body: { status }, signal: opts?.signal }),
 
     listProcedures: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/procedures`, schema: procedureList, signal: opts?.signal }),

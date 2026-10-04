@@ -1,5 +1,5 @@
 export type { ApiClient, MetricsQuery, PatientQuery, PatientRef, RequestOptions } from "./client.js";
-export { createHttpClient, type HttpClientOptions, type TokenSource } from "./http-client.js";
+export { createDevTokenSource, createHttpClient, type HttpClientOptions, type TokenSource } from "./http-client.js";
 export { PERMISSIONS, hasPermission, type Permission } from "./permissions.js";
 export {
   ApiFailure,

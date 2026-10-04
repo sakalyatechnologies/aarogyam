@@ -6,8 +6,8 @@ type KeyValueStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 export interface DevAuthOptions {
   people: readonly DevPerson[];
-  /** The bearer token the (fake) API accepts for a person. */
-  tokenFor: (personId: string) => string;
+  /** The bearer token for a person: a fake token, or one fetched from the API's dev endpoint. */
+  tokenFor: (personId: string) => string | null | Promise<string | null>;
   /** Where the choice survives a reload. Defaults to `sessionStorage`, so it ends with the tab. */
   storage?: KeyValueStorage | null;
   storageKey?: string;
@@ -43,9 +43,9 @@ export function createDevAuth(options: DevAuthOptions): DevAuthClient {
     people: options.people,
     getState: store.get,
     subscribe: store.subscribe,
-    getAccessToken: () => {
+    getAccessToken: async () => {
       const state = store.get();
-      return Promise.resolve(state.status === "signed_in" ? options.tokenFor(state.user.id) : null);
+      return state.status === "signed_in" ? options.tokenFor(state.user.id) : null;
     },
     signInAs: (personId) => {
       const person = find(personId);

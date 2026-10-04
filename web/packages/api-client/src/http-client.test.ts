@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiFailure, createHttpClient, patientNumber, unwrap } from "./index.js";
+import { ApiFailure, createDevTokenSource, createHttpClient, patientNumber, unwrap } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -148,5 +148,24 @@ describe("createHttpClient requests", () => {
     expect(calls[0]?.init?.method).toBe("POST");
     expect(calls[0]?.init?.body).toBe(JSON.stringify({ full_name: "Test Patient", sex: "female" }));
     expect(result.ok && result.value.number).toBe("SC-1042");
+  });
+});
+
+describe("createDevTokenSource", () => {
+  it("trades an auth_uid for a token once, then serves it from cache", async () => {
+    const { fetch, calls } = stubFetch(json(200, { access_token: "dev-jwt", expires_in: 3600 }));
+    const tokenFor = createDevTokenSource("http://localhost:8080/", { fetch });
+
+    expect(await tokenFor("0199a000-0000-7000-8000-0000000000a1")).toBe("dev-jwt");
+    expect(await tokenFor("0199a000-0000-7000-8000-0000000000a1")).toBe("dev-jwt");
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe("http://localhost:8080/api/v1/dev/token");
+    expect(calls[0]?.init?.body).toBe(JSON.stringify({ auth_uid: "0199a000-0000-7000-8000-0000000000a1" }));
+  });
+
+  it("gives no token when the API refuses", async () => {
+    const { fetch } = stubFetch(json(404, { error: { code: "not_found", message: "Not found." } }));
+    expect(await createDevTokenSource("", { fetch })("x")).toBeNull();
   });
 });

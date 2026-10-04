@@ -1,4 +1,4 @@
-import { createHttpClient, type ApiClient } from "@aarogyam/api-client";
+import { createDevTokenSource, createHttpClient, type ApiClient } from "@aarogyam/api-client";
 import { createDevAuth, type AuthClient } from "@aarogyam/auth";
 
 import type { ConsoleEnv } from "./env.js";
@@ -32,7 +32,8 @@ export async function createServices(env: ConsoleEnv): Promise<ConsoleServices> 
     env.supabase === null
       ? createDevAuth({
           people: team.map((p) => ({ id: p.id, displayName: p.display_name, email: p.email, description: p.description })),
-          tokenFor: fakeTokenFor,
+          // Against a local API, seeded people sign in through POST /api/v1/dev/token.
+          tokenFor: env.apiMode === "http" ? createDevTokenSource(env.apiBaseUrl) : fakeTokenFor,
           storageKey: "aarogyam.console.dev-auth",
         })
       : await supabaseAuth(env.supabase);

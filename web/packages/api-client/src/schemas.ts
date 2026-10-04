@@ -370,6 +370,13 @@ export type SlowQuery = DatabaseMetrics["slow_queries"][number];
 export type TableHealth = DatabaseMetrics["tables"][number];
 export type EdgeMetrics = NonNullable<Metrics["edge"]>;
 
+/** `POST /api/v1/dev/token` (development only). */
+export const devTokenResponse = z.object({
+  access_token: z.string().min(1),
+  expires_in: z.number().int().positive(),
+}) satisfies z.ZodType<C.DevTokenResponse>;
+export type DevToken = z.output<typeof devTokenResponse>;
+
 // Requests -----------------------------------------------------------------------------------
 
 /** Body of `POST /api/v1/patients`. */

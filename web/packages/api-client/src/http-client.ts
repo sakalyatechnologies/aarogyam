@@ -6,6 +6,7 @@ import type { ApiClient, PatientQuery, RequestOptions } from "./client.js";
 import { failure, parseApiError, success, type ApiResult } from "./result.js";
 import {
   consoleClinicDetail,
+  devTokenResponse,
   consoleClinicListResponse,
   meResponse,
   metricsResponse,
@@ -171,4 +172,35 @@ async function readJson(response: Response): Promise<unknown> {
 
 function isAbortError(thrown: unknown): boolean {
   return thrown instanceof Error && thrown.name === "AbortError";
+}
+
+/**
+ * Development sign-in against a local API: trades a seeded person's `auth_uid` for an access
+ * token at `POST /api/v1/dev/token`, caching it until a minute before it expires.
+ */
+export function createDevTokenSource(baseUrl: string, options: HttpClientOptions = {}): (authUid: string) => Promise<string | null> {
+  const send = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
+  const cache = new Map<string, { token: string; until: number }>();
+  return async (authUid) => {
+    const cached = cache.get(authUid);
+    if (cached !== undefined && cached.until > Date.now()) {
+      return cached.token;
+    }
+    try {
+      const response = await send(`${baseUrl.replace(/\/+$/, "")}/api/v1/dev/token`, {
+        method: "POST",
+        headers: { accept: "application/json", "content-type": "application/json" },
+        body: JSON.stringify({ auth_uid: authUid }),
+        cache: "no-store",
+      });
+      const decoded = devTokenResponse.safeParse(response.ok ? await readJson(response) : undefined);
+      if (!decoded.success) {
+        return null;
+      }
+      cache.set(authUid, { token: decoded.data.access_token, until: Date.now() + (decoded.data.expires_in - 60) * 1000 });
+      return decoded.data.access_token;
+    } catch {
+      return null;
+    }
+  };
 }

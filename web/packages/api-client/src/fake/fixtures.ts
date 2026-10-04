@@ -132,33 +132,34 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
   const now = options.now ?? new Date();
   const id = (daysAgo = 400): string => fakeUuid(random, new Date(now.getTime() - daysAgo * DAY));
 
+  // Fixed IDs: they double as Supabase auth_uids for POST /api/v1/dev/token against a seeded API.
   const users = {
     anika: {
-      id: id(),
+      id: "0199a000-0000-7000-8000-000000000001",
       display_name: "Dr. Anika Rao",
       email: "anika.rao@example.com",
       phone: "+919876500011",
       description: "Owner at Smile Catchers and doctor at Hasya Dental Studio: sees money and can switch clinics.",
     },
     farhan: {
-      id: id(),
+      id: "0199a000-0000-7000-8000-000000000002",
       display_name: "Dr. Farhan Shaikh",
       email: "farhan.shaikh@example.com",
       description: "Associate doctor at Smile Catchers.",
     },
     sunita: {
-      id: id(),
+      id: "0199a000-0000-7000-8000-000000000003",
       display_name: "Sunita Pawar",
       phone: "+919876500013",
       description: "Front desk at Smile Catchers: registers and finds patients.",
     },
     ravi: {
-      id: id(),
+      id: "0199a000-0000-7000-8000-000000000004",
       display_name: "Ravi Kamble",
       description: "Assistant at Smile Catchers: can look patients up but not register them.",
     },
     vivek: {
-      id: id(),
+      id: "0199a000-0000-7000-8000-000000000005",
       display_name: "Dr. Vivek Menon",
       email: "vivek.menon@example.com",
       description: "Visiting orthodontist at Smile Catchers: sees today's appointments, not the patient list.",
@@ -270,14 +271,14 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
 
   const platformUsers: FakePlatformUser[] = [
     {
-      id: id(),
+      id: "0199a000-0000-7000-8000-0000000000a1",
       display_name: "Aarav Kulkarni",
       email: "aarav@sakalya.example",
       role: "admin",
       description: "Sakalya admin: creates clinics and watches service health.",
     },
     {
-      id: id(),
+      id: "0199a000-0000-7000-8000-0000000000a2",
       display_name: "Isha Nair",
       email: "isha@sakalya.example",
       role: "support",

@@ -391,3 +391,10 @@ export interface MetricsResponse {
   /** `null` until edge analytics are connected. */
   edge: EdgeMetrics | null;
 }
+
+/** `POST /api/v1/dev/token` with `{ "auth_uid" }` (development builds of the API only). */
+export interface DevTokenResponse {
+  access_token: string;
+  /** Seconds. */
+  expires_in: number;
+}

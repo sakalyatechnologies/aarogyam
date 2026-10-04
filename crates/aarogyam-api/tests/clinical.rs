@@ -1400,6 +1400,67 @@ async fn the_timeline_lists_the_record_newest_first() {
     app.finish().await;
 }
 
+/// The clinical tables pass the schema checks, and row-level security hides one clinic's
+/// clinical rows from another even in a direct query.
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn clinical_tables_pass_the_schema_checks_and_isolate_clinics() {
+    let app = TestApp::start().await;
+    let lint = include_str!("../../../db/checks/schema_lint.sql");
+    for check in lint.split("-- name: ").skip(1) {
+        let (name, query) = check.split_once('\n').unwrap();
+        let violations: Vec<(String,)> = sqlx::query_as(sqlx::AssertSqlSafe(query.to_owned()))
+            .fetch_all(&app.owner)
+            .await
+            .unwrap();
+        // The migration ledger is created by sqlx itself, outside the migrations.
+        let violations: Vec<String> = violations
+            .into_iter()
+            .map(|(v,)| v)
+            .filter(|v| v != "private._sqlx_migrations")
+            .collect();
+        assert!(violations.is_empty(), "{name}: {violations:?}");
+    }
+
+    let owner = app.token(ALPHA_OWNER);
+    for (method, path, body) in every_route(&app).await {
+        if method == Method::POST && path.ends_with("/dental-chart") {
+            let (status, chart) = app.send(method, ALPHA, &path, Some(&owner), body).await;
+            assert_eq!(status, StatusCode::OK, "{chart}");
+        }
+    }
+    let (alpha, beta) = (app.clinic_id("alpha").await, app.clinic_id("beta").await);
+    let db = app.api_db();
+    for table in [
+        "encounters",
+        "clinical_notes",
+        "observations",
+        "conditions",
+        "allergies",
+        "specialty_records",
+        "procedures",
+        "treatment_plans",
+        "treatment_plan_items",
+        "attachments",
+    ] {
+        let count = async |clinic| {
+            db.scoped(&Scope::tenant(clinic), async |tx| {
+                sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(format!(
+                    "select count(*) from aarogyam.{table}"
+                )))
+                .fetch_one(tx.conn())
+                .await
+                .map_err(DbError::from)
+            })
+            .await
+            .unwrap()
+        };
+        assert!(count(alpha).await > 0, "{table} at Alpha");
+        assert_eq!(count(beta).await, 0, "{table} at Beta");
+    }
+    app.finish().await;
+}
+
 /// Posts `body` as Alpha's owner and returns the new record's id.
 async fn create(app: &TestApp, path: &str, body: Value) -> String {
     let owner = app.token(ALPHA_OWNER);
@@ -1583,8 +1644,69 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             format!("/api/v1/attachments/{attachment}/download"),
             None,
         ),
+        (
+            Method::GET,
+            format!("/api/v1/patients/{patient}/dental-chart"),
+            None,
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/patients/{patient}/dental-chart"),
+            Some(json!({ "entries": [{ "tooth": 36, "surface": "O", "finding": "caries" }] })),
+        ),
+        (
+            Method::GET,
+            format!("/api/v1/patients/{patient}/timeline"),
+            None,
+        ),
         (Method::POST, format!("/api/v1/visits/{visit}/close"), None),
     ]
+}
+
+/// A path with every UUID segment (or `{name}` placeholder) replaced by `{}`.
+fn template(path: &str) -> String {
+    path.split('/')
+        .map(|part| {
+            if Uuid::try_parse(part).is_ok() || part.starts_with('{') {
+                "{}"
+            } else {
+                part
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+/// [`every_route`] lists every clinical operation in the OpenAPI document, except the upload
+/// (multipart, checked in the files test) and the signed download (no sign-in).
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn every_clinical_route_is_checked() {
+    let app = TestApp::start().await;
+    let document = serde_json::to_value(aarogyam_api::openapi()).unwrap();
+    let mut documented: Vec<String> = Vec::new();
+    for (path, operations) in document["paths"].as_object().unwrap() {
+        for (method, operation) in operations.as_object().unwrap() {
+            let clinical = operation["tags"]
+                .as_array()
+                .is_some_and(|tags| tags.contains(&json!("clinical")));
+            let skipped =
+                path.ends_with("/content") || (path.ends_with("/attachments") && method == "post");
+            if clinical && !skipped {
+                documented.push(format!("{} {}", method.to_uppercase(), template(path)));
+            }
+        }
+    }
+    let mut checked: Vec<String> = every_route(&app)
+        .await
+        .into_iter()
+        .map(|(method, path, _)| format!("{method} {}", template(&path)))
+        .collect();
+    documented.sort();
+    checked.sort();
+    checked.dedup();
+    assert_eq!(checked, documented);
+    app.finish().await;
 }
 
 /// Every clinical route answers 404 to another clinic's member for this clinic's records.

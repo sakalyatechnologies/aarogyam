@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { patientId, type ApiClient, type ApiResult } from "../index.js";
+import { membershipId, patientId, type ApiClient, type ApiResult } from "../index.js";
 import { createFakeBackend, createFixtures, fakeTokenFor } from "./index.js";
 
 // 11:00 in Pune: mid-morning clinic hours.
@@ -191,6 +191,156 @@ describe("fake client: console", () => {
     expect(metrics.api.series).toHaveLength(24);
     expect(metrics.api.routes[0]?.route).toMatch(/^\/api\/v1\//);
     expect(value(await as(PEOPLE.admin).getMetrics("1h")).api.series).toHaveLength(12);
+  });
+});
+
+describe("fake client: editing a patient", () => {
+  it("edits details and keeps other fields, needing patients.write and patients.contact for phone or email", async () => {
+    const fixtures = createFixtures({ now: NOW });
+    const target = fixtures.patients.find((p) => p.clinic_id === fixtures.clinics.find((c) => c.slug === "sunrise")?.id);
+    if (target === undefined) throw new Error("no sunrise patient in fixtures");
+    const id = patientId.parse(target.id);
+    // A role with patients.write but not patients.contact, which none of the standard roles are.
+    const farahMembership = fixtures.memberships.find((m) => m.user_id === PEOPLE.farah);
+    if (farahMembership === undefined) throw new Error("no membership for farah");
+    farahMembership.role = { key: "custom", name: "Custom", permissions: ["patients.read", "patients.write"] };
+    const backend = createFakeBackend(fixtures);
+    const as = (who: string) => backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: who }), now: () => NOW });
+
+    const writerOnly = as(PEOPLE.farah);
+    expect(errorOf(await writerOnly.updatePatient(id, { phone: "+919811122233" }))?.status).toBe(403);
+    const updated = value(await writerOnly.updatePatient(id, { full_name: "  Renamed   Patient " }));
+    expect(updated.full_name).toBe("Renamed Patient");
+    expect(updated.number).toBe(target.number);
+
+    const owner = as(PEOPLE.asha);
+    const withPhone = value(await owner.updatePatient(id, { phone: "+919811122233" }));
+    expect(withPhone.phone).toBe("+919811122233");
+    expect(withPhone.full_name).toBe("Renamed Patient");
+
+    const cleared = value(await owner.updatePatient(id, { phone: "" }));
+    expect(cleared.phone).toBeNull();
+  });
+
+  it("answers 404 for another clinic's patient", async () => {
+    const { as, fixtures } = setup();
+    const theirs = fixtures.patients.find((p) => p.clinic_id === fixtures.clinics.find((c) => c.slug === "lotus")?.id);
+    const result = await as(PEOPLE.asha, SUNRISE).updatePatient(patientId.parse(theirs?.id), { full_name: "Nope" });
+    expect(errorOf(result)?.status).toBe(404);
+  });
+});
+
+describe("fake client: staff and roles", () => {
+  it("lists members and pending invitations, needing staff.manage", async () => {
+    const { as } = setup();
+    expect(errorOf(await as(PEOPLE.farah, SUNRISE).listStaff())?.status).toBe(403);
+    const staff = value(await as(PEOPLE.asha, SUNRISE).listStaff());
+    expect(staff.members.map((m) => m.role_key)).toEqual(expect.arrayContaining(["owner", "doctor", "front_desk"]));
+    expect(staff.invitations).toEqual([]);
+  });
+
+  it("invites someone, who then shows up as a pending invitation and can accept it", async () => {
+    const { as, backend } = setup();
+    const owner = as(PEOPLE.asha, SUNRISE);
+    const created = value(await owner.inviteStaff({ email: "new.doctor@example.com", role_key: "doctor" }));
+    expect(created.role_key).toBe("doctor");
+    const afterInvite = value(await owner.listStaff());
+    expect(afterInvite.invitations.map((i) => i.email)).toEqual(["new.doctor@example.com"]);
+
+    const newcomer = backend.client({ getToken: () => fakeTokenFor({ id: "d1d1d1d1-0000-4000-8000-000000000099", email: "new.doctor@example.com" }), now: () => NOW });
+    const joined = value(await newcomer.acceptInvitation({ token: created.invite_token, display_name: "Dr New" }));
+    expect(joined.membership_id).toBeTruthy();
+    const afterAccept = value(await owner.listStaff());
+    expect(afterAccept.invitations).toEqual([]);
+    expect(afterAccept.members.map((m) => m.display_name)).toContain("Dr New");
+  });
+
+  it("refuses a non-owner inviting an owner", async () => {
+    const { as } = setup();
+    const error = errorOf(await as(PEOPLE.farah, SUNRISE).inviteStaff({ email: "a@example.com", role_key: "owner" }));
+    // front_desk also lacks staff.manage, so this is a permission refusal either way.
+    expect(error?.status).toBe(403);
+  });
+
+  it("changes a member's role, but never your own, and protects the last active owner", async () => {
+    const { as, fixtures } = setup();
+    const owner = as(PEOPLE.asha, SUNRISE);
+    const ownerMembership = fixtures.memberships.find((m) => m.user_id === PEOPLE.asha);
+    const farahMembership = fixtures.memberships.find((m) => m.user_id === PEOPLE.farah);
+    if (ownerMembership === undefined || farahMembership === undefined) throw new Error("missing fixture membership");
+
+    expect(errorOf(await owner.changeStaffMember(membershipId.parse(ownerMembership.id), { status: "suspended" }))?.status).toBe(409);
+    expect(errorOf(await owner.changeStaffMember(membershipId.parse(ownerMembership.id), { role_key: "doctor" }))?.status).toBe(409);
+
+    const changed = value(await owner.changeStaffMember(membershipId.parse(farahMembership.id), { role_key: "assistant" }));
+    expect(changed.role_key).toBe("assistant");
+
+    const suspended = value(await owner.changeStaffMember(membershipId.parse(farahMembership.id), { status: "suspended" }));
+    expect(suspended.status).toBe("suspended");
+  });
+
+  it("lists the clinic's roles and what each may do", async () => {
+    const { as } = setup();
+    const roles = value(await as(PEOPLE.asha, SUNRISE).listRoles());
+    const doctor = roles.items.find((r) => r.key === "doctor");
+    expect(doctor?.permissions.map((p) => p.key)).toEqual(expect.arrayContaining(["patients.read", "appointments.read"]));
+  });
+});
+
+describe("fake client: clinic settings", () => {
+  it("reads and changes the profile, needing settings.manage", async () => {
+    const { as } = setup();
+    expect(errorOf(await as(PEOPLE.farah, SUNRISE).getClinicSettings())?.status).toBe(403);
+    const owner = as(PEOPLE.asha, SUNRISE);
+    const before = value(await owner.getClinicSettings());
+    expect(before.name).toBe("Sunrise Dental");
+    expect(before.upi_id).toBe("sunrisedental@okicici");
+    expect(before.address.city).toBe("Mumbai");
+
+    const after = value(
+      await owner.updateClinicSettings({ phone: "9876501234", upi_id: "newclinic@okhdfc", address: { city: "Pune", state: "Maharashtra" } }),
+    );
+    expect(after.phone).toBe("+919876501234");
+    expect(after.upi_id).toBe("newclinic@okhdfc");
+    expect(after.address).toEqual({ line1: null, line2: null, city: "Pune", state: "Maharashtra", pincode: null });
+    expect(after.name).toBe("Sunrise Dental");
+  });
+
+  it("refuses an invalid UPI ID or GSTIN", async () => {
+    const { as } = setup();
+    const owner = as(PEOPLE.asha, SUNRISE);
+    expect(errorOf(await owner.updateClinicSettings({ upi_id: "not-a-upi-id" }))?.field).toBe("upi_id");
+    expect(errorOf(await owner.updateClinicSettings({ gstin: "not-a-gstin" }))?.field).toBe("gstin");
+  });
+});
+
+describe("fake client: sessions", () => {
+  it("lists only the person's own active sessions, newest first, with one marked current", async () => {
+    const { as } = setup();
+    const sessions = value(await as(PEOPLE.asha).listMySessions());
+    expect(sessions.items.length).toBeGreaterThanOrEqual(2);
+    expect(sessions.items.filter((s) => s.current)).toHaveLength(1);
+    const times = sessions.items.map((s) => s.last_active_at);
+    expect(times).toEqual([...times].sort().reverse());
+  });
+
+  it("revokes one of the person's sessions, which then disappears from the list", async () => {
+    const { as } = setup();
+    const client = as(PEOPLE.asha);
+    const before = value(await client.listMySessions());
+    const target = before.items.find((s) => !s.current);
+    if (target === undefined) throw new Error("expected a second session to revoke");
+    const revoked = await client.revokeMySession(target.id);
+    expect(revoked.ok).toBe(true);
+    const after = value(await client.listMySessions());
+    expect(after.items.map((s) => s.id)).not.toContain(target.id);
+  });
+
+  it("can't revoke someone else's session", async () => {
+    const { as } = setup();
+    const theirs = value(await as(PEOPLE.farah).listMySessions()).items[0];
+    if (theirs === undefined) throw new Error("expected Farah to have a session");
+    expect(errorOf(await as(PEOPLE.asha).revokeMySession(theirs.id))?.status).toBe(404);
   });
 });
 

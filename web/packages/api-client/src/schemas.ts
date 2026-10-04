@@ -42,6 +42,12 @@ export type PractitionerId = z.output<typeof practitionerId>;
 export const qualityRunId = z.string().min(1).brand<"QualityRunId">();
 export type QualityRunId = z.output<typeof qualityRunId>;
 
+export const invitationId = z.string().min(1).brand<"InvitationId">();
+export type InvitationId = z.output<typeof invitationId>;
+
+export const sessionId = z.string().min(1).brand<"SessionId">();
+export type SessionId = z.output<typeof sessionId>;
+
 /** An amount of money in paise (1 rupee = 100 paise). */
 export const paise = z.number().int().brand<"Paise">();
 export type Paise = z.output<typeof paise>;
@@ -60,6 +66,9 @@ const millis = z.number().nonnegative();
 
 export const sex = z.enum(["female", "male", "other", "unknown"]) satisfies z.ZodType<C.Sex>;
 export type Sex = z.output<typeof sex>;
+
+/** A `204 No Content` response, such as revoking a session. */
+export const voidResponse = z.undefined();
 
 export const themeMode = z.enum(["light", "dark"]);
 export type ThemeMode = z.output<typeof themeMode>;
@@ -125,6 +134,121 @@ export type Patient = z.output<typeof patient>;
 
 export const patientList = z.object({ items: z.array(patient) }) satisfies z.ZodType<C.PatientList>;
 export type PatientPage = z.output<typeof patientList>;
+
+// Staff ----------------------------------------------------------------------------------------
+
+const memberStatus = z.enum(["invited", "active", "suspended", "left"]);
+export type MemberStatus = z.output<typeof memberStatus>;
+
+const memberBranch = z.object({ id: z.string().min(1), name: z.string() }) satisfies z.ZodType<C.MemberBranch>;
+
+export const member = z.object({
+  id: membershipId,
+  user_id: userId,
+  display_name: z.string(),
+  role_key: z.string(),
+  role_name: z.string(),
+  status: memberStatus,
+  branches: z.array(memberBranch),
+  joined_at: optionalTimestamp,
+}) satisfies z.ZodType<C.Member>;
+export type Member = z.output<typeof member>;
+
+export const pendingInvitation = z.object({
+  id: invitationId,
+  email: optionalText,
+  role_key: z.string(),
+  created_at: timestamp,
+  expires_at: timestamp,
+}) satisfies z.ZodType<C.PendingInvitation>;
+export type PendingInvitation = z.output<typeof pendingInvitation>;
+
+export const staffResponse = z.object({
+  members: z.array(member),
+  invitations: z.array(pendingInvitation),
+}) satisfies z.ZodType<C.Staff>;
+export type Staff = z.output<typeof staffResponse>;
+
+/** What `POST /api/v1/staff/invitations` returns; `invite_token` is shown once. */
+export const createdInvitation = z.object({
+  id: invitationId,
+  email: z.string(),
+  role_key: z.string(),
+  expires_at: timestamp,
+  invite_token: z.string().min(1),
+}) satisfies z.ZodType<C.CreatedInvitation>;
+export type CreatedInvitation = z.output<typeof createdInvitation>;
+
+const rolePermission = z.object({ key: z.string(), scope: z.enum(["all", "own", "assigned"]) }) satisfies z.ZodType<C.RolePermission>;
+export type RolePermission = z.output<typeof rolePermission>;
+
+export const role = z.object({
+  id: z.string().min(1),
+  key: z.string(),
+  name: z.string(),
+  description: optionalText,
+  is_template: z.boolean(),
+  permissions: z.array(rolePermission),
+}) satisfies z.ZodType<C.Role>;
+export type Role = z.output<typeof role>;
+
+export const rolesResponse = z.object({ items: z.array(role) }) satisfies z.ZodType<C.Roles>;
+export type Roles = z.output<typeof rolesResponse>;
+
+/** Body of `POST /api/v1/staff/invitations`. */
+export type NewInvitation = C.NewInvitation;
+/** Body of `PATCH /api/v1/staff/{membership_id}`. Fields left out stay as they are. */
+export type MemberChanges = C.MemberChanges;
+
+// Settings ---------------------------------------------------------------------------------------
+
+export const address = z.object({
+  line1: optionalText,
+  line2: optionalText,
+  city: optionalText,
+  state: optionalText,
+  pincode: optionalText,
+}) satisfies z.ZodType<C.Address>;
+export type Address = z.output<typeof address>;
+
+const clinicBranding = z.object({
+  brand: optionalText,
+  mode: themeMode.nullable().exactOptional(),
+}) satisfies z.ZodType<C.Branding>;
+
+export const clinicSettings = z.object({
+  name: z.string(),
+  legal_name: optionalText,
+  gstin: optionalText,
+  timezone: z.string(),
+  phone: optionalText,
+  upi_id: optionalText,
+  prescription_footer: optionalText,
+  address,
+  branding: clinicBranding,
+}) satisfies z.ZodType<C.ClinicSettings>;
+export type ClinicSettings = z.output<typeof clinicSettings>;
+
+/** Body of `PATCH /api/v1/settings/clinic`. Settings left out stay as they are. */
+export type ClinicSettingsChanges = C.ClinicSettingsChanges;
+
+// Sessions -----------------------------------------------------------------------------------
+
+export const mySession = z.object({
+  id: sessionId,
+  audience: z.enum(["clinic", "patient", "platform"]),
+  created_at: timestamp,
+  last_active_at: timestamp,
+  expires_at: timestamp,
+  current: z.boolean(),
+}) satisfies z.ZodType<C.MySession>;
+export type MySession = z.output<typeof mySession>;
+
+export const mySessionsResponse = z.object({ items: z.array(mySession) }) satisfies z.ZodType<C.MySessions>;
+export type MySessions = z.output<typeof mySessionsResponse>;
+
+/** Body of `PATCH /api/v1/patients/{id}`. Fields left out stay as they are. */
+export type PatientChanges = C.PatientChanges;
 
 const appointmentStatus = z.enum([
   "scheduled",

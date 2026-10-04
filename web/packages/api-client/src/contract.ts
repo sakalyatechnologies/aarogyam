@@ -31,6 +31,26 @@ export type DevTokenRequest = Schemas["DevTokenRequest"];
 export type AcceptInvitation = Schemas["AcceptInvitation"];
 export type Joined = Schemas["Joined"];
 export type DevTokenResponse = Schemas["DevTokenResponse"];
+export type PatientChanges = Schemas["PatientChanges"];
+
+export type Member = Schemas["Member"];
+export type MemberBranch = Schemas["MemberBranch"];
+export type MemberChanges = Schemas["MemberChanges"];
+export type PendingInvitation = Schemas["PendingInvitation"];
+export type Staff = Schemas["Staff"];
+export type NewInvitation = Schemas["NewInvitation"];
+export type CreatedInvitation = Schemas["CreatedInvitation"];
+export type RolePermission = Schemas["RolePermission"];
+export type Role = Schemas["Role"];
+export type Roles = Schemas["Roles"];
+
+export type Address = Schemas["Address"];
+export type Branding = Schemas["Branding"];
+export type ClinicSettings = Schemas["ClinicSettings"];
+export type ClinicSettingsChanges = Schemas["ClinicSettingsChanges"];
+
+export type MySession = Schemas["MySession"];
+export type MySessions = Schemas["MySessions"];
 
 // Refinements of untyped parts of the spec ----------------------------------------------------
 

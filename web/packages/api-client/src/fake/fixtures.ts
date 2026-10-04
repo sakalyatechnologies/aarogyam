@@ -38,6 +38,14 @@ export interface FakePlatformUser {
   description: string;
 }
 
+export interface FakeAddress {
+  line1?: string | null;
+  line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+}
+
 export interface FakeClinic {
   id: string;
   slug: string;
@@ -51,6 +59,26 @@ export interface FakeClinic {
   /** `SD` in `SD-9`. */
   number_prefix: string;
   branding: { brand: string; mode: "light" | "dark" };
+  /** The main branch's address, for `GET /settings/clinic`. */
+  address?: FakeAddress;
+  /** The main branch's phone. */
+  phone?: string | null;
+  /** UPI ID shown on bills. */
+  upi_id?: string | null;
+  legal_name?: string | null;
+  gstin?: string | null;
+  prescription_footer?: string | null;
+}
+
+/** A device or browser where a person is signed in, for `GET /me/sessions`. */
+export interface FakeSession {
+  id: string;
+  user_id: string;
+  audience: "clinic" | "patient" | "platform";
+  created_at: string;
+  last_active_at: string;
+  expires_at: string;
+  revoked: boolean;
 }
 
 export interface FakeMembership {
@@ -58,6 +86,9 @@ export interface FakeMembership {
   user_id: string;
   clinic_id: string;
   role: FakeRole;
+  /** Defaults to `"active"` when left out. */
+  status?: "invited" | "active" | "suspended" | "left";
+  joined_at?: string;
 }
 
 export interface FakePatient extends Omit<C.Patient, "sex" | "status" | "age_years"> {
@@ -95,6 +126,7 @@ export interface Fixtures {
   patients: FakePatient[];
   schedule: FakeScheduleEntry[];
   days: FakeClinicDay[];
+  sessions: FakeSession[];
   quality: C.QualityReport;
 }
 
@@ -109,7 +141,17 @@ export const ROLES = {
   owner: {
     key: "owner",
     name: "Owner",
-    permissions: ["patients.read", "patients.write", "patients.contact", "appointments.read", "appointments.write", "billing.read", "finance.view"],
+    permissions: [
+      "patients.read",
+      "patients.write",
+      "patients.contact",
+      "appointments.read",
+      "appointments.write",
+      "billing.read",
+      "finance.view",
+      "settings.manage",
+      "staff.manage",
+    ],
   },
   doctor: {
     key: "doctor",
@@ -171,6 +213,12 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     status: "trial",
     created_at: isoDaysAgo(now, 14),
     number_prefix: "SD",
+    legal_name: "Sunrise Dental Care LLP",
+    gstin: "27AAAPL1234C1Z5",
+    phone: "+912226581234",
+    upi_id: "sunrisedental@okicici",
+    address: { line1: "12 Church Road", line2: "Near Bandra Station", city: "Mumbai", state: "Maharashtra", pincode: "400050" },
+    prescription_footer: "Sunrise Dental · Open Mon–Sat, 9 AM–7 PM",
   };
   const lotus: FakeClinic = {
     id: id(6),
@@ -246,6 +294,27 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     },
   ];
 
+  const sessions: FakeSession[] = Object.values(users).flatMap((user): FakeSession[] => [
+    {
+      id: id(),
+      user_id: user.id,
+      audience: "clinic",
+      created_at: isoDaysAgo(now, 3),
+      last_active_at: now.toISOString(),
+      expires_at: new Date(now.getTime() + 7 * DAY).toISOString(),
+      revoked: false,
+    },
+    {
+      id: id(),
+      user_id: user.id,
+      audience: "clinic",
+      created_at: isoDaysAgo(now, 20),
+      last_active_at: isoDaysAgo(now, 9),
+      expires_at: isoDaysAgo(now, -1),
+      revoked: false,
+    },
+  ]);
+
   return {
     users: Object.values(users),
     platformUsers,
@@ -254,6 +323,7 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     patients: [...sunrisePatients, ...lotusPatients],
     schedule,
     days,
+    sessions,
     quality: createQualityReport(random, now),
   };
 }

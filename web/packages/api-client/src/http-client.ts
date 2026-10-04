@@ -5,18 +5,25 @@ import type { z } from "zod";
 import type { ApiClient } from "./client.js";
 import { failure, parseApiError, success, type ApiResult } from "./result.js";
 import {
+  clinicSettings,
   consoleClinics,
   createdClinic,
+  createdInvitation,
   devTokenResponse,
   joined,
   meResponse,
+  member,
   metricsResponse,
+  mySessionsResponse,
   patient,
   patientList,
   qualityReport,
   requestId,
+  rolesResponse,
   sessionResponse,
+  staffResponse,
   todayResponse,
+  voidResponse,
   type RequestId,
 } from "./schemas.js";
 
@@ -31,7 +38,7 @@ export interface HttpClientOptions {
 type Query = Readonly<Record<string, string | number | undefined>>;
 
 interface Call<T> {
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "PATCH";
   path: string;
   schema: z.ZodType<T>;
   query?: Query;
@@ -111,6 +118,24 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     createPatient: (input, opts) =>
       call({ method: "POST", path: "/api/v1/patients", schema: patient, body: input, signal: opts?.signal }),
     getToday: (opts) => call({ method: "GET", path: "/api/v1/today", schema: todayResponse, signal: opts?.signal }),
+    updatePatient: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/patients/${encodeURIComponent(id)}`, schema: patient, body: changes, signal: opts?.signal }),
+
+    listStaff: (opts) => call({ method: "GET", path: "/api/v1/staff", schema: staffResponse, signal: opts?.signal }),
+    inviteStaff: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/staff/invitations", schema: createdInvitation, body: input, signal: opts?.signal }),
+    changeStaffMember: (membershipId, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/staff/${encodeURIComponent(membershipId)}`, schema: member, body: changes, signal: opts?.signal }),
+    listRoles: (opts) => call({ method: "GET", path: "/api/v1/roles", schema: rolesResponse, signal: opts?.signal }),
+
+    getClinicSettings: (opts) => call({ method: "GET", path: "/api/v1/settings/clinic", schema: clinicSettings, signal: opts?.signal }),
+    updateClinicSettings: (changes, opts) =>
+      call({ method: "PATCH", path: "/api/v1/settings/clinic", schema: clinicSettings, body: changes, signal: opts?.signal }),
+
+    listMySessions: (opts) => call({ method: "GET", path: "/api/v1/me/sessions", schema: mySessionsResponse, signal: opts?.signal }),
+    revokeMySession: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/me/sessions/${encodeURIComponent(id)}/revoke`, schema: voidResponse, signal: opts?.signal }),
+
     listClinics: (opts) =>
       call({ method: "GET", path: "/api/v1/console/clinics", schema: consoleClinics, signal: opts?.signal }),
     createClinic: (input, opts) =>

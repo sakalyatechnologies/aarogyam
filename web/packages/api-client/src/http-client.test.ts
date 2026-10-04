@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiFailure, createDevTokenSource, createHttpClient, patientId, unwrap } from "./index.js";
+import { ApiFailure, createDevTokenSource, createHttpClient, patientId, sessionId, unwrap } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -145,6 +145,29 @@ describe("createHttpClient requests", () => {
     expect(calls[0]?.init?.method).toBe("POST");
     expect(calls[0]?.init?.body).toBe(JSON.stringify({ full_name: "Test Patient", sex: "female" }));
     expect(result.ok && result.value.number).toBe("SD-9");
+  });
+
+  it("edits a patient with PATCH", async () => {
+    const { fetch, calls } = stubFetch(json(200, patientBody));
+    const client = createHttpClient("", () => "token", { fetch });
+
+    await client.updatePatient(patientId.parse(patientBody.id), { full_name: "Renamed" });
+
+    expect(calls[0]?.url).toBe(`/api/v1/patients/${patientBody.id}`);
+    expect(calls[0]?.init?.method).toBe("PATCH");
+    expect(calls[0]?.init?.body).toBe(JSON.stringify({ full_name: "Renamed" }));
+  });
+
+  it("revokes a session with no request body, decoding the empty response", async () => {
+    const { fetch, calls } = stubFetch(new Response(null, { status: 204, headers: { "x-request-id": REQUEST_ID } }));
+    const client = createHttpClient("", () => "token", { fetch });
+
+    const result = await client.revokeMySession(sessionId.parse("sess_1"));
+
+    expect(calls[0]?.url).toBe("/api/v1/me/sessions/sess_1/revoke");
+    expect(calls[0]?.init?.method).toBe("POST");
+    expect(calls[0]?.init?.body).toBeUndefined();
+    expect(result.ok).toBe(true);
   });
 });
 

@@ -11,6 +11,8 @@ export const PERMISSIONS = [
   "billing.read",
   /** Fake only, for Today's money tiles, until the API has a finance permission. */
   "finance.view",
+  "settings.manage",
+  "staff.manage",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

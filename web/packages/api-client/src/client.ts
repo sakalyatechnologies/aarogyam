@@ -3,18 +3,30 @@
 import type { ApiResult } from "./result.js";
 import type {
   AcceptInvitation,
+  ClinicSettings,
+  ClinicSettingsChanges,
   ConsoleClinicPage,
   CreatedClinic,
+  CreatedInvitation,
   Me,
+  Member,
+  MemberChanges,
+  MembershipId,
   Metrics,
   MetricsRange,
+  MySessions,
   NewClinic,
+  NewInvitation,
   NewPatient,
   Patient,
+  PatientChanges,
   PatientId,
   PatientPage,
   QualityReport,
+  Roles,
   Session,
+  SessionId,
+  Staff,
   Joined,
   Today,
 } from "./schemas.js";
@@ -53,6 +65,27 @@ export interface ApiClient {
   createPatient(input: NewPatient, options?: RequestOptions): Promise<ApiResult<Patient>>;
   /** Clinic host (draft, fake only): needs `appointments.read`. */
   getToday(options?: RequestOptions): Promise<ApiResult<Today>>;
+  /** Clinic host: edits a patient's details. Needs `patients.write`, and `patients.contact` to change phone or email. */
+  updatePatient(id: PatientId, changes: PatientChanges, options?: RequestOptions): Promise<ApiResult<Patient>>;
+
+  /** Clinic host: members, their roles and status, and pending invitations. Needs `staff.manage`. */
+  listStaff(options?: RequestOptions): Promise<ApiResult<Staff>>;
+  /** Clinic host: invites someone by email. Needs `staff.manage`; only an owner may invite an owner. */
+  inviteStaff(input: NewInvitation, options?: RequestOptions): Promise<ApiResult<CreatedInvitation>>;
+  /** Clinic host: changes a member's role or status. Needs `staff.manage`. */
+  changeStaffMember(membershipId: MembershipId, changes: MemberChanges, options?: RequestOptions): Promise<ApiResult<Member>>;
+  /** Clinic host: the clinic's roles and what each may do, for choosing a role. Needs `staff.manage`. */
+  listRoles(options?: RequestOptions): Promise<ApiResult<Roles>>;
+
+  /** Clinic host: the clinic's profile, GSTIN, address, phone, UPI ID and branding. Needs `settings.manage`. */
+  getClinicSettings(options?: RequestOptions): Promise<ApiResult<ClinicSettings>>;
+  /** Clinic host: changes the clinic's settings. Needs `settings.manage`. */
+  updateClinicSettings(changes: ClinicSettingsChanges, options?: RequestOptions): Promise<ApiResult<ClinicSettings>>;
+
+  /** Any host: where the signed-in person is signed in. */
+  listMySessions(options?: RequestOptions): Promise<ApiResult<MySessions>>;
+  /** Any host: signs one of the person's own sessions out. */
+  revokeMySession(id: SessionId, options?: RequestOptions): Promise<ApiResult<void>>;
 
   /** Console host. */
   listClinics(options?: RequestOptions): Promise<ApiResult<ConsoleClinicPage>>;

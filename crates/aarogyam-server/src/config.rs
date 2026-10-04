@@ -71,7 +71,8 @@ impl Config {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct HttpSettings {
-    /// Address to listen on (`ARO_HTTP__BIND`). Default `0.0.0.0:8080`, which Cloud Run expects.
+    /// Address to listen on (`ARO_HTTP__BIND`). Default `0.0.0.0:$PORT` (`8080` if `PORT` is
+    /// unset), since Cloud Run assigns the port through that variable rather than `ARO_*`.
     pub bind: SocketAddr,
     /// Longest a request may run before the client gets a 503, in seconds
     /// (`ARO_HTTP__REQUEST_TIMEOUT_SECS`). Default 30.
@@ -97,8 +98,12 @@ impl HttpSettings {
 
 impl Default for HttpSettings {
     fn default() -> Self {
+        let port = std::env::var("PORT")
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(8080);
         Self {
-            bind: SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8080)),
+            bind: SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)),
             request_timeout_secs: 30,
             body_limit_bytes: 1024 * 1024,
             edge_secret: None,
@@ -203,8 +208,10 @@ pub struct SupabaseSettings {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HostSettings {
-    /// Clinic portals are `<slug>.<portal_domain>` (`ARO_HOSTS__PORTAL_DOMAIN`).
-    pub portal_domain: String,
+    /// Builds a clinic's portal host from its slug: `{slug}` is replaced with the slug
+    /// (`ARO_HOSTS__PORTAL_HOST_TEMPLATE`), such as `{slug}.localtest.me` or, for a single flat
+    /// staging host with no wildcard domain yet, a literal host with no `{slug}` in it at all.
+    pub portal_host_template: String,
     /// The Sakalya console host (`ARO_HOSTS__CONSOLE`).
     pub console: String,
     /// The neutral host for the phone apps (`ARO_HOSTS__APP`).

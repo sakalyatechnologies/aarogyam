@@ -1,0 +1,92 @@
+# Cloud Run service for the aarogyam API, staging. Apply with:
+#   gcloud run services replace deploy/cloud-run/aarogyam-api.yaml --region asia-south1 \
+#     --project sakalya-clinic-staging
+# cloudbuild.yaml substitutes the real image digest and Supabase project ref before applying
+# this file (see the `envsubst`-style step there); don't `gcloud run deploy` a `:latest` tag.
+#
+# min 0 / max 2 instances, CPU allocated only while handling requests, 512 MiB, concurrency 40,
+# its own runtime service account (not the default compute account), a startup probe on
+# /healthz. Secrets come from Secret Manager; nothing secret is a plain env var here.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: aarogyam-api
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "2"
+        # CPU only during requests (the default); never "always allocated" (that bills idle time).
+        run.googleapis.com/cpu-throttling: "true"
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      serviceAccountName: aarogyam-api-run@sakalya-clinic-staging.iam.gserviceaccount.com
+      containerConcurrency: 40
+      timeoutSeconds: 30
+      containers:
+        - image: asia-south1-docker.pkg.dev/sakalya-clinic-staging/services/aarogyam-api@sha256:REPLACE_WITH_DIGEST
+          ports:
+            - name: http1
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 15
+          env:
+            - name: ARO_ENVIRONMENT
+              value: staging
+            - name: ARO_AUTH__MODE
+              value: supabase
+            - name: ARO_AUTH__ISSUER
+              value: https://REPLACE_WITH_SUPABASE_PROJECT_REF.supabase.co/auth/v1
+            - name: ARO_AUTH__AUDIENCE
+              value: authenticated
+            - name: ARO_AUTH__JWKS_URL
+              value: https://REPLACE_WITH_SUPABASE_PROJECT_REF.supabase.co/auth/v1/.well-known/jwks.json
+            # Single staging host for everything, until a wildcard domain exists (see
+            # docs/architecture.md "Environments"). Matches the Worker's EDGE_SECRET and the
+            # org_domains row created in docs/deploy.md.
+            - name: ARO_HOSTS__PORTAL_HOST_TEMPLATE
+              value: aarogyam-portal.aarogyam.workers.dev
+            - name: ARO_HOSTS__APP
+              value: aarogyam-portal.aarogyam.workers.dev
+            - name: ARO_HOSTS__CONSOLE
+              value: aarogyam-console.aarogyam.workers.dev
+            # Patient files stay on local disk until object storage is set up (tracked in
+            # docs/handoff.md); /tmp is the only writable path in the distroless image and does
+            # not persist across instances or restarts. No patient files are expected in staging
+            # smoke tests yet.
+            - name: ARO_FILES__DIR
+              value: /tmp/attachments
+            - name: ARO_TELEMETRY__FORMAT
+              value: cloud-logging
+            - name: ARO_TELEMETRY__FILTER
+              value: info,aarogyam=debug
+            - name: ARO_DB__URL
+              valueFrom:
+                secretKeyRef:
+                  name: aarogyam-db-url
+                  key: latest
+            - name: ARO_HTTP__EDGE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: aarogyam-edge-secret
+                  key: latest
+            # Required outside `local` (main.rs refuses to start without it, same as the edge
+            # secret) even though it wasn't in the original secret list, so it's a fourth
+            # Secret Manager entry alongside the three named in docs/deploy.md.
+            - name: ARO_FILES__SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aarogyam-files-signing-key
+                  key: latest

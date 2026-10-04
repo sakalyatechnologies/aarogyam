@@ -82,7 +82,7 @@ async fn deployed_servers_have_no_development_sign_in() {
     ))
     .unwrap();
     let hosts = Hosts {
-        portal_domain: "aarogyam.example".into(),
+        portal_host_template: "{slug}.aarogyam.example".into(),
         console: "console.aarogyam.example".into(),
         app: "app.aarogyam.example".into(),
     };

@@ -173,7 +173,7 @@ pub async fn approve(
     accounts: Option<&dyn SignInAccounts>,
     id: Uuid,
     slug: Option<&str>,
-    portal_domain: &str,
+    portal_host_template: &str,
     now: OffsetDateTime,
 ) -> Result<ApprovedClinic, AppError> {
     let application = dal::list(db.pool(), Some(ApplicationStatus::Pending.as_str()))
@@ -193,7 +193,7 @@ pub async fn approve(
         }
         None => false,
     };
-    let portal_host = format!("{}.{portal_domain}", slug.as_str());
+    let portal_host = portal_host_template.replace("{slug}", slug.as_str());
     let (token, token_hash) = crate::tokens::new_token()?;
     let expires_at = now + INVITE_VALID_FOR;
     let payload = json!({

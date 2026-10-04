@@ -106,7 +106,7 @@ pub fn dev_tokens() -> DevTokens {
 
 fn hosts() -> Hosts {
     Hosts {
-        portal_domain: "localtest.me".into(),
+        portal_host_template: "{slug}.localtest.me".into(),
         console: CONSOLE.into(),
         app: "app.localtest.me".into(),
     }

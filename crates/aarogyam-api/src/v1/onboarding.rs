@@ -197,7 +197,7 @@ pub(crate) async fn approve(
         state.accounts(),
         id,
         body.slug.as_deref(),
-        &state.hosts().portal_domain,
+        &state.hosts().portal_host_template,
         OffsetDateTime::now_utc(),
     )
     .await?;

@@ -10,6 +10,7 @@ use sqlx::migrate::Migrator;
 
 pub mod clinic;
 pub mod console;
+pub mod invitations;
 pub mod lookups;
 pub mod patients;
 use sqlx::{Executor as _, PgPool};

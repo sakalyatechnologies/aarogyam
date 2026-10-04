@@ -149,6 +149,50 @@
         }
       }
     },
+    "/api/v1/invitations/accept": {
+      "post": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Accepts an invitation. The person must have signed in with the email address it was sent\nto; each invitation works once and expires after seven days.",
+        "operationId": "accept",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInvitation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Joined"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Unknown, used or expired invitation"
+          },
+          "409": {
+            "description": "The invitation is for another email address"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me": {
       "get": {
         "tags": [
@@ -398,6 +442,26 @@
   },
   "components": {
     "schemas": {
+      "AcceptInvitation": {
+        "type": "object",
+        "description": "An invitation to accept.",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name to show colleagues, when signing in for the first time."
+          },
+          "token": {
+            "type": "string",
+            "description": "The secret from the invitation link."
+          }
+        }
+      },
       "ConsoleClinic": {
         "type": "object",
         "description": "A clinic, with counts only.",
@@ -519,6 +583,13 @@
           "auth_uid": {
             "type": "string",
             "description": "The person's Supabase Auth id (`users.auth_uid`), from the local seed."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A verified email to put in the token, for accepting invitations."
           }
         }
       },
@@ -538,6 +609,24 @@
             "type": "integer",
             "format": "int64",
             "description": "Seconds until it expires."
+          }
+        }
+      },
+      "Joined": {
+        "type": "object",
+        "description": "The clinic just joined.",
+        "required": [
+          "org_id",
+          "membership_id"
+        ],
+        "properties": {
+          "membership_id": {
+            "type": "string",
+            "description": "The new membership."
+          },
+          "org_id": {
+            "type": "string",
+            "description": "The clinic."
           }
         }
       },

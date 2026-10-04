@@ -3,11 +3,6 @@
 use aarogyam_dal::console as dal;
 use aarogyam_dal::lookups::PlatformAccess;
 use aarogyam_domain::patient::{Email, NumberPrefix};
-use std::fmt::Write as _;
-
-use aws_lc_rs::{digest, rand};
-use base64::Engine as _;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use sakalya_db::Db;
 use sakalya_types::Slug;
 use time::{Duration, OffsetDateTime};
@@ -78,22 +73,6 @@ fn number_prefix(name: &str) -> String {
     }
 }
 
-fn invite_token() -> Result<(String, String), AppError> {
-    let mut bytes = [0_u8; 32];
-    rand::fill(&mut bytes).map_err(|_| AppError::Internal("random number generator failed"))?;
-    let token = URL_SAFE_NO_PAD.encode(bytes);
-    let hash = digest::digest(&digest::SHA256, token.as_bytes());
-    let hex = hash
-        .as_ref()
-        .iter()
-        .fold(String::with_capacity(64), |mut hex, byte| {
-            // Writing to a String can't fail.
-            let _ = write!(hex, "{byte:02x}");
-            hex
-        });
-    Ok((token, hex))
-}
-
 /// Creates a clinic on `<slug>.<portal_domain>` with an owner invitation.
 ///
 /// # Errors
@@ -130,7 +109,7 @@ pub async fn create_clinic(
         .map_err(|error| AppError::invalid("owner_email", error))?;
     let prefix = NumberPrefix::parse(&number_prefix(&name)).map_err(AppError::patient)?;
     let portal_host = format!("{}.{portal_domain}", slug.as_str());
-    let (token, token_hash) = invite_token()?;
+    let (token, token_hash) = crate::tokens::new_token()?;
     let expires_at = now + INVITE_VALID_FOR;
     let created = dal::create_clinic(
         db.pool(),
@@ -170,15 +149,5 @@ mod tests {
         assert_eq!(number_prefix("Sunrise Dental"), "SD");
         assert_eq!(number_prefix("lotus dental care clinic"), "LDC");
         assert_eq!(number_prefix("123 456"), "CL");
-    }
-
-    #[test]
-    fn invite_tokens_are_random_and_hashed() {
-        let (first, first_hash) = invite_token().unwrap();
-        let (second, _) = invite_token().unwrap();
-        assert_ne!(first, second);
-        assert_eq!(first.len(), 43);
-        assert_eq!(first_hash.len(), 64);
-        assert!(first_hash.bytes().all(|b| b.is_ascii_hexdigit()));
     }
 }

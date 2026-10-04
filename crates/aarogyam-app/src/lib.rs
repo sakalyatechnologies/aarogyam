@@ -8,6 +8,8 @@
 pub mod clock;
 pub mod console;
 pub mod error;
+pub mod invitations;
 pub mod patients;
+pub mod tokens;
 
 pub use error::AppError;

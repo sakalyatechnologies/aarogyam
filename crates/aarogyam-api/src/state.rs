@@ -146,7 +146,11 @@ impl AppState {
             return Ok(found);
         }
         let found = lookups::resolve_host(self.inner.db.pool(), host).await?;
-        self.inner.host_cache.insert(host.into(), found.clone());
+        // Only answers that grant something are cached: a clinic created a moment ago must be
+        // reachable at once. Floods of unknown hosts are the throttle's job.
+        if found.is_some() {
+            self.inner.host_cache.insert(host.into(), found.clone());
+        }
         Ok(found)
     }
 
@@ -172,7 +176,10 @@ impl AppState {
             expires_at,
         )
         .await?;
-        self.inner.grant_cache.insert(key, found.clone());
+        // Only memberships are cached, so someone who just accepted an invitation gets in at once.
+        if found.is_some() {
+            self.inner.grant_cache.insert(key, found.clone());
+        }
         Ok(found)
     }
 }

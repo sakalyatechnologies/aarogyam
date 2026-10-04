@@ -330,7 +330,12 @@ async fn every_route_requires_sign_in_and_a_permission() {
                 StatusCode::UNAUTHORIZED,
                 "{method} {path} without a token"
             );
-            let clinic_route = host == ALPHA && path != "/api/v1/me" && path != "/api/v1/session";
+            let signed_in_only = [
+                "/api/v1/me",
+                "/api/v1/session",
+                "/api/v1/invitations/accept",
+            ];
+            let clinic_route = host == ALPHA && !signed_in_only.contains(&path.as_str());
             if clinic_route {
                 let (status, _) = app
                     .send(method.clone(), host, &concrete, Some(&nothing), body)
@@ -345,5 +350,80 @@ async fn every_route_requires_sign_in_and_a_permission() {
         }
     }
     assert!(checked >= 7, "only {checked} routes checked");
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn an_invited_owner_joins_with_the_verified_email() {
+    let app = TestApp::start().await;
+    let staff = app.token(STAFF);
+    let (status, created) = app
+        .send(
+            Method::POST,
+            CONSOLE,
+            "/api/v1/console/clinics",
+            Some(&staff),
+            Some(json!({ "name": "Gamma Dental", "owner_email": "Owner@Gamma.test" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    let invite = json!({ "token": created["invite_token"], "display_name": "Gita Owner" });
+    let host = created["portal_host"].as_str().unwrap().to_owned();
+
+    // Someone else, signed in with another address, can't use it.
+    let intruder = app
+        .tokens
+        .mint_with_email(uuid::Uuid::now_v7(), Some("intruder@example.test"))
+        .unwrap();
+    let (status, _) = app
+        .send(
+            Method::POST,
+            "app.localtest.me",
+            "/api/v1/invitations/accept",
+            Some(&intruder),
+            Some(invite.clone()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+
+    // The owner, signed in with the invited address, joins and can use the clinic.
+    let owner = app
+        .tokens
+        .mint_with_email(uuid::Uuid::now_v7(), Some("owner@gamma.test"))
+        .unwrap();
+    let (status, _) = app
+        .send(Method::GET, &host, "/api/v1/session", Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, joined) = app
+        .send(
+            Method::POST,
+            "app.localtest.me",
+            "/api/v1/invitations/accept",
+            Some(&owner),
+            Some(invite.clone()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{joined}");
+    assert_eq!(joined["org_id"], created["id"]);
+    let (status, session) = app
+        .send(Method::GET, &host, "/api/v1/session", Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(session["membership"]["role_key"], "owner");
+    assert_eq!(session["user"]["display_name"], "Gita Owner");
+
+    // An invitation works once.
+    let (status, _) = app
+        .send(
+            Method::POST,
+            "app.localtest.me",
+            "/api/v1/invitations/accept",
+            Some(&owner),
+            Some(invite),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
     app.finish().await;
 }

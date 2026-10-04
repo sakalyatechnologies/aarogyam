@@ -3,6 +3,7 @@
 //! (Sakalya staff on the console host) or [`crate::extract::SignedIn`] (anyone signed in).
 
 pub(crate) mod console;
+pub(crate) mod invitations;
 pub(crate) mod me;
 pub(crate) mod patients;
 
@@ -18,6 +19,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
     let router = Router::new()
         .route("/me", get(me::me))
         .route("/session", get(me::session))
+        .route("/invitations/accept", post(invitations::accept))
         .route("/patients", get(patients::recent).post(patients::register))
         .route("/patients/search", post(patients::search))
         .route("/patients/{id}", get(patients::open))

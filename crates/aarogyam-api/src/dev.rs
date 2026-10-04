@@ -57,6 +57,15 @@ impl DevTokens {
     /// # Errors
     /// [`ApiError`] (internal) if signing fails.
     pub fn mint(&self, auth_uid: Uuid) -> Result<String, ApiError> {
+        self.mint_with_email(auth_uid, None)
+    }
+
+    /// A signed token for `auth_uid` that also carries a verified `email` claim, as Supabase's
+    /// do after an email code.
+    ///
+    /// # Errors
+    /// [`ApiError`] (internal) if signing fails.
+    pub fn mint_with_email(&self, auth_uid: Uuid, email: Option<&str>) -> Result<String, ApiError> {
         let now = OffsetDateTime::now_utc().unix_timestamp();
         let claims = DevClaims {
             iss: &self.issuer,
@@ -68,6 +77,7 @@ impl DevTokens {
             aal: "aal1",
             session_id: Uuid::now_v7(),
             is_anonymous: false,
+            email,
         };
         let key = EncodingKey::from_secret(self.secret.expose_secret().as_bytes());
         jsonwebtoken::encode(&Header::new(Algorithm::HS256), &claims, &key)
@@ -86,6 +96,8 @@ struct DevClaims<'a> {
     aal: &'a str,
     session_id: Uuid,
     is_anonymous: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    email: Option<&'a str>,
 }
 
 /// Who to sign in as.
@@ -94,6 +106,8 @@ pub struct DevTokenRequest {
     /// The person's Supabase Auth id (`users.auth_uid`), from the local seed.
     #[schema(value_type = String)]
     pub auth_uid: Uuid,
+    /// A verified email to put in the token, for accepting invitations.
+    pub email: Option<String>,
 }
 
 /// A development token.
@@ -121,7 +135,7 @@ pub(crate) async fn token(
         .dev_tokens()
         .ok_or_else(|| ApiError::not_found("not_found", "Not found."))?;
     Ok(Json(DevTokenResponse {
-        access_token: dev.mint(request.auth_uid)?,
+        access_token: dev.mint_with_email(request.auth_uid, request.email.as_deref())?,
         expires_in: TOKEN_SECONDS,
     }))
 }

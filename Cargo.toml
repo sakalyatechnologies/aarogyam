@@ -24,6 +24,8 @@ aarogyam-api = { path = "crates/aarogyam-api" }
 # Third party: the versions and features sakalya-backend pins, so both resolve to one copy.
 serde_json = { version = "1.0.151", default-features = false, features = ["std"] }
 uuid = { version = "1.26.1", default-features = false, features = ["std", "v7", "serde"] }
+aws-lc-rs = { version = "1.18.1", default-features = false, features = ["aws-lc-sys"] }
+base64 = { version = "0.22.1", default-features = false, features = ["alloc"] }
 serde = { version = "1.0.229", default-features = false, features = ["std", "derive"] }
 time = { version = "0.3.55", default-features = false, features = ["std", "macros", "serde", "formatting", "parsing"] }
 thiserror = { version = "2.0.21", default-features = false, features = ["std"] }

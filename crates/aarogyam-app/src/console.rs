@@ -1,0 +1,184 @@
+//! Sakalya's console: listing and creating clinics. The console never sees patient records.
+
+use aarogyam_dal::console as dal;
+use aarogyam_dal::lookups::PlatformAccess;
+use aarogyam_domain::patient::{Email, NumberPrefix};
+use std::fmt::Write as _;
+
+use aws_lc_rs::{digest, rand};
+use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use sakalya_db::Db;
+use sakalya_types::Slug;
+use time::{Duration, OffsetDateTime};
+use uuid::Uuid;
+
+use crate::error::AppError;
+
+/// How long an owner's invitation stays valid.
+pub const INVITE_VALID_FOR: Duration = Duration::days(7);
+
+/// Subdomains the platform keeps for itself (mirrors the check in the database).
+const RESERVED: [&str; 18] = [
+    "www", "api", "app", "console", "admin", "auth", "login", "mail", "status", "docs", "help",
+    "support", "static", "assets", "cdn", "staging", "dev", "test",
+];
+
+/// Every clinic with counts, newest first.
+///
+/// # Errors
+/// [`AppError::Db`] on database failures.
+pub async fn clinics(db: &Db) -> Result<Vec<dal::ConsoleClinic>, AppError> {
+    Ok(dal::clinics(db.pool()).await?)
+}
+
+/// Input for creating a clinic, as received.
+#[derive(Debug, Clone)]
+pub struct CreateClinic {
+    /// The clinic's name.
+    pub name: String,
+    /// The subdomain; derived from the name when absent.
+    pub slug: Option<String>,
+    /// `dental` or `general`.
+    pub specialty: String,
+    /// The owner's email; they receive the invitation.
+    pub owner_email: String,
+}
+
+/// A clinic just created, with the owner's one-time invitation token. The token is shown once
+/// (and later emailed); only its SHA-256 is stored.
+#[derive(Debug, Clone)]
+pub struct CreatedClinic {
+    /// The clinic.
+    pub id: Uuid,
+    /// Its subdomain.
+    pub slug: String,
+    /// Its portal host name.
+    pub portal_host: String,
+    /// The invitation.
+    pub invitation_id: Uuid,
+    /// The secret for the invitation link.
+    pub invite_token: String,
+    /// When the invitation expires.
+    pub invite_expires_at: OffsetDateTime,
+}
+
+/// Initials of the first three words, such as `SD` for "Sunrise Dental"; `CL` if none.
+fn number_prefix(name: &str) -> String {
+    let prefix: String = name
+        .split_whitespace()
+        .filter_map(|word| word.chars().find(char::is_ascii_alphabetic))
+        .take(3)
+        .map(|c| c.to_ascii_uppercase())
+        .collect();
+    if prefix.is_empty() {
+        "CL".to_owned()
+    } else {
+        prefix
+    }
+}
+
+fn invite_token() -> Result<(String, String), AppError> {
+    let mut bytes = [0_u8; 32];
+    rand::fill(&mut bytes).map_err(|_| AppError::Internal("random number generator failed"))?;
+    let token = URL_SAFE_NO_PAD.encode(bytes);
+    let hash = digest::digest(&digest::SHA256, token.as_bytes());
+    let hex = hash
+        .as_ref()
+        .iter()
+        .fold(String::with_capacity(64), |mut hex, byte| {
+            // Writing to a String can't fail.
+            let _ = write!(hex, "{byte:02x}");
+            hex
+        });
+    Ok((token, hex))
+}
+
+/// Creates a clinic on `<slug>.<portal_domain>` with an owner invitation.
+///
+/// # Errors
+/// [`AppError::Denied`]-style refusal is the caller's job (platform role); this returns
+/// [`AppError::Invalid`] for bad input, [`AppError::Conflict`] for a taken subdomain, and
+/// [`AppError::Db`] on database failures.
+pub async fn create_clinic(
+    db: &Db,
+    staff: &PlatformAccess,
+    input: CreateClinic,
+    portal_domain: &str,
+    now: OffsetDateTime,
+) -> Result<CreatedClinic, AppError> {
+    let name = input.name.split_whitespace().collect::<Vec<_>>().join(" ");
+    if name.is_empty() || name.chars().count() > 200 {
+        return Err(AppError::invalid("name", "must be 1 to 200 characters"));
+    }
+    let slug = match input
+        .slug
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        Some(text) => Slug::parse(text).map_err(|error| AppError::invalid("slug", error))?,
+        None => Slug::from_name(&name).map_err(|error| AppError::invalid("slug", error))?,
+    };
+    if RESERVED.contains(&slug.as_str()) {
+        return Err(AppError::invalid("slug", "is reserved"));
+    }
+    if !matches!(input.specialty.as_str(), "dental" | "general") {
+        return Err(AppError::invalid("specialty", "must be dental or general"));
+    }
+    let owner_email = Email::parse(&input.owner_email)
+        .map_err(|error| AppError::invalid("owner_email", error))?;
+    let prefix = NumberPrefix::parse(&number_prefix(&name)).map_err(AppError::patient)?;
+    let portal_host = format!("{}.{portal_domain}", slug.as_str());
+    let (token, token_hash) = invite_token()?;
+    let expires_at = now + INVITE_VALID_FOR;
+    let created = dal::create_clinic(
+        db.pool(),
+        &dal::NewClinic {
+            slug: slug.as_str(),
+            name: &name,
+            number_prefix: prefix.as_str(),
+            specialty: &input.specialty,
+            portal_host: &portal_host,
+            owner_email: owner_email.as_str(),
+            invite_token_hash: &token_hash,
+            invite_expires_at: expires_at,
+            created_by: staff.user_id.uuid(),
+        },
+    )
+    .await
+    .map_err(|error| match error.kind() {
+        sakalya_db::DbErrorKind::Conflict => AppError::Conflict("that subdomain is taken"),
+        _ => AppError::Db(error),
+    })?;
+    Ok(CreatedClinic {
+        id: created.org_id,
+        slug: slug.as_str().to_owned(),
+        portal_host,
+        invitation_id: created.invitation_id,
+        invite_token: token,
+        invite_expires_at: expires_at,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prefixes_come_from_initials() {
+        assert_eq!(number_prefix("Sunrise Dental"), "SD");
+        assert_eq!(number_prefix("lotus dental care clinic"), "LDC");
+        assert_eq!(number_prefix("123 456"), "CL");
+    }
+
+    #[test]
+    fn invite_tokens_are_random_and_hashed() {
+        let (first, first_hash) = invite_token().unwrap();
+        let (second, _) = invite_token().unwrap();
+        assert_ne!(first, second);
+        assert_eq!(first.len(), 43);
+        assert_eq!(first_hash.len(), 64);
+        assert!(first_hash.bytes().all(|b| b.is_ascii_hexdigit()));
+    }
+}

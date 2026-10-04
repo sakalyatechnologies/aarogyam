@@ -18,6 +18,17 @@ dependencies = [
 [[package]]
 name = "aarogyam-app"
 version = "0.1.0"
+dependencies = [
+ "aarogyam-dal",
+ "aarogyam-domain",
+ "aws-lc-rs",
+ "base64",
+ "sakalya-db",
+ "sakalya-types",
+ "thiserror",
+ "time",
+ "uuid",
+]
 
 [[package]]
 name = "aarogyam-dal"
@@ -1402,6 +1413,7 @@ dependencies = [
  "serde",
  "sqlx",
  "thiserror",
+ "tracing",
  "uuid",
 ]
 
@@ -1411,6 +1423,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "http",
+ "secrecy",
  "serde",
  "serde_json",
  "thiserror",
@@ -2077,7 +2090,6 @@ dependencies = [
  "http-body",
  "http-body-util",
  "pin-project-lite",
- "tokio",
  "tower",
  "tower-layer",
  "tower-service",

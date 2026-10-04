@@ -273,3 +273,23 @@ pub async fn record_access(
     .await?;
     Ok(())
 }
+
+/// The most recently registered patients in the current clinic, newest first.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn recent(conn: &mut PgConnection, limit: i64) -> Result<Vec<PatientRow>, DbError> {
+    let rows = sqlx::query_as!(
+        PatientRow,
+        r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
+                  preferred_language, status, created_at, last_visit_at
+           from aarogyam.patients
+           where deleted_at is null
+           order by created_at desc
+           limit $1"#,
+        limit
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}

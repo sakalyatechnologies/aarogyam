@@ -21,7 +21,11 @@ fn state() -> AppState {
 }
 
 async fn get(path: &str) -> Response {
-    let request = Request::get(path).body(Body::empty()).unwrap();
+    // The edge layer reads the host the client addressed; locally that is the Host header.
+    let request = Request::get(path)
+        .header("host", "localhost")
+        .body(Body::empty())
+        .unwrap();
     router(state()).oneshot(request).await.unwrap()
 }
 

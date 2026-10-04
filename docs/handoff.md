@@ -2,7 +2,28 @@
 
 Where the work stands and exactly what to do next. Update this file at the end of every working session. Read it, `delivery-plan.md` and `decisions.md` before starting.
 
-## Status at 3 Oct 2026, evening
+## Status at 4 Oct 2026, 13:30 PDT (read this first)
+
+**Built and on `main` (not pushed):** M2–M5 backend (front desk, visits, prescriptions, billing), onboarding (registration → console approval → owner invitation email), portal screens for Today, patients, calendar and booking, queue, visit and dental chart, billing and collections, prescriptions with print, QR and PIN share; landing page and registration; console Applications, Clinic detail and Invite. Operator commands `aarogyam admin grant-platform | add-member` and `aarogyam outbox drain [--every N]`. The pre-commit hook runs the Rust gate and, for web changes, `pnpm check`.
+
+**Demo (running on the founder's Mac; synthetic data only):**
+- Database: Supabase (all migrations, seeded with Sunrise and Lotus). Local development keeps its own `aarogyam_dev`.
+- `scripts/demo-api.sh` runs the API on 127.0.0.1:8095 plus the outbox sender (Resend, `noreply@aarogyam.sakalyatechnologies.com`, domain verified). `cloudflared` quick tunnel → `scratchpad/tunnel-url.txt`.
+- Workers: `aarogyam-portal` (landing, sign-in, register; the API's app host), `aarogyam-console`, and one portal Worker per clinic, `<slug>-aarogyam.spring-snow-130f.workers.dev`, deployed with `scripts/deploy-workers.sh <api-origin> <slug>-aarogyam` from a clean worktree (`../wt-release`).
+- The founder signs in by email code; platform owner and Sunrise owner.
+
+**Paused, to resume when Claude has budget:**
+| Work | Where | State |
+|---|---|---|
+| Quality dashboard + Playwright golden journey | `../wt-quality`, `feat/quality` | endpoint committed; E2E and console page unfinished |
+| Move generic code to `sakalya-backend` v0.3 | `../wt-refactor`, `../wt-sb-refactor` (if created) | just started; see delivery-plan "Queued" |
+| Inventory (M6, migrations 0060–0069) | `../wt-inventory`, `feat/m6-inventory` | nothing written yet |
+
+**Decision waiting on the founder:** a product domain on Cloudflare (wildcard `*.<domain>` → one portal Worker) so approved clinics work instantly, replacing the per-clinic Worker deploy.
+
+**Fallback models:** `docs/fallback-agent.md` (rules) and `docs/fallback-tasks.md` (queue). Claude reviews `fallback/*` branches and merges.
+
+## Status at 3 Oct 2026, evening (history)
 
 The walking skeleton runs end to end locally: Postgres (migrated as a Supabase-shaped owner, row-level security on every table) → Rust API (sign-in, clinic session, patients, Sakalya console with live service metrics) → the clinic portal and console web apps. Everything below is committed and pushed to `main` in all three repositories; no worktrees are left.
 

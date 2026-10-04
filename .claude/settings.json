@@ -4,9 +4,31 @@
       {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
-          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-rust.sh" }
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-rust.sh"
+          }
         ]
       }
+    ]
+  },
+  "permissions": {
+    "deny": [
+      "Read(**/.env)",
+      "Edit(**/.env)",
+      "Write(**/.env)",
+      "Read(**/.env.supabase)",
+      "Edit(**/.env.supabase)",
+      "Write(**/.env.supabase)",
+      "Read(**/.env.supabase.bak)",
+      "Edit(**/.env.supabase.bak)",
+      "Write(**/.env.supabase.bak)",
+      "Read(**/.env.cloudflare)",
+      "Edit(**/.env.cloudflare)",
+      "Write(**/.env.cloudflare)",
+      "Read(**/.env.edge)",
+      "Edit(**/.env.edge)",
+      "Write(**/.env.edge)"
     ]
   }
 }

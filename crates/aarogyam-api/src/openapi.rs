@@ -39,6 +39,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::console::create_clinic,
         crate::v1::console::metrics,
         crate::dev::token,
+        crate::v1::internal::drain_outbox,
     ),
     modifiers(&BearerAuth),
     tags(
@@ -47,7 +48,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         (name = "patients", description = "A clinic's patients; clinic host only"),
         (name = "settings", description = "A clinic's own settings; clinic host only"),
         (name = "console", description = "Sakalya's console; console host only, staff only"),
-        (name = "development", description = "Local development only; absent in deployed servers")
+        (name = "development", description = "Local development only; absent in deployed servers"),
+        (name = "internal", description = "Scheduled jobs; local only until Cloud Scheduler's signed calls are checked")
     )
 )]
 struct ApiDoc;

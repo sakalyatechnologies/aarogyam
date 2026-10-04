@@ -35,6 +35,9 @@ pub struct Config {
     /// Log format and filter (`ARO_TELEMETRY__FORMAT`, `ARO_TELEMETRY__FILTER`).
     #[serde(default)]
     pub telemetry: TelemetryConfig,
+    /// Outgoing email (`ARO_EMAIL__*`).
+    #[serde(default)]
+    pub email: EmailSettings,
 }
 
 impl Config {
@@ -135,4 +138,28 @@ pub struct HostSettings {
     pub console: String,
     /// The neutral host for the phone apps (`ARO_HOSTS__APP`).
     pub app: String,
+}
+
+/// Outgoing email, sent from the outbox.
+#[derive(Debug, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct EmailSettings {
+    /// Resend API key (`ARO_EMAIL__RESEND_API_KEY`). Without it, email is recorded as
+    /// delivered and logged by id only, which is what local development wants.
+    pub resend_api_key: Option<SecretString>,
+    /// Sender address on a domain verified with Resend (`ARO_EMAIL__FROM`).
+    pub from: String,
+    /// Where links in messages point, with `{host}` for the clinic's portal host
+    /// (`ARO_EMAIL__PORTAL_LINK`). Default `https://{host}`; locally `http://{host}:5173`.
+    pub portal_link: String,
+}
+
+impl Default for EmailSettings {
+    fn default() -> Self {
+        Self {
+            resend_api_key: None,
+            from: "Aarogyam <no-reply@aarogyam.example>".to_owned(),
+            portal_link: "https://{host}".to_owned(),
+        }
+    }
 }

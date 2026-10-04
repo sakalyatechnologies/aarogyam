@@ -8,6 +8,7 @@
 mod support;
 
 use axum::http::{Method, StatusCode};
+use sakalya_db::{DbError, DbErrorKind, Scope};
 use serde_json::json;
 use support::people::*;
 use support::{ALPHA, BETA, TestApp};
@@ -260,5 +261,156 @@ async fn people_see_and_revoke_only_their_own_sessions() {
         actor,
         Some(uuid::uuid!("01900000-0000-7000-8000-0000000000a1"))
     );
+    app.finish().await;
+}
+
+/// Event key, status, provider, secret, last error and attempts.
+type OutboxRow = (
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    i32,
+);
+
+const QUEUE_TWO: &str = r"
+insert into aarogyam.outbox_events (org_id, event_key, channel, recipient, payload, secret)
+select o.id, k.event_key, 'email', 'new.doctor@alpha.test',
+       jsonb_build_object('clinic_name', o.name, 'role_name', 'Doctor',
+                          'portal_host', 'alpha.localtest.me', 'expires_on', '10 October 2026'),
+       'one-time-token'
+from aarogyam.organizations o, (values ('staff.invited'), ('staff.poked')) as k(event_key)
+where o.slug = 'alpha';
+";
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_outbox_drain_delivers_to_the_log_and_abandons_broken_messages() {
+    let app = TestApp::start().await;
+    sqlx::raw_sql(QUEUE_TWO).execute(&app.owner).await.unwrap();
+    let drain = "/api/v1/internal/outbox/drain";
+    let (status, report) = app.send(Method::POST, "localhost", drain, None, None).await;
+    assert_eq!(status, StatusCode::OK, "{report}");
+    assert_eq!(
+        report,
+        json!({ "email_provider": "log", "claimed": 2, "sent": 1, "retrying": 0, "failed": 1, "purged": 0 })
+    );
+    let rows: Vec<OutboxRow> = sqlx::query_as(
+        "select event_key, status, provider, secret, last_error, attempts
+             from aarogyam.outbox_events order by event_key",
+    )
+    .fetch_all(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(
+        rows,
+        [
+            (
+                "staff.invited".into(),
+                "sent".into(),
+                Some("log".into()),
+                None,
+                None,
+                1
+            ),
+            (
+                "staff.poked".into(),
+                "failed".into(),
+                None,
+                None,
+                Some("unknown message kind".into()),
+                1
+            ),
+        ]
+    );
+    // Nothing is due any more.
+    let (_, report) = app.send(Method::POST, "localhost", drain, None, None).await;
+    assert_eq!(report["claimed"], 0);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn claimed_messages_are_leased_retried_and_never_claimed_twice() {
+    let app = TestApp::start().await;
+    sqlx::raw_sql(QUEUE_TWO).execute(&app.owner).await.unwrap();
+    let claim = "select id, attempts from app.outbox_claim(1, 300)";
+
+    // A worker holding a row locks it; another worker skips it and takes the next one.
+    let mut first = app.owner.begin().await.unwrap();
+    let (held, attempts): (uuid::Uuid, i32) =
+        sqlx::query_as(claim).fetch_one(&mut *first).await.unwrap();
+    assert_eq!(attempts, 1);
+    let (other, _): (uuid::Uuid, i32) = sqlx::query_as(claim).fetch_one(&app.owner).await.unwrap();
+    assert_ne!(held, other);
+    first.commit().await.unwrap();
+    // Both are leased: nothing is due until the lease ends or a retry is scheduled.
+    let none: Vec<(uuid::Uuid, i32)> = sqlx::query_as(claim).fetch_all(&app.owner).await.unwrap();
+    assert_eq!(none.len(), 0);
+    sqlx::query(
+        "select app.outbox_failed(org_id, id, 'resend answered 503', now() - interval '1 second')
+         from aarogyam.outbox_events where id = $1",
+    )
+    .bind(held)
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    let (again, attempts): (uuid::Uuid, i32) =
+        sqlx::query_as(claim).fetch_one(&app.owner).await.unwrap();
+    assert_eq!((again, attempts), (held, 2));
+    // Giving up clears the secret and settles the row.
+    sqlx::query(
+        "select app.outbox_failed(org_id, id, 'resend answered 422', null)
+         from aarogyam.outbox_events where id = $1",
+    )
+    .bind(held)
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    let (status, secret): (String, Option<String>) =
+        sqlx::query_as("select status, secret from aarogyam.outbox_events where id = $1")
+            .bind(held)
+            .fetch_one(&app.owner)
+            .await
+            .unwrap();
+    assert_eq!((status.as_str(), secret), ("failed", None));
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn clinics_see_and_queue_only_their_own_messages() {
+    let app = TestApp::start().await;
+    sqlx::raw_sql(QUEUE_TWO).execute(&app.owner).await.unwrap();
+    let db = app.api_db();
+    let alpha = app.clinic_id("alpha").await;
+    let beta = app.clinic_id("beta").await;
+    let count = async |clinic| {
+        db.scoped(&Scope::tenant(clinic), async |tx| {
+            sqlx::query_scalar::<_, i64>("select count(*) from aarogyam.outbox_events")
+                .fetch_one(tx.conn())
+                .await
+                .map_err(DbError::from)
+        })
+        .await
+        .unwrap()
+    };
+    assert_eq!(count(alpha).await, 2);
+    assert_eq!(count(beta).await, 0);
+    // Beta can't queue a message as Alpha.
+    let forged = db
+        .scoped(&Scope::tenant(beta), async |tx| {
+            sqlx::query(
+                "insert into aarogyam.outbox_events (org_id, event_key, channel) values ($1, 'staff.invited', 'email')",
+            )
+            .bind(alpha)
+            .execute(tx.conn())
+            .await
+            .map_err(DbError::from)
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(forged.kind(), DbErrorKind::Forbidden);
     app.finish().await;
 }

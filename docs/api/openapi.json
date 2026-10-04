@@ -149,6 +149,26 @@
         }
       }
     },
+    "/api/v1/internal/outbox/drain": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Delivers due outbox messages across clinics (local development only; later Cloud\nScheduler with a Google-signed token).",
+        "operationId": "drain_outbox",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrainReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/invitations/accept": {
       "post": {
         "tags": [
@@ -1012,6 +1032,49 @@
           }
         }
       },
+      "DrainReport": {
+        "type": "object",
+        "description": "What one drain did.",
+        "required": [
+          "email_provider",
+          "claimed",
+          "sent",
+          "retrying",
+          "failed",
+          "purged"
+        ],
+        "properties": {
+          "claimed": {
+            "type": "integer",
+            "description": "Messages claimed.",
+            "minimum": 0
+          },
+          "email_provider": {
+            "type": "string",
+            "description": "`resend`, or `log` when no Resend key is configured."
+          },
+          "failed": {
+            "type": "integer",
+            "description": "Failed for the last time.",
+            "minimum": 0
+          },
+          "purged": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Old processed messages deleted."
+          },
+          "retrying": {
+            "type": "integer",
+            "description": "Failed, to be tried again later.",
+            "minimum": 0
+          },
+          "sent": {
+            "type": "integer",
+            "description": "Delivered.",
+            "minimum": 0
+          }
+        }
+      },
       "Joined": {
         "type": "object",
         "description": "The clinic just joined.",
@@ -1575,6 +1638,10 @@
     {
       "name": "development",
       "description": "Local development only; absent in deployed servers"
+    },
+    {
+      "name": "internal",
+      "description": "Scheduled jobs; local only until Cloud Scheduler's signed calls are checked"
     }
   ]
 }

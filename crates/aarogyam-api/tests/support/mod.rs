@@ -77,6 +77,7 @@ pub struct TestApp {
     pub owner: PgPool,
     admin: PgConnectOptions,
     database: String,
+    api_url: String,
 }
 
 fn admin_options() -> PgConnectOptions {
@@ -165,7 +166,7 @@ impl TestApp {
             admin.get_host(),
             admin.get_port()
         );
-        let db = Db::connect_lazy(&DbConfig::new(SecretString::from(api_url))).unwrap();
+        let db = Db::connect_lazy(&DbConfig::new(SecretString::from(api_url.clone()))).unwrap();
         let router = router(AppState::new(
             db,
             http,
@@ -178,7 +179,22 @@ impl TestApp {
             owner,
             admin,
             database,
+            api_url,
         }
+    }
+
+    /// A database handle on the API's login role, for row-level security checks.
+    pub fn api_db(&self) -> Db {
+        Db::connect_lazy(&DbConfig::new(SecretString::from(self.api_url.clone()))).unwrap()
+    }
+
+    /// The id of the seeded clinic with this slug.
+    pub async fn clinic_id(&self, slug: &str) -> Uuid {
+        sqlx::query_scalar("select id from aarogyam.organizations where slug = $1")
+            .bind(slug)
+            .fetch_one(&self.owner)
+            .await
+            .unwrap()
     }
 
     pub fn token(&self, auth_uid: Uuid) -> String {

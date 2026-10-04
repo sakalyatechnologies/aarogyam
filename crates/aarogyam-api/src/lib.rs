@@ -47,8 +47,8 @@ pub use state::{AppState, Hosts, TokenCheck};
 
 /// Builds the API: `GET /healthz`, the routes under `/api/v1`, and the standard middleware
 /// (request IDs, the edge check, the request span, panic recovery, timeouts, body limits).
-/// The development sign-in route exists only when the state holds development tokens, which
-/// the server allows only in the `local` environment.
+/// The development sign-in and outbox drain routes exist only when the state holds development
+/// tokens, which the server allows only in the `local` environment.
 pub fn router(state: AppState) -> Router {
     let http = state.http().clone();
     let local_dev = state.dev_tokens().is_some();

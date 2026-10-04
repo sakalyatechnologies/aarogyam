@@ -3,6 +3,7 @@
 //! (Sakalya staff on the console host) or [`crate::extract::SignedIn`] (anyone signed in).
 
 pub(crate) mod console;
+pub(crate) mod internal;
 pub(crate) mod invitations;
 pub(crate) mod me;
 pub(crate) mod patients;
@@ -15,7 +16,8 @@ use time::format_description::well_known::Rfc3339;
 
 use crate::AppState;
 
-/// The version 1 routes. `local_dev` adds the development sign-in route.
+/// The version 1 routes. `local_dev` adds the development sign-in and the outbox drain, which
+/// deployed servers don't have until Cloud Scheduler's signed calls are checked.
 pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
     let router = Router::new()
         .route("/me", get(me::me))
@@ -36,7 +38,9 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/console/metrics", get(console::metrics));
     if local_dev {
-        router.route("/dev/token", post(crate::dev::token))
+        router
+            .route("/dev/token", post(crate::dev::token))
+            .route("/internal/outbox/drain", post(internal::drain_outbox))
     } else {
         router
     }

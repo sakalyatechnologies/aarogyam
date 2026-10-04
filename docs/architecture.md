@@ -54,7 +54,7 @@ Crates split further by module (patients, appointments, billing) only when build
 - **Clinic from the host only.** Never from a header the client controls, a path segment or the body. The phone apps first call the neutral host (`app.aarogyam.example/api/v1/me`) to list the user's clinics, then call that clinic's own host.
 - **The database.** The API logs in as `aarogyam_api`, which can do nothing on its own: clinic data only inside a `ClinicTx` (as `app_user`, under row-level security), and before the clinic is known only the three lookup functions. Migrations run as the owner. See `data-model.md`.
 - **The console** sits behind Cloudflare Access, and the API also checks the caller's platform role.
-- **Background jobs.** Cloud Scheduler calls `/internal/…` endpoints with a Google-signed token; the worker claims outbox rows with `FOR UPDATE SKIP LOCKED`. The live queue screen polls with ETags instead of holding connections open.
+- **Background jobs.** Cloud Scheduler calls `/internal/…` endpoints with a Google-signed token; the worker claims outbox rows with `FOR UPDATE SKIP LOCKED`. Until the API checks that token, the outbox drain (`POST /api/v1/internal/outbox/drain`) exists only in the local environment, like the development sign-in. Email goes through Resend when `ARO_EMAIL__RESEND_API_KEY` is set; otherwise the log channel records it as delivered and logs ids only. The live queue screen polls with ETags instead of holding connections open.
 
 ## Database connections
 

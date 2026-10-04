@@ -14,6 +14,7 @@ path = "src/main.rs"
 [dependencies]
 aarogyam-api.workspace = true
 aarogyam-dal.workspace = true
+aarogyam-notify = { path = "../aarogyam-notify" }
 anyhow.workspace = true
 clap.workspace = true
 sakalya-auth.workspace = true

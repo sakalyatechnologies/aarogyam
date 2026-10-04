@@ -466,7 +466,12 @@ async fn every_route_requires_sign_in_and_a_permission() {
     let document = serde_json::to_value(aarogyam_api::openapi()).unwrap();
     let mut checked = 0;
     for (path, operations) in document["paths"].as_object().unwrap() {
-        if !path.starts_with("/api/v1/") || path.starts_with("/api/v1/dev/") {
+        // Development sign-in and internal jobs exist only locally; internal jobs will check
+        // Cloud Scheduler's signed token instead of a member's.
+        if !path.starts_with("/api/v1/")
+            || path.starts_with("/api/v1/dev/")
+            || path.starts_with("/api/v1/internal/")
+        {
             continue;
         }
         let concrete = concrete_path(path);

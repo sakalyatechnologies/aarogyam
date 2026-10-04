@@ -9,6 +9,7 @@ dependencies = [
  "aarogyam-app",
  "aarogyam-dal",
  "aarogyam-domain",
+ "aarogyam-notify",
  "axum",
  "jsonwebtoken",
  "sakalya-auth",
@@ -24,6 +25,7 @@ dependencies = [
  "time",
  "tokio",
  "tower",
+ "tracing",
  "utoipa",
  "uuid",
 ]
@@ -71,11 +73,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "aarogyam-notify"
+version = "0.1.0"
+dependencies = [
+ "aarogyam-dal",
+ "aarogyam-domain",
+ "reqwest",
+ "sakalya-db",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "aarogyam-server"
 version = "0.1.0"
 dependencies = [
  "aarogyam-api",
  "aarogyam-dal",
+ "aarogyam-notify",
  "anyhow",
  "clap",
  "figment",

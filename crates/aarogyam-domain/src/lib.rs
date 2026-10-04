@@ -5,11 +5,14 @@
 //! database. Value types such as `Id<T>`, `Paise` and `PhoneE164` come from `sakalya-types`;
 //! this crate adds the clinic's concepts on top: who may act ([`access`]), the permission
 //! catalogue ([`permission`]), typed identifiers ([`ids`]), patients ([`patient`]), patient
-//! search ([`search`]) and the clinic's own settings ([`clinic`]).
+//! search ([`search`]), the clinic's own settings ([`clinic`]), queued
+//! messages ([`outbox`]) and business event names ([`event`]).
 
 pub mod access;
 pub mod clinic;
+pub mod event;
 pub mod ids;
+pub mod outbox;
 pub mod patient;
 pub mod permission;
 pub mod search;

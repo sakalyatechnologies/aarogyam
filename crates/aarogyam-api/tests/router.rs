@@ -103,6 +103,17 @@ async fn deployed_servers_have_no_development_sign_in() {
     )
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+    // Nor the outbox drain, until it checks Cloud Scheduler's signed token.
+    let (status, _) = send(
+        &router,
+        Method::POST,
+        "app.aarogyam.example",
+        "/api/v1/internal/outbox/drain",
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]

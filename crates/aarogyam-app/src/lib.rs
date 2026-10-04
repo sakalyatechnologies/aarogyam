@@ -9,6 +9,7 @@ pub mod clock;
 pub mod console;
 pub mod error;
 pub mod invitations;
+pub mod outbox;
 pub mod patients;
 mod scope;
 pub mod sessions;

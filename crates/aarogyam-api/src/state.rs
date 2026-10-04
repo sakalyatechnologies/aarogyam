@@ -8,6 +8,7 @@ use aarogyam_dal::lookups::{self, HostClinic};
 use aarogyam_dal::sessions;
 use aarogyam_domain::access::Authorization;
 use aarogyam_domain::ids::ClinicId;
+use aarogyam_notify::{Notifier, PortalLinks};
 use axum::http::HeaderMap;
 use sakalya_auth::{Claims, JwtVerifier, bearer_token};
 use sakalya_db::Db;
@@ -65,6 +66,7 @@ struct Inner {
     grant_cache: TtlCache<(Uuid, Uuid, Uuid), Option<Authorization>>,
     metrics: Arc<ServiceMetrics>,
     throttle: Option<Throttle>,
+    notifier: Notifier,
 }
 
 /// Shared state; cheap to clone.
@@ -87,6 +89,7 @@ impl AppState {
                 grant_cache: TtlCache::new(CACHE_TTL, CACHE_CAPACITY),
                 metrics: Arc::new(ServiceMetrics::new()),
                 throttle: None,
+                notifier: Notifier::log(PortalLinks::default()),
             }),
         }
     }
@@ -99,6 +102,20 @@ impl AppState {
             inner.throttle = Some(throttle);
         }
         self
+    }
+
+    /// Replaces the notifier, which by default records email to the log only. Call before the
+    /// state is shared (cloned); afterwards it has no effect.
+    #[must_use]
+    pub fn with_notifier(mut self, notifier: Notifier) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.notifier = notifier;
+        }
+        self
+    }
+
+    pub(crate) fn notifier(&self) -> &Notifier {
+        &self.inner.notifier
     }
 
     pub(crate) fn throttle(&self) -> Option<&Throttle> {

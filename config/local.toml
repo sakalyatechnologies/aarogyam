@@ -28,6 +28,11 @@ portal_domain = "localtest.me"
 console = "console.localtest.me"
 app = "app.localtest.me"
 
+[email]
+# No Resend key locally: email from the outbox is recorded as delivered and logged by id.
+# Links in messages point at the portal's dev server.
+portal_link = "http://{host}:5173"
+
 [telemetry]
 format = "pretty"
 filter = "debug,hyper=info,sqlx=warn,h2=info"

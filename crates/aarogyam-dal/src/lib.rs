@@ -12,6 +12,7 @@ pub mod clinic;
 pub mod console;
 pub mod invitations;
 pub mod lookups;
+pub mod outbox;
 pub mod patients;
 pub mod sessions;
 pub mod settings;

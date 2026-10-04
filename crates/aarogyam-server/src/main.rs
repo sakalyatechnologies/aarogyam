@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use aarogyam_api::{AppState, DevTokens, Hosts, TokenCheck};
+use aarogyam_notify::{Notifier, PortalLinks};
 use aarogyam_server::config::{AuthMode, Config};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
@@ -117,7 +118,20 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         RuleConfig::new("ip-dev-sign-in", KeyKind::Ip, 30, 15 * 60).on_paths(&["/api/v1/dev/"]),
     ]))
     .context("invalid throttle rules")?;
-    let state = AppState::new(db, http, tokens, hosts).with_throttle(throttle);
+    let links = PortalLinks::new(&config.email.portal_link)
+        .context("email.portal_link must look like https://{host}")?;
+    let notifier = if let Some(key) = config.email.resend_api_key {
+        Notifier::resend(key, &config.email.from, links)
+            .context("could not set up email through Resend")?
+    } else {
+        if !local {
+            tracing::warn!("email.resend_api_key is not set: email goes to the log only");
+        }
+        Notifier::log(links)
+    };
+    let state = AppState::new(db, http, tokens, hosts)
+        .with_throttle(throttle)
+        .with_notifier(notifier);
     sakalya_http::serve(aarogyam_api::router(state), config.http.bind)
         .await
         .context("the server stopped with an error")

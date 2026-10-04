@@ -149,7 +149,7 @@ describe("Permissions", () => {
     expect(await screen.findByText(/Here's today at Lotus Dental Care/)).toBeTruthy();
     const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
     expect(nav && within(nav).queryByRole("link", { name: "Patients" })).toBeNull();
-    expect(nav && within(nav).getByRole("link", { name: "Today" })).toBeTruthy();
+    expect(nav && within(nav).getByRole("link", { name: /^Today/ })).toBeTruthy();
   });
 
   it("lets an assistant search but not register, and keeps contact details masked", async () => {

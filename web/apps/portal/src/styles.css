@@ -3,6 +3,7 @@
 @source "../node_modules/@sakalya/ui/src";
 @source "../node_modules/@aarogyam/auth/src";
 @source "../node_modules/@aarogyam/app-kit/src";
+@import "./mockup.css";
 
 html,
 body,

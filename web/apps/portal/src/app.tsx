@@ -22,7 +22,7 @@ export function Providers({ services, queryClient, children }: { services: Porta
       <ServicesProvider services={services}>
         <QueryClientProvider client={queryClient}>
           <ThemeScope theme={DEFAULT_THEME} className="min-h-full">
-            <ToastProvider>{children}</ToastProvider>
+            <ToastProvider appearance="pill">{children}</ToastProvider>
           </ThemeScope>
         </QueryClientProvider>
       </ServicesProvider>

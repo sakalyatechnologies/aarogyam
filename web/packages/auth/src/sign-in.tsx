@@ -72,21 +72,29 @@ export function DevSignIn({ auth }: DevSignInProps) {
 function useCooldown() {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const deadline = useRef(0);
-  const coolingDown = secondsLeft > 0;
-  useEffect(() => {
-    if (!coolingDown) {
-      return;
-    }
-    const timer = setInterval(() => {
-      setSecondsLeft(Math.max(0, Math.ceil((deadline.current - Date.now()) / 1000)));
-    }, 1000);
-    return () => {
-      clearInterval(timer);
-    };
-  }, [coolingDown]);
+  const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+
+  // Unmount only: a render-keyed effect would register the interval one render after `start`
+  // runs, racing whatever triggered the cooldown. Owning the interval from `start` itself keeps
+  // it synchronous with the deadline it is counting down to.
+  useEffect(
+    () => () => {
+      clearInterval(timer.current);
+    },
+    [],
+  );
+
   const start = useCallback((seconds: number) => {
+    clearInterval(timer.current);
     deadline.current = Date.now() + seconds * 1000;
     setSecondsLeft(seconds);
+    timer.current = setInterval(() => {
+      const left = Math.max(0, Math.ceil((deadline.current - Date.now()) / 1000));
+      setSecondsLeft(left);
+      if (left <= 0) {
+        clearInterval(timer.current);
+      }
+    }, 1000);
   }, []);
   return { secondsLeft, start };
 }

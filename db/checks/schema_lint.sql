@@ -7,7 +7,9 @@
 select n.nspname || '.' || c.relname as violation
 from pg_class c join pg_namespace n on n.oid = c.relnamespace
 where n.nspname in ('aarogyam', 'audit', 'private', 'app')
-  and c.relkind in ('r', 'p') and not c.relispartition and not c.relrowsecurity;
+  and c.relkind in ('r', 'p') and not c.relispartition and not c.relrowsecurity
+  -- sqlx's migration ledger: in `private`, which no application or Supabase API role can use.
+  and not (n.nspname = 'private' and c.relname = '_sqlx_migrations');
 
 -- name: objects_in_public
 select c.relname as violation

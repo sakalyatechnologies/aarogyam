@@ -1,8 +1,11 @@
 import type { ChartFinding, PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
 import { Card, Skeleton } from "@sakalya/ui";
+import { useState } from "react";
 
-import { useDentalChart } from "../../queries.js";
+import { useClinic } from "../../clinic.js";
+import { useDentalChart, useVisits } from "../../queries.js";
+import { RecordFindingDialog } from "../visits/record-finding-dialog.js";
 
 const UPPER = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
 const LOWER = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
@@ -46,9 +49,12 @@ const FINDING_LABEL: Readonly<Record<ChartFinding, string>> = {
   watch: "Watch",
 };
 
-/** A read-only odontogram: each tooth's current, whole-tooth finding. Recorded from the visit screen. */
+/** The odontogram: each tooth's current, whole-tooth finding. With clinical.write, a tooth opens the record dialog. */
 export function DentalChartPanel({ patientId }: { patientId: PatientId }) {
   const chart = useDentalChart(patientId);
+  const { can } = useClinic();
+  const visits = useVisits(patientId);
+  const [tooth, setTooth] = useState<number | undefined>(undefined);
   if (chart.isPending) {
     return <Skeleton shape="block" />;
   }
@@ -61,14 +67,16 @@ export function DentalChartPanel({ patientId }: { patientId: PatientId }) {
       byTooth.set(entry.tooth, entry.finding);
     }
   }
-  const findingOf = (tooth: number): ChartFinding => byTooth.get(tooth) ?? "sound";
+  const findingOf = (toothNumber: number): ChartFinding => byTooth.get(toothNumber) ?? "sound";
+  const onPick = can("clinical.write") ? setTooth : undefined;
+  const openVisit = visits.data?.items.find((v) => v.status === "open");
 
   return (
     <Card title="Dental chart">
       <div className="flex flex-col items-center gap-3">
-        <ToothRow teeth={UPPER} findingOf={findingOf} />
+        <ToothRow teeth={UPPER} findingOf={findingOf} onPick={onPick} />
         <div aria-hidden="true" className="h-px w-full max-w-md bg-border" />
-        <ToothRow teeth={LOWER} findingOf={findingOf} />
+        <ToothRow teeth={LOWER} findingOf={findingOf} onPick={onPick} />
       </div>
       <div className="mt-5 flex flex-wrap gap-3">
         {ALL_FINDINGS.map((finding) => (
@@ -77,23 +85,52 @@ export function DentalChartPanel({ patientId }: { patientId: PatientId }) {
           </span>
         ))}
       </div>
+      {tooth === undefined ? null : (
+        <RecordFindingDialog
+          patientId={patientId}
+          tooth={tooth}
+          visitId={openVisit?.id}
+          onOpenChange={() => {
+            setTooth(undefined);
+          }}
+        />
+      )}
     </Card>
   );
 }
 
-function ToothRow({ teeth, findingOf }: { teeth: readonly number[]; findingOf: (tooth: number) => ChartFinding }) {
+function ToothRow({
+  teeth,
+  findingOf,
+  onPick,
+}: {
+  teeth: readonly number[];
+  findingOf: (tooth: number) => ChartFinding;
+  onPick: ((tooth: number) => void) | undefined;
+}) {
   return (
     <div className="flex flex-wrap justify-center gap-1.5" role="list" aria-label="Teeth">
       {teeth.map((tooth) => {
         const finding = findingOf(tooth);
+        const box = `flex size-10 flex-col items-center justify-center rounded-lg border text-[11px] font-bold ${FINDING_CLASS[finding]}`;
         return (
-          <div
-            key={tooth}
-            role="listitem"
-            title={`Tooth ${String(tooth)}: ${FINDING_LABEL[finding]}`}
-            className={`flex size-10 flex-col items-center justify-center rounded-lg border text-[11px] font-bold ${FINDING_CLASS[finding]}`}
-          >
-            <span>{tooth}</span>
+          <div key={tooth} role="listitem" title={`Tooth ${String(tooth)}: ${FINDING_LABEL[finding]}`}>
+            {onPick === undefined ? (
+              <div className={box}>
+                <span>{tooth}</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                aria-label={`Record a finding for tooth ${String(tooth)} (now ${FINDING_LABEL[finding]})`}
+                className={`${box} cursor-pointer hover:ring-2 hover:ring-primary`}
+                onClick={() => {
+                  onPick(tooth);
+                }}
+              >
+                <span>{tooth}</span>
+              </button>
+            )}
           </div>
         );
       })}

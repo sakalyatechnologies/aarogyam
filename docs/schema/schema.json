@@ -601,6 +601,113 @@
    "offline": "server_only"
   },
   {
+   "name": "clinic_applications",
+   "domain": "platform",
+   "purpose": "Clinics asking to join from the public landing page; staff approve or reject them in the console.",
+   "rls": "global",
+   "star": true,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "No grants: the API reaches it through definer functions only. Approval creates the clinic, the owner's invitation and the invitation email in one transaction.",
+   "cols": [
+    {
+     "name": "clinic_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "city",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "specialty",
+     "type": "specialty",
+     "nullable": false,
+     "ref": null,
+     "note": "dental, general"
+    },
+    {
+     "name": "contact_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "email",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "one pending application per address"
+    },
+    {
+     "name": "phone_e164",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "message",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "application_status",
+     "nullable": false,
+     "ref": null,
+     "note": "pending, approved, rejected"
+    },
+    {
+     "name": "submissions",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "times the address applied while pending"
+    },
+    {
+     "name": "decision_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "decided_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "decided_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "created_org_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "organizations",
+     "note": "the clinic approval created"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
    "name": "support_grants",
    "domain": "platform",
    "purpose": "Time-limited permission a clinic gives Sakalya support to look inside its data.",
@@ -857,6 +964,7 @@
     }
    ],
    "referenced_by": [
+    "clinic_applications.decided_by",
     "devices.user_id",
     "invitations.invited_by",
     "memberships.user_id",
@@ -1071,6 +1179,7 @@
     }
    ],
    "referenced_by": [
+    "clinic_applications.created_org_id",
     "consents.grantee_org_id",
     "entitlement_overrides.org_id",
     "org_daily_stats.org_id",

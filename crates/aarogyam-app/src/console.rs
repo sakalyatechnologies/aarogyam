@@ -59,7 +59,7 @@ pub struct CreatedClinic {
 }
 
 /// Initials of the first three words, such as `SD` for "Sunrise Dental"; `CL` if none.
-fn number_prefix(name: &str) -> String {
+pub(crate) fn number_prefix(name: &str) -> String {
     let prefix: String = name
         .split_whitespace()
         .filter_map(|word| word.chars().find(char::is_ascii_alphabetic))
@@ -71,6 +71,18 @@ fn number_prefix(name: &str) -> String {
     } else {
         prefix
     }
+}
+
+/// The subdomain: `slug` when given, else derived from the clinic's name; never a reserved one.
+pub(crate) fn slug_for(name: &str, slug: Option<&str>) -> Result<Slug, AppError> {
+    let slug = match slug.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(text) => Slug::parse(text).map_err(|error| AppError::invalid("slug", error))?,
+        None => Slug::from_name(name).map_err(|error| AppError::invalid("slug", error))?,
+    };
+    if RESERVED.contains(&slug.as_str()) {
+        return Err(AppError::invalid("slug", "is reserved"));
+    }
+    Ok(slug)
 }
 
 /// Creates a clinic on `<slug>.<portal_domain>` with an owner invitation.
@@ -90,18 +102,7 @@ pub async fn create_clinic(
     if name.is_empty() || name.chars().count() > 200 {
         return Err(AppError::invalid("name", "must be 1 to 200 characters"));
     }
-    let slug = match input
-        .slug
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
-        Some(text) => Slug::parse(text).map_err(|error| AppError::invalid("slug", error))?,
-        None => Slug::from_name(&name).map_err(|error| AppError::invalid("slug", error))?,
-    };
-    if RESERVED.contains(&slug.as_str()) {
-        return Err(AppError::invalid("slug", "is reserved"));
-    }
+    let slug = slug_for(&name, input.slug.as_deref())?;
     if !matches!(input.specialty.as_str(), "dental" | "general") {
         return Err(AppError::invalid("specialty", "must be dental or general"));
     }

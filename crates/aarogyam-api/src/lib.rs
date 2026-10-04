@@ -45,6 +45,22 @@ pub use failure::ApiFailure;
 pub use openapi::openapi;
 pub use state::{AppState, Hosts, TokenCheck};
 
+/// The per-IP request limits, applied before any token is checked. Sign-in itself is
+/// Supabase's, with its own limits. The public registration form gets a strict limit of its
+/// own, since it needs no sign-in.
+///
+/// # Errors
+/// [`sakalya_throttle::ConfigError`] if a rule is invalid (a bug).
+pub fn standard_throttle() -> Result<sakalya_throttle::Throttle, sakalya_throttle::ConfigError> {
+    use sakalya_throttle::{KeyKind, RuleConfig, Throttle, ThrottleConfig};
+    Throttle::new(ThrottleConfig::default().with_rules(vec![
+        RuleConfig::new("ip", KeyKind::Ip, 600, 60),
+        RuleConfig::new("ip-dev-sign-in", KeyKind::Ip, 30, 15 * 60).on_paths(&["/api/v1/dev/"]),
+        RuleConfig::new("ip-registration", KeyKind::Ip, 5, 60 * 60)
+            .on_paths(&["/api/v1/registrations"]),
+    ]))
+}
+
 /// Builds the API: `GET /healthz`, the routes under `/api/v1`, and the standard middleware
 /// (request IDs, the edge check, the request span, panic recovery, timeouts, body limits).
 /// The development sign-in and outbox drain routes exist only when the state holds development

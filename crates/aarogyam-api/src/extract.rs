@@ -160,6 +160,8 @@ impl<P: Required> FromRequestParts<AppState> for Require<P> {
 pub struct PlatformRequest {
     /// The staff member and their console role.
     pub staff: PlatformAccess,
+    /// The request ID, for the change history.
+    pub request_id: Option<Uuid>,
 }
 
 impl FromRequestParts<AppState> for PlatformRequest {
@@ -178,6 +180,9 @@ impl FromRequestParts<AppState> for PlatformRequest {
             .filter(|staff| staff.role.is_some())
             .ok_or_else(|| ApiError::forbidden("forbidden", "Sakalya staff only."))?;
         sakalya_telemetry::record_user(staff.user_id.uuid());
-        Ok(Self { staff })
+        Ok(Self {
+            staff,
+            request_id: request_id(parts),
+        })
     }
 }

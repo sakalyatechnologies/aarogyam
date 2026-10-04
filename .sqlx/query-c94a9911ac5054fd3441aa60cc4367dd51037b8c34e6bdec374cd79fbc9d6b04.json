@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select membership_id as \"membership_id!\", display_name as \"display_name!\", email,\n                  role_key as \"role_key!\", role_name as \"role_name!\", status as \"status!\", joined_at\n           from app.console_clinic_members($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "membership_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "display_name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "email",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "role_key!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "role_name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "status!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "joined_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "c94a9911ac5054fd3441aa60cc4367dd51037b8c34e6bdec374cd79fbc9d6b04"
+}

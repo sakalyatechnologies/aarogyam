@@ -31,6 +31,9 @@ pub enum AppError {
     /// The database failed or refused.
     #[error(transparent)]
     Db(#[from] DbError),
+    /// Supabase could not create or find a sign-in account.
+    #[error(transparent)]
+    Accounts(#[from] crate::accounts::AccountsError),
     /// Something that should be impossible happened, such as a random number generator failure.
     #[error("internal error: {0}")]
     Internal(&'static str),

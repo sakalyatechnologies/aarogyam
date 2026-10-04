@@ -20,6 +20,7 @@ pub mod event;
 pub mod files;
 pub mod ids;
 pub mod import;
+pub mod onboarding;
 pub mod outbox;
 pub mod patient;
 pub mod permission;

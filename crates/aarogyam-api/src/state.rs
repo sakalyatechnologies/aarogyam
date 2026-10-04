@@ -4,6 +4,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use aarogyam_app::accounts::SignInAccounts;
 use aarogyam_app::files::Files;
 use aarogyam_dal::lookups::{self, HostClinic};
 use aarogyam_dal::sessions;
@@ -46,15 +47,54 @@ pub enum TokenCheck {
     Supabase(JwtVerifier),
     /// Local development only: tokens minted by `POST /api/v1/dev/token`.
     Dev(DevTokens),
+    /// Local development only: Supabase tokens and development tokens, told apart by their
+    /// issuer, so real sign-in and the seeded people both work.
+    SupabaseAndDev {
+        /// Checks Supabase's tokens.
+        supabase: JwtVerifier,
+        /// Mints and checks development tokens.
+        dev: DevTokens,
+    },
 }
 
 impl TokenCheck {
-    fn verifier(&self) -> &JwtVerifier {
+    fn verifier(&self, token: &str) -> &JwtVerifier {
         match self {
             Self::Supabase(verifier) => verifier,
             Self::Dev(dev) => dev.verifier(),
+            Self::SupabaseAndDev { supabase, dev } => {
+                if unverified_issuer(token).as_deref() == Some(dev.issuer()) {
+                    dev.verifier()
+                } else {
+                    supabase
+                }
+            }
         }
     }
+
+    const fn dev(&self) -> Option<&DevTokens> {
+        match self {
+            Self::Dev(dev) | Self::SupabaseAndDev { dev, .. } => Some(dev),
+            Self::Supabase(_) => None,
+        }
+    }
+}
+
+/// The `iss` claim of a token, read without checking anything. Used only to pick which verifier
+/// checks the token; the chosen verifier then checks the issuer and signature itself.
+fn unverified_issuer(token: &str) -> Option<String> {
+    use base64::Engine as _;
+    #[derive(serde::Deserialize)]
+    struct Issuer {
+        iss: String,
+    }
+    let payload = token.split('.').nth(1)?;
+    let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(payload.trim_end_matches('='))
+        .ok()?;
+    serde_json::from_slice::<Issuer>(&bytes)
+        .ok()
+        .map(|claims| claims.iss)
 }
 
 #[derive(Debug)]
@@ -69,6 +109,7 @@ struct Inner {
     throttle: Option<Throttle>,
     notifier: Notifier,
     files: Option<Files>,
+    accounts: Option<Arc<dyn SignInAccounts>>,
 }
 
 /// Shared state; cheap to clone.
@@ -93,6 +134,7 @@ impl AppState {
                 throttle: None,
                 notifier: Notifier::log(PortalLinks::default()),
                 files: None,
+                accounts: None,
             }),
         }
     }
@@ -125,6 +167,21 @@ impl AppState {
             inner.files = Some(files);
         }
         self
+    }
+
+    /// Sets how sign-in accounts are created for invited people (Supabase's Admin API). Without
+    /// it, invitations still work, but the person can't sign in until their account exists:
+    /// fine locally with development tokens. Call before the state is shared (cloned).
+    #[must_use]
+    pub fn with_accounts(mut self, accounts: Arc<dyn SignInAccounts>) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.accounts = Some(accounts);
+        }
+        self
+    }
+
+    pub(crate) fn accounts(&self) -> Option<&dyn SignInAccounts> {
+        self.inner.accounts.as_deref()
     }
 
     pub(crate) fn files(&self) -> Result<&Files, ApiFailure> {
@@ -163,16 +220,13 @@ impl AppState {
     }
 
     pub(crate) fn dev_tokens(&self) -> Option<&DevTokens> {
-        match &self.inner.tokens {
-            TokenCheck::Dev(dev) => Some(dev),
-            TokenCheck::Supabase(_) => None,
-        }
+        self.inner.tokens.dev()
     }
 
     /// Verifies the request's bearer token.
     pub(crate) async fn claims(&self, headers: &HeaderMap) -> Result<Claims, ApiFailure> {
         let token = bearer_token(headers).ok_or_else(ApiError::unauthenticated)?;
-        Ok(self.inner.tokens.verifier().verify(token).await?)
+        Ok(self.inner.tokens.verifier(token).verify(token).await?)
     }
 
     /// Verifies the bearer token and refuses a revoked session. For routes that don't go through

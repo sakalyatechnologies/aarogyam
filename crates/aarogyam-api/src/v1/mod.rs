@@ -11,8 +11,10 @@ pub(crate) mod imports;
 pub(crate) mod internal;
 pub(crate) mod invitations;
 pub(crate) mod me;
+pub(crate) mod onboarding;
 pub(crate) mod patients;
 pub(crate) mod queue;
+pub(crate) mod registrations;
 pub(crate) mod schedule;
 pub(crate) mod settings;
 pub(crate) mod staff;
@@ -161,7 +163,24 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/console/clinics",
             get(console::clinics).post(console::create_clinic),
         )
-        .route("/console/metrics", get(console::metrics));
+        .route("/console/metrics", get(console::metrics))
+        .route("/console/clinics/{id}", get(onboarding::clinic))
+        .route(
+            "/console/clinics/{id}/invitations",
+            post(onboarding::invite),
+        )
+        .route("/console/applications", get(onboarding::applications))
+        .route(
+            "/console/applications/{id}/approve",
+            post(onboarding::approve),
+        )
+        .route(
+            "/console/applications/{id}/reject",
+            post(onboarding::reject),
+        )
+        // Public: the landing page's registration form. Throttled per IP (see
+        // `crate::throttle_rules`) and answers the same whatever happened.
+        .route("/registrations", post(registrations::register));
     if local_dev {
         router
             .route("/dev/token", post(crate::dev::token))

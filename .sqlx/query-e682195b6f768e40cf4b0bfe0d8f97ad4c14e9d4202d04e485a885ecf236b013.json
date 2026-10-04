@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with person as (\n             insert into aarogyam.users as u (auth_uid, email, display_name)\n             values ($1, $2, $3)\n             on conflict (auth_uid) do update set email = coalesce(u.email, excluded.email)\n             returning u.id\n           )\n           insert into aarogyam.platform_users as p (user_id, role, active)\n           select id, $4, true from person\n           on conflict (user_id) do update set role = excluded.role, active = true\n           returning p.user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.platform_users",
+            "name": "user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e682195b6f768e40cf4b0bfe0d8f97ad4c14e9d4202d04e485a885ecf236b013"
+}

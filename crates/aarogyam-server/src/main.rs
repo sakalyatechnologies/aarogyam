@@ -4,7 +4,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use aarogyam_api::{AppState, DevTokens, Hosts, TokenCheck};
+use aarogyam_app::accounts::{SignInAccounts as _, SupabaseAdmin};
 use aarogyam_app::files::{Files, LinkSigner, LocalDisk};
+use aarogyam_domain::access::PlatformRole;
+use aarogyam_domain::patient::Email;
 use aarogyam_notify::{Notifier, PortalLinks};
 use aarogyam_server::config::{AuthMode, Config};
 use anyhow::Context;
@@ -13,7 +16,6 @@ use sakalya_auth::{JwtConfig, JwtVerifier};
 use sakalya_config::Environment;
 use sakalya_db::{Db, DbConfig};
 use sakalya_http::{EdgeConfig, EdgeSecret};
-use sakalya_throttle::{KeyKind, RuleConfig, Throttle, ThrottleConfig};
 use secrecy::ExposeSecret as _;
 
 /// Aarogyam's API server.
@@ -32,13 +34,38 @@ struct Cli {
     command: Option<Command>,
 }
 
-#[derive(Debug, Clone, Copy, Default, Subcommand)]
+#[derive(Debug, Clone, Default, Subcommand)]
 enum Command {
     /// Serve the HTTP API until SIGTERM or Ctrl-C (the default).
     #[default]
     Serve,
     /// Apply pending database migrations over the schema owner's connection, then exit.
     Migrate,
+    /// Administration over the schema owner's connection.
+    Admin {
+        #[command(subcommand)]
+        action: Admin,
+    },
+}
+
+#[derive(Debug, Clone, Subcommand)]
+enum Admin {
+    /// Make someone Sakalya staff who can use the console. Finds or creates their Supabase
+    /// sign-in account (needs the Supabase URL and secret key) unless --auth-uid is given.
+    GrantPlatform {
+        /// Their sign-in email address.
+        #[arg(long)]
+        email: String,
+        /// Console role: owner, support, onboarding or analyst.
+        #[arg(long, default_value = "owner")]
+        role: String,
+        /// Their Supabase Auth user id, to skip the Supabase lookup.
+        #[arg(long)]
+        auth_uid: Option<uuid::Uuid>,
+        /// Their name as the console shows it; defaults to the part of the email before the @.
+        #[arg(long)]
+        name: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -49,6 +76,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command.unwrap_or_default() {
         Command::Serve => serve(config).await,
         Command::Migrate => migrate(config).await,
+        Command::Admin { action } => admin(config, action).await,
     }
 }
 
@@ -62,42 +90,10 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         "starting"
     );
     let local = config.environment == Environment::Local;
+    let tokens = token_check(&config, local).await?;
+    let accounts = accounts(&config)?;
     let db = Db::connect_lazy(&DbConfig::new(config.db.url))
         .context("db.url is not a valid Postgres URL")?;
-    let tokens = match config.auth.mode {
-        AuthMode::Dev => {
-            anyhow::ensure!(
-                local,
-                "auth.mode = dev is allowed only when environment = local"
-            );
-            let secret = config
-                .auth
-                .dev_secret
-                .context("auth.dev_secret is required when auth.mode = dev")?;
-            TokenCheck::Dev(DevTokens::new(
-                &config.auth.issuer,
-                &config.auth.audience,
-                secret,
-            ))
-        }
-        AuthMode::Supabase => {
-            let jwks_url = config
-                .auth
-                .jwks_url
-                .context("auth.jwks_url is required when auth.mode = supabase")?;
-            let verifier = JwtVerifier::remote(JwtConfig::new(
-                &config.auth.issuer,
-                &config.auth.audience,
-                &jwks_url,
-            ))
-            .context("auth.jwks_url is not a valid URL")?;
-            if let Err(error) = verifier.prefetch().await {
-                // Not fatal: keys are fetched again on the first sign-in.
-                tracing::warn!(error = %error, "could not fetch the token signing keys at startup");
-            }
-            TokenCheck::Supabase(verifier)
-        }
-    };
     let mut http = config.http.limits();
     match config.http.edge_secret {
         Some(secret) => {
@@ -115,12 +111,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         console: config.hosts.console,
         app: config.hosts.app,
     };
-    // Per-IP limits before any token is checked; sign-in itself is Supabase's, with its own limits.
-    let throttle = Throttle::new(ThrottleConfig::default().with_rules(vec![
-        RuleConfig::new("ip", KeyKind::Ip, 600, 60),
-        RuleConfig::new("ip-dev-sign-in", KeyKind::Ip, 30, 15 * 60).on_paths(&["/api/v1/dev/"]),
-    ]))
-    .context("invalid throttle rules")?;
+    let throttle = aarogyam_api::standard_throttle().context("invalid throttle rules")?;
     let links = PortalLinks::new(&config.email.portal_link)
         .context("email.portal_link must look like https://{host}")?;
     let notifier = if let Some(key) = config.email.resend_api_key {
@@ -146,13 +137,121 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         tracing::warn!("patient files are kept on local disk until object storage is set up");
     }
     let files = Files::new(Arc::new(LocalDisk::new(config.files.dir)), signer);
-    let state = AppState::new(db, http, tokens, hosts)
+    let mut state = AppState::new(db, http, tokens, hosts);
+    if let Some(admin) = accounts {
+        state = state.with_accounts(Arc::new(admin));
+    } else if !local {
+        tracing::warn!("supabase.secret_key is not set: invited people get no sign-in account");
+    }
+    let state = state
         .with_throttle(throttle)
         .with_notifier(notifier)
         .with_files(files);
     sakalya_http::serve(aarogyam_api::router(state), config.http.bind)
         .await
         .context("the server stopped with an error")
+}
+
+/// How sign-in tokens are checked: development tokens only in `dev` mode (local only), Supabase
+/// tokens in `supabase` mode, plus development tokens locally when `auth.dev_tokens` is on.
+async fn token_check(config: &Config, local: bool) -> anyhow::Result<TokenCheck> {
+    let auth = &config.auth;
+    let dev = || -> anyhow::Result<DevTokens> {
+        anyhow::ensure!(
+            local,
+            "development tokens (auth.mode = dev or auth.dev_tokens) are allowed only when environment = local"
+        );
+        let secret = auth
+            .dev_secret
+            .clone()
+            .context("auth.dev_secret is required for development tokens")?;
+        Ok(DevTokens::new(&auth.dev_issuer, &auth.audience, secret))
+    };
+    if auth.mode == AuthMode::Dev {
+        return Ok(TokenCheck::Dev(dev()?));
+    }
+    let issuer = auth.supabase_issuer(&config.supabase).context(
+        "auth.issuer or supabase.url (SUPABASE_URL) is required when auth.mode = supabase",
+    )?;
+    let jwks_url = auth
+        .supabase_jwks_url(&config.supabase)
+        .context("auth.jwks_url is required when auth.mode = supabase")?;
+    let verifier = JwtVerifier::remote(JwtConfig::new(&issuer, &auth.audience, &jwks_url))
+        .context("auth.jwks_url is not a valid URL")?;
+    if let Err(error) = verifier.prefetch().await {
+        // Not fatal: keys are fetched again on the first sign-in.
+        tracing::warn!(error = %error, "could not fetch the token signing keys at startup");
+    }
+    tracing::info!(issuer = %issuer, dev_tokens = auth.dev_tokens, "checking Supabase tokens");
+    Ok(if auth.dev_tokens {
+        TokenCheck::SupabaseAndDev {
+            supabase: verifier,
+            dev: dev()?,
+        }
+    } else {
+        TokenCheck::Supabase(verifier)
+    })
+}
+
+/// Supabase's Admin API when the project URL and secret key are set.
+fn accounts(config: &Config) -> anyhow::Result<Option<SupabaseAdmin>> {
+    match (&config.supabase.url, &config.supabase.secret_key) {
+        (Some(url), Some(key)) => Ok(Some(
+            SupabaseAdmin::new(url, key.clone()).context("supabase.url / supabase.secret_key")?,
+        )),
+        _ => Ok(None),
+    }
+}
+
+/// Runs an administration command over the owner connection.
+async fn admin(config: Config, action: Admin) -> anyhow::Result<()> {
+    let Admin::GrantPlatform {
+        email,
+        role,
+        auth_uid,
+        name,
+    } = action;
+    let email =
+        Email::parse(&email).map_err(|_| anyhow::anyhow!("--email is not an email address"))?;
+    let role = PlatformRole::parse(role.trim())
+        .context("--role must be owner, support, onboarding or analyst")?;
+    let auth_uid = match auth_uid {
+        Some(id) => id,
+        None => accounts(&config)?
+            .context("set SUPABASE_URL and SUPABASE_SECRET_KEY, or pass --auth-uid")?
+            .ensure_user(&email)
+            .await
+            .context("could not find or create the Supabase sign-in account")?
+            .uuid(),
+    };
+    let display_name = name
+        .map(|name| name.trim().to_owned())
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| {
+            email
+                .as_str()
+                .split('@')
+                .next()
+                .unwrap_or("staff")
+                .to_owned()
+        });
+    let url = config
+        .db
+        .owner_url
+        .context("db.owner_url (ARO_DB__OWNER_URL) is required for admin commands")?;
+    let db = Db::connect_lazy(&DbConfig::new(url))
+        .context("db.owner_url is not a valid Postgres URL")?;
+    let user_id = aarogyam_dal::console::grant_platform(
+        db.pool(),
+        auth_uid,
+        email.as_str(),
+        &display_name,
+        role.as_str(),
+    )
+    .await
+    .context("could not grant console access")?;
+    tracing::info!(%user_id, %auth_uid, role = role.as_str(), "console access granted");
+    Ok(())
 }
 
 /// Applies pending migrations over the owner connection.

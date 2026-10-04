@@ -18,6 +18,7 @@ sakalya-telemetry = { git = "https://github.com/sakalyatechnologies/sakalya-back
 sakalya-http = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.0" }
 sakalya-auth = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.0" }
 sakalya-db = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.0" }
+sakalya-testkit = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.0" }
 
 # Our crates
 aarogyam-dal = { path = "crates/aarogyam-dal" }

@@ -41,6 +41,9 @@ pub struct Config {
     /// Patient files (`ARO_FILES__*`).
     #[serde(default)]
     pub files: FileSettings,
+    /// The Supabase project (`ARO_SUPABASE__*`, or the `SUPABASE_*` names in `.env.supabase`).
+    #[serde(default)]
+    pub supabase: SupabaseSettings,
 }
 
 impl Config {
@@ -50,7 +53,17 @@ impl Config {
     ///
     /// Returns [`ConfigError`] naming the key that is missing, unknown or invalid.
     pub fn load(file: &Path) -> Result<Self, ConfigError> {
-        Loader::new(ENV_PREFIX).file(file).load()
+        let mut config: Self = Loader::new(ENV_PREFIX).file(file).load()?;
+        // The names Supabase's dashboard uses, as kept in `.env.supabase`, when the ARO_ ones
+        // are not set.
+        let plain = |name: &str| std::env::var(name).ok().filter(|value| !value.is_empty());
+        if config.supabase.url.is_none() {
+            config.supabase.url = plain("SUPABASE_URL").map(Into::into);
+        }
+        if config.supabase.secret_key.is_none() {
+            config.supabase.secret_key = plain("SUPABASE_SECRET_KEY").map(SecretString::from);
+        }
+        Ok(config)
     }
 }
 
@@ -111,7 +124,8 @@ pub struct DbSettings {
 pub enum AuthMode {
     /// Local development only: the API mints and checks its own tokens for the seeded people.
     Dev,
-    /// Supabase Auth tokens, checked against the project's published keys.
+    /// Supabase Auth tokens, checked against the project's published keys; locally, development
+    /// tokens as well when `dev_tokens` is on.
     Supabase,
 }
 
@@ -121,14 +135,68 @@ pub enum AuthMode {
 pub struct AuthSettings {
     /// `dev` (only allowed in `local`) or `supabase` (`ARO_AUTH__MODE`).
     pub mode: AuthMode,
-    /// Expected `iss` claim (`ARO_AUTH__ISSUER`), such as `https://<project>.supabase.co/auth/v1`.
-    pub issuer: Box<str>,
+    /// Expected `iss` claim of Supabase tokens (`ARO_AUTH__ISSUER`). Default
+    /// `<supabase.url>/auth/v1`.
+    pub issuer: Option<Box<str>>,
     /// Expected `aud` claim (`ARO_AUTH__AUDIENCE`); Supabase uses `authenticated`.
+    #[serde(default = "default_audience")]
     pub audience: Box<str>,
-    /// Where Supabase publishes its signing keys (`ARO_AUTH__JWKS_URL`); `supabase` mode only.
+    /// Where Supabase publishes its signing keys (`ARO_AUTH__JWKS_URL`). Default
+    /// `<issuer>/.well-known/jwks.json`.
     pub jwks_url: Option<Box<str>>,
-    /// Secret for development tokens (`ARO_AUTH__DEV_SECRET`); `dev` mode only.
+    /// Also accept development tokens in `supabase` mode (`ARO_AUTH__DEV_TOKENS`); only allowed
+    /// in `local`. `dev` mode always accepts them.
+    #[serde(default)]
+    pub dev_tokens: bool,
+    /// The `iss` claim of development tokens (`ARO_AUTH__DEV_ISSUER`). Default `aarogyam-dev`.
+    #[serde(default = "default_dev_issuer")]
+    pub dev_issuer: Box<str>,
+    /// Secret for development tokens (`ARO_AUTH__DEV_SECRET`).
     pub dev_secret: Option<SecretString>,
+}
+
+fn default_audience() -> Box<str> {
+    "authenticated".into()
+}
+
+fn default_dev_issuer() -> Box<str> {
+    "aarogyam-dev".into()
+}
+
+impl AuthSettings {
+    /// The Supabase issuer: `auth.issuer`, else `<supabase.url>/auth/v1`.
+    #[must_use]
+    pub fn supabase_issuer(&self, supabase: &SupabaseSettings) -> Option<String> {
+        self.issuer.as_deref().map(str::to_owned).or_else(|| {
+            supabase
+                .url
+                .as_deref()
+                .map(|url| format!("{}/auth/v1", url.trim_end_matches('/')))
+        })
+    }
+
+    /// Where Supabase's signing keys are: `auth.jwks_url`, else `<issuer>/.well-known/jwks.json`.
+    #[must_use]
+    pub fn supabase_jwks_url(&self, supabase: &SupabaseSettings) -> Option<String> {
+        self.jwks_url.as_deref().map(str::to_owned).or_else(|| {
+            self.supabase_issuer(supabase)
+                .map(|issuer| format!("{issuer}/.well-known/jwks.json"))
+        })
+    }
+}
+
+/// The Supabase project, for token checks and for creating people's sign-in accounts.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SupabaseSettings {
+    /// The project URL (`ARO_SUPABASE__URL`, or `SUPABASE_URL`), such as
+    /// `https://<project-ref>.supabase.co`.
+    pub url: Option<Box<str>>,
+    /// The server-only secret key (`ARO_SUPABASE__SECRET_KEY`, or `SUPABASE_SECRET_KEY`). It
+    /// creates sign-in accounts for invited people, since sign-ups are off. Never sent to a
+    /// browser or app, never logged. Without it, invitations still work but the invited person
+    /// can't sign in until their account exists in Supabase.
+    pub secret_key: Option<SecretString>,
 }
 
 /// The host names the API answers on.

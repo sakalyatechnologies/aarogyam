@@ -8,7 +8,7 @@
 use std::net::SocketAddr;
 use std::path::Path;
 
-use aarogyam_server::config::Config;
+use aarogyam_server::config::{AuthMode, Config};
 use figment::Jail;
 use sakalya_config::Environment;
 use secrecy::ExposeSecret;
@@ -103,6 +103,42 @@ fn database_password_stays_out_of_debug_output() {
         set_required(jail);
         let config = load(NO_FILE);
         assert!(!format!("{config:?}").contains("hunter2"));
+        Ok(())
+    });
+}
+
+#[test]
+fn local_defaults_use_development_tokens_without_supabase() {
+    Jail::expect_with(|jail| {
+        jail.clear_env();
+        let config = load(LOCAL_FILE);
+        assert_eq!(config.auth.mode, AuthMode::Dev);
+        assert!(config.auth.dev_tokens);
+        assert_eq!(&*config.auth.dev_issuer, "aarogyam-dev");
+        assert!(config.supabase.url.is_none());
+        assert!(config.supabase.secret_key.is_none());
+        Ok(())
+    });
+}
+
+#[test]
+fn supabase_issuer_and_keys_come_from_the_project_url() {
+    Jail::expect_with(|jail| {
+        jail.clear_env();
+        jail.set_env("ARO_AUTH__MODE", "supabase");
+        jail.set_env("SUPABASE_URL", "https://ref.supabase.co/");
+        jail.set_env("SUPABASE_SECRET_KEY", "sb_secret_never_printed");
+        let config = load(LOCAL_FILE);
+        assert_eq!(config.auth.mode, AuthMode::Supabase);
+        assert_eq!(
+            config.auth.supabase_issuer(&config.supabase).unwrap(),
+            "https://ref.supabase.co/auth/v1"
+        );
+        assert_eq!(
+            config.auth.supabase_jwks_url(&config.supabase).unwrap(),
+            "https://ref.supabase.co/auth/v1/.well-known/jwks.json"
+        );
+        assert!(!format!("{config:?}").contains("sb_secret_never_printed"));
         Ok(())
     });
 }

@@ -96,7 +96,7 @@ fn admin_options() -> PgConnectOptions {
         .disable_statement_logging()
 }
 
-fn dev_tokens() -> DevTokens {
+pub fn dev_tokens() -> DevTokens {
     DevTokens::new(
         "aarogyam-test",
         "authenticated",
@@ -132,6 +132,16 @@ impl TestApp {
     }
 
     pub async fn start_with(http: HttpConfig) -> Self {
+        Self::start_configured(http, TokenCheck::Dev(dev_tokens()), |state| state).await
+    }
+
+    /// Like [`Self::start_with`], checking tokens with `tokens` and adjusting the state with
+    /// `configure` (a fake Supabase admin client, a throttle).
+    pub async fn start_configured(
+        http: HttpConfig,
+        tokens: TokenCheck,
+        configure: impl FnOnce(AppState) -> AppState,
+    ) -> Self {
         let admin = admin_options();
         let conn = PgPoolOptions::new()
             .max_connections(1)
@@ -180,9 +190,9 @@ impl TestApp {
             Arc::new(LocalDisk::new(&files_dir)),
             LinkSigner::new(FILE_KEY).unwrap(),
         );
-        let router = router(
-            AppState::new(db, http, TokenCheck::Dev(dev_tokens()), hosts()).with_files(files),
-        );
+        let router = router(configure(
+            AppState::new(db, http, tokens, hosts()).with_files(files),
+        ));
         Self {
             router,
             tokens: dev_tokens(),

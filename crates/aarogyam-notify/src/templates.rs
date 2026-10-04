@@ -35,7 +35,8 @@ impl PortalLinks {
 
     /// The link that accepts an invitation. The token rides in the fragment, which browsers
     /// never send to servers or keep in referrers.
-    fn invite(&self, host: &str, token: &str) -> String {
+    #[must_use]
+    pub fn invite(&self, host: &str, token: &str) -> String {
         format!("{}/invite#{token}", self.pattern.replace("{host}", host))
     }
 }

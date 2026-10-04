@@ -330,6 +330,155 @@
         ]
       }
     },
+    "/api/v1/console/applications": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Lists clinic applications.",
+        "operationId": "applications",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "pending, approved or rejected",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Applications"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not Sakalya staff"
+          },
+          "404": {
+            "description": "Not the console host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/console/applications/{id}/approve": {
+      "post": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Approves an application: creates the clinic, the owner's sign-in account and invitation,\nand emails the invitation.",
+        "operationId": "approve",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The application",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveApplication"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovedApplication"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid subdomain"
+          },
+          "403": {
+            "description": "Not allowed to onboard clinics"
+          },
+          "404": {
+            "description": "No pending application with that id"
+          },
+          "409": {
+            "description": "The subdomain is taken"
+          },
+          "503": {
+            "description": "Supabase could not create the sign-in account"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/console/applications/{id}/reject": {
+      "post": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Rejects an application.",
+        "operationId": "reject",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The application",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectApplication"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Rejected"
+          },
+          "403": {
+            "description": "Not allowed to onboard clinics"
+          },
+          "404": {
+            "description": "No pending application with that id"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/console/clinics": {
       "get": {
         "tags": [
@@ -394,6 +543,106 @@
           },
           "409": {
             "description": "The subdomain is taken"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/console/clinics/{id}": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "One clinic, with its staff. Counts only, never patient data.",
+        "operationId": "clinic",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The clinic",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not Sakalya staff"
+          },
+          "404": {
+            "description": "No such clinic, or not the console host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/console/clinics/{id}/invitations": {
+      "post": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Invites a doctor or other staff to a clinic: creates their sign-in account and invitation,\nand emails it.",
+        "operationId": "invite",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The clinic",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewClinicInvitation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicInvited"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email or unknown role"
+          },
+          "403": {
+            "description": "Not allowed to onboard clinics"
+          },
+          "404": {
+            "description": "No such clinic"
+          },
+          "503": {
+            "description": "Supabase could not create the sign-in account"
           }
         },
         "security": [
@@ -2954,6 +3203,43 @@
         ]
       }
     },
+    "/api/v1/registrations": {
+      "post": {
+        "tags": [
+          "registration"
+        ],
+        "summary": "Applies to join Aarogyam (public, throttled per IP).",
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewRegistration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Received; the same answer every time",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationReceived"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "429": {
+            "description": "Too many applications from this address"
+          }
+        }
+      }
+    },
     "/api/v1/roles": {
       "get": {
         "tags": [
@@ -4057,6 +4343,123 @@
           }
         }
       },
+      "Application": {
+        "type": "object",
+        "description": "A clinic's application.",
+        "required": [
+          "id",
+          "clinic_name",
+          "city",
+          "specialty",
+          "contact_name",
+          "email",
+          "status",
+          "submissions",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "city": {
+            "type": "string",
+            "description": "Its city."
+          },
+          "clinic_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic approval created."
+          },
+          "clinic_name": {
+            "type": "string",
+            "description": "The clinic's name."
+          },
+          "contact_name": {
+            "type": "string",
+            "description": "Who to contact."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it arrived (RFC 3339)."
+          },
+          "decided_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When (RFC 3339)."
+          },
+          "decided_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who decided."
+          },
+          "decision_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was rejected."
+          },
+          "email": {
+            "type": "string",
+            "description": "Their email."
+          },
+          "id": {
+            "type": "string",
+            "description": "The application."
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What they added."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their phone, E.164."
+          },
+          "specialty": {
+            "type": "string",
+            "description": "`dental` or `general`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`pending`, `approved` or `rejected`."
+          },
+          "submissions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Times the address applied while pending."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          }
+        }
+      },
+      "Applications": {
+        "type": "object",
+        "description": "Applications, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Application"
+            },
+            "description": "At most 500."
+          }
+        }
+      },
       "Appointment": {
         "type": "object",
         "description": "An appointment.",
@@ -4247,6 +4650,62 @@
               "$ref": "#/components/schemas/Appointment"
             },
             "description": "By start."
+          }
+        }
+      },
+      "ApproveApplication": {
+        "type": "object",
+        "description": "How to approve.",
+        "properties": {
+          "slug": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The subdomain; derived from the clinic's name when absent."
+          }
+        }
+      },
+      "ApprovedApplication": {
+        "type": "object",
+        "description": "A clinic created from an application. `invite_link` is shown once; it was also emailed.",
+        "required": [
+          "clinic_id",
+          "slug",
+          "portal_host",
+          "invitation_id",
+          "invite_link",
+          "invite_expires_at",
+          "account_ready"
+        ],
+        "properties": {
+          "account_ready": {
+            "type": "boolean",
+            "description": "Whether the owner's sign-in account exists in Supabase."
+          },
+          "clinic_id": {
+            "type": "string",
+            "description": "The new clinic."
+          },
+          "invitation_id": {
+            "type": "string",
+            "description": "The owner's invitation."
+          },
+          "invite_expires_at": {
+            "type": "string",
+            "description": "When it expires (RFC 3339)."
+          },
+          "invite_link": {
+            "type": "string",
+            "description": "The invitation link, with its one-time secret."
+          },
+          "portal_host": {
+            "type": "string",
+            "description": "Its portal host."
+          },
+          "slug": {
+            "type": "string",
+            "description": "Its subdomain."
           }
         }
       },
@@ -4594,6 +5053,216 @@
               "null"
             ],
             "description": "The visit that recorded it."
+          }
+        }
+      },
+      "ClinicDetail": {
+        "type": "object",
+        "description": "A clinic for the console: details, hosts, counts, staff and open invitations.",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "specialty",
+          "status",
+          "timezone",
+          "created_at",
+          "hosts",
+          "active_members",
+          "patients",
+          "pending_invitations",
+          "members",
+          "invitations"
+        ],
+        "properties": {
+          "active_members": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Active members."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was created (RFC 3339)."
+          },
+          "hosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Host names, primary first."
+          },
+          "id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "invitations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClinicInvitation"
+            },
+            "description": "Invitations neither accepted nor expired."
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClinicMember"
+            },
+            "description": "The staff."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "patients": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Patients (a count only)."
+          },
+          "pending_invitations": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Open invitations."
+          },
+          "slug": {
+            "type": "string",
+            "description": "Its subdomain."
+          },
+          "specialty": {
+            "type": "string",
+            "description": "`dental` or `general`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`trial`, `active`, `suspended` or `churned`."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Its time zone."
+          }
+        }
+      },
+      "ClinicInvitation": {
+        "type": "object",
+        "description": "An invitation not yet accepted.",
+        "required": [
+          "id",
+          "role_key",
+          "role_name",
+          "expires_at",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was sent (RFC 3339)."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who was invited."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When it expires (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The invitation."
+          },
+          "role_key": {
+            "type": "string",
+            "description": "Role key."
+          },
+          "role_name": {
+            "type": "string",
+            "description": "Role name."
+          }
+        }
+      },
+      "ClinicInvited": {
+        "type": "object",
+        "description": "An invitation just sent. `invite_link` is shown once; it was also emailed.",
+        "required": [
+          "id",
+          "email",
+          "role_key",
+          "invite_link",
+          "expires_at",
+          "account_ready"
+        ],
+        "properties": {
+          "account_ready": {
+            "type": "boolean",
+            "description": "Whether their sign-in account exists in Supabase."
+          },
+          "email": {
+            "type": "string",
+            "description": "Who was invited."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When it expires (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The invitation."
+          },
+          "invite_link": {
+            "type": "string",
+            "description": "The invitation link, with its one-time secret."
+          },
+          "role_key": {
+            "type": "string",
+            "description": "Their role."
+          }
+        }
+      },
+      "ClinicMember": {
+        "type": "object",
+        "description": "A member of a clinic's staff.",
+        "required": [
+          "membership_id",
+          "display_name",
+          "role_key",
+          "role_name",
+          "status"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "description": "Their name."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their sign-in address."
+          },
+          "joined_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When they joined (RFC 3339)."
+          },
+          "membership_id": {
+            "type": "string",
+            "description": "The membership."
+          },
+          "role_key": {
+            "type": "string",
+            "description": "Role key."
+          },
+          "role_name": {
+            "type": "string",
+            "description": "Role name."
+          },
+          "status": {
+            "type": "string",
+            "description": "`invited`, `active`, `suspended` or `left`."
           }
         }
       },
@@ -5801,6 +6470,24 @@
           }
         }
       },
+      "NewClinicInvitation": {
+        "type": "object",
+        "description": "Someone to invite to a clinic.",
+        "required": [
+          "email",
+          "role_key"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Their email; they sign in with it."
+          },
+          "role_key": {
+            "type": "string",
+            "description": "A role of the clinic, such as `doctor` or `front_desk`."
+          }
+        }
+      },
       "NewIdentifier": {
         "type": "object",
         "description": "An identifier to add.",
@@ -6085,6 +6772,55 @@
               "null"
             ],
             "description": "`clinician` (default), `assistant`, `patient` or `import`."
+          }
+        }
+      },
+      "NewRegistration": {
+        "type": "object",
+        "description": "A clinic asking to join.",
+        "required": [
+          "clinic_name",
+          "city",
+          "contact_name",
+          "email"
+        ],
+        "properties": {
+          "city": {
+            "type": "string",
+            "description": "Its city."
+          },
+          "clinic_name": {
+            "type": "string",
+            "description": "The clinic's name."
+          },
+          "contact_name": {
+            "type": "string",
+            "description": "Who we should contact."
+          },
+          "email": {
+            "type": "string",
+            "description": "Their email; the owner's invitation goes there once approved."
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Anything they want to tell us."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their phone number."
+          },
+          "specialty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`dental` (default) or `general`."
           }
         }
       },
@@ -7143,6 +7879,37 @@
           }
         }
       },
+      "RegistrationReceived": {
+        "type": "object",
+        "description": "The one answer to a valid application.",
+        "required": [
+          "status",
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "What happens next."
+          },
+          "status": {
+            "type": "string",
+            "description": "Always `received`."
+          }
+        }
+      },
+      "RejectApplication": {
+        "type": "object",
+        "description": "Why an application is turned down.",
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A short reason, for the console only."
+          }
+        }
+      },
       "Role": {
         "type": "object",
         "description": "A role.",
@@ -8168,6 +8935,10 @@
     {
       "name": "settings",
       "description": "A clinic's own settings; clinic host only"
+    },
+    {
+      "name": "registration",
+      "description": "Clinics applying to join; public, throttled per IP"
     },
     {
       "name": "console",

@@ -28,6 +28,16 @@ Each backend package works in its own worktree and branch, with its own dev data
 | **UI 2** | main checkout, `web/` | none | | Visit screen (notes, vitals, dental chart odontogram, procedures), treatment plans, prescription (compose, alerts, print layout with footer and QR), invoices and payments, collections; Phase 2 screens static | |
 | **E2E** | main checkout | none | | Playwright golden journey on the local stack | |
 
+### Added at 01:00 (founder: finish everything by 07:00, no waiting)
+
+| Package | Where | What |
+|---|---|---|
+| **Auth** (lead) | main | Local API accepts dev tokens and Supabase tokens together; founder's Supabase user bootstrapped as platform owner; `aarogyam_api` password set on Supabase; portal and console email-code sign-in against Supabase |
+| **Quality** | `feat/quality` + `web/` | `scripts/quality-run.sh` runs Rust, web and Playwright suites and writes run summaries to `var/quality/*.json` (an operations store outside the patient database; GCS or BigQuery when deployed); `GET /api/v1/console/quality` (platform staff); console Quality page (status per suite and environment, pass-rate trend, failing tests) |
+| **Deploy prep** | `feat/deploy` | Product Dockerfile (builder and runtime on the same Debian), Cloud Run service YAML (min 0, max 2, request-based billing, own runtime account, secrets from Secret Manager), `cloudbuild.yaml` (main → staging, refuses other branches), Cloudflare Worker serving portal and console assets and proxying `/api` with the edge secret and `X-Forwarded-Host`, `wrangler.toml`, `docs/deploy.md` with exact commands; staging hosts `*.sakalyatech.in` |
+
+Order: M3, M4 and M5 backends → UI 2 (calendar and queue, visit and dental chart, prescriptions, billing) → Quality and E2E → Deploy prep → merge, full gates, push, handoff by 07:00.
+
 ## Rules every package follows
 
 - The patients module is the pattern: domain values in `aarogyam-domain`, compile-checked queries in `aarogyam-dal`, use cases in `aarogyam-app` inside `db.scoped(...)`, handlers taking `Require<P>` in `aarogyam-api`, OpenAPI annotations, `docs/api/openapi.json` regenerated.

@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select substance, severity from aarogyam.allergies\n           where patient_id = $1 and status = 'active'\n           order by created_at, id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "substance",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "substance"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "severity",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "severity"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "94e8c24982f134139e2bb238e25eb9b0880ae33943d4b32316c6b956a4d9b509"
+}

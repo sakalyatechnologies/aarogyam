@@ -2972,7 +2972,9 @@
     "attachments.encounter_id",
     "clinical_notes.encounter_id",
     "conditions.encounter_id",
+    "invoices.encounter_id",
     "observations.encounter_id",
+    "prescriptions.encounter_id",
     "procedures.encounter_id",
     "specialty_records.encounter_id",
     "treatment_plans.encounter_id",
@@ -3543,8 +3545,8 @@
      "name": "encounter_id",
      "type": "uuid",
      "nullable": true,
-     "ref": null,
-     "note": "visit; foreign key added after the visits branch merges"
+     "ref": "encounters",
+     "note": "same patient"
     },
     {
      "name": "patient_id",
@@ -3896,7 +3898,9 @@
    ],
    "referenced_by": [
     "consent_forms.procedure_id",
+    "invoice_items.procedure_id",
     "lab_orders.procedure_id",
+    "recalls.source_procedure_id",
     "stock_movements.procedure_id"
    ],
    "sensitivity": "health",
@@ -5619,8 +5623,8 @@
      "name": "encounter_id",
      "type": "uuid",
      "nullable": true,
-     "ref": null,
-     "note": "visit; foreign key added after the visits branch merges"
+     "ref": "encounters",
+     "note": "same patient"
     },
     {
      "name": "branch_id",
@@ -5823,8 +5827,8 @@
      "name": "procedure_id",
      "type": "uuid",
      "nullable": true,
-     "ref": null,
-     "note": "foreign key added after the visits branch merges"
+     "ref": "procedures",
+     "note": ""
     },
     {
      "name": "description",
@@ -6532,8 +6536,8 @@
      "name": "source_procedure_id",
      "type": "uuid",
      "nullable": true,
-     "ref": null,
-     "note": "foreign key added after the visits branch merges"
+     "ref": "procedures",
+     "note": ""
     }
    ],
    "referenced_by": [],

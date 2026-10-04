@@ -39,21 +39,28 @@ pub type AllergyFuture<'a> =
     Pin<Box<dyn Future<Output = Result<Vec<RecordedAllergy>, AppError>> + Send + 'a>>;
 
 /// Where the allergy check reads a patient's recorded allergies, inside the issuing
-/// transaction. The visits package records allergies; until its `aarogyam.allergies` table is
-/// merged and wired here, [`AllergiesNotWiredYet`] reports none.
+/// transaction. [`RecordedAllergies`] reads the clinical record; tests use fakes.
 pub trait AllergySource: Send + Sync + std::fmt::Debug {
     /// The patient's active allergies.
     fn allergies<'a>(&'a self, tx: &'a mut ScopedTx, patient_id: PatientId) -> AllergyFuture<'a>;
 }
 
-/// The stand-in until allergies are recorded: no patient has any. Replace it with a source
-/// that reads `aarogyam.allergies` (status active) once the visits package merges.
+/// The patient's active allergies from the clinical record (`aarogyam.allergies`).
 #[derive(Debug, Clone, Copy, Default)]
-pub struct AllergiesNotWiredYet;
+pub struct RecordedAllergies;
 
-impl AllergySource for AllergiesNotWiredYet {
-    fn allergies<'a>(&'a self, _tx: &'a mut ScopedTx, _patient: PatientId) -> AllergyFuture<'a> {
-        Box::pin(async { Ok(Vec::new()) })
+impl AllergySource for RecordedAllergies {
+    fn allergies<'a>(&'a self, tx: &'a mut ScopedTx, patient: PatientId) -> AllergyFuture<'a> {
+        Box::pin(async move {
+            let rows = dal::active_allergies(tx.conn(), patient.uuid()).await?;
+            Ok(rows
+                .into_iter()
+                .map(|row| RecordedAllergy {
+                    severe: row.severity == "severe",
+                    substance: row.substance,
+                })
+                .collect())
+        })
     }
 }
 

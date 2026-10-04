@@ -38,12 +38,14 @@ flowchart LR
   web["Websites<br/>4 tables"]
   trust["Trust and audit<br/>6 tables"]
   onboarding["Onboarding<br/>3 tables"]
+  billing -->|2| clinical
   billing -->|3| people
   billing -->|9| tenancy
   clinical -->|15| people
   clinical -->|1| scheduling
   clinical -->|16| tenancy
   notify -->|1| billing
+  notify -->|1| clinical
   notify -->|2| iam
   notify -->|4| people
   onboarding -->|1| people
@@ -994,6 +996,7 @@ erDiagram
   encounters |o--o{ observations : "encounter_id"
   observations |o--o{ observations : "supersedes_id"
   encounters |o--o{ conditions : "encounter_id"
+  encounters |o--o{ prescriptions : "encounter_id"
   prescriptions |o--o{ prescriptions : "supersedes_id"
   document_templates |o--o{ prescriptions : "template_id"
   prescriptions ||--o{ prescription_items : "prescription_id"
@@ -1064,7 +1067,7 @@ One visit. Visit-level clinical data (complaint, vitals, notes, procedures, file
 
 Unique (org_id, id, patient_id): every child row carries patient_id and a composite foreign key (org_id, encounter_id, patient_id), so a visit's notes, vitals, procedures and files can't belong to another patient. Patient-level facts (allergies, active conditions, history) live on the patient and may be updated during a visit; they do not require one. Opening a visit writes access_log.
 
-Referenced by: `attachments.encounter_id`, `clinical_notes.encounter_id`, `conditions.encounter_id`, `observations.encounter_id`, `procedures.encounter_id`, `specialty_records.encounter_id`, `treatment_plans.encounter_id`, `voice_notes.encounter_id`
+Referenced by: `attachments.encounter_id`, `clinical_notes.encounter_id`, `conditions.encounter_id`, `invoices.encounter_id`, `observations.encounter_id`, `prescriptions.encounter_id`, `procedures.encounter_id`, `specialty_records.encounter_id`, `treatment_plans.encounter_id`, `voice_notes.encounter_id`
 
 ### `clinical_notes` (★ foundation)
 
@@ -1201,7 +1204,7 @@ A prescription from a visit: shown to staff and the patient, printed with the cl
 | Column | Type | Notes |
 |---|---|---|
 | `number` | `text?` | RX-412, assigned by the server when issued |
-| `encounter_id` | `uuid?` | visit; foreign key added after the visits branch merges |
+| `encounter_id` | `uuid?` | → `encounters`. same patient |
 | `patient_id` | `uuid` | → `patients` |
 | `diagnosis_text` | `text?` |  |
 | `advice` | `text?` | diet, care, warnings |
@@ -1273,7 +1276,7 @@ Treatment actually done (or planned for today) in a visit.
 
 Done procedures are frozen by app.freeze_when() (only done -> entered_in_error). One live procedure per plan item. Marking done will deduct stock via procedure_materials and can create a lab_order.
 
-Referenced by: `consent_forms.procedure_id`, `lab_orders.procedure_id`, `stock_movements.procedure_id`
+Referenced by: `consent_forms.procedure_id`, `invoice_items.procedure_id`, `lab_orders.procedure_id`, `recalls.source_procedure_id`, `stock_movements.procedure_id`
 
 ### `treatment_plans` (★ foundation)
 
@@ -1786,7 +1789,7 @@ A bill to a patient. Totals are stored at issue; whether it is paid is derived f
 | `series` | `text` | number series, main by default |
 | `financial_year` | `text?` | 26-27, in clinic time |
 | `patient_id` | `uuid` | → `patients` |
-| `encounter_id` | `uuid?` | visit; foreign key added after the visits branch merges |
+| `encounter_id` | `uuid?` | → `encounters`. same patient |
 | `branch_id` | `uuid` | → `branches` |
 | `doc_type` | `invoice_doc?` | tax_invoice, bill_of_supply; decided at issue |
 | `status` | `invoice_status` | draft, issued, void |
@@ -1825,7 +1828,7 @@ Lines on a bill, each optionally tied to a price item or procedure. GST is compu
 | `invoice_id` | `uuid` | → `invoices` |
 | `line_no` | `smallint` |  |
 | `price_item_id` | `uuid?` | → `price_items` |
-| `procedure_id` | `uuid?` | foreign key added after the visits branch merges |
+| `procedure_id` | `uuid?` | → `procedures` |
 | `description` | `text` |  |
 | `sac_hsn` | `text?` |  |
 | `category` | `text?` |  |
@@ -2035,7 +2038,7 @@ Follow-ups that are due: cleaning in six months, BP review, vaccine.
 | `due_on` | `date` |  |
 | `status` | `recall_status` | due, notified, booked, done, dismissed |
 | `done_at` | `timestamptz?` |  |
-| `source_procedure_id` | `uuid?` | foreign key added after the visits branch merges |
+| `source_procedure_id` | `uuid?` | → `procedures` |
 
 ### `audiences`
 

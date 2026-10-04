@@ -550,3 +550,37 @@ async fn follow_ups_are_planned_listed_and_done_per_clinic() {
     assert_eq!(status, StatusCode::CONFLICT);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_allergy_check_reads_the_recorded_allergies() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = patient(&app, ALPHA, &owner).await;
+    let path = format!("/api/v1/patients/{patient}/allergies");
+    let allergy = json!({ "substance": "Penicillin", "severity": "severe" });
+    let (status, body) = app
+        .send(Method::POST, ALPHA, &path, Some(&owner), Some(allergy))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let amox = drug(&app, &owner, "amoxicillin 500").await;
+    let rx = draft(&app, &owner, &patient, json!([{ "drug_id": amox["id"] }])).await;
+    let (status, blocked) = issue(&app, &owner, rx["id"].as_str().unwrap(), json!({})).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{blocked}");
+    assert_eq!(blocked["alerts"][0]["severity"], "serious");
+
+    // A bill or prescription names only a visit of the same patient.
+    let stranger = json!({ "patient_id": patient, "encounter_id": uuid::Uuid::now_v7(),
+                           "items": [{ "description": "X", "unit_price_paise": 100 }] });
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/invoices",
+            Some(&owner),
+            Some(stranger),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    app.finish().await;
+}

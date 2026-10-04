@@ -507,8 +507,9 @@ pub async fn alerts(
     Ok(rows)
 }
 
-/// A member's display name and the registration number the clinic recorded for them in its
-/// prescription settings (`registration_numbers`, keyed by membership).
+/// A member's name and registration number as a doctor: from their practitioner record, else
+/// their display name and the clinic's prescription settings (`registration_numbers`, keyed by
+/// membership).
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -517,10 +518,13 @@ pub async fn doctor(
     membership_id: Uuid,
 ) -> Result<Option<(String, Option<String>)>, DbError> {
     let row = sqlx::query!(
-        r#"select u.display_name,
-                  s.prescription -> 'registration_numbers' ->> m.id::text as registration_number
+        r#"select coalesce(pr.display_name, u.display_name) as "display_name!",
+                  coalesce(pr.registration_number,
+                           s.prescription -> 'registration_numbers' ->> m.id::text) as registration_number
            from aarogyam.memberships m
            join aarogyam.users u on u.id = m.user_id
+           left join aarogyam.practitioners pr
+             on pr.org_id = m.org_id and pr.membership_id = m.id and pr.deleted_at is null
            left join aarogyam.org_settings s on s.org_id = m.org_id
            where m.id = $1"#,
         membership_id
@@ -695,4 +699,33 @@ pub async fn clinic_name(conn: &mut PgConnection) -> Result<Option<(String, Stri
     .fetch_optional(conn)
     .await?;
     Ok(row.map(|row| (row.name, row.timezone)))
+}
+
+/// A recorded allergy, as the prescription check reads it.
+#[derive(Debug, Clone)]
+pub struct AllergyRow {
+    /// What the patient reacts to.
+    pub substance: String,
+    /// `mild`, `moderate` or `severe`.
+    pub severity: String,
+}
+
+/// The patient's active allergies (`aarogyam.allergies`).
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn active_allergies(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+) -> Result<Vec<AllergyRow>, DbError> {
+    let rows = sqlx::query_as!(
+        AllergyRow,
+        r#"select substance, severity from aarogyam.allergies
+           where patient_id = $1 and status = 'active'
+           order by created_at, id"#,
+        patient_id
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
 }

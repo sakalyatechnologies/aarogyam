@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use aarogyam_app::files::Files;
-use aarogyam_app::prescriptions::{AllergiesNotWiredYet, AllergySource};
+use aarogyam_app::prescriptions::{AllergySource, RecordedAllergies};
 use aarogyam_dal::lookups::{self, HostClinic};
 use aarogyam_dal::sessions;
 use aarogyam_domain::access::Authorization;
@@ -94,7 +94,7 @@ impl AppState {
                 metrics: Arc::new(ServiceMetrics::new()),
                 throttle: None,
                 notifier: Notifier::log(PortalLinks::default()),
-                allergies: Arc::new(AllergiesNotWiredYet),
+                allergies: Arc::new(RecordedAllergies),
                 files: None,
             }),
         }

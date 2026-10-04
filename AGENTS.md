@@ -37,7 +37,7 @@ Settings come from `config/local.toml` (local defaults, not secret) and `ARO_*` 
 
 ## Product rules (on top of the shared rules)
 
-1. **The clinic comes from the host name.** `smilecatchers.aarogyam.example` means clinic `smilecatchers`. Never read the clinic from a header, path segment or body. The API checks the host against the caller's memberships.
+1. **The clinic comes from the host name.** `sunrise.aarogyam.example` means clinic `sunrise`. Never read the clinic from a header, path segment or body. The API checks the host against the caller's memberships.
 2. **Clinic data is only read inside a scoped transaction.** Use `sakalya_db::Db::begin_scoped` through the product's `ClinicTx` wrapper. Never query clinic tables with `Db::pool()`.
 3. **Every clinic table has `org_id`, row-level security, and composite foreign keys** that include `org_id`. A migration that adds a clinic table without all three fails review.
 4. **Every route declares its permission** with a typed extractor such as `Require<PatientsRead>`. A test fails the build if a route has none.

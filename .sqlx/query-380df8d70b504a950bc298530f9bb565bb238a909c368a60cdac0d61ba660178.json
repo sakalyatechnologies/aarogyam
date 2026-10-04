@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.treatment_plan_items set status = 'cancelled'\n           where plan_id = $1 and status = 'proposed'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "380df8d70b504a950bc298530f9bb565bb238a909c368a60cdac0d61ba660178"
+}

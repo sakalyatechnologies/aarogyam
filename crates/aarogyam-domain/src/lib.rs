@@ -8,10 +8,16 @@
 //! search ([`search`]), the clinic's own settings ([`clinic`]), staff ([`staff`]), queued
 //! messages ([`outbox`]), appointments, chairs and the queue ([`schedule`]), patient imports
 //! ([`import`]) and business event names ([`event`]).
+//! messages ([`outbox`]), business event names ([`event`]), and the clinical record: visits and
+//! notes ([`clinical`]), vital signs ([`vitals`]), the dental chart ([`dental`]) and patient
+//! files ([`files`]).
 
 pub mod access;
 pub mod clinic;
+pub mod clinical;
+pub mod dental;
 pub mod event;
+pub mod files;
 pub mod ids;
 pub mod import;
 pub mod outbox;
@@ -20,3 +26,4 @@ pub mod permission;
 pub mod schedule;
 pub mod search;
 pub mod staff;
+pub mod vitals;

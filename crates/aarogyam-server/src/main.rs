@@ -1,8 +1,10 @@
 //! The `aarogyam` binary: `serve` runs the HTTP API, `migrate` applies the database migrations.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use aarogyam_api::{AppState, DevTokens, Hosts, TokenCheck};
+use aarogyam_app::files::{Files, LinkSigner, LocalDisk};
 use aarogyam_notify::{Notifier, PortalLinks};
 use aarogyam_server::config::{AuthMode, Config};
 use anyhow::Context;
@@ -12,6 +14,7 @@ use sakalya_config::Environment;
 use sakalya_db::{Db, DbConfig};
 use sakalya_http::{EdgeConfig, EdgeSecret};
 use sakalya_throttle::{KeyKind, RuleConfig, Throttle, ThrottleConfig};
+use secrecy::ExposeSecret as _;
 
 /// Aarogyam's API server.
 #[derive(Debug, Parser)]
@@ -129,9 +132,24 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         }
         Notifier::log(links)
     };
+    let signer = if let Some(key) = config.files.signing_key {
+        LinkSigner::new(key.expose_secret().as_bytes())
+    } else {
+        anyhow::ensure!(
+            local,
+            "files.signing_key is required outside the local environment"
+        );
+        LinkSigner::random()
+    }
+    .map_err(|error| anyhow::anyhow!("files.signing_key: {error}"))?;
+    if !local {
+        tracing::warn!("patient files are kept on local disk until object storage is set up");
+    }
+    let files = Files::new(Arc::new(LocalDisk::new(config.files.dir)), signer);
     let state = AppState::new(db, http, tokens, hosts)
         .with_throttle(throttle)
-        .with_notifier(notifier);
+        .with_notifier(notifier)
+        .with_files(files);
     sakalya_http::serve(aarogyam_api::router(state), config.http.bind)
         .await
         .context("the server stopped with an error")

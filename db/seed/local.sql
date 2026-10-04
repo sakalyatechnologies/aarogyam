@@ -141,5 +141,42 @@ select branch_id, :'clinic_day'::date, row_number() over (order by arrived_at), 
 from aarogyam.appointments
 where org_id = :'sunrise' and arrived_at is not null;
 select app.reserve_numbers('queue_token', 3, :'sunrise_series', :'clinic_day') as next_token \gset
+-- A past visit for Priya Sharma (SD-1) at Sunrise with Dr Dev Rao: a signed note, vitals, an
+-- allergy, a flagged condition, a few dental chart entries and a done procedure.
+select p.id as priya from aarogyam.patients p where p.number = 'SD-1' \gset
+select m.id as dev from aarogyam.memberships m
+where m.user_id = '01920000-0000-7000-8000-0000000000a2' and m.org_id = :'sunrise' \gset
+select b.id as branch from aarogyam.branches b where b.org_id = :'sunrise' order by b.is_default desc limit 1 \gset
+insert into aarogyam.encounters (id, number, patient_id, clinician_id, branch_id, status, chief_complaint, started_at, ended_at)
+values ('01920000-0000-7000-8000-00000000e001', 'V-' || app.next_number('visit'), :'priya', :'dev', :'branch',
+        'closed', 'Sensitivity to cold, lower left', now() - interval '12 days', now() - interval '12 days' + interval '40 minutes');
+update aarogyam.patients set last_visit_at = now() - interval '12 days' where id = :'priya';
+insert into aarogyam.clinical_notes (encounter_id, patient_id, author_id, kind, body, status, signed_at, signed_by)
+values ('01920000-0000-7000-8000-00000000e001', :'priya', :'dev', 'soap',
+        '{"subjective": "Sensitivity to cold on the lower left for two weeks.",
+          "objective": "Occlusal caries on 36; old restorations on 46 intact.",
+          "assessment": "Reversible pulpitis, 36.",
+          "plan": "Composite restoration on 36 at the next visit. Scaling done today."}',
+        'signed', now() - interval '12 days' + interval '35 minutes', :'dev');
+insert into aarogyam.observations (patient_id, encounter_id, kind, value_num, unit, code_system, code, recorded_at, verified_by, verified_at)
+select :'priya', '01920000-0000-7000-8000-00000000e001', v.kind, v.value, v.unit, 'loinc', v.code,
+       now() - interval '12 days' + interval '5 minutes', :'dev', now() - interval '12 days'
+from (values ('bp_systolic', 118, 'mmHg', '8480-6'), ('bp_diastolic', 76, 'mmHg', '8462-4'),
+             ('pulse', 74, '/min', '8867-4'), ('spo2', 99, '%', '59408-5')) as v(kind, value, unit, code);
+insert into aarogyam.allergies (patient_id, substance, reaction, severity, source, verified_by, verified_at)
+values (:'priya', 'Penicillin', 'Hives and swelling', 'severe', 'patient', :'dev', now() - interval '12 days');
+insert into aarogyam.conditions (patient_id, encounter_id, display_text, flagged, source, verified_by, verified_at)
+values (:'priya', '01920000-0000-7000-8000-00000000e001', 'Hypothyroidism, on levothyroxine', true, 'patient',
+        :'dev', now() - interval '12 days');
+insert into aarogyam.specialty_records (patient_id, encounter_id, module, kind, schema_version, data, effective_at, verified_by, verified_at)
+select :'priya', '01920000-0000-7000-8000-00000000e001', 'dental', 'tooth', 1, e.data::jsonb,
+       now() - interval '12 days', :'dev', now() - interval '12 days'
+from (values ('{"tooth": 36, "surface": "O", "finding": "caries"}'),
+             ('{"tooth": 46, "surface": "O", "finding": "filled"}'),
+             ('{"tooth": 46, "surface": "M", "finding": "filled"}'),
+             ('{"tooth": 18, "finding": "missing"}')) as e(data);
+insert into aarogyam.procedures (encounter_id, patient_id, clinician_id, name, status, performed_at, price_paise)
+values ('01920000-0000-7000-8000-00000000e001', :'priya', :'dev', 'Scaling and polishing', 'done',
+        now() - interval '12 days' + interval '30 minutes', 120000);
 
 commit;

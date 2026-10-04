@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 aarogyam-api.workspace = true
+aarogyam-app = { path = "../aarogyam-app" }
 aarogyam-dal.workspace = true
 aarogyam-notify = { path = "../aarogyam-notify" }
 anyhow.workspace = true

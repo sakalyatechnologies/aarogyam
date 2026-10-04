@@ -94,6 +94,41 @@ impl FromRequestParts<AppState> for ClinicRequest {
     }
 }
 
+/// The open clinic named by the host, for routes that carry their own proof of access instead
+/// of a sign-in token (signed download links). Unknown hosts and closed clinics get `404`.
+#[derive(Debug)]
+pub struct ClinicHost {
+    /// The clinic.
+    pub clinic_id: aarogyam_domain::ids::ClinicId,
+    /// The request ID, for the access record.
+    pub request_id: Option<Uuid>,
+}
+
+impl FromRequestParts<AppState> for ClinicHost {
+    type Rejection = ApiFailure;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let host = edge(parts)?.host().as_str().to_owned();
+        let hosts = state.hosts();
+        if host == hosts.console || host == hosts.app {
+            return Err(ApiFailure(not_found()));
+        }
+        let clinic = state
+            .clinic_for_host(&host)
+            .await?
+            .filter(|clinic| clinic.status.is_some_and(ClinicStatus::is_open))
+            .ok_or_else(|| ApiFailure(not_found()))?;
+        sakalya_telemetry::record_tenant(clinic.clinic_id.uuid());
+        Ok(Self {
+            clinic_id: clinic.clinic_id,
+            request_id: request_id(parts),
+        })
+    }
+}
+
 /// A [`ClinicRequest`] whose role holds permission `P`; otherwise `403`. Every clinic route takes
 /// one of these, so a route can't be written without naming its permission.
 #[derive(Debug)]

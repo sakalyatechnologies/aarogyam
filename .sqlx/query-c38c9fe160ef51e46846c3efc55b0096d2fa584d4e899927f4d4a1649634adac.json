@@ -1,0 +1,155 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select i.id, i.plan_id, i.patient_id, i.name, i.code_system, i.code, i.tooth,\n                  i.surfaces, i.phase, i.estimate_paise, i.status,\n                  null::uuid as procedure_id\n           from aarogyam.treatment_plan_items i where i.id = $1 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "plan_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "plan_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "code_system",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "code_system"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "tooth",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "tooth"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "surfaces",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "surfaces"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "phase",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "phase"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "estimate_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "estimate_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "procedure_id",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "c38c9fe160ef51e46846c3efc55b0096d2fa584d4e899927f4d4a1649634adac"
+}

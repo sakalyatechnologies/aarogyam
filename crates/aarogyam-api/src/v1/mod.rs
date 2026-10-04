@@ -3,7 +3,10 @@
 //! (Sakalya staff on the console host) or [`crate::extract::SignedIn`] (anyone signed in).
 
 pub(crate) mod appointments;
+pub(crate) mod chart;
 pub(crate) mod console;
+pub(crate) mod facts;
+pub(crate) mod files;
 pub(crate) mod imports;
 pub(crate) mod internal;
 pub(crate) mod invitations;
@@ -14,6 +17,9 @@ pub(crate) mod schedule;
 pub(crate) mod settings;
 pub(crate) mod staff;
 pub(crate) mod today;
+pub(crate) mod treatment;
+pub(crate) mod visits;
+pub(crate) mod vitals;
 
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
@@ -27,6 +33,10 @@ use crate::AppState;
 
 /// The version 1 routes. `local_dev` adds the development sign-in and the outbox drain, which
 /// deployed servers don't have until Cloud Scheduler's signed calls are checked.
+#[expect(
+    clippy::too_many_lines,
+    reason = "every route in one table, so reviews and the route audit see them together"
+)]
 pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
     let router = Router::new()
         .route("/me", get(me::me))
@@ -81,6 +91,64 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/queue", get(queue::list).post(queue::walk_in))
         .route("/queue/{id}/status", post(queue::set_status))
         .route("/today", get(today::today))
+        .route(
+            "/patients/{id}/visits",
+            get(visits::list).post(visits::start),
+        )
+        .route("/patients/{id}/timeline", get(visits::timeline))
+        .route("/visits/{id}", get(visits::open))
+        .route("/visits/{id}/close", post(visits::close))
+        .route("/visits/{id}/notes", post(visits::create_note))
+        .route("/notes/{id}", patch(visits::edit_note))
+        .route("/notes/{id}/sign", post(visits::sign_note))
+        .route("/notes/{id}/addenda", post(visits::add_addendum))
+        .route("/notes/{id}/entered-in-error", post(visits::note_in_error))
+        .route("/visits/{id}/observations", post(vitals::record))
+        .route(
+            "/observations/{id}/entered-in-error",
+            post(vitals::in_error),
+        )
+        .route(
+            "/patients/{id}/conditions",
+            get(facts::conditions).post(facts::add_condition),
+        )
+        .route(
+            "/patients/{id}/conditions/{condition_id}",
+            patch(facts::edit_condition),
+        )
+        .route(
+            "/patients/{id}/allergies",
+            get(facts::allergies).post(facts::add_allergy),
+        )
+        .route(
+            "/patients/{id}/allergies/{allergy_id}",
+            patch(facts::edit_allergy),
+        )
+        .route("/patients/{id}/clinical-flags", get(facts::flags))
+        .route(
+            "/patients/{id}/dental-chart",
+            get(chart::get).post(chart::record),
+        )
+        .route("/visits/{id}/procedures", post(treatment::record_procedure))
+        .route("/patients/{id}/procedures", get(treatment::procedures))
+        .route("/procedures/{id}/complete", post(treatment::complete))
+        .route(
+            "/procedures/{id}/entered-in-error",
+            post(treatment::procedure_in_error),
+        )
+        .route(
+            "/patients/{id}/treatment-plans",
+            get(treatment::plans).post(treatment::create_plan),
+        )
+        .route("/treatment-plans/{id}/accept", post(treatment::accept_plan))
+        .route(
+            "/patients/{id}/attachments",
+            get(files::list)
+                .post(files::upload)
+                .layer(DefaultBodyLimit::max(files::MAX_UPLOAD_BODY)),
+        )
+        .route("/attachments/{id}/download", get(files::link))
+        .route("/attachments/{id}/content", get(files::content))
         .route("/staff", get(staff::list))
         .route("/staff/invitations", post(staff::invite))
         .route("/staff/{membership_id}", patch(staff::change))

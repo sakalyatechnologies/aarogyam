@@ -53,3 +53,28 @@ entities! {
     /// A data import.
     Import, ImportId;
 }
+
+entities! {
+    /// A visit.
+    Encounter, EncounterId;
+    /// A clinical note in a visit.
+    ClinicalNote, ClinicalNoteId;
+    /// An addendum to a signed note.
+    NoteAddendum, NoteAddendumId;
+    /// A measurement such as a blood pressure reading.
+    Observation, ObservationId;
+    /// A diagnosis on the problem list.
+    Condition, ConditionId;
+    /// An allergy.
+    Allergy, AllergyId;
+    /// A specialty record, such as a dental chart entry.
+    SpecialtyRecord, SpecialtyRecordId;
+    /// A procedure planned or done in a visit.
+    Procedure, ProcedureId;
+    /// A treatment plan.
+    TreatmentPlan, TreatmentPlanId;
+    /// A step of a treatment plan.
+    TreatmentPlanItem, TreatmentPlanItemId;
+    /// A patient file.
+    Attachment, AttachmentId;
+}

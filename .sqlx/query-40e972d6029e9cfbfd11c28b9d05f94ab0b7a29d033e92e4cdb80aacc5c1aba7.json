@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.treatment_plans set status = 'accepted', accepted_at = $2 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "40e972d6029e9cfbfd11c28b9d05f94ab0b7a29d033e92e4cdb80aacc5c1aba7"
+}

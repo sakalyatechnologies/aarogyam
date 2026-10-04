@@ -468,9 +468,11 @@ async fn every_route_requires_sign_in_and_a_permission() {
     for (path, operations) in document["paths"].as_object().unwrap() {
         // Development sign-in and internal jobs exist only locally; internal jobs will check
         // Cloud Scheduler's signed token instead of a member's.
+        // A signed download link is its own proof of access, checked by the clinical tests.
         if !path.starts_with("/api/v1/")
             || path.starts_with("/api/v1/dev/")
             || path.starts_with("/api/v1/internal/")
+            || path == "/api/v1/attachments/{id}/content"
         {
             continue;
         }

@@ -29,13 +29,11 @@ The web portal stays one slice behind the API. The doctor app starts after M3 an
 
 | Piece | State |
 |---|---|
-| Independent reviews (strategy and cost, library code, database) | Done; P0s addressed or scheduled below |
-| `sakalya-backend` fixes (scoped transactions in one round trip, JWKS refresh, edge trust, throttle, types) | In progress |
-| Schema model and conventions | Done |
-| M1 migrations, schema lint, Supabase-shaped local setup, seed | Done (verified by hand; Rust tests next) |
-| Cargo workspace, server `serve` and `migrate` | In progress |
-| Request pipeline and patients API with isolation tests | Next |
-| `sakalya-web` portal kit, clinic portal and console on sample data | In progress |
+| Independent reviews and MyDwarpal study | Done |
+| `sakalya-backend` and `sakalya-web` review fixes | Done, merged |
+| Schema model, M1 migrations, schema lint, seed | Done |
+| Request pipeline, patients and console API, dev sign-in, throttling, metrics | Done, tested on a real database |
+| Clinic portal and Sakalya console | Done on fake data; switching to the real API |
 
 ## Review follow-ups scheduled later
 

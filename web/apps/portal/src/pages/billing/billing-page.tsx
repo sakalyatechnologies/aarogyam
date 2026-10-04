@@ -1,180 +1,163 @@
-import { CircleDollarSign, FileWarning, Plus, ReceiptText, Wallet } from "lucide-react";
-import { useNavigate } from "react-router";
+import { FileWarning, Plus } from "lucide-react";
+import { Link } from "react-router";
 
 import type { Invoice } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatDate, formatPercent, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
-import { BarChart, Button, Card, DataTable, DonutChart, EmptyState, Link, PageHeader, Pill, Skeleton, StatCard, type DataTableColumn } from "@sakalya/ui";
+import { ApiErrorNotice, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
+import { Skeleton } from "@sakalya/ui";
 
+import { Bars, Empty, Kpi, MkCard, Tag, type TagTone } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
+import { compactRupees } from "../../lib/money.js";
 import { useTodayDate } from "../../lib/patients.js";
-import { useCollections, useInvoices } from "./queries.js";
+import { useCollections, useInvoices, usePendingReport } from "./queries.js";
 
-function statusTone(status: string): "neutral" | "success" | "danger" {
-  return status === "issued" ? "success" : status === "void" ? "danger" : "neutral";
-}
+const plural = (n: number, word: string) => `${String(n)} ${word}${n === 1 ? "" : "s"}`;
 
 function monthStart(today: string): string {
   return `${today.slice(0, 7)}-01`;
 }
 
-const CATEGORY_LABEL: Readonly<Record<string, string>> = {
-  consultation: "Consultation",
-  preventive: "Preventive",
-  restorative: "Restorative",
-  endodontics: "Endodontics",
-  oral_surgery: "Oral surgery",
-  orthodontics: "Orthodontics",
-  medicines: "Medicines",
-  other: "Other",
-};
+const METHOD_LABEL: Readonly<Record<string, string>> = { upi: "UPI", cash: "Cash", card: "Card", bank_transfer: "Bank", cheque: "Cheque" };
+
+function invoiceTag(invoice: Invoice): { label: string; tone: TagTone } {
+  if (invoice.status === "void") return { label: "VOID", tone: "down" };
+  if (invoice.status !== "issued") return { label: "DRAFT", tone: "neutral" };
+  if (invoice.payment_state === "paid") return { label: "PAID", tone: "done" };
+  if (invoice.paid_paise > 0) return { label: "PARTIAL", tone: "info" };
+  return { label: "DUE", tone: "wait" };
+}
+
+const modeOf = (invoice: Invoice): string => (invoice.methods.length === 0 ? "—" : invoice.methods.map((m) => METHOD_LABEL[m] ?? m).join(", "));
+
+/** Downloads the listed bills as a spreadsheet-ready CSV. */
+function exportCsv(rows: readonly Invoice[]) {
+  const cell = (value: string) => `"${value.replaceAll('"', '""')}"`;
+  const lines = [
+    ["Bill", "Patient", "Amount (INR)", "Mode", "Status"].map(cell).join(","),
+    ...rows.map((i) => [i.number ?? "Draft", `${i.patient.name} (${i.patient.number})`, String(i.total_paise / 100), modeOf(i), invoiceTag(i).label].map(cell).join(",")),
+  ];
+  const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "bills.csv";
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 /** Billing: this month's money, the weekly collections chart, and every bill. Needs `billing.read`. */
 export function BillingPage() {
   const { can } = useClinic();
   useDocumentTitle("Billing", "Aarogyam");
-  const navigate = useNavigate();
   const today = useTodayDate();
   const month = useCollections({ from: monthStart(today), to: today });
   const week = useCollections({});
   const invoices = useInvoices();
+  const pending = usePendingReport();
   const canWrite = can("billing.write");
-
+  const monthName = new Date(`${today}T00:00:00Z`).toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
   const upiShare = month.data?.by_method.find((m) => m.method === "upi")?.share_bps ?? 0;
-
-  const columns: readonly DataTableColumn<Invoice>[] = [
-    {
-      id: "number",
-      header: "Number",
-      cell: (i) => (
-        <Link href={`/billing/invoices/${i.id}`} className="font-mono text-xs font-semibold text-primary-text hover:underline">
-          {i.number ?? "Draft"}
-        </Link>
-      ),
-      sortValue: (i) => i.number ?? i.created_at,
-    },
-    { id: "patient", header: "Patient", cell: (i) => `${i.patient.name} · ${i.patient.number}` },
-    { id: "amount", header: "Amount", align: "end", cell: (i) => formatRupees(i.total_paise), sortValue: (i) => i.total_paise },
-    {
-      id: "status",
-      header: "Status",
-      cell: (i) => (
-        <span className="flex flex-wrap gap-1.5">
-          <Pill tone={statusTone(i.status)}>{i.status}</Pill>
-          {i.payment_state == null ? null : <Pill tone={i.payment_state === "paid" ? "success" : "warning"}>{i.payment_state}</Pill>}
-        </span>
-      ),
-    },
-    { id: "date", header: "Date", align: "end", cell: (i) => formatDate(i.issued_at ?? i.created_at), sortValue: (i) => i.issued_at ?? i.created_at },
-  ];
+  const rows = invoices.data?.items ?? [];
+  const weeks = (week.data?.by_week ?? []).slice(-8);
 
   return (
-    <>
-      <PageHeader
-        title="Billing"
-        subtitle="This clinic's bills, payments and collections"
-        end={
-          <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              icon={<FileWarning aria-hidden="true" className="size-4" />}
-              onClick={() => {
-                void navigate("/billing/pending");
-              }}
-            >
-              Pending payments
-            </Button>
-            {canWrite ? (
-              <Button
-                icon={<Plus aria-hidden="true" className="size-4" />}
-                onClick={() => {
-                  void navigate("/billing/invoices/new");
-                }}
-              >
-                New bill
-              </Button>
-            ) : null}
-          </div>
-        }
-      />
-      <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="Collected this month"
-            value={month.isPending ? "—" : formatRupees(month.data?.collected_paise ?? 0)}
-            icon={<CircleDollarSign className="size-7" />}
-          />
-          <StatCard
-            label="Outstanding"
-            value={month.isPending ? "—" : formatRupees(month.data?.outstanding_paise ?? 0)}
-            tone="warning"
-            icon={<Wallet className="size-7" />}
-          />
-          <StatCard
-            label="UPI share"
-            value={month.isPending ? "—" : formatPercent(upiShare / 10_000)}
-            icon={<ReceiptText className="size-7" />}
-          />
-          <StatCard
-            label="Bills issued this month"
-            value={month.isPending ? "—" : String(month.data?.invoices ?? 0)}
-            icon={<FileWarning className="size-7" />}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[2fr_1fr]">
-          <Card title="Weekly collections">
-            {week.isPending ? (
-              <Skeleton shape="block" />
-            ) : week.isError ? (
-              <ApiErrorNotice title="Couldn't load collections" error={week.error} onRetry={() => void week.refetch()} />
-            ) : week.data.by_week.every((w) => w.amount_paise === 0) ? (
-              <EmptyState title="No collections yet" description="Issued bills and payments will show here." icon={null} />
-            ) : (
-              <BarChart
-                data={week.data.by_week.map((w) => ({ label: formatDate(w.date), total: w.amount_paise / 100, part: w.amount_paise / 100 }))}
-                totalLabel="Collected"
-                partLabel="Collected"
-                categoryLabel="Week of"
-                summary="Rupees collected each week"
-              />
-            )}
-          </Card>
-          <Card title="Revenue mix this month">
-            {month.isPending ? (
-              <Skeleton shape="block" />
-            ) : month.isError ? (
-              <ApiErrorNotice title="Couldn't load the revenue mix" error={month.error} onRetry={() => void month.refetch()} />
-            ) : month.data.revenue_mix.length === 0 ? (
-              <EmptyState title="No bills issued this month" description="The mix appears once bills are issued." icon={null} />
-            ) : (
-              <DonutChart
-                data={month.data.revenue_mix.map((m) => ({ label: CATEGORY_LABEL[m.category] ?? m.category, value: m.amount_paise }))}
-                summary="This month's billed amount by category"
-                categoryLabel="Category"
-                valueLabel="Amount"
-                centerValue={formatRupees(month.data.invoiced_paise)}
-                centerLabel="billed"
-              />
-            )}
-          </Card>
-        </div>
-
-        <Card title="Bills">
-          {invoices.isError ? (
-            <ApiErrorNotice title="Couldn't load bills" error={invoices.error} onRetry={() => void invoices.refetch()} />
+    <div className="mk-panel">
+      <h1 className="mk-sr">Billing</h1>
+      <div className="mk-ptools">
+        <Link to="/billing/pending" className="mk-btn mk-btn-ghost mk-spacer">
+          <FileWarning aria-hidden="true" /> Pending payments
+        </Link>
+        {canWrite ? (
+          <Link to="/billing/invoices/new" className="mk-btn mk-btn-primary">
+            <Plus aria-hidden="true" /> New bill
+          </Link>
+        ) : null}
+      </div>
+      <div className="mk-kpis">
+        <Kpi label={`Collected · ${monthName}`} value={month.isPending ? "—" : compactRupees(month.data?.collected_paise ?? 0)} pill={month.data === undefined ? undefined : plural(month.data.payments, "payment")} pillTone="up" />
+        <Kpi
+          label="Outstanding"
+          value={month.isPending ? "—" : compactRupees(month.data?.outstanding_paise ?? 0)}
+          pill={pending.data === undefined ? undefined : plural(pending.data.items.length, "bill")}
+          pillTone="warn"
+        />
+        <Kpi label="Consulting payout" value="—" pill="not tracked yet" pillTone="info" />
+        <Kpi label="UPI share" value={month.isPending ? "—" : `${String(Math.round(upiShare / 100))}%`} />
+      </div>
+      <div className="mk-grid mk-g2r">
+        <MkCard title="Weekly collections" hint="Last 8 weeks · ₹ thousands">
+          {week.isPending ? (
+            <Skeleton shape="block" />
+          ) : week.isError ? (
+            <ApiErrorNotice title="Couldn't load collections" error={week.error} onRetry={() => void week.refetch()} />
+          ) : weeks.every((w) => w.amount_paise === 0) ? (
+            <Empty title="No collections yet">Issued bills and payments will show here.</Empty>
           ) : (
-            <DataTable
-              caption="Bills"
-              columns={columns}
-              rows={invoices.data?.items ?? []}
-              rowKey={(i) => i.id}
-              loading={invoices.isPending}
-              defaultSort={{ columnId: "date", direction: "descending" }}
-              empty={{ title: "No bills yet", description: "Issue the first bill to see it here.", icon: <ReceiptText className="size-7" /> }}
+            <Bars
+              data={weeks.map((w, i) => ({ label: `W${String(i + 1)}`, value: w.amount_paise / 100, tip: `${compactRupees(w.amount_paise)} · week of ${w.date}` }))}
+              summary="Rupees collected each week"
             />
           )}
-        </Card>
+        </MkCard>
+        <MkCard
+          title="Invoices"
+          action={
+            <button
+              type="button"
+              className="mk-link"
+              disabled={rows.length === 0}
+              onClick={() => {
+                exportCsv(rows);
+              }}
+            >
+              ⤓ Excel
+            </button>
+          }
+        >
+          {invoices.isError ? (
+            <ApiErrorNotice title="Couldn't load bills" error={invoices.error} onRetry={() => void invoices.refetch()} />
+          ) : invoices.isPending ? (
+            <Skeleton shape="block" />
+          ) : rows.length === 0 ? (
+            <Empty title="No bills yet">Issue the first bill to see it here.</Empty>
+          ) : (
+            <div className="mk-tablewrap">
+              <table className="mk-table">
+                <caption className="mk-sr">Invoices</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Bill</th>
+                    <th scope="col">Patient</th>
+                    <th scope="col">Amount</th>
+                    <th scope="col">Mode</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...rows]
+                    .sort((a, b) => (b.issued_at ?? b.created_at).localeCompare(a.issued_at ?? a.created_at))
+                    .slice(0, 12)
+                    .map((i) => {
+                      const tag = invoiceTag(i);
+                      return (
+                        <tr key={i.id}>
+                          <th scope="row" className="mk-mono">
+                            <Link to={`/billing/invoices/${i.id}`}>{i.number ?? "Draft"}</Link>
+                          </th>
+                          <td>{i.patient.name}</td>
+                          <td>{formatRupees(i.total_paise)}</td>
+                          <td>{modeOf(i)}</td>
+                          <td>
+                            <Tag tone={tag.tone}>{tag.label}</Tag>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </MkCard>
       </div>
-    </>
+    </div>
   );
 }

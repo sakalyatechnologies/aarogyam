@@ -43,7 +43,7 @@ scripts/tunnel-up.sh
 set -a; . ./.env.edge; set +a   # loads EDGE_SECRET
 ARO_ENVIRONMENT=local \
 ARO_HTTP__EDGE_SECRET="$EDGE_SECRET" \
-ARO_HOSTS__PORTAL_DOMAIN=aarogyam-portal.aarogyam.workers.dev \
+ARO_HOSTS__PORTAL_HOST_TEMPLATE=aarogyam-portal.aarogyam.workers.dev \
 ARO_HOSTS__APP=aarogyam-portal.aarogyam.workers.dev \
 ARO_HOSTS__CONSOLE=aarogyam-console.aarogyam.workers.dev \
   cargo run -p aarogyam-server -- serve

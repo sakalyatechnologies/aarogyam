@@ -221,6 +221,70 @@
         ]
       }
     },
+    "/api/v1/me/sessions": {
+      "get": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Where the signed-in person is signed in: their sessions that are neither revoked nor expired.",
+        "operationId": "sessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MySessions"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/sessions/{id}/revoke": {
+      "post": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Signs one of the person's own sessions out. Its next request gets `401`, on every host.",
+        "operationId": "revoke_session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not one of the person's sessions"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients": {
       "get": {
         "tags": [
@@ -1019,6 +1083,60 @@
           "slug": {
             "type": "string",
             "description": "Its subdomain."
+          }
+        }
+      },
+      "MySession": {
+        "type": "object",
+        "description": "A device or browser where the person is signed in.",
+        "required": [
+          "id",
+          "audience",
+          "created_at",
+          "last_active_at",
+          "expires_at",
+          "current"
+        ],
+        "properties": {
+          "audience": {
+            "type": "string",
+            "description": "`clinic`, `patient` or `platform`."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was first seen (RFC 3339)."
+          },
+          "current": {
+            "type": "boolean",
+            "description": "Whether this is the session making the request."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When its current token expires (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The session."
+          },
+          "last_active_at": {
+            "type": "string",
+            "description": "When it was last used, to within a few minutes (RFC 3339)."
+          }
+        }
+      },
+      "MySessions": {
+        "type": "object",
+        "description": "The person's active sessions.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MySession"
+            },
+            "description": "Most recently used first."
           }
         }
       },

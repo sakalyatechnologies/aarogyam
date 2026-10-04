@@ -11,6 +11,7 @@ pub mod error;
 pub mod invitations;
 pub mod patients;
 mod scope;
+pub mod sessions;
 pub mod settings;
 pub mod tokens;
 

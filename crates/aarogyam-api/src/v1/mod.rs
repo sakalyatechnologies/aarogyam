@@ -19,6 +19,8 @@ use crate::AppState;
 pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
     let router = Router::new()
         .route("/me", get(me::me))
+        .route("/me/sessions", get(me::sessions))
+        .route("/me/sessions/{id}/revoke", post(me::revoke_session))
         .route("/session", get(me::session))
         .route("/invitations/accept", post(invitations::accept))
         .route("/patients", get(patients::recent).post(patients::register))

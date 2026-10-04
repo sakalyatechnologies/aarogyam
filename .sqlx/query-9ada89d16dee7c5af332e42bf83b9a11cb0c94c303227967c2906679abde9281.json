@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.session_revoked($1, $2) as \"revoked!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "revoked!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "9ada89d16dee7c5af332e42bf83b9a11cb0c94c303227967c2906679abde9281"
+}

@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use aarogyam_dal::lookups::{self, HostClinic};
+use aarogyam_dal::sessions;
 use aarogyam_domain::access::Authorization;
 use aarogyam_domain::ids::ClinicId;
 use axum::http::HeaderMap;
@@ -135,6 +136,28 @@ impl AppState {
     pub(crate) async fn claims(&self, headers: &HeaderMap) -> Result<Claims, ApiFailure> {
         let token = bearer_token(headers).ok_or_else(ApiError::unauthenticated)?;
         Ok(self.inner.tokens.verifier().verify(token).await?)
+    }
+
+    /// Verifies the bearer token and refuses a revoked session. For routes that don't go through
+    /// [`Self::authorization`], which reports revocation itself.
+    pub(crate) async fn live_claims(&self, headers: &HeaderMap) -> Result<Claims, ApiFailure> {
+        let claims = self.claims(headers).await?;
+        let session = claims.session_id().ok_or_else(ApiError::unauthenticated)?;
+        if sessions::is_revoked(self.inner.db.pool(), claims.subject().uuid(), session).await? {
+            return Err(ApiFailure(ApiError::unauthenticated()));
+        }
+        Ok(claims)
+    }
+
+    /// Forgets what was cached for a sign-in session, so its revocation applies to the next
+    /// request rather than when the cache entry expires.
+    ///
+    /// The cache is per instance: another instance may serve its own entry for up to
+    /// [`CACHE_TTL`]. Locally and with one instance that is never the case.
+    pub(crate) fn forget_session(&self, provider_session_id: Uuid) {
+        self.inner
+            .grant_cache
+            .remove_where(|(_, _, session), _| *session == provider_session_id);
     }
 
     /// The clinic a host belongs to, cached briefly.

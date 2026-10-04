@@ -488,6 +488,8 @@ async fn every_route_requires_sign_in_and_a_permission() {
             );
             let signed_in_only = [
                 "/api/v1/me",
+                "/api/v1/me/sessions",
+                "/api/v1/me/sessions/{id}/revoke",
                 "/api/v1/session",
                 "/api/v1/invitations/accept",
             ];

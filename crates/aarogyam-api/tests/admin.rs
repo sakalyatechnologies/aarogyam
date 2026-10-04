@@ -155,3 +155,110 @@ async fn bad_clinic_settings_are_refused() {
     assert_eq!(alpha_settings["name"], "Alpha Dental");
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn people_see_and_revoke_only_their_own_sessions() {
+    let app = TestApp::start().await;
+    let laptop = app.token(ALPHA_OWNER);
+    let phone = app.token(ALPHA_OWNER);
+    let beta = app.token(BETA_OWNER);
+    // Each token's first clinic request records its session; the phone's grant is now cached.
+    for token in [&laptop, &phone] {
+        let (status, _) = app
+            .send(Method::GET, ALPHA, "/api/v1/session", Some(token), None)
+            .await;
+        assert_eq!(status, StatusCode::OK);
+    }
+    let (status, _) = app
+        .send(Method::GET, BETA, "/api/v1/session", Some(&beta), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, mine) = app
+        .send(
+            Method::GET,
+            "app.localtest.me",
+            "/api/v1/me/sessions",
+            Some(&laptop),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{mine}");
+    let items = mine["items"].as_array().unwrap();
+    assert_eq!(items.len(), 2);
+    assert_eq!(
+        items.iter().filter(|item| item["current"] == true).count(),
+        1
+    );
+    let phone_session = items.iter().find(|item| item["current"] == false).unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let revoke = format!("/api/v1/me/sessions/{phone_session}/revoke");
+
+    // Someone else can't revoke it, nor see it.
+    let (status, _) = app
+        .send(Method::POST, "app.localtest.me", &revoke, Some(&beta), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (_, theirs) = app
+        .send(
+            Method::GET,
+            "app.localtest.me",
+            "/api/v1/me/sessions",
+            Some(&beta),
+            None,
+        )
+        .await;
+    assert_eq!(theirs["items"].as_array().unwrap().len(), 1);
+
+    // The owner revokes the phone from the laptop: the phone's next request is refused at
+    // once, despite its cached grant, on clinic and neutral hosts alike.
+    let (status, _) = app
+        .send(Method::POST, ALPHA, &revoke, Some(&laptop), None)
+        .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _) = app
+        .send(Method::GET, ALPHA, "/api/v1/session", Some(&phone), None)
+        .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, _) = app
+        .send(
+            Method::GET,
+            "app.localtest.me",
+            "/api/v1/me",
+            Some(&phone),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, _) = app
+        .send(Method::GET, ALPHA, "/api/v1/session", Some(&laptop), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, mine) = app
+        .send(
+            Method::GET,
+            "app.localtest.me",
+            "/api/v1/me/sessions",
+            Some(&laptop),
+            None,
+        )
+        .await;
+    assert_eq!(mine["items"].as_array().unwrap().len(), 1);
+    // The change history names the person who revoked it.
+    let (actor,): (Option<uuid::Uuid>,) = sqlx::query_as(
+        "select actor_user_id from audit.audit_events
+         where table_name = 'aarogyam.sessions' and action = 'update' and row_id = $1::uuid",
+    )
+    .bind(&phone_session)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(
+        actor,
+        Some(uuid::uuid!("01900000-0000-7000-8000-0000000000a1"))
+    );
+    app.finish().await;
+}

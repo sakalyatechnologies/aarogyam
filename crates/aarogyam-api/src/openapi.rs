@@ -31,6 +31,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::patients::register,
         crate::v1::patients::open,
         crate::v1::patients::edit,
+        crate::v1::settings::get_clinic,
+        crate::v1::settings::update_clinic,
         crate::v1::console::clinics,
         crate::v1::console::create_clinic,
         crate::v1::console::metrics,
@@ -41,6 +43,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         (name = "health", description = "Liveness for load balancers and Cloud Run"),
         (name = "session", description = "Who is signed in, and where"),
         (name = "patients", description = "A clinic's patients; clinic host only"),
+        (name = "settings", description = "A clinic's own settings; clinic host only"),
         (name = "console", description = "Sakalya's console; console host only, staff only"),
         (name = "development", description = "Local development only; absent in deployed servers")
     )

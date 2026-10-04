@@ -6,6 +6,7 @@ pub(crate) mod console;
 pub(crate) mod invitations;
 pub(crate) mod me;
 pub(crate) mod patients;
+pub(crate) mod settings;
 
 use axum::Router;
 use axum::routing::{get, post};
@@ -23,6 +24,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/patients", get(patients::recent).post(patients::register))
         .route("/patients/search", post(patients::search))
         .route("/patients/{id}", get(patients::open).patch(patients::edit))
+        .route(
+            "/settings/clinic",
+            get(settings::get_clinic).patch(settings::update_clinic),
+        )
         .route(
             "/console/clinics",
             get(console::clinics).post(console::create_clinic),

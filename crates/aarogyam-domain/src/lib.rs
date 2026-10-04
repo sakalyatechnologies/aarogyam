@@ -4,10 +4,11 @@
 //! no I/O, no async and no database or HTTP types, so every rule is unit tested here without a
 //! database. Value types such as `Id<T>`, `Paise` and `PhoneE164` come from `sakalya-types`;
 //! this crate adds the clinic's concepts on top: who may act ([`access`]), the permission
-//! catalogue ([`permission`]), typed identifiers ([`ids`]), patients ([`patient`]) and patient
-//! search ([`search`]).
+//! catalogue ([`permission`]), typed identifiers ([`ids`]), patients ([`patient`]), patient
+//! search ([`search`]) and the clinic's own settings ([`clinic`]).
 
 pub mod access;
+pub mod clinic;
 pub mod ids;
 pub mod patient;
 pub mod permission;

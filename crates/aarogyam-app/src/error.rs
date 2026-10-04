@@ -1,6 +1,7 @@
 //! Why a use case failed, in terms the API can turn into a response.
 
 use aarogyam_domain::access::Denied;
+use aarogyam_domain::clinic::SettingsError;
 use aarogyam_domain::patient::PatientError;
 use sakalya_db::DbError;
 
@@ -52,6 +53,27 @@ impl AppError {
             PatientError::Email => "email",
             PatientError::Language => "preferred_language",
             PatientError::UnknownValue => "sex",
+        };
+        Self::invalid(field, error)
+    }
+}
+
+impl AppError {
+    /// A clinic-setting validation failure, attributed to the field it concerns.
+    #[must_use]
+    pub fn settings(error: SettingsError) -> Self {
+        let field = match error {
+            SettingsError::Name => "name",
+            SettingsError::LegalName => "legal_name",
+            SettingsError::Gstin => "gstin",
+            SettingsError::Timezone => "timezone",
+            SettingsError::BrandColor => "branding.brand",
+            SettingsError::ThemeMode => "branding.mode",
+            SettingsError::Footer => "prescription_footer",
+            SettingsError::AddressLine => "address",
+            SettingsError::Pincode => "address.pincode",
+            SettingsError::Phone => "phone",
+            SettingsError::UpiId => "upi_id",
         };
         Self::invalid(field, error)
     }

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.organizations\n           set name = $1, legal_name = $2, gstin = $3, timezone = $4\n           where id = app.tenant_id()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e477e2f02ea6e9b1bb1ca7db08ef1a307368fabc9bcfe261456b28fd872fe52a"
+}

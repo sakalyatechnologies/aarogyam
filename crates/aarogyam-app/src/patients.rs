@@ -10,33 +10,17 @@ use aarogyam_domain::patient::{
 };
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::search::PatientQuery;
-use sakalya_db::{ActorKind, Db, Scope};
+use sakalya_db::Db;
 use sakalya_types::{CallingCode, PhoneE164};
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
-
-// Evaluated at compile time: a bad literal fails the build, never a request.
-const STAFF: ActorKind = match ActorKind::new("staff") {
-    Ok(kind) => kind,
-    Err(_) => panic!("invalid actor kind"),
-};
+use crate::scope::{STAFF, staff_scope as scope};
 
 /// Most results a search returns.
 pub const MAX_RESULTS: i64 = 50;
-
-/// The clinic transaction scope for a member's request.
-fn scope(actor: &ClinicActor, request_id: Option<Uuid>) -> Scope {
-    let scope = Scope::tenant(actor.clinic_id.uuid())
-        .with_user(actor.user_id.uuid())
-        .with_actor_kind(STAFF);
-    match request_id {
-        Some(id) => scope.with_request_id(id),
-        None => scope,
-    }
-}
 
 /// A patient as the API shows it. Contact details are masked unless the member's role has
 /// `patients.contact`.

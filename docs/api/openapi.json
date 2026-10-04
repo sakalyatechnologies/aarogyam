@@ -473,6 +473,85 @@
         ]
       }
     },
+    "/api/v1/settings/clinic": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The clinic's settings: profile, GSTIN, time zone, branding, prescription footer, address,\nphone and UPI ID.",
+        "operationId": "get_clinic",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Changes the clinic's settings. The change history records each change.",
+        "operationId": "update_clinic",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClinicSettingsChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the setting"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -515,6 +594,207 @@
           "token": {
             "type": "string",
             "description": "The secret from the invitation link."
+          }
+        }
+      },
+      "Address": {
+        "type": "object",
+        "description": "A postal address. Every part is optional.",
+        "properties": {
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "City or town."
+          },
+          "line1": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "House, building and street."
+          },
+          "line2": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Area or landmark."
+          },
+          "pincode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Six-digit PIN code."
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "State or union territory."
+          }
+        }
+      },
+      "Branding": {
+        "type": "object",
+        "description": "The portal's look.",
+        "properties": {
+          "brand": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Brand colour, `#RRGGBB`."
+          },
+          "mode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`light` or `dark`."
+          }
+        }
+      },
+      "ClinicSettings": {
+        "type": "object",
+        "description": "The clinic's settings.",
+        "required": [
+          "name",
+          "timezone",
+          "branding",
+          "address"
+        ],
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Address",
+            "description": "The main branch's address."
+          },
+          "branding": {
+            "$ref": "#/components/schemas/Branding",
+            "description": "The portal's look."
+          },
+          "gstin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "GST identification number."
+          },
+          "legal_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Registered legal name, for bills."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The main branch's phone."
+          },
+          "prescription_footer": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Footer printed on prescriptions."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA time zone; `Asia/Kolkata` is the only one supported."
+          },
+          "upi_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UPI ID shown on bills, such as `clinic@okicici`."
+          }
+        }
+      },
+      "ClinicSettingsChanges": {
+        "type": "object",
+        "description": "Changes to the settings. Settings left out stay as they are; an empty string clears an\noptional one. Branding changes only the keys given; a given address replaces the whole\naddress.",
+        "properties": {
+          "address": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Address",
+                "description": "The main branch's address."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "branding": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Branding",
+                "description": "Brand colour and theme mode."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gstin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "GSTIN, checked including its check character."
+          },
+          "legal_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Registered legal name."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Display name, 1 to 200 characters."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The main branch's phone; +91 is assumed without a country code."
+          },
+          "prescription_footer": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Footer printed on prescriptions, up to 500 characters."
+          },
+          "timezone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "IANA time zone: `Asia/Kolkata`."
+          },
+          "upi_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UPI ID, like `name@bank`."
           }
         }
       },
@@ -1165,6 +1445,10 @@
     {
       "name": "patients",
       "description": "A clinic's patients; clinic host only"
+    },
+    {
+      "name": "settings",
+      "description": "A clinic's own settings; clinic host only"
     },
     {
       "name": "console",

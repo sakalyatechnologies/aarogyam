@@ -10,6 +10,8 @@ pub mod console;
 pub mod error;
 pub mod invitations;
 pub mod patients;
+mod scope;
+pub mod settings;
 pub mod tokens;
 
 pub use error::AppError;

@@ -20,6 +20,7 @@ function stubAuth(responses: { request?: AuthOutcome; verify?: AuthOutcome } = {
     signOut: () => Promise.resolve(),
     requestCode,
     verifyCode,
+    completeRedirect: () => Promise.resolve({ ok: true }),
   };
   return { auth, requestCode, verifyCode };
 }

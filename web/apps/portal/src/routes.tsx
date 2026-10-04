@@ -3,6 +3,7 @@ import { Navigate, Outlet, type RouteObject } from "react-router";
 import { RouterLinks } from "@aarogyam/app-kit";
 
 import { ClinicGate, RequireAuth } from "./layout/portal-layout.js";
+import { AuthCallbackPage } from "./pages/auth-callback-page.js";
 import { CalendarPage } from "./pages/calendar/calendar-page.js";
 import { ComingSoonPage } from "./pages/coming-soon-page.js";
 import { InvitePage } from "./pages/invite-page.js";
@@ -29,6 +30,7 @@ export const routes: RouteObject[] = [
     ),
     children: [
       { path: "sign-in", element: <SignInPage /> },
+      { path: "auth/callback", element: <AuthCallbackPage /> },
       { path: "invite", element: <InvitePage /> },
       {
         element: <RequireAuth />,

@@ -10,7 +10,7 @@ export {
   type EmailCodeAuthClient,
 } from "./auth-client.js";
 export { createDevAuth, createParentDomainStorage, type DevAuthOptions } from "./dev-auth.js";
-export { AuthProvider, useAuth, useAuthState, type AuthProviderProps } from "./react.js";
+export { AuthProvider, useAuth, useAuthState, useCompleteAuthRedirect, type AuthProviderProps } from "./react.js";
 export {
   DevSignIn,
   EmailCodeSignIn,

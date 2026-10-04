@@ -21,8 +21,18 @@ interface SupabaseSession {
 
 /** The parts of Supabase's auth client this adapter uses. `createClient(...).auth` satisfies it. */
 export interface SupabaseAuthApi {
-  signInWithOtp(credentials: { email: string; options: { shouldCreateUser: boolean } }): Promise<{ error: SupabaseError | null }>;
+  signInWithOtp(credentials: {
+    email: string;
+    options: { shouldCreateUser: boolean; emailRedirectTo?: string };
+  }): Promise<{ error: SupabaseError | null }>;
   verifyOtp(params: { email: string; token: string; type: "email" }): Promise<{
+    data: { session: SupabaseSession | null };
+    error: SupabaseError | null;
+  }>;
+  /** PKCE: trades the `?code=` query parameter of a magic-link email for a session. */
+  exchangeCodeForSession(code: string): Promise<{ data: { session: SupabaseSession | null }; error: SupabaseError | null }>;
+  /** The older implicit flow: a `#access_token`/`#refresh_token` fragment straight from the email. */
+  setSession(params: { access_token: string; refresh_token: string }): Promise<{
     data: { session: SupabaseSession | null };
     error: SupabaseError | null;
   }>;
@@ -51,8 +61,16 @@ function fromSession(session: SupabaseSession | null): AuthState {
     : { status: "signed_in", user: { id: session.user.id, email: session.user.email } };
 }
 
+export interface SupabaseAuthOptions {
+  /**
+   * Where the email's sign-in link sends the browser back to (`/auth/callback`). Omit for a
+   * code-only flow, such as in tests.
+   */
+  redirectTo?: string;
+}
+
 /** Wraps Supabase's auth client in the `EmailCodeAuthClient` boundary. */
-export function createSupabaseAuth(api: SupabaseAuthApi): EmailCodeAuthClient {
+export function createSupabaseAuth(api: SupabaseAuthApi, options: SupabaseAuthOptions = {}): EmailCodeAuthClient {
   const store = createAuthStore({ status: "loading" });
   api.onAuthStateChange((_event, session) => {
     store.set(fromSession(session));
@@ -79,7 +97,13 @@ export function createSupabaseAuth(api: SupabaseAuthApi): EmailCodeAuthClient {
     requestCode: async (email) => {
       try {
         // Existing accounts only: the console and portal never sign people up.
-        const { error } = await api.signInWithOtp({ email, options: { shouldCreateUser: false } });
+        const { error } = await api.signInWithOtp({
+          email,
+          options:
+            options.redirectTo === undefined
+              ? { shouldCreateUser: false }
+              : { shouldCreateUser: false, emailRedirectTo: options.redirectTo },
+        });
         if (error === null) {
           return { ok: true };
         }
@@ -116,12 +140,46 @@ export function createSupabaseAuth(api: SupabaseAuthApi): EmailCodeAuthClient {
         return failed("network", AUTH_MESSAGES.network);
       }
     },
+    completeRedirect: async (url) => {
+      try {
+        const parsed = new URL(url);
+        const code = parsed.searchParams.get("code");
+        if (code !== null) {
+          const { data, error } = await api.exchangeCodeForSession(code);
+          if (error !== null) {
+            return isNetworkFailure(error) ? failed("network", AUTH_MESSAGES.network) : failed("invalid_code", EXPIRED_LINK);
+          }
+          store.set(fromSession(data.session));
+          return { ok: true };
+        }
+        const hash = parsed.hash.startsWith("#") ? parsed.hash.slice(1) : parsed.hash;
+        const hashParams = new URLSearchParams(hash);
+        if (hashParams.get("error_description") !== null || hashParams.get("error") !== null) {
+          return failed("invalid_code", EXPIRED_LINK);
+        }
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
+        if (accessToken !== null && refreshToken !== null) {
+          const { data, error } = await api.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          if (error !== null) {
+            return isNetworkFailure(error) ? failed("network", AUTH_MESSAGES.network) : failed("invalid_code", EXPIRED_LINK);
+          }
+          store.set(fromSession(data.session));
+          return { ok: true };
+        }
+        return failed("invalid_code", "This sign-in link is incomplete. Request a new code or link.");
+      } catch {
+        return failed("network", AUTH_MESSAGES.network);
+      }
+    },
     signOut: async () => {
       await api.signOut();
       store.set({ status: "signed_out" });
     },
   };
 }
+
+const EXPIRED_LINK = "This sign-in link is invalid or has expired. Request a new code or link.";
 
 export interface SupabaseConfig {
   url: string;
@@ -133,7 +191,9 @@ export interface SupabaseConfig {
 /** The real thing: a Supabase client for `config`, wrapped in the boundary. */
 export function createSupabaseAuthClient(config: SupabaseConfig): EmailCodeAuthClient {
   const supabase = createClient(config.url, config.anonKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: config.storageKey },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: config.storageKey, flowType: "pkce" },
   });
-  return createSupabaseAuth(supabase.auth);
+  // `completeRedirect` reads the callback URL itself, so Supabase's own listener never races it.
+  const redirectTo = typeof window === "undefined" ? undefined : `${window.location.origin}/auth/callback`;
+  return createSupabaseAuth(supabase.auth, redirectTo === undefined ? {} : { redirectTo });
 }

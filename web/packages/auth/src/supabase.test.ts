@@ -11,6 +11,8 @@ function stubApi(overrides: Partial<SupabaseAuthApi> = {}) {
   const api: SupabaseAuthApi = {
     signInWithOtp,
     verifyOtp: vi.fn(() => Promise.resolve({ data: { session: null }, error: null })),
+    exchangeCodeForSession: vi.fn(() => Promise.resolve({ data: { session: null }, error: null })),
+    setSession: vi.fn(() => Promise.resolve({ data: { session: null }, error: null })),
     getSession: vi.fn(() => Promise.resolve({ data: { session: null } })),
     onAuthStateChange: (callback) => {
       emit = (session) => {
@@ -96,5 +98,49 @@ describe("createSupabaseAuth", () => {
 
     await auth.signOut();
     expect(auth.getState()).toEqual({ status: "signed_out" });
+  });
+
+  it("sends the redirect URL only when configured", async () => {
+    const { api, signInWithOtp } = stubApi();
+    await createSupabaseAuth(api, { redirectTo: "https://sunrise.example/auth/callback" }).requestCode("aarav@sakalya.example");
+    expect(signInWithOtp).toHaveBeenCalledWith({
+      email: "aarav@sakalya.example",
+      options: { shouldCreateUser: false, emailRedirectTo: "https://sunrise.example/auth/callback" },
+    });
+  });
+
+  describe("completeRedirect", () => {
+    it("exchanges a PKCE code for a session", async () => {
+      const session = { access_token: "jwt", user: { id: "u1", email: "a@b.co" } };
+      const exchangeCodeForSession = vi.fn(() => Promise.resolve({ data: { session }, error: null }));
+      const { api } = stubApi({ exchangeCodeForSession });
+      const auth = createSupabaseAuth(api);
+      const outcome = await auth.completeRedirect("https://sunrise.example/auth/callback?code=abc123");
+      expect(exchangeCodeForSession).toHaveBeenCalledWith("abc123");
+      expect(outcome).toEqual({ ok: true });
+      expect(auth.getState()).toEqual({ status: "signed_in", user: { id: "u1", email: "a@b.co" } });
+    });
+
+    it("sets the session from an implicit-flow hash", async () => {
+      const session = { access_token: "jwt", user: { id: "u1", email: "a@b.co" } };
+      const setSession = vi.fn(() => Promise.resolve({ data: { session }, error: null }));
+      const { api } = stubApi({ setSession });
+      const auth = createSupabaseAuth(api);
+      const outcome = await auth.completeRedirect("https://sunrise.example/auth/callback#access_token=jwt&refresh_token=rt");
+      expect(setSession).toHaveBeenCalledWith({ access_token: "jwt", refresh_token: "rt" });
+      expect(outcome).toEqual({ ok: true });
+    });
+
+    it("reports an expired or reused link without the upstream detail", async () => {
+      const { api } = stubApi({ exchangeCodeForSession: () => Promise.resolve({ data: { session: null }, error: apiError(403, "otp_expired") }) });
+      const outcome = await createSupabaseAuth(api).completeRedirect("https://sunrise.example/auth/callback?code=used");
+      expect(outcome.ok).toBe(false);
+      expect(outcome).toMatchObject({ ok: false, code: "invalid_code" });
+    });
+
+    it("reports an incomplete link", async () => {
+      const outcome = await createSupabaseAuth(stubApi().api).completeRedirect("https://sunrise.example/auth/callback");
+      expect(outcome.ok).toBe(false);
+    });
   });
 });

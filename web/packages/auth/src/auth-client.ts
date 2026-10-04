@@ -54,6 +54,11 @@ export interface EmailCodeAuthClient extends AuthClientBase {
   kind: "email_code";
   requestCode: (email: string) => Promise<AuthOutcome>;
   verifyCode: (email: string, code: string) => Promise<AuthOutcome>;
+  /**
+   * Finishes a sign-in that arrived as a link rather than a typed code: a PKCE `?code=` query
+   * parameter, or a `#access_token`/`#refresh_token` fragment. For the `/auth/callback` route.
+   */
+  completeRedirect: (url: string) => Promise<AuthOutcome>;
 }
 
 export type AuthClient = DevAuthClient | EmailCodeAuthClient;

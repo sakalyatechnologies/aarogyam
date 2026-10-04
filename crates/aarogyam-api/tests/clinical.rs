@@ -347,27 +347,359 @@ async fn child_rows_must_belong_to_their_visits_patient() {
     app.finish().await;
 }
 
-/// Every clinical route answers 404 to another clinic's member for this clinic's records.
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
-async fn other_clinics_get_not_found() {
+async fn vitals_are_checked_and_corrected_by_superseding() {
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);
-    let beta = app.token(BETA_OWNER);
     let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
     let visit = start_visit(&app, &owner, &patient).await;
-    let (_, note) = app
+    let path = format!("/api/v1/visits/{visit}/observations");
+    let record = async |body: Value| {
+        app.send(Method::POST, ALPHA, &path, Some(&owner), Some(body))
+            .await
+    };
+
+    let (status, saved) = record(json!({ "readings": [
+        { "kind": "bp_systolic", "value": 120 },
+        { "kind": "bp_diastolic", "value": 80 },
+        { "kind": "pulse", "value": 72 },
+        { "kind": "temperature", "value": 98.6, "unit": "°F" },
+    ] }))
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{saved}");
+    assert_eq!(saved["items"][0]["unit"], "mmHg");
+    assert_eq!(saved["items"][0]["code"], "8480-6");
+    assert_eq!(saved["items"][3]["unit"], "[degF]");
+    assert_eq!(saved["items"][3]["value"], 98.6);
+    let pulse = saved["items"][2]["id"].as_str().unwrap().to_owned();
+    let systolic = saved["items"][0]["id"].as_str().unwrap().to_owned();
+
+    for (body, field) in [
+        (
+            json!({ "readings": [{ "kind": "weight", "value": 1200 }] }),
+            "readings",
+        ),
+        (
+            json!({ "readings": [{ "kind": "spo2", "value": 101 }] }),
+            "readings",
+        ),
+        (
+            json!({ "readings": [{ "kind": "pulse", "value": 72, "unit": "kg" }] }),
+            "readings",
+        ),
+        (
+            json!({ "readings": [{ "kind": "glucose", "value": 90 }] }),
+            "readings.kind",
+        ),
+        (json!({ "readings": [] }), "readings"),
+        (
+            json!({ "readings": [{ "kind": "bp_systolic", "value": 80 }, { "kind": "bp_diastolic", "value": 90 }] }),
+            "readings",
+        ),
+        (
+            json!({ "readings": [{ "kind": "pulse", "value": 72 }], "source": "ai_draft" }),
+            "source",
+        ),
+    ] {
+        let (status, error) = record(body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{field}: {error}");
+        assert!(
+            error["error"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with(field),
+            "{error}"
+        );
+    }
+
+    // A correction supersedes; the old value stays, marked corrected.
+    let (status, corrected) =
+        record(json!({ "readings": [{ "kind": "pulse", "value": 76, "supersedes_id": pulse }] }))
+            .await;
+    assert_eq!(status, StatusCode::CREATED, "{corrected}");
+    assert_eq!(corrected["items"][0]["supersedes_id"], pulse.as_str());
+    let corrected_id = corrected["items"][0]["id"].as_str().unwrap().to_owned();
+    let (status, _) =
+        record(json!({ "readings": [{ "kind": "pulse", "value": 78, "supersedes_id": pulse }] }))
+            .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    let (status, _) = record(
+        json!({ "readings": [{ "kind": "weight", "value": 60, "supersedes_id": systolic }] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    // Values never change in place, even directly in the database.
+    let alpha = app.clinic_id("alpha").await;
+    let error = app
+        .api_db()
+        .scoped(&Scope::tenant(alpha), async |tx| {
+            sqlx::query("update aarogyam.observations set value_num = 99 where id = $1::uuid")
+                .bind(&corrected_id)
+                .execute(tx.conn())
+                .await
+                .map_err(DbError::from)
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(error.kind(), DbErrorKind::Forbidden);
+
+    // Entered in error keeps the value, marked.
+    let (status, retracted) = app
         .send(
             Method::POST,
             ALPHA,
-            &format!("/api/v1/visits/{visit}/notes"),
+            &format!("/api/v1/observations/{systolic}/entered-in-error"),
             Some(&owner),
-            Some(json!({ "sections": { "plan": "RCT 36" } })),
+            Some(json!({ "reason": "cuff too small" })),
         )
         .await;
-    let note = note["id"].as_str().unwrap();
+    assert_eq!(status, StatusCode::OK, "{retracted}");
+    assert_eq!(retracted["status"], "entered_in_error");
+
+    let (_, detail) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    let statuses: Vec<(&str, &str)> = detail["observations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|o| (o["kind"].as_str().unwrap(), o["status"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        statuses,
+        [
+            ("bp_systolic", "entered_in_error"),
+            ("bp_diastolic", "final"),
+            ("pulse", "corrected"),
+            ("temperature", "final"),
+            ("pulse", "final"),
+        ]
+    );
+
+    // A closed visit takes corrections only.
+    app.send(
+        Method::POST,
+        ALPHA,
+        &format!("/api/v1/visits/{visit}/close"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    let (status, _) = record(json!({ "readings": [{ "kind": "pulse", "value": 70 }] })).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    let (status, _) = record(
+        json!({ "readings": [{ "kind": "pulse", "value": 75, "supersedes_id": corrected_id }] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn allergies_and_flagged_conditions_raise_clinical_flags() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let other = register(&app, ALPHA, &owner, "Ravi Kumar").await;
+    let other_visit = start_visit(&app, &owner, &other).await;
+    let flags_path = format!("/api/v1/patients/{patient}/clinical-flags");
+
+    let (_, flags) = app
+        .send(Method::GET, ALPHA, &flags_path, Some(&owner), None)
+        .await;
+    assert_eq!(flags["allergy_count"], 0);
+
+    let allergies = format!("/api/v1/patients/{patient}/allergies");
+    let (status, allergy) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &allergies,
+            Some(&owner),
+            Some(json!({ "substance": "Penicillin", "reaction": "Hives", "severity": "severe", "source": "patient" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{allergy}");
+    assert_eq!(allergy["source"], "patient");
+    assert!(allergy["verified_by"].is_string());
+    let allergy_id = allergy["id"].as_str().unwrap().to_owned();
+    create(
+        &app,
+        &allergies,
+        json!({ "substance": "Latex", "severity": "mild" }),
+    )
+    .await;
+    let conditions = format!("/api/v1/patients/{patient}/conditions");
+    let (status, diabetes) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &conditions,
+            Some(&owner),
+            Some(json!({ "display_text": "Type 2 diabetes", "flagged": true, "code": { "system": "icd10", "code": "E11" }, "onset": "2019-06-01" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{diabetes}");
+    assert_eq!(diabetes["code"]["code"], "E11");
+    create(
+        &app,
+        &conditions,
+        json!({ "display_text": "Seasonal rhinitis" }),
+    )
+    .await;
+
+    for (path, body, field) in [
+        (&allergies, json!({ "substance": " " }), "substance"),
+        (
+            &allergies,
+            json!({ "substance": "Ibuprofen", "severity": "fatal" }),
+            "severity",
+        ),
+        (
+            &allergies,
+            json!({ "substance": "Ibuprofen", "source": "ai_draft" }),
+            "source",
+        ),
+        (
+            &conditions,
+            json!({ "display_text": "Asthma", "code": { "system": "icd10", "code": "" } }),
+            "code",
+        ),
+        (
+            &conditions,
+            json!({ "display_text": "Asthma", "onset": "2999-01-01" }),
+            "onset",
+        ),
+        (
+            &conditions,
+            json!({ "display_text": "Asthma", "visit_id": other_visit }),
+            "visit_id",
+        ),
+    ] {
+        let (status, error) = app
+            .send(Method::POST, ALPHA, path, Some(&owner), Some(body))
+            .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{field}: {error}");
+        assert!(
+            error["error"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with(field),
+            "{error}"
+        );
+    }
+
+    let (status, flags) = app
+        .send(Method::GET, ALPHA, &flags_path, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{flags}");
+    assert_eq!(flags["allergy_count"], 2);
+    assert_eq!(flags["severe_allergy"], true);
+    assert_eq!(flags["condition_count"], 1);
+    assert_eq!(flags["allergies"][0]["substance"], "Penicillin");
+    assert_eq!(flags["conditions"][0]["display_text"], "Type 2 diabetes");
+    // The front desk learns that flags exist, not what they are.
+    let (status, hidden) = app
+        .send(Method::GET, ALPHA, &flags_path, Some(&desk), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(hidden["allergy_count"], 2);
+    assert_eq!(hidden["details_hidden"], true);
+    assert_eq!(hidden["allergies"], json!([]));
+
+    // Resolving or retracting an allergy takes it off the banner; it stays on the list.
+    let (status, resolved) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &format!("{allergies}/{allergy_id}"),
+            Some(&owner),
+            Some(json!({ "status": "entered_in_error" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{resolved}");
+    assert_eq!(resolved["substance"], "Penicillin");
+    let (_, flags) = app
+        .send(Method::GET, ALPHA, &flags_path, Some(&owner), None)
+        .await;
+    assert_eq!(flags["allergy_count"], 1);
+    assert_eq!(flags["severe_allergy"], false);
+    let (_, listed) = app
+        .send(Method::GET, ALPHA, &allergies, Some(&owner), None)
+        .await;
+    assert_eq!(listed["items"].as_array().unwrap().len(), 2);
+    assert_eq!(listed["items"][1]["status"], "entered_in_error");
+    // Another patient's allergy isn't reachable through this patient.
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &format!("/api/v1/patients/{other}/allergies/{allergy_id}"),
+            Some(&owner),
+            Some(json!({ "status": "active" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    app.finish().await;
+}
+
+/// Posts `body` as Alpha's owner and returns the new record's id.
+async fn create(app: &TestApp, path: &str, body: Value) -> String {
+    let owner = app.token(ALPHA_OWNER);
+    let (status, created) = app
+        .send(Method::POST, ALPHA, path, Some(&owner), Some(body))
+        .await;
+    assert!(status.is_success(), "POST {path}: {status} {created}");
+    created["id"]
+        .as_str()
+        .or_else(|| created["items"][0]["id"].as_str())
+        .unwrap()
+        .to_owned()
+}
+
+/// One of each clinical record at Alpha, and every clinical route with a body that would be
+/// accepted.
+async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(app, ALPHA, &owner, "Meera Shah").await;
+    let visit = start_visit(app, &owner, &patient).await;
+    let note = create(
+        app,
+        &format!("/api/v1/visits/{visit}/notes"),
+        json!({ "sections": { "plan": "RCT 36" } }),
+    )
+    .await;
+    let reading = create(
+        app,
+        &format!("/api/v1/visits/{visit}/observations"),
+        json!({ "readings": [{ "kind": "pulse", "value": 72 }] }),
+    )
+    .await;
+    let condition = create(
+        app,
+        &format!("/api/v1/patients/{patient}/conditions"),
+        json!({ "display_text": "Type 2 diabetes", "flagged": true }),
+    )
+    .await;
+    let allergy = create(
+        app,
+        &format!("/api/v1/patients/{patient}/allergies"),
+        json!({ "substance": "Penicillin" }),
+    )
+    .await;
     let sections = json!({ "sections": { "plan": "x" } });
-    for (method, path, body) in [
+    let reason = json!({ "reason": "wrong patient" });
+    vec![
         (
             Method::GET,
             format!("/api/v1/patients/{patient}/visits"),
@@ -379,7 +711,6 @@ async fn other_clinics_get_not_found() {
             Some(json!({})),
         ),
         (Method::GET, format!("/api/v1/visits/{visit}"), None),
-        (Method::POST, format!("/api/v1/visits/{visit}/close"), None),
         (
             Method::POST,
             format!("/api/v1/visits/{visit}/notes"),
@@ -399,9 +730,64 @@ async fn other_clinics_get_not_found() {
         (
             Method::POST,
             format!("/api/v1/notes/{note}/entered-in-error"),
-            Some(json!({ "reason": "wrong patient" })),
+            Some(reason.clone()),
         ),
-    ] {
+        (
+            Method::POST,
+            format!("/api/v1/visits/{visit}/observations"),
+            Some(json!({ "readings": [{ "kind": "pulse", "value": 80 }] })),
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/observations/{reading}/entered-in-error"),
+            Some(reason),
+        ),
+        (
+            Method::GET,
+            format!("/api/v1/patients/{patient}/conditions"),
+            None,
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/patients/{patient}/conditions"),
+            Some(json!({ "display_text": "Hypertension" })),
+        ),
+        (
+            Method::PATCH,
+            format!("/api/v1/patients/{patient}/conditions/{condition}"),
+            Some(json!({ "status": "resolved" })),
+        ),
+        (
+            Method::GET,
+            format!("/api/v1/patients/{patient}/allergies"),
+            None,
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/patients/{patient}/allergies"),
+            Some(json!({ "substance": "Latex" })),
+        ),
+        (
+            Method::PATCH,
+            format!("/api/v1/patients/{patient}/allergies/{allergy}"),
+            Some(json!({ "status": "resolved" })),
+        ),
+        (
+            Method::GET,
+            format!("/api/v1/patients/{patient}/clinical-flags"),
+            None,
+        ),
+        (Method::POST, format!("/api/v1/visits/{visit}/close"), None),
+    ]
+}
+
+/// Every clinical route answers 404 to another clinic's member for this clinic's records.
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn other_clinics_get_not_found() {
+    let app = TestApp::start().await;
+    let beta = app.token(BETA_OWNER);
+    for (method, path, body) in every_route(&app).await {
         // Beta's owner on Beta's host can't see Alpha's records.
         assert_eq!(
             status_of(&app, method.clone(), BETA, &path, &beta, body.clone()).await,
@@ -419,55 +805,39 @@ async fn other_clinics_get_not_found() {
 }
 
 /// Reading needs clinical.read (the front desk has none); writing needs clinical.write (the
-/// assistant only reads).
+/// assistant only reads). The clinical flags need only patients.read, so the front desk sees
+/// that a flag exists.
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
 async fn clinical_routes_need_their_permission() {
     let app = TestApp::start().await;
-    let owner = app.token(ALPHA_OWNER);
     let desk = app.token(ALPHA_FRONT_DESK);
     let assistant = app.token(ALPHA_ASSISTANT);
-    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
-    let visit = start_visit(&app, &owner, &patient).await;
-    let reads = [
-        format!("/api/v1/patients/{patient}/visits"),
-        format!("/api/v1/visits/{visit}"),
-    ];
-    for path in &reads {
-        assert_eq!(
-            status_of(&app, Method::GET, ALPHA, path, &desk, None).await,
-            StatusCode::FORBIDDEN,
-            "front desk GET {path}"
-        );
-        assert_eq!(
-            status_of(&app, Method::GET, ALPHA, path, &assistant, None).await,
-            StatusCode::OK,
-            "assistant GET {path}"
-        );
-    }
-    let writes = [
-        (
-            Method::POST,
-            format!("/api/v1/patients/{patient}/visits"),
-            json!({}),
-        ),
-        (
-            Method::POST,
-            format!("/api/v1/visits/{visit}/close"),
-            json!({}),
-        ),
-        (
-            Method::POST,
-            format!("/api/v1/visits/{visit}/notes"),
-            json!({}),
-        ),
-    ];
-    for (method, path, body) in writes {
-        assert_eq!(
-            status_of(&app, method.clone(), ALPHA, &path, &assistant, Some(body)).await,
-            StatusCode::FORBIDDEN,
-            "assistant {method} {path}"
-        );
+    for (method, path, body) in every_route(&app).await {
+        let flags = path.ends_with("/clinical-flags");
+        if method == Method::GET {
+            let expected = if flags {
+                StatusCode::OK
+            } else {
+                StatusCode::FORBIDDEN
+            };
+            assert_eq!(
+                status_of(&app, method.clone(), ALPHA, &path, &desk, None).await,
+                expected,
+                "front desk {method} {path}"
+            );
+            assert_eq!(
+                status_of(&app, method.clone(), ALPHA, &path, &assistant, None).await,
+                StatusCode::OK,
+                "assistant {method} {path}"
+            );
+        } else {
+            assert_eq!(
+                status_of(&app, method.clone(), ALPHA, &path, &assistant, body).await,
+                StatusCode::FORBIDDEN,
+                "assistant {method} {path}"
+            );
+        }
     }
     app.finish().await;
 }

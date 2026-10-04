@@ -8,6 +8,7 @@
 pub mod clock;
 pub mod console;
 pub mod error;
+pub mod facts;
 pub mod invitations;
 pub mod outbox;
 pub mod patients;
@@ -18,5 +19,6 @@ pub mod settings;
 pub mod staff;
 pub mod tokens;
 pub mod visits;
+pub mod vitals;
 
 pub use error::AppError;

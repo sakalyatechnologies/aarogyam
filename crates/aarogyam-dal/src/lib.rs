@@ -10,6 +10,7 @@ use sqlx::migrate::Migrator;
 
 pub mod clinic;
 pub mod console;
+pub mod facts;
 pub mod invitations;
 pub mod lookups;
 pub mod outbox;
@@ -18,6 +19,7 @@ pub mod sessions;
 pub mod settings;
 pub mod staff;
 pub mod visits;
+pub mod vitals;
 use sqlx::{Executor as _, PgPool};
 
 /// The migrations in `db/migrations/`, embedded at compile time.

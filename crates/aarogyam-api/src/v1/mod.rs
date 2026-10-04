@@ -3,6 +3,7 @@
 //! (Sakalya staff on the console host) or [`crate::extract::SignedIn`] (anyone signed in).
 
 pub(crate) mod console;
+pub(crate) mod facts;
 pub(crate) mod internal;
 pub(crate) mod invitations;
 pub(crate) mod me;
@@ -10,6 +11,7 @@ pub(crate) mod patients;
 pub(crate) mod settings;
 pub(crate) mod staff;
 pub(crate) mod visits;
+pub(crate) mod vitals;
 
 use axum::Router;
 use axum::routing::{get, patch, post};
@@ -41,6 +43,28 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/notes/{id}/sign", post(visits::sign_note))
         .route("/notes/{id}/addenda", post(visits::add_addendum))
         .route("/notes/{id}/entered-in-error", post(visits::note_in_error))
+        .route("/visits/{id}/observations", post(vitals::record))
+        .route(
+            "/observations/{id}/entered-in-error",
+            post(vitals::in_error),
+        )
+        .route(
+            "/patients/{id}/conditions",
+            get(facts::conditions).post(facts::add_condition),
+        )
+        .route(
+            "/patients/{id}/conditions/{condition_id}",
+            patch(facts::edit_condition),
+        )
+        .route(
+            "/patients/{id}/allergies",
+            get(facts::allergies).post(facts::add_allergy),
+        )
+        .route(
+            "/patients/{id}/allergies/{allergy_id}",
+            patch(facts::edit_allergy),
+        )
+        .route("/patients/{id}/clinical-flags", get(facts::flags))
         .route("/staff", get(staff::list))
         .route("/staff/invitations", post(staff::invite))
         .route("/staff/{membership_id}", patch(staff::change))

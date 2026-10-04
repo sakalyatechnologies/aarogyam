@@ -10,6 +10,7 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::scope::staff_scope as scope;
 use crate::visits::{self, NoteView, VisitView};
+use crate::vitals::{self, ObservationView};
 
 /// Everything recorded in a visit.
 #[derive(Debug, Clone)]
@@ -18,6 +19,8 @@ pub struct VisitDetail {
     pub visit: VisitView,
     /// Its notes with their addenda, oldest first.
     pub notes: Vec<NoteView>,
+    /// Vital signs, oldest first, corrected ones included.
+    pub observations: Vec<ObservationView>,
 }
 
 /// Opens a visit with everything recorded in it, and writes the access record.
@@ -33,7 +36,9 @@ pub async fn open_visit(
     actor.require(Permission::ClinicalRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let opened = visits::open_in(tx, actor, request_id, visit_id).await?;
+        let id = opened.visit.id.uuid();
         Ok(VisitDetail {
+            observations: vitals::of_visit(tx, id).await?,
             visit: opened.visit,
             notes: opened.notes,
         })

@@ -18,6 +18,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::rfc3339;
+use super::vitals::Observation;
 use crate::AppState;
 use crate::extract::Require;
 use crate::failure::ApiFailure;
@@ -195,6 +196,8 @@ pub struct VisitDetail {
     pub visit: Visit,
     /// Notes with their addenda, oldest first.
     pub notes: Vec<Note>,
+    /// Vital signs recorded in the visit, oldest first; corrected values stay, marked by status.
+    pub observations: Vec<Observation>,
 }
 
 impl From<DetailView> for VisitDetail {
@@ -202,6 +205,11 @@ impl From<DetailView> for VisitDetail {
         Self {
             visit: view.visit.into(),
             notes: view.notes.into_iter().map(Note::from).collect(),
+            observations: view
+                .observations
+                .into_iter()
+                .map(Observation::from)
+                .collect(),
         }
     }
 }

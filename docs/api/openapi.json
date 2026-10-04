@@ -536,6 +536,67 @@
         ]
       }
     },
+    "/api/v1/observations/{id}/entered-in-error": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Marks a reading entered in error with a reason. It stays in the record, marked.",
+        "operationId": "in_error",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The reading",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnteredInError"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Observation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such reading in this clinic"
+          },
+          "409": {
+            "description": "Already corrected or marked"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients": {
       "get": {
         "tags": [
@@ -748,6 +809,387 @@
           },
           "404": {
             "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/allergies": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's allergies, active and severe first.",
+        "operationId": "allergies",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllergyList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Records an allergy.",
+        "operationId": "add_allergy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllergyFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Allergy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/allergies/{allergy_id}": {
+      "patch": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Edits an allergy: resolve it, change its severity, or mark it entered in error.",
+        "operationId": "edit_allergy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "allergy_id",
+            "in": "path",
+            "description": "The allergy",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllergyFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Allergy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such allergy for this patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/clinical-flags": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The patient's clinical flags: active allergies and flagged active conditions.",
+        "operationId": "flags",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicalFlags"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/conditions": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's conditions, active first.",
+        "operationId": "conditions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Adds a condition to a patient's problem list.",
+        "operationId": "add_condition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Condition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/conditions/{condition_id}": {
+      "patch": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Edits a condition: resolve it, flag it, correct it, or mark it entered in error.",
+        "operationId": "edit_condition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "condition_id",
+            "in": "path",
+            "description": "The condition",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Condition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such condition for this patient in this clinic"
           }
         },
         "security": [
@@ -1301,6 +1743,67 @@
         ]
       }
     },
+    "/api/v1/visits/{id}/observations": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Records vital signs in a visit. A closed visit takes corrections only.",
+        "operationId": "record",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewReadings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObservationList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An implausible value, a wrong unit, or another patient's reading"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          },
+          "409": {
+            "description": "The corrected reading isn't final, or the visit is closed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -1412,6 +1915,142 @@
               "null"
             ],
             "description": "State or union territory."
+          }
+        }
+      },
+      "Allergy": {
+        "type": "object",
+        "description": "An allergy.",
+        "required": [
+          "id",
+          "substance",
+          "severity",
+          "status",
+          "source",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was recorded (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "reaction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What happens."
+          },
+          "severity": {
+            "type": "string",
+            "description": "`mild`, `moderate` or `severe`."
+          },
+          "source": {
+            "type": "string",
+            "description": "`clinician`, `assistant`, `patient` or `import`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`active`, `resolved` or `entered_in_error`."
+          },
+          "substance": {
+            "type": "string",
+            "description": "The substance, such as penicillin or latex."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          },
+          "verified_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who recorded or last confirmed it."
+          }
+        }
+      },
+      "AllergyFields": {
+        "type": "object",
+        "description": "An allergy to record or edit. On an edit, fields left out stay as they are.",
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reaction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What happens, or empty to clear it."
+          },
+          "severity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`mild`, `moderate` (default) or `severe`."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`clinician` (default), `assistant`, `patient` or `import`."
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`active` (default), `resolved` or `entered_in_error`."
+          },
+          "substance": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The substance, 1 to 200 characters; required for a new allergy."
+          }
+        }
+      },
+      "AllergyList": {
+        "type": "object",
+        "description": "A patient's allergies, active and severe first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Allergy"
+            },
+            "description": "The allergies."
           }
         }
       },
@@ -1572,6 +2211,234 @@
               "null"
             ],
             "description": "UPI ID, like `name@bank`."
+          }
+        }
+      },
+      "ClinicalFlags": {
+        "type": "object",
+        "description": "Patient 360's safety banner. Anyone who can see the patient learns that flags exist and how\nmany; the substances and conditions need `clinical.read`.",
+        "required": [
+          "allergy_count",
+          "severe_allergy",
+          "condition_count",
+          "details_hidden",
+          "allergies",
+          "conditions"
+        ],
+        "properties": {
+          "allergies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Allergy"
+            },
+            "description": "Active allergies, severe first."
+          },
+          "allergy_count": {
+            "type": "integer",
+            "description": "Active allergies.",
+            "minimum": 0
+          },
+          "condition_count": {
+            "type": "integer",
+            "description": "Flagged active conditions.",
+            "minimum": 0
+          },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Condition"
+            },
+            "description": "Flagged active conditions."
+          },
+          "details_hidden": {
+            "type": "boolean",
+            "description": "True when the lists below were left out because the role lacks `clinical.read`."
+          },
+          "severe_allergy": {
+            "type": "boolean",
+            "description": "Whether any active allergy is severe."
+          }
+        }
+      },
+      "Code": {
+        "type": "object",
+        "description": "An optional clinical code. Free text always works without one.",
+        "required": [
+          "system",
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The code; empty clears it on an edit."
+          },
+          "system": {
+            "type": "string",
+            "description": "`icd10`, `icd11`, `snomed`, `loinc` or `custom`."
+          }
+        }
+      },
+      "Condition": {
+        "type": "object",
+        "description": "A condition on the problem list.",
+        "required": [
+          "id",
+          "display_text",
+          "status",
+          "flagged",
+          "source",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was recorded (RFC 3339)."
+          },
+          "display_text": {
+            "type": "string",
+            "description": "What the doctor wrote."
+          },
+          "flagged": {
+            "type": "boolean",
+            "description": "Shown in the clinical flags banner while active."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A remark."
+          },
+          "onset": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it began (`YYYY-MM-DD`)."
+          },
+          "source": {
+            "type": "string",
+            "description": "`clinician`, `assistant`, `patient` or `import`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`active`, `resolved` or `entered_in_error`."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          },
+          "verified_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who recorded or last confirmed it."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it was found in."
+          }
+        }
+      },
+      "ConditionFields": {
+        "type": "object",
+        "description": "A condition to record or edit. On an edit, fields left out stay as they are.",
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "display_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the doctor wrote, 1 to 300 characters; required for a new condition."
+          },
+          "flagged": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Show in the clinical flags banner while active (diabetes, a bleeding disorder, pregnancy)."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A remark, or empty to clear it."
+          },
+          "onset": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it began (`YYYY-MM-DD`), or empty to clear it."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`clinician` (default), `assistant`, `patient` or `import`."
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`active` (default), `resolved` or `entered_in_error`."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it was found in; new conditions only."
+          }
+        }
+      },
+      "ConditionList": {
+        "type": "object",
+        "description": "A patient's conditions, active first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Condition"
+            },
+            "description": "The conditions."
           }
         }
       },
@@ -2153,6 +3020,69 @@
           }
         }
       },
+      "NewReading": {
+        "type": "object",
+        "description": "One reading.",
+        "required": [
+          "kind",
+          "value"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "`bp_systolic`, `bp_diastolic`, `pulse`, `temperature`, `spo2`, `weight`, `height` or `blood_sugar`."
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An earlier reading of the same patient and kind that this one corrects."
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The unit; the kind's usual unit when left out (`Cel` for temperature, which also takes `[degF]`)."
+          },
+          "value": {
+            "type": "number",
+            "format": "double",
+            "description": "The value; checked against a plausible range for the kind and unit."
+          }
+        }
+      },
+      "NewReadings": {
+        "type": "object",
+        "description": "Readings taken together, such as a blood pressure pair and a pulse.",
+        "required": [
+          "readings"
+        ],
+        "properties": {
+          "readings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewReading"
+            },
+            "description": "1 to 20 readings."
+          },
+          "recorded_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When they were taken (RFC 3339); now when left out."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`clinician` (default), `assistant`, `patient` or `import`."
+          }
+        }
+      },
       "NewVisit": {
         "type": "object",
         "description": "A visit to start.",
@@ -2303,6 +3233,94 @@
               "null"
             ],
             "description": "What the patient reports."
+          }
+        }
+      },
+      "Observation": {
+        "type": "object",
+        "description": "A measurement. Values never change: a correction is a new reading whose `supersedes_id`\nnames the old one, which stays with status `corrected`.",
+        "required": [
+          "id",
+          "kind",
+          "value",
+          "unit",
+          "recorded_at",
+          "status",
+          "source"
+        ],
+        "properties": {
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "LOINC code."
+          },
+          "error_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was marked entered in error."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`bp_systolic`, `bp_diastolic`, `pulse`, `temperature`, `spo2`, `weight`, `height` or `blood_sugar`."
+          },
+          "recorded_at": {
+            "type": "string",
+            "description": "When it was measured (RFC 3339)."
+          },
+          "source": {
+            "type": "string",
+            "description": "`clinician`, `assistant`, `patient` or `import`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`final`, `corrected` or `entered_in_error`."
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The reading this one corrects."
+          },
+          "unit": {
+            "type": "string",
+            "description": "UCUM unit: `mmHg`, `/min`, `Cel`, `[degF]`, `%`, `kg`, `cm` or `mg/dL`."
+          },
+          "value": {
+            "type": "number",
+            "format": "double",
+            "description": "The value, to two decimal places."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it was taken in."
+          }
+        }
+      },
+      "ObservationList": {
+        "type": "object",
+        "description": "Readings recorded together.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Observation"
+            },
+            "description": "The new readings."
           }
         }
       },
@@ -2819,7 +3837,8 @@
         "description": "Everything recorded in a visit.",
         "required": [
           "visit",
-          "notes"
+          "notes",
+          "observations"
         ],
         "properties": {
           "notes": {
@@ -2828,6 +3847,13 @@
               "$ref": "#/components/schemas/Note"
             },
             "description": "Notes with their addenda, oldest first."
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Observation"
+            },
+            "description": "Vital signs recorded in the visit, oldest first; corrected values stay, marked by status."
           },
           "visit": {
             "$ref": "#/components/schemas/Visit",

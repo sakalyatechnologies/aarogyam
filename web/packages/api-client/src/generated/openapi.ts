@@ -102,6 +102,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lists clinic applications. */
+        get: operations["applications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/applications/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approves an application: creates the clinic, the owner's sign-in account and invitation,
+         *     and emails the invitation.
+         */
+        post: operations["approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/applications/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rejects an application. */
+        post: operations["reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/clinics": {
         parameters: {
             query?: never;
@@ -114,6 +168,43 @@ export interface paths {
         put?: never;
         /** Creates a clinic and invites its owner. Owner and onboarding staff only. */
         post: operations["create_clinic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/clinics/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One clinic, with its staff. Counts only, never patient data. */
+        get: operations["clinic"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/clinics/{id}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invites a doctor or other staff to a clinic: creates their sign-in account and invitation,
+         *     and emails it.
+         */
+        post: operations["invite_to_clinic"];
         delete?: never;
         options?: never;
         head?: never;
@@ -148,6 +239,23 @@ export interface paths {
         put?: never;
         /** Signs in as a seeded person (local development only). */
         post: operations["token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/drugs/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finds medicines in the shared list. */
+        post: operations["search_drugs"];
         delete?: never;
         options?: never;
         head?: never;
@@ -209,6 +317,79 @@ export interface paths {
          *     to; each invitation works once and expires after seven days.
          */
         post: operations["accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bills, newest first, without lines. */
+        get: operations["list_invoices"];
+        put?: never;
+        /** Starts a draft bill for a patient. */
+        post: operations["create_invoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opens a bill with its lines. Writes the access record. */
+        get: operations["get_invoice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edits a draft bill. Issued and void bills never change. */
+        patch: operations["edit_invoice"];
+        trace?: never;
+    };
+    "/api/v1/invoices/{id}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issues a draft: GST per line (CGST and SGST, or IGST across states), round-off to the
+         *     rupee, a number in the clinic's financial year, and the printed facts captured. Final.
+         */
+        post: operations["issue_invoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Voids a bill with a reason. It is kept with its number; bill again to correct it. */
+        post: operations["void_invoice"];
         delete?: never;
         options?: never;
         head?: never;
@@ -613,6 +794,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/prescriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A patient's prescriptions, newest first. */
+        get: operations["for_patient"];
+        put?: never;
+        /** Starts a draft prescription for a patient. */
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/prescriptions/last": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patient's last issued prescription, for Quick Rx (repeat it as a new draft). */
+        get: operations["last"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/procedures": {
         parameters: {
             query?: never;
@@ -624,6 +840,23 @@ export interface paths {
         get: operations["procedures"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/recalls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Plans a follow-up for a patient. */
+        post: operations["create_recall"];
         delete?: never;
         options?: never;
         head?: never;
@@ -686,6 +919,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payments received, newest first. */
+        get: operations["list"];
+        put?: never;
+        /**
+         * Records a payment against issued bills and issues a receipt number. Needs an
+         *     `Idempotency-Key` header.
+         */
+        post: operations["record"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One payment, for its receipt. */
+        get: operations["get_payment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/{id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Voids a payment with a reason. The bills it paid show their balance again. */
+        post: operations["void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/practitioners": {
         parameters: {
             query?: never;
@@ -738,6 +1026,116 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/prescriptions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opens a prescription with its print data. Writes the access record. */
+        get: operations["get_prescription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edits a draft. Issued prescriptions never change. */
+        patch: operations["edit_prescription"];
+        trace?: never;
+    };
+    "/api/v1/prescriptions/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancels an issued prescription with a reason and, by default, starts a corrected draft
+         *     copied from it.
+         */
+        post: operations["cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/prescriptions/{id}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issues a draft: allergy check, number, print data, frozen. With alerts and no
+         *     `override_reason`, answers `409` with the alerts and changes nothing.
+         */
+        post: operations["issue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/prescriptions/{id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Makes a seven-day link for the patient to open the prescription with a PIN. */
+        post: operations["create_share"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/price-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's price list. */
+        get: operations["price_items"];
+        put?: never;
+        /** Adds a price list entry. */
+        post: operations["create_price_item"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/price-items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Changes a price list entry. Issued bills keep what they printed. */
+        patch: operations["update_price_item"];
         trace?: never;
     };
     "/api/v1/procedures/{id}/complete": {
@@ -803,6 +1201,94 @@ export interface paths {
         put?: never;
         /** Moves a token along. A token with an appointment moves the appointment too. */
         post: operations["set_queue_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recalls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open follow-ups, soonest first. */
+        get: operations["due"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recalls/{id}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marks a follow-up done. */
+        post: operations["done"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Applies to join Aarogyam (public, throttled per IP). */
+        post: operations["submit_registration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Collections by day, week and method, and the revenue mix. The last seven days by default;
+         *     at most 366 days.
+         */
+        get: operations["collections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Issued bills with a balance, oldest first, with aging buckets. */
+        get: operations["pending"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -903,6 +1389,43 @@ export interface paths {
         patch: operations["update_clinic"];
         trace?: never;
     };
+    "/api/v1/shared/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public, no sign-in: whether a link exists and which clinic sent it. */
+        get: operations["shared_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/{token}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Public, no sign-in: opens the prescription with the PIN. Five wrong PINs lock the link.
+         *     Every open is written to the access record.
+         */
+        post: operations["shared_open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff": {
         parameters: {
             query?: never;
@@ -981,6 +1504,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/today/money": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Money for the Today screen: today's collections, pending dues, this month's revenue mix
+         *     and the largest unpaid balances.
+         */
+        get: operations["today_money"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/treatment-plans/{id}/accept": {
         parameters: {
             query?: never;
@@ -992,6 +1535,23 @@ export interface paths {
         put?: never;
         /** Records the patient's acceptance of a proposed plan. */
         post: operations["accept_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/verify/prescriptions/{verify_token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public, no sign-in: the QR code's check that a prescription is genuine. */
+        get: operations["verify"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1146,6 +1706,47 @@ export interface components {
             /** @description State or union territory. */
             state?: string | null;
         };
+        /** @description Owed by age of the bill. */
+        AgingBuckets: {
+            /**
+             * Format: int64
+             * @description Bills up to 30 days old.
+             */
+            "0_30": number;
+            /**
+             * Format: int64
+             * @description 31 to 60 days.
+             */
+            "31_60": number;
+            /**
+             * Format: int64
+             * @description 61 to 90 days.
+             */
+            "61_90": number;
+            /**
+             * Format: int64
+             * @description Over 90 days.
+             */
+            "90_plus": number;
+        };
+        /** @description A safety alert. */
+        Alert: {
+            /** @description `overridden` once issued; absent while asking. */
+            action?: string | null;
+            /** @description `allergy`. */
+            kind: string;
+            /**
+             * Format: int32
+             * @description The medicine's line.
+             */
+            line_no?: number | null;
+            /** @description What the doctor is told. */
+            message: string;
+            /** @description The doctor's reason. */
+            override_reason?: string | null;
+            /** @description `info`, `caution` or `serious`. */
+            severity: string;
+        };
         /** @description An allergy. */
         Allergy: {
             code?: components["schemas"]["Code"] | null;
@@ -1186,6 +1787,59 @@ export interface components {
         AllergyList: {
             /** @description The allergies. */
             items: components["schemas"]["Allergy"][];
+        };
+        /** @description Part of a payment going to a bill. */
+        Allocation: {
+            /**
+             * Format: int64
+             * @description Paise; no more than the bill's balance.
+             */
+            amount_paise: number;
+            /** @description The bill: issued, of the same patient. */
+            invoice_id: string;
+        };
+        /** @description A clinic's application. */
+        Application: {
+            /** @description Its city. */
+            city: string;
+            /** @description The clinic approval created. */
+            clinic_id?: string | null;
+            /** @description The clinic's name. */
+            clinic_name: string;
+            /** @description Who to contact. */
+            contact_name: string;
+            /** @description When it arrived (RFC 3339). */
+            created_at: string;
+            /** @description When (RFC 3339). */
+            decided_at?: string | null;
+            /** @description Who decided. */
+            decided_by?: string | null;
+            /** @description Why it was rejected. */
+            decision_reason?: string | null;
+            /** @description Their email. */
+            email: string;
+            /** @description The application. */
+            id: string;
+            /** @description What they added. */
+            message?: string | null;
+            /** @description Their phone, E.164. */
+            phone?: string | null;
+            /** @description `dental` or `general`. */
+            specialty: string;
+            /** @description `pending`, `approved` or `rejected`. */
+            status: string;
+            /**
+             * Format: int32
+             * @description Times the address applied while pending.
+             */
+            submissions: number;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+        };
+        /** @description Applications, newest first. */
+        Applications: {
+            /** @description At most 500. */
+            items: components["schemas"]["Application"][];
         };
         /** @description An appointment. */
         Appointment: {
@@ -1255,6 +1909,28 @@ export interface components {
         AppointmentList: {
             /** @description By start. */
             items: components["schemas"]["Appointment"][];
+        };
+        /** @description How to approve. */
+        ApproveApplication: {
+            /** @description The subdomain; derived from the clinic's name when absent. */
+            slug?: string | null;
+        };
+        /** @description A clinic created from an application. `invite_link` is shown once; it was also emailed. */
+        ApprovedApplication: {
+            /** @description Whether the owner's sign-in account exists in Supabase. */
+            account_ready: boolean;
+            /** @description The new clinic. */
+            clinic_id: string;
+            /** @description The owner's invitation. */
+            invitation_id: string;
+            /** @description When it expires (RFC 3339). */
+            invite_expires_at: string;
+            /** @description The invitation link, with its one-time secret. */
+            invite_link: string;
+            /** @description Its portal host. */
+            portal_host: string;
+            /** @description Its subdomain. */
+            slug: string;
         };
         /** @description A patient file's details. The bytes come from its download link. */
         Attachment: {
@@ -1334,6 +2010,19 @@ export interface components {
             /** @description `light` or `dark`. */
             mode?: string | null;
         };
+        /** @description Cancelling a prescription. */
+        CancelRequest: {
+            /** @description Why, 3 to 500 characters. */
+            reason: string;
+            /** @description Start a corrected draft copied from it (default true). */
+            reissue?: boolean | null;
+        };
+        /** @description The cancelled prescription and its corrected draft. */
+        Cancelled: {
+            /** @description The cancelled prescription. */
+            cancelled: components["schemas"]["Prescription"];
+            draft?: components["schemas"]["Prescription"] | null;
+        };
         /** @description An appointment as a chair tile shows it. */
         ChairAppointment: {
             /** @description The appointment. */
@@ -1387,6 +2076,91 @@ export interface components {
             tooth: number;
             /** @description The visit that recorded it. */
             visit_id?: string | null;
+        };
+        /** @description A clinic for the console: details, hosts, counts, staff and open invitations. */
+        ClinicDetail: {
+            /**
+             * Format: int64
+             * @description Active members.
+             */
+            active_members: number;
+            /** @description When it was created (RFC 3339). */
+            created_at: string;
+            /** @description Host names, primary first. */
+            hosts: string[];
+            /** @description The clinic. */
+            id: string;
+            /** @description Invitations neither accepted nor expired. */
+            invitations: components["schemas"]["ClinicInvitation"][];
+            /** @description The staff. */
+            members: components["schemas"]["ClinicMember"][];
+            /** @description Its name. */
+            name: string;
+            /**
+             * Format: int64
+             * @description Patients (a count only).
+             */
+            patients: number;
+            /**
+             * Format: int64
+             * @description Open invitations.
+             */
+            pending_invitations: number;
+            /** @description Its subdomain. */
+            slug: string;
+            /** @description `dental` or `general`. */
+            specialty: string;
+            /** @description `trial`, `active`, `suspended` or `churned`. */
+            status: string;
+            /** @description Its time zone. */
+            timezone: string;
+        };
+        /** @description An invitation not yet accepted. */
+        ClinicInvitation: {
+            /** @description When it was sent (RFC 3339). */
+            created_at: string;
+            /** @description Who was invited. */
+            email?: string | null;
+            /** @description When it expires (RFC 3339). */
+            expires_at: string;
+            /** @description The invitation. */
+            id: string;
+            /** @description Role key. */
+            role_key: string;
+            /** @description Role name. */
+            role_name: string;
+        };
+        /** @description An invitation just sent. `invite_link` is shown once; it was also emailed. */
+        ClinicInvited: {
+            /** @description Whether their sign-in account exists in Supabase. */
+            account_ready: boolean;
+            /** @description Who was invited. */
+            email: string;
+            /** @description When it expires (RFC 3339). */
+            expires_at: string;
+            /** @description The invitation. */
+            id: string;
+            /** @description The invitation link, with its one-time secret. */
+            invite_link: string;
+            /** @description Their role. */
+            role_key: string;
+        };
+        /** @description A member of a clinic's staff. */
+        ClinicMember: {
+            /** @description Their name. */
+            display_name: string;
+            /** @description Their sign-in address. */
+            email?: string | null;
+            /** @description When they joined (RFC 3339). */
+            joined_at?: string | null;
+            /** @description The membership. */
+            membership_id: string;
+            /** @description Role key. */
+            role_key: string;
+            /** @description Role name. */
+            role_name: string;
+            /** @description `invited`, `active`, `suspended` or `left`. */
+            status: string;
         };
         /** @description The clinic's settings. */
         ClinicSettings: {
@@ -1456,6 +2230,46 @@ export interface components {
             code: string;
             /** @description `icd10`, `icd11`, `snomed`, `loinc` or `custom`. */
             system: string;
+        };
+        /** @description Collections over clinic days `from` to `to`. */
+        Collections: {
+            /** @description Every day, zero when nothing came in. */
+            by_day: components["schemas"]["DayTotal"][];
+            /** @description Every method, for the UPI share. */
+            by_method: components["schemas"]["MethodTotal"][];
+            /** @description Weeks starting Monday, for the weekly collections chart. */
+            by_week: components["schemas"]["DayTotal"][];
+            /**
+             * Format: int64
+             * @description Everything received, in paise.
+             */
+            collected_paise: number;
+            /** @description First day. */
+            from: string;
+            /**
+             * Format: int64
+             * @description Total of bills issued in the range.
+             */
+            invoiced_paise: number;
+            /**
+             * Format: int64
+             * @description Bills issued in the range.
+             */
+            invoices: number;
+            /**
+             * Format: int64
+             * @description Left to pay on every issued bill, now.
+             */
+            outstanding_paise: number;
+            /**
+             * Format: int64
+             * @description Payments.
+             */
+            payments: number;
+            /** @description Bills issued in the range by category, for the revenue mix. */
+            revenue_mix: components["schemas"]["MixItem"][];
+            /** @description Last day, included. */
+            to: string;
         };
         /** @description A condition on the problem list. */
         Condition: {
@@ -1569,6 +2383,21 @@ export interface components {
             /** @description The role they will get. */
             role_key: string;
         };
+        /** @description Money received on a day, or in a week starting that Monday. */
+        DayTotal: {
+            /**
+             * Format: int64
+             * @description Paise.
+             */
+            amount_paise: number;
+            /** @description `YYYY-MM-DD`. */
+            date: string;
+            /**
+             * Format: int64
+             * @description Payments.
+             */
+            payments: number;
+        };
         /** @description A patient's dental chart. Teeth without entries are absent: draw them as sound. */
         DentalChart: {
             /** @description The current entries, by tooth (the whole-tooth entry first, then surfaces). */
@@ -1618,6 +2447,45 @@ export interface components {
             /** @description Delivered. */
             sent: number;
         };
+        /** @description A medicine from the catalogue. */
+        Drug: {
+            /** @description Brand, when listed. */
+            brand_name?: string | null;
+            /** @description Usual dose. */
+            default_dose: string;
+            /**
+             * Format: int32
+             * @description Usual days.
+             */
+            default_duration_days?: number | null;
+            /** @description Usual frequency, such as `1-0-1`. */
+            default_frequency: string;
+            /** @description Usual timing. */
+            default_timing?: string | null;
+            /** @description Form, such as `tablet`. */
+            form: string;
+            /** @description Generic name. */
+            generic_name: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description Strength, such as `500 mg`. */
+            strength: string;
+        };
+        /** @description Medicines found. */
+        DrugList: {
+            /** @description Names starting with the query first. */
+            items: components["schemas"]["Drug"][];
+        };
+        /** @description What to search for. */
+        DrugSearch: {
+            /**
+             * Format: int64
+             * @description Most results, 1 to 50 (default 20).
+             */
+            limit?: number | null;
+            /** @description Part of a name or strength, such as `amox` or `500`. */
+            q?: string;
+        };
         /** @description Why a record is being marked entered in error. */
         EnteredInError: {
             /** @description 3 to 500 characters, such as "wrong patient". */
@@ -1662,6 +2530,226 @@ export interface components {
             patient_id?: string | null;
             /** @description Whether the row is (or was) imported. */
             valid: boolean;
+        };
+        /** @description A bill. Amounts are paise; on drafts they are a preview computed from the current lines. */
+        Invoice: {
+            /**
+             * Format: int64
+             * @description Left to pay on an issued bill.
+             */
+            balance_paise: number;
+            /**
+             * Format: int64
+             * @description Central GST.
+             */
+            cgst_paise: number;
+            /** @description When the draft was started. */
+            created_at: string;
+            /**
+             * Format: int64
+             * @description Sum of discounts.
+             */
+            discount_paise: number;
+            /** @description `tax_invoice` or `bill_of_supply`, once issued. */
+            doc_type?: string | null;
+            /** @description The visit it bills. */
+            encounter_id?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /**
+             * Format: int64
+             * @description Integrated GST.
+             */
+            igst_paise: number;
+            /** @description When issued (RFC 3339). */
+            issued_at?: string | null;
+            /** @description Lines; empty in lists. */
+            items: components["schemas"]["InvoiceLine"][];
+            /** @description Methods of the payments towards it. */
+            methods: string[];
+            /** @description Notes printed on the bill. */
+            notes?: string | null;
+            /** @description `SD/26-27/000318`, once issued. */
+            number?: string | null;
+            /**
+             * Format: int64
+             * @description Paid so far.
+             */
+            paid_paise: number;
+            /** @description The patient. */
+            patient: components["schemas"]["PatientRef"];
+            /** @description For issued bills: `unpaid`, `partial` or `paid`, derived from payments. */
+            payment_state?: string | null;
+            /** @description Place of supply state code, when set. */
+            place_of_supply?: string | null;
+            /** @description The patient as printed: name and number. */
+            recipient?: Record<string, unknown> | null;
+            /** @description The voided bill this one replaces. */
+            replaces_invoice_id?: string | null;
+            /**
+             * Format: int64
+             * @description Rounding to the rupee, -50 to 50.
+             */
+            round_off_paise: number;
+            /**
+             * Format: int64
+             * @description State GST.
+             */
+            sgst_paise: number;
+            /** @description `draft`, `issued` or `void`. */
+            status: string;
+            /**
+             * Format: int64
+             * @description Sum of quantity times unit price.
+             */
+            subtotal_paise: number;
+            /** @description The clinic as printed: name, legal name, GSTIN, state code, address, phone. */
+            supplier?: Record<string, unknown> | null;
+            /**
+             * Format: int64
+             * @description All GST.
+             */
+            tax_paise: number;
+            /**
+             * Format: int64
+             * @description What GST is charged on.
+             */
+            taxable_paise: number;
+            /**
+             * Format: int64
+             * @description What the patient pays.
+             */
+            total_paise: number;
+            /** @description Why it was voided. */
+            void_reason?: string | null;
+            /** @description When it was voided. */
+            voided_at?: string | null;
+        };
+        /**
+         * @description Changes to a draft. Fields left out stay; `items` replaces every line; an empty string
+         *     clears `encounter_id`, `place_of_supply` or `notes`.
+         */
+        InvoiceEdit: {
+            /** @description The visit it bills. */
+            encounter_id?: string | null;
+            /** @description New lines. */
+            items?: components["schemas"]["InvoiceLineInput"][] | null;
+            /** @description Notes. */
+            notes?: string | null;
+            /** @description Place of supply state code. */
+            place_of_supply?: string | null;
+        };
+        /** @description A bill line. */
+        InvoiceLine: {
+            /**
+             * Format: int64
+             * @description Central GST.
+             */
+            cgst_paise: number;
+            /** @description As printed. */
+            description: string;
+            /**
+             * Format: int64
+             * @description Discount on the line.
+             */
+            discount_paise: number;
+            /**
+             * Format: int32
+             * @description GST percentage.
+             */
+            gst_rate: number;
+            /**
+             * Format: int64
+             * @description Integrated GST.
+             */
+            igst_paise: number;
+            /**
+             * Format: int32
+             * @description Position, from 1.
+             */
+            line_no: number;
+            /** @description The price list entry. */
+            price_item_id?: string | null;
+            /** @description The procedure it bills. */
+            procedure_id?: string | null;
+            /**
+             * Format: int32
+             * @description How many.
+             */
+            quantity: number;
+            /** @description SAC or HSN. */
+            sac_hsn?: string | null;
+            /**
+             * Format: int64
+             * @description State GST.
+             */
+            sgst_paise: number;
+            /**
+             * Format: int64
+             * @description Taxable value.
+             */
+            taxable_paise: number;
+            /**
+             * Format: int64
+             * @description Taxable value plus GST.
+             */
+            total_paise: number;
+            /**
+             * Format: int64
+             * @description Price of one, in paise.
+             */
+            unit_price_paise: number;
+        };
+        /**
+         * @description A line on a draft: from a price list entry, whose values fill whatever is left out, or
+         *     free text with a description and a unit price.
+         */
+        InvoiceLineInput: {
+            /** @description As printed. */
+            description?: string | null;
+            /**
+             * Format: int64
+             * @description Discount on the whole line, in paise.
+             */
+            discount_paise?: number | null;
+            /**
+             * Format: int32
+             * @description GST percentage: 0, 5, 12 or 18.
+             */
+            gst_rate?: number | null;
+            /** @description The price list entry. */
+            price_item_id?: string | null;
+            /** @description The procedure it bills. */
+            procedure_id?: string | null;
+            /**
+             * Format: int32
+             * @description How many, 1 by default.
+             */
+            quantity?: number | null;
+            /** @description SAC or HSN. */
+            sac_hsn?: string | null;
+            /**
+             * Format: int64
+             * @description Price of one, in paise.
+             */
+            unit_price_paise?: number | null;
+        };
+        /** @description Bills. */
+        InvoiceList: {
+            /** @description Newest first. */
+            items: components["schemas"]["Invoice"][];
+        };
+        /** @description The alerts that stopped an issue. */
+        IssueBlocked: {
+            /** @description Send again with `override_reason` to issue anyway. */
+            alerts: components["schemas"]["Alert"][];
+            /** @description `allergy_alerts`. */
+            code: string;
+        };
+        /** @description Issuing a prescription. */
+        IssueRequest: {
+            /** @description Why to go ahead despite the allergy alerts; needed only when there are alerts. */
+            override_reason?: string | null;
         };
         /** @description The clinic just joined. */
         Joined: {
@@ -1725,6 +2813,41 @@ export interface components {
             role_key?: string | null;
             /** @description `active` (reactivate), `suspended` or `left`. */
             status?: string | null;
+        };
+        /** @description Money received by one method. */
+        MethodTotal: {
+            /**
+             * Format: int64
+             * @description Paise.
+             */
+            amount_paise: number;
+            /** @description `cash`, `upi`, `card` or `bank`. */
+            method: string;
+            /**
+             * Format: int64
+             * @description Payments.
+             */
+            payments: number;
+            /**
+             * Format: int64
+             * @description Share of everything received, in basis points (10000 is all).
+             */
+            share_bps: number;
+        };
+        /** @description Billed revenue in one price list category. */
+        MixItem: {
+            /**
+             * Format: int64
+             * @description Paise, including GST.
+             */
+            amount_paise: number;
+            /** @description The category, or `other` for free-text lines. */
+            category: string;
+            /**
+             * Format: int64
+             * @description Share of all billed, in basis points.
+             */
+            share_bps: number;
         };
         /** @description A clinic the person belongs to. */
         MyClinic: {
@@ -1821,6 +2944,13 @@ export interface components {
             /** @description `dental` (default) or `general`. */
             specialty?: string | null;
         };
+        /** @description Someone to invite to a clinic. */
+        NewClinicInvitation: {
+            /** @description Their email; they sign in with it. */
+            email: string;
+            /** @description A role of the clinic, such as `doctor` or `front_desk`. */
+            role_key: string;
+        };
         /** @description An identifier to add. */
         NewIdentifier: {
             /** @description `file_number`, `legacy`, `smart_card`, `abha_number` or `abha_address`. */
@@ -1834,6 +2964,21 @@ export interface components {
             email: string;
             /** @description The role they will get, such as `doctor`. */
             role_key: string;
+        };
+        /** @description A new draft bill. */
+        NewInvoice: {
+            /** @description The visit it bills. */
+            encounter_id?: string | null;
+            /** @description Lines. */
+            items?: components["schemas"]["InvoiceLineInput"][];
+            /** @description Notes printed on the bill. */
+            notes?: string | null;
+            /** @description The patient. */
+            patient_id: string;
+            /** @description GST state code of the place of supply, when not the branch's state (IGST applies). */
+            place_of_supply?: string | null;
+            /** @description The voided bill this one replaces. */
+            replaces_invoice_id?: string | null;
         };
         /** @description Leave to record. */
         NewLeave: {
@@ -1865,6 +3010,25 @@ export interface components {
             preferred_language?: string | null;
             /** @description `female`, `male`, `other` or `unknown` (default). */
             sex?: string | null;
+        };
+        /**
+         * @description A payment to record. Send an `Idempotency-Key` header (a UUID per payment form); a retry
+         *     with the same key returns the first payment instead of recording another.
+         */
+        NewPayment: {
+            /** @description The bills it pays; what is left over stays as an advance. */
+            allocations?: components["schemas"]["Allocation"][];
+            /**
+             * Format: int64
+             * @description Paise, more than zero.
+             */
+            amount_paise: number;
+            /** @description `cash`, `upi`, `card` or `bank`. */
+            method: string;
+            /** @description Who paid. */
+            patient_id: string;
+            /** @description UPI or card reference. */
+            reference?: string | null;
         };
         /** @description A treatment plan to propose. */
         NewPlan: {
@@ -1924,6 +3088,32 @@ export interface components {
             recorded_at?: string | null;
             /** @description `clinician` (default), `assistant`, `patient` or `import`. */
             source?: string | null;
+        };
+        /** @description A follow-up to plan. */
+        NewRecall: {
+            /** @description When it falls due, `YYYY-MM-DD`. */
+            due_on: string;
+            /** @description `follow_up` by default; `cleaning`, `review`, … */
+            kind?: string | null;
+            /** @description Why, 1 to 300 characters. */
+            reason: string;
+        };
+        /** @description A clinic asking to join. */
+        NewRegistration: {
+            /** @description Its city. */
+            city: string;
+            /** @description The clinic's name. */
+            clinic_name: string;
+            /** @description Who we should contact. */
+            contact_name: string;
+            /** @description Their email; the owner's invitation goes there once approved. */
+            email: string;
+            /** @description Anything they want to tell us. */
+            message?: string | null;
+            /** @description Their phone number. */
+            phone?: string | null;
+            /** @description `dental` (default) or `general`. */
+            specialty?: string | null;
         };
         /** @description A visit to start. */
         NewVisit: {
@@ -2017,6 +3207,11 @@ export interface components {
         ObservationList: {
             /** @description The new readings. */
             items: components["schemas"]["Observation"][];
+        };
+        /** @description The PIN. */
+        OpenRequest: {
+            /** @description The six digits printed on the paper. */
+            pin: string;
         };
         /** @description A patient. Phone and email are masked (`+91******3210`) unless the role has `patients.contact`. */
         Patient: {
@@ -2125,6 +3320,56 @@ export interface components {
             /** @description Matching patients, best first. */
             items: components["schemas"]["Patient"][];
         };
+        /** @description A patient as a bill or payment names them. */
+        PatientRef: {
+            /** @description Identifier. */
+            id: string;
+            /** @description Name. */
+            name: string;
+            /** @description Number, such as `SD-1042`. */
+            number: string;
+        };
+        /** @description A payment and its receipt number. */
+        Payment: {
+            /**
+             * Format: int64
+             * @description Allocated to bills.
+             */
+            allocated_paise: number;
+            /** @description The bills it pays. */
+            allocations: components["schemas"]["Allocation"][];
+            /**
+             * Format: int64
+             * @description Paise.
+             */
+            amount_paise: number;
+            /** @description Identifier. */
+            id: string;
+            /** @description `cash`, `upi`, `card` or `bank`. */
+            method: string;
+            /** @description Receipt number, such as `RC/26-27/000042`. */
+            number: string;
+            /** @description Who paid. */
+            patient: components["schemas"]["PatientRef"];
+            /** @description When (RFC 3339). */
+            received_at: string;
+            /** @description UPI or card reference. */
+            reference?: string | null;
+            /** @description `received` or `void`. */
+            status: string;
+            /**
+             * Format: int64
+             * @description Left as an advance.
+             */
+            unallocated_paise: number;
+            /** @description Why it was voided. */
+            void_reason?: string | null;
+        };
+        /** @description Payments. */
+        PaymentList: {
+            /** @description Newest first. */
+            items: components["schemas"]["Payment"][];
+        };
         /** @description An invitation not yet accepted. */
         PendingInvitation: {
             /** @description When it was sent (RFC 3339). */
@@ -2137,6 +3382,53 @@ export interface components {
             id: string;
             /** @description The role they will get. */
             role_key: string;
+        };
+        /** @description An issued bill with something left to pay. */
+        PendingItem: {
+            /**
+             * Format: int64
+             * @description Clinic days since issue.
+             */
+            age_days: number;
+            /**
+             * Format: int64
+             * @description Left to pay.
+             */
+            balance_paise: number;
+            /** @description `0_30`, `31_60`, `61_90` or `90_plus`. */
+            bucket: string;
+            /** @description The bill. */
+            invoice_id: string;
+            /** @description When issued. */
+            issued_at?: string | null;
+            /** @description Its number. */
+            number?: string | null;
+            /**
+             * Format: int64
+             * @description Paid.
+             */
+            paid_paise: number;
+            /** @description The patient. */
+            patient: components["schemas"]["PatientRef"];
+            /**
+             * Format: int64
+             * @description Total, in paise.
+             */
+            total_paise: number;
+        };
+        /** @description Unpaid bills. */
+        PendingReport: {
+            /** @description Owed by age. */
+            buckets: components["schemas"]["AgingBuckets"];
+            /** @description Oldest first. */
+            items: components["schemas"]["PendingItem"][];
+            /**
+             * Format: int64
+             * @description Left to pay on all of them, in paise.
+             */
+            outstanding_paise: number;
+            /** @description Patients who owe. */
+            patients: number;
         };
         /** @description A treatment plan with its estimate. */
         Plan: {
@@ -2247,6 +3539,129 @@ export interface components {
             /** @description By name. */
             items: components["schemas"]["Practitioner"][];
         };
+        /** @description A prescription. */
+        Prescription: {
+            /** @description Advice. */
+            advice?: string | null;
+            /** @description Alerts recorded at issue. */
+            alerts: components["schemas"]["Alert"][];
+            /** @description Why it was cancelled. */
+            cancel_reason?: string | null;
+            /** @description When it was cancelled. */
+            cancelled_at?: string | null;
+            /** @description When the draft was started. */
+            created_at: string;
+            /** @description Diagnosis. */
+            diagnosis_text?: string | null;
+            /** @description The visit. */
+            encounter_id?: string | null;
+            /** @description Follow-up date. */
+            follow_up_on?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description When issued. */
+            issued_at?: string | null;
+            /** @description Medicines. */
+            items: components["schemas"]["RxItem"][];
+            /** @description Language of the instructions. */
+            language: string;
+            /** @description `RX-412`, once issued. */
+            number?: string | null;
+            /** @description Why alerts were overridden. */
+            override_reason?: string | null;
+            /** @description The patient. */
+            patient: components["schemas"]["PatientRef"];
+            print?: components["schemas"]["PrintData"] | null;
+            /** @description `draft`, `issued` or `cancelled`. */
+            status: string;
+            /** @description The prescription that replaces it. */
+            superseded_by?: string | null;
+            /** @description The prescription it replaces. */
+            supersedes_id?: string | null;
+        };
+        /** @description Prescriptions. */
+        PrescriptionList: {
+            /** @description Newest first. */
+            items: components["schemas"]["Prescription"][];
+        };
+        /** @description A price list entry. */
+        PriceItem: {
+            /** @description Offered. */
+            active: boolean;
+            /** @description Revenue-mix category, such as `endodontics` or `medicines`. */
+            category?: string | null;
+            /** @description Short code, unique in the clinic. */
+            code?: string | null;
+            /**
+             * Format: int32
+             * @description GST percentage: 0, 5, 12 or 18.
+             */
+            gst_rate: number;
+            /** @description Identifier. */
+            id: string;
+            /** @description Name, as printed on bills. */
+            name: string;
+            /**
+             * Format: int64
+             * @description Default price in paise.
+             */
+            price_paise: number;
+            /** @description SAC (9993 for health care) or HSN code. */
+            sac_hsn?: string | null;
+            /** @description Whether GST applies. Health care by a clinical establishment is exempt. */
+            taxable: boolean;
+        };
+        /** @description The price list. */
+        PriceItemList: {
+            /** @description Entries by name. */
+            items: components["schemas"]["PriceItem"][];
+        };
+        /**
+         * @description A price list entry's values. On a change, fields left out stay as they are and an empty
+         *     string clears an optional one.
+         */
+        PriceItemValues: {
+            /** @description Offered. */
+            active?: boolean | null;
+            /** @description Revenue-mix category: lower case, digits and `_`. */
+            category?: string | null;
+            /** @description Short code: letters, digits, `-` and `_`. */
+            code?: string | null;
+            /**
+             * Format: int32
+             * @description GST percentage: 0, 5, 12 or 18.
+             */
+            gst_rate?: number | null;
+            /** @description Name; required for a new entry. */
+            name?: string | null;
+            /**
+             * Format: int64
+             * @description Default price in paise; required for a new entry.
+             */
+            price_paise?: number | null;
+            /** @description SAC or HSN: 4 to 8 digits. */
+            sac_hsn?: string | null;
+            /**
+             * @description Whether GST applies (medicines and products); false (exempt) by default unless a rate
+             *     is given.
+             */
+            taxable?: boolean | null;
+        };
+        /** @description What the paper shows besides the medicines. */
+        PrintData: {
+            /** @description `Prescribed with Aarogyam`, printed beside the QR code. */
+            brand_line: string;
+            /** @description Doctor's name and registration number (null when not recorded). */
+            doctor: Record<string, unknown>;
+            /** @description The clinic's footer text. */
+            footer?: string | null;
+            /** @description Clinic name, legal name, address, phone, brand colour. */
+            letterhead: Record<string, unknown>;
+            /** @description Patient's name, number, age and sex at issue. */
+            patient: Record<string, unknown>;
+            /** @description Path the QR code opens on the clinic's host. */
+            verify_path: string;
+        };
         /**
          * @description A procedure planned or done in a visit. Done procedures never change; a mistaken one is
          *     marked `entered_in_error` with a reason.
@@ -2330,6 +3745,45 @@ export interface components {
              */
             wait_minutes: number;
         };
+        /** @description A reason, for voiding or cancelling. */
+        Reason: {
+            /** @description Why, 3 to 500 characters. */
+            reason: string;
+        };
+        /** @description A follow-up. */
+        Recall: {
+            /** @description When it was done. */
+            done_at?: string | null;
+            /** @description When it falls due, `YYYY-MM-DD`. */
+            due_on: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description `follow_up`, `cleaning`, … */
+            kind: string;
+            /** @description The patient. */
+            patient: components["schemas"]["PatientRef"];
+            /** @description Why. */
+            reason: string;
+            /** @description `due`, `notified`, `booked`, `done` or `dismissed`. */
+            status: string;
+        };
+        /** @description Follow-ups. */
+        RecallList: {
+            /** @description Soonest first. */
+            items: components["schemas"]["Recall"][];
+        };
+        /** @description The one answer to a valid application. */
+        RegistrationReceived: {
+            /** @description What happens next. */
+            message: string;
+            /** @description Always `received`. */
+            status: string;
+        };
+        /** @description Why an application is turned down. */
+        RejectApplication: {
+            /** @description A short reason, for the console only. */
+            reason?: string | null;
+        };
         /** @description A role. */
         Role: {
             /** @description What it is for. */
@@ -2395,6 +3849,48 @@ export interface components {
         RoomList: {
             /** @description In list order. */
             items: components["schemas"]["Room"][];
+        };
+        /** @description A medicine on a prescription. */
+        RxItem: {
+            /** @description Dose, such as `1 tablet`. */
+            dose?: string | null;
+            /** @description The catalogue entry; its values fill what is left out. */
+            drug_id?: string | null;
+            /** @description As printed, generic name in capitals; required for free text. */
+            drug_name?: string | null;
+            /**
+             * Format: int32
+             * @description Days, 1 to 365.
+             */
+            duration_days?: number | null;
+            /** @description Form. */
+            form?: string | null;
+            /** @description Frequency, such as `1-0-1`. */
+            frequency?: string | null;
+            /** @description Instructions in the patient's language. */
+            instructions?: string | null;
+            /** @description Strength. */
+            strength?: string | null;
+            /** @description `before_food`, `after_food`, `empty_stomach`, `bedtime`, `sos` or `as_directed`. */
+            timing?: string | null;
+        };
+        /**
+         * @description A draft's values. On an edit, fields left out stay, an empty string clears text,
+         *     `encounter_id` or `follow_up_on`, and `items` replaces every medicine.
+         */
+        RxValues: {
+            /** @description Advice: diet, care, warnings. */
+            advice?: string | null;
+            /** @description Diagnosis. */
+            diagnosis_text?: string | null;
+            /** @description The visit. */
+            encounter_id?: string | null;
+            /** @description Follow-up date, `YYYY-MM-DD`. */
+            follow_up_on?: string | null;
+            /** @description Medicines. */
+            items?: components["schemas"]["RxItem"][] | null;
+            /** @description Language, such as `hi-IN`; the patient's by default. */
+            language?: string | null;
         };
         /** @description An appointment after a booking or change. */
         SavedAppointment: {
@@ -2466,6 +3962,28 @@ export interface components {
             display_name: string;
             /** @description The user. */
             id: string;
+        };
+        /** @description A new patient link. The token and PIN are shown once. */
+        ShareLink: {
+            /** @description When it stops working (seven days). */
+            expires_at: string;
+            /** @description The link's id. */
+            id: string;
+            /** @description Six-digit PIN to print on the paper or tell the patient. */
+            pin: string;
+            /** @description Token for the link: `/shared/{token}` on the clinic's host. */
+            token: string;
+        };
+        /** @description What a link shows before its PIN: no patient data. */
+        SharedPreview: {
+            /** @description The clinic's name. */
+            clinic_name: string;
+            /** @description When it stops working. */
+            expires_at: string;
+            /** @description `prescription`. */
+            resource: string;
+            /** @description `usable`, `expired` or `locked`. */
+            state: string;
         };
         /** @description The clinic's staff. */
         Staff: {
@@ -2548,6 +4066,52 @@ export interface components {
             /** @description Queue tokens waiting, walk-ins included. */
             waiting: number;
         };
+        /** @description The Today screen's money widgets. */
+        TodayMoney: {
+            /**
+             * Format: int64
+             * @description Received today, in paise (the revenue tile).
+             */
+            collected_paise: number;
+            /**
+             * Format: int64
+             * @description Received this month so far.
+             */
+            collected_this_month_paise: number;
+            /** @description The clinic day. */
+            date: string;
+            /**
+             * Format: int64
+             * @description Billed today.
+             */
+            invoiced_paise: number;
+            /**
+             * Format: int64
+             * @description Bills issued today.
+             */
+            invoices_today: number;
+            /**
+             * Format: int64
+             * @description Payments today.
+             */
+            payments_today: number;
+            /** @description The five largest balances, for the pending payments table. */
+            pending: components["schemas"]["PendingItem"][];
+            /**
+             * Format: int64
+             * @description Left to pay on every issued bill (the pending dues tile).
+             */
+            pending_dues_paise: number;
+            /** @description Patients who owe. */
+            pending_dues_patients: number;
+            /** @description This month's revenue mix, for the donut. */
+            revenue_mix: components["schemas"]["MixItem"][];
+            /**
+             * Format: int64
+             * @description UPI's share of this month's collections, in basis points.
+             */
+            upi_share_bps: number;
+        };
         /** @description Today at the clinic. Money tiles arrive with billing. */
         TodayResponse: {
             /** @description Today's appointments by start, cancelled ones included. */
@@ -2599,6 +4163,17 @@ export interface components {
             tooth?: number | null;
             /** @description The visit it belongs to. */
             visit_id?: string | null;
+        };
+        /** @description What the QR code shows: never patient data. */
+        Verification: {
+            /** @description The clinic's name. */
+            clinic_name: string;
+            /** @description The clinic day it was issued. */
+            issued_on?: string | null;
+            /** @description The prescription number. */
+            number?: string | null;
+            /** @description `valid` or `cancelled`. */
+            status: string;
         };
         /** @description A visit. */
         Visit: {
@@ -2994,6 +4569,142 @@ export interface operations {
             };
         };
     };
+    applications: {
+        parameters: {
+            query?: {
+                /** @description pending, approved or rejected */
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Applications"];
+                };
+            };
+            /** @description Not Sakalya staff */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the console host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The application */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveApplication"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovedApplication"];
+                };
+            };
+            /** @description Invalid subdomain */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not allowed to onboard clinics */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No pending application with that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The subdomain is taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Supabase could not create the sign-in account */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The application */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectApplication"];
+            };
+        };
+        responses: {
+            /** @description Rejected */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not allowed to onboard clinics */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No pending application with that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     clinics: {
         parameters: {
             query?: never;
@@ -3071,6 +4782,96 @@ export interface operations {
             };
         };
     };
+    clinic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clinic */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicDetail"];
+                };
+            };
+            /** @description Not Sakalya staff */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such clinic, or not the console host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    invite_to_clinic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clinic */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewClinicInvitation"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicInvited"];
+                };
+            };
+            /** @description Invalid email or unknown role */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not allowed to onboard clinics */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Supabase could not create the sign-in account */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     metrics: {
         parameters: {
             query?: {
@@ -3121,6 +4922,43 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DevTokenResponse"];
                 };
+            };
+        };
+    };
+    search_drugs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrugSearch"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrugList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks prescriptions.issue */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -3230,6 +5068,330 @@ export interface operations {
                 content?: never;
             };
             /** @description The invitation is for another email address */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_invoices: {
+        parameters: {
+            query?: {
+                /** @description draft, issued or void */
+                status?: string;
+                /** @description First clinic day, YYYY-MM-DD (issue date; start date for drafts) */
+                from?: string;
+                /** @description Last clinic day, included */
+                to?: string;
+                /** @description One patient's bills */
+                patient_id?: string;
+                /** @description Most rows, 1 to 200 (default 50) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceList"];
+                };
+            };
+            /** @description A bad filter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_invoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewInvoice"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_invoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The bill */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such bill in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    edit_invoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The bill */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceEdit"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such bill in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The bill is issued or void */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    issue_invoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The bill */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            /** @description The bill has no lines */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such bill in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already issued or void */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    void_invoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The bill */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reason"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            /** @description No reason given */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such bill in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already void, or payments still count towards it */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -4699,6 +6861,146 @@ export interface operations {
             };
         };
     };
+    for_patient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrescriptionList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RxValues"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Prescription"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks prescriptions.issue */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    last: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Prescription"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient, or no issued prescription yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     procedures: {
         parameters: {
             query?: never;
@@ -4727,6 +7029,60 @@ export interface operations {
                 content?: never;
             };
             /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_recall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewRecall"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recall"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4990,6 +7346,228 @@ export interface operations {
                 content?: never;
             };
             /** @description The appointment already has a visit */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query?: {
+                /** @description First clinic day, YYYY-MM-DD */
+                from?: string;
+                /** @description Last clinic day, included */
+                to?: string;
+                /** @description Most rows, 1 to 500 (default 100) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentList"];
+                };
+            };
+            /** @description A bad date */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    record: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique per payment; a retry sends the same key */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPayment"];
+            };
+        };
+        responses: {
+            /** @description Already recorded with this key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            /** @description Recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            /** @description Invalid input, a missing key, or an allocation past a bill's balance or the payment */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient or bill in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The key was used for a different payment, or a bill isn't issued */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_payment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The payment */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such payment in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    void: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The payment */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reason"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            /** @description No reason given */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such payment in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already void */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5296,6 +7874,436 @@ export interface operations {
             };
         };
     };
+    get_prescription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The prescription */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Prescription"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such prescription in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    edit_prescription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The prescription */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RxValues"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Prescription"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks prescriptions.issue */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such prescription in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Issued or cancelled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The prescription */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cancelled"];
+                };
+            };
+            /** @description No reason given */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks prescriptions.issue */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such prescription in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not issued */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    issue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The prescription */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Prescription"];
+                };
+            };
+            /** @description No medicines, or a bad reason */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks prescriptions.issue */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such prescription in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Allergy alerts need an override reason, or already issued */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueBlocked"];
+                };
+            };
+        };
+    };
+    create_share: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The prescription */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareLink"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks prescriptions.issue */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such prescription in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not issued */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    price_items: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceItemList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_price_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceItemValues"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceItem"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Another entry has this code */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_price_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The price list entry */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceItemValues"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceItem"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such entry in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Another entry has this code */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     complete: {
         parameters: {
             query?: never;
@@ -5550,6 +8558,215 @@ export interface operations {
             };
             /** @description No such token in this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    due: {
+        parameters: {
+            query?: {
+                /** @description Only those due before this day, YYYY-MM-DD */
+                due_before?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecallList"];
+                };
+            };
+            /** @description A bad date */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    done: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The follow-up */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recall"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such follow-up in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already closed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    submit_registration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewRegistration"];
+            };
+        };
+        responses: {
+            /** @description Received; the same answer every time */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationReceived"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many applications from this address */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    collections: {
+        parameters: {
+            query?: {
+                /** @description First clinic day, YYYY-MM-DD (default: six days before to) */
+                from?: string;
+                /** @description Last clinic day, included (default: today) */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Collections"];
+                };
+            };
+            /** @description A bad or too long range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pending: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingReport"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks finance.view */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5922,6 +9139,89 @@ export interface operations {
             };
         };
     };
+    shared_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link's token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedPreview"];
+                };
+            };
+            /** @description No such link */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    shared_open: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link's token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Prescription"];
+                };
+            };
+            /** @description Wrong PIN; the message says how many tries are left */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such link */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Expired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Locked after too many wrong PINs */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_staff: {
         parameters: {
             query?: never;
@@ -6114,6 +9414,39 @@ export interface operations {
             };
         };
     };
+    today_money: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodayMoney"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     accept_plan: {
         parameters: {
             query?: never;
@@ -6168,6 +9501,35 @@ export interface operations {
             };
             /** @description The plan isn't proposed */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    verify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The token in the QR code */
+                verify_token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Verification"];
+                };
+            };
+            /** @description No such prescription */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

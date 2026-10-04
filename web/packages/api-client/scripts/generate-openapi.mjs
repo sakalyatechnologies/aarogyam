@@ -36,6 +36,12 @@ const RENAMES = {
   "GET /api/v1/visits/{id}": "open_visit",
   "POST /api/v1/patients/{id}/dental-chart": "record_dental_chart",
   "POST /api/v1/visits/{id}/observations": "record_observation",
+  "GET /api/v1/payments/{id}": "get_payment",
+  "GET /api/v1/prescriptions/{id}": "get_prescription",
+  "PATCH /api/v1/prescriptions/{id}": "edit_prescription",
+  "POST /api/v1/patients/{id}/recalls": "create_recall",
+  "POST /api/v1/registrations": "submit_registration",
+  "POST /api/v1/console/clinics/{id}/invitations": "invite_to_clinic",
 };
 
 const spec = JSON.parse(readFileSync(specPath, "utf8"));

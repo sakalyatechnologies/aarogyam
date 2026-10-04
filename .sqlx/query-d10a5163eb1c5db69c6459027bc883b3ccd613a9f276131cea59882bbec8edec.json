@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.treatment_plan_items set status = $2 where id = $1 returning plan_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "plan_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "plan_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d10a5163eb1c5db69c6459027bc883b3ccd613a9f276131cea59882bbec8edec"
+}

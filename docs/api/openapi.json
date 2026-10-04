@@ -1316,6 +1316,152 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/procedures": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's procedures, newest first.",
+        "operationId": "procedures",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcedureList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/treatment-plans": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's treatment plans, newest first.",
+        "operationId": "plans",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Proposes a treatment plan with an estimate per item.",
+        "operationId": "create_plan",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewPlan"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Plan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/visits": {
       "get": {
         "tags": [
@@ -1411,6 +1557,115 @@
           },
           "409": {
             "description": "The appointment already has a visit"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/procedures/{id}/complete": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Marks a planned procedure done; its plan item, if any, is done too.",
+        "operationId": "complete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The procedure",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Procedure"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such procedure in this clinic"
+          },
+          "409": {
+            "description": "Not planned"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/procedures/{id}/entered-in-error": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Marks a procedure entered in error with a reason; its plan item is open again.",
+        "operationId": "procedure_in_error",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The procedure",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnteredInError"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Procedure"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such procedure in this clinic"
+          },
+          "409": {
+            "description": "Already marked"
           }
         },
         "security": [
@@ -1706,6 +1961,67 @@
         ]
       }
     },
+    "/api/v1/treatment-plans/{id}/accept": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Records the patient's acceptance of a proposed plan.",
+        "operationId": "accept_plan",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The treatment plan",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Acceptance"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Plan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A chosen item isn't a proposed item of this plan"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such plan in this clinic"
+          },
+          "409": {
+            "description": "The plan isn't proposed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/visits/{id}": {
       "get": {
         "tags": [
@@ -1921,6 +2237,67 @@
         ]
       }
     },
+    "/api/v1/visits/{id}/procedures": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Records a procedure in an open visit.",
+        "operationId": "record_procedure",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewProcedure"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Procedure"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input, or a plan item of another patient"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          },
+          "409": {
+            "description": "The visit is closed, or the plan item isn't accepted or already has a procedure"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -1963,6 +2340,22 @@
           "token": {
             "type": "string",
             "description": "The secret from the invitation link."
+          }
+        }
+      },
+      "Acceptance": {
+        "type": "object",
+        "description": "Which items the patient accepted.",
+        "properties": {
+          "item_ids": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "The accepted items; every proposed item when left out. The others are cancelled."
           }
         }
       },
@@ -3287,6 +3680,107 @@
           }
         }
       },
+      "NewPlan": {
+        "type": "object",
+        "description": "A treatment plan to propose.",
+        "required": [
+          "title",
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewPlanItem"
+            },
+            "description": "1 to 50 items."
+          },
+          "title": {
+            "type": "string",
+            "description": "Its title, 1 to 200 characters."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it is proposed in."
+          }
+        }
+      },
+      "NewPlanItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkFields",
+            "description": "What and where; `name` is required."
+          },
+          {
+            "type": "object",
+            "required": [
+              "estimate_paise"
+            ],
+            "properties": {
+              "estimate_paise": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Estimated cost in paise."
+              },
+              "phase": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int32",
+                "description": "Phase, 1 (default) to 20."
+              }
+            }
+          }
+        ],
+        "description": "A plan item to propose."
+      },
+      "NewProcedure": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkFields",
+            "description": "What and where; taken from the plan item when left out."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "A remark, up to 1,000 characters."
+              },
+              "plan_item_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "An accepted treatment plan item this carries out; when done, the item is done too."
+              },
+              "price_paise": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64",
+                "description": "The fee in paise; the plan item's estimate when left out."
+              },
+              "status": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "`done` (default) or `planned`."
+              }
+            }
+          }
+        ],
+        "description": "A procedure to record."
+      },
       "NewReading": {
         "type": "object",
         "description": "One reading.",
@@ -3784,6 +4278,276 @@
           }
         }
       },
+      "Plan": {
+        "type": "object",
+        "description": "A treatment plan with its estimate.",
+        "required": [
+          "id",
+          "patient_id",
+          "clinician",
+          "title",
+          "status",
+          "created_at",
+          "estimate_paise",
+          "items"
+        ],
+        "properties": {
+          "accepted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the patient accepted it (RFC 3339)."
+          },
+          "clinician": {
+            "$ref": "#/components/schemas/Member",
+            "description": "The member who proposed it."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was proposed (RFC 3339)."
+          },
+          "estimate_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The sum of the items that aren't cancelled, in paise."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanItem"
+            },
+            "description": "Its items, by phase."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "status": {
+            "type": "string",
+            "description": "`proposed`, `accepted`, `in_progress`, `completed` or `declined`."
+          },
+          "title": {
+            "type": "string",
+            "description": "Its title."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it was proposed in."
+          }
+        }
+      },
+      "PlanItem": {
+        "type": "object",
+        "description": "A step of a treatment plan.",
+        "required": [
+          "id",
+          "name",
+          "surfaces",
+          "phase",
+          "estimate_paise",
+          "status"
+        ],
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estimate_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Estimated cost in paise."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "What is to be done."
+          },
+          "phase": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Phase, from 1."
+          },
+          "procedure_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The procedure carrying it out."
+          },
+          "status": {
+            "type": "string",
+            "description": "`proposed`, `accepted`, `done` or `cancelled`."
+          },
+          "surfaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Surfaces: `M`, `O`, `D`, `B`, `L`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "FDI tooth number.",
+            "minimum": 0
+          }
+        }
+      },
+      "PlanList": {
+        "type": "object",
+        "description": "A patient's treatment plans, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Plan"
+            },
+            "description": "The plans."
+          }
+        }
+      },
+      "Procedure": {
+        "type": "object",
+        "description": "A procedure planned or done in a visit. Done procedures never change; a mistaken one is\nmarked `entered_in_error` with a reason.",
+        "required": [
+          "id",
+          "visit_id",
+          "clinician",
+          "name",
+          "surfaces",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "clinician": {
+            "$ref": "#/components/schemas/Member",
+            "description": "The member who did it."
+          },
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was recorded (RFC 3339)."
+          },
+          "error_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was marked entered in error."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "What was done."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A remark."
+          },
+          "performed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was done (RFC 3339)."
+          },
+          "plan_item_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The treatment plan item it carries out."
+          },
+          "price_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The fee in paise."
+          },
+          "status": {
+            "type": "string",
+            "description": "`planned`, `done` or `entered_in_error`."
+          },
+          "surfaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Surfaces: `M`, `O`, `D`, `B`, `L`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "FDI tooth number.",
+            "minimum": 0
+          },
+          "visit_id": {
+            "type": "string",
+            "description": "The visit."
+          }
+        }
+      },
+      "ProcedureList": {
+        "type": "object",
+        "description": "A patient's procedures, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Procedure"
+            },
+            "description": "The procedures."
+          }
+        }
+      },
       "Role": {
         "type": "object",
         "description": "A role.",
@@ -4106,7 +4870,8 @@
           "visit",
           "notes",
           "observations",
-          "chart_entries"
+          "chart_entries",
+          "procedures"
         ],
         "properties": {
           "chart_entries": {
@@ -4130,6 +4895,13 @@
             },
             "description": "Vital signs recorded in the visit, oldest first; corrected values stay, marked by status."
           },
+          "procedures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Procedure"
+            },
+            "description": "Procedures planned or done in the visit."
+          },
           "visit": {
             "$ref": "#/components/schemas/Visit",
             "description": "The visit."
@@ -4149,6 +4921,45 @@
               "$ref": "#/components/schemas/Visit"
             },
             "description": "The visits."
+          }
+        }
+      },
+      "WorkFields": {
+        "type": "object",
+        "description": "What is done and where.",
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What is done, 1 to 200 characters, such as \"Composite filling\"."
+          },
+          "surfaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Surfaces: `M`, `O`, `D`, `B`, `L`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "FDI tooth number: 11-48, or 51-85 for primary teeth."
           }
         }
       }

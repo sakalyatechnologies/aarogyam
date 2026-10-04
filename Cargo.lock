@@ -17,6 +17,7 @@ dependencies = [
  "sakalya-http",
  "sakalya-telemetry",
  "sakalya-throttle",
+ "sakalya-types",
  "secrecy",
  "serde",
  "serde_json",

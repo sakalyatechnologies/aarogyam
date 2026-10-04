@@ -26,7 +26,7 @@ pub struct CodeInput {
     pub code: Option<String>,
 }
 
-fn parse_code(input: &CodeInput) -> Result<Option<(CodeSystem, String)>, AppError> {
+pub(crate) fn parse_code(input: &CodeInput) -> Result<Option<(CodeSystem, String)>, AppError> {
     let code = optional_text(input.code.as_deref(), 40).map_err(invalid("code"))?;
     match (input.system.as_deref().map(str::trim), code) {
         (None | Some(""), None) => Ok(None),
@@ -70,7 +70,10 @@ pub struct ConditionView {
     pub updated_at: OffsetDateTime,
 }
 
-fn stored_code(system: Option<&str>, code: Option<String>) -> Option<(CodeSystem, String)> {
+pub(crate) fn stored_code(
+    system: Option<&str>,
+    code: Option<String>,
+) -> Option<(CodeSystem, String)> {
     match (system.map(CodeSystem::parse), code) {
         (Some(Ok(system)), Some(code)) => Some((system, code)),
         _ => None,

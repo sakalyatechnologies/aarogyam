@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.treatment_plans p\n           set status = case when exists (select 1 from aarogyam.treatment_plan_items i\n                                          where i.plan_id = p.id and i.status = 'accepted')\n                             then 'in_progress' else 'completed' end\n           where p.id = $1 and p.status in ('accepted', 'in_progress', 'completed')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "673cfbd3415072d7a0cc3984da1502e5c86933f3ac8217ce0f8319ff999d2e6a"
+}

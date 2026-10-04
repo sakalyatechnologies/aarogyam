@@ -11,6 +11,7 @@ pub(crate) mod me;
 pub(crate) mod patients;
 pub(crate) mod settings;
 pub(crate) mod staff;
+pub(crate) mod treatment;
 pub(crate) mod visits;
 pub(crate) mod vitals;
 
@@ -70,6 +71,18 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/patients/{id}/dental-chart",
             get(chart::get).post(chart::record),
         )
+        .route("/visits/{id}/procedures", post(treatment::record_procedure))
+        .route("/patients/{id}/procedures", get(treatment::procedures))
+        .route("/procedures/{id}/complete", post(treatment::complete))
+        .route(
+            "/procedures/{id}/entered-in-error",
+            post(treatment::procedure_in_error),
+        )
+        .route(
+            "/patients/{id}/treatment-plans",
+            get(treatment::plans).post(treatment::create_plan),
+        )
+        .route("/treatment-plans/{id}/accept", post(treatment::accept_plan))
         .route("/staff", get(staff::list))
         .route("/staff/invitations", post(staff::invite))
         .route("/staff/{membership_id}", patch(staff::change))

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.treatment_plan_items set status = 'accepted'\n           where plan_id = $1 and status = 'proposed' and ($2::uuid[] is null or id = any($2))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e221ab8856ae77677ae9ce621db5aebeafdd17b1319e5724a760b9ca38c99ff1"
+}

@@ -19,6 +19,7 @@ use uuid::Uuid;
 
 use super::chart::ChartEntry;
 use super::rfc3339;
+use super::treatment::Procedure;
 use super::vitals::Observation;
 use crate::AppState;
 use crate::extract::Require;
@@ -201,6 +202,8 @@ pub struct VisitDetail {
     pub observations: Vec<Observation>,
     /// Dental chart entries recorded in the visit.
     pub chart_entries: Vec<ChartEntry>,
+    /// Procedures planned or done in the visit.
+    pub procedures: Vec<Procedure>,
 }
 
 impl From<DetailView> for VisitDetail {
@@ -218,6 +221,7 @@ impl From<DetailView> for VisitDetail {
                 .into_iter()
                 .map(ChartEntry::from)
                 .collect(),
+            procedures: view.procedures.into_iter().map(Procedure::from).collect(),
         }
     }
 }

@@ -19,6 +19,7 @@ pub mod sessions;
 pub mod settings;
 pub mod staff;
 pub mod tokens;
+pub mod treatment;
 pub mod visits;
 pub mod vitals;
 

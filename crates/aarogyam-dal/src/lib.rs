@@ -19,6 +19,7 @@ pub mod patients;
 pub mod sessions;
 pub mod settings;
 pub mod staff;
+pub mod treatment;
 pub mod visits;
 pub mod vitals;
 use sqlx::{Executor as _, PgPool};

@@ -832,6 +832,248 @@ async fn dental_chart_entries_supersede_and_keep_history() {
     app.finish().await;
 }
 
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn procedures_carry_out_accepted_plan_items() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let other = register(&app, ALPHA, &owner, "Ravi Kumar").await;
+    let visit = start_visit(&app, &owner, &patient).await;
+    let other_visit = start_visit(&app, &owner, &other).await;
+    let plans = format!("/api/v1/patients/{patient}/treatment-plans");
+    let (status, plan) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &plans,
+            Some(&owner),
+            Some(
+                json!({ "title": "Lower left molar", "visit_id": visit, "items": [
+                { "name": "Root canal treatment", "tooth": 36, "estimate_paise": 450_000 },
+                { "name": "Zirconia crown", "tooth": 36, "estimate_paise": 1_200_000, "phase": 2 },
+                { "name": "Scaling", "estimate_paise": 80_000 },
+            ] }),
+            ),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{plan}");
+    assert_eq!(plan["status"], "proposed");
+    assert_eq!(plan["estimate_paise"], 1_730_000);
+    let plan_id = plan["id"].as_str().unwrap().to_owned();
+    let item = |n: usize| plan["items"][n]["id"].as_str().unwrap().to_owned();
+    let (rct, scaling, crown) = (item(0), item(1), item(2));
+    assert_eq!(plan["items"][2]["name"], "Zirconia crown");
+
+    // A procedure can't carry out an item the patient hasn't accepted.
+    let procedures = format!("/api/v1/visits/{visit}/procedures");
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &procedures,
+            Some(&owner),
+            Some(json!({ "plan_item_id": rct })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+
+    let accept = format!("/api/v1/treatment-plans/{plan_id}/accept");
+    let (status, accepted) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &accept,
+            Some(&owner),
+            Some(json!({ "item_ids": [rct, crown] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{accepted}");
+    assert_eq!(accepted["status"], "accepted");
+    assert_eq!(accepted["items"][1]["status"], "cancelled");
+    assert_eq!(accepted["estimate_paise"], 1_650_000);
+    assert_eq!(
+        status_of(&app, Method::POST, ALPHA, &accept, &owner, Some(json!({}))).await,
+        StatusCode::CONFLICT
+    );
+
+    // Doing the root canal marks its item done; name, tooth and price come from the item.
+    let (status, done) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &procedures,
+            Some(&owner),
+            Some(json!({ "plan_item_id": rct, "surfaces": ["O"] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{done}");
+    assert_eq!(done["name"], "Root canal treatment");
+    assert_eq!(done["tooth"], 36);
+    assert_eq!(done["price_paise"], 450_000);
+    assert_eq!(done["status"], "done");
+    let rct_procedure = done["id"].as_str().unwrap().to_owned();
+    let (_, listed) = app
+        .send(Method::GET, ALPHA, &plans, Some(&owner), None)
+        .await;
+    assert_eq!(listed["items"][0]["status"], "in_progress");
+    assert_eq!(listed["items"][0]["items"][0]["status"], "done");
+    assert_eq!(
+        listed["items"][0]["items"][0]["procedure_id"],
+        rct_procedure.as_str()
+    );
+    for (body, expected) in [
+        (json!({ "plan_item_id": rct }), StatusCode::CONFLICT),
+        (json!({ "plan_item_id": scaling }), StatusCode::CONFLICT),
+    ] {
+        assert_eq!(
+            status_of(
+                &app,
+                Method::POST,
+                ALPHA,
+                &procedures,
+                &owner,
+                Some(body.clone())
+            )
+            .await,
+            expected,
+            "{body}"
+        );
+    }
+    // Another patient's visit can't carry out this patient's plan.
+    assert_eq!(
+        status_of(
+            &app,
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/visits/{other_visit}/procedures"),
+            &owner,
+            Some(json!({ "plan_item_id": crown }))
+        )
+        .await,
+        StatusCode::BAD_REQUEST
+    );
+
+    // A planned crown, completed later, completes the plan.
+    let (status, planned) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &procedures,
+            Some(&owner),
+            Some(json!({ "plan_item_id": crown, "status": "planned" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{planned}");
+    assert_eq!(planned["performed_at"], Value::Null);
+    let crown_procedure = planned["id"].as_str().unwrap().to_owned();
+    let (status, completed) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/procedures/{crown_procedure}/complete"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{completed}");
+    assert!(completed["performed_at"].is_string());
+    let (_, listed) = app
+        .send(Method::GET, ALPHA, &plans, Some(&owner), None)
+        .await;
+    assert_eq!(listed["items"][0]["status"], "completed");
+
+    // Done procedures never change; a mistaken one is retracted and its item reopens.
+    let alpha = app.clinic_id("alpha").await;
+    let error = app
+        .api_db()
+        .scoped(&Scope::tenant(alpha), async |tx| {
+            sqlx::query("update aarogyam.procedures set price_paise = 1 where id = $1::uuid")
+                .bind(&rct_procedure)
+                .execute(tx.conn())
+                .await
+                .map_err(DbError::from)
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(error.kind(), DbErrorKind::Forbidden);
+    let (status, retracted) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/procedures/{rct_procedure}/entered-in-error"),
+            Some(&owner),
+            Some(json!({ "reason": "recorded on the wrong tooth" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{retracted}");
+    let (_, listed) = app
+        .send(Method::GET, ALPHA, &plans, Some(&owner), None)
+        .await;
+    assert_eq!(listed["items"][0]["status"], "in_progress");
+    assert_eq!(listed["items"][0]["items"][0]["status"], "accepted");
+    assert_eq!(listed["items"][0]["items"][0]["procedure_id"], Value::Null);
+
+    // Procedures without a plan, and bad input.
+    let (status, adhoc) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &procedures,
+            Some(&owner),
+            Some(json!({ "name": "Composite filling", "tooth": 46, "surfaces": ["o", "D"], "price_paise": 150_000, "code": { "system": "custom", "code": "D2392" } })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{adhoc}");
+    assert_eq!(adhoc["surfaces"], json!(["O", "D"]));
+    for (body, field) in [
+        (json!({ "name": "Filling", "tooth": 99 }), "tooth"),
+        (json!({ "name": "Filling", "surfaces": ["O"] }), "surfaces"),
+        (
+            json!({ "name": "Filling", "price_paise": -1 }),
+            "price_paise",
+        ),
+        (
+            json!({ "name": "Filling", "status": "entered_in_error" }),
+            "status",
+        ),
+        (json!({}), "name"),
+    ] {
+        let (status, error) = app
+            .send(Method::POST, ALPHA, &procedures, Some(&owner), Some(body))
+            .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{field}: {error}");
+        assert!(
+            error["error"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with(field),
+            "{error}"
+        );
+    }
+    let (_, list) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/patients/{patient}/procedures"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(list["items"].as_array().unwrap().len(), 3);
+    let (_, detail) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(detail["procedures"].as_array().unwrap().len(), 3);
+    app.finish().await;
+}
+
 /// Posts `body` as Alpha's owner and returns the new record's id.
 async fn create(app: &TestApp, path: &str, body: Value) -> String {
     let owner = app.token(ALPHA_OWNER);
@@ -874,6 +1116,18 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
         app,
         &format!("/api/v1/patients/{patient}/allergies"),
         json!({ "substance": "Penicillin" }),
+    )
+    .await;
+    let plan = create(
+        app,
+        &format!("/api/v1/patients/{patient}/treatment-plans"),
+        json!({ "title": "Molar", "items": [{ "name": "Root canal", "tooth": 36, "estimate_paise": 1 }] }),
+    )
+    .await;
+    let procedure = create(
+        app,
+        &format!("/api/v1/visits/{visit}/procedures"),
+        json!({ "name": "Scaling", "status": "planned" }),
     )
     .await;
     let sections = json!({ "sections": { "plan": "x" } });
@@ -955,6 +1209,41 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             Method::GET,
             format!("/api/v1/patients/{patient}/clinical-flags"),
             None,
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/visits/{visit}/procedures"),
+            Some(json!({ "name": "Scaling" })),
+        ),
+        (
+            Method::GET,
+            format!("/api/v1/patients/{patient}/procedures"),
+            None,
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/procedures/{procedure}/complete"),
+            None,
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/procedures/{procedure}/entered-in-error"),
+            Some(json!({ "reason": "wrong patient" })),
+        ),
+        (
+            Method::GET,
+            format!("/api/v1/patients/{patient}/treatment-plans"),
+            None,
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/patients/{patient}/treatment-plans"),
+            Some(json!({ "title": "Plan", "items": [{ "name": "Scaling", "estimate_paise": 1 }] })),
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/treatment-plans/{plan}/accept"),
+            Some(json!({})),
         ),
         (Method::POST, format!("/api/v1/visits/{visit}/close"), None),
     ]

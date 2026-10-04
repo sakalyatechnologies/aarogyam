@@ -48,6 +48,12 @@ impl DevTokens {
         }
     }
 
+    /// The issuer these tokens name.
+    #[must_use]
+    pub fn issuer(&self) -> &str {
+        &self.issuer
+    }
+
     pub(crate) const fn verifier(&self) -> &JwtVerifier {
         &self.verifier
     }

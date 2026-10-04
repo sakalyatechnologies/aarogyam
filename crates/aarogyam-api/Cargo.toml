@@ -13,6 +13,7 @@ aarogyam-dal = { path = "../aarogyam-dal" }
 aarogyam-domain = { path = "../aarogyam-domain" }
 aarogyam-notify = { path = "../aarogyam-notify" }
 axum = { workspace = true, features = ["multipart"] }
+base64.workspace = true
 jsonwebtoken.workspace = true
 sakalya-auth.workspace = true
 sakalya-db.workspace = true
@@ -30,6 +31,7 @@ utoipa.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+sakalya-testkit.workspace = true
 sqlx.workspace = true
 tokio = { workspace = true, features = ["macros"] }
 tower = { workspace = true, features = ["util"] }

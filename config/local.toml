@@ -16,10 +16,14 @@ owner_url = "postgres://aarogyam_owner@localhost:5432/aarogyam_dev"
 
 [auth]
 # Local sign-in: the API mints tokens for the seeded people (POST /api/v1/dev/token).
-# Deployed servers use mode = "supabase" with jwks_url; dev mode refuses to start there.
+# For real sign-in locally, also set ARO_AUTH__MODE=supabase and SUPABASE_URL (for example
+# `set -a; . ../aarogyam/.env.supabase; set +a`): Supabase tokens then work, and dev tokens
+# still do because dev_tokens is on. Deployed servers use mode = "supabase" without dev tokens;
+# development tokens refuse to start outside local.
 mode = "dev"
-issuer = "aarogyam-dev"
 audience = "authenticated"
+dev_tokens = true
+dev_issuer = "aarogyam-dev"
 dev_secret = "local-development-secret-not-for-any-deployed-server"
 
 [hosts]

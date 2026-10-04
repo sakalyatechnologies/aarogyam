@@ -62,42 +62,9 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         "starting"
     );
     let local = config.environment == Environment::Local;
+    let tokens = token_check(&config, local).await?;
     let db = Db::connect_lazy(&DbConfig::new(config.db.url))
         .context("db.url is not a valid Postgres URL")?;
-    let tokens = match config.auth.mode {
-        AuthMode::Dev => {
-            anyhow::ensure!(
-                local,
-                "auth.mode = dev is allowed only when environment = local"
-            );
-            let secret = config
-                .auth
-                .dev_secret
-                .context("auth.dev_secret is required when auth.mode = dev")?;
-            TokenCheck::Dev(DevTokens::new(
-                &config.auth.issuer,
-                &config.auth.audience,
-                secret,
-            ))
-        }
-        AuthMode::Supabase => {
-            let jwks_url = config
-                .auth
-                .jwks_url
-                .context("auth.jwks_url is required when auth.mode = supabase")?;
-            let verifier = JwtVerifier::remote(JwtConfig::new(
-                &config.auth.issuer,
-                &config.auth.audience,
-                &jwks_url,
-            ))
-            .context("auth.jwks_url is not a valid URL")?;
-            if let Err(error) = verifier.prefetch().await {
-                // Not fatal: keys are fetched again on the first sign-in.
-                tracing::warn!(error = %error, "could not fetch the token signing keys at startup");
-            }
-            TokenCheck::Supabase(verifier)
-        }
-    };
     let mut http = config.http.limits();
     match config.http.edge_secret {
         Some(secret) => {
@@ -153,6 +120,47 @@ async fn serve(config: Config) -> anyhow::Result<()> {
     sakalya_http::serve(aarogyam_api::router(state), config.http.bind)
         .await
         .context("the server stopped with an error")
+}
+
+/// How sign-in tokens are checked: development tokens only in `dev` mode (local only), Supabase
+/// tokens in `supabase` mode, plus development tokens locally when `auth.dev_tokens` is on.
+async fn token_check(config: &Config, local: bool) -> anyhow::Result<TokenCheck> {
+    let auth = &config.auth;
+    let dev = || -> anyhow::Result<DevTokens> {
+        anyhow::ensure!(
+            local,
+            "development tokens (auth.mode = dev or auth.dev_tokens) are allowed only when environment = local"
+        );
+        let secret = auth
+            .dev_secret
+            .clone()
+            .context("auth.dev_secret is required for development tokens")?;
+        Ok(DevTokens::new(&auth.dev_issuer, &auth.audience, secret))
+    };
+    if auth.mode == AuthMode::Dev {
+        return Ok(TokenCheck::Dev(dev()?));
+    }
+    let issuer = auth.supabase_issuer(&config.supabase).context(
+        "auth.issuer or supabase.url (SUPABASE_URL) is required when auth.mode = supabase",
+    )?;
+    let jwks_url = auth
+        .supabase_jwks_url(&config.supabase)
+        .context("auth.jwks_url is required when auth.mode = supabase")?;
+    let verifier = JwtVerifier::remote(JwtConfig::new(&issuer, &auth.audience, &jwks_url))
+        .context("auth.jwks_url is not a valid URL")?;
+    if let Err(error) = verifier.prefetch().await {
+        // Not fatal: keys are fetched again on the first sign-in.
+        tracing::warn!(error = %error, "could not fetch the token signing keys at startup");
+    }
+    tracing::info!(issuer = %issuer, dev_tokens = auth.dev_tokens, "checking Supabase tokens");
+    Ok(if auth.dev_tokens {
+        TokenCheck::SupabaseAndDev {
+            supabase: verifier,
+            dev: dev()?,
+        }
+    } else {
+        TokenCheck::Supabase(verifier)
+    })
 }
 
 /// Applies pending migrations over the owner connection.

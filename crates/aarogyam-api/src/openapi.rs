@@ -30,6 +30,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::patients::search,
         crate::v1::patients::register,
         crate::v1::patients::open,
+        crate::v1::patients::edit,
         crate::v1::console::clinics,
         crate::v1::console::create_clinic,
         crate::v1::console::metrics,

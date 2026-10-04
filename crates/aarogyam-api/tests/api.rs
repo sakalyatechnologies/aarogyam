@@ -189,6 +189,149 @@ async fn permissions_and_masking_follow_the_role() {
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
+async fn editing_a_patient_follows_the_registration_rules() {
+    let app = TestApp::start().await;
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let patient = register(&app, ALPHA, &desk, "Kavya Rao", "98100 00011").await;
+    let path = format!("/api/v1/patients/{}", patient["id"].as_str().unwrap());
+
+    let (status, edited) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &path,
+            Some(&desk),
+            Some(json!({ "full_name": " Kavya  Rao Iyer ", "phone": "98100 00012", "date_of_birth": "1990-05-01" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{edited}");
+    assert_eq!(edited["full_name"], "Kavya Rao Iyer");
+    assert_eq!(edited["phone"], "+919810000012");
+    assert_eq!(edited["date_of_birth"], "1990-05-01");
+    assert_eq!(edited["birth_date_estimated"], false);
+    assert_eq!(edited["number"], patient["number"]);
+    // The change history holds the changed columns only.
+    let (history,): (Value,) = sqlx::query_as(
+        "select changes from audit.audit_events
+         where table_name = 'aarogyam.patients' and row_id = $1::uuid and action = 'update'",
+    )
+    .bind(patient["id"].as_str().unwrap())
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    let mut changed: Vec<&str> = history
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    changed.sort_unstable();
+    assert_eq!(
+        changed,
+        [
+            "birth_date_estimated",
+            "date_of_birth",
+            "full_name",
+            "phone_e164",
+            "search_name"
+        ]
+    );
+
+    // Invalid input names the field; giving both a date of birth and an age is refused.
+    for (body, field) in [
+        (json!({ "full_name": "" }), "full_name"),
+        (
+            json!({ "date_of_birth": "1990-01-01", "age_years": 30 }),
+            "date_of_birth",
+        ),
+        (json!({ "email": "not-an-email" }), "email"),
+    ] {
+        let (status, error) = app
+            .send(Method::PATCH, ALPHA, &path, Some(&desk), Some(body))
+            .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(
+            error["error"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with(field),
+            "{error}"
+        );
+    }
+
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn editing_contact_details_needs_patients_contact() {
+    let app = TestApp::start().await;
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let patient = register(&app, ALPHA, &desk, "Kavya Rao", "98100 00011").await;
+    let path = format!("/api/v1/patients/{}", patient["id"].as_str().unwrap());
+
+    // Without patients.write: 403. With it but without patients.contact: names yes, phone no.
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &path,
+            Some(&assistant),
+            Some(json!({ "sex": "male" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    sqlx::raw_sql(
+        "insert into aarogyam.role_permissions (org_id, role_id, permission)
+         select org_id, id, p from aarogyam.roles, unnest(array['patients.read', 'patients.write']) p
+         where key = 'nothing'",
+    )
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    let writer = app.token(ALPHA_NOTHING);
+    let (status, body) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &path,
+            Some(&writer),
+            Some(json!({ "preferred_language": "kn-IN" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body["phone"].as_str().unwrap().contains('*'));
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &path,
+            Some(&writer),
+            Some(json!({ "phone": "+919810000012" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    // Another clinic can't edit it, on its own host or on Alpha's.
+    let beta = app.token(BETA_OWNER);
+    for host in [BETA, ALPHA] {
+        let (status, _) = app
+            .send(
+                Method::PATCH,
+                host,
+                &path,
+                Some(&beta),
+                Some(json!({ "sex": "male" })),
+            )
+            .await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{host}");
+    }
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
 async fn opening_a_record_writes_the_access_record() {
     let app = TestApp::start().await;
     let desk = app.token(ALPHA_FRONT_DESK);
@@ -300,6 +443,19 @@ async fn the_console_is_for_staff_only() {
     app.finish().await;
 }
 
+/// `path` with every `{parameter}` replaced by a UUID that names nothing.
+fn concrete_path(path: &str) -> String {
+    let mut concrete = String::with_capacity(path.len());
+    let mut rest = path;
+    while let Some(start) = rest.find('{') {
+        concrete.push_str(&rest[..start]);
+        concrete.push_str("0192f1c4-0000-7000-8000-000000000000");
+        rest = rest[start..].split_once('}').map_or("", |(_, after)| after);
+    }
+    concrete.push_str(rest);
+    concrete
+}
+
 /// Every route under /api/v1 refuses a request without a token, and every clinic route except
 /// the session checks a permission: a member whose role has none gets 403.
 #[tokio::test]
@@ -313,7 +469,7 @@ async fn every_route_requires_sign_in_and_a_permission() {
         if !path.starts_with("/api/v1/") || path.starts_with("/api/v1/dev/") {
             continue;
         }
-        let concrete = path.replace("{id}", "0192f1c4-0000-7000-8000-000000000000");
+        let concrete = concrete_path(path);
         for method in operations.as_object().unwrap().keys() {
             let method: Method = method.to_uppercase().parse().unwrap();
             let host = if path.starts_with("/api/v1/console/") {
@@ -321,7 +477,7 @@ async fn every_route_requires_sign_in_and_a_permission() {
             } else {
                 ALPHA
             };
-            let body = (method == Method::POST).then(|| json!({}));
+            let body = matches!(method, Method::POST | Method::PATCH).then(|| json!({}));
             let (status, _) = app
                 .send(method.clone(), host, &concrete, None, body.clone())
                 .await;

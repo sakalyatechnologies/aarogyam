@@ -384,6 +384,62 @@
             "bearer": []
           }
         ]
+      },
+      "patch": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Edits a patient's details with the same rules as registration. Changing the phone or email\nalso needs `patients.contact`. The change history records each change.",
+        "operationId": "edit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Patient"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write, or patients.contact for phone or email"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
       }
     },
     "/api/v1/session": {
@@ -857,6 +913,63 @@
           "status": {
             "type": "string",
             "description": "`active`, `inactive`, `deceased` or `merged`."
+          }
+        }
+      },
+      "PatientChanges": {
+        "type": "object",
+        "description": "Changes to a patient. Fields left out stay as they are; an empty `phone`, `email` or\n`date_of_birth` clears it.",
+        "properties": {
+          "age_years": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Age in years when the date of birth is unknown.",
+            "minimum": 0
+          },
+          "date_of_birth": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Date of birth (`YYYY-MM-DD`), or empty to clear it; give this or `age_years`."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email, or empty to clear it; needs `patients.contact`."
+          },
+          "full_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Full name, 1 to 200 characters."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Phone, or empty to clear it; needs `patients.contact`."
+          },
+          "preferred_language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Language tag such as `mr-IN`."
+          },
+          "sex": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`female`, `male`, `other` or `unknown`."
           }
         }
       },

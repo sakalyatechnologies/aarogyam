@@ -22,7 +22,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/invitations/accept", post(invitations::accept))
         .route("/patients", get(patients::recent).post(patients::register))
         .route("/patients/search", post(patients::search))
-        .route("/patients/{id}", get(patients::open))
+        .route("/patients/{id}", get(patients::open).patch(patients::edit))
         .route(
             "/console/clinics",
             get(console::clinics).post(console::create_clinic),

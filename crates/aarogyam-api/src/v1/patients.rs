@@ -1,6 +1,6 @@
-//! Patients: register, search, open.
+//! Patients: register, search, open, edit.
 
-use aarogyam_app::patients::{self as app, PatientView, RegisterPatient};
+use aarogyam_app::patients::{self as app, EditPatient, PatientView, RegisterPatient};
 use aarogyam_domain::ids::PatientId;
 use aarogyam_domain::permission::require::{PatientsRead, PatientsWrite};
 use axum::Json;
@@ -241,6 +241,75 @@ pub(crate) async fn open(
         &request.actor,
         request.request_id,
         PatientId::from_uuid(id),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(view.into()))
+}
+
+/// Changes to a patient. Fields left out stay as they are; an empty `phone`, `email` or
+/// `date_of_birth` clears it.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct PatientChanges {
+    /// Full name, 1 to 200 characters.
+    pub full_name: Option<String>,
+    /// `female`, `male`, `other` or `unknown`.
+    pub sex: Option<String>,
+    /// Date of birth (`YYYY-MM-DD`), or empty to clear it; give this or `age_years`.
+    pub date_of_birth: Option<String>,
+    /// Age in years when the date of birth is unknown.
+    pub age_years: Option<u16>,
+    /// Phone, or empty to clear it; needs `patients.contact`.
+    pub phone: Option<String>,
+    /// Email, or empty to clear it; needs `patients.contact`.
+    pub email: Option<String>,
+    /// Language tag such as `mr-IN`.
+    pub preferred_language: Option<String>,
+}
+
+/// Edits a patient's details with the same rules as registration. Changing the phone or email
+/// also needs `patients.contact`. The change history records each change.
+#[utoipa::path(
+    patch,
+    path = "/api/v1/patients/{id}",
+    tag = "patients",
+    params(("id" = String, Path, description = "The patient")),
+    request_body = PatientChanges,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = Patient),
+        (status = 400, description = "Invalid input; the message names the field"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks patients.write, or patients.contact for phone or email"),
+        (status = 404, description = "No such patient in this clinic")
+    )
+)]
+pub(crate) async fn edit(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<PatientsWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<PatientChanges>,
+) -> Result<Json<Patient>, ApiFailure> {
+    let date_of_birth = match body.date_of_birth.as_deref().map(str::trim) {
+        None => None,
+        Some("") => Some(None),
+        Some(text) => Some(Some(parse_date(text)?)),
+    };
+    let input = EditPatient {
+        full_name: body.full_name,
+        sex: body.sex,
+        date_of_birth,
+        age_years: body.age_years,
+        phone: body.phone,
+        email: body.email,
+        preferred_language: body.preferred_language,
+    };
+    let view = app::edit(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        PatientId::from_uuid(id),
+        input,
         OffsetDateTime::now_utc(),
     )
     .await?;

@@ -1,0 +1,80 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.leave_blocks (id, practitioner_id, starts_at, ends_at, reason)\n           values ($1, $2, $3, $4, $5)\n           returning id, practitioner_id, starts_at, ends_at, reason",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.leave_blocks",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "practitioner_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.leave_blocks",
+            "name": "practitioner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.leave_blocks",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "ends_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.leave_blocks",
+            "name": "ends_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.leave_blocks",
+            "name": "reason"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "bde3b0bc205ea13aeaa112fab39df15bbd26a1cc38db3a51f24dff22bf346d47"
+}

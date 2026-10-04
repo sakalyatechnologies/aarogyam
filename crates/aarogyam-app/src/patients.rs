@@ -110,7 +110,7 @@ fn parse_email(text: &str) -> Result<Option<Email>, AppError> {
     Email::parse(text).map(Some).map_err(AppError::patient)
 }
 
-fn validate(input: &RegisterPatient, today: Date) -> Result<NewPatient, AppError> {
+pub(crate) fn validate(input: &RegisterPatient, today: Date) -> Result<NewPatient, AppError> {
     let full_name = PersonName::parse(&input.full_name).map_err(AppError::patient)?;
     let sex = match &input.sex {
         Some(text) => Sex::parse(text).map_err(AppError::patient)?,
@@ -251,6 +251,17 @@ fn mask_email(email: &str) -> String {
     }
 }
 
+/// Age in whole years on `today`, from an exact or estimated date of birth.
+pub(crate) fn age_on(date_of_birth: Option<Date>, estimated: bool, today: Date) -> Option<u16> {
+    date_of_birth.map(|date| {
+        if estimated {
+            BirthDate::Estimated(date).age_on(today)
+        } else {
+            BirthDate::Exact(date).age_on(today)
+        }
+    })
+}
+
 fn view(row: patients::PatientRow, actor: &ClinicActor, today: Date) -> PatientView {
     let contact = actor.permissions.allows(Permission::PatientsContact);
     let phone = row.phone_e164.map(|raw| {
@@ -263,13 +274,7 @@ fn view(row: patients::PatientRow, actor: &ClinicActor, today: Date) -> PatientV
     let email = row
         .email
         .map(|raw| if contact { raw } else { mask_email(&raw) });
-    let age_years = row.date_of_birth.map(|date| {
-        if row.birth_date_estimated {
-            BirthDate::Estimated(date).age_on(today)
-        } else {
-            BirthDate::Exact(date).age_on(today)
-        }
-    });
+    let age_years = age_on(row.date_of_birth, row.birth_date_estimated, today);
     PatientView {
         id: PatientId::from_uuid(row.id),
         number: row.number,

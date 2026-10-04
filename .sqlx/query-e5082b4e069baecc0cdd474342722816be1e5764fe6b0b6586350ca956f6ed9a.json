@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.patient_identifiers (patient_id, kind, value)\n           select * from unnest($1::uuid[], $2::text[], $3::text[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e5082b4e069baecc0cdd474342722816be1e5764fe6b0b6586350ca956f6ed9a"
+}

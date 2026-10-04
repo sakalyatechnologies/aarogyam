@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.rooms set deleted_at = now(), active = false\n           where id = $1 and deleted_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "94a56d2e41ec89e2b2182bd82bfd7dd4331d35728a86f8c2204d58234875b6d3"
+}

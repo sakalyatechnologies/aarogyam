@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from aarogyam.working_hours where practitioner_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5e74ca0fd6358bc681635ca5a6b276d61b27b2f9c89e8ed62bb3082ff89a7845"
+}

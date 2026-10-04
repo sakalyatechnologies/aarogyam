@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.reserve_numbers($1, $2) as \"first!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "first!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c813c54174cd3b2bfa8b993f1f5f0a93786689424fcd8b02f9ef2ae1eb3f1af5"
+}

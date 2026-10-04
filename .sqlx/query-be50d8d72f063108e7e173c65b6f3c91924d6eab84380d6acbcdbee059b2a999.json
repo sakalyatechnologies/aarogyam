@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id from aarogyam.appointments where id = $1 and deleted_at is null for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "be50d8d72f063108e7e173c65b6f3c91924d6eab84380d6acbcdbee059b2a999"
+}

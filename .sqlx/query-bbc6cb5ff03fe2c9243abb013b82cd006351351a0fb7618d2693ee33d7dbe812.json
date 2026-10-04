@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.appointments\n           set status = $2,\n               cancel_reason = coalesce($3, cancel_reason),\n               arrived_at = case when $2 = 'arrived' then coalesce(arrived_at, $4) else arrived_at end,\n               seated_at = case when $2 = 'in_chair' then coalesce(seated_at, $4) else seated_at end,\n               completed_at = case when $2 = 'completed' then coalesce(completed_at, $4) else completed_at end\n           where id = $1 and deleted_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bbc6cb5ff03fe2c9243abb013b82cd006351351a0fb7618d2693ee33d7dbe812"
+}

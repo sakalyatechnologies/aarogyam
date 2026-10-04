@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.appointments\n           set practitioner_id = $2, branch_id = $3, room_id = $4, starts_at = $5, ends_at = $6,\n               kind = $7, reason = $8, notes = $9\n           where id = $1 and deleted_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5455b032769aab0298b7d6fbc336f5d2a087211715b735e981b71704c13e21d7"
+}

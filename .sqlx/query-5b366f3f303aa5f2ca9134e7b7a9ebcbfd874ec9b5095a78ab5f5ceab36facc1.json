@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id from aarogyam.branches where is_default and deleted_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.branches",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5b366f3f303aa5f2ca9134e7b7a9ebcbfd874ec9b5095a78ab5f5ceab36facc1"
+}

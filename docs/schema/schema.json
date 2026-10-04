@@ -1433,9 +1433,7 @@
    ],
    "referenced_by": [
     "expenses.receipt_asset_id",
-    "invoices.pdf_asset_id",
-    "practitioners.signature_asset_id",
-    "prescriptions.pdf_asset_id"
+    "practitioners.signature_asset_id"
    ],
    "sensitivity": "internal",
    "offline": "server_only"
@@ -1693,15 +1691,19 @@
     "conditions.verified_by",
     "daily_closings.closed_by",
     "document_extractions.confirmed_by",
+    "invoices.issued_by",
+    "invoices.voided_by",
     "medical_history_items.verified_by",
     "membership_branches.membership_id",
     "note_addenda.author_id",
     "observations.verified_by",
     "payments.received_by",
+    "payments.voided_by",
     "payroll_entries.membership_id",
     "practitioners.membership_id",
     "prescription_alerts.acted_by",
-    "prescriptions.signed_by",
+    "prescriptions.cancelled_by",
+    "prescriptions.issued_by",
     "salary_structures.membership_id",
     "specialty_records.verified_by",
     "staff_advances.membership_id"
@@ -2009,6 +2011,7 @@
     "patient_links.patient_id",
     "patients.merged_into_id",
     "patients.referred_by_patient_id",
+    "payment_allocations.patient_id",
     "payments.patient_id",
     "prescriptions.patient_id",
     "procedures.patient_id",
@@ -2399,10 +2402,8 @@
     "consultant_fee_rules.practitioner_id",
     "consultant_payouts.practitioner_id",
     "encounters.practitioner_id",
-    "invoice_items.practitioner_id",
     "lab_orders.practitioner_id",
     "leave_blocks.practitioner_id",
-    "prescriptions.practitioner_id",
     "procedures.practitioner_id",
     "treatment_plans.practitioner_id",
     "working_hours.practitioner_id"
@@ -2976,9 +2977,7 @@
     "attachments.encounter_id",
     "clinical_notes.encounter_id",
     "conditions.encounter_id",
-    "invoices.encounter_id",
     "observations.encounter_id",
-    "prescriptions.encounter_id",
     "procedures.encounter_id",
     "specialty_records.encounter_id",
     "voice_notes.encounter_id"
@@ -3453,7 +3452,7 @@
   {
    "name": "drug_catalog",
    "domain": "clinical",
-   "purpose": "Shared list of medicines (brand, generic, strength) for quick prescribing.",
+   "purpose": "Shared list of medicines (generic name, strength, form, usual dose) for quick prescribing.",
    "rls": "global",
    "star": false,
    "partitioned": false,
@@ -3462,16 +3461,16 @@
    "notes": "",
    "cols": [
     {
-     "name": "brand_name",
+     "name": "generic_name",
      "type": "text",
      "nullable": false,
      "ref": null,
      "note": ""
     },
     {
-     "name": "generic_name",
+     "name": "brand_name",
      "type": "text",
-     "nullable": false,
+     "nullable": true,
      "ref": null,
      "note": ""
     },
@@ -3487,12 +3486,47 @@
      "type": "drug_form",
      "nullable": false,
      "ref": null,
-     "note": "tablet, syrup, injection ..."
+     "note": "tablet, capsule, syrup, gel, mouthwash ..."
     },
     {
-     "name": "manufacturer",
+     "name": "default_dose",
      "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "default_frequency",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "1-0-1"
+    },
+    {
+     "name": "default_timing",
+     "type": "dose_timing",
      "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "default_duration_days",
+     "type": "smallint",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "allergy_classes",
+     "type": "text[]",
+     "nullable": false,
+     "ref": null,
+     "note": "penicillin, nsaid ...; lets the allergy check match a class"
+    },
+    {
+     "name": "active",
+     "type": "bool",
+     "nullable": false,
      "ref": null,
      "note": ""
     }
@@ -3514,34 +3548,27 @@
    "partitioned": false,
    "lifecycle": "finalizable",
    "schema": "aarogyam",
-   "notes": "Issued prescriptions never change: a correction cancels and reissues. The print shows the doctor's name, qualifications and registration number, generic names in capitals, the clinic's branding, and a small 'Prescribed with Aarogyam' footer with a QR code that opens the verified copy.",
+   "notes": "Issued prescriptions never change (a trigger refuses): a correction cancels and reissues. The print shows the doctor's name, qualifications and registration number, generic names in capitals, the clinic's branding, and a small 'Prescribed with Aarogyam' footer with a QR code that opens the verified copy.",
    "cols": [
     {
      "name": "number",
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "RX-0412, assigned by the server when issued"
+     "note": "RX-412, assigned by the server when issued"
     },
     {
      "name": "encounter_id",
      "type": "uuid",
-     "nullable": false,
-     "ref": "encounters",
-     "note": ""
+     "nullable": true,
+     "ref": null,
+     "note": "visit; foreign key added after the visits branch merges"
     },
     {
      "name": "patient_id",
      "type": "uuid",
      "nullable": false,
      "ref": "patients",
-     "note": ""
-    },
-    {
-     "name": "practitioner_id",
-     "type": "uuid",
-     "nullable": false,
-     "ref": "practitioners",
      "note": ""
     },
     {
@@ -3587,10 +3614,52 @@
      "note": ""
     },
     {
-     "name": "signed_by",
+     "name": "issued_by",
      "type": "uuid",
      "nullable": true,
      "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "override_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "why it was issued despite allergy alerts"
+    },
+    {
+     "name": "verify_token_hash",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the QR's token, hashed; reveals no patient data"
+    },
+    {
+     "name": "letterhead",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "snapshot at issue"
+    },
+    {
+     "name": "doctor",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "name, registration number at issue"
+    },
+    {
+     "name": "recipient",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "patient name, number, age and sex at issue"
+    },
+    {
+     "name": "footer",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
      "note": ""
     },
     {
@@ -3598,6 +3667,20 @@
      "type": "text",
      "nullable": true,
      "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cancelled_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cancelled_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
      "note": ""
     },
     {
@@ -3613,13 +3696,6 @@
      "nullable": true,
      "ref": "document_templates",
      "note": "print layout"
-    },
-    {
-     "name": "pdf_asset_id",
-     "type": "uuid",
-     "nullable": true,
-     "ref": "assets",
-     "note": ""
     }
    ],
    "referenced_by": [
@@ -3650,6 +3726,13 @@
      "note": ""
     },
     {
+     "name": "line_no",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
      "name": "drug_id",
      "type": "uuid",
      "nullable": true,
@@ -3664,28 +3747,14 @@
      "note": "as printed; generic name in capitals"
     },
     {
-     "name": "code_system",
-     "type": "code_system",
-     "nullable": true,
-     "ref": null,
-     "note": "icd10, icd11, snomed, loinc, custom"
-    },
-    {
-     "name": "code",
+     "name": "strength",
      "type": "text",
      "nullable": true,
      "ref": null,
      "note": ""
     },
     {
-     "name": "code_display",
-     "type": "text",
-     "nullable": true,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "code_version",
+     "name": "form",
      "type": "text",
      "nullable": true,
      "ref": null,
@@ -3708,14 +3777,14 @@
     {
      "name": "timing",
      "type": "dose_timing",
-     "nullable": false,
+     "nullable": true,
      "ref": null,
-     "note": "before_food, after_food, bedtime, sos"
+     "note": "before_food, after_food, empty_stomach, bedtime, sos, as_directed"
     },
     {
      "name": "duration_days",
      "type": "smallint",
-     "nullable": false,
+     "nullable": true,
      "ref": null,
      "note": ""
     },
@@ -3845,9 +3914,7 @@
    ],
    "referenced_by": [
     "consent_forms.procedure_id",
-    "invoice_items.procedure_id",
     "lab_orders.procedure_id",
-    "recalls.source_procedure_id",
     "stock_movements.procedure_id"
    ],
    "sensitivity": "health",
@@ -4088,7 +4155,6 @@
     "consent_forms.signature_attachment_id",
     "document_extractions.attachment_id",
     "imports.file_attachment_id",
-    "share_links.attachment_id",
     "voice_notes.attachment_id"
    ],
    "sensitivity": "health",
@@ -4268,7 +4334,7 @@
    "partitioned": false,
    "lifecycle": "soft_delete",
    "schema": "aarogyam",
-   "notes": "org_id is null for Aarogyam's default layouts, which clinics copy and adjust.",
+   "notes": "Aarogyam's default layouts are copied into each clinic as data, so org_id is never null.",
    "cols": [
     {
      "name": "kind",
@@ -4330,11 +4396,11 @@
   {
    "name": "prescription_alerts",
    "domain": "clinical",
-   "purpose": "Safety warnings raised while prescribing, and what the doctor did about them.",
+   "purpose": "Safety warnings raised when a prescription was issued, and what the doctor did about them.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "append_only",
    "schema": "aarogyam",
    "notes": "Overrides are kept with their reason for medico-legal review.",
    "cols": [
@@ -4397,7 +4463,7 @@
     {
      "name": "acted_by",
      "type": "uuid",
-     "nullable": true,
+     "nullable": false,
      "ref": "memberships",
      "note": ""
     }
@@ -5439,7 +5505,7 @@
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": ""
+     "note": "unique per clinic"
     },
     {
      "name": "name",
@@ -5449,18 +5515,18 @@
      "note": "Root canal, Scaling, Consultation"
     },
     {
-     "name": "module",
-     "type": "text",
-     "nullable": true,
-     "ref": null,
-     "note": ""
-    },
-    {
      "name": "category",
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": ""
+     "note": "consultation, preventive, endodontics, medicines \u2026; drives the revenue mix"
+    },
+    {
+     "name": "sac_hsn",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "SAC 9993 for health care, HSN for goods"
     },
     {
      "name": "price_paise",
@@ -5470,11 +5536,18 @@
      "note": ""
     },
     {
+     "name": "taxable",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "false for health care by a clinical establishment (exempt)"
+    },
+    {
      "name": "tax_rate_bps",
      "type": "int",
      "nullable": false,
      "ref": null,
-     "note": "0 or 1800"
+     "note": "0, 500, 1200 or 1800; 0 unless taxable"
     },
     {
      "name": "active",
@@ -5497,20 +5570,34 @@
   {
    "name": "invoices",
    "domain": "billing",
-   "purpose": "A bill to a patient. Totals are stored; balance is derived.",
+   "purpose": "A bill to a patient. Totals are stored at issue; whether it is paid is derived from allocations.",
    "rls": "clinic",
    "star": true,
    "partitioned": false,
    "lifecycle": "finalizable",
    "schema": "aarogyam",
-   "notes": "Issued bills never change: corrections void and replace. Numbers are never generated offline.",
+   "notes": "Issued bills never change (a trigger refuses): corrections void and replace. Numbers are never generated offline. Payment state (unpaid, partial, paid) is derived from payment_allocations of payments that are not void.",
    "cols": [
     {
      "name": "number",
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "SC/26-27/000318, assigned by the server when issued"
+     "note": "SC/26-27/000318, assigned by the server when issued (at most 16 characters)"
+    },
+    {
+     "name": "series",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "number series, main by default"
+    },
+    {
+     "name": "financial_year",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "26-27, in clinic time"
     },
     {
      "name": "patient_id",
@@ -5523,8 +5610,8 @@
      "name": "encounter_id",
      "type": "uuid",
      "nullable": true,
-     "ref": "encounters",
-     "note": ""
+     "ref": null,
+     "note": "visit; foreign key added after the visits branch merges"
     },
     {
      "name": "branch_id",
@@ -5536,16 +5623,30 @@
     {
      "name": "doc_type",
      "type": "invoice_doc",
-     "nullable": false,
+     "nullable": true,
      "ref": null,
-     "note": "tax_invoice, bill_of_supply"
+     "note": "tax_invoice, bill_of_supply; decided at issue"
     },
     {
      "name": "status",
      "type": "invoice_status",
      "nullable": false,
      "ref": null,
-     "note": "draft, issued, partially_paid, paid, void"
+     "note": "draft, issued, void"
+    },
+    {
+     "name": "place_of_supply",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "state code; IGST when it differs from the branch's state"
+    },
+    {
+     "name": "notes",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     },
     {
      "name": "issued_at",
@@ -5553,6 +5654,27 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "issued_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "supplier",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "snapshot at issue: legal name, GSTIN, address, state"
+    },
+    {
+     "name": "recipient",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "snapshot at issue: patient name and number"
     },
     {
      "name": "subtotal_paise",
@@ -5569,6 +5691,34 @@
      "note": ""
     },
     {
+     "name": "taxable_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cgst_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "sgst_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "igst_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
      "name": "tax_paise",
      "type": "bigint",
      "nullable": false,
@@ -5576,14 +5726,14 @@
      "note": ""
     },
     {
-     "name": "total_paise",
+     "name": "round_off_paise",
      "type": "bigint",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "to the nearest rupee, -50 to 50"
     },
     {
-     "name": "paid_paise",
+     "name": "total_paise",
      "type": "bigint",
      "nullable": false,
      "ref": null,
@@ -5604,17 +5754,17 @@
      "note": ""
     },
     {
-     "name": "promo_code_id",
-     "type": "uuid",
+     "name": "voided_at",
+     "type": "timestamptz",
      "nullable": true,
-     "ref": "promo_codes",
+     "ref": null,
      "note": ""
     },
     {
-     "name": "pdf_asset_id",
+     "name": "voided_by",
      "type": "uuid",
      "nullable": true,
-     "ref": "assets",
+     "ref": "memberships",
      "note": ""
     }
    ],
@@ -5631,19 +5781,26 @@
   {
    "name": "invoice_items",
    "domain": "billing",
-   "purpose": "Lines on a bill, each optionally tied to a procedure and doctor.",
+   "purpose": "Lines on a bill, each optionally tied to a price item or procedure. GST is computed per line at issue.",
    "rls": "clinic",
    "star": true,
    "partitioned": false,
    "lifecycle": "finalizable",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Lines change only while the bill is a draft.",
    "cols": [
     {
      "name": "invoice_id",
      "type": "uuid",
      "nullable": false,
      "ref": "invoices",
+     "note": ""
+    },
+    {
+     "name": "line_no",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
      "note": ""
     },
     {
@@ -5657,15 +5814,8 @@
      "name": "procedure_id",
      "type": "uuid",
      "nullable": true,
-     "ref": "procedures",
-     "note": ""
-    },
-    {
-     "name": "practitioner_id",
-     "type": "uuid",
-     "nullable": true,
-     "ref": "practitioners",
-     "note": ""
+     "ref": null,
+     "note": "foreign key added after the visits branch merges"
     },
     {
      "name": "description",
@@ -5675,8 +5825,22 @@
      "note": ""
     },
     {
+     "name": "sac_hsn",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "category",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
      "name": "quantity",
-     "type": "numeric",
+     "type": "int",
      "nullable": false,
      "ref": null,
      "note": ""
@@ -5703,7 +5867,28 @@
      "note": ""
     },
     {
-     "name": "tax_paise",
+     "name": "taxable_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cgst_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "sgst_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "igst_paise",
      "type": "bigint",
      "nullable": false,
      "ref": null,
@@ -5733,6 +5918,13 @@
    "notes": "",
    "cols": [
     {
+     "name": "number",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "receipt RC/26-27/000042"
+    },
+    {
      "name": "patient_id",
      "type": "uuid",
      "nullable": false,
@@ -5758,14 +5950,14 @@
      "type": "payment_method",
      "nullable": false,
      "ref": null,
-     "note": "cash, upi, card, bank_transfer, cheque, razorpay, insurance"
+     "note": "cash, upi, card, bank"
     },
     {
      "name": "reference",
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "UPI ref, cheque no"
+     "note": "UPI ref, card slip"
     },
     {
      "name": "received_by",
@@ -5775,10 +5967,45 @@
      "note": ""
     },
     {
-     "name": "razorpay_payment_id",
+     "name": "idempotency_key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique per clinic; a retry returns the first payment"
+    },
+    {
+     "name": "request_hash",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "a reused key with a different request is refused"
+    },
+    {
+     "name": "status",
+     "type": "payment_status",
+     "nullable": false,
+     "ref": null,
+     "note": "received, void"
+    },
+    {
+     "name": "void_reason",
      "type": "text",
      "nullable": true,
      "ref": null,
+     "note": ""
+    },
+    {
+     "name": "voided_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "voided_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
      "note": ""
     }
    ],
@@ -5798,7 +6025,7 @@
    "partitioned": false,
    "lifecycle": "append_only",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "A trigger refuses allocations past the bill's balance or the payment's amount, and to bills that are not issued.",
    "cols": [
     {
      "name": "payment_id",
@@ -5813,6 +6040,13 @@
      "nullable": false,
      "ref": "invoices",
      "note": ""
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": "must match both the payment's and the bill's"
     },
     {
      "name": "amount_paise",
@@ -6239,7 +6473,7 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "mutable",
    "schema": "aarogyam",
    "notes": "",
    "cols": [
@@ -6255,7 +6489,14 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "cleaning, bp_review, vaccine, anc_visit"
+     "note": "follow_up, cleaning, bp_review, vaccine"
+    },
+    {
+     "name": "reason",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
     },
     {
      "name": "due_on",
@@ -6269,14 +6510,21 @@
      "type": "recall_status",
      "nullable": false,
      "ref": null,
-     "note": "due, notified, booked, dismissed"
+     "note": "due, notified, booked, done, dismissed"
+    },
+    {
+     "name": "done_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     },
     {
      "name": "source_procedure_id",
      "type": "uuid",
      "nullable": true,
-     "ref": "procedures",
-     "note": ""
+     "ref": null,
+     "note": "foreign key added after the visits branch merges"
     }
    ],
    "referenced_by": [],
@@ -6451,7 +6699,6 @@
     }
    ],
    "referenced_by": [
-    "invoices.promo_code_id",
     "promo_redemptions.promo_code_id"
    ],
    "sensitivity": "personal",
@@ -7138,20 +7385,27 @@
   {
    "name": "share_links",
    "domain": "trust",
-   "purpose": "Expiring links that let a patient open a prescription, bill or report: aarogyam.example/r/\u2026",
+   "purpose": "Expiring links that let a patient open a prescription, bill or report on the clinic's host.",
    "rls": "clinic",
    "star": true,
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource (none for upload_request), so a link can only ever open a record of the same clinic. Every open is written to access_log with purpose patient_self.",
+   "notes": "Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self.",
    "cols": [
     {
      "name": "token_hash",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "the link holds the token; only its hash is stored"
+     "note": "the link holds a 256-bit token; only its hash is stored"
+    },
+    {
+     "name": "pin_hash",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "SHA-256 of token and the six-digit PIN printed on the paper"
     },
     {
      "name": "resource",
@@ -7175,13 +7429,6 @@
      "note": ""
     },
     {
-     "name": "attachment_id",
-     "type": "uuid",
-     "nullable": true,
-     "ref": "attachments",
-     "note": "a report"
-    },
-    {
      "name": "patient_id",
      "type": "uuid",
      "nullable": false,
@@ -7193,21 +7440,28 @@
      "type": "channel",
      "nullable": false,
      "ref": null,
-     "note": "whatsapp, sms, email"
+     "note": "whatsapp, sms, email, print"
     },
     {
-     "name": "otp_required",
-     "type": "bool",
+     "name": "failed_attempts",
+     "type": "int",
      "nullable": false,
      "ref": null,
-     "note": "a one-time code to the patient's phone before opening"
+     "note": "five wrong PINs lock the link"
+    },
+    {
+     "name": "locked_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     },
     {
      "name": "expires_at",
      "type": "timestamptz",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "seven days"
     },
     {
      "name": "opened_at",

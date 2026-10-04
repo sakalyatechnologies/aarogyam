@@ -38,17 +38,14 @@ flowchart LR
   web["Websites<br/>4 tables"]
   trust["Trust and audit<br/>6 tables"]
   onboarding["Onboarding<br/>3 tables"]
-  billing -->|2| clinical
-  billing -->|1| notify
   billing -->|3| people
-  billing -->|7| tenancy
+  billing -->|9| tenancy
   clinical -->|2| billing
   clinical -->|1| iam
-  clinical -->|18| people
+  clinical -->|17| people
   clinical -->|1| scheduling
   clinical -->|13| tenancy
   notify -->|1| billing
-  notify -->|1| clinical
   notify -->|2| iam
   notify -->|4| people
   onboarding -->|1| clinical
@@ -64,7 +61,7 @@ flowchart LR
   scheduling -->|3| tenancy
   tenancy -->|2| iam
   trust -->|1| billing
-  trust -->|2| clinical
+  trust -->|1| clinical
   trust -->|4| people
   web -->|1| people
   web -->|1| scheduling
@@ -580,7 +577,7 @@ Non-medical files: logos, signatures, generated PDFs, website images.
 
 Stored in a different bucket from patient attachments.
 
-Referenced by: `expenses.receipt_asset_id`, `invoices.pdf_asset_id`, `practitioners.signature_asset_id`, `prescriptions.pdf_asset_id`
+Referenced by: `expenses.receipt_asset_id`, `practitioners.signature_asset_id`
 
 ### `permissions` (★ foundation)
 
@@ -669,7 +666,7 @@ A user's place in a clinic: role, branches, status. The link between users and c
 
 Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize().
 
-Referenced by: `allergies.verified_by`, `attachments.verified_by`, `clinical_notes.author_id`, `clinical_notes.signed_by`, `conditions.verified_by`, `daily_closings.closed_by`, `document_extractions.confirmed_by`, `medical_history_items.verified_by`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `payments.received_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.signed_by`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`
+Referenced by: `allergies.verified_by`, `attachments.verified_by`, `clinical_notes.author_id`, `clinical_notes.signed_by`, `conditions.verified_by`, `daily_closings.closed_by`, `document_extractions.confirmed_by`, `invoices.issued_by`, `invoices.voided_by`, `medical_history_items.verified_by`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`
 
 ### `membership_branches` (★ foundation)
 
@@ -762,7 +759,7 @@ A clinic's own record of a patient. Two clinics never share this row.
 
 A phone number is contact information, never identity: families share numbers and numbers change. A merge only sets merged_into_id; records stay on the original patient and reads resolve to the canonical one, so a wrong merge can be undone. Number, phone and name-prefix search use plain indexes; fuzzy name search goes through app.search_patients(), because trigram matching can't use an index under row-level security. Same-phone registrations get a duplicate warning, never an automatic merge.
 
-Referenced by: `allergies.patient_id`, `appointments.patient_id`, `attachments.patient_id`, `care_episodes.patient_id`, `clinical_notes.patient_id`, `conditions.patient_id`, `consent_forms.patient_id`, `contact_preferences.patient_id`, `data_requests.patient_id`, `document_extractions.patient_id`, `encounters.patient_id`, `family_links.patient_id`, `family_links.related_patient_id`, `invoices.patient_id`, `lab_orders.patient_id`, `medical_history_items.patient_id`, `messages.patient_id`, `observations.patient_id`, `patient_identifiers.patient_id`, `patient_links.patient_id`, `patients.merged_into_id`, `patients.referred_by_patient_id`, `payments.patient_id`, `prescriptions.patient_id`, `procedures.patient_id`, `promo_redemptions.patient_id`, `queue_tokens.patient_id`, `recalls.patient_id`, `share_links.patient_id`, `specialty_records.patient_id`, `treatment_plans.patient_id`
+Referenced by: `allergies.patient_id`, `appointments.patient_id`, `attachments.patient_id`, `care_episodes.patient_id`, `clinical_notes.patient_id`, `conditions.patient_id`, `consent_forms.patient_id`, `contact_preferences.patient_id`, `data_requests.patient_id`, `document_extractions.patient_id`, `encounters.patient_id`, `family_links.patient_id`, `family_links.related_patient_id`, `invoices.patient_id`, `lab_orders.patient_id`, `medical_history_items.patient_id`, `messages.patient_id`, `observations.patient_id`, `patient_identifiers.patient_id`, `patient_links.patient_id`, `patients.merged_into_id`, `patients.referred_by_patient_id`, `payment_allocations.patient_id`, `payments.patient_id`, `prescriptions.patient_id`, `procedures.patient_id`, `promo_redemptions.patient_id`, `queue_tokens.patient_id`, `recalls.patient_id`, `share_links.patient_id`, `specialty_records.patient_id`, `treatment_plans.patient_id`
 
 ### `patient_identifiers` (★ foundation)
 
@@ -865,7 +862,7 @@ Doctors who see patients at the clinic, with registration and fees.
 | `is_visiting` | `bool` | visiting consultant |
 | `calendar_color` | `text` |  |
 
-Referenced by: `appointments.practitioner_id`, `booking_requests.practitioner_id`, `care_episodes.practitioner_id`, `consents.grantee_practitioner_id`, `consultant_fee_rules.practitioner_id`, `consultant_payouts.practitioner_id`, `encounters.practitioner_id`, `invoice_items.practitioner_id`, `lab_orders.practitioner_id`, `leave_blocks.practitioner_id`, `prescriptions.practitioner_id`, `procedures.practitioner_id`, `treatment_plans.practitioner_id`, `working_hours.practitioner_id`
+Referenced by: `appointments.practitioner_id`, `booking_requests.practitioner_id`, `care_episodes.practitioner_id`, `consents.grantee_practitioner_id`, `consultant_fee_rules.practitioner_id`, `consultant_payouts.practitioner_id`, `encounters.practitioner_id`, `lab_orders.practitioner_id`, `leave_blocks.practitioner_id`, `procedures.practitioner_id`, `treatment_plans.practitioner_id`, `working_hours.practitioner_id`
 
 ### `working_hours` (★ foundation)
 
@@ -996,7 +993,6 @@ erDiagram
   encounters |o--o{ observations : "encounter_id"
   observations |o--o{ observations : "supersedes_id"
   encounters |o--o{ conditions : "encounter_id"
-  encounters ||--o{ prescriptions : "encounter_id"
   prescriptions |o--o{ prescriptions : "supersedes_id"
   document_templates |o--o{ prescriptions : "template_id"
   prescriptions ||--o{ prescription_items : "prescription_id"
@@ -1067,7 +1063,7 @@ One visit. Visit-level clinical data (complaint, vitals, notes, procedures, pres
 
 Patient-level facts (allergies, active conditions, history) live on the patient and may be updated during a visit; they do not require one.
 
-Referenced by: `appointments.encounter_id`, `attachments.encounter_id`, `clinical_notes.encounter_id`, `conditions.encounter_id`, `invoices.encounter_id`, `observations.encounter_id`, `prescriptions.encounter_id`, `procedures.encounter_id`, `specialty_records.encounter_id`, `voice_notes.encounter_id`
+Referenced by: `appointments.encounter_id`, `attachments.encounter_id`, `clinical_notes.encounter_id`, `conditions.encounter_id`, `observations.encounter_id`, `procedures.encounter_id`, `specialty_records.encounter_id`, `voice_notes.encounter_id`
 
 ### `clinical_notes` (★ foundation)
 
@@ -1178,17 +1174,22 @@ Allergies, shown as a warning banner on the patient and on prescriptions.
 
 ### `drug_catalog`
 
-Shared list of medicines (brand, generic, strength) for quick prescribing.
+Shared list of medicines (generic name, strength, form, usual dose) for quick prescribing.
 
 *Platform-wide: no tenant, written by Sakalya or the system · sensitivity: public · offline: read-only on devices*
 
 | Column | Type | Notes |
 |---|---|---|
-| `brand_name` | `text` |  |
 | `generic_name` | `text` |  |
+| `brand_name` | `text?` |  |
 | `strength` | `text` |  |
-| `form` | `drug_form` | tablet, syrup, injection ... |
-| `manufacturer` | `text?` |  |
+| `form` | `drug_form` | tablet, capsule, syrup, gel, mouthwash ... |
+| `default_dose` | `text` |  |
+| `default_frequency` | `text` | 1-0-1 |
+| `default_timing` | `dose_timing?` |  |
+| `default_duration_days` | `smallint?` |  |
+| `allergy_classes` | `text[]` | penicillin, nsaid ...; lets the allergy check match a class |
+| `active` | `bool` |  |
 
 Referenced by: `drug_interactions.drug_a_id`, `drug_interactions.drug_b_id`, `prescription_items.drug_id`
 
@@ -1200,23 +1201,29 @@ A prescription from a visit: shown to staff and the patient, printed with the cl
 
 | Column | Type | Notes |
 |---|---|---|
-| `number` | `text?` | RX-0412, assigned by the server when issued |
-| `encounter_id` | `uuid` | → `encounters` |
+| `number` | `text?` | RX-412, assigned by the server when issued |
+| `encounter_id` | `uuid?` | visit; foreign key added after the visits branch merges |
 | `patient_id` | `uuid` | → `patients` |
-| `practitioner_id` | `uuid` | → `practitioners` |
 | `diagnosis_text` | `text?` |  |
 | `advice` | `text?` | diet, care, warnings |
 | `follow_up_on` | `date?` |  |
 | `language` | `text` | patient's language for instructions |
 | `status` | `rx_status` | draft, issued, cancelled |
 | `issued_at` | `timestamptz?` |  |
-| `signed_by` | `uuid?` | → `memberships` |
+| `issued_by` | `uuid?` | → `memberships` |
+| `override_reason` | `text?` | why it was issued despite allergy alerts |
+| `verify_token_hash` | `text?` | the QR's token, hashed; reveals no patient data |
+| `letterhead` | `jsonb?` | snapshot at issue |
+| `doctor` | `jsonb?` | name, registration number at issue |
+| `recipient` | `jsonb?` | patient name, number, age and sex at issue |
+| `footer` | `text?` |  |
 | `cancel_reason` | `text?` |  |
+| `cancelled_at` | `timestamptz?` |  |
+| `cancelled_by` | `uuid?` | → `memberships` |
 | `supersedes_id` | `uuid?` | → `prescriptions`. the prescription this one replaces |
 | `template_id` | `uuid?` | → `document_templates`. print layout |
-| `pdf_asset_id` | `uuid?` | → `assets` |
 
-Issued prescriptions never change: a correction cancels and reissues. The print shows the doctor's name, qualifications and registration number, generic names in capitals, the clinic's branding, and a small 'Prescribed with Aarogyam' footer with a QR code that opens the verified copy.
+Issued prescriptions never change (a trigger refuses): a correction cancels and reissues. The print shows the doctor's name, qualifications and registration number, generic names in capitals, the clinic's branding, and a small 'Prescribed with Aarogyam' footer with a QR code that opens the verified copy.
 
 Referenced by: `prescription_alerts.prescription_id`, `prescription_items.prescription_id`, `prescriptions.supersedes_id`, `share_links.prescription_id`
 
@@ -1229,16 +1236,15 @@ One medicine on a prescription.
 | Column | Type | Notes |
 |---|---|---|
 | `prescription_id` | `uuid` | → `prescriptions` |
+| `line_no` | `smallint` |  |
 | `drug_id` | `uuid?` | → `drug_catalog` |
 | `drug_name` | `text` | as printed; generic name in capitals |
-| `code_system` | `code_system?` | icd10, icd11, snomed, loinc, custom |
-| `code` | `text?` |  |
-| `code_display` | `text?` |  |
-| `code_version` | `text?` |  |
+| `strength` | `text?` |  |
+| `form` | `text?` |  |
 | `dose` | `text` |  |
 | `frequency` | `text` | 1-0-1 |
-| `timing` | `dose_timing` | before_food, after_food, bedtime, sos |
-| `duration_days` | `smallint` |  |
+| `timing` | `dose_timing?` | before_food, after_food, empty_stomach, bedtime, sos, as_directed |
+| `duration_days` | `smallint?` |  |
 | `instructions` | `text?` | in the prescription's language |
 
 Referenced by: `prescription_alerts.prescription_item_id`
@@ -1268,7 +1274,7 @@ Treatment actually done (or planned for today), linked to the price list.
 
 Marking done deducts stock via procedure_materials and can create a lab_order.
 
-Referenced by: `consent_forms.procedure_id`, `invoice_items.procedure_id`, `lab_orders.procedure_id`, `recalls.source_procedure_id`, `stock_movements.procedure_id`
+Referenced by: `consent_forms.procedure_id`, `lab_orders.procedure_id`, `stock_movements.procedure_id`
 
 ### `treatment_plans`
 
@@ -1329,7 +1335,7 @@ Patient files: photos, X-rays, reports, documents, audio, signed consent.
 
 Served only through short-lived signed URLs after a permission check.
 
-Referenced by: `consent_forms.pdf_attachment_id`, `consent_forms.signature_attachment_id`, `document_extractions.attachment_id`, `imports.file_attachment_id`, `share_links.attachment_id`, `voice_notes.attachment_id`
+Referenced by: `consent_forms.pdf_attachment_id`, `consent_forms.signature_attachment_id`, `document_extractions.attachment_id`, `imports.file_attachment_id`, `voice_notes.attachment_id`
 
 ### `voice_notes`
 
@@ -1386,15 +1392,15 @@ Print and form layouts: prescriptions, bills, consent forms, certificates, lette
 | `pack` | `text?` |  |
 | `is_default` | `bool` |  |
 
-org_id is null for Aarogyam's default layouts, which clinics copy and adjust.
+Aarogyam's default layouts are copied into each clinic as data, so org_id is never null.
 
 Referenced by: `consent_forms.template_id`, `prescriptions.template_id`
 
 ### `prescription_alerts`
 
-Safety warnings raised while prescribing, and what the doctor did about them.
+Safety warnings raised when a prescription was issued, and what the doctor did about them.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: health · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: health · offline: server only · lifecycle: append only*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -1406,7 +1412,7 @@ Safety warnings raised while prescribing, and what the doctor did about them.
 | `source` | `alert_source` | allergy_record, drug_database, ai |
 | `action` | `alert_action` | accepted_change, overridden, dismissed |
 | `override_reason` | `text?` |  |
-| `acted_by` | `uuid?` | → `memberships` |
+| `acted_by` | `uuid` | → `memberships` |
 
 Overrides are kept with their reason for medico-legal review.
 
@@ -1748,64 +1754,83 @@ The clinic's price list. Seeded from the specialty, then edited.
 
 | Column | Type | Notes |
 |---|---|---|
-| `code` | `text?` |  |
+| `code` | `text?` | unique per clinic |
 | `name` | `text` | Root canal, Scaling, Consultation |
-| `module` | `text?` |  |
-| `category` | `text?` |  |
+| `category` | `text?` | consultation, preventive, endodontics, medicines …; drives the revenue mix |
+| `sac_hsn` | `text?` | SAC 9993 for health care, HSN for goods |
 | `price_paise` | `bigint` |  |
-| `tax_rate_bps` | `int` | 0 or 1800 |
+| `taxable` | `bool` | false for health care by a clinical establishment (exempt) |
+| `tax_rate_bps` | `int` | 0, 500, 1200 or 1800; 0 unless taxable |
 | `active` | `bool` |  |
 
 Referenced by: `consultant_fee_rules.price_item_id`, `invoice_items.price_item_id`, `procedure_materials.price_item_id`, `procedures.price_item_id`, `treatment_plan_items.price_item_id`
 
 ### `invoices` (★ foundation)
 
-A bill to a patient. Totals are stored; balance is derived.
+A bill to a patient. Totals are stored at issue; whether it is paid is derived from allocations.
 
 *Clinic-scoped: org_id + row-level security · sensitivity: financial · offline: server only · lifecycle: finalizable*
 
 | Column | Type | Notes |
 |---|---|---|
-| `number` | `text?` | SC/26-27/000318, assigned by the server when issued |
+| `number` | `text?` | SC/26-27/000318, assigned by the server when issued (at most 16 characters) |
+| `series` | `text` | number series, main by default |
+| `financial_year` | `text?` | 26-27, in clinic time |
 | `patient_id` | `uuid` | → `patients` |
-| `encounter_id` | `uuid?` | → `encounters` |
+| `encounter_id` | `uuid?` | visit; foreign key added after the visits branch merges |
 | `branch_id` | `uuid` | → `branches` |
-| `doc_type` | `invoice_doc` | tax_invoice, bill_of_supply |
-| `status` | `invoice_status` | draft, issued, partially_paid, paid, void |
+| `doc_type` | `invoice_doc?` | tax_invoice, bill_of_supply; decided at issue |
+| `status` | `invoice_status` | draft, issued, void |
+| `place_of_supply` | `text?` | state code; IGST when it differs from the branch's state |
+| `notes` | `text?` |  |
 | `issued_at` | `timestamptz?` |  |
+| `issued_by` | `uuid?` | → `memberships` |
+| `supplier` | `jsonb?` | snapshot at issue: legal name, GSTIN, address, state |
+| `recipient` | `jsonb?` | snapshot at issue: patient name and number |
 | `subtotal_paise` | `bigint` |  |
 | `discount_paise` | `bigint` |  |
+| `taxable_paise` | `bigint` |  |
+| `cgst_paise` | `bigint` |  |
+| `sgst_paise` | `bigint` |  |
+| `igst_paise` | `bigint` |  |
 | `tax_paise` | `bigint` |  |
+| `round_off_paise` | `bigint` | to the nearest rupee, -50 to 50 |
 | `total_paise` | `bigint` |  |
-| `paid_paise` | `bigint` |  |
 | `replaces_invoice_id` | `uuid?` | → `invoices`. when a voided bill is reissued |
 | `void_reason` | `text?` |  |
-| `promo_code_id` | `uuid?` | → `promo_codes` |
-| `pdf_asset_id` | `uuid?` | → `assets` |
+| `voided_at` | `timestamptz?` |  |
+| `voided_by` | `uuid?` | → `memberships` |
 
-Issued bills never change: corrections void and replace. Numbers are never generated offline.
+Issued bills never change (a trigger refuses): corrections void and replace. Numbers are never generated offline. Payment state (unpaid, partial, paid) is derived from payment_allocations of payments that are not void.
 
 Referenced by: `invoice_items.invoice_id`, `invoices.replaces_invoice_id`, `payment_allocations.invoice_id`, `promo_redemptions.invoice_id`, `share_links.invoice_id`
 
 ### `invoice_items` (★ foundation)
 
-Lines on a bill, each optionally tied to a procedure and doctor.
+Lines on a bill, each optionally tied to a price item or procedure. GST is computed per line at issue.
 
 *Clinic-scoped: org_id + row-level security · sensitivity: financial · offline: server only · lifecycle: finalizable*
 
 | Column | Type | Notes |
 |---|---|---|
 | `invoice_id` | `uuid` | → `invoices` |
+| `line_no` | `smallint` |  |
 | `price_item_id` | `uuid?` | → `price_items` |
-| `procedure_id` | `uuid?` | → `procedures` |
-| `practitioner_id` | `uuid?` | → `practitioners` |
+| `procedure_id` | `uuid?` | foreign key added after the visits branch merges |
 | `description` | `text` |  |
-| `quantity` | `numeric` |  |
+| `sac_hsn` | `text?` |  |
+| `category` | `text?` |  |
+| `quantity` | `int` |  |
 | `unit_price_paise` | `bigint` |  |
 | `discount_paise` | `bigint` |  |
 | `tax_rate_bps` | `int` |  |
-| `tax_paise` | `bigint` |  |
+| `taxable_paise` | `bigint` |  |
+| `cgst_paise` | `bigint` |  |
+| `sgst_paise` | `bigint` |  |
+| `igst_paise` | `bigint` |  |
 | `total_paise` | `bigint` |  |
+
+Lines change only while the bill is a draft.
 
 ### `payments` (★ foundation)
 
@@ -1815,13 +1840,19 @@ Money received from a patient, by any method.
 
 | Column | Type | Notes |
 |---|---|---|
+| `number` | `text` | receipt RC/26-27/000042 |
 | `patient_id` | `uuid` | → `patients` |
 | `received_at` | `timestamptz` |  |
 | `amount_paise` | `bigint` |  |
-| `method` | `payment_method` | cash, upi, card, bank_transfer, cheque, razorpay, insurance |
-| `reference` | `text?` | UPI ref, cheque no |
+| `method` | `payment_method` | cash, upi, card, bank |
+| `reference` | `text?` | UPI ref, card slip |
 | `received_by` | `uuid` | → `memberships` |
-| `razorpay_payment_id` | `text?` |  |
+| `idempotency_key` | `text` | unique per clinic; a retry returns the first payment |
+| `request_hash` | `text` | a reused key with a different request is refused |
+| `status` | `payment_status` | received, void |
+| `void_reason` | `text?` |  |
+| `voided_at` | `timestamptz?` |  |
+| `voided_by` | `uuid?` | → `memberships` |
 
 Referenced by: `payment_allocations.payment_id`, `refunds.payment_id`
 
@@ -1835,7 +1866,10 @@ Which bills a payment pays, so advances and partial payments work.
 |---|---|---|
 | `payment_id` | `uuid` | → `payments` |
 | `invoice_id` | `uuid` | → `invoices` |
+| `patient_id` | `uuid` | → `patients`. must match both the payment's and the bill's |
 | `amount_paise` | `bigint` |  |
+
+A trigger refuses allocations past the bill's balance or the payment's amount, and to bills that are not issued.
 
 ### `refunds`
 
@@ -1982,15 +2016,17 @@ Primary key (org_id, patient_id, channel).
 
 Follow-ups that are due: cleaning in six months, BP review, vaccine.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
 | `patient_id` | `uuid` | → `patients` |
-| `kind` | `text` | cleaning, bp_review, vaccine, anc_visit |
+| `kind` | `text` | follow_up, cleaning, bp_review, vaccine |
+| `reason` | `text` |  |
 | `due_on` | `date` |  |
-| `status` | `recall_status` | due, notified, booked, dismissed |
-| `source_procedure_id` | `uuid?` | → `procedures` |
+| `status` | `recall_status` | due, notified, booked, done, dismissed |
+| `done_at` | `timestamptz?` |  |
+| `source_procedure_id` | `uuid?` | foreign key added after the visits branch merges |
 
 ### `audiences`
 
@@ -2040,7 +2076,7 @@ Discount codes a clinic can share.
 | `used_count` | `int` |  |
 | `applies_to` | `jsonb?` | price items or categories |
 
-Referenced by: `invoices.promo_code_id`, `promo_redemptions.promo_code_id`
+Referenced by: `promo_redemptions.promo_code_id`
 
 ### `promo_redemptions`
 
@@ -2259,26 +2295,27 @@ Every grant and revocation is audited. The clinic owns its record; the patient c
 
 ### `share_links` (★ foundation)
 
-Expiring links that let a patient open a prescription, bill or report: aarogyam.example/r/…
+Expiring links that let a patient open a prescription, bill or report on the clinic's host.
 
 *Clinic-scoped: org_id + row-level security · sensitivity: health · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
-| `token_hash` | `text` | the link holds the token; only its hash is stored |
+| `token_hash` | `text` | the link holds a 256-bit token; only its hash is stored |
+| `pin_hash` | `text` | SHA-256 of token and the six-digit PIN printed on the paper |
 | `resource` | `share_resource` | prescription, invoice, report, upload_request |
 | `prescription_id` | `uuid?` | → `prescriptions` |
 | `invoice_id` | `uuid?` | → `invoices` |
-| `attachment_id` | `uuid?` | → `attachments`. a report |
 | `patient_id` | `uuid` | → `patients` |
-| `channel` | `channel` | whatsapp, sms, email |
-| `otp_required` | `bool` | a one-time code to the patient's phone before opening |
-| `expires_at` | `timestamptz` |  |
+| `channel` | `channel` | whatsapp, sms, email, print |
+| `failed_attempts` | `int` | five wrong PINs lock the link |
+| `locked_at` | `timestamptz?` |  |
+| `expires_at` | `timestamptz` | seven days |
 | `opened_at` | `timestamptz?` |  |
 | `open_count` | `int` |  |
 | `revoked_at` | `timestamptz?` |  |
 
-Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource (none for upload_request), so a link can only ever open a record of the same clinic. Every open is written to access_log with purpose patient_self.
+Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self.
 
 ### `access_log` (★ foundation, partitioned)
 

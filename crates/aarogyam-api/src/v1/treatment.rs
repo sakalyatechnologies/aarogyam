@@ -22,7 +22,7 @@ use uuid::Uuid;
 
 use super::facts::Code;
 use super::rfc3339;
-use super::visits::{EnteredInError, Member};
+use super::visits::{EnteredInError, MemberRef};
 use crate::AppState;
 use crate::extract::Require;
 use crate::failure::ApiFailure;
@@ -52,7 +52,7 @@ pub struct Procedure {
     #[schema(value_type = String)]
     pub visit_id: Uuid,
     /// The member who did it.
-    pub clinician: Member,
+    pub clinician: MemberRef,
     /// What was done.
     pub name: String,
     /// Optional code.
@@ -347,7 +347,7 @@ pub struct Plan {
     #[schema(value_type = Option<String>)]
     pub visit_id: Option<Uuid>,
     /// The member who proposed it.
-    pub clinician: Member,
+    pub clinician: MemberRef,
     /// Its title.
     pub title: String,
     /// `proposed`, `accepted`, `in_progress`, `completed` or `declined`.

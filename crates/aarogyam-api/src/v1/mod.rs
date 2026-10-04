@@ -9,6 +9,7 @@ pub(crate) mod me;
 pub(crate) mod patients;
 pub(crate) mod settings;
 pub(crate) mod staff;
+pub(crate) mod visits;
 
 use axum::Router;
 use axum::routing::{get, patch, post};
@@ -29,6 +30,17 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/patients", get(patients::recent).post(patients::register))
         .route("/patients/search", post(patients::search))
         .route("/patients/{id}", get(patients::open).patch(patients::edit))
+        .route(
+            "/patients/{id}/visits",
+            get(visits::list).post(visits::start),
+        )
+        .route("/visits/{id}", get(visits::open))
+        .route("/visits/{id}/close", post(visits::close))
+        .route("/visits/{id}/notes", post(visits::create_note))
+        .route("/notes/{id}", patch(visits::edit_note))
+        .route("/notes/{id}/sign", post(visits::sign_note))
+        .route("/notes/{id}/addenda", post(visits::add_addendum))
+        .route("/notes/{id}/entered-in-error", post(visits::note_in_error))
         .route("/staff", get(staff::list))
         .route("/staff/invitations", post(staff::invite))
         .route("/staff/{membership_id}", patch(staff::change))

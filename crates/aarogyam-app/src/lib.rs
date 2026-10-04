@@ -11,10 +11,12 @@ pub mod error;
 pub mod invitations;
 pub mod outbox;
 pub mod patients;
+pub mod record;
 mod scope;
 pub mod sessions;
 pub mod settings;
 pub mod staff;
 pub mod tokens;
+pub mod visits;
 
 pub use error::AppError;

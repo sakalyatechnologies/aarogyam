@@ -17,6 +17,7 @@ pub mod patients;
 pub mod sessions;
 pub mod settings;
 pub mod staff;
+pub mod visits;
 use sqlx::{Executor as _, PgPool};
 
 /// The migrations in `db/migrations/`, embedded at compile time.

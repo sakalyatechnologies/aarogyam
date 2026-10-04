@@ -305,6 +305,237 @@
         ]
       }
     },
+    "/api/v1/notes/{id}": {
+      "patch": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Replaces a draft's sections. Only the author may, and only while it is a draft.",
+        "operationId": "edit_note",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The note",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteContent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write, or the note is someone else's"
+          },
+          "404": {
+            "description": "No such note in this clinic"
+          },
+          "409": {
+            "description": "The note is signed; add an addendum instead"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notes/{id}/addenda": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Adds an addendum to a signed note. Addenda are never edited or removed.",
+        "operationId": "add_addendum",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The note",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewAddendum"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such note in this clinic"
+          },
+          "409": {
+            "description": "The note isn't signed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notes/{id}/entered-in-error": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Marks a note entered in error with a reason. It stays in the record, marked; nothing is\ndeleted. A draft can be withdrawn only by its author.",
+        "operationId": "note_in_error",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The note",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnteredInError"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write, or the draft is someone else's"
+          },
+          "404": {
+            "description": "No such note in this clinic"
+          },
+          "409": {
+            "description": "Already marked"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notes/{id}/sign": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Signs a draft. Only its author may; the note never changes afterwards.",
+        "operationId": "sign_note",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The note",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write, or the note is someone else's"
+          },
+          "404": {
+            "description": "No such note in this clinic"
+          },
+          "409": {
+            "description": "Not a draft, or every section is empty"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients": {
       "get": {
         "tags": [
@@ -517,6 +748,110 @@
           },
           "404": {
             "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/visits": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's visits, newest first.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Starts a visit, with the caller as the clinician responsible.",
+        "operationId": "start",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewVisit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Visit"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "The appointment already has a visit"
           }
         },
         "security": [
@@ -812,6 +1147,160 @@
         ]
       }
     },
+    "/api/v1/visits/{id}": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Opens a visit with everything recorded in it. Every open is written to the access record.",
+        "operationId": "open",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/close": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Closes a visit. Addenda and corrections still work afterwards; new notes, vitals and\nprocedures don't.",
+        "operationId": "close",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Visit"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          },
+          "409": {
+            "description": "Already closed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/notes": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Starts a draft note in an open visit, written by the caller.",
+        "operationId": "create_note",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteContent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          },
+          "409": {
+            "description": "The visit is closed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -854,6 +1343,34 @@
           "token": {
             "type": "string",
             "description": "The secret from the invitation link."
+          }
+        }
+      },
+      "Addendum": {
+        "type": "object",
+        "description": "An addendum to a signed note.",
+        "required": [
+          "id",
+          "author",
+          "body",
+          "created_at"
+        ],
+        "properties": {
+          "author": {
+            "$ref": "#/components/schemas/Member",
+            "description": "Who wrote it."
+          },
+          "body": {
+            "type": "string",
+            "description": "The text."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
           }
         }
       },
@@ -1284,6 +1801,19 @@
           }
         }
       },
+      "EnteredInError": {
+        "type": "object",
+        "description": "Why a record is being marked entered in error.",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "3 to 500 characters, such as \"wrong patient\"."
+          }
+        }
+      },
       "Joined": {
         "type": "object",
         "description": "The clinic just joined.",
@@ -1503,6 +2033,19 @@
           }
         }
       },
+      "NewAddendum": {
+        "type": "object",
+        "description": "An addendum's text.",
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "1 to 10,000 characters."
+          }
+        }
+      },
       "NewClinic": {
         "type": "object",
         "description": "A clinic to create.",
@@ -1607,6 +2150,159 @@
               "null"
             ],
             "description": "`female`, `male`, `other` or `unknown` (default)."
+          }
+        }
+      },
+      "NewVisit": {
+        "type": "object",
+        "description": "A visit to start.",
+        "properties": {
+          "appointment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The appointment the patient came for; a walk-in has none. One visit per appointment."
+          },
+          "chief_complaint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the patient came, up to 1,000 characters."
+          }
+        }
+      },
+      "Note": {
+        "type": "object",
+        "description": "A clinical note. Signed notes never change: corrections go in addenda, and a mistaken note\nis marked `entered_in_error` with a reason.",
+        "required": [
+          "id",
+          "visit_id",
+          "kind",
+          "source",
+          "status",
+          "sections",
+          "author",
+          "created_at",
+          "updated_at",
+          "addenda"
+        ],
+        "properties": {
+          "addenda": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Addendum"
+            },
+            "description": "Addenda, oldest first."
+          },
+          "author": {
+            "$ref": "#/components/schemas/Member",
+            "description": "Who wrote it; only they may edit or sign it."
+          },
+          "conflicts_with_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "For a conflict: the signed note it collided with."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was written (RFC 3339)."
+          },
+          "error_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was marked entered in error."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`soap`, `progress`, `procedure`, `intake` or `front_desk`."
+          },
+          "sections": {
+            "$ref": "#/components/schemas/NoteSections",
+            "description": "The sections."
+          },
+          "signed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was signed (RFC 3339)."
+          },
+          "source": {
+            "type": "string",
+            "description": "`typed`, `voice` or `ai_draft`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`draft`, `signed`, `conflict` (collided with a signed note during sync) or `entered_in_error`."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          },
+          "visit_id": {
+            "type": "string",
+            "description": "The visit."
+          }
+        }
+      },
+      "NoteContent": {
+        "type": "object",
+        "description": "A note's content. Sections are replaced as a whole when editing.",
+        "properties": {
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`soap` (default), `progress`, `procedure`, `intake` or `front_desk`."
+          },
+          "sections": {
+            "$ref": "#/components/schemas/NoteSections",
+            "description": "The sections, each up to 10,000 characters."
+          }
+        }
+      },
+      "NoteSections": {
+        "type": "object",
+        "description": "A note's sections. Each may be empty while drafting; signing needs at least one.",
+        "properties": {
+          "assessment": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinician's assessment."
+          },
+          "objective": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the clinician found."
+          },
+          "plan": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What happens next."
+          },
+          "subjective": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the patient reports."
           }
         }
       },
@@ -2058,6 +2754,102 @@
             "description": "Members, active first, then by name."
           }
         }
+      },
+      "Visit": {
+        "type": "object",
+        "description": "A visit.",
+        "required": [
+          "id",
+          "number",
+          "patient_id",
+          "clinician",
+          "status",
+          "started_at"
+        ],
+        "properties": {
+          "appointment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The appointment it was started from."
+          },
+          "chief_complaint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the patient came."
+          },
+          "clinician": {
+            "$ref": "#/components/schemas/Member",
+            "description": "The member responsible."
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was closed (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "number": {
+            "type": "string",
+            "description": "Readable number, such as `V-318`."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "started_at": {
+            "type": "string",
+            "description": "When it started (RFC 3339)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`open` or `closed`."
+          }
+        }
+      },
+      "VisitDetail": {
+        "type": "object",
+        "description": "Everything recorded in a visit.",
+        "required": [
+          "visit",
+          "notes"
+        ],
+        "properties": {
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Note"
+            },
+            "description": "Notes with their addenda, oldest first."
+          },
+          "visit": {
+            "$ref": "#/components/schemas/Visit",
+            "description": "The visit."
+          }
+        }
+      },
+      "VisitList": {
+        "type": "object",
+        "description": "A patient's visits, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Visit"
+            },
+            "description": "The visits."
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -2080,6 +2872,10 @@
     {
       "name": "patients",
       "description": "A clinic's patients; clinic host only"
+    },
+    {
+      "name": "clinical",
+      "description": "Visits, notes, vitals, the dental chart, treatment and files; clinic host only"
     },
     {
       "name": "staff",

@@ -66,6 +66,11 @@ else
   : "${VITE_SUPABASE_ANON_KEY:?missing in .env.supabase}"
 fi
 
+SUBDOMAIN="${CLOUDFLARE_WORKERS_SUBDOMAIN:-<subdomain>}"
+# The same pattern as the API's ARO_HOSTS__PORTAL_HOST_TEMPLATE (scripts/demo-api.sh).
+DEFAULT_TEMPLATE='{slug}'"-aarogyam.${SUBDOMAIN}.workers.dev"
+PORTAL_HOST_TEMPLATE="${PORTAL_HOST_TEMPLATE:-$DEFAULT_TEMPLATE}"
+
 deploy_app() {
   local app_dir="$1" worker_dir="$2" worker_name="$3"
 
@@ -77,6 +82,7 @@ deploy_app() {
     VITE_API_BASE_URL="" \
     VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
     VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
+    VITE_PORTAL_HOST_TEMPLATE="$PORTAL_HOST_TEMPLATE" \
       pnpm build
   )
 
@@ -89,7 +95,6 @@ deploy_app() {
   (cd "$worker_dir" && printf '%s' "$EDGE_SECRET" | npx wrangler secret put EDGE_SECRET --name "$worker_name")
 }
 
-SUBDOMAIN="${CLOUDFLARE_WORKERS_SUBDOMAIN:-<subdomain>}"
 if [ -n "$CLINIC_WORKER" ]; then
   deploy_app "web/apps/portal" "deploy/cloudflare/portal" "$CLINIC_WORKER"
   echo ""

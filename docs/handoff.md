@@ -20,6 +20,13 @@ The walking skeleton runs end to end locally: Postgres (migrated as a Supabase-s
   - Web (`web/`), working end to end against the API (`VITE_API_MODE=http`, types generated from `docs/api/openapi.json`): Sakalya console (dev or email-code sign-in, Service health with live metrics, Clinics, Create clinic with the owner's invite link) and clinic portal (sign-in, clinic switcher, patients list, search, Patient 360, New patient, accept invitation). A live test (`VITE_LIVE=1 pnpm vitest run --project portal live`) drives both against the running API.
   - Invitations: `POST /api/v1/invitations/accept`, tied to the verified sign-in email and the clinic, single use, 7-day expiry.
 
+### Supabase (staging project, 4 Oct 00:45)
+
+- Project on the free plan in Mumbai, Postgres 17.11. Data API off, sign-ups off, email OTP template set. The founder is added as a user.
+- `.env.supabase` (git-ignored) holds the session-pooler owner URL, project URL and publishable key. Connect with `sslmode=verify-full&sslrootcert=config/supabase-ca.crt` (Supabase's public root CA, committed).
+- All 17 migrations applied there as Supabase's non-superuser `postgres`; the schema lint passes and `anon`/`authenticated` hold no grants. Data stays local; Supabase is used for sign-in next.
+- Still to do: set `aarogyam_api`'s password there; let the local API accept Supabase tokens alongside dev tokens; bootstrap the founder's Supabase user as platform owner in the local database.
+
 ## Next steps, in order
 
 1. **Invitation email:** the console shows the owner's invite link (`/invite#<token>`, accepted by `POST /api/v1/invitations/accept`, tied to the verified email); next, the outbox sends it by email (Resend) instead of copy-and-paste.

@@ -31,8 +31,9 @@ const CACHE_CAPACITY: usize = 10_000;
 /// The host names the API serves, besides clinic portals.
 #[derive(Debug, Clone)]
 pub struct Hosts {
-    /// Clinic portals are `<slug>.<portal_domain>`, such as `sunrise.localtest.me`.
-    pub portal_domain: String,
+    /// Builds a clinic's portal host from its slug: `{slug}` is replaced with the slug, such as
+    /// `{slug}.localtest.me` giving `sunrise.localtest.me`.
+    pub portal_host_template: String,
     /// The Sakalya console, such as `console.localtest.me`.
     pub console: String,
     /// The neutral host the phone apps use before a clinic is chosen, such as `app.localtest.me`.

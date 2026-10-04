@@ -111,7 +111,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         ),
     }
     let hosts = Hosts {
-        portal_domain: config.hosts.portal_domain,
+        portal_host_template: config.hosts.portal_host_template,
         console: config.hosts.console,
         app: config.hosts.app,
     };

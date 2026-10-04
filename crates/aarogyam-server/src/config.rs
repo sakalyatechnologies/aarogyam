@@ -140,8 +140,10 @@ pub struct AuthSettings {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HostSettings {
-    /// Clinic portals are `<slug>.<portal_domain>` (`ARO_HOSTS__PORTAL_DOMAIN`).
-    pub portal_domain: String,
+    /// Builds a clinic's portal host from its slug: `{slug}` is replaced with the slug
+    /// (`ARO_HOSTS__PORTAL_HOST_TEMPLATE`), such as `{slug}.localtest.me` or, for a single flat
+    /// staging host with no wildcard domain yet, a literal host with no `{slug}` in it at all.
+    pub portal_host_template: String,
     /// The Sakalya console host (`ARO_HOSTS__CONSOLE`).
     pub console: String,
     /// The neutral host for the phone apps (`ARO_HOSTS__APP`).

@@ -24,7 +24,7 @@ dev_secret = "local-development-secret-not-for-any-deployed-server"
 
 [hosts]
 # localtest.me and its subdomains resolve to 127.0.0.1, so host-based tenancy works locally.
-portal_domain = "localtest.me"
+portal_host_template = "{slug}.localtest.me"
 console = "console.localtest.me"
 app = "app.localtest.me"
 

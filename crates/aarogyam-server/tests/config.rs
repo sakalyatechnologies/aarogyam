@@ -29,7 +29,7 @@ fn set_required(jail: &mut Jail) {
     );
     jail.set_env("ARO_AUTH__MODE", "supabase");
     jail.set_env("ARO_AUTH__ISSUER", "https://auth.example/auth/v1");
-    jail.set_env("ARO_HOSTS__PORTAL_DOMAIN", "aarogyam.example");
+    jail.set_env("ARO_HOSTS__PORTAL_HOST_TEMPLATE", "{slug}.aarogyam.example");
     jail.set_env("ARO_HOSTS__CONSOLE", "console.aarogyam.example");
     jail.set_env("ARO_HOSTS__APP", "app.aarogyam.example");
     jail.set_env("ARO_AUTH__AUDIENCE", "authenticated");

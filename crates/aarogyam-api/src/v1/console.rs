@@ -153,7 +153,7 @@ pub(crate) async fn create_clinic(
             specialty: body.specialty.unwrap_or_else(|| "dental".to_owned()),
             owner_email: body.owner_email,
         },
-        &state.hosts().portal_domain,
+        &state.hosts().portal_host_template,
         OffsetDateTime::now_utc(),
     )
     .await?;

@@ -18,7 +18,7 @@
 //! # async fn run(db: sakalya_db::Db) -> Result<(), sakalya_http::ServeError> {
 //! let tokens = TokenCheck::Dev(DevTokens::new("aarogyam-dev", "authenticated", SecretString::from("local secret")));
 //! let hosts = Hosts {
-//!     portal_domain: "localtest.me".into(),
+//!     portal_host_template: "{slug}.localtest.me".into(),
 //!     console: "console.localtest.me".into(),
 //!     app: "app.localtest.me".into(),
 //! };

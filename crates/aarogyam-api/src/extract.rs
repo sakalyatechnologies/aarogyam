@@ -31,7 +31,8 @@ fn request_id(parts: &Parts) -> Option<Uuid> {
         .and_then(|text| Uuid::parse_str(text).ok())
 }
 
-/// A signed-in person, on any host. For routes that don't belong to one clinic (`/me`).
+/// A signed-in person whose session wasn't revoked, on any host. For routes that don't belong
+/// to one clinic (`/me`).
 #[derive(Debug)]
 pub struct SignedIn {
     /// The verified token.
@@ -45,7 +46,7 @@ impl FromRequestParts<AppState> for SignedIn {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let claims = state.claims(&parts.headers).await?;
+        let claims = state.live_claims(&parts.headers).await?;
         sakalya_telemetry::record_user(claims.subject().uuid());
         Ok(Self { claims })
     }
@@ -136,7 +137,7 @@ impl FromRequestParts<AppState> for PlatformRequest {
         if edge(parts)?.host().as_str() != state.hosts().console {
             return Err(ApiFailure(not_found()));
         }
-        let claims = state.claims(&parts.headers).await?;
+        let claims = state.live_claims(&parts.headers).await?;
         let staff = lookups::platform_access(state.db().pool(), claims.subject().uuid())
             .await?
             .filter(|staff| staff.role.is_some())

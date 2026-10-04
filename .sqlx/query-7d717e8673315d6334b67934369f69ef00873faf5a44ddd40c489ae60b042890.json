@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.outbox_sent($1, $2, $3, $4)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "outbox_sent",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7d717e8673315d6334b67934369f69ef00873faf5a44ddd40c489ae60b042890"
+}

@@ -149,6 +149,26 @@
         }
       }
     },
+    "/api/v1/internal/outbox/drain": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Delivers due outbox messages across clinics (local development only; later Cloud\nScheduler with a Google-signed token).",
+        "operationId": "drain_outbox",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrainReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/invitations/accept": {
       "post": {
         "tags": [
@@ -212,6 +232,70 @@
           },
           "401": {
             "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/sessions": {
+      "get": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Where the signed-in person is signed in: their sessions that are neither revoked nor expired.",
+        "operationId": "sessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MySessions"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/sessions/{id}/revoke": {
+      "post": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Signs one of the person's own sessions out. Its next request gets `401`, on every host.",
+        "operationId": "revoke_session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not one of the person's sessions"
           }
         },
         "security": [
@@ -384,6 +468,96 @@
             "bearer": []
           }
         ]
+      },
+      "patch": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Edits a patient's details with the same rules as registration. Changing the phone or email\nalso needs `patients.contact`. The change history records each change.",
+        "operationId": "edit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Patient"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write, or patients.contact for phone or email"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/roles": {
+      "get": {
+        "tags": [
+          "staff"
+        ],
+        "summary": "The clinic's roles and the permissions each holds, for choosing a role.",
+        "operationId": "roles",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roles"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks staff.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
       }
     },
     "/api/v1/session": {
@@ -408,6 +582,227 @@
           },
           "404": {
             "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings/clinic": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The clinic's settings: profile, GSTIN, time zone, branding, prescription footer, address,\nphone and UPI ID.",
+        "operationId": "get_clinic",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Changes the clinic's settings. The change history records each change.",
+        "operationId": "update_clinic",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClinicSettingsChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the setting"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/staff": {
+      "get": {
+        "tags": [
+          "staff"
+        ],
+        "summary": "The clinic's members, with their roles, status and branches, and pending invitations.",
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Staff"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks staff.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/staff/invitations": {
+      "post": {
+        "tags": [
+          "staff"
+        ],
+        "summary": "Invites someone to the staff and emails them the link (through the outbox). Only owners\nmay invite owners.",
+        "operationId": "invite",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewInvitation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedInvitation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email or unknown role"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks staff.manage, or a non-owner invited an owner"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/staff/{membership_id}": {
+      "patch": {
+        "tags": [
+          "staff"
+        ],
+        "summary": "Changes a member's role or status. Takes effect on the member's next request. Nobody\nchanges their own role, only owners make or change owners, and the last active owner\ncan't be suspended, removed or demoted.",
+        "operationId": "change",
+        "parameters": [
+          {
+            "name": "membership_id",
+            "in": "path",
+            "description": "The membership",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Member"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown role or status"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks staff.manage, or only an owner may do this"
+          },
+          "404": {
+            "description": "No such member in this clinic"
+          },
+          "409": {
+            "description": "Your own role, or the last active owner"
           }
         },
         "security": [
@@ -459,6 +854,207 @@
           "token": {
             "type": "string",
             "description": "The secret from the invitation link."
+          }
+        }
+      },
+      "Address": {
+        "type": "object",
+        "description": "A postal address. Every part is optional.",
+        "properties": {
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "City or town."
+          },
+          "line1": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "House, building and street."
+          },
+          "line2": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Area or landmark."
+          },
+          "pincode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Six-digit PIN code."
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "State or union territory."
+          }
+        }
+      },
+      "Branding": {
+        "type": "object",
+        "description": "The portal's look.",
+        "properties": {
+          "brand": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Brand colour, `#RRGGBB`."
+          },
+          "mode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`light` or `dark`."
+          }
+        }
+      },
+      "ClinicSettings": {
+        "type": "object",
+        "description": "The clinic's settings.",
+        "required": [
+          "name",
+          "timezone",
+          "branding",
+          "address"
+        ],
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Address",
+            "description": "The main branch's address."
+          },
+          "branding": {
+            "$ref": "#/components/schemas/Branding",
+            "description": "The portal's look."
+          },
+          "gstin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "GST identification number."
+          },
+          "legal_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Registered legal name, for bills."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The main branch's phone."
+          },
+          "prescription_footer": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Footer printed on prescriptions."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA time zone; `Asia/Kolkata` is the only one supported."
+          },
+          "upi_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UPI ID shown on bills, such as `clinic@okicici`."
+          }
+        }
+      },
+      "ClinicSettingsChanges": {
+        "type": "object",
+        "description": "Changes to the settings. Settings left out stay as they are; an empty string clears an\noptional one. Branding changes only the keys given; a given address replaces the whole\naddress.",
+        "properties": {
+          "address": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Address",
+                "description": "The main branch's address."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "branding": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Branding",
+                "description": "Brand colour and theme mode."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gstin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "GSTIN, checked including its check character."
+          },
+          "legal_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Registered legal name."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Display name, 1 to 200 characters."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The main branch's phone; +91 is assumed without a country code."
+          },
+          "prescription_footer": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Footer printed on prescriptions, up to 500 characters."
+          },
+          "timezone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "IANA time zone: `Asia/Kolkata`."
+          },
+          "upi_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UPI ID, like `name@bank`."
           }
         }
       },
@@ -573,6 +1169,39 @@
           }
         }
       },
+      "CreatedInvitation": {
+        "type": "object",
+        "description": "An invitation just sent. `invite_token` is shown once; only its hash is stored.",
+        "required": [
+          "id",
+          "email",
+          "role_key",
+          "expires_at",
+          "invite_token"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Who was invited."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When it expires (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The invitation."
+          },
+          "invite_token": {
+            "type": "string",
+            "description": "The secret for the invitation link (`https://<clinic host>/invite#<token>`), also\nemailed to the invitee."
+          },
+          "role_key": {
+            "type": "string",
+            "description": "The role they will get."
+          }
+        }
+      },
       "DevTokenRequest": {
         "type": "object",
         "description": "Who to sign in as.",
@@ -612,6 +1241,49 @@
           }
         }
       },
+      "DrainReport": {
+        "type": "object",
+        "description": "What one drain did.",
+        "required": [
+          "email_provider",
+          "claimed",
+          "sent",
+          "retrying",
+          "failed",
+          "purged"
+        ],
+        "properties": {
+          "claimed": {
+            "type": "integer",
+            "description": "Messages claimed.",
+            "minimum": 0
+          },
+          "email_provider": {
+            "type": "string",
+            "description": "`resend`, or `log` when no Resend key is configured."
+          },
+          "failed": {
+            "type": "integer",
+            "description": "Failed for the last time.",
+            "minimum": 0
+          },
+          "purged": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Old processed messages deleted."
+          },
+          "retrying": {
+            "type": "integer",
+            "description": "Failed, to be tried again later.",
+            "minimum": 0
+          },
+          "sent": {
+            "type": "integer",
+            "description": "Delivered.",
+            "minimum": 0
+          }
+        }
+      },
       "Joined": {
         "type": "object",
         "description": "The clinic just joined.",
@@ -643,6 +1315,97 @@
               "$ref": "#/components/schemas/MyClinic"
             },
             "description": "Clinics they are invited to or active in, by name."
+          }
+        }
+      },
+      "Member": {
+        "type": "object",
+        "description": "A member of staff.",
+        "required": [
+          "id",
+          "user_id",
+          "display_name",
+          "role_key",
+          "role_name",
+          "status",
+          "branches"
+        ],
+        "properties": {
+          "branches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberBranch"
+            },
+            "description": "Branches they work at; empty means every branch."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Their name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The membership."
+          },
+          "joined_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When they joined (RFC 3339)."
+          },
+          "role_key": {
+            "type": "string",
+            "description": "Role key, such as `front_desk`."
+          },
+          "role_name": {
+            "type": "string",
+            "description": "Role name, such as `Front desk`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`invited`, `active`, `suspended` or `left`."
+          },
+          "user_id": {
+            "type": "string",
+            "description": "The person."
+          }
+        }
+      },
+      "MemberBranch": {
+        "type": "object",
+        "description": "A branch a member works at.",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The branch."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          }
+        }
+      },
+      "MemberChanges": {
+        "type": "object",
+        "description": "A change to a member. Fields left out stay as they are.",
+        "properties": {
+          "role_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The new role key."
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`active` (reactivate), `suspended` or `left`."
           }
         }
       },
@@ -686,6 +1449,60 @@
           }
         }
       },
+      "MySession": {
+        "type": "object",
+        "description": "A device or browser where the person is signed in.",
+        "required": [
+          "id",
+          "audience",
+          "created_at",
+          "last_active_at",
+          "expires_at",
+          "current"
+        ],
+        "properties": {
+          "audience": {
+            "type": "string",
+            "description": "`clinic`, `patient` or `platform`."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was first seen (RFC 3339)."
+          },
+          "current": {
+            "type": "boolean",
+            "description": "Whether this is the session making the request."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When its current token expires (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The session."
+          },
+          "last_active_at": {
+            "type": "string",
+            "description": "When it was last used, to within a few minutes (RFC 3339)."
+          }
+        }
+      },
+      "MySessions": {
+        "type": "object",
+        "description": "The person's active sessions.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MySession"
+            },
+            "description": "Most recently used first."
+          }
+        }
+      },
       "NewClinic": {
         "type": "object",
         "description": "A clinic to create.",
@@ -715,6 +1532,24 @@
               "null"
             ],
             "description": "`dental` (default) or `general`."
+          }
+        }
+      },
+      "NewInvitation": {
+        "type": "object",
+        "description": "Someone to invite.",
+        "required": [
+          "email",
+          "role_key"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Their email; they sign in with it to accept."
+          },
+          "role_key": {
+            "type": "string",
+            "description": "The role they will get, such as `doctor`."
           }
         }
       },
@@ -860,6 +1695,63 @@
           }
         }
       },
+      "PatientChanges": {
+        "type": "object",
+        "description": "Changes to a patient. Fields left out stay as they are; an empty `phone`, `email` or\n`date_of_birth` clears it.",
+        "properties": {
+          "age_years": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Age in years when the date of birth is unknown.",
+            "minimum": 0
+          },
+          "date_of_birth": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Date of birth (`YYYY-MM-DD`), or empty to clear it; give this or `age_years`."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email, or empty to clear it; needs `patients.contact`."
+          },
+          "full_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Full name, 1 to 200 characters."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Phone, or empty to clear it; needs `patients.contact`."
+          },
+          "preferred_language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Language tag such as `mr-IN`."
+          },
+          "sex": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`female`, `male`, `other` or `unknown`."
+          }
+        }
+      },
       "PatientList": {
         "type": "object",
         "description": "Search results.",
@@ -873,6 +1765,118 @@
               "$ref": "#/components/schemas/Patient"
             },
             "description": "Matching patients, best first."
+          }
+        }
+      },
+      "PendingInvitation": {
+        "type": "object",
+        "description": "An invitation not yet accepted.",
+        "required": [
+          "id",
+          "role_key",
+          "created_at",
+          "expires_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was sent (RFC 3339)."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who was invited."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When it expires (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The invitation."
+          },
+          "role_key": {
+            "type": "string",
+            "description": "The role they will get."
+          }
+        }
+      },
+      "Role": {
+        "type": "object",
+        "description": "A role.",
+        "required": [
+          "id",
+          "key",
+          "name",
+          "is_template",
+          "permissions"
+        ],
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What it is for."
+          },
+          "id": {
+            "type": "string",
+            "description": "The role."
+          },
+          "is_template": {
+            "type": "boolean",
+            "description": "Whether it is one of the standard roles."
+          },
+          "key": {
+            "type": "string",
+            "description": "Key, such as `doctor`."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name, such as `Doctor`."
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RolePermission"
+            },
+            "description": "What it may do."
+          }
+        }
+      },
+      "RolePermission": {
+        "type": "object",
+        "description": "A permission a role holds.",
+        "required": [
+          "key",
+          "scope"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Permission key, such as `patients.read`."
+          },
+          "scope": {
+            "type": "string",
+            "description": "`all`, `own` or `assigned`."
+          }
+        }
+      },
+      "Roles": {
+        "type": "object",
+        "description": "The clinic's roles.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "description": "Standard roles first, then by name."
           }
         }
       },
@@ -1030,6 +2034,30 @@
             "description": "The user."
           }
         }
+      },
+      "Staff": {
+        "type": "object",
+        "description": "The clinic's staff.",
+        "required": [
+          "members",
+          "invitations"
+        ],
+        "properties": {
+          "invitations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PendingInvitation"
+            },
+            "description": "Invitations neither accepted nor expired, newest first."
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Member"
+            },
+            "description": "Members, active first, then by name."
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -1054,12 +2082,24 @@
       "description": "A clinic's patients; clinic host only"
     },
     {
+      "name": "staff",
+      "description": "A clinic's staff, invitations and roles; clinic host only"
+    },
+    {
+      "name": "settings",
+      "description": "A clinic's own settings; clinic host only"
+    },
+    {
       "name": "console",
       "description": "Sakalya's console; console host only, staff only"
     },
     {
       "name": "development",
       "description": "Local development only; absent in deployed servers"
+    },
+    {
+      "name": "internal",
+      "description": "Scheduled jobs; local only until Cloud Scheduler's signed calls are checked"
     }
   ]
 }

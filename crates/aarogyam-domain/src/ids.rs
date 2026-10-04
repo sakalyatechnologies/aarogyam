@@ -34,4 +34,8 @@ entities! {
     Patient, PatientId;
     /// A pending invitation to join a clinic.
     Invitation, InvitationId;
+    /// A message queued in the outbox.
+    Message, MessageId;
+    /// A sign-in session.
+    Session, SessionId;
 }

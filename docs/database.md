@@ -2058,17 +2058,26 @@ Each use of a promo code on a bill.
 
 ### `outbox_events` (★ foundation)
 
-Events written in the same transaction as the change, for the worker to act on.
+Messages to send because of a change, written in the same transaction as the change, for the worker to deliver.
 
 *Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: ephemeral*
 
 | Column | Type | Notes |
 |---|---|---|
-| `event_key` | `text` | appointment.booked, invoice.paid, report.uploaded |
-| `payload` | `jsonb` | ids only, no patient details |
+| `event_key` | `text` | staff.invited; later appointment.booked, invoice.paid |
+| `channel` | `channel` | email for now |
+| `recipient` | `text?` | a staff address; patient messages will carry the patient's id in the payload |
+| `payload` | `jsonb` | ids and non-patient template values, never patient details |
+| `secret` | `text?` | a one-time link secret, cleared once sent or abandoned |
+| `status` | `outbox_status` | pending, sent, failed |
+| `attempts` | `int` |  |
+| `next_attempt_at` | `timestamptz` | when due, or when a worker's lease ends |
+| `last_error` | `text?` | short reason, no message content |
+| `provider` | `text?` | log, resend |
+| `provider_message_id` | `text?` |  |
 | `processed_at` | `timestamptz?` |  |
 
-Guarantees a message is never lost or sent for a change that rolled back.
+Guarantees a message is never lost or sent for a change that rolled back. The worker claims due rows across clinics with FOR UPDATE SKIP LOCKED through app.outbox_claim, retries with backoff, gives up after 5 attempts, and deletes rows 30 days after processing.
 
 ### `messages` (partitioned)
 

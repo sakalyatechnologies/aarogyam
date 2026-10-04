@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.outbox_failed($1, $2, $3, $4)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "outbox_failed",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5eb57ab2ff12c84507a6684e0416fee1b4b343caca528c5eaa3bb9e4a628c801"
+}

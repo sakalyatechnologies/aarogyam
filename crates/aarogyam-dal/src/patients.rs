@@ -118,6 +118,82 @@ pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<PatientRow>
     Ok(row)
 }
 
+/// The patient with `id` in the current clinic, unless deleted, locked until the transaction
+/// ends so a concurrent edit can't overwrite this one's changes.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn get_for_update(
+    conn: &mut PgConnection,
+    id: Uuid,
+) -> Result<Option<PatientRow>, DbError> {
+    let row = sqlx::query_as!(
+        PatientRow,
+        r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
+                  preferred_language, status, created_at, last_visit_at
+           from aarogyam.patients
+           where id = $1 and deleted_at is null
+           for update"#,
+        id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// A patient's editable details, all of them, as they should be stored. The caller has
+/// validated them in the domain layer.
+#[derive(Debug, Clone)]
+pub struct PatientDetails<'a> {
+    /// Normalised full name.
+    pub full_name: &'a str,
+    /// Sex value.
+    pub sex: &'a str,
+    /// Date of birth.
+    pub date_of_birth: Option<Date>,
+    /// Whether it was estimated from an age.
+    pub birth_date_estimated: bool,
+    /// Phone in `E.164`.
+    pub phone_e164: Option<&'a str>,
+    /// Lower-cased email.
+    pub email: Option<&'a str>,
+    /// Language tag.
+    pub preferred_language: &'a str,
+}
+
+/// Saves a patient's details and returns the stored row. The change history records what
+/// changed through the table's audit trigger.
+///
+/// # Errors
+/// [`DbError`] on a database failure; [`sakalya_db::DbErrorKind::NotFound`] when the patient
+/// is not in this clinic.
+pub async fn update(
+    conn: &mut PgConnection,
+    id: Uuid,
+    details: &PatientDetails<'_>,
+) -> Result<PatientRow, DbError> {
+    let row = sqlx::query_as!(
+        PatientRow,
+        r#"update aarogyam.patients
+           set full_name = $2, sex = $3, date_of_birth = $4, birth_date_estimated = $5,
+               phone_e164 = $6, email = $7, preferred_language = $8
+           where id = $1 and deleted_at is null
+           returning id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
+                     preferred_language, status, created_at, last_visit_at"#,
+        id,
+        details.full_name,
+        details.sex,
+        details.date_of_birth,
+        details.birth_date_estimated,
+        details.phone_e164,
+        details.email,
+        details.preferred_language
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(row)
+}
+
 /// The patient with this readable number in the current clinic, unless deleted.
 ///
 /// # Errors

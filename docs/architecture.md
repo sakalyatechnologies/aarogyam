@@ -42,7 +42,7 @@ Crates split further by module (patients, appointments, billing) only when build
 2. `sakalya-http` rejects requests without the edge secret (except `/healthz`), assigns a request ID, and opens the request span. Locally there is no edge: the real `Host` header is used.
 3. `app.resolve_host` turns `smilecatchers.aarogyam.example` into a clinic (cached briefly). Unknown or unverified hosts get `404`.
 4. `sakalya-auth` verifies the Supabase JWT (ES256 against cached keys) and rejects anonymous sessions.
-5. `app.authorize` returns, in one round trip, the user, their membership and role in this clinic, the role's permissions, and whether the session was revoked (cached about 30 seconds). Not a member, suspended, or revoked: `404`/`403`.
+5. `app.authorize` returns, in one round trip, the user, their membership and role in this clinic, the role's permissions, and whether the session was revoked (cached about 30 seconds). Not a member or suspended: `404`; a revoked session: `401`; a disabled account: `403`. Changing a membership or revoking a session drops the cached answers for it on the instance that made the change, so it applies to the next request there; other instances may answer from their cache until it expires. Routes without a clinic (`/me`, invitations, the console) check revocation with `app.session_revoked`.
 6. The route's permission extractor (`Require<PatientsRead>`) checks the permission, then the plan and feature flags.
 7. The handler calls a use case in `aarogyam-app`, which opens a `ClinicTx`: one statement starts the transaction, switches to `app_user` and sets the clinic, user and request ID, so row-level security limits every query to this clinic.
 8. Reading a patient's record writes an access record row. Changes write the change history through triggers.
@@ -54,7 +54,7 @@ Crates split further by module (patients, appointments, billing) only when build
 - **Clinic from the host only.** Never from a header the client controls, a path segment or the body. The phone apps first call the neutral host (`app.aarogyam.example/api/v1/me`) to list the user's clinics, then call that clinic's own host.
 - **The database.** The API logs in as `aarogyam_api`, which can do nothing on its own: clinic data only inside a `ClinicTx` (as `app_user`, under row-level security), and before the clinic is known only the three lookup functions. Migrations run as the owner. See `data-model.md`.
 - **The console** sits behind Cloudflare Access, and the API also checks the caller's platform role.
-- **Background jobs.** Cloud Scheduler calls `/internal/…` endpoints with a Google-signed token; the worker claims outbox rows with `FOR UPDATE SKIP LOCKED`. The live queue screen polls with ETags instead of holding connections open.
+- **Background jobs.** Cloud Scheduler calls `/internal/…` endpoints with a Google-signed token; the worker claims outbox rows with `FOR UPDATE SKIP LOCKED`. Until the API checks that token, the outbox drain (`POST /api/v1/internal/outbox/drain`) exists only in the local environment, like the development sign-in. Email goes through Resend when `ARO_EMAIL__RESEND_API_KEY` is set; otherwise the log channel records it as delivered and logs ids only. The live queue screen polls with ETags instead of holding connections open.
 
 ## Database connections
 

@@ -3,33 +3,49 @@
 //! (Sakalya staff on the console host) or [`crate::extract::SignedIn`] (anyone signed in).
 
 pub(crate) mod console;
+pub(crate) mod internal;
 pub(crate) mod invitations;
 pub(crate) mod me;
 pub(crate) mod patients;
+pub(crate) mod settings;
+pub(crate) mod staff;
 
 use axum::Router;
-use axum::routing::{get, post};
+use axum::routing::{get, patch, post};
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
 use crate::AppState;
 
-/// The version 1 routes. `local_dev` adds the development sign-in route.
+/// The version 1 routes. `local_dev` adds the development sign-in and the outbox drain, which
+/// deployed servers don't have until Cloud Scheduler's signed calls are checked.
 pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
     let router = Router::new()
         .route("/me", get(me::me))
+        .route("/me/sessions", get(me::sessions))
+        .route("/me/sessions/{id}/revoke", post(me::revoke_session))
         .route("/session", get(me::session))
         .route("/invitations/accept", post(invitations::accept))
         .route("/patients", get(patients::recent).post(patients::register))
         .route("/patients/search", post(patients::search))
-        .route("/patients/{id}", get(patients::open))
+        .route("/patients/{id}", get(patients::open).patch(patients::edit))
+        .route("/staff", get(staff::list))
+        .route("/staff/invitations", post(staff::invite))
+        .route("/staff/{membership_id}", patch(staff::change))
+        .route("/roles", get(staff::roles))
+        .route(
+            "/settings/clinic",
+            get(settings::get_clinic).patch(settings::update_clinic),
+        )
         .route(
             "/console/clinics",
             get(console::clinics).post(console::create_clinic),
         )
         .route("/console/metrics", get(console::metrics));
     if local_dev {
-        router.route("/dev/token", post(crate::dev::token))
+        router
+            .route("/dev/token", post(crate::dev::token))
+            .route("/internal/outbox/drain", post(internal::drain_outbox))
     } else {
         router
     }

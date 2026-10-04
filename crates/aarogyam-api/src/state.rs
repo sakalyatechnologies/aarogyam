@@ -5,8 +5,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use aarogyam_dal::lookups::{self, HostClinic};
+use aarogyam_dal::sessions;
 use aarogyam_domain::access::Authorization;
-use aarogyam_domain::ids::ClinicId;
+use aarogyam_domain::ids::{ClinicId, MembershipId};
+use aarogyam_notify::{Notifier, PortalLinks};
 use axum::http::HeaderMap;
 use sakalya_auth::{Claims, JwtVerifier, bearer_token};
 use sakalya_db::Db;
@@ -64,6 +66,7 @@ struct Inner {
     grant_cache: TtlCache<(Uuid, Uuid, Uuid), Option<Authorization>>,
     metrics: Arc<ServiceMetrics>,
     throttle: Option<Throttle>,
+    notifier: Notifier,
 }
 
 /// Shared state; cheap to clone.
@@ -86,6 +89,7 @@ impl AppState {
                 grant_cache: TtlCache::new(CACHE_TTL, CACHE_CAPACITY),
                 metrics: Arc::new(ServiceMetrics::new()),
                 throttle: None,
+                notifier: Notifier::log(PortalLinks::default()),
             }),
         }
     }
@@ -98,6 +102,20 @@ impl AppState {
             inner.throttle = Some(throttle);
         }
         self
+    }
+
+    /// Replaces the notifier, which by default records email to the log only. Call before the
+    /// state is shared (cloned); afterwards it has no effect.
+    #[must_use]
+    pub fn with_notifier(mut self, notifier: Notifier) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.notifier = notifier;
+        }
+        self
+    }
+
+    pub(crate) fn notifier(&self) -> &Notifier {
+        &self.inner.notifier
     }
 
     pub(crate) fn throttle(&self) -> Option<&Throttle> {
@@ -135,6 +153,41 @@ impl AppState {
     pub(crate) async fn claims(&self, headers: &HeaderMap) -> Result<Claims, ApiFailure> {
         let token = bearer_token(headers).ok_or_else(ApiError::unauthenticated)?;
         Ok(self.inner.tokens.verifier().verify(token).await?)
+    }
+
+    /// Verifies the bearer token and refuses a revoked session. For routes that don't go through
+    /// [`Self::authorization`], which reports revocation itself.
+    pub(crate) async fn live_claims(&self, headers: &HeaderMap) -> Result<Claims, ApiFailure> {
+        let claims = self.claims(headers).await?;
+        let session = claims.session_id().ok_or_else(ApiError::unauthenticated)?;
+        if sessions::is_revoked(self.inner.db.pool(), claims.subject().uuid(), session).await? {
+            return Err(ApiFailure(ApiError::unauthenticated()));
+        }
+        Ok(claims)
+    }
+
+    /// Forgets what was cached for a sign-in session, so its revocation applies to the next
+    /// request rather than when the cache entry expires.
+    ///
+    /// The cache is per instance: another instance may serve its own entry for up to
+    /// [`CACHE_TTL`]. Locally and with one instance that is never the case.
+    pub(crate) fn forget_session(&self, provider_session_id: Uuid) {
+        self.inner
+            .grant_cache
+            .remove_where(|(_, _, session), _| *session == provider_session_id);
+    }
+
+    /// Forgets what was cached for a membership, so a role or status change applies to the
+    /// member's next request. Per instance, like [`Self::forget_session`].
+    pub(crate) fn forget_membership(&self, clinic_id: ClinicId, membership_id: MembershipId) {
+        self.inner
+            .grant_cache
+            .remove_where(|(clinic, _, _), found| {
+                *clinic == clinic_id.uuid()
+                    && found
+                        .as_ref()
+                        .is_some_and(|grant| grant.membership_id == membership_id)
+            });
     }
 
     /// The clinic a host belongs to, cached briefly.

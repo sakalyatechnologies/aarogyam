@@ -56,6 +56,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/internal/outbox/drain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delivers due outbox messages across clinics (local development only; later Cloud
+         *     Scheduler with a Google-signed token).
+         */
+        post: operations["drain_outbox"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invitations/accept": {
         parameters: {
             query?: never;
@@ -87,6 +107,40 @@ export interface paths {
         get: operations["me"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Where the signed-in person is signed in: their sessions that are neither revoked nor expired. */
+        get: operations["sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/sessions/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Signs one of the person's own sessions out. Its next request gets `401`, on every host. */
+        post: operations["revoke_session"];
         delete?: never;
         options?: never;
         head?: never;
@@ -145,6 +199,27 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /**
+         * Edits a patient's details with the same rules as registration. Changing the phone or email
+         *     also needs `patients.contact`. The change history records each change.
+         */
+        patch: operations["edit"];
+        trace?: never;
+    };
+    "/api/v1/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's roles and the permissions each holds, for choosing a role. */
+        get: operations["roles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -166,6 +241,85 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/clinic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The clinic's settings: profile, GSTIN, time zone, branding, prescription footer, address,
+         *     phone and UPI ID.
+         */
+        get: operations["get_clinic"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Changes the clinic's settings. The change history records each change. */
+        patch: operations["update_clinic"];
+        trace?: never;
+    };
+    "/api/v1/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's members, with their roles, status and branches, and pending invitations. */
+        get: operations["list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invites someone to the staff and emails them the link (through the outbox). Only owners
+         *     may invite owners.
+         */
+        post: operations["invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/{membership_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Changes a member's role or status. Takes effect on the member's next request. Nobody
+         *     changes their own role, only owners make or change owners, and the last active owner
+         *     can't be suspended, removed or demoted.
+         */
+        patch: operations["change"];
         trace?: never;
     };
     "/healthz": {
@@ -198,6 +352,70 @@ export interface components {
             display_name?: string | null;
             /** @description The secret from the invitation link. */
             token: string;
+        };
+        /** @description A postal address. Every part is optional. */
+        Address: {
+            /** @description City or town. */
+            city?: string | null;
+            /** @description House, building and street. */
+            line1?: string | null;
+            /** @description Area or landmark. */
+            line2?: string | null;
+            /** @description Six-digit PIN code. */
+            pincode?: string | null;
+            /** @description State or union territory. */
+            state?: string | null;
+        };
+        /** @description The portal's look. */
+        Branding: {
+            /** @description Brand colour, `#RRGGBB`. */
+            brand?: string | null;
+            /** @description `light` or `dark`. */
+            mode?: string | null;
+        };
+        /** @description The clinic's settings. */
+        ClinicSettings: {
+            /** @description The main branch's address. */
+            address: components["schemas"]["Address"];
+            /** @description The portal's look. */
+            branding: components["schemas"]["Branding"];
+            /** @description GST identification number. */
+            gstin?: string | null;
+            /** @description Registered legal name, for bills. */
+            legal_name?: string | null;
+            /** @description Display name. */
+            name: string;
+            /** @description The main branch's phone. */
+            phone?: string | null;
+            /** @description Footer printed on prescriptions. */
+            prescription_footer?: string | null;
+            /** @description IANA time zone; `Asia/Kolkata` is the only one supported. */
+            timezone: string;
+            /** @description UPI ID shown on bills, such as `clinic@okicici`. */
+            upi_id?: string | null;
+        };
+        /**
+         * @description Changes to the settings. Settings left out stay as they are; an empty string clears an
+         *     optional one. Branding changes only the keys given; a given address replaces the whole
+         *     address.
+         */
+        ClinicSettingsChanges: {
+            address?: components["schemas"]["Address"] | null;
+            branding?: components["schemas"]["Branding"] | null;
+            /** @description GSTIN, checked including its check character. */
+            gstin?: string | null;
+            /** @description Registered legal name. */
+            legal_name?: string | null;
+            /** @description Display name, 1 to 200 characters. */
+            name?: string | null;
+            /** @description The main branch's phone; +91 is assumed without a country code. */
+            phone?: string | null;
+            /** @description Footer printed on prescriptions, up to 500 characters. */
+            prescription_footer?: string | null;
+            /** @description IANA time zone: `Asia/Kolkata`. */
+            timezone?: string | null;
+            /** @description UPI ID, like `name@bank`. */
+            upi_id?: string | null;
         };
         /** @description A clinic, with counts only. */
         ConsoleClinic: {
@@ -246,6 +464,22 @@ export interface components {
             /** @description Its subdomain. */
             slug: string;
         };
+        /** @description An invitation just sent. `invite_token` is shown once; only its hash is stored. */
+        CreatedInvitation: {
+            /** @description Who was invited. */
+            email: string;
+            /** @description When it expires (RFC 3339). */
+            expires_at: string;
+            /** @description The invitation. */
+            id: string;
+            /**
+             * @description The secret for the invitation link (`https://<clinic host>/invite#<token>`), also
+             *     emailed to the invitee.
+             */
+            invite_token: string;
+            /** @description The role they will get. */
+            role_key: string;
+        };
         /** @description Who to sign in as. */
         DevTokenRequest: {
             /** @description The person's Supabase Auth id (`users.auth_uid`), from the local seed. */
@@ -263,6 +497,24 @@ export interface components {
              */
             expires_in: number;
         };
+        /** @description What one drain did. */
+        DrainReport: {
+            /** @description Messages claimed. */
+            claimed: number;
+            /** @description `resend`, or `log` when no Resend key is configured. */
+            email_provider: string;
+            /** @description Failed for the last time. */
+            failed: number;
+            /**
+             * Format: int64
+             * @description Old processed messages deleted.
+             */
+            purged: number;
+            /** @description Failed, to be tried again later. */
+            retrying: number;
+            /** @description Delivered. */
+            sent: number;
+        };
         /** @description The clinic just joined. */
         Joined: {
             /** @description The new membership. */
@@ -274,6 +526,39 @@ export interface components {
         Me: {
             /** @description Clinics they are invited to or active in, by name. */
             clinics: components["schemas"]["MyClinic"][];
+        };
+        /** @description A member of staff. */
+        Member: {
+            /** @description Branches they work at; empty means every branch. */
+            branches: components["schemas"]["MemberBranch"][];
+            /** @description Their name. */
+            display_name: string;
+            /** @description The membership. */
+            id: string;
+            /** @description When they joined (RFC 3339). */
+            joined_at?: string | null;
+            /** @description Role key, such as `front_desk`. */
+            role_key: string;
+            /** @description Role name, such as `Front desk`. */
+            role_name: string;
+            /** @description `invited`, `active`, `suspended` or `left`. */
+            status: string;
+            /** @description The person. */
+            user_id: string;
+        };
+        /** @description A branch a member works at. */
+        MemberBranch: {
+            /** @description The branch. */
+            id: string;
+            /** @description Its name. */
+            name: string;
+        };
+        /** @description A change to a member. Fields left out stay as they are. */
+        MemberChanges: {
+            /** @description The new role key. */
+            role_key?: string | null;
+            /** @description `active` (reactivate), `suspended` or `left`. */
+            status?: string | null;
         };
         /** @description A clinic the person belongs to. */
         MyClinic: {
@@ -290,6 +575,26 @@ export interface components {
             /** @description Its subdomain. */
             slug: string;
         };
+        /** @description A device or browser where the person is signed in. */
+        MySession: {
+            /** @description `clinic`, `patient` or `platform`. */
+            audience: string;
+            /** @description When it was first seen (RFC 3339). */
+            created_at: string;
+            /** @description Whether this is the session making the request. */
+            current: boolean;
+            /** @description When its current token expires (RFC 3339). */
+            expires_at: string;
+            /** @description The session. */
+            id: string;
+            /** @description When it was last used, to within a few minutes (RFC 3339). */
+            last_active_at: string;
+        };
+        /** @description The person's active sessions. */
+        MySessions: {
+            /** @description Most recently used first. */
+            items: components["schemas"]["MySession"][];
+        };
         /** @description A clinic to create. */
         NewClinic: {
             /** @description The clinic's name. */
@@ -300,6 +605,13 @@ export interface components {
             slug?: string | null;
             /** @description `dental` (default) or `general`. */
             specialty?: string | null;
+        };
+        /** @description Someone to invite. */
+        NewInvitation: {
+            /** @description Their email; they sign in with it to accept. */
+            email: string;
+            /** @description The role they will get, such as `doctor`. */
+            role_key: string;
         };
         /** @description A patient to register. */
         NewPatient: {
@@ -353,10 +665,73 @@ export interface components {
             /** @description `active`, `inactive`, `deceased` or `merged`. */
             status: string;
         };
+        /**
+         * @description Changes to a patient. Fields left out stay as they are; an empty `phone`, `email` or
+         *     `date_of_birth` clears it.
+         */
+        PatientChanges: {
+            /**
+             * Format: int32
+             * @description Age in years when the date of birth is unknown.
+             */
+            age_years?: number | null;
+            /** @description Date of birth (`YYYY-MM-DD`), or empty to clear it; give this or `age_years`. */
+            date_of_birth?: string | null;
+            /** @description Email, or empty to clear it; needs `patients.contact`. */
+            email?: string | null;
+            /** @description Full name, 1 to 200 characters. */
+            full_name?: string | null;
+            /** @description Phone, or empty to clear it; needs `patients.contact`. */
+            phone?: string | null;
+            /** @description Language tag such as `mr-IN`. */
+            preferred_language?: string | null;
+            /** @description `female`, `male`, `other` or `unknown`. */
+            sex?: string | null;
+        };
         /** @description Search results. */
         PatientList: {
             /** @description Matching patients, best first. */
             items: components["schemas"]["Patient"][];
+        };
+        /** @description An invitation not yet accepted. */
+        PendingInvitation: {
+            /** @description When it was sent (RFC 3339). */
+            created_at: string;
+            /** @description Who was invited. */
+            email?: string | null;
+            /** @description When it expires (RFC 3339). */
+            expires_at: string;
+            /** @description The invitation. */
+            id: string;
+            /** @description The role they will get. */
+            role_key: string;
+        };
+        /** @description A role. */
+        Role: {
+            /** @description What it is for. */
+            description?: string | null;
+            /** @description The role. */
+            id: string;
+            /** @description Whether it is one of the standard roles. */
+            is_template: boolean;
+            /** @description Key, such as `doctor`. */
+            key: string;
+            /** @description Name, such as `Doctor`. */
+            name: string;
+            /** @description What it may do. */
+            permissions: components["schemas"]["RolePermission"][];
+        };
+        /** @description A permission a role holds. */
+        RolePermission: {
+            /** @description Permission key, such as `patients.read`. */
+            key: string;
+            /** @description `all`, `own` or `assigned`. */
+            scope: string;
+        };
+        /** @description The clinic's roles. */
+        Roles: {
+            /** @description Standard roles first, then by name. */
+            items: components["schemas"]["Role"][];
         };
         /** @description What to search for. Sent in the body, never the URL: search terms are names and phone numbers. */
         SearchRequest: {
@@ -421,6 +796,13 @@ export interface components {
             display_name: string;
             /** @description The user. */
             id: string;
+        };
+        /** @description The clinic's staff. */
+        Staff: {
+            /** @description Invitations neither accepted nor expired, newest first. */
+            invitations: components["schemas"]["PendingInvitation"][];
+            /** @description Members, active first, then by name. */
+            members: components["schemas"]["Member"][];
         };
     };
     responses: never;
@@ -561,6 +943,25 @@ export interface operations {
             };
         };
     };
+    drain_outbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrainReport"];
+                };
+            };
+        };
+    };
     accept: {
         parameters: {
             query?: never;
@@ -624,6 +1025,67 @@ export interface operations {
             };
             /** @description Not signed in */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySessions"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revoke_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The session */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not one of the person's sessions */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -802,6 +1264,100 @@ export interface operations {
             };
         };
     };
+    edit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Patient"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write, or patients.contact for phone or email */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    roles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Roles"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks staff.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     session: {
         parameters: {
             query?: never;
@@ -828,6 +1384,249 @@ export interface operations {
             };
             /** @description Not a clinic, or not a member of it */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_clinic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicSettings"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_clinic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClinicSettingsChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicSettings"];
+                };
+            };
+            /** @description Invalid input; the message names the setting */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Staff"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks staff.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewInvitation"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedInvitation"];
+                };
+            };
+            /** @description Invalid email or unknown role */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks staff.manage, or a non-owner invited an owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    change: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The membership */
+                membership_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            /** @description Unknown role or status */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks staff.manage, or only an owner may do this */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such member in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Your own role, or the last active owner */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

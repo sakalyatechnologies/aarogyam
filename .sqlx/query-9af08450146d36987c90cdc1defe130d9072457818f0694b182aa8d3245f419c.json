@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.memberships m\n           set role_id = r.id, status = $3,\n               joined_at = case when $3 = 'active' then coalesce(m.joined_at, now()) else m.joined_at end\n           from aarogyam.roles r\n           where m.id = $1 and r.org_id = m.org_id and r.key = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9af08450146d36987c90cdc1defe130d9072457818f0694b182aa8d3245f419c"
+}

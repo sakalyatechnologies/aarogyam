@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.branches\n               set address = $2, phone_e164 = $3\n               where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f77edd0d305120b6e17c9be05f8c8f66736ffba90b769260ad34ee052c13a20d"
+}

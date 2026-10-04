@@ -1,0 +1,26 @@
+[package]
+name = "aarogyam-notify"
+description = "Delivers the outbox: message templates, channels (email by Resend, or a local log), retries."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dependencies]
+aarogyam-dal = { path = "../aarogyam-dal" }
+aarogyam-domain = { path = "../aarogyam-domain" }
+reqwest.workspace = true
+sakalya-db.workspace = true
+secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+uuid.workspace = true
+
+[lints]
+workspace = true

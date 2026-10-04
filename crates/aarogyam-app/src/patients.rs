@@ -5,37 +5,22 @@ use aarogyam_dal::{clinic, patients};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::ids::PatientId;
 use aarogyam_domain::patient::{
-    BirthDate, Email, Language, NewPatient, NumberPrefix, PatientNumber, PersonName, Sex,
+    BirthDate, Email, Language, NewPatient, NumberPrefix, PatientError, PatientNumber, PersonName,
+    Sex,
 };
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::search::PatientQuery;
-use sakalya_db::{ActorKind, Db, Scope};
+use sakalya_db::Db;
 use sakalya_types::{CallingCode, PhoneE164};
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
-
-// Evaluated at compile time: a bad literal fails the build, never a request.
-const STAFF: ActorKind = match ActorKind::new("staff") {
-    Ok(kind) => kind,
-    Err(_) => panic!("invalid actor kind"),
-};
+use crate::scope::{STAFF, staff_scope as scope};
 
 /// Most results a search returns.
 pub const MAX_RESULTS: i64 = 50;
-
-/// The clinic transaction scope for a member's request.
-fn scope(actor: &ClinicActor, request_id: Option<Uuid>) -> Scope {
-    let scope = Scope::tenant(actor.clinic_id.uuid())
-        .with_user(actor.user_id.uuid())
-        .with_actor_kind(STAFF);
-    match request_id {
-        Some(id) => scope.with_request_id(id),
-        None => scope,
-    }
-}
 
 /// A patient as the API shows it. Contact details are masked unless the member's role has
 /// `patients.contact`.
@@ -88,38 +73,62 @@ pub struct RegisterPatient {
     pub preferred_language: Option<String>,
 }
 
+fn parse_birth_date(
+    date_of_birth: Option<Date>,
+    age_years: Option<u16>,
+    today: Date,
+) -> Result<Option<BirthDate>, AppError> {
+    match (date_of_birth, age_years) {
+        (Some(_), Some(_)) => Err(AppError::patient(PatientError::BirthDateAndAge)),
+        (Some(date), None) => Ok(Some(
+            BirthDate::exact(date, today).map_err(AppError::patient)?,
+        )),
+        (None, Some(age)) => Ok(Some(
+            BirthDate::from_age(age, today).map_err(AppError::patient)?,
+        )),
+        (None, None) => Ok(None),
+    }
+}
+
+/// A phone in any common Indian format; empty means none.
+fn parse_phone(text: &str) -> Result<Option<PhoneE164>, AppError> {
+    let text = text.trim();
+    if text.is_empty() {
+        return Ok(None);
+    }
+    PhoneE164::parse_with_default(text, CallingCode::INDIA)
+        .map(Some)
+        .map_err(|error| AppError::invalid("phone", error))
+}
+
+/// An email; empty means none.
+fn parse_email(text: &str) -> Result<Option<Email>, AppError> {
+    let text = text.trim();
+    if text.is_empty() {
+        return Ok(None);
+    }
+    Email::parse(text).map(Some).map_err(AppError::patient)
+}
+
 fn validate(input: &RegisterPatient, today: Date) -> Result<NewPatient, AppError> {
     let full_name = PersonName::parse(&input.full_name).map_err(AppError::patient)?;
     let sex = match &input.sex {
         Some(text) => Sex::parse(text).map_err(AppError::patient)?,
         None => Sex::Unknown,
     };
-    let birth_date = match (input.date_of_birth, input.age_years) {
-        (Some(_), Some(_)) => {
-            return Err(AppError::patient(
-                aarogyam_domain::patient::PatientError::BirthDateAndAge,
-            ));
-        }
-        (Some(date), None) => Some(BirthDate::exact(date, today).map_err(AppError::patient)?),
-        (None, Some(age)) => Some(BirthDate::from_age(age, today).map_err(AppError::patient)?),
-        (None, None) => None,
-    };
+    let birth_date = parse_birth_date(input.date_of_birth, input.age_years, today)?;
     let phone = input
         .phone
         .as_deref()
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-        .map(|text| PhoneE164::parse_with_default(text, CallingCode::INDIA))
-        .transpose()
-        .map_err(|error| AppError::invalid("phone", error))?;
+        .map(parse_phone)
+        .transpose()?
+        .flatten();
     let email = input
         .email
         .as_deref()
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-        .map(Email::parse)
-        .transpose()
-        .map_err(AppError::patient)?;
+        .map(parse_email)
+        .transpose()?
+        .flatten();
     let preferred_language = match &input.preferred_language {
         Some(text) => Language::parse(text).map_err(AppError::patient)?,
         None => Language::english_india(),
@@ -129,6 +138,104 @@ fn validate(input: &RegisterPatient, today: Date) -> Result<NewPatient, AppError
         sex,
         birth_date,
         phone,
+        email,
+        preferred_language,
+    })
+}
+
+/// Changes to a patient's details, as received. `None` leaves a field as it is. An empty phone
+/// or email clears it; `Some(None)` clears the date of birth.
+#[derive(Debug, Clone, Default)]
+pub struct EditPatient {
+    /// Full name.
+    pub full_name: Option<String>,
+    /// `female`, `male`, `other` or `unknown`.
+    pub sex: Option<String>,
+    /// Date of birth; `Some(None)` clears it.
+    pub date_of_birth: Option<Option<Date>>,
+    /// Age in years, when the date of birth is unknown.
+    pub age_years: Option<u16>,
+    /// Phone; needs `patients.contact`.
+    pub phone: Option<String>,
+    /// Email; needs `patients.contact`.
+    pub email: Option<String>,
+    /// Language tag such as `hi-IN`.
+    pub preferred_language: Option<String>,
+}
+
+impl EditPatient {
+    /// Whether the edit touches contact details, which needs `patients.contact`. Presence is
+    /// what counts, not difference: otherwise a member who sees masked numbers could test
+    /// guesses against the stored value.
+    #[must_use]
+    pub const fn touches_contact(&self) -> bool {
+        self.phone.is_some() || self.email.is_some()
+    }
+}
+
+/// A patient's details after an edit, validated like a registration.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Edited {
+    full_name: String,
+    sex: String,
+    date_of_birth: Option<Date>,
+    birth_date_estimated: bool,
+    phone_e164: Option<String>,
+    email: Option<String>,
+    preferred_language: String,
+}
+
+fn apply_edit(
+    current: &patients::PatientRow,
+    edit: &EditPatient,
+    today: Date,
+) -> Result<Edited, AppError> {
+    let full_name = match &edit.full_name {
+        Some(text) => PersonName::parse(text)
+            .map_err(AppError::patient)?
+            .as_str()
+            .to_owned(),
+        None => current.full_name.clone(),
+    };
+    let sex = match &edit.sex {
+        Some(text) => Sex::parse(text)
+            .map_err(AppError::patient)?
+            .as_str()
+            .to_owned(),
+        None => current.sex.clone(),
+    };
+    let (date_of_birth, birth_date_estimated) = match (edit.date_of_birth, edit.age_years) {
+        (None, None) => (current.date_of_birth, current.birth_date_estimated),
+        (Some(None), None) => (None, false),
+        (date, age) => {
+            let birth_date = parse_birth_date(date.flatten(), age, today)?;
+            (
+                birth_date.map(BirthDate::date),
+                birth_date.is_some_and(BirthDate::is_estimated),
+            )
+        }
+    };
+    let phone_e164 = match &edit.phone {
+        Some(text) => parse_phone(text)?.map(|phone| phone.as_e164().to_owned()),
+        None => current.phone_e164.clone(),
+    };
+    let email = match &edit.email {
+        Some(text) => parse_email(text)?.map(|email| email.as_str().to_owned()),
+        None => current.email.clone(),
+    };
+    let preferred_language = match &edit.preferred_language {
+        Some(text) => Language::parse(text)
+            .map_err(AppError::patient)?
+            .as_str()
+            .to_owned(),
+        None => current.preferred_language.clone(),
+    };
+    Ok(Edited {
+        full_name,
+        sex,
+        date_of_birth,
+        birth_date_estimated,
+        phone_e164,
         email,
         preferred_language,
     })
@@ -215,6 +322,52 @@ pub async fn register(
                 phone_e164: patient.phone.as_ref().map(PhoneE164::as_e164),
                 email: patient.email.as_ref().map(Email::as_str),
                 preferred_language: patient.preferred_language.as_str(),
+            },
+        )
+        .await?;
+        Ok(view(row, actor, today))
+    })
+    .await
+}
+
+/// Edits a patient's details with the same rules as registration. Changing the phone or email
+/// also needs `patients.contact`. The change history records what changed.
+///
+/// # Errors
+/// [`AppError::Denied`] without the permissions; [`AppError::NotFound`] when the patient isn't
+/// in this clinic; [`AppError::Invalid`] for bad input; [`AppError::Db`] on database failures.
+pub async fn edit(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    patient_id: PatientId,
+    input: EditPatient,
+    now: OffsetDateTime,
+) -> Result<PatientView, AppError> {
+    actor.require(Permission::PatientsWrite)?;
+    if input.touches_contact() {
+        actor.require(Permission::PatientsContact)?;
+    }
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let profile = clinic::profile(tx.conn())
+            .await?
+            .ok_or(AppError::NotFound("clinic"))?;
+        let today = clinic_today(&profile.timezone, now);
+        let current = patients::get_for_update(tx.conn(), patient_id.uuid())
+            .await?
+            .ok_or(AppError::NotFound("patient"))?;
+        let edited = apply_edit(&current, &input, today)?;
+        let row = patients::update(
+            tx.conn(),
+            current.id,
+            &patients::PatientDetails {
+                full_name: &edited.full_name,
+                sex: &edited.sex,
+                date_of_birth: edited.date_of_birth,
+                birth_date_estimated: edited.birth_date_estimated,
+                phone_e164: edited.phone_e164.as_deref(),
+                email: edited.email.as_deref(),
+                preferred_language: &edited.preferred_language,
             },
         )
         .await?;
@@ -396,6 +549,118 @@ mod tests {
             validate(&bad_phone, today),
             Err(AppError::Invalid { field: "phone", .. })
         ));
+    }
+
+    fn stored() -> patients::PatientRow {
+        patients::PatientRow {
+            id: Uuid::nil(),
+            number: "AD-1".into(),
+            full_name: "Priya Sharma".into(),
+            sex: "female".into(),
+            date_of_birth: Some(date!(1990 - 05 - 01)),
+            birth_date_estimated: false,
+            phone_e164: Some("+919876543210".into()),
+            email: Some("priya@example.in".into()),
+            preferred_language: "en-IN".into(),
+            status: "active".into(),
+            created_at: OffsetDateTime::UNIX_EPOCH,
+            last_visit_at: None,
+        }
+    }
+
+    #[test]
+    fn edits_change_only_what_was_given() {
+        let today = date!(2026 - 10 - 03);
+        let current = stored();
+        let unchanged = apply_edit(&current, &EditPatient::default(), today).unwrap();
+        assert_eq!(unchanged.full_name, "Priya Sharma");
+        assert_eq!(unchanged.phone_e164.as_deref(), Some("+919876543210"));
+        assert_eq!(unchanged.date_of_birth, Some(date!(1990 - 05 - 01)));
+
+        let edit = EditPatient {
+            full_name: Some(" Priya  S ".into()),
+            age_years: Some(40),
+            phone: Some(String::new()),
+            email: Some("P@Example.in".into()),
+            preferred_language: Some("hi-IN".into()),
+            ..EditPatient::default()
+        };
+        assert!(edit.touches_contact());
+        let edited = apply_edit(&current, &edit, today).unwrap();
+        assert_eq!(edited.full_name, "Priya S");
+        assert!(edited.birth_date_estimated);
+        assert_eq!(edited.phone_e164, None);
+        assert_eq!(edited.email.as_deref(), Some("p@example.in"));
+        assert_eq!(edited.preferred_language, "hi-IN");
+        assert_eq!(edited.sex, "female");
+
+        let cleared = EditPatient {
+            date_of_birth: Some(None),
+            ..EditPatient::default()
+        };
+        assert!(!cleared.touches_contact());
+        let edited = apply_edit(&current, &cleared, today).unwrap();
+        assert_eq!(
+            (edited.date_of_birth, edited.birth_date_estimated),
+            (None, false)
+        );
+    }
+
+    #[test]
+    fn edits_are_validated_like_registrations() {
+        let today = date!(2026 - 10 - 03);
+        let current = stored();
+        let cases = [
+            (
+                EditPatient {
+                    full_name: Some("  ".into()),
+                    ..EditPatient::default()
+                },
+                "full_name",
+            ),
+            (
+                EditPatient {
+                    sex: Some("robot".into()),
+                    ..EditPatient::default()
+                },
+                "sex",
+            ),
+            (
+                EditPatient {
+                    date_of_birth: Some(Some(date!(2030 - 01 - 01))),
+                    ..EditPatient::default()
+                },
+                "date_of_birth",
+            ),
+            (
+                EditPatient {
+                    date_of_birth: Some(Some(date!(1990 - 01 - 01))),
+                    age_years: Some(30),
+                    ..EditPatient::default()
+                },
+                "date_of_birth",
+            ),
+            (
+                EditPatient {
+                    phone: Some("12".into()),
+                    ..EditPatient::default()
+                },
+                "phone",
+            ),
+            (
+                EditPatient {
+                    preferred_language: Some("english".into()),
+                    ..EditPatient::default()
+                },
+                "preferred_language",
+            ),
+        ];
+        for (edit, field) in cases {
+            match apply_edit(&current, &edit, today) {
+                Err(AppError::Invalid { field: got, .. }) => assert_eq!(got, field),
+                other => panic!("{field}: {other:?}"),
+            }
+        }
     }
 
     #[test]

@@ -1,0 +1,74 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select i.id, i.email, r.key as role_key, i.expires_at, i.created_at\n           from aarogyam.invitations i\n           join aarogyam.roles r on r.org_id = i.org_id and r.id = i.role_id\n           where i.accepted_at is null and i.expires_at > now()\n           order by i.created_at desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invitations",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "email",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invitations",
+            "name": "email"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "role_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "expires_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invitations",
+            "name": "expires_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invitations",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6c4def7b474ca9dbcd75f77e1381e1974d8c147f5297d7ebe94d6fb851752ba0"
+}

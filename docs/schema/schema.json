@@ -6511,27 +6511,90 @@
   {
    "name": "outbox_events",
    "domain": "notify",
-   "purpose": "Events written in the same transaction as the change, for the worker to act on.",
+   "purpose": "Messages to send because of a change, written in the same transaction as the change, for the worker to deliver.",
    "rls": "clinic",
    "star": true,
    "partitioned": false,
    "lifecycle": "ephemeral",
    "schema": "aarogyam",
-   "notes": "Guarantees a message is never lost or sent for a change that rolled back.",
+   "notes": "Guarantees a message is never lost or sent for a change that rolled back. The worker claims due rows across clinics with FOR UPDATE SKIP LOCKED through app.outbox_claim, retries with backoff, gives up after 5 attempts, and deletes rows 30 days after processing.",
    "cols": [
     {
      "name": "event_key",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "appointment.booked, invoice.paid, report.uploaded"
+     "note": "staff.invited; later appointment.booked, invoice.paid"
+    },
+    {
+     "name": "channel",
+     "type": "channel",
+     "nullable": false,
+     "ref": null,
+     "note": "email for now"
+    },
+    {
+     "name": "recipient",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "a staff address; patient messages will carry the patient's id in the payload"
     },
     {
      "name": "payload",
      "type": "jsonb",
      "nullable": false,
      "ref": null,
-     "note": "ids only, no patient details"
+     "note": "ids and non-patient template values, never patient details"
+    },
+    {
+     "name": "secret",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "a one-time link secret, cleared once sent or abandoned"
+    },
+    {
+     "name": "status",
+     "type": "outbox_status",
+     "nullable": false,
+     "ref": null,
+     "note": "pending, sent, failed"
+    },
+    {
+     "name": "attempts",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "next_attempt_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": "when due, or when a worker's lease ends"
+    },
+    {
+     "name": "last_error",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "short reason, no message content"
+    },
+    {
+     "name": "provider",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "log, resend"
+    },
+    {
+     "name": "provider_message_id",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     },
     {
      "name": "processed_at",

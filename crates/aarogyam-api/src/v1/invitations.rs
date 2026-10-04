@@ -1,6 +1,7 @@
 //! Joining a clinic by invitation.
 
 use aarogyam_app::invitations as app;
+use aarogyam_domain::ids::{ClinicId, MembershipId};
 use axum::Json;
 use axum::extract::State;
 use sakalya_http::ApiJson;
@@ -60,6 +61,11 @@ pub(crate) async fn accept(
         body.display_name.as_deref(),
     )
     .await?;
+    // Someone rejoining may have a cached answer from when their membership wasn't active.
+    state.forget_membership(
+        ClinicId::from_uuid(joined.org_id),
+        MembershipId::from_uuid(joined.membership_id),
+    );
     Ok(Json(Joined {
         org_id: joined.org_id,
         membership_id: joined.membership_id,

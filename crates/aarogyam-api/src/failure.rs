@@ -63,6 +63,7 @@ impl From<AppError> for ApiFailure {
                 format!("{field}: {message}"),
             )),
             AppError::Conflict(message) => Self(ApiError::conflict("conflict", message)),
+            AppError::Forbidden(message) => Self(ApiError::forbidden("forbidden", message)),
             AppError::Db(error) => error.into(),
             AppError::Internal(what) => Self(ApiError::internal(what)),
         }

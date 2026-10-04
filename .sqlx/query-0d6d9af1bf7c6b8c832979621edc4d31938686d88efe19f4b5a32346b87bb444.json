@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select m.id\n           from aarogyam.memberships m\n           join aarogyam.roles r on r.org_id = m.org_id and r.id = m.role_id\n           where r.key = 'owner' and m.status = 'active'\n           order by m.id\n           for update of m",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.memberships",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0d6d9af1bf7c6b8c832979621edc4d31938686d88efe19f4b5a32346b87bb444"
+}

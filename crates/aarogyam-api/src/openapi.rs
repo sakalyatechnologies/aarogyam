@@ -25,23 +25,36 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         healthz,
         crate::v1::me::me,
         crate::v1::me::session,
+        crate::v1::me::sessions,
+        crate::v1::me::revoke_session,
         crate::v1::invitations::accept,
         crate::v1::patients::recent,
         crate::v1::patients::search,
         crate::v1::patients::register,
         crate::v1::patients::open,
+        crate::v1::patients::edit,
+        crate::v1::staff::list,
+        crate::v1::staff::invite,
+        crate::v1::staff::change,
+        crate::v1::staff::roles,
+        crate::v1::settings::get_clinic,
+        crate::v1::settings::update_clinic,
         crate::v1::console::clinics,
         crate::v1::console::create_clinic,
         crate::v1::console::metrics,
         crate::dev::token,
+        crate::v1::internal::drain_outbox,
     ),
     modifiers(&BearerAuth),
     tags(
         (name = "health", description = "Liveness for load balancers and Cloud Run"),
         (name = "session", description = "Who is signed in, and where"),
         (name = "patients", description = "A clinic's patients; clinic host only"),
+        (name = "staff", description = "A clinic's staff, invitations and roles; clinic host only"),
+        (name = "settings", description = "A clinic's own settings; clinic host only"),
         (name = "console", description = "Sakalya's console; console host only, staff only"),
-        (name = "development", description = "Local development only; absent in deployed servers")
+        (name = "development", description = "Local development only; absent in deployed servers"),
+        (name = "internal", description = "Scheduled jobs; local only until Cloud Scheduler's signed calls are checked")
     )
 )]
 struct ApiDoc;

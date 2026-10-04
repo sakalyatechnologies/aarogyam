@@ -11,6 +11,7 @@ repository.workspace = true
 aarogyam-app = { path = "../aarogyam-app" }
 aarogyam-dal = { path = "../aarogyam-dal" }
 aarogyam-domain = { path = "../aarogyam-domain" }
+aarogyam-notify = { path = "../aarogyam-notify" }
 axum.workspace = true
 jsonwebtoken.workspace = true
 sakalya-auth.workspace = true
@@ -23,6 +24,7 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 time.workspace = true
+tracing.workspace = true
 utoipa.workspace = true
 uuid.workspace = true
 

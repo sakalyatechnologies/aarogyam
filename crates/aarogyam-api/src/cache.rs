@@ -33,6 +33,13 @@ impl<K: Eq + Hash, V: Clone> TtlCache<K, V> {
             .map(|(_, value)| value.clone())
     }
 
+    /// Drops every entry `stale` picks, so a change takes effect on the next request instead of
+    /// when the entry expires.
+    pub(crate) fn remove_where(&self, stale: impl Fn(&K, &V) -> bool) {
+        let mut entries = self.entries.lock().unwrap_or_else(PoisonError::into_inner);
+        entries.retain(|key, (_, value)| !stale(key, value));
+    }
+
     pub(crate) fn insert(&self, key: K, value: V) {
         let mut entries = self.entries.lock().unwrap_or_else(PoisonError::into_inner);
         if entries.len() >= self.capacity {
@@ -57,5 +64,15 @@ mod tests {
         assert_eq!(cache.get(&"c"), Some(3));
         std::thread::sleep(Duration::from_millis(40));
         assert_eq!(cache.get(&"c"), None);
+    }
+
+    #[test]
+    fn chosen_entries_can_be_dropped_at_once() {
+        let cache = TtlCache::new(Duration::from_secs(30), 10);
+        cache.insert(("clinic", 1), "member one");
+        cache.insert(("clinic", 2), "member two");
+        cache.remove_where(|key, value| key.1 == 1 || *value == "nobody");
+        assert_eq!(cache.get(&("clinic", 1)), None);
+        assert_eq!(cache.get(&("clinic", 2)), Some("member two"));
     }
 }

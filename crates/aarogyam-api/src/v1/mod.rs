@@ -10,6 +10,7 @@ pub(crate) mod facts;
 pub(crate) mod files;
 pub(crate) mod imports;
 pub(crate) mod internal;
+pub(crate) mod inventory;
 pub(crate) mod invitations;
 pub(crate) mod me;
 pub(crate) mod onboarding;
@@ -201,6 +202,31 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/invoices/{id}/issue", post(billing::issue_invoice))
         .route("/invoices/{id}/void", post(billing::void_invoice))
+        .route(
+            "/suppliers",
+            get(inventory::suppliers).post(inventory::create_supplier),
+        )
+        .route(
+            "/suppliers/{id}",
+            patch(inventory::update_supplier).delete(inventory::delete_supplier),
+        )
+        .route(
+            "/inventory-items",
+            get(inventory::items).post(inventory::create_item),
+        )
+        .route(
+            "/inventory-items/{id}",
+            get(inventory::item)
+                .patch(inventory::update_item)
+                .delete(inventory::delete_item),
+        )
+        .route("/stock", get(inventory::summary))
+        .route("/stock/low", get(inventory::low))
+        .route("/stock/expiring", get(inventory::expiring))
+        .route("/stock/receive", post(inventory::receive))
+        .route("/stock/use", post(inventory::use_stock))
+        .route("/stock/adjust", post(inventory::adjust))
+        .route("/stock/batches/{id}/expire", post(inventory::expire_batch))
         .route("/payments", get(payments::list).post(payments::record))
         .route("/payments/{id}", get(payments::get))
         .route("/payments/{id}/void", post(payments::void))

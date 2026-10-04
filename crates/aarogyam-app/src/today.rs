@@ -17,6 +17,7 @@ use uuid::Uuid;
 use crate::appointments::AppointmentView;
 use crate::clock::{clinic_offset, clinic_today, day_bounds};
 use crate::error::AppError;
+use crate::inventory::{self, StockItem};
 use crate::queue::TokenView;
 use crate::scope::staff_scope as scope;
 
@@ -139,6 +140,9 @@ pub struct Today {
     pub team: Vec<TeamMember>,
     /// Late arrivals and long waits, most minutes first.
     pub attention: Vec<Attention>,
+    /// Items at or below their reorder level, worst first; `None` when the caller may not see
+    /// stock (without `inventory.read`).
+    pub low_stock: Option<Vec<StockItem>>,
 }
 
 fn status_of(view: &AppointmentView) -> Option<AppointmentStatus> {
@@ -321,7 +325,13 @@ pub async fn today(
         let mut recent: Vec<TokenView> = tokens.clone();
         recent.sort_by_key(|token| std::cmp::Reverse(token.row.issued_at));
         recent.truncate(RECENT_PATIENTS);
+        let low_stock = if actor.permissions.allows(Permission::InventoryRead) {
+            Some(inventory::low_stock_in(tx, date).await?)
+        } else {
+            None
+        };
         Ok(Today {
+            low_stock,
             date,
             as_of: now,
             counts: counts(&appointments, &tokens),

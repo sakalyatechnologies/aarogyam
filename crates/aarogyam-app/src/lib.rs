@@ -16,6 +16,7 @@ pub mod facts;
 pub mod files;
 pub mod identifiers;
 pub mod imports;
+pub mod inventory;
 pub mod invitations;
 pub mod onboarding;
 pub mod outbox;

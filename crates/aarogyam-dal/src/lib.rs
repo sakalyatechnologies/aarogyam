@@ -19,6 +19,7 @@ pub mod console;
 pub mod facts;
 pub mod identifiers;
 pub mod imports;
+pub mod inventory;
 pub mod invitations;
 pub mod lookups;
 pub mod outbox;

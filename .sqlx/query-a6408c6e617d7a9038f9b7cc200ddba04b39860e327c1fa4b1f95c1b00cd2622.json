@@ -1,0 +1,74 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, name, phone_e164, gstin, active\n           from aarogyam.suppliers where deleted_at is null order by lower(name), id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.suppliers",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.suppliers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "phone_e164",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.suppliers",
+            "name": "phone_e164"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "gstin",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.suppliers",
+            "name": "gstin"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "active",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.suppliers",
+            "name": "active"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "a6408c6e617d7a9038f9b7cc200ddba04b39860e327c1fa4b1f95c1b00cd2622"
+}

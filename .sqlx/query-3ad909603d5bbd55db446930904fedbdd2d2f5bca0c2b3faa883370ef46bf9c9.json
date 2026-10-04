@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select b.id as batch_id, i.id as item_id, i.name as item_name, i.unit, b.batch_no,\n                  b.expiry as \"expiry!\", b.quantity\n           from aarogyam.stock_batches b\n           join aarogyam.inventory_items i on i.org_id = b.org_id and i.id = b.item_id\n           where b.quantity > 0 and b.expiry is not null and b.expiry <= $1 and i.deleted_at is null\n           order by b.expiry, lower(i.name), b.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "batch_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "item_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "item_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "unit",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "unit"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "batch_no",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "batch_no"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "expiry!",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "expiry"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "quantity",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "quantity"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "3ad909603d5bbd55db446930904fedbdd2d2f5bca0c2b3faa883370ef46bf9c9"
+}

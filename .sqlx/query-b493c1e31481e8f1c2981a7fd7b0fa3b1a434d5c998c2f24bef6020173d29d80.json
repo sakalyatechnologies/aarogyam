@@ -1,0 +1,113 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, item_id, batch_id, kind, quantity, reason, created_at as \"at!\", created_by as by_user_id\n           from aarogyam.stock_movements where item_id = $1\n           order by created_at desc, id desc limit $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_movements",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "item_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_movements",
+            "name": "item_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "batch_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_movements",
+            "name": "batch_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_movements",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "quantity",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_movements",
+            "name": "quantity"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_movements",
+            "name": "reason"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_movements",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "by_user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_movements",
+            "name": "created_by"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "b493c1e31481e8f1c2981a7fd7b0fa3b1a434d5c998c2f24bef6020173d29d80"
+}

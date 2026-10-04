@@ -1,0 +1,131 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.stock_batches\n             (id, item_id, supplier_id, batch_no, expiry, received_quantity, quantity,\n              unit_cost_paise, received_on)\n           values ($1, $2, $3, $4, $5, $6, $6, $7, $8)\n           returning id, item_id, supplier_id, batch_no, expiry, received_quantity, quantity,\n                     unit_cost_paise, received_on",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "item_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "item_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "supplier_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "supplier_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "batch_no",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "batch_no"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "expiry",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "expiry"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "received_quantity",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "received_quantity"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "quantity",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "quantity"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "unit_cost_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "unit_cost_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "received_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_batches",
+            "name": "received_on"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Date",
+        "Int8",
+        "Int8",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "60d4c53ed74c3f734336f9e7a53976231a4045af7c9b28009dc903b60d35ab04"
+}

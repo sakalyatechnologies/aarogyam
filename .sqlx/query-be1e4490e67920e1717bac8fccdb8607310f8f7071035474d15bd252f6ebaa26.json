@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select i.id, i.name, i.category, i.unit, i.reorder_level, i.active,\n                  coalesce(sum(b.quantity), 0)::bigint as \"on_hand!\",\n                  min(b.expiry) filter (where b.quantity > 0) as next_expiry\n           from aarogyam.inventory_items i\n           left join aarogyam.stock_batches b on b.org_id = i.org_id and b.item_id = i.id\n           where i.deleted_at is null\n           group by i.org_id, i.id\n           order by lower(i.name), i.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "category",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "category"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "unit",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "unit"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "reorder_level",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "reorder_level"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "active",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "active"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "on_hand!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "next_expiry",
+        "type_info": "Date",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "be1e4490e67920e1717bac8fccdb8607310f8f7071035474d15bd252f6ebaa26"
+}

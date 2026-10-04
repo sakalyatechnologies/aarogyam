@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 
 import type { Invoice } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatPercent, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
-import { BarChart, Button, Card, DataTable, EmptyState, Link, PageHeader, Pill, Skeleton, StatCard, type DataTableColumn } from "@sakalya/ui";
+import { BarChart, Button, Card, DataTable, DonutChart, EmptyState, Link, PageHeader, Pill, Skeleton, StatCard, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { useTodayDate } from "../../lib/patients.js";
@@ -16,6 +16,17 @@ function statusTone(status: string): "neutral" | "success" | "danger" {
 function monthStart(today: string): string {
   return `${today.slice(0, 7)}-01`;
 }
+
+const CATEGORY_LABEL: Readonly<Record<string, string>> = {
+  consultation: "Consultation",
+  preventive: "Preventive",
+  restorative: "Restorative",
+  endodontics: "Endodontics",
+  oral_surgery: "Oral surgery",
+  orthodontics: "Orthodontics",
+  medicines: "Medicines",
+  other: "Other",
+};
 
 /** Billing: this month's money, the weekly collections chart, and every bill. Needs `billing.read`. */
 export function BillingPage() {
@@ -110,23 +121,43 @@ export function BillingPage() {
           />
         </div>
 
-        <Card title="Weekly collections">
-          {week.isPending ? (
-            <Skeleton shape="block" />
-          ) : week.isError ? (
-            <ApiErrorNotice title="Couldn't load collections" error={week.error} onRetry={() => void week.refetch()} />
-          ) : week.data.by_week.every((w) => w.amount_paise === 0) ? (
-            <EmptyState title="No collections yet" description="Issued bills and payments will show here." icon={null} />
-          ) : (
-            <BarChart
-              data={week.data.by_week.map((w) => ({ label: formatDate(w.date), total: w.amount_paise / 100, part: w.amount_paise / 100 }))}
-              totalLabel="Collected"
-              partLabel="Collected"
-              categoryLabel="Week of"
-              summary="Rupees collected each week"
-            />
-          )}
-        </Card>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[2fr_1fr]">
+          <Card title="Weekly collections">
+            {week.isPending ? (
+              <Skeleton shape="block" />
+            ) : week.isError ? (
+              <ApiErrorNotice title="Couldn't load collections" error={week.error} onRetry={() => void week.refetch()} />
+            ) : week.data.by_week.every((w) => w.amount_paise === 0) ? (
+              <EmptyState title="No collections yet" description="Issued bills and payments will show here." icon={null} />
+            ) : (
+              <BarChart
+                data={week.data.by_week.map((w) => ({ label: formatDate(w.date), total: w.amount_paise / 100, part: w.amount_paise / 100 }))}
+                totalLabel="Collected"
+                partLabel="Collected"
+                categoryLabel="Week of"
+                summary="Rupees collected each week"
+              />
+            )}
+          </Card>
+          <Card title="Revenue mix this month">
+            {month.isPending ? (
+              <Skeleton shape="block" />
+            ) : month.isError ? (
+              <ApiErrorNotice title="Couldn't load the revenue mix" error={month.error} onRetry={() => void month.refetch()} />
+            ) : month.data.revenue_mix.length === 0 ? (
+              <EmptyState title="No bills issued this month" description="The mix appears once bills are issued." icon={null} />
+            ) : (
+              <DonutChart
+                data={month.data.revenue_mix.map((m) => ({ label: CATEGORY_LABEL[m.category] ?? m.category, value: m.amount_paise }))}
+                summary="This month's billed amount by category"
+                categoryLabel="Category"
+                valueLabel="Amount"
+                centerValue={formatRupees(month.data.invoiced_paise)}
+                centerLabel="billed"
+              />
+            )}
+          </Card>
+        </div>
 
         <Card title="Bills">
           {invoices.isError ? (

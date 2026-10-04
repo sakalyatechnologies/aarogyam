@@ -10,6 +10,7 @@ pub(crate) mod me;
 pub(crate) mod patients;
 pub(crate) mod payments;
 pub(crate) mod prescriptions;
+pub(crate) mod recalls;
 pub(crate) mod reports;
 pub(crate) mod settings;
 pub(crate) mod staff;
@@ -69,6 +70,9 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/reports/collections", get(reports::collections))
         .route("/reports/pending", get(reports::pending))
         .route("/today/money", get(reports::today_money))
+        .route("/patients/{id}/recalls", post(recalls::create))
+        .route("/recalls", get(recalls::due))
+        .route("/recalls/{id}/done", post(recalls::done))
         .route("/drugs/search", post(prescriptions::search_drugs))
         .route(
             "/patients/{id}/prescriptions",

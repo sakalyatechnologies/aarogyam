@@ -476,3 +476,77 @@ async fn prescriptions_stay_within_the_clinic_and_follow_the_role() {
     assert_eq!(status, StatusCode::FORBIDDEN);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn follow_ups_are_planned_listed_and_done_per_clinic() {
+    let app = start().await;
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let patient = patient(&app, ALPHA, &desk).await;
+    let path = format!("/api/v1/patients/{patient}/recalls");
+    let body =
+        json!({ "due_on": "2027-04-01", "reason": "Six-month cleaning", "kind": "cleaning" });
+    let (status, recall) = app
+        .send(Method::POST, ALPHA, &path, Some(&desk), Some(body))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{recall}");
+    assert_eq!(recall["status"], "due");
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &path,
+            Some(&desk),
+            Some(json!({ "due_on": "2027-04-01", "reason": "" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let (_, due) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            "/api/v1/recalls?due_before=2027-04-02",
+            Some(&assistant),
+            None,
+        )
+        .await;
+    assert_eq!(due["items"].as_array().unwrap().len(), 1);
+    let (_, later) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            "/api/v1/recalls?due_before=2027-04-01",
+            Some(&assistant),
+            None,
+        )
+        .await;
+    assert_eq!(later["items"], json!([]));
+    let done = format!("/api/v1/recalls/{}/done", recall["id"].as_str().unwrap());
+    let (status, _) = app
+        .send(Method::POST, ALPHA, &done, Some(&assistant), None)
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let beta = app.token(BETA_OWNER);
+    let (status, _) = app.send(Method::POST, BETA, &done, Some(&beta), None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let body = json!({ "due_on": "2027-04-01", "reason": "x" });
+    let (status, _) = app
+        .send(Method::POST, BETA, &path, Some(&beta), Some(body))
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (_, theirs) = app
+        .send(Method::GET, BETA, "/api/v1/recalls", Some(&beta), None)
+        .await;
+    assert_eq!(theirs["items"], json!([]));
+    let (status, closed) = app
+        .send(Method::POST, ALPHA, &done, Some(&desk), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(closed["status"], "done");
+    let (status, _) = app
+        .send(Method::POST, ALPHA, &done, Some(&desk), None)
+        .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    app.finish().await;
+}

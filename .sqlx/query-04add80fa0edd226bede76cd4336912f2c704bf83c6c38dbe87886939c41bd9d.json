@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.recalls set status = 'done', done_at = $2 where id = $1 and status in ('due', 'notified', 'booked')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "04add80fa0edd226bede76cd4336912f2c704bf83c6c38dbe87886939c41bd9d"
+}

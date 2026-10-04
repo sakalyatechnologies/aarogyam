@@ -1056,6 +1056,64 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/recalls": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Plans a follow-up for a patient.",
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewRecall"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recall"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/payments": {
       "get": {
         "tags": [
@@ -1708,6 +1766,99 @@
           },
           "409": {
             "description": "Another entry has this code"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recalls": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Open follow-ups, soonest first.",
+        "operationId": "due",
+        "parameters": [
+          {
+            "name": "due_before",
+            "in": "query",
+            "description": "Only those due before this day, YYYY-MM-DD",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad date"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recalls/{id}/done": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Marks a follow-up done.",
+        "operationId": "done",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The follow-up",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recall"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such follow-up in this clinic"
+          },
+          "409": {
+            "description": "Already closed"
           }
         },
         "security": [
@@ -3963,6 +4114,31 @@
           }
         }
       },
+      "NewRecall": {
+        "type": "object",
+        "description": "A follow-up to plan.",
+        "required": [
+          "due_on",
+          "reason"
+        ],
+        "properties": {
+          "due_on": {
+            "type": "string",
+            "description": "When it falls due, `YYYY-MM-DD`."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`follow_up` by default; `cleaning`, `review`, …"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why, 1 to 300 characters."
+          }
+        }
+      },
       "OpenRequest": {
         "type": "object",
         "description": "The PIN.",
@@ -4726,6 +4902,67 @@
           "reason": {
             "type": "string",
             "description": "Why, 3 to 500 characters."
+          }
+        }
+      },
+      "Recall": {
+        "type": "object",
+        "description": "A follow-up.",
+        "required": [
+          "id",
+          "patient",
+          "kind",
+          "reason",
+          "due_on",
+          "status"
+        ],
+        "properties": {
+          "done_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was done."
+          },
+          "due_on": {
+            "type": "string",
+            "description": "When it falls due, `YYYY-MM-DD`."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`follow_up`, `cleaning`, …"
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientRef",
+            "description": "The patient."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why."
+          },
+          "status": {
+            "type": "string",
+            "description": "`due`, `notified`, `booked`, `done` or `dismissed`."
+          }
+        }
+      },
+      "RecallList": {
+        "type": "object",
+        "description": "Follow-ups.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Recall"
+            },
+            "description": "Soonest first."
           }
         }
       },

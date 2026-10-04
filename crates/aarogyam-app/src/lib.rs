@@ -14,6 +14,7 @@ pub mod outbox;
 pub mod patients;
 pub mod payments;
 pub mod prescriptions;
+pub mod recalls;
 pub mod reports;
 mod scope;
 pub mod sessions;

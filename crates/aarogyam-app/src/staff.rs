@@ -101,6 +101,8 @@ pub struct Invited {
     pub expires_at: OffsetDateTime,
     /// The secret for the invitation link.
     pub token: String,
+    /// The clinic's portal host, where the link points.
+    pub portal_host: String,
 }
 
 /// Invites someone to the clinic's staff and queues the invitation email in the same
@@ -121,10 +123,31 @@ pub async fn invite(
     let email = Email::parse(&input.email).map_err(|error| AppError::invalid("email", error))?;
     let role_key = input.role_key.trim().to_owned();
     check_invite(&actor.role_key, &role_key)?;
+    invite_in_scope(
+        db,
+        &staff_scope(actor, request_id),
+        actor.user_id.uuid(),
+        email,
+        role_key,
+        now,
+    )
+    .await
+}
+
+/// Creates an invitation and queues its email in one transaction in `scope`'s clinic. The
+/// caller has checked who may invite whom.
+pub(crate) async fn invite_in_scope(
+    db: &Db,
+    scope: &sakalya_db::Scope,
+    invited_by: Uuid,
+    email: Email,
+    role_key: String,
+    now: OffsetDateTime,
+) -> Result<Invited, AppError> {
     let (token, token_hash) = crate::tokens::new_token()?;
     let expires_at = now + INVITE_VALID_FOR;
     let id = InvitationId::new_v7();
-    db.scoped(&staff_scope(actor, request_id), async |tx| {
+    let portal_host = db.scoped(scope, async |tx| {
         let (role_id, role_name) = dal::role_by_key(tx.conn(), &role_key)
             .await?
             .ok_or_else(|| AppError::invalid("role_key", "is not a role in this clinic"))?;
@@ -140,7 +163,7 @@ pub async fn invite(
                 id: id.uuid(),
                 email: email.as_str(),
                 role_id,
-                invited_by: actor.user_id.uuid(),
+                invited_by,
                 token_hash: &token_hash,
                 expires_at,
             },
@@ -163,7 +186,7 @@ pub async fn invite(
             },
         )
         .await?;
-        Ok::<_, AppError>(())
+        Ok::<_, AppError>(host)
     })
     .await?;
     Ok(Invited {
@@ -172,6 +195,7 @@ pub async fn invite(
         role_key,
         expires_at,
         token,
+        portal_host,
     })
 }
 

@@ -66,6 +66,7 @@ impl From<AppError> for ApiFailure {
             AppError::Forbidden(message) => Self(ApiError::forbidden("forbidden", message)),
             AppError::Db(error) => error.into(),
             AppError::Internal(what) => Self(ApiError::internal(what)),
+            AppError::Accounts(error) => Self(ApiError::unavailable(error)),
         }
     }
 }

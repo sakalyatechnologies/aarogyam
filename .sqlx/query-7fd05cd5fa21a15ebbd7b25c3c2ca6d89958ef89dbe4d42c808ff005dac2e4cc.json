@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.console_reject_application($1, $2, $3) as \"rejected!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "rejected!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7fd05cd5fa21a15ebbd7b25c3c2ca6d89958ef89dbe4d42c808ff005dac2e4cc"
+}

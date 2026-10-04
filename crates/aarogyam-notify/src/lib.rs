@@ -119,6 +119,12 @@ impl Notifier {
         })
     }
 
+    /// Where links in messages point.
+    #[must_use]
+    pub const fn links(&self) -> &PortalLinks {
+        &self.links
+    }
+
     /// The channel email goes through: `resend` or `log`.
     #[must_use]
     pub const fn email_provider(&self) -> &'static str {

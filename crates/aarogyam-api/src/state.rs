@@ -4,6 +4,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use aarogyam_app::accounts::SignInAccounts;
 use aarogyam_app::files::Files;
 use aarogyam_dal::lookups::{self, HostClinic};
 use aarogyam_dal::sessions;
@@ -108,6 +109,7 @@ struct Inner {
     throttle: Option<Throttle>,
     notifier: Notifier,
     files: Option<Files>,
+    accounts: Option<Arc<dyn SignInAccounts>>,
 }
 
 /// Shared state; cheap to clone.
@@ -132,6 +134,7 @@ impl AppState {
                 throttle: None,
                 notifier: Notifier::log(PortalLinks::default()),
                 files: None,
+                accounts: None,
             }),
         }
     }
@@ -164,6 +167,21 @@ impl AppState {
             inner.files = Some(files);
         }
         self
+    }
+
+    /// Sets how sign-in accounts are created for invited people (Supabase's Admin API). Without
+    /// it, invitations still work, but the person can't sign in until their account exists:
+    /// fine locally with development tokens. Call before the state is shared (cloned).
+    #[must_use]
+    pub fn with_accounts(mut self, accounts: Arc<dyn SignInAccounts>) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.accounts = Some(accounts);
+        }
+        self
+    }
+
+    pub(crate) fn accounts(&self) -> Option<&dyn SignInAccounts> {
+        self.inner.accounts.as_deref()
     }
 
     pub(crate) fn files(&self) -> Result<&Files, ApiFailure> {

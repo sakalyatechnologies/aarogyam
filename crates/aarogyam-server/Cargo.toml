@@ -23,7 +23,6 @@ sakalya-config.workspace = true
 sakalya-db.workspace = true
 sakalya-http.workspace = true
 sakalya-telemetry.workspace = true
-sakalya-throttle.workspace = true
 secrecy.workspace = true
 serde.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

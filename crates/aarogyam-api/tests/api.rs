@@ -473,6 +473,9 @@ async fn every_route_requires_sign_in_and_a_permission() {
             || path.starts_with("/api/v1/dev/")
             || path.starts_with("/api/v1/internal/")
             || path == "/api/v1/attachments/{id}/content"
+            // The public registration form needs no sign-in; it is throttled per IP and
+            // answers the same whatever happened (tests/onboarding.rs).
+            || path == "/api/v1/registrations"
         {
             continue;
         }

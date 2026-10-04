@@ -13,7 +13,6 @@ use sakalya_auth::{JwtConfig, JwtVerifier};
 use sakalya_config::Environment;
 use sakalya_db::{Db, DbConfig};
 use sakalya_http::{EdgeConfig, EdgeSecret};
-use sakalya_throttle::{KeyKind, RuleConfig, Throttle, ThrottleConfig};
 use secrecy::ExposeSecret as _;
 
 /// Aarogyam's API server.
@@ -82,12 +81,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         console: config.hosts.console,
         app: config.hosts.app,
     };
-    // Per-IP limits before any token is checked; sign-in itself is Supabase's, with its own limits.
-    let throttle = Throttle::new(ThrottleConfig::default().with_rules(vec![
-        RuleConfig::new("ip", KeyKind::Ip, 600, 60),
-        RuleConfig::new("ip-dev-sign-in", KeyKind::Ip, 30, 15 * 60).on_paths(&["/api/v1/dev/"]),
-    ]))
-    .context("invalid throttle rules")?;
+    let throttle = aarogyam_api::standard_throttle().context("invalid throttle rules")?;
     let links = PortalLinks::new(&config.email.portal_link)
         .context("email.portal_link must look like https://{host}")?;
     let notifier = if let Some(key) = config.email.resend_api_key {

@@ -20,6 +20,12 @@ import { ImportPage } from "./pages/patients/import-page.js";
 import { NewPatientPage } from "./pages/patients/new-patient-page.js";
 import { PatientPage } from "./pages/patients/patient-page.js";
 import { PatientsPage } from "./pages/patients/patients-page.js";
+import { PatientPrescriptionsPage } from "./pages/prescriptions/patient-prescriptions-page.js";
+import { PrescriptionPage } from "./pages/prescriptions/prescription-page.js";
+import { PrescriptionsPage } from "./pages/prescriptions/prescriptions-page.js";
+import { PrescriptionPrintPage } from "./pages/prescriptions/print-page.js";
+import { SharedPage } from "./pages/public/shared-page.js";
+import { VerifyPrescriptionPage } from "./pages/public/verify-page.js";
 import { QueuePage } from "./pages/queue/queue-page.js";
 import { RegisterPage } from "./pages/register-page.js";
 import { SettingsPage } from "./pages/settings/settings-page.js";
@@ -42,6 +48,8 @@ export const routes: RouteObject[] = [
       { path: "auth/callback", element: <AuthCallbackPage /> },
       { path: "register", element: <RegisterPage /> },
       { path: "invite", element: <InvitePage /> },
+      { path: "shared/:token", element: <SharedPage /> },
+      { path: "verify/prescriptions/:token", element: <VerifyPrescriptionPage /> },
       {
         element: <RequireAuth />,
         children: [
@@ -55,8 +63,12 @@ export const routes: RouteObject[] = [
               { path: "patients/:id", element: <PatientPage /> },
               { path: "patients/:id/edit", element: <EditPatientPage /> },
               { path: "patients/:id/visits/:visitId", element: <VisitPage /> },
+              { path: "patients/:patientId/prescriptions", element: <PatientPrescriptionsPage /> },
               { path: "calendar", element: <CalendarPage /> },
               { path: "queue", element: <QueuePage /> },
+              { path: "prescriptions", element: <PrescriptionsPage /> },
+              { path: "prescriptions/:id", element: <PrescriptionPage /> },
+              { path: "prescriptions/:id/print", element: <PrescriptionPrintPage /> },
               { path: "billing", element: <BillingPage /> },
               { path: "billing/pending", element: <PendingPaymentsPage /> },
               { path: "billing/invoices/new", element: <NewInvoicePage /> },

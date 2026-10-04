@@ -1,4 +1,17 @@
-import { Building2, CalendarCheck, CalendarRange, ListOrdered, LogOut, MessageSquare, Package, Settings, Smile, UsersRound, Wallet } from "lucide-react";
+import {
+  Building2,
+  CalendarCheck,
+  CalendarRange,
+  ListOrdered,
+  LogOut,
+  MessageSquare,
+  Package,
+  Pill,
+  Settings,
+  Smile,
+  UsersRound,
+  Wallet,
+} from "lucide-react";
 import { useMemo } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 
@@ -157,6 +170,7 @@ function PortalShell() {
     ...(can("patients.read") ? [{ id: "patients", label: "Patients", icon: <UsersRound />, href: "/patients" }] : []),
     ...(can("appointments.read") ? [{ id: "calendar", label: "Calendar", icon: <CalendarRange />, href: "/calendar" }] : []),
     ...(can("appointments.read") ? [{ id: "queue", label: "Queue", icon: <ListOrdered />, href: "/queue" }] : []),
+    ...(can("clinical.read") ? [{ id: "prescriptions", label: "Prescriptions", icon: <Pill />, href: "/prescriptions" }] : []),
     ...(can("billing.read") ? [{ id: "billing", label: "Billing", icon: <Wallet />, href: "/billing" }] : []),
     { id: "stock", label: "Stock", icon: <Package />, href: "/stock" },
     { id: "messages", label: "Messages", icon: <MessageSquare />, href: "/messages" },

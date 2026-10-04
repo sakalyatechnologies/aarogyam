@@ -1,38 +1,49 @@
 #!/bin/sh
 # Local quality gate, the same checks CI runs. Skips when nothing it checks is staged.
+#   Rust (when a Rust-relevant path is staged):
 #   1. generated database docs match docs/schema/model.py (when the model or generator is staged)
 #   2. format   3. clippy, warnings are errors, all targets and features
 #   4. full test suite, plus database tests when Postgres answers on localhost
 #   5. dependency hygiene (cargo-deny, cargo-machete) when installed
+#   Web (when a web-relevant path is staged):
+#   6. pnpm check, from the repo root
 # Bypass only in an emergency: git commit --no-verify
 staged=$(git diff --cached --name-only)
-if ! printf '%s\n' "$staged" | grep -qE '\.(rs|toml|sql)$|Cargo\.lock$|^docs/(schema|api)/|^scripts/'; then
+rust_staged=$(printf '%s\n' "$staged" | grep -qE '\.(rs|toml|sql)$|Cargo\.lock$|^docs/(schema|api)/|^scripts/' && echo 1)
+web_staged=$(printf '%s\n' "$staged" | grep -qE '^web/|^pnpm-lock\.yaml$|^package\.json$' && echo 1)
+if [ -z "$rust_staged" ] && [ -z "$web_staged" ]; then
   exit 0
 fi
 export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH"
 fail() { echo "pre-commit: $1"; exit 1; }
 
-if printf '%s\n' "$staged" | grep -qE '^(docs/schema/model\.py|scripts/gen_schema_docs\.py)$'; then
-  python3 -B scripts/gen_schema_docs.py >/dev/null || fail "scripts/gen_schema_docs.py failed"
-  git diff --quiet -- docs/database.md docs/schema/schema.json ||
-    fail "docs/database.md or docs/schema/schema.json was out of date and has been regenerated; review and stage it"
+if [ -n "$rust_staged" ]; then
+  if printf '%s\n' "$staged" | grep -qE '^(docs/schema/model\.py|scripts/gen_schema_docs\.py)$'; then
+    python3 -B scripts/gen_schema_docs.py >/dev/null || fail "scripts/gen_schema_docs.py failed"
+    git diff --quiet -- docs/database.md docs/schema/schema.json ||
+      fail "docs/database.md or docs/schema/schema.json was out of date and has been regenerated; review and stage it"
+  fi
+
+  cargo fmt --all --check || fail "run 'cargo fmt' and stage the changes"
+  cargo clippy --workspace --all-targets --all-features --quiet -- -D warnings || fail "fix the clippy findings above"
+  if command -v pg_isready >/dev/null && pg_isready -q -h localhost; then
+    export DATABASE_URL="${DATABASE_URL:-postgres://localhost:5432/postgres}"
+    set -- -- --include-ignored
+  else
+    echo "pre-commit: warning: no Postgres answers on localhost, so database tests were skipped"
+    set --
+  fi
+  cargo test --workspace --all-features --quiet "$@" >/dev/null 2>&1 || { cargo test --workspace --all-features "$@" 2>&1 | tail -30; fail "tests failed"; }
+  if command -v cargo-deny >/dev/null; then
+    cargo deny --log-level error check >/dev/null 2>&1 || { cargo deny check 2>&1 | grep -E '^error' ; fail "cargo deny found a problem"; }
+  else
+    echo "pre-commit: cargo-deny not installed, skipping (brew install cargo-deny)"
+  fi
+  if command -v cargo-machete >/dev/null; then
+    cargo machete >/dev/null 2>&1 || { cargo machete; fail "unused dependencies"; }
+  fi
 fi
 
-cargo fmt --all --check || fail "run 'cargo fmt' and stage the changes"
-cargo clippy --workspace --all-targets --all-features --quiet -- -D warnings || fail "fix the clippy findings above"
-if command -v pg_isready >/dev/null && pg_isready -q -h localhost; then
-  export DATABASE_URL="${DATABASE_URL:-postgres://localhost:5432/postgres}"
-  set -- -- --include-ignored
-else
-  echo "pre-commit: warning: no Postgres answers on localhost, so database tests were skipped"
-  set --
-fi
-cargo test --workspace --all-features --quiet "$@" >/dev/null 2>&1 || { cargo test --workspace --all-features "$@" 2>&1 | tail -30; fail "tests failed"; }
-if command -v cargo-deny >/dev/null; then
-  cargo deny --log-level error check >/dev/null 2>&1 || { cargo deny check 2>&1 | grep -E '^error' ; fail "cargo deny found a problem"; }
-else
-  echo "pre-commit: cargo-deny not installed, skipping (brew install cargo-deny)"
-fi
-if command -v cargo-machete >/dev/null; then
-  cargo machete >/dev/null 2>&1 || { cargo machete; fail "unused dependencies"; }
+if [ -n "$web_staged" ]; then
+  pnpm check || fail "fix the pnpm check findings above"
 fi

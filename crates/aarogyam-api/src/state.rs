@@ -17,6 +17,7 @@ use uuid::Uuid;
 use crate::cache::TtlCache;
 use crate::dev::DevTokens;
 use crate::failure::ApiFailure;
+use crate::metrics::ServiceMetrics;
 
 /// How long a host lookup or a member's permissions are reused before asking the database again.
 const CACHE_TTL: Duration = Duration::from_secs(30);
@@ -60,6 +61,7 @@ struct Inner {
     hosts: Hosts,
     host_cache: TtlCache<Box<str>, Option<HostClinic>>,
     grant_cache: TtlCache<(Uuid, Uuid, Uuid), Option<Authorization>>,
+    metrics: Arc<ServiceMetrics>,
 }
 
 /// Shared state; cheap to clone.
@@ -80,6 +82,7 @@ impl AppState {
                 hosts,
                 host_cache: TtlCache::new(CACHE_TTL, CACHE_CAPACITY),
                 grant_cache: TtlCache::new(CACHE_TTL, CACHE_CAPACITY),
+                metrics: Arc::new(ServiceMetrics::new()),
             }),
         }
     }
@@ -92,6 +95,12 @@ impl AppState {
 
     pub(crate) fn http(&self) -> &HttpConfig {
         &self.inner.http
+    }
+
+    /// This instance's request metrics, for the console's service health page.
+    #[must_use]
+    pub fn metrics(&self) -> &Arc<ServiceMetrics> {
+        &self.inner.metrics
     }
 
     pub(crate) fn hosts(&self) -> &Hosts {

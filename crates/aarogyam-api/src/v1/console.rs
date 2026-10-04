@@ -1,5 +1,7 @@
 //! Sakalya's console: clinics and service health. Console host only, Sakalya staff only.
 
+use std::time::SystemTime;
+
 use aarogyam_app::console::{self as app, CreateClinic};
 use axum::Json;
 use axum::extract::State;
@@ -14,6 +16,7 @@ use super::rfc3339;
 use crate::AppState;
 use crate::extract::PlatformRequest;
 use crate::failure::ApiFailure;
+use crate::metrics::Range;
 
 /// A clinic, with counts only.
 #[derive(Debug, Serialize, ToSchema)]
@@ -181,7 +184,7 @@ pub struct ServiceMetrics {
     pub generated_at: String,
     /// The window: `1h`, `24h` or `7d`.
     pub range: String,
-    /// API requests, error rates and latency; `null` until this instance has served traffic.
+    /// This instance's API requests, error rates and latency.
     #[schema(value_type = Object)]
     pub api: Option<serde_json::Value>,
     /// Database connections, cache hit ratio, size, tables and slow statements.
@@ -206,18 +209,19 @@ pub(crate) async fn metrics(
     _staff: PlatformRequest,
     ApiQuery(params): ApiQuery<MetricsParams>,
 ) -> Result<Json<ServiceMetrics>, ApiFailure> {
-    let range = params.range.unwrap_or_else(|| "1h".to_owned());
-    if !matches!(range.as_str(), "1h" | "24h" | "7d") {
-        return Err(
-            ApiError::bad_request("invalid_request", "range: must be 1h, 24h or 7d").into(),
-        );
-    }
+    let range: Range = params
+        .range
+        .as_deref()
+        .unwrap_or("1h")
+        .parse()
+        .map_err(|_| ApiError::bad_request("invalid_request", "range: must be 1h, 24h or 7d"))?;
     let db = aarogyam_dal::console::db_health(state.db().pool()).await?;
+    let api = serde_json::to_value(state.metrics().snapshot(range, SystemTime::now()))
+        .map_err(ApiError::internal)?;
     Ok(Json(ServiceMetrics {
         generated_at: rfc3339(OffsetDateTime::now_utc()),
-        // Filled by the in-process collector once it is wired in.
-        api: None,
-        range,
+        range: range.as_str().to_owned(),
+        api: Some(api),
         db,
         edge: None,
     }))

@@ -31,6 +31,7 @@ mod cache;
 mod dev;
 mod extract;
 mod failure;
+pub mod metrics;
 mod openapi;
 mod state;
 mod v1;
@@ -51,9 +52,14 @@ pub use state::{AppState, Hosts, TokenCheck};
 pub fn router(state: AppState) -> Router {
     let http = state.http().clone();
     let local_dev = state.dev_tokens().is_some();
+    let metrics = std::sync::Arc::clone(state.metrics());
     let routes = Router::new()
         .nest("/api/v1", v1::routes(local_dev))
         .with_state(state)
         .merge(sakalya_http::health_routes());
-    sakalya_http::with_standard_layers(routes, &http)
+    // Outside the standard layers, so timeouts and panics they turn into responses are counted.
+    sakalya_http::with_standard_layers(routes, &http).layer(axum::middleware::from_fn_with_state(
+        metrics,
+        metrics::track,
+    ))
 }

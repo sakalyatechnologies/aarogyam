@@ -777,7 +777,7 @@
         "properties": {
           "api": {
             "type": "object",
-            "description": "API requests, error rates and latency; `null` until this instance has served traffic."
+            "description": "This instance's API requests, error rates and latency."
           },
           "db": {
             "type": "object",

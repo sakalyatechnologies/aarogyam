@@ -39,5 +39,7 @@ VITE_API_MODE=http pnpm dev:portal        # http://sunrise.localtest.me:5173: Su
 
 Sign in with the development sign-in (pick a seeded person). Without `VITE_API_MODE=http` the apps run on fake data. Settings: `config/local.toml` and `ARO_*` variables for the API (`.env.example`), `web/apps/<app>/.env.local` for the apps (`VITE_API_MODE`, `VITE_API_BASE_URL`, and `VITE_SUPABASE_URL` plus `VITE_SUPABASE_ANON_KEY` for email-code sign-in). Run `scripts/install-hooks.sh` once per clone for the pre-commit gate.
 
+Real sign-in locally: export `SUPABASE_URL` and `SUPABASE_SECRET_KEY` from `.env.supabase` (not the whole file: its database URLs point at the cloud), then `ARO_AUTH__MODE=supabase cargo run -p aarogyam-server -- serve`; dev tokens keep working. Make the founder console owner once, over the owner connection: `cargo run -p aarogyam-server -- admin grant-platform --email <founder email> --role owner` (it finds or creates their confirmed Supabase account; `--auth-uid <id>` skips Supabase).
+
 Web checks: `pnpm check` (typecheck, lint, tests, build); `VITE_LIVE=1 pnpm vitest run --project portal live` drives both running dev servers against the API (it adds a patient and a clinic). After `docs/api/openapi.json` changes, run `pnpm --filter @aarogyam/api-client generate`. A clinic created in the console comes with the owner's invitation link, `http://<clinic>.localtest.me:5173/invite#<token>`: the token sits in the fragment, so it never reaches a server log.
 

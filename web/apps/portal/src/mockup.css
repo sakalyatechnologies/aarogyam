@@ -327,7 +327,7 @@
   .mk-now div { left: 60px; } .mk-now span { left: -50px; }
 }
 @media (max-width: 480px) {
-  .mk-kpis { grid-template-columns: minmax(0, 1fr); }
-  .mk-kpi .mk-num { font-size: 28px; }
+  .mk-kpi { padding: 14px; }
+  .mk-kpi .mk-num { font-size: 24px; }
 }
 @media print { .mk-side, .mk-topbar, .mk-drawer, .mk-scrim, .mk-toast { display: none !important; } .mk-app { display: block; } }

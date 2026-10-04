@@ -186,7 +186,7 @@ describe("Permissions", () => {
     const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
     if (nav === undefined) throw new Error("no main navigation");
     await user.click(within(nav).getByRole("link", { name: "Settings" }));
-    expect(await screen.findByRole("tab", { name: "Clinic profile" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Clinic profile" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Staff" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Sessions" })).toBeTruthy();
   });
@@ -194,7 +194,7 @@ describe("Permissions", () => {
   it("hides the clinic profile and staff panels from the front desk", async () => {
     renderPortal("/settings", { as: PEOPLE.farah });
     expect(await screen.findByRole("tab", { name: "Sessions" })).toBeTruthy();
-    expect(screen.queryByRole("tab", { name: "Clinic profile" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Clinic profile" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "Staff" })).toBeNull();
   });
 });

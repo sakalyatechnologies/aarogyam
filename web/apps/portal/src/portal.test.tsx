@@ -272,13 +272,13 @@ describe("Patient 360", () => {
 });
 
 describe("Today enrichment", () => {
-  it("shows real chair status and team today, and keeps money and billing widgets as M5 placeholders", async () => {
+  it("shows real chair status, team today and money from /today/money", async () => {
     renderPortal("/today", { as: PEOPLE.asha });
     await screen.findByText("Today's appointments");
     expect(screen.getByText("Today's collection")).toBeTruthy();
     expect(screen.getAllByText("Chair 1").length).toBeGreaterThan(0);
-    expect(screen.getByText("Revenue mix isn't available yet")).toBeTruthy();
-    expect(screen.getByText("Pending payments aren't available yet")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Revenue mix" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Pending payments" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Recent patients" })).toBeTruthy();
   });
 

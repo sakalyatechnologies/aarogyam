@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Clock3,
   IndianRupee,
-  PieChart,
   Play,
   ReceiptText,
   UsersRound,
@@ -13,8 +12,8 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { apiErrorOf, type AppointmentStatus, type Today } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatTime, useDocumentTitle } from "@aarogyam/app-kit";
+import { apiErrorOf, type AppointmentStatus, type PendingItem, type Today, type TodayMoney } from "@aarogyam/api-client";
+import { ApiErrorNotice, formatPercent, formatRupees, formatTime, useDocumentTitle } from "@aarogyam/app-kit";
 import {
   AttentionList,
   Avatar,
@@ -22,6 +21,7 @@ import {
   Button,
   Card,
   DataTable,
+  DonutChart,
   EmptyState,
   Link,
   PageHeader,
@@ -38,6 +38,7 @@ import {
 import { useClinic } from "../../clinic.js";
 import { ageSex, patientPath } from "../../lib/patients.js";
 import { useToday } from "../../queries.js";
+import { useTodayMoney } from "../billing/queries.js";
 
 const MINUTE = 60_000;
 
@@ -95,6 +96,7 @@ export function TodayPage() {
 }
 
 function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: string; showMoney: boolean }) {
+  const money = useTodayMoney(showMoney);
   const booked = today.appointments.filter((a) => a.status !== "cancelled");
   const waiting = booked.filter((a) => a.status === "arrived").sort((a, b) => (a.arrived_at ?? "").localeCompare(b.arrived_at ?? ""));
   const upcoming = booked.filter((a) => a.status === "booked" || a.status === "confirmed");
@@ -140,17 +142,22 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
           <>
             <StatCard
               label="Today's collection"
-              value="—"
-              tone="neutral"
+              value={money.data === undefined ? "—" : formatRupees(money.data.collected_paise)}
               icon={<IndianRupee className="size-7" />}
-              footer={<p className="text-xs text-muted">Arrives with billing (M5)</p>}
+              footer={money.data === undefined ? undefined : <p className="text-xs text-muted">{formatRupees(money.data.collected_this_month_paise)} this month</p>}
             />
             <StatCard
               label="Pending dues"
-              value="—"
-              tone="neutral"
+              value={money.data === undefined ? "—" : formatRupees(money.data.pending_dues_paise)}
+              tone={money.data !== undefined && money.data.pending_dues_paise > 0 ? "warning" : "primary"}
               icon={<ReceiptText className="size-7" />}
-              footer={<p className="text-xs text-muted">Arrives with billing (M5)</p>}
+              footer={
+                money.data === undefined ? undefined : (
+                  <p className="text-xs text-muted">
+                    {money.data.pending_dues_patients} {money.data.pending_dues_patients === 1 ? "patient" : "patients"}
+                  </p>
+                )
+              }
             />
           </>
         ) : null}
@@ -247,12 +254,16 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
       </Card>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <Card title="Revenue mix">
-          <EmptyState title="Revenue mix isn't available yet" description="Shows once collections reporting lands in M5." icon={<PieChart className="size-7" />} />
-        </Card>
-        <Card title="Pending payments">
-          <EmptyState title="Pending payments aren't available yet" description="Shows once invoices land in M5." icon={<ReceiptText className="size-7" />} />
-        </Card>
+        {showMoney ? (
+          <>
+            <Card title="Revenue mix">
+              <RevenueMixChart money={money.data} />
+            </Card>
+            <Card title="Pending payments">
+              <PendingPaymentsTable pending={money.data?.pending} />
+            </Card>
+          </>
+        ) : null}
         <Card title="Team today">
           <TeamTodayTable team={today.team} />
         </Card>
@@ -339,6 +350,65 @@ function RecentPatientsTable({ tokens, timeZone }: { tokens: readonly TodayQueue
       rowKey={(t) => t.id}
       pageSize={10}
       empty={{ title: "Nobody has come in yet", description: "Patients who arrive today will show here." }}
+    />
+  );
+}
+
+const CATEGORY_LABEL: Readonly<Record<string, string>> = {
+  consultation: "Consultation",
+  preventive: "Preventive",
+  restorative: "Restorative",
+  endodontics: "Endodontics",
+  oral_surgery: "Oral surgery",
+  orthodontics: "Orthodontics",
+  medicines: "Medicines",
+  other: "Other",
+};
+
+function RevenueMixChart({ money }: { money: TodayMoney | undefined }) {
+  if (money === undefined) {
+    return <Skeleton shape="block" />;
+  }
+  if (money.revenue_mix.length === 0) {
+    return <EmptyState title="No bills issued this month" description="The revenue mix appears once bills are issued." icon={null} />;
+  }
+  return (
+    <DonutChart
+      data={money.revenue_mix.map((m) => ({ label: CATEGORY_LABEL[m.category] ?? m.category, value: m.amount_paise }))}
+      summary="This month's billed amount by category"
+      categoryLabel="Category"
+      valueLabel="Amount"
+      centerValue={formatPercent(money.upi_share_bps / 10_000)}
+      centerLabel="UPI share"
+    />
+  );
+}
+
+function PendingPaymentsTable({ pending }: { pending: readonly PendingItem[] | undefined }) {
+  if (pending === undefined) {
+    return <Skeleton shape="block" />;
+  }
+  const columns: readonly DataTableColumn<PendingItem>[] = [
+    {
+      id: "patient",
+      header: "Patient",
+      cell: (i) => (
+        <Link href={patientPath(i.patient)} className="font-semibold text-text hover:underline">
+          {i.patient.name}
+        </Link>
+      ),
+    },
+    { id: "number", header: "Bill", cell: (i) => <span className="font-mono text-xs">{i.number ?? "—"}</span> },
+    { id: "balance", header: "Balance", align: "end", cell: (i) => formatRupees(i.balance_paise), sortValue: (i) => i.balance_paise },
+  ];
+  return (
+    <DataTable
+      caption="Pending payments"
+      columns={columns}
+      rows={pending}
+      rowKey={(i) => i.invoice_id}
+      pageSize={5}
+      empty={{ title: "Nothing pending", description: "Every issued bill is paid in full." }}
     />
   );
 }

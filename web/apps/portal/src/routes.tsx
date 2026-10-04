@@ -4,6 +4,12 @@ import { RouterLinks } from "@aarogyam/app-kit";
 
 import { ClinicGate, RequireAuth } from "./layout/portal-layout.js";
 import { AuthCallbackPage } from "./pages/auth-callback-page.js";
+import { BillingPage } from "./pages/billing/billing-page.js";
+import { InvoiceDetailPage } from "./pages/billing/invoice-detail-page.js";
+import { InvoicePrintPage } from "./pages/billing/invoice-print-page.js";
+import { NewInvoicePage } from "./pages/billing/new-invoice-page.js";
+import { PendingPaymentsPage } from "./pages/billing/pending-page.js";
+import { ReceiptPrintPage } from "./pages/billing/receipt-print-page.js";
 import { CalendarPage } from "./pages/calendar/calendar-page.js";
 import { ComingSoonPage } from "./pages/coming-soon-page.js";
 import { InvitePage } from "./pages/invite-page.js";
@@ -51,10 +57,12 @@ export const routes: RouteObject[] = [
               { path: "patients/:id/visits/:visitId", element: <VisitPage /> },
               { path: "calendar", element: <CalendarPage /> },
               { path: "queue", element: <QueuePage /> },
-              {
-                path: "billing",
-                element: <ComingSoonPage title="Billing" description="Collections, invoices and payments, once billing lands in M5." />,
-              },
+              { path: "billing", element: <BillingPage /> },
+              { path: "billing/pending", element: <PendingPaymentsPage /> },
+              { path: "billing/invoices/new", element: <NewInvoicePage /> },
+              { path: "billing/invoices/:id", element: <InvoiceDetailPage /> },
+              { path: "billing/invoices/:id/print", element: <InvoicePrintPage /> },
+              { path: "billing/payments/:id/receipt", element: <ReceiptPrintPage /> },
               {
                 path: "stock",
                 element: <ComingSoonPage title="Stock" description="Material and medicine stock levels. Not yet scheduled." />,

@@ -13,3 +13,15 @@ body,
 body {
   margin: 0;
 }
+
+/* Printable pages (bills, receipts, prescriptions) mark their content with `.print-area`; the
+   app's own chrome (sidebar and top bar) never belongs on paper. */
+@media print {
+  aside,
+  body > div > div > header {
+    display: none !important;
+  }
+  .print-area {
+    margin: 0;
+  }
+}

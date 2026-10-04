@@ -1288,6 +1288,8 @@ export type Invoice = z.output<typeof invoice>;
 export const invoiceList = z.object({ items: z.array(invoice) }) satisfies z.ZodType<C.InvoiceList>;
 export type InvoicePage = z.output<typeof invoiceList>;
 
+/** A line on `NewInvoice`/`InvoiceEdit`: from a price list entry, or free text. */
+export type InvoiceLineInput = C.InvoiceLineInput;
 /** Body of `POST /api/v1/invoices`. */
 export type NewInvoice = C.NewInvoice;
 /** Body of `PATCH /api/v1/invoices/{id}`. */

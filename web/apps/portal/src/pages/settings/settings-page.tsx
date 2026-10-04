@@ -38,6 +38,7 @@ import {
   useUpdateClinicSettings,
 } from "../../queries.js";
 import { ChairsDoctorsPanel } from "./chairs-doctors-panel.js";
+import { PriceListPanel } from "./price-list-panel.js";
 
 /** The clinic's profile, staff, sessions, and the two panels that stay static until Phase 2. */
 export function SettingsPage() {
@@ -46,6 +47,7 @@ export function SettingsPage() {
   const items: TabItem[] = [
     ...(can("settings.manage") ? [{ value: "profile", label: "Clinic profile", content: <ProfilePanel /> }] : []),
     ...(can("settings.manage") ? [{ value: "chairs-doctors", label: "Chairs and doctors", content: <ChairsDoctorsPanel /> }] : []),
+    ...(can("billing.read") ? [{ value: "price-list", label: "Price list", content: <PriceListPanel /> }] : []),
     ...(can("staff.manage") ? [{ value: "staff", label: "Staff", content: <StaffPanel /> }] : []),
     { value: "sessions", label: "Sessions", content: <SessionsPanel /> },
     {

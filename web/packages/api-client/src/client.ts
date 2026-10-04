@@ -83,6 +83,23 @@ import type {
   Prescription,
   PrescriptionId,
   PrescriptionPage,
+  AdjustStock,
+  ExpireBatch,
+  ExpiringPage,
+  InventoryItem,
+  InventoryItemDetail,
+  InventoryItemId,
+  InventoryItemPage,
+  InventoryItemValues,
+  ReceiveStock,
+  StockBatchId,
+  StockChange,
+  StockSummary,
+  Supplier,
+  SupplierId,
+  SupplierPage,
+  SupplierValues,
+  UseStock,
   PriceItem,
   PriceItemId,
   PriceItemPage,
@@ -322,6 +339,39 @@ export interface ApiClient {
   addPriceItem(input: PriceItemValues, options?: RequestOptions): Promise<ApiResult<PriceItem>>;
   /** Clinic host: changes a price list entry. Needs `settings.manage`. */
   changePriceItem(id: PriceItemId, input: PriceItemValues, options?: RequestOptions): Promise<ApiResult<PriceItem>>;
+
+  /** Clinic host: stock levels with counts for the summary cards, critical first. Needs `inventory.read`. */
+  getStock(options?: RequestOptions): Promise<ApiResult<StockSummary>>;
+  /** Clinic host: items at or below their reorder level, worst first. Needs `inventory.read`. */
+  listLowStock(options?: RequestOptions): Promise<ApiResult<InventoryItemPage>>;
+  /** Clinic host: batches with stock left that expire within `days` days (30 by default) or already have. Needs `inventory.read`. */
+  listExpiring(days?: number, options?: RequestOptions): Promise<ApiResult<ExpiringPage>>;
+  /** Clinic host: the stock items by name, each with its level. Needs `inventory.read`. */
+  listInventoryItems(options?: RequestOptions): Promise<ApiResult<InventoryItemPage>>;
+  /** Clinic host: one item with its batches and latest movements. Needs `inventory.read`. */
+  getInventoryItem(id: InventoryItemId, options?: RequestOptions): Promise<ApiResult<InventoryItemDetail>>;
+  /** Clinic host: adds a stock item. Needs `inventory.manage`. */
+  addInventoryItem(input: InventoryItemValues, options?: RequestOptions): Promise<ApiResult<InventoryItem>>;
+  /** Clinic host: changes a stock item. Needs `inventory.manage`. */
+  changeInventoryItem(id: InventoryItemId, input: InventoryItemValues, options?: RequestOptions): Promise<ApiResult<InventoryItem>>;
+  /** Clinic host: removes an item that has nothing on the shelf. Needs `inventory.manage`. */
+  removeInventoryItem(id: InventoryItemId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: the suppliers by name. Needs `inventory.read`. */
+  listSuppliers(options?: RequestOptions): Promise<ApiResult<SupplierPage>>;
+  /** Clinic host: adds a supplier. Needs `inventory.manage`. */
+  addSupplier(input: SupplierValues, options?: RequestOptions): Promise<ApiResult<Supplier>>;
+  /** Clinic host: changes a supplier. Needs `inventory.manage`. */
+  changeSupplier(id: SupplierId, input: SupplierValues, options?: RequestOptions): Promise<ApiResult<Supplier>>;
+  /** Clinic host: removes a supplier from the list. Needs `inventory.manage`. */
+  removeSupplier(id: SupplierId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: adds a delivery to stock. Needs `inventory.manage`. */
+  receiveStock(input: ReceiveStock, options?: RequestOptions): Promise<ApiResult<StockChange>>;
+  /** Clinic host: uses stock, earliest expiry first; 409 when the usable stock is short. Needs `inventory.manage`. */
+  useStock(input: UseStock, options?: RequestOptions): Promise<ApiResult<StockChange>>;
+  /** Clinic host: corrects stock after a count; a reason is required. Needs `inventory.manage`. */
+  adjustStock(input: AdjustStock, options?: RequestOptions): Promise<ApiResult<StockChange>>;
+  /** Clinic host: writes off what is left of an expired batch. Needs `inventory.manage`. */
+  expireBatch(id: StockBatchId, input: ExpireBatch, options?: RequestOptions): Promise<ApiResult<StockChange>>;
 
   /** Clinic host: bills, newest first, without lines. Needs `billing.read`. */
   listInvoices(

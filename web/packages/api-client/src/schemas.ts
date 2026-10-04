@@ -529,6 +529,32 @@ export const todayCounts = z.object({
 }) satisfies z.ZodType<C.TodayCounts>;
 export type TodayCounts = z.output<typeof todayCounts>;
 
+export const inventoryItemId = z.string().min(1).brand<"InventoryItemId">();
+export type InventoryItemId = z.output<typeof inventoryItemId>;
+
+export const supplierId = z.string().min(1).brand<"SupplierId">();
+export type SupplierId = z.output<typeof supplierId>;
+
+export const stockBatchId = z.string().min(1).brand<"StockBatchId">();
+export type StockBatchId = z.output<typeof stockBatchId>;
+
+/** Where an item's stock stands: out or nearly out, at the reorder level, a batch expiring, or fine. */
+export const stockStatus = z.enum(["ok", "low", "critical", "expiring"]);
+export type StockStatus = z.output<typeof stockStatus>;
+
+export const stockUnit = z.enum(["piece", "ml", "g", "box", "pack"]);
+export type StockUnit = z.output<typeof stockUnit>;
+
+export const lowStockAlert = z.object({
+  item_id: inventoryItemId,
+  name: z.string(),
+  unit: z.string(),
+  on_hand: count,
+  reorder_level: count,
+  status: stockStatus,
+}) satisfies z.ZodType<C.LowStockAlert>;
+export type LowStockAlert = z.output<typeof lowStockAlert>;
+
 export const todayResponse = z.object({
   date,
   as_of: timestamp,
@@ -539,6 +565,7 @@ export const todayResponse = z.object({
   attention: z.array(attentionItem),
   recent_patients: z.array(queueToken),
   team: z.array(teamMemberToday),
+  low_stock: z.array(lowStockAlert).nullable().exactOptional(),
 }) satisfies z.ZodType<C.TodayResponse>;
 export type Today = z.output<typeof todayResponse>;
 
@@ -1524,3 +1551,109 @@ export type NewClinic = C.NewClinic;
 
 /** Body of `POST /api/v1/invitations/accept`. */
 export type AcceptInvitation = C.AcceptInvitation;
+
+// Stock --------------------------------------------------------------------------------------
+
+export const supplier = z.object({
+  id: supplierId,
+  name: z.string(),
+  phone: optionalText,
+  gstin: optionalText,
+  active: z.boolean(),
+}) satisfies z.ZodType<C.Supplier>;
+export type Supplier = z.output<typeof supplier>;
+
+export const supplierList = z.object({ items: z.array(supplier) }) satisfies z.ZodType<C.SupplierList>;
+export type SupplierPage = z.output<typeof supplierList>;
+
+/** Body of `POST`/`PATCH /api/v1/suppliers`. */
+export type SupplierValues = C.SupplierValues;
+
+export const inventoryItem = z.object({
+  id: inventoryItemId,
+  name: z.string(),
+  category: optionalText,
+  unit: stockUnit,
+  reorder_level: count,
+  active: z.boolean(),
+}) satisfies z.ZodType<C.InventoryItem>;
+export type InventoryItem = z.output<typeof inventoryItem>;
+
+/** Body of `POST`/`PATCH /api/v1/inventory-items`. */
+export type InventoryItemValues = C.InventoryItemValues;
+
+export const stockLevel = z.object({
+  item: inventoryItem,
+  on_hand: count,
+  next_expiry: date.nullable().exactOptional(),
+  status: stockStatus,
+}) satisfies z.ZodType<C.StockLevel>;
+export type StockLevel = z.output<typeof stockLevel>;
+
+export const inventoryItemList = z.object({ items: z.array(stockLevel) }) satisfies z.ZodType<C.InventoryItemList>;
+export type InventoryItemPage = z.output<typeof inventoryItemList>;
+
+export const stockSummary = z.object({
+  counts: z.object({ critical: count, low: count, expiring: count, ok: count }),
+  items: z.array(stockLevel),
+}) satisfies z.ZodType<C.StockSummary>;
+export type StockSummary = z.output<typeof stockSummary>;
+
+export const stockBatch = z.object({
+  id: stockBatchId,
+  supplier_id: supplierId.nullable().exactOptional(),
+  batch_no: optionalText,
+  expiry: date.nullable().exactOptional(),
+  received_quantity: count,
+  quantity: count,
+  unit_cost_paise: paise,
+  received_on: date,
+}) satisfies z.ZodType<C.StockBatch>;
+export type StockBatch = z.output<typeof stockBatch>;
+
+export const stockMovementKind = z.enum(["receive", "use", "adjust", "expire"]);
+
+export const stockMovement = z.object({
+  id: z.string().min(1),
+  batch_id: stockBatchId,
+  kind: stockMovementKind,
+  quantity: z.number().int(),
+  reason: optionalText,
+  at: timestamp,
+  by: userId.nullable().exactOptional(),
+}) satisfies z.ZodType<C.StockMovement>;
+export type StockMovement = z.output<typeof stockMovement>;
+
+export const inventoryItemDetail = z.object({
+  stock: stockLevel,
+  batches: z.array(stockBatch),
+  movements: z.array(stockMovement),
+}) satisfies z.ZodType<C.InventoryItemDetail>;
+export type InventoryItemDetail = z.output<typeof inventoryItemDetail>;
+
+export const stockChange = z.object({
+  stock: stockLevel,
+  movements: z.array(stockMovement),
+}) satisfies z.ZodType<C.StockChange>;
+export type StockChange = z.output<typeof stockChange>;
+
+export const expiringBatch = z.object({
+  batch_id: stockBatchId,
+  item_id: inventoryItemId,
+  item_name: z.string(),
+  unit: z.string(),
+  batch_no: optionalText,
+  expiry: date,
+  quantity: count,
+  days_left: z.number().int(),
+}) satisfies z.ZodType<C.ExpiringBatch>;
+export type ExpiringBatch = z.output<typeof expiringBatch>;
+
+export const expiringList = z.object({ items: z.array(expiringBatch) }) satisfies z.ZodType<C.ExpiringList>;
+export type ExpiringPage = z.output<typeof expiringList>;
+
+/** Bodies of `POST /api/v1/stock/receive`, `/use`, `/adjust` and `/batches/{id}/expire`. */
+export type ReceiveStock = C.ReceiveStock;
+export type UseStock = C.UseStock;
+export type AdjustStock = C.AdjustStock;
+export type ExpireBatch = C.ExpireBatch;

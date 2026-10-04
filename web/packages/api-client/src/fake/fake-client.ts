@@ -35,7 +35,11 @@ import {
   type FakePlatformUser,
   type FakePractitioner,
   type FakePrescription,
+  type FakeInventoryItem,
   type FakePriceItem,
+  type FakeStockBatch,
+  type FakeStockMovement,
+  type FakeSupplier,
   type FakeProcedure,
   type FakeQueueToken,
   type FakeRole,
@@ -48,6 +52,7 @@ import {
 } from "./fixtures.js";
 import { createMetrics } from "./metrics.js";
 import { createRandom, fakeUuid } from "./random.js";
+import { MAX_MOVEMENT, addDays, byUrgency, daysBetween, isExpired, isStockUnit, levelOf, pickFefo, wireItem } from "./stock.js";
 import { atLocalTime, localClock } from "./zoned-time.js";
 
 const TOKEN_PREFIX = "fake:";
@@ -180,6 +185,48 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
     }
 
     const isCaller = (value: Caller | Outcome): value is Caller => "clinic" in value;
+
+    /** The clinic's local date. */
+    function clinicToday(clinic: FakeClinic): string {
+      return localClock(clock(), clinic.timezone).date;
+    }
+
+    function clinicLevels(clinic: FakeClinic): C.StockLevel[] {
+      const today = clinicToday(clinic);
+      return state.inventoryItems.filter((i) => i.clinic_id === clinic.id).map((i) => levelOf(i, state.stockBatches, today));
+    }
+
+    function inventoryItemOf(clinic: FakeClinic, id: string): FakeInventoryItem | undefined {
+      return state.inventoryItems.find((i) => i.id === id && i.clinic_id === clinic.id);
+    }
+
+    function inventoryItemNamed(clinic: FakeClinic, name: string): FakeInventoryItem | undefined {
+      return state.inventoryItems.find((i) => i.clinic_id === clinic.id && i.name.toLowerCase() === name.toLowerCase());
+    }
+
+    function record(caller: Caller, item: FakeInventoryItem, batch: FakeStockBatch, kind: FakeStockMovement["kind"], quantity: number, reason: string | null): FakeStockMovement {
+      const movement: FakeStockMovement = {
+        id: fakeUuid(random, clock()),
+        clinic_id: caller.clinic.id,
+        item_id: item.id,
+        batch_id: batch.id,
+        kind,
+        quantity,
+        reason,
+        at: clock().toISOString(),
+        by: caller.user.id,
+      };
+      state.stockMovements.push(movement);
+      return movement;
+    }
+
+    function stockChangeOf(clinic: FakeClinic, item: FakeInventoryItem, movements: readonly FakeStockMovement[]): C.StockChange {
+      return {
+        stock: levelOf(item, state.stockBatches, clinicToday(clinic)),
+        movements: movements.map(wireMovement),
+      };
+    }
+
 
     async function inConsole(handle: () => Outcome): Promise<Outcome> {
       const id = await subject();
@@ -344,7 +391,19 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!isCaller(caller)) {
             return caller;
           }
-          return reply(buildToday(state, caller.clinic, clock()) satisfies C.TodayResponse);
+          const today = buildToday(state, caller.clinic, clock());
+          if (hasPermission(caller.membership.role.permissions, "inventory.read")) {
+            const low = byUrgency(clinicLevels(caller.clinic)).filter((l) => l.item.active && (l.status === "low" || l.status === "critical"));
+            today.low_stock = low.map((l) => ({
+              item_id: l.item.id,
+              name: l.item.name,
+              unit: l.item.unit,
+              on_hand: l.on_hand,
+              reorder_level: l.item.reorder_level,
+              status: l.status,
+            }));
+          }
+          return reply(today satisfies C.TodayResponse);
         }),
 
       updatePatient: (id, changes, opts) =>
@@ -2344,6 +2403,398 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(wirePriceItem(item) satisfies C.PriceItem);
         }),
 
+      getStock: (opts) =>
+        respond(S.stockSummary, opts?.signal, async () => {
+          const caller = await inClinic("inventory.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const levels = byUrgency(clinicLevels(caller.clinic));
+          const active = levels.filter((l) => l.item.active);
+          const count = (status: C.StockLevel["status"]): number => active.filter((l) => l.status === status).length;
+          return reply({
+            counts: { critical: count("critical"), low: count("low"), expiring: count("expiring"), ok: count("ok") },
+            items: levels,
+          } satisfies C.StockSummary);
+        }),
+
+      listLowStock: (opts) =>
+        respond(S.inventoryItemList, opts?.signal, async () => {
+          const caller = await inClinic("inventory.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const items = byUrgency(clinicLevels(caller.clinic)).filter((l) => l.item.active && (l.status === "low" || l.status === "critical"));
+          return reply({ items } satisfies C.InventoryItemList);
+        }),
+
+      listExpiring: (days, opts) =>
+        respond(S.expiringList, opts?.signal, async () => {
+          const caller = await inClinic("inventory.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const ahead = days ?? 30;
+          if (!Number.isInteger(ahead) || ahead < 0 || ahead > 3650) {
+            return invalid("days", "must be between 0 and 3650");
+          }
+          const today = clinicToday(caller.clinic);
+          const items = state.stockBatches
+            .filter((b) => b.clinic_id === caller.clinic.id && b.quantity > 0 && b.expiry != null && b.expiry <= addDays(today, ahead))
+            .flatMap((b) => {
+              const item = state.inventoryItems.find((i) => i.id === b.item_id);
+              return item === undefined || b.expiry == null
+                ? []
+                : [{ batch_id: b.id, item_id: item.id, item_name: item.name, unit: item.unit, batch_no: b.batch_no ?? null, expiry: b.expiry, quantity: b.quantity, days_left: daysBetween(today, b.expiry) }];
+            })
+            .sort((a, b) => a.expiry.localeCompare(b.expiry) || a.item_name.localeCompare(b.item_name));
+          return reply({ items } satisfies C.ExpiringList);
+        }),
+
+      listInventoryItems: (opts) =>
+        respond(S.inventoryItemList, opts?.signal, async () => {
+          const caller = await inClinic("inventory.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const items = clinicLevels(caller.clinic).sort((a, b) => a.item.name.localeCompare(b.item.name));
+          return reply({ items } satisfies C.InventoryItemList);
+        }),
+
+      getInventoryItem: (id, opts) =>
+        respond(S.inventoryItemDetail, opts?.signal, async () => {
+          const caller = await inClinic("inventory.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const item = inventoryItemOf(caller.clinic, id);
+          if (item === undefined) {
+            return notFound;
+          }
+          const batches = state.stockBatches.filter((b) => b.item_id === item.id);
+          return reply({
+            stock: levelOf(item, batches, clinicToday(caller.clinic)),
+            batches: [...batches]
+              .sort((a, b) => Number(a.quantity === 0) - Number(b.quantity === 0) || (a.expiry ?? "9999").localeCompare(b.expiry ?? "9999"))
+              .map(wireBatch),
+            movements: state.stockMovements
+              .filter((m) => m.item_id === item.id)
+              .sort((a, b) => b.at.localeCompare(a.at))
+              .slice(0, 50)
+              .map(wireMovement),
+          } satisfies C.InventoryItemDetail);
+        }),
+
+      addInventoryItem: (input, opts) =>
+        respond(S.inventoryItem, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const name = (input.name ?? "").trim();
+          if (name === "") {
+            return invalid("name", "is required");
+          }
+          const unit = input.unit ?? "piece";
+          if (!isStockUnit(unit)) {
+            return invalid("unit", "must be piece, ml, g, box or pack");
+          }
+          const reorder = input.reorder_level ?? 0;
+          if (!Number.isInteger(reorder) || reorder < 0 || reorder > MAX_MOVEMENT) {
+            return invalid("reorder_level", "must be between 0 and 1000000");
+          }
+          if (inventoryItemNamed(caller.clinic, name) !== undefined) {
+            return refuse(409, "conflict", "an item has this name");
+          }
+          const item: FakeInventoryItem = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            name,
+            category: (input.category ?? "").trim().toLowerCase() || null,
+            unit,
+            reorder_level: reorder,
+            active: input.active ?? true,
+          };
+          state.inventoryItems.push(item);
+          return reply(wireItem(item) satisfies C.InventoryItem);
+        }),
+
+      changeInventoryItem: (id, input, opts) =>
+        respond(S.inventoryItem, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const item = inventoryItemOf(caller.clinic, id);
+          if (item === undefined) {
+            return notFound;
+          }
+          if (input.name != null) {
+            const name = input.name.trim();
+            if (name === "") {
+              return invalid("name", "is required");
+            }
+            const same = inventoryItemNamed(caller.clinic, name);
+            if (same !== undefined && same.id !== item.id) {
+              return refuse(409, "conflict", "an item has this name");
+            }
+            item.name = name;
+          }
+          if (input.unit != null) {
+            if (!isStockUnit(input.unit)) {
+              return invalid("unit", "must be piece, ml, g, box or pack");
+            }
+            item.unit = input.unit;
+          }
+          if (input.reorder_level != null) {
+            if (!Number.isInteger(input.reorder_level) || input.reorder_level < 0 || input.reorder_level > MAX_MOVEMENT) {
+              return invalid("reorder_level", "must be between 0 and 1000000");
+            }
+            item.reorder_level = input.reorder_level;
+          }
+          if (input.category != null) item.category = input.category.trim().toLowerCase() || null;
+          if (input.active != null) item.active = input.active;
+          return reply(wireItem(item) satisfies C.InventoryItem);
+        }),
+
+      removeInventoryItem: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const item = inventoryItemOf(caller.clinic, id);
+          if (item === undefined) {
+            return notFound;
+          }
+          if (state.stockBatches.some((b) => b.item_id === item.id && b.quantity > 0)) {
+            return refuse(409, "conflict", "the item still has stock; use or write it off first");
+          }
+          state.inventoryItems = state.inventoryItems.filter((i) => i.id !== item.id);
+          return { ok: true, body: undefined };
+        }),
+
+      listSuppliers: (opts) =>
+        respond(S.supplierList, opts?.signal, async () => {
+          const caller = await inClinic("inventory.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const items = state.suppliers
+            .filter((s) => s.clinic_id === caller.clinic.id)
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map(wireSupplier);
+          return reply({ items } satisfies C.SupplierList);
+        }),
+
+      addSupplier: (input, opts) =>
+        respond(S.supplier, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const name = (input.name ?? "").trim();
+          if (name === "") {
+            return invalid("name", "is required");
+          }
+          if (state.suppliers.some((s) => s.clinic_id === caller.clinic.id && s.name.toLowerCase() === name.toLowerCase())) {
+            return refuse(409, "conflict", "a supplier has this name");
+          }
+          const phone = (input.phone ?? "").trim();
+          const e164 = phone === "" ? null : phone.startsWith("+") ? phone.replace(/\s/g, "") : `+91${phone.replace(/\D/g, "")}`;
+          if (e164 !== null && !E164.test(e164)) {
+            return invalid("phone", "must be a phone number");
+          }
+          const supplier: FakeSupplier = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            name,
+            phone: e164,
+            gstin: (input.gstin ?? "").trim().toUpperCase() || null,
+            active: input.active ?? true,
+          };
+          state.suppliers.push(supplier);
+          return reply(wireSupplier(supplier) satisfies C.Supplier);
+        }),
+
+      changeSupplier: (id, input, opts) =>
+        respond(S.supplier, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const supplier = state.suppliers.find((s) => s.id === id && s.clinic_id === caller.clinic.id);
+          if (supplier === undefined) {
+            return notFound;
+          }
+          if (input.name != null) {
+            const name = input.name.trim();
+            if (name === "") {
+              return invalid("name", "is required");
+            }
+            if (state.suppliers.some((s) => s.id !== supplier.id && s.clinic_id === caller.clinic.id && s.name.toLowerCase() === name.toLowerCase())) {
+              return refuse(409, "conflict", "a supplier has this name");
+            }
+            supplier.name = name;
+          }
+          if (input.phone != null) supplier.phone = input.phone.trim() === "" ? null : input.phone.trim();
+          if (input.gstin != null) supplier.gstin = input.gstin.trim().toUpperCase() || null;
+          if (input.active != null) supplier.active = input.active;
+          return reply(wireSupplier(supplier) satisfies C.Supplier);
+        }),
+
+      removeSupplier: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!state.suppliers.some((s) => s.id === id && s.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          state.suppliers = state.suppliers.filter((s) => s.id !== id);
+          return { ok: true, body: undefined };
+        }),
+
+      receiveStock: (input, opts) =>
+        respond(S.stockChange, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > MAX_MOVEMENT) {
+            return invalid("quantity", "must be between 1 and 1000000");
+          }
+          const cost = input.unit_cost_paise ?? 0;
+          if (!Number.isInteger(cost) || cost < 0) {
+            return invalid("unit_cost_paise", "must not be negative");
+          }
+          const item = inventoryItemOf(caller.clinic, input.item_id);
+          if (item === undefined) {
+            return notFound;
+          }
+          const supplierId = input.supplier_id == null || input.supplier_id === "" ? null : input.supplier_id;
+          if (supplierId !== null && !state.suppliers.some((s) => s.id === supplierId && s.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          const today = clinicToday(caller.clinic);
+          const batch: FakeStockBatch = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            item_id: item.id,
+            supplier_id: supplierId,
+            batch_no: input.batch_no?.trim() || null,
+            expiry: input.expiry || null,
+            received_quantity: input.quantity,
+            quantity: input.quantity,
+            unit_cost_paise: cost,
+            received_on: input.received_on || today,
+          };
+          state.stockBatches.push(batch);
+          const movement = record(caller, item, batch, "receive", input.quantity, null);
+          return reply(stockChangeOf(caller.clinic, item, [movement]) satisfies C.StockChange);
+        }),
+
+      useStock: (input, opts) =>
+        respond(S.stockChange, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > MAX_MOVEMENT) {
+            return invalid("quantity", "must be between 1 and 1000000");
+          }
+          const item = inventoryItemOf(caller.clinic, input.item_id);
+          if (item === undefined) {
+            return notFound;
+          }
+          const picks = pickFefo(
+            state.stockBatches.filter((b) => b.item_id === item.id),
+            input.quantity,
+            clinicToday(caller.clinic),
+          );
+          if (picks === null) {
+            return refuse(409, "conflict", "not enough stock on the shelf");
+          }
+          const reason = input.reason?.trim() || null;
+          const movements = picks.map(({ batch, take }) => {
+            batch.quantity -= take;
+            return record(caller, item, batch, "use", -take, reason);
+          });
+          return reply(stockChangeOf(caller.clinic, item, movements) satisfies C.StockChange);
+        }),
+
+      adjustStock: (input, opts) =>
+        respond(S.stockChange, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!Number.isInteger(input.quantity) || input.quantity === 0 || Math.abs(input.quantity) > MAX_MOVEMENT) {
+            return invalid("quantity", "must be between 1 and 1000000");
+          }
+          const reason = input.reason.trim();
+          if (reason === "") {
+            return invalid("reason", "is required");
+          }
+          const item = inventoryItemOf(caller.clinic, input.item_id);
+          if (item === undefined) {
+            return notFound;
+          }
+          const mine = state.stockBatches.filter((b) => b.item_id === item.id);
+          const today = clinicToday(caller.clinic);
+          if (input.quantity > 0) {
+            const latest = [...mine].sort((a, b) => b.received_on.localeCompare(a.received_on))[0];
+            const batch: FakeStockBatch = {
+              id: fakeUuid(random, clock()),
+              clinic_id: caller.clinic.id,
+              item_id: item.id,
+              supplier_id: null,
+              batch_no: null,
+              expiry: input.expiry || null,
+              received_quantity: input.quantity,
+              quantity: input.quantity,
+              unit_cost_paise: latest?.unit_cost_paise ?? 0,
+              received_on: today,
+            };
+            state.stockBatches.push(batch);
+            return reply(stockChangeOf(caller.clinic, item, [record(caller, item, batch, "adjust", input.quantity, reason)]) satisfies C.StockChange);
+          }
+          // A recount sees expired stock too.
+          const picks = pickFefo(mine, -input.quantity, today, true);
+          if (picks === null) {
+            return refuse(409, "conflict", "not enough stock on the shelf");
+          }
+          const movements = picks.map(({ batch, take }) => {
+            batch.quantity -= take;
+            return record(caller, item, batch, "adjust", -take, reason);
+          });
+          return reply(stockChangeOf(caller.clinic, item, movements) satisfies C.StockChange);
+        }),
+
+      expireBatch: (id, input, opts) =>
+        respond(S.stockChange, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const batch = state.stockBatches.find((b) => b.id === id && b.clinic_id === caller.clinic.id);
+          const item = batch === undefined ? undefined : state.inventoryItems.find((i) => i.id === batch.item_id);
+          if (batch === undefined || item === undefined) {
+            return notFound;
+          }
+          if (batch.quantity === 0) {
+            return refuse(409, "conflict", "the batch is already empty");
+          }
+          if (!isExpired(batch.expiry, clinicToday(caller.clinic))) {
+            return refuse(409, "conflict", "the batch has not expired");
+          }
+          const left = batch.quantity;
+          batch.quantity = 0;
+          const movement = record(caller, item, batch, "expire", -left, input.reason?.trim() || "expired");
+          return reply(stockChangeOf(caller.clinic, item, [movement]) satisfies C.StockChange);
+        }),
+
       listInvoices: (filter, opts) =>
         respond(S.invoiceList, opts?.signal, async () => {
           const caller = await inClinic("billing.read");
@@ -3783,6 +4234,27 @@ function wireDrug(d: FakeDrug): C.Drug {
     default_timing: d.default_timing ?? null,
     default_duration_days: d.default_duration_days ?? null,
   };
+}
+
+function wireSupplier(s: FakeSupplier): C.Supplier {
+  return { id: s.id, name: s.name, phone: s.phone ?? null, gstin: s.gstin ?? null, active: s.active };
+}
+
+function wireBatch(b: FakeStockBatch): C.StockBatch {
+  return {
+    id: b.id,
+    supplier_id: b.supplier_id ?? null,
+    batch_no: b.batch_no ?? null,
+    expiry: b.expiry ?? null,
+    received_quantity: b.received_quantity,
+    quantity: b.quantity,
+    unit_cost_paise: b.unit_cost_paise,
+    received_on: b.received_on,
+  };
+}
+
+function wireMovement(m: FakeStockMovement): C.StockMovement {
+  return { id: m.id, batch_id: m.batch_id, kind: m.kind, quantity: m.quantity, reason: m.reason ?? null, at: m.at, by: m.by ?? null };
 }
 
 function wirePriceItem(p: FakePriceItem): C.PriceItem {

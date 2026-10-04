@@ -647,3 +647,142 @@ async fn billing_follows_the_role() {
 async fn patient_in_beta(app: &TestApp, token: &str) -> String {
     patient(app, BETA, token).await
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "the reports read the same day's money, so one test"
+)]
+async fn reports_show_collections_revenue_mix_and_dues() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = patient(&app, ALPHA, &owner).await;
+    let rct = json!({ "name": "Root canal", "category": "endodontics", "price_paise": 400_000 });
+    let rct = price_item(&app, &owner, rct).await;
+    let fresh = draft(
+        &app,
+        ALPHA,
+        &owner,
+        &patient,
+        json!([{ "price_item_id": rct }]),
+    )
+    .await;
+    let fresh = issue(&app, &owner, fresh["id"].as_str().unwrap()).await;
+    // A bill issued 45 days ago, through the use case with that clock.
+    let old = draft(
+        &app,
+        ALPHA,
+        &owner,
+        &patient,
+        json!([{ "description": "Scaling", "unit_price_paise": 100_000 }]),
+    )
+    .await;
+    let old_id = InvoiceId::from_uuid(old["id"].as_str().unwrap().parse().unwrap());
+    let then = time::OffsetDateTime::now_utc() - time::Duration::days(45);
+    aarogyam_app::billing::issue(&app.api_db(), &owner_actor(&app).await, None, old_id, then)
+        .await
+        .unwrap();
+    let upi = json!({ "patient_id": patient, "method": "upi", "amount_paise": 300_000,
+                      "allocations": [{ "invoice_id": fresh["id"], "amount_paise": 300_000 }] });
+    assert_eq!(
+        pay(&app, &owner, "key-report-001", upi).await.0,
+        StatusCode::CREATED
+    );
+    let cash = json!({ "patient_id": patient, "method": "cash", "amount_paise": 100_000 });
+    assert_eq!(
+        pay(&app, &owner, "key-report-002", cash).await.0,
+        StatusCode::CREATED
+    );
+
+    let (status, report) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            "/api/v1/reports/collections",
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{report}");
+    assert_eq!(report["collected_paise"], 400_000);
+    assert_eq!(report["by_day"].as_array().unwrap().len(), 7);
+    assert_eq!(report["by_day"][6]["amount_paise"], 400_000);
+    let upi_share = report["by_method"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["method"] == "upi")
+        .unwrap();
+    assert_eq!(upi_share["share_bps"], 7_500);
+    assert_eq!(
+        report["revenue_mix"],
+        json!([{ "category": "endodontics", "amount_paise": 400_000, "share_bps": 10_000 }])
+    );
+    assert_eq!(report["outstanding_paise"], 200_000);
+
+    let (_, pending) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            "/api/v1/reports/pending",
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(pending["items"].as_array().unwrap().len(), 2);
+    assert_eq!(pending["items"][0]["bucket"], "31_60");
+    assert_eq!(
+        pending["buckets"],
+        json!({ "0_30": 100_000, "31_60": 100_000, "61_90": 0, "90_plus": 0 })
+    );
+    assert_eq!(pending["patients"], 1);
+
+    let (status, money) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            "/api/v1/today/money",
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{money}");
+    assert_eq!(money["collected_paise"], 400_000);
+    assert_eq!(money["invoices_today"], 1);
+    assert_eq!(money["pending_dues_paise"], 200_000);
+    assert_eq!(money["pending_dues_patients"], 1);
+    assert_eq!(money["pending"].as_array().unwrap().len(), 2);
+
+    let (status, _) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            "/api/v1/reports/collections?from=2026-01-01&to=2025-01-01",
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let desk = app.token(ALPHA_FRONT_DESK);
+    for path in [
+        "/api/v1/reports/collections",
+        "/api/v1/reports/pending",
+        "/api/v1/today/money",
+    ] {
+        let (status, _) = app.send(Method::GET, ALPHA, path, Some(&desk), None).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{path}");
+    }
+    let beta = app.token(BETA_OWNER);
+    let (_, theirs) = app
+        .send(Method::GET, BETA, "/api/v1/today/money", Some(&beta), None)
+        .await;
+    assert_eq!(
+        (
+            theirs["collected_paise"].as_i64(),
+            theirs["pending_dues_paise"].as_i64()
+        ),
+        (Some(0), Some(0))
+    );
+    app.finish().await;
+}

@@ -908,3 +908,100 @@ pub async fn next_number(
     .await?;
     Ok(value)
 }
+
+/// Money received on one clinic day by one method.
+#[derive(Debug, Clone)]
+pub struct CollectionRow {
+    /// The clinic day.
+    pub day: time::Date,
+    /// `cash`, `upi`, `card` or `bank`.
+    pub method: String,
+    /// Received, in paise.
+    pub amount_paise: i64,
+    /// How many payments.
+    pub payments: i64,
+}
+
+/// Payments that aren't void, received in `[from, to)`, by clinic day (in `timezone`) and
+/// method.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn collections(
+    conn: &mut PgConnection,
+    from: OffsetDateTime,
+    to: OffsetDateTime,
+    timezone: &str,
+) -> Result<Vec<CollectionRow>, DbError> {
+    let rows = sqlx::query_as!(
+        CollectionRow,
+        r#"select (m.received_at at time zone $3)::date as "day!", m.method,
+                  sum(m.amount_paise)::bigint as "amount_paise!", count(*) as "payments!"
+           from aarogyam.payments m
+           where m.status = 'received' and m.received_at >= $1 and m.received_at < $2
+           group by 1, 2
+           order by 1, 2"#,
+        from,
+        to,
+        timezone
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// Revenue in one category.
+#[derive(Debug, Clone)]
+pub struct MixRow {
+    /// The price list category; `other` for free-text lines.
+    pub category: String,
+    /// Billed, in paise, including GST.
+    pub amount_paise: i64,
+}
+
+/// Lines of bills issued in `[from, to)` and not void, by category.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn revenue_mix(
+    conn: &mut PgConnection,
+    from: OffsetDateTime,
+    to: OffsetDateTime,
+) -> Result<Vec<MixRow>, DbError> {
+    let rows = sqlx::query_as!(
+        MixRow,
+        r#"select coalesce(l.category, 'other') as "category!",
+                  sum(l.total_paise)::bigint as "amount_paise!"
+           from aarogyam.invoice_items l
+           join aarogyam.invoices i on i.org_id = l.org_id and i.id = l.invoice_id
+           where i.status = 'issued' and i.issued_at >= $1 and i.issued_at < $2
+           group by 1
+           order by 2 desc, 1"#,
+        from,
+        to
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// Bills issued in `[from, to)` and not void: how many, and their total.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn invoiced(
+    conn: &mut PgConnection,
+    from: OffsetDateTime,
+    to: OffsetDateTime,
+) -> Result<(i64, i64), DbError> {
+    let row = sqlx::query!(
+        r#"select count(*) as "count!", coalesce(sum(total_paise), 0)::bigint as "total!"
+           from aarogyam.invoices
+           where status = 'issued' and issued_at >= $1 and issued_at < $2"#,
+        from,
+        to
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok((row.count, row.total))
+}

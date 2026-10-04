@@ -55,6 +55,9 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::payments::record,
         crate::v1::payments::get,
         crate::v1::payments::void,
+        crate::v1::reports::collections,
+        crate::v1::reports::pending,
+        crate::v1::reports::today_money,
         crate::dev::token,
         crate::v1::internal::drain_outbox,
     ),
@@ -66,6 +69,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         (name = "staff", description = "A clinic's staff, invitations and roles; clinic host only"),
         (name = "settings", description = "A clinic's own settings; clinic host only"),
         (name = "billing", description = "Price list, bills, payments and receipts; clinic host only"),
+        (name = "reports", description = "Money reports for owners and finance; clinic host only"),
         (name = "console", description = "Sakalya's console; console host only, staff only"),
         (name = "development", description = "Local development only; absent in deployed servers"),
         (name = "internal", description = "Scheduled jobs; local only until Cloud Scheduler's signed calls are checked")

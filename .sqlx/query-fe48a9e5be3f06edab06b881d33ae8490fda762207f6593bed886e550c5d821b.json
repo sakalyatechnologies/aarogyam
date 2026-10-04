@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) as \"count!\", coalesce(sum(total_paise), 0)::bigint as \"total!\"\n           from aarogyam.invoices\n           where status = 'issued' and issued_at >= $1 and issued_at < $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "total!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "fe48a9e5be3f06edab06b881d33ae8490fda762207f6593bed886e550c5d821b"
+}

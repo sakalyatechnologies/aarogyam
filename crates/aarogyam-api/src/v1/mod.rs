@@ -9,6 +9,7 @@ pub(crate) mod invitations;
 pub(crate) mod me;
 pub(crate) mod patients;
 pub(crate) mod payments;
+pub(crate) mod reports;
 pub(crate) mod settings;
 pub(crate) mod staff;
 
@@ -63,7 +64,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/invoices/{id}/void", post(billing::void_invoice))
         .route("/payments", get(payments::list).post(payments::record))
         .route("/payments/{id}", get(payments::get))
-        .route("/payments/{id}/void", post(payments::void));
+        .route("/payments/{id}/void", post(payments::void))
+        .route("/reports/collections", get(reports::collections))
+        .route("/reports/pending", get(reports::pending))
+        .route("/today/money", get(reports::today_money));
     if local_dev {
         router
             .route("/dev/token", post(crate::dev::token))

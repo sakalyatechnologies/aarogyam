@@ -1249,6 +1249,91 @@
         ]
       }
     },
+    "/api/v1/reports/collections": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Collections by day, week and method, and the revenue mix. The last seven days by default;\nat most 366 days.",
+        "operationId": "collections",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First clinic day, YYYY-MM-DD (default: six days before to)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last clinic day, included (default: today)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Collections"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad or too long range"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks finance.view"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reports/pending": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Issued bills with a balance, oldest first, with aging buckets.",
+        "operationId": "pending",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks finance.view"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/roles": {
       "get": {
         "tags": [
@@ -1535,6 +1620,37 @@
         ]
       }
     },
+    "/api/v1/today/money": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Money for the Today screen: today's collections, pending dues, this month's revenue mix\nand the largest unpaid balances.",
+        "operationId": "today_money",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayMoney"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks finance.view"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -1618,6 +1734,38 @@
               "null"
             ],
             "description": "State or union territory."
+          }
+        }
+      },
+      "AgingBuckets": {
+        "type": "object",
+        "description": "Owed by age of the bill.",
+        "required": [
+          "0_30",
+          "31_60",
+          "61_90",
+          "90_plus"
+        ],
+        "properties": {
+          "0_30": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bills up to 30 days old."
+          },
+          "31_60": {
+            "type": "integer",
+            "format": "int64",
+            "description": "31 to 60 days."
+          },
+          "61_90": {
+            "type": "integer",
+            "format": "int64",
+            "description": "61 to 90 days."
+          },
+          "90_plus": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Over 90 days."
           }
         }
       },
@@ -1800,6 +1948,86 @@
           }
         }
       },
+      "Collections": {
+        "type": "object",
+        "description": "Collections over clinic days `from` to `to`.",
+        "required": [
+          "from",
+          "to",
+          "collected_paise",
+          "payments",
+          "by_day",
+          "by_week",
+          "by_method",
+          "revenue_mix",
+          "invoiced_paise",
+          "invoices",
+          "outstanding_paise"
+        ],
+        "properties": {
+          "by_day": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayTotal"
+            },
+            "description": "Every day, zero when nothing came in."
+          },
+          "by_method": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MethodTotal"
+            },
+            "description": "Every method, for the UPI share."
+          },
+          "by_week": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayTotal"
+            },
+            "description": "Weeks starting Monday, for the weekly collections chart."
+          },
+          "collected_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Everything received, in paise."
+          },
+          "from": {
+            "type": "string",
+            "description": "First day."
+          },
+          "invoiced_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total of bills issued in the range."
+          },
+          "invoices": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bills issued in the range."
+          },
+          "outstanding_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Left to pay on every issued bill, now."
+          },
+          "payments": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Payments."
+          },
+          "revenue_mix": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MixItem"
+            },
+            "description": "Bills issued in the range by category, for the revenue mix."
+          },
+          "to": {
+            "type": "string",
+            "description": "Last day, included."
+          }
+        }
+      },
       "ConsoleClinic": {
         "type": "object",
         "description": "A clinic, with counts only.",
@@ -1941,6 +2169,31 @@
           "role_key": {
             "type": "string",
             "description": "The role they will get."
+          }
+        }
+      },
+      "DayTotal": {
+        "type": "object",
+        "description": "Money received on a day, or in a week starting that Monday.",
+        "required": [
+          "date",
+          "amount_paise",
+          "payments"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise."
+          },
+          "date": {
+            "type": "string",
+            "description": "`YYYY-MM-DD`."
+          },
+          "payments": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Payments."
           }
         }
       },
@@ -2561,6 +2814,62 @@
           }
         }
       },
+      "MethodTotal": {
+        "type": "object",
+        "description": "Money received by one method.",
+        "required": [
+          "method",
+          "amount_paise",
+          "payments",
+          "share_bps"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise."
+          },
+          "method": {
+            "type": "string",
+            "description": "`cash`, `upi`, `card` or `bank`."
+          },
+          "payments": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Payments."
+          },
+          "share_bps": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Share of everything received, in basis points (10000 is all)."
+          }
+        }
+      },
+      "MixItem": {
+        "type": "object",
+        "description": "Billed revenue in one price list category.",
+        "required": [
+          "category",
+          "amount_paise",
+          "share_bps"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise, including GST."
+          },
+          "category": {
+            "type": "string",
+            "description": "The category, or `other` for free-text lines."
+          },
+          "share_bps": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Share of all billed, in basis points."
+          }
+        }
+      },
       "MyClinic": {
         "type": "object",
         "description": "A clinic the person belongs to.",
@@ -3158,6 +3467,100 @@
           }
         }
       },
+      "PendingItem": {
+        "type": "object",
+        "description": "An issued bill with something left to pay.",
+        "required": [
+          "invoice_id",
+          "patient",
+          "total_paise",
+          "paid_paise",
+          "balance_paise",
+          "age_days",
+          "bucket"
+        ],
+        "properties": {
+          "age_days": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Clinic days since issue."
+          },
+          "balance_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Left to pay."
+          },
+          "bucket": {
+            "type": "string",
+            "description": "`0_30`, `31_60`, `61_90` or `90_plus`."
+          },
+          "invoice_id": {
+            "type": "string",
+            "description": "The bill."
+          },
+          "issued_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When issued."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its number."
+          },
+          "paid_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paid."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientRef",
+            "description": "The patient."
+          },
+          "total_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total, in paise."
+          }
+        }
+      },
+      "PendingReport": {
+        "type": "object",
+        "description": "Unpaid bills.",
+        "required": [
+          "items",
+          "outstanding_paise",
+          "patients",
+          "buckets"
+        ],
+        "properties": {
+          "buckets": {
+            "$ref": "#/components/schemas/AgingBuckets",
+            "description": "Owed by age."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PendingItem"
+            },
+            "description": "Oldest first."
+          },
+          "outstanding_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Left to pay on all of them, in paise."
+          },
+          "patients": {
+            "type": "integer",
+            "description": "Patients who owe.",
+            "minimum": 0
+          }
+        }
+      },
       "PriceItem": {
         "type": "object",
         "description": "A price list entry.",
@@ -3569,6 +3972,83 @@
             "description": "Members, active first, then by name."
           }
         }
+      },
+      "TodayMoney": {
+        "type": "object",
+        "description": "The Today screen's money widgets.",
+        "required": [
+          "date",
+          "collected_paise",
+          "payments_today",
+          "invoiced_paise",
+          "invoices_today",
+          "collected_this_month_paise",
+          "upi_share_bps",
+          "pending_dues_paise",
+          "pending_dues_patients",
+          "revenue_mix",
+          "pending"
+        ],
+        "properties": {
+          "collected_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Received today, in paise (the revenue tile)."
+          },
+          "collected_this_month_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Received this month so far."
+          },
+          "date": {
+            "type": "string",
+            "description": "The clinic day."
+          },
+          "invoiced_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Billed today."
+          },
+          "invoices_today": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bills issued today."
+          },
+          "payments_today": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Payments today."
+          },
+          "pending": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PendingItem"
+            },
+            "description": "The five largest balances, for the pending payments table."
+          },
+          "pending_dues_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Left to pay on every issued bill (the pending dues tile)."
+          },
+          "pending_dues_patients": {
+            "type": "integer",
+            "description": "Patients who owe.",
+            "minimum": 0
+          },
+          "revenue_mix": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MixItem"
+            },
+            "description": "This month's revenue mix, for the donut."
+          },
+          "upi_share_bps": {
+            "type": "integer",
+            "format": "int64",
+            "description": "UPI's share of this month's collections, in basis points."
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -3603,6 +4083,10 @@
     {
       "name": "billing",
       "description": "Price list, bills, payments and receipts; clinic host only"
+    },
+    {
+      "name": "reports",
+      "description": "Money reports for owners and finance; clinic host only"
     },
     {
       "name": "console",

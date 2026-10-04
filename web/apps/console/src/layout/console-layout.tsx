@@ -1,4 +1,4 @@
-import { Activity, LogOut } from "lucide-react";
+import { Activity, Building2, LogOut } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router";
 
 import { renderRouterLink } from "@aarogyam/app-kit";
@@ -7,7 +7,10 @@ import { AppShell, IconButton, Skeleton, UserChip, type NavEntry } from "@sakaly
 
 import { ConsoleBrand } from "../brand.js";
 
-const NAV: readonly NavEntry[] = [{ id: "health", label: "Service health", icon: <Activity />, href: "/health" }];
+const NAV: readonly NavEntry[] = [
+  { id: "health", label: "Service health", icon: <Activity />, href: "/health" },
+  { id: "clinics", label: "Clinics", icon: <Building2 />, href: "/clinics" },
+];
 
 /** Sends signed-out visitors to sign-in, remembering where they were going. */
 export function RequireAuth() {

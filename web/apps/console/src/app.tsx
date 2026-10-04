@@ -6,7 +6,7 @@ import { RouterProvider } from "react-router/dom";
 import { createQueryClient } from "@aarogyam/app-kit";
 import { AuthProvider } from "@aarogyam/auth";
 import { createTheme, preset } from "@sakalya/tokens";
-import { ThemeScope } from "@sakalya/ui";
+import { ThemeScope, ToastProvider } from "@sakalya/ui";
 
 import { ApiProvider } from "./api.js";
 import { routes } from "./routes.js";
@@ -21,7 +21,7 @@ export function Providers({ services, queryClient, children }: { services: Conso
       <ApiProvider client={services.api}>
         <QueryClientProvider client={queryClient}>
           <ThemeScope theme={CONSOLE_THEME} className="min-h-full">
-            {children}
+            <ToastProvider>{children}</ToastProvider>
           </ThemeScope>
         </QueryClientProvider>
       </ApiProvider>

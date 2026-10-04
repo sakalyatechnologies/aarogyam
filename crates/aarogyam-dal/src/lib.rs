@@ -16,6 +16,7 @@ pub mod invitations;
 pub mod lookups;
 pub mod outbox;
 pub mod patients;
+pub mod prescriptions;
 pub mod sessions;
 pub mod settings;
 pub mod staff;

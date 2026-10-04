@@ -39,7 +39,7 @@ mod v1;
 use axum::Router;
 
 pub use dev::DevTokens;
-pub use extract::{ClinicRequest, PlatformRequest, Require, SignedIn};
+pub use extract::{ClinicRequest, PlatformRequest, PublicClinic, Require, SignedIn};
 pub use failure::ApiFailure;
 #[doc(inline)]
 pub use openapi::openapi;

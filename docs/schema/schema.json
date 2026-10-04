@@ -3628,11 +3628,11 @@
      "note": "why it was issued despite allergy alerts"
     },
     {
-     "name": "verify_token_hash",
+     "name": "verify_token",
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "the QR's token, hashed; reveals no patient data"
+     "note": "the QR's random token; opens only validity, date and clinic, so reprints keep it"
     },
     {
      "name": "letterhead",

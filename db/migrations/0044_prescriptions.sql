@@ -1,7 +1,9 @@
 -- Prescriptions. A draft is edited freely; issuing runs the allergy check, assigns the number,
 -- snapshots what the paper shows (letterhead, doctor, patient, footer) and freezes it. A
 -- correction cancels it with a reason and starts a new draft that supersedes it. The QR code
--- on the paper carries a verify token, stored only as its hash, that reveals no patient data.
+-- on the paper carries a random verify token that opens only whether the prescription is
+-- valid, when it was issued and by which clinic: no patient data. It is kept in clear (not
+-- hashed) because every reprint must carry the same QR.
 --
 -- encounter_id is a plain column for now: visits arrive in a parallel branch, and a follow-up
 -- migration adds the composite foreign key (org_id, encounter_id, patient_id) after it merges.
@@ -22,7 +24,7 @@ create table aarogyam.prescriptions (
   issued_by uuid,
   -- Why the doctor issued despite the allergy alerts, when there were any.
   override_reason text check (char_length(btrim(override_reason)) between 3 and 500),
-  verify_token_hash text check (verify_token_hash ~ '^[0-9a-f]{64}$'),
+  verify_token text check (verify_token ~ '^[A-Za-z0-9_-]{43}$'),
   -- Printed facts captured at issue.
   letterhead jsonb check (jsonb_typeof(letterhead) = 'object'),
   doctor jsonb check (jsonb_typeof(doctor) = 'object'),
@@ -44,13 +46,13 @@ create table aarogyam.prescriptions (
   foreign key (org_id, issued_by) references aarogyam.memberships (org_id, id),
   foreign key (org_id, cancelled_by) references aarogyam.memberships (org_id, id),
   check ((number is null) = (issued_at is null)),
-  check (status = 'draft' or (number is not null and verify_token_hash is not null and issued_by is not null
+  check (status = 'draft' or (number is not null and verify_token is not null and issued_by is not null
                               and letterhead is not null and doctor is not null and recipient is not null)),
   check ((status = 'cancelled') = (cancel_reason is not null and cancelled_at is not null))
 );
 create unique index prescriptions_number on aarogyam.prescriptions (org_id, number) where number is not null;
-create unique index prescriptions_verify on aarogyam.prescriptions (org_id, verify_token_hash)
-  where verify_token_hash is not null;
+create unique index prescriptions_verify on aarogyam.prescriptions (org_id, verify_token)
+  where verify_token is not null;
 -- A prescription is replaced at most once.
 create unique index prescriptions_supersedes on aarogyam.prescriptions (org_id, supersedes_id, patient_id)
   where supersedes_id is not null;
@@ -62,7 +64,7 @@ comment on table aarogyam.prescriptions is 'sensitivity=health offline=read_writ
 select app.protect_clinic_table('aarogyam.prescriptions', 'finalizable');
 create trigger freeze_when_final before update on aarogyam.prescriptions
   for each row execute function app.freeze_when_final('draft', 'cancelled', 'cancel_reason', 'cancelled_at', 'cancelled_by');
-insert into audit.audit_config (table_name, mask) values ('aarogyam.prescriptions', '{verify_token_hash}');
+insert into audit.audit_config (table_name, mask) values ('aarogyam.prescriptions', '{verify_token}');
 
 create table aarogyam.prescription_items (
   org_id uuid not null default app.tenant_id() references aarogyam.organizations (id),

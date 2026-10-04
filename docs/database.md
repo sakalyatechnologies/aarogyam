@@ -1212,7 +1212,7 @@ A prescription from a visit: shown to staff and the patient, printed with the cl
 | `issued_at` | `timestamptz?` |  |
 | `issued_by` | `uuid?` | → `memberships` |
 | `override_reason` | `text?` | why it was issued despite allergy alerts |
-| `verify_token_hash` | `text?` | the QR's token, hashed; reveals no patient data |
+| `verify_token` | `text?` | the QR's random token; opens only validity, date and clinic, so reprints keep it |
 | `letterhead` | `jsonb?` | snapshot at issue |
 | `doctor` | `jsonb?` | name, registration number at issue |
 | `recipient` | `jsonb?` | patient name, number, age and sex at issue |

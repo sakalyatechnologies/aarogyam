@@ -4,6 +4,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use aarogyam_app::prescriptions::{AllergiesNotWiredYet, AllergySource};
 use aarogyam_dal::lookups::{self, HostClinic};
 use aarogyam_dal::sessions;
 use aarogyam_domain::access::Authorization;
@@ -67,6 +68,7 @@ struct Inner {
     metrics: Arc<ServiceMetrics>,
     throttle: Option<Throttle>,
     notifier: Notifier,
+    allergies: Arc<dyn AllergySource>,
 }
 
 /// Shared state; cheap to clone.
@@ -90,6 +92,7 @@ impl AppState {
                 metrics: Arc::new(ServiceMetrics::new()),
                 throttle: None,
                 notifier: Notifier::log(PortalLinks::default()),
+                allergies: Arc::new(AllergiesNotWiredYet),
             }),
         }
     }
@@ -112,6 +115,20 @@ impl AppState {
             inner.notifier = notifier;
         }
         self
+    }
+
+    /// Replaces where the prescription allergy check reads a patient's allergies. Call before
+    /// the state is shared (cloned); afterwards it has no effect.
+    #[must_use]
+    pub fn with_allergy_source(mut self, source: Arc<dyn AllergySource>) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.allergies = source;
+        }
+        self
+    }
+
+    pub(crate) fn allergies(&self) -> &dyn AllergySource {
+        self.inner.allergies.as_ref()
     }
 
     pub(crate) fn notifier(&self) -> &Notifier {

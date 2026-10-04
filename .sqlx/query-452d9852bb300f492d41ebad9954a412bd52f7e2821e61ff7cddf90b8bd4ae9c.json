@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.prescriptions\n           set status = 'issued', number = $2, issued_at = $3, issued_by = $4, override_reason = $5,\n               verify_token = $6, letterhead = $7, doctor = $8, recipient = $9, footer = $10\n           where id = $1 and status = 'draft'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "Uuid",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Jsonb",
+        "Jsonb",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "452d9852bb300f492d41ebad9954a412bd52f7e2821e61ff7cddf90b8bd4ae9c"
+}

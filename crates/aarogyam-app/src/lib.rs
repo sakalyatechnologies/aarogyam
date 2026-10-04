@@ -13,10 +13,12 @@ pub mod invitations;
 pub mod outbox;
 pub mod patients;
 pub mod payments;
+pub mod prescriptions;
 pub mod reports;
 mod scope;
 pub mod sessions;
 pub mod settings;
+pub mod share;
 pub mod staff;
 pub mod tokens;
 

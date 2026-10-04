@@ -9,6 +9,7 @@ pub(crate) mod invitations;
 pub(crate) mod me;
 pub(crate) mod patients;
 pub(crate) mod payments;
+pub(crate) mod prescriptions;
 pub(crate) mod reports;
 pub(crate) mod settings;
 pub(crate) mod staff;
@@ -67,7 +68,33 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/payments/{id}/void", post(payments::void))
         .route("/reports/collections", get(reports::collections))
         .route("/reports/pending", get(reports::pending))
-        .route("/today/money", get(reports::today_money));
+        .route("/today/money", get(reports::today_money))
+        .route("/drugs/search", post(prescriptions::search_drugs))
+        .route(
+            "/patients/{id}/prescriptions",
+            get(prescriptions::for_patient).post(prescriptions::create),
+        )
+        .route(
+            "/patients/{id}/prescriptions/last",
+            get(prescriptions::last),
+        )
+        .route(
+            "/prescriptions/{id}",
+            get(prescriptions::get).patch(prescriptions::edit),
+        )
+        .route("/prescriptions/{id}/issue", post(prescriptions::issue))
+        .route("/prescriptions/{id}/cancel", post(prescriptions::cancel))
+        .route(
+            "/prescriptions/{id}/share",
+            post(prescriptions::create_share),
+        )
+        // Public, no sign-in: on the clinic's host, limited by the link's token and PIN.
+        .route("/shared/{token}", get(prescriptions::shared_preview))
+        .route("/shared/{token}/open", post(prescriptions::shared_open))
+        .route(
+            "/verify/prescriptions/{verify_token}",
+            get(prescriptions::verify),
+        );
     if local_dev {
         router
             .route("/dev/token", post(crate::dev::token))

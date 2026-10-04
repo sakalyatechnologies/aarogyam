@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select status, issued_at, number from aarogyam.prescriptions\n           where verify_token = $1 and status <> 'draft'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "issued_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "issued_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "number"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "29ea81c2e1af0fbb9908167939c2a0674d3df76cd9a7b963700354229fc1dcb0"
+}

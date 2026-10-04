@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.share_links\n           set open_count = open_count + 1, opened_at = coalesce(opened_at, $2)\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "63341c71d03864436c2887651d0b9b9da9c06f3788cb2f36eadff90d1785fdc5"
+}

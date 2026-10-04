@@ -94,6 +94,42 @@ impl FromRequestParts<AppState> for ClinicRequest {
     }
 }
 
+/// A request to an open clinic's host with no sign-in: a patient opening a link, or anyone
+/// scanning a prescription's QR code. Only the few public routes take this; what they return
+/// is limited by the link's token (and PIN), never by a member's permissions.
+#[derive(Debug)]
+pub struct PublicClinic {
+    /// The clinic, from the host name.
+    pub clinic_id: aarogyam_domain::ids::ClinicId,
+    /// The request ID, for the access record.
+    pub request_id: Option<Uuid>,
+}
+
+impl FromRequestParts<AppState> for PublicClinic {
+    type Rejection = ApiFailure;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let host = edge(parts)?.host().as_str().to_owned();
+        let hosts = state.hosts();
+        if host == hosts.console || host == hosts.app {
+            return Err(ApiFailure(not_found()));
+        }
+        let clinic = state
+            .clinic_for_host(&host)
+            .await?
+            .filter(|clinic| clinic.status.is_some_and(ClinicStatus::is_open))
+            .ok_or(Denied::UnknownClinic)?;
+        sakalya_telemetry::record_tenant(clinic.clinic_id.uuid());
+        Ok(Self {
+            clinic_id: clinic.clinic_id,
+            request_id: request_id(parts),
+        })
+    }
+}
+
 /// A [`ClinicRequest`] whose role holds permission `P`; otherwise `403`. Every clinic route takes
 /// one of these, so a route can't be written without naming its permission.
 #[derive(Debug)]

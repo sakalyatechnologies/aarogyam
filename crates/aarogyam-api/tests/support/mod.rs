@@ -124,6 +124,11 @@ impl TestApp {
     }
 
     pub async fn start_with(http: HttpConfig) -> Self {
+        Self::start_custom(http, |state| state).await
+    }
+
+    /// Like [`Self::start_with`], with a change to the state, such as a fake allergy source.
+    pub async fn start_custom(http: HttpConfig, adjust: impl FnOnce(AppState) -> AppState) -> Self {
         let admin = admin_options();
         let conn = PgPoolOptions::new()
             .max_connections(1)
@@ -167,12 +172,12 @@ impl TestApp {
             admin.get_port()
         );
         let db = Db::connect_lazy(&DbConfig::new(SecretString::from(api_url.clone()))).unwrap();
-        let router = router(AppState::new(
+        let router = router(adjust(AppState::new(
             db,
             http,
             TokenCheck::Dev(dev_tokens()),
             hosts(),
-        ));
+        )));
         Self {
             router,
             tokens: dev_tokens(),

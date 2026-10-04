@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.prescriptions\n           set encounter_id = $2, diagnosis_text = $3, advice = $4, follow_up_on = $5, language = $6\n           where id = $1 and status = 'draft'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Date",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "56a2761766e60eec941b86103aafb9d541ff1fef9a799c50f61dea868b5842fa"
+}

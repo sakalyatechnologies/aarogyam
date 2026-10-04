@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select u.display_name,\n                  s.prescription -> 'registration_numbers' ->> m.id::text as registration_number\n           from aarogyam.memberships m\n           join aarogyam.users u on u.id = m.user_id\n           left join aarogyam.org_settings s on s.org_id = m.org_id\n           where m.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "display_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.users",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "registration_number",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "e4c8564ae708ffa8823ad6ba7d38b5b9c05ef385223f429f850533cd2593f2c8"
+}

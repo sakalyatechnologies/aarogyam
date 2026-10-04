@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.prescription_alerts\n             (prescription_id, prescription_item_id, kind, severity, message, source, action,\n              override_reason, acted_by)\n           values ($1, $2, $3, $4, $5, 'allergy_record', $6, $7, $8)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "790a1d7f0df50f27c18d8bbcfd0c93d81b79be1f1a52a251b0924a7e1bccc48e"
+}

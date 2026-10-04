@@ -1200,6 +1200,44 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(wireAllergy(record) satisfies C.Allergy);
         }),
 
+      editAllergy: (id, allergyIdValue, input, opts) =>
+        respond(S.allergy, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.allergies.find((a) => a.id === allergyIdValue && a.patient_id === id && a.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (input.substance != null) {
+            const substance = input.substance.trim();
+            if (substance.length < 1 || substance.length > 200) {
+              return invalid("substance", "must be 1 to 200 characters");
+            }
+            found.substance = substance;
+          }
+          if (input.severity != null) {
+            const severityParsed = S.severity.safeParse(input.severity);
+            if (!severityParsed.success) {
+              return invalid("severity", "must be mild, moderate or severe");
+            }
+            found.severity = severityParsed.data;
+          }
+          if (input.status != null) {
+            const statusParsed = S.clinicalStatus.safeParse(input.status);
+            if (!statusParsed.success) {
+              return invalid("status", "must be active, resolved or entered_in_error");
+            }
+            found.status = statusParsed.data;
+          }
+          if (input.reaction !== undefined) {
+            found.reaction = input.reaction === "" ? null : input.reaction;
+          }
+          found.updated_at = clock().toISOString();
+          return reply(wireAllergy(found) satisfies C.Allergy);
+        }),
+
       listConditions: (id, opts) =>
         respond(S.conditionList, opts?.signal, async () => {
           const caller = await inClinic("clinical.read");

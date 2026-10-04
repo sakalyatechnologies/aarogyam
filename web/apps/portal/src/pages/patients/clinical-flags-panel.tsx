@@ -1,12 +1,13 @@
-import { AlertTriangle, Plus } from "lucide-react";
+import { AlertTriangle, Pencil, Plus } from "lucide-react";
 import { useState } from "react";
 
-import { apiErrorOf, type PatientId } from "@aarogyam/api-client";
+import { apiErrorOf, type Allergy, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate } from "@aarogyam/app-kit";
 import { Button, Card, Dialog, EmptyState, Field, Pill, Select, Skeleton, TextArea, TextInput, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { useAddAllergy, useAddCondition, useClinicalFlags } from "../../queries.js";
+import { useEditAllergy } from "./queries.js";
 
 const SEVERITIES = [
   { value: "mild", label: "Mild" },
@@ -20,6 +21,7 @@ export function ClinicalFlagsPanel({ patientId }: { patientId: PatientId }) {
   const flags = useClinicalFlags(patientId);
   const [addingAllergy, setAddingAllergy] = useState(false);
   const [addingCondition, setAddingCondition] = useState(false);
+  const [editing, setEditing] = useState<Allergy | undefined>(undefined);
 
   if (flags.isPending) {
     return <Skeleton shape="block" />;
@@ -54,6 +56,19 @@ export function ClinicalFlagsPanel({ patientId }: { patientId: PatientId }) {
                   <Pill tone={a.severity === "severe" ? "danger" : a.severity === "moderate" ? "warning" : "neutral"}>Allergy</Pill>
                   <span className="font-semibold text-text">{a.substance}</span>
                   {a.reaction == null ? null : <span className="text-muted">— {a.reaction}</span>}
+                  {canWrite ? (
+                    <Button
+                      variant="ghost"
+                      className="px-2 py-1"
+                      aria-label={`Edit allergy: ${a.substance}`}
+                      icon={<Pencil aria-hidden="true" className="size-4" />}
+                      onClick={() => {
+                        setEditing(a);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  ) : null}
                 </li>
               ))}
               {data.conditions.map((c) => (
@@ -97,6 +112,16 @@ export function ClinicalFlagsPanel({ patientId }: { patientId: PatientId }) {
           }}
         />
       ) : null}
+      {editing === undefined ? null : (
+        <EditAllergyDialog
+          key={editing.id}
+          patientId={patientId}
+          allergy={editing}
+          onOpenChange={() => {
+            setEditing(undefined);
+          }}
+        />
+      )}
       {addingCondition ? (
         <AddConditionDialog
           patientId={patientId}
@@ -158,6 +183,83 @@ function AddAllergyDialog({ patientId, onOpenChange }: { patientId: PatientId; o
             }}
           />
         </Field>
+        <Field label="Reaction">
+          <TextInput
+            value={reaction}
+            onChange={(event) => {
+              setReaction(event.target.value);
+            }}
+          />
+        </Field>
+        <Field label="Severity">
+          <Select options={SEVERITIES} value={severity} onValueChange={setSeverity} />
+        </Field>
+        {error === undefined ? null : (
+          <p role="alert" className="text-sm font-medium text-danger-text">
+            {error}
+          </p>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+function EditAllergyDialog({ patientId, allergy, onOpenChange }: { patientId: PatientId; allergy: Allergy; onOpenChange: () => void }) {
+  const [reaction, setReaction] = useState(allergy.reaction ?? "");
+  const [severity, setSeverity] = useState<(typeof SEVERITIES)[number]["value"]>(
+    allergy.severity === "mild" || allergy.severity === "severe" ? allergy.severity : "moderate",
+  );
+  const [error, setError] = useState<string | undefined>(undefined);
+  const edit = useEditAllergy(patientId);
+  const toast = useToast();
+
+  const save = (status: "active" | "resolved") => {
+    setError(undefined);
+    edit.mutate(
+      { id: allergy.id, input: { reaction: reaction.trim(), severity, status } },
+      {
+        onSuccess: () => {
+          toast.show({ title: status === "resolved" ? "Allergy marked inactive" : "Allergy updated", tone: "success" });
+          onOpenChange();
+        },
+        onError: (thrown) => {
+          setError(apiErrorOf(thrown)?.message ?? "Couldn't update that allergy. Please try again.");
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={onOpenChange}
+      title={`Edit allergy: ${allergy.substance}`}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onOpenChange}>
+            Cancel
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={edit.isPending}
+            onClick={() => {
+              save("resolved");
+            }}
+          >
+            Mark inactive
+          </Button>
+          <Button
+            disabled={edit.isPending}
+            onClick={() => {
+              save("active");
+            }}
+          >
+            {edit.isPending ? "Saving…" : "Save"}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
         <Field label="Reaction">
           <TextInput
             value={reaction}

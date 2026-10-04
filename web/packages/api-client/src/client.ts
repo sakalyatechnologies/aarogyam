@@ -4,6 +4,7 @@ import type { ApiResult } from "./result.js";
 import type {
   AcceptInvitation,
   AllergyFields,
+  AllergyId,
   AllergyPage,
   ApplicationId,
   ApplicationStatus,
@@ -256,6 +257,8 @@ export interface ApiClient {
   listAllergies(id: PatientId, options?: RequestOptions): Promise<ApiResult<AllergyPage>>;
   /** Clinic host: records an allergy. Needs `clinical.write`. */
   addAllergy(id: PatientId, input: AllergyFields, options?: RequestOptions): Promise<ApiResult<AllergyPage["items"][number]>>;
+  /** Clinic host: edits an allergy: resolve it, change its severity or reaction. Needs `clinical.write`. */
+  editAllergy(id: PatientId, allergyId: AllergyId, input: AllergyFields, options?: RequestOptions): Promise<ApiResult<AllergyPage["items"][number]>>;
   /** Clinic host: a patient's conditions, active first. Needs `clinical.read`. */
   listConditions(id: PatientId, options?: RequestOptions): Promise<ApiResult<ConditionPage>>;
   /** Clinic host: records a condition. Needs `clinical.write`. */

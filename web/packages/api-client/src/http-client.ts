@@ -243,6 +243,14 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/allergies`, schema: allergyList, signal: opts?.signal }),
     addAllergy: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/allergies`, schema: allergy, body: input, signal: opts?.signal }),
+    editAllergy: (id, allergyId, input, opts) =>
+      call({
+        method: "PATCH",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/allergies/${encodeURIComponent(allergyId)}`,
+        schema: allergy,
+        body: input,
+        signal: opts?.signal,
+      }),
     listConditions: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/conditions`, schema: conditionList, signal: opts?.signal }),
     addCondition: (id, input, opts) =>

@@ -37,6 +37,7 @@ import {
   useStaff,
   useUpdateClinicSettings,
 } from "../../queries.js";
+import { ChairsDoctorsPanel } from "./chairs-doctors-panel.js";
 
 /** The clinic's profile, staff, sessions, and the two panels that stay static until Phase 2. */
 export function SettingsPage() {
@@ -44,6 +45,7 @@ export function SettingsPage() {
   useDocumentTitle("Settings", session.clinic.name);
   const items: TabItem[] = [
     ...(can("settings.manage") ? [{ value: "profile", label: "Clinic profile", content: <ProfilePanel /> }] : []),
+    ...(can("settings.manage") ? [{ value: "chairs-doctors", label: "Chairs and doctors", content: <ChairsDoctorsPanel /> }] : []),
     ...(can("staff.manage") ? [{ value: "staff", label: "Staff", content: <StaffPanel /> }] : []),
     { value: "sessions", label: "Sessions", content: <SessionsPanel /> },
     {

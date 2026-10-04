@@ -374,11 +374,11 @@ export interface components {
         /** @description Service health for the console dashboard. */
         ServiceMetrics: {
             /** @description This instance's API requests, error rates and latency. */
-            api: Record<string, unknown>;
+            api?: Record<string, unknown> | null;
             /** @description Database connections, cache hit ratio, size, tables and slow statements. */
             db: Record<string, unknown>;
             /** @description Edge and front-end numbers from Cloudflare; `null` until connected. */
-            edge: Record<string, unknown>;
+            edge?: Record<string, unknown> | null;
             /** @description When this was produced (RFC 3339). */
             generated_at: string;
             /** @description The window: `1h`, `24h` or `7d`. */

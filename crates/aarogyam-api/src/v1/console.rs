@@ -185,13 +185,13 @@ pub struct ServiceMetrics {
     /// The window: `1h`, `24h` or `7d`.
     pub range: String,
     /// This instance's API requests, error rates and latency.
-    #[schema(value_type = Object)]
+    #[schema(value_type = Option<Object>)]
     pub api: Option<serde_json::Value>,
     /// Database connections, cache hit ratio, size, tables and slow statements.
     #[schema(value_type = Object)]
     pub db: serde_json::Value,
     /// Edge and front-end numbers from Cloudflare; `null` until connected.
-    #[schema(value_type = Object)]
+    #[schema(value_type = Option<Object>)]
     pub edge: Option<serde_json::Value>,
 }
 

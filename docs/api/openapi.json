@@ -900,13 +900,14 @@
         "required": [
           "generated_at",
           "range",
-          "api",
-          "db",
-          "edge"
+          "db"
         ],
         "properties": {
           "api": {
-            "type": "object",
+            "type": [
+              "object",
+              "null"
+            ],
             "description": "This instance's API requests, error rates and latency."
           },
           "db": {
@@ -914,7 +915,10 @@
             "description": "Database connections, cache hit ratio, size, tables and slow statements."
           },
           "edge": {
-            "type": "object",
+            "type": [
+              "object",
+              "null"
+            ],
             "description": "Edge and front-end numbers from Cloudflare; `null` until connected."
           },
           "generated_at": {

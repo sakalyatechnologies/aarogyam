@@ -7,12 +7,61 @@
 //! catalogue ([`permission`]), typed identifiers ([`ids`]), patients ([`patient`]), patient
 //! search ([`search`]), the clinic's own settings ([`clinic`]), staff ([`staff`]), queued
 //! messages ([`outbox`]), appointments, chairs and the queue ([`schedule`]), patient imports
-//! ([`import`]) and business event names ([`event`]).
-//! messages ([`outbox`]), business event names ([`event`]), and the clinical record: visits and
-//! notes ([`clinical`]), vital signs ([`vitals`]), the dental chart ([`dental`]) and patient
-//! files ([`files`]).
+//! ([`import`]), business event names ([`event`]), the clinical record: visits and notes
+//! ([`clinical`]), vital signs ([`vitals`]), the dental chart ([`dental`]) and patient files
+//! ([`files`]), money ([`billing`]), prescriptions ([`prescription`]) and patient links
+//! ([`share`]).
+
+/// A stored text value that is not one of the enum's values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("{field} has an unknown value")]
+pub struct UnknownValue {
+    /// The field, as the API names it.
+    pub field: &'static str,
+}
+
+/// An enum stored and sent as text: `as_str`, `parse`, `Display` and serde in `snake_case`.
+macro_rules! text_value {
+    ($(#[$doc:meta])* $name:ident ($field:literal) { $($(#[$vdoc:meta])* $variant:ident => $text:literal),* $(,)? }) => {
+        $(#[$doc])*
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+        #[serde(rename_all = "snake_case")]
+        pub enum $name {
+            $($(#[$vdoc])* $variant,)*
+        }
+
+        impl $name {
+            /// Every value.
+            pub const ALL: &'static [Self] = &[$(Self::$variant),*];
+
+            /// The value stored in the database and sent over the API.
+            #[must_use]
+            pub const fn as_str(self) -> &'static str {
+                match self { $(Self::$variant => $text,)* }
+            }
+
+            /// Parses the stored value.
+            ///
+            /// # Errors
+            /// [`crate::UnknownValue`] for anything else.
+            pub fn parse(text: &str) -> Result<Self, crate::UnknownValue> {
+                match text.trim() {
+                    $($text => Ok(Self::$variant),)*
+                    _ => Err(crate::UnknownValue { field: $field }),
+                }
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(self.as_str())
+            }
+        }
+    };
+}
 
 pub mod access;
+pub mod billing;
 pub mod clinic;
 pub mod clinical;
 pub mod dental;
@@ -24,7 +73,9 @@ pub mod onboarding;
 pub mod outbox;
 pub mod patient;
 pub mod permission;
+pub mod prescription;
 pub mod schedule;
 pub mod search;
+pub mod share;
 pub mod staff;
 pub mod vitals;

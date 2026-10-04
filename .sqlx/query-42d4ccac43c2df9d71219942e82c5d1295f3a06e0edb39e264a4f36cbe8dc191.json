@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.clear_draft_prescription_lines($1) as cleared",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cleared",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "42d4ccac43c2df9d71219942e82c5d1295f3a06e0edb39e264a4f36cbe8dc191"
+}

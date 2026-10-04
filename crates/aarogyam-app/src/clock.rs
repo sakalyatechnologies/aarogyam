@@ -20,6 +20,12 @@ pub fn clinic_today(timezone: &str, now: OffsetDateTime) -> Date {
     now.to_offset(clinic_offset(timezone)).date()
 }
 
+/// The instants covering clinic days `from` to `to`, both included (see [`days_bounds`]).
+#[must_use]
+pub fn day_range(timezone: &str, from: Date, to: Date) -> (OffsetDateTime, OffsetDateTime) {
+    days_bounds(timezone, from, to)
+}
+
 /// The instants a clinic's local day starts and ends: `[start, end)` in UTC.
 #[must_use]
 pub fn day_bounds(timezone: &str, day: Date) -> (OffsetDateTime, OffsetDateTime) {
@@ -49,6 +55,9 @@ mod tests {
         assert_eq!(clinic_today("Asia/Kolkata", before), date!(2027 - 03 - 31));
         assert_eq!(clinic_today("Asia/Kolkata", after), date!(2027 - 04 - 01));
         assert_eq!(clinic_today("Europe/London", after), date!(2027 - 03 - 31));
+        let (start, end) = day_range("Asia/Kolkata", date!(2027 - 03 - 31), date!(2027 - 03 - 31));
+        assert_eq!(start, datetime!(2027-03-30 18:30 UTC));
+        assert_eq!(end, datetime!(2027-03-31 18:30 UTC));
     }
 
     #[test]

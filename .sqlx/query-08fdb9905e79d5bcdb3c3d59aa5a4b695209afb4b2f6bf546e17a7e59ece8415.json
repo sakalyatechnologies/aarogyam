@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.prescriptions\n             (id, patient_id, supersedes_id, encounter_id, diagnosis_text, advice, follow_up_on, language)\n           values ($1, $2, $3, $4, $5, $6, $7, $8)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Date",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "08fdb9905e79d5bcdb3c3d59aa5a4b695209afb4b2f6bf546e17a7e59ece8415"
+}

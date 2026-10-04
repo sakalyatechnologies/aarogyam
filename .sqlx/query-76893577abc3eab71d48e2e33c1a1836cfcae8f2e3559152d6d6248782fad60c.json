@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.invoice_items\n           set tax_rate_bps = $2, taxable_paise = $3, cgst_paise = $4, sgst_paise = $5,\n               igst_paise = $6, total_paise = $7\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "76893577abc3eab71d48e2e33c1a1836cfcae8f2e3559152d6d6248782fad60c"
+}

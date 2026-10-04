@@ -3,6 +3,7 @@
 //! (Sakalya staff on the console host) or [`crate::extract::SignedIn`] (anyone signed in).
 
 pub(crate) mod appointments;
+pub(crate) mod billing;
 pub(crate) mod chart;
 pub(crate) mod console;
 pub(crate) mod facts;
@@ -13,8 +14,12 @@ pub(crate) mod invitations;
 pub(crate) mod me;
 pub(crate) mod onboarding;
 pub(crate) mod patients;
+pub(crate) mod payments;
+pub(crate) mod prescriptions;
 pub(crate) mod queue;
+pub(crate) mod recalls;
 pub(crate) mod registrations;
+pub(crate) mod reports;
 pub(crate) mod schedule;
 pub(crate) mod settings;
 pub(crate) mod staff;
@@ -180,7 +185,57 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         // Public: the landing page's registration form. Throttled per IP (see
         // `crate::throttle_rules`) and answers the same whatever happened.
-        .route("/registrations", post(registrations::register));
+        .route("/registrations", post(registrations::register))
+        .route(
+            "/price-items",
+            get(billing::price_items).post(billing::create_price_item),
+        )
+        .route("/price-items/{id}", patch(billing::update_price_item))
+        .route(
+            "/invoices",
+            get(billing::list_invoices).post(billing::create_invoice),
+        )
+        .route(
+            "/invoices/{id}",
+            get(billing::get_invoice).patch(billing::edit_invoice),
+        )
+        .route("/invoices/{id}/issue", post(billing::issue_invoice))
+        .route("/invoices/{id}/void", post(billing::void_invoice))
+        .route("/payments", get(payments::list).post(payments::record))
+        .route("/payments/{id}", get(payments::get))
+        .route("/payments/{id}/void", post(payments::void))
+        .route("/reports/collections", get(reports::collections))
+        .route("/reports/pending", get(reports::pending))
+        .route("/today/money", get(reports::today_money))
+        .route("/patients/{id}/recalls", post(recalls::create))
+        .route("/recalls", get(recalls::due))
+        .route("/recalls/{id}/done", post(recalls::done))
+        .route("/drugs/search", post(prescriptions::search_drugs))
+        .route(
+            "/patients/{id}/prescriptions",
+            get(prescriptions::for_patient).post(prescriptions::create),
+        )
+        .route(
+            "/patients/{id}/prescriptions/last",
+            get(prescriptions::last),
+        )
+        .route(
+            "/prescriptions/{id}",
+            get(prescriptions::get).patch(prescriptions::edit),
+        )
+        .route("/prescriptions/{id}/issue", post(prescriptions::issue))
+        .route("/prescriptions/{id}/cancel", post(prescriptions::cancel))
+        .route(
+            "/prescriptions/{id}/share",
+            post(prescriptions::create_share),
+        )
+        // Public, no sign-in: on the clinic's host, limited by the link's token and PIN.
+        .route("/shared/{token}", get(prescriptions::shared_preview))
+        .route("/shared/{token}/open", post(prescriptions::shared_open))
+        .route(
+            "/verify/prescriptions/{verify_token}",
+            get(prescriptions::verify),
+        );
     if local_dev {
         router
             .route("/dev/token", post(crate::dev::token))
@@ -193,6 +248,17 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
 /// RFC 3339 for timestamps in responses.
 pub(crate) fn rfc3339(at: OffsetDateTime) -> String {
     at.format(&Rfc3339).unwrap_or_default()
+}
+
+/// An optional identifier where an empty string means none.
+pub(crate) fn optional_uuid(field: &'static str, text: &str) -> Result<Option<Uuid>, ApiError> {
+    let text = text.trim();
+    if text.is_empty() {
+        return Ok(None);
+    }
+    Uuid::parse_str(text)
+        .map(Some)
+        .map_err(|_| ApiError::bad_request("invalid_request", format!("{field}: must be an id")))
 }
 
 fn bad(field: &str, problem: &str) -> ApiError {

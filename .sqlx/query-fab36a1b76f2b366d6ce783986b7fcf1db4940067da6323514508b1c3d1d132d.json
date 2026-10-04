@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.payments\n           set status = 'void', void_reason = $2, voided_at = $3, voided_by = $4\n           where id = $1 and status = 'received'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fab36a1b76f2b366d6ce783986b7fcf1db4940067da6323514508b1c3d1d132d"
+}

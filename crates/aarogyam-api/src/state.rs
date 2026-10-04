@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use aarogyam_app::accounts::SignInAccounts;
 use aarogyam_app::files::Files;
+use aarogyam_app::prescriptions::{AllergySource, RecordedAllergies};
 use aarogyam_dal::lookups::{self, HostClinic};
 use aarogyam_dal::sessions;
 use aarogyam_domain::access::Authorization;
@@ -108,6 +109,7 @@ struct Inner {
     metrics: Arc<ServiceMetrics>,
     throttle: Option<Throttle>,
     notifier: Notifier,
+    allergies: Arc<dyn AllergySource>,
     files: Option<Files>,
     accounts: Option<Arc<dyn SignInAccounts>>,
 }
@@ -133,6 +135,7 @@ impl AppState {
                 metrics: Arc::new(ServiceMetrics::new()),
                 throttle: None,
                 notifier: Notifier::log(PortalLinks::default()),
+                allergies: Arc::new(RecordedAllergies),
                 files: None,
                 accounts: None,
             }),
@@ -155,6 +158,16 @@ impl AppState {
     pub fn with_notifier(mut self, notifier: Notifier) -> Self {
         if let Some(inner) = Arc::get_mut(&mut self.inner) {
             inner.notifier = notifier;
+        }
+        self
+    }
+
+    /// Replaces where the prescription allergy check reads a patient's allergies. Call before
+    /// the state is shared (cloned); afterwards it has no effect.
+    #[must_use]
+    pub fn with_allergy_source(mut self, source: Arc<dyn AllergySource>) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.allergies = source;
         }
         self
     }
@@ -182,6 +195,10 @@ impl AppState {
 
     pub(crate) fn accounts(&self) -> Option<&dyn SignInAccounts> {
         self.inner.accounts.as_deref()
+    }
+
+    pub(crate) fn allergies(&self) -> &dyn AllergySource {
+        self.inner.allergies.as_ref()
     }
 
     pub(crate) fn files(&self) -> Result<&Files, ApiFailure> {

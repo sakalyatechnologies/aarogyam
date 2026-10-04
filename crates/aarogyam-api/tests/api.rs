@@ -468,10 +468,19 @@ async fn every_route_requires_sign_in_and_a_permission() {
     for (path, operations) in document["paths"].as_object().unwrap() {
         // Development sign-in and internal jobs exist only locally; internal jobs will check
         // Cloud Scheduler's signed token instead of a member's.
-        // A signed download link is its own proof of access, checked by the clinical tests.
+        // Public by design, listed one by one: a patient opens a link with its token and the
+        // PIN on the paper, and anyone may check a prescription's QR code. Both are on the
+        // clinic's host and reveal nothing about a patient without the token and PIN.
+        let public = [
+            "/api/v1/shared/{token}",
+            "/api/v1/shared/{token}/open",
+            "/api/v1/verify/prescriptions/{verify_token}",
+        ];
         if !path.starts_with("/api/v1/")
             || path.starts_with("/api/v1/dev/")
             || path.starts_with("/api/v1/internal/")
+            || public.contains(&path.as_str())
+            // A signed download link is its own proof of access, checked by the clinical tests.
             || path == "/api/v1/attachments/{id}/content"
             // The public registration form needs no sign-in; it is throttled per IP and
             // answers the same whatever happened (tests/onboarding.rs).

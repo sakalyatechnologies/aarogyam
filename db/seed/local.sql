@@ -65,6 +65,22 @@ from (values
   ('Lakshmi Rao', 'female', date '1958-09-09', '+919820000005')
 ) as p(name, sex, dob, phone);
 
+-- Sunrise's price list: clinical services are exempt (bill of supply); products carry GST.
+select set_config('app.tenant_id', :'sunrise', true) \gset
+update aarogyam.organizations set legal_name = 'Sunrise Dental Care LLP', gstin = '27AAPFU0939F1ZV'
+  where id = :'sunrise';
+update aarogyam.branches set state_code = '27' where org_id = :'sunrise' and is_default;
+insert into aarogyam.price_items (code, name, category, sac_hsn, price_paise, taxable, tax_rate_bps)
+values
+  ('CONS', 'Consultation', 'consultation', '9993', 50000, false, 0),
+  ('XRAY', 'X-ray (IOPA)', 'diagnostics', '9993', 30000, false, 0),
+  ('SCAL', 'Scaling and polishing', 'preventive', '9993', 150000, false, 0),
+  ('FILL', 'Composite filling', 'restorative', '9993', 200000, false, 0),
+  ('RCT', 'Root canal treatment', 'endodontics', '9993', 650000, false, 0),
+  ('EXT', 'Extraction', 'surgery', '9993', 150000, false, 0),
+  ('CRWN', 'Ceramic crown', 'prosthodontics', '9993', 900000, false, 0),
+  ('TPST', 'Sensitivity toothpaste', 'products', '3306', 18000, true, 1800),
+  ('MWSH', 'Chlorhexidine mouthwash', 'products', '3004', 15000, true, 1200);
 -- Front desk at Sunrise: two chairs, two doctors with hours, and today's appointments and queue
 -- placed around the moment the seed runs, so Today has live data.
 select set_config('app.tenant_id', :'sunrise', true) \gset

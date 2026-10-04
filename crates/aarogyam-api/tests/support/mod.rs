@@ -135,6 +135,11 @@ impl TestApp {
         Self::start_configured(http, TokenCheck::Dev(dev_tokens()), |state| state).await
     }
 
+    /// Like [`Self::start_with`], with a change to the state, such as a fake allergy source.
+    pub async fn start_custom(http: HttpConfig, adjust: impl FnOnce(AppState) -> AppState) -> Self {
+        Self::start_configured(http, TokenCheck::Dev(dev_tokens()), adjust).await
+    }
+
     /// Like [`Self::start_with`], checking tokens with `tokens` and adjusting the state with
     /// `configure` (a fake Supabase admin client, a throttle).
     pub async fn start_configured(
@@ -233,6 +238,19 @@ impl TestApp {
         send(&self.router, method, host, path, token, body).await
     }
 
+    /// [`Self::send`] with extra headers, such as `Idempotency-Key`.
+    pub async fn send_with(
+        &self,
+        method: Method,
+        host: &str,
+        path: &str,
+        token: Option<&str>,
+        body: Option<Value>,
+        headers: &[(&str, &str)],
+    ) -> (StatusCode, Value) {
+        send_with_headers(&self.router, method, host, path, token, body, headers).await
+    }
+
     /// Drops the database. Called at the end of each test; a failed test leaves it for inspection.
     pub async fn finish(self) {
         let _ = std::fs::remove_dir_all(&self.files_dir);
@@ -259,10 +277,25 @@ pub async fn send(
     token: Option<&str>,
     body: Option<Value>,
 ) -> (StatusCode, Value) {
+    send_with_headers(router, method, host, path, token, body, &[]).await
+}
+
+pub async fn send_with_headers(
+    router: &Router,
+    method: Method,
+    host: &str,
+    path: &str,
+    token: Option<&str>,
+    body: Option<Value>,
+    headers: &[(&str, &str)],
+) -> (StatusCode, Value) {
     let mut request = Request::builder()
         .method(method)
         .uri(path)
         .header("host", host);
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
     if let Some(token) = token {
         request = request.header("authorization", format!("Bearer {token}"));
     }

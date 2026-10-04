@@ -7,6 +7,7 @@
 
 pub mod accounts;
 pub mod appointments;
+pub mod billing;
 pub mod chart;
 pub mod clock;
 pub mod console;
@@ -19,12 +20,17 @@ pub mod invitations;
 pub mod onboarding;
 pub mod outbox;
 pub mod patients;
+pub mod payments;
+pub mod prescriptions;
 pub mod queue;
+pub mod recalls;
 pub mod record;
+pub mod reports;
 pub mod schedule;
 mod scope;
 pub mod sessions;
 pub mod settings;
+pub mod share;
 pub mod staff;
 pub mod today;
 pub mod tokens;

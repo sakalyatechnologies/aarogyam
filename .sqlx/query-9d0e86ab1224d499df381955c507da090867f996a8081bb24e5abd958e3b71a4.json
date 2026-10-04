@@ -1,0 +1,132 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.price_items\n             (id, code, name, category, sac_hsn, price_paise, taxable, tax_rate_bps, active)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n           returning id, code, name, category, sac_hsn, price_paise, taxable, tax_rate_bps, active",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.price_items",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.price_items",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.price_items",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "category",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.price_items",
+            "name": "category"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "sac_hsn",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.price_items",
+            "name": "sac_hsn"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "price_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.price_items",
+            "name": "price_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "taxable",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.price_items",
+            "name": "taxable"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "tax_rate_bps",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.price_items",
+            "name": "tax_rate_bps"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "active",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.price_items",
+            "name": "active"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Bool",
+        "Int4",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "9d0e86ab1224d499df381955c507da090867f996a8081bb24e5abd958e3b71a4"
+}

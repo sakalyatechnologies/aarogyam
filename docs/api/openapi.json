@@ -6,6 +6,245 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/appointments": {
+      "get": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Appointments starting on the clinic's local days `from` to `to`, cancelled ones included.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First local day, `YYYY-MM-DD`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last local day, `YYYY-MM-DD`; at most 31 days counting both",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "room_id",
+            "in": "query",
+            "description": "Only this chair or room",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "practitioner_id",
+            "in": "query",
+            "description": "Only this doctor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad dates, ids, or a range over 31 days"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Books an appointment. Two active bookings can't overlap in one chair (`409`); a doctor\nbooked in another chair at the same time, on leave, or outside their hours is allowed, with\n`warnings`.",
+        "operationId": "book",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewAppointmentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedAppointment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "The chair is already booked for part of this time"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/appointments/{id}": {
+      "patch": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Moves, reassigns or edits an appointment that isn't completed, cancelled or a no-show.",
+        "operationId": "change",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The appointment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedAppointment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such appointment in this clinic"
+          },
+          "409": {
+            "description": "The appointment is finished, or the chair is taken"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/appointments/{id}/status": {
+      "post": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Moves an appointment along: booked → confirmed → arrived → in the chair → completed, or\ncancelled (with a reason) or no-show before arrival. Arriving issues the branch's next queue\ntoken for the clinic day.",
+        "operationId": "set_status",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The appointment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusChanged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown status, a move the table doesn't allow, or a cancel without a reason"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such appointment in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/console/clinics": {
       "get": {
         "tags": [
@@ -149,6 +388,53 @@
         }
       }
     },
+    "/api/v1/imports/patients": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Imports patients from CSV. Preview checks every row like a registration; commit registers\nthe valid rows in one transaction with numbers from the clinic's sequence, keeps\n`file_number` and `legacy_id` as identifiers, and records the import and each row's result.",
+        "operationId": "import_patients",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The file or mapping can't be used; the message says why"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "413": {
+            "description": "The request is too large"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/internal/outbox/drain": {
       "post": {
         "tags": [
@@ -204,6 +490,153 @@
           },
           "409": {
             "description": "The invitation is for another email address"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/leave-blocks": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Leave overlapping the local days `from` to `to`.",
+        "operationId": "leave",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First local day, `YYYY-MM-DD`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last local day, `YYYY-MM-DD`; at most 31 days counting both",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "practitioner_id",
+            "in": "query",
+            "description": "Only this doctor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad dates or a range over 31 days"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Records a doctor's leave. Bookings already made stay; new ones get a warning.",
+        "operationId": "add_leave",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewLeave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Leave"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such doctor in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/leave-blocks/{id}": {
+      "delete": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Removes leave.",
+        "operationId": "remove_leave",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The leave",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such leave in this clinic"
           }
         },
         "security": [
@@ -526,6 +959,596 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/identifiers": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "A patient's other numbers: file number, legacy ID, smart card, ABHA.",
+        "operationId": "identifiers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientIdentifierList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Adds a number to a patient. Each number belongs to one patient per clinic and kind.",
+        "operationId": "add_identifier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewIdentifier"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientIdentifier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown kind or bad value"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "Another patient already has this number"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/identifiers/{identifier_id}": {
+      "delete": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Removes a number from a patient.",
+        "operationId": "remove_identifier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "identifier_id",
+            "in": "path",
+            "description": "The identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such identifier in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/practitioners": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "The clinic's doctors, by name.",
+        "operationId": "practitioners",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PractitionerList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Adds a doctor.",
+        "operationId": "add_practitioner",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PractitionerFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Practitioner"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "409": {
+            "description": "The member is already a doctor"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/practitioners/{id}": {
+      "delete": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Removes a doctor with no upcoming appointments, and their weekly hours.",
+        "operationId": "remove_practitioner",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The doctor",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such doctor in this clinic"
+          },
+          "409": {
+            "description": "The doctor has upcoming appointments"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Changes a doctor's details.",
+        "operationId": "change_practitioner",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The doctor",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PractitionerFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Practitioner"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such doctor in this clinic"
+          },
+          "409": {
+            "description": "The member is already a doctor"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/practitioners/{id}/working-hours": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "A doctor's weekly hours.",
+        "operationId": "hours",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The doctor",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkingHours"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "No such doctor in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Replaces a doctor's weekly hours. An empty list clears them.",
+        "operationId": "set_hours",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The doctor",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkingHours"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkingHours"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad or overlapping shifts"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such doctor in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/queue": {
+      "get": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "The queue of a clinic day, with each token's wait.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The clinic day, `YYYY-MM-DD`; today when left out",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "branch_id",
+            "in": "query",
+            "description": "Only this branch",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueDay"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad date or id"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Issues a token to a patient without an appointment.",
+        "operationId": "walk_in",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalkInBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/queue/{id}/status": {
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Moves a token along. A token with an appointment moves the appointment too.",
+        "operationId": "set_status",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenStatusChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown status or a move the table doesn't allow"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such token in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/roles": {
       "get": {
         "tags": [
@@ -551,6 +1574,186 @@
           },
           "404": {
             "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/rooms": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "The clinic's chairs and rooms, in list order.",
+        "operationId": "rooms",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Adds a chair or room.",
+        "operationId": "add_room",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Room"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "409": {
+            "description": "The branch already has a room of that name"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/rooms/{id}": {
+      "delete": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Removes a chair or room with no upcoming appointments.",
+        "operationId": "remove_room",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The room",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such room in this clinic"
+          },
+          "409": {
+            "description": "The room has upcoming appointments"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Renames, moves, retires or reorders a chair or room.",
+        "operationId": "change_room",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The room",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Room"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such room in this clinic"
+          },
+          "409": {
+            "description": "The branch already has a room of that name"
           }
         },
         "security": [
@@ -812,6 +2015,40 @@
         ]
       }
     },
+    "/api/v1/today": {
+      "get": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Today's schedule, chairs, counts, appointments by hour, recent patients, the team on duty\nand the attention list, in the clinic's time zone.",
+        "operationId": "today",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -898,6 +2135,283 @@
           }
         }
       },
+      "Appointment": {
+        "type": "object",
+        "description": "An appointment.",
+        "required": [
+          "id",
+          "branch_id",
+          "starts_at",
+          "ends_at",
+          "status",
+          "kind",
+          "has_notes",
+          "source",
+          "patient",
+          "practitioner"
+        ],
+        "properties": {
+          "arrived_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the patient arrived (RFC 3339)."
+          },
+          "branch_id": {
+            "type": "string",
+            "description": "Branch."
+          },
+          "cancel_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was cancelled."
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the visit ended (RFC 3339)."
+          },
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339, UTC)."
+          },
+          "has_notes": {
+            "type": "boolean",
+            "description": "Whether there is a front-desk note."
+          },
+          "id": {
+            "type": "string",
+            "description": "The appointment."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`new`, `follow_up`, `procedure` or `emergency`."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Front-desk note."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientBrief",
+            "description": "The patient."
+          },
+          "practitioner": {
+            "$ref": "#/components/schemas/PractitionerBrief",
+            "description": "The doctor."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Reason for the visit."
+          },
+          "room": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The room's name."
+          },
+          "room_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Chair or room, if booked into one."
+          },
+          "seated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When they sat in the chair (RFC 3339)."
+          },
+          "source": {
+            "type": "string",
+            "description": "`front_desk`, `phone`, `website`, `app` or `whatsapp`."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339, UTC)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`booked`, `confirmed`, `arrived`, `in_chair`, `completed`, `cancelled` or `no_show`."
+          },
+          "token_number": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The day's queue token number, once arrived."
+          }
+        }
+      },
+      "AppointmentChanges": {
+        "type": "object",
+        "description": "Changes to an appointment. Fields left out stay as they are; an empty `room_id`, `reason`\nor `notes` clears it. A new start without a new end keeps the length.",
+        "properties": {
+          "ends_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New end (RFC 3339)."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`new`, `follow_up`, `procedure` or `emergency`."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Front-desk note; empty to clear."
+          },
+          "practitioner_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Another doctor."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Reason for the visit; empty to clear."
+          },
+          "room_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Another chair or room; empty for none."
+          },
+          "starts_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New start (RFC 3339)."
+          }
+        }
+      },
+      "AppointmentList": {
+        "type": "object",
+        "description": "Appointments in a range.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Appointment"
+            },
+            "description": "By start."
+          }
+        }
+      },
+      "AttentionItem": {
+        "type": "object",
+        "description": "Something the front desk should look at.",
+        "required": [
+          "kind",
+          "message",
+          "minutes",
+          "patient"
+        ],
+        "properties": {
+          "appointment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The appointment, if any."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`late_arrival` (not arrived 15 minutes after the start) or `long_wait` (waiting over 30\nminutes)."
+          },
+          "message": {
+            "type": "string",
+            "description": "What to show, without patient details."
+          },
+          "minutes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minutes late, or minutes waited."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/AttentionPatient",
+            "description": "The patient."
+          },
+          "queue_token_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The queue token, if any."
+          }
+        }
+      },
+      "AttentionPatient": {
+        "type": "object",
+        "description": "The patient an attention item is about.",
+        "required": [
+          "id",
+          "number",
+          "full_name"
+        ],
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "description": "Full name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "number": {
+            "type": "string",
+            "description": "Readable number."
+          }
+        }
+      },
+      "BookingWarning": {
+        "type": "object",
+        "description": "Something worth knowing that didn't stop the booking.",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "`practitioner_busy`, `practitioner_on_leave` or `outside_working_hours`."
+          },
+          "message": {
+            "type": "string",
+            "description": "What to tell the front desk."
+          }
+        }
+      },
       "Branding": {
         "type": "object",
         "description": "The portal's look.",
@@ -915,6 +2429,94 @@
               "null"
             ],
             "description": "`light` or `dark`."
+          }
+        }
+      },
+      "ChairAppointment": {
+        "type": "object",
+        "description": "An appointment as a chair tile shows it.",
+        "required": [
+          "appointment_id",
+          "starts_at",
+          "ends_at",
+          "status",
+          "patient",
+          "practitioner"
+        ],
+        "properties": {
+          "appointment_id": {
+            "type": "string",
+            "description": "The appointment."
+          },
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339)."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientBrief",
+            "description": "The patient."
+          },
+          "practitioner": {
+            "$ref": "#/components/schemas/PractitionerBrief",
+            "description": "The doctor."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339)."
+          },
+          "status": {
+            "type": "string",
+            "description": "Its status."
+          }
+        }
+      },
+      "ChairStatus": {
+        "type": "object",
+        "description": "A chair right now.",
+        "required": [
+          "room_id",
+          "name",
+          "kind",
+          "status"
+        ],
+        "properties": {
+          "current": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChairAppointment",
+                "description": "Who is in it."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "description": "`chair`, `room` or `lab`."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "next": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChairAppointment",
+                "description": "Who is next today."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "room_id": {
+            "type": "string",
+            "description": "The room."
+          },
+          "status": {
+            "type": "string",
+            "description": "`in_use` while a patient is in it, otherwise `free`."
           }
         }
       },
@@ -1284,6 +2886,120 @@
           }
         }
       },
+      "HourBar": {
+        "type": "object",
+        "description": "Appointments starting in one local hour.",
+        "required": [
+          "hour",
+          "booked",
+          "completed"
+        ],
+        "properties": {
+          "booked": {
+            "type": "integer",
+            "description": "Appointments, not counting cancelled ones.",
+            "minimum": 0
+          },
+          "completed": {
+            "type": "integer",
+            "description": "Of those, completed.",
+            "minimum": 0
+          },
+          "hour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Local hour, 0 to 23.",
+            "minimum": 0
+          }
+        }
+      },
+      "ImportResult": {
+        "type": "object",
+        "description": "An import's result.",
+        "required": [
+          "mode",
+          "total",
+          "valid",
+          "invalid",
+          "rows"
+        ],
+        "properties": {
+          "import_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The recorded import, on commit."
+          },
+          "invalid": {
+            "type": "integer",
+            "description": "Rows with errors.",
+            "minimum": 0
+          },
+          "mode": {
+            "type": "string",
+            "description": "`preview` or `commit`."
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportRow"
+            },
+            "description": "Every row, in file order."
+          },
+          "total": {
+            "type": "integer",
+            "description": "Rows read.",
+            "minimum": 0
+          },
+          "valid": {
+            "type": "integer",
+            "description": "Rows that are (or were) imported.",
+            "minimum": 0
+          }
+        }
+      },
+      "ImportRow": {
+        "type": "object",
+        "description": "One row's result.",
+        "required": [
+          "line",
+          "valid",
+          "errors"
+        ],
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What is wrong, as `field: problem`."
+          },
+          "line": {
+            "type": "integer",
+            "description": "Line in the file (the header is line 1).",
+            "minimum": 0
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their new number, on commit."
+          },
+          "patient_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The patient registered, on commit."
+          },
+          "valid": {
+            "type": "boolean",
+            "description": "Whether the row is (or was) imported."
+          }
+        }
+      },
       "Joined": {
         "type": "object",
         "description": "The clinic just joined.",
@@ -1299,6 +3015,57 @@
           "org_id": {
             "type": "string",
             "description": "The clinic."
+          }
+        }
+      },
+      "Leave": {
+        "type": "object",
+        "description": "Time a doctor is away.",
+        "required": [
+          "id",
+          "practitioner_id",
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The leave."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339)."
+          }
+        }
+      },
+      "LeaveList": {
+        "type": "object",
+        "description": "Leave in a range.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Leave"
+            },
+            "description": "By start."
           }
         }
       },
@@ -1503,6 +3270,76 @@
           }
         }
       },
+      "NewAppointmentBody": {
+        "type": "object",
+        "description": "An appointment to book.",
+        "required": [
+          "patient_id",
+          "practitioner_id",
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "branch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Branch; the room's, or the default branch."
+          },
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339), 5 minutes to 12 hours after the start."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`new`, `follow_up` (default), `procedure` or `emergency`."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Front-desk note, up to 2000 characters."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Reason for the visit, up to 200 characters."
+          },
+          "room_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The chair or room."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`front_desk` (default), `phone`, `website`, `app` or `whatsapp`."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339)."
+          }
+        }
+      },
       "NewClinic": {
         "type": "object",
         "description": "A clinic to create.",
@@ -1535,6 +3372,24 @@
           }
         }
       },
+      "NewIdentifier": {
+        "type": "object",
+        "description": "An identifier to add.",
+        "required": [
+          "kind",
+          "value"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "`file_number`, `legacy`, `smart_card`, `abha_number` or `abha_address`."
+          },
+          "value": {
+            "type": "string",
+            "description": "The number, 1 to 64 characters."
+          }
+        }
+      },
       "NewInvitation": {
         "type": "object",
         "description": "Someone to invite.",
@@ -1550,6 +3405,36 @@
           "role_key": {
             "type": "string",
             "description": "The role they will get, such as `doctor`."
+          }
+        }
+      },
+      "NewLeave": {
+        "type": "object",
+        "description": "Leave to record.",
+        "required": [
+          "practitioner_id",
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339), after the start."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why, up to 200 characters."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339)."
           }
         }
       },
@@ -1695,6 +3580,43 @@
           }
         }
       },
+      "PatientBrief": {
+        "type": "object",
+        "description": "A patient as the calendar and queue show them.",
+        "required": [
+          "id",
+          "number",
+          "full_name",
+          "sex"
+        ],
+        "properties": {
+          "age_years": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Age in whole years today.",
+            "minimum": 0
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Full name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "number": {
+            "type": "string",
+            "description": "Readable number, such as `SD-1042`."
+          },
+          "sex": {
+            "type": "string",
+            "description": "`female`, `male`, `other` or `unknown`."
+          }
+        }
+      },
       "PatientChanges": {
         "type": "object",
         "description": "Changes to a patient. Fields left out stay as they are; an empty `phone`, `email` or\n`date_of_birth` clears it.",
@@ -1752,6 +3674,79 @@
           }
         }
       },
+      "PatientIdentifier": {
+        "type": "object",
+        "description": "Another number a patient is known by.",
+        "required": [
+          "id",
+          "kind",
+          "value",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was added (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`file_number`, `legacy`, `smart_card`, `abha_number` or `abha_address`."
+          },
+          "value": {
+            "type": "string",
+            "description": "The number."
+          }
+        }
+      },
+      "PatientIdentifierList": {
+        "type": "object",
+        "description": "A patient's identifiers.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientIdentifier"
+            },
+            "description": "By kind."
+          }
+        }
+      },
+      "PatientImport": {
+        "type": "object",
+        "description": "A patient import.",
+        "required": [
+          "csv",
+          "mode",
+          "mapping"
+        ],
+        "properties": {
+          "csv": {
+            "type": "string",
+            "description": "The CSV text, header line first; at most 5,000 rows and 2 MB."
+          },
+          "mapping": {
+            "type": "object",
+            "description": "Our field to the file's column header (matched ignoring case). Fields: `full_name`\n(required), `sex`, `date_of_birth`, `age_years`, `phone`, `email`,\n`preferred_language`, `file_number`, `legacy_id`.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "mode": {
+            "type": "string",
+            "description": "`preview` checks every row and saves nothing; `commit` saves the valid rows."
+          }
+        }
+      },
       "PatientList": {
         "type": "object",
         "description": "Search results.",
@@ -1800,6 +3795,247 @@
           "role_key": {
             "type": "string",
             "description": "The role they will get."
+          }
+        }
+      },
+      "Practitioner": {
+        "type": "object",
+        "description": "A doctor who sees patients.",
+        "required": [
+          "id",
+          "display_name",
+          "calendar_color",
+          "active"
+        ],
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "description": "Whether they can be booked."
+          },
+          "calendar_color": {
+            "type": "string",
+            "description": "Calendar colour, `#RRGGBB`."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Name shown on the calendar."
+          },
+          "id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their membership, if they sign in."
+          },
+          "registration_number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Council registration number."
+          },
+          "specialty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Specialty, such as `Orthodontics`."
+          }
+        }
+      },
+      "PractitionerBrief": {
+        "type": "object",
+        "description": "A doctor as the calendar shows them.",
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "properties": {
+          "calendar_color": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Calendar colour, `#RRGGBB`."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Name shown on the calendar."
+          },
+          "id": {
+            "type": "string",
+            "description": "The doctor."
+          }
+        }
+      },
+      "PractitionerFields": {
+        "type": "object",
+        "description": "A doctor to add, or changes to one. Fields left out stay as they are; an empty\n`membership_id`, `registration_number` or `specialty` clears it.",
+        "properties": {
+          "active": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether they can be booked (default true)."
+          },
+          "calendar_color": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Calendar colour, `#RRGGBB`."
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name shown on the calendar, 1 to 120 characters; required when adding."
+          },
+          "membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who is this doctor."
+          },
+          "registration_number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Council registration number."
+          },
+          "specialty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Specialty."
+          }
+        }
+      },
+      "PractitionerList": {
+        "type": "object",
+        "description": "The clinic's doctors.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Practitioner"
+            },
+            "description": "By name."
+          }
+        }
+      },
+      "QueueDay": {
+        "type": "object",
+        "description": "A day's queue.",
+        "required": [
+          "date",
+          "items"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueToken"
+            },
+            "description": "Tokens by branch and number."
+          }
+        }
+      },
+      "QueueToken": {
+        "type": "object",
+        "description": "A waiting-room token.",
+        "required": [
+          "id",
+          "branch_id",
+          "day",
+          "token_number",
+          "status",
+          "issued_at",
+          "wait_minutes",
+          "patient"
+        ],
+        "properties": {
+          "appointment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The appointment; none for a walk-in."
+          },
+          "branch_id": {
+            "type": "string",
+            "description": "Branch."
+          },
+          "called_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the patient was called in (RFC 3339)."
+          },
+          "day": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`."
+          },
+          "done_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When they were done or left (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The token."
+          },
+          "issued_at": {
+            "type": "string",
+            "description": "When it was issued (RFC 3339)."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientBrief",
+            "description": "The patient."
+          },
+          "practitioner": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PractitionerBrief",
+                "description": "The doctor, if known."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "`waiting`, `in_chair`, `done` or `left`."
+          },
+          "token_number": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number shown on the screen; restarts at 1 each day per branch."
+          },
+          "wait_minutes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minutes waited: until now while waiting, otherwise until called."
           }
         }
       },
@@ -1877,6 +4113,124 @@
               "$ref": "#/components/schemas/Role"
             },
             "description": "Standard roles first, then by name."
+          }
+        }
+      },
+      "Room": {
+        "type": "object",
+        "description": "A chair, room or lab.",
+        "required": [
+          "id",
+          "branch_id",
+          "name",
+          "kind",
+          "active",
+          "sort_order"
+        ],
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "description": "Whether it can be booked."
+          },
+          "branch_id": {
+            "type": "string",
+            "description": "Its branch."
+          },
+          "id": {
+            "type": "string",
+            "description": "The room."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`chair`, `room` or `lab`."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name, such as `Chair 1`."
+          },
+          "sort_order": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Position in lists."
+          }
+        }
+      },
+      "RoomFields": {
+        "type": "object",
+        "description": "A room to add, or changes to one. Fields left out stay as they are (or take the default).",
+        "properties": {
+          "active": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether it can be booked (default true)."
+          },
+          "branch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Branch; the default branch when adding without one."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`chair` (default), `room` or `lab`."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name, 1 to 60 characters; required when adding."
+          },
+          "sort_order": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Position in lists, 0 to 999."
+          }
+        }
+      },
+      "RoomList": {
+        "type": "object",
+        "description": "The clinic's rooms.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Room"
+            },
+            "description": "In list order."
+          }
+        }
+      },
+      "SavedAppointment": {
+        "type": "object",
+        "description": "An appointment after a booking or change.",
+        "required": [
+          "appointment",
+          "warnings"
+        ],
+        "properties": {
+          "appointment": {
+            "$ref": "#/components/schemas/Appointment",
+            "description": "The appointment."
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingWarning"
+            },
+            "description": "Warnings; empty when all is well."
           }
         }
       },
@@ -2058,6 +4412,318 @@
             "description": "Members, active first, then by name."
           }
         }
+      },
+      "StatusChange": {
+        "type": "object",
+        "description": "A status change.",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why; required to cancel, up to 200 characters."
+          },
+          "status": {
+            "type": "string",
+            "description": "`confirmed`, `arrived`, `in_chair`, `completed`, `cancelled` or `no_show`."
+          }
+        }
+      },
+      "StatusChanged": {
+        "type": "object",
+        "description": "An appointment after a status change.",
+        "required": [
+          "appointment"
+        ],
+        "properties": {
+          "appointment": {
+            "$ref": "#/components/schemas/Appointment",
+            "description": "The appointment."
+          },
+          "queue_token_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its queue token, once the patient has arrived."
+          }
+        }
+      },
+      "TeamMemberToday": {
+        "type": "object",
+        "description": "A doctor working today.",
+        "required": [
+          "practitioner",
+          "shifts",
+          "on_leave",
+          "appointments"
+        ],
+        "properties": {
+          "appointments": {
+            "type": "integer",
+            "description": "Appointments today, not counting cancelled ones.",
+            "minimum": 0
+          },
+          "on_leave": {
+            "type": "boolean",
+            "description": "Whether they have leave today."
+          },
+          "practitioner": {
+            "$ref": "#/components/schemas/PractitionerBrief",
+            "description": "The doctor."
+          },
+          "shifts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TodayShift"
+            },
+            "description": "Today's shifts."
+          },
+          "specialty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Specialty."
+          }
+        }
+      },
+      "TodayCounts": {
+        "type": "object",
+        "description": "The day's numbers.",
+        "required": [
+          "total",
+          "booked",
+          "arrived",
+          "in_chair",
+          "done",
+          "no_shows",
+          "cancelled",
+          "waiting"
+        ],
+        "properties": {
+          "arrived": {
+            "type": "integer",
+            "description": "Arrived and waiting.",
+            "minimum": 0
+          },
+          "booked": {
+            "type": "integer",
+            "description": "Booked or confirmed, not arrived yet.",
+            "minimum": 0
+          },
+          "cancelled": {
+            "type": "integer",
+            "description": "Cancelled.",
+            "minimum": 0
+          },
+          "done": {
+            "type": "integer",
+            "description": "Completed.",
+            "minimum": 0
+          },
+          "in_chair": {
+            "type": "integer",
+            "description": "In the chair now.",
+            "minimum": 0
+          },
+          "no_shows": {
+            "type": "integer",
+            "description": "Didn't come.",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "description": "Appointments today, not counting cancelled ones.",
+            "minimum": 0
+          },
+          "waiting": {
+            "type": "integer",
+            "description": "Queue tokens waiting, walk-ins included.",
+            "minimum": 0
+          }
+        }
+      },
+      "TodayResponse": {
+        "type": "object",
+        "description": "Today at the clinic. Money tiles arrive with billing.",
+        "required": [
+          "date",
+          "as_of",
+          "appointments",
+          "counts",
+          "by_hour",
+          "chairs",
+          "recent_patients",
+          "team",
+          "attention"
+        ],
+        "properties": {
+          "appointments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Appointment"
+            },
+            "description": "Today's appointments by start, cancelled ones included."
+          },
+          "as_of": {
+            "type": "string",
+            "description": "When this was built (RFC 3339); waits are measured from here."
+          },
+          "attention": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttentionItem"
+            },
+            "description": "Late arrivals and long waits, longest first."
+          },
+          "by_hour": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HourBar"
+            },
+            "description": "Appointments per local hour, for hours that have any."
+          },
+          "chairs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChairStatus"
+            },
+            "description": "Each active chair: who is in it and who is next."
+          },
+          "counts": {
+            "$ref": "#/components/schemas/TodayCounts",
+            "description": "The day's numbers."
+          },
+          "date": {
+            "type": "string",
+            "description": "The clinic's local date, `YYYY-MM-DD`."
+          },
+          "recent_patients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueToken"
+            },
+            "description": "The latest patients through the queue today, newest first."
+          },
+          "team": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMemberToday"
+            },
+            "description": "Doctors with working hours today."
+          }
+        }
+      },
+      "TodayShift": {
+        "type": "object",
+        "description": "A shift today, local time.",
+        "required": [
+          "starts",
+          "ends"
+        ],
+        "properties": {
+          "ends": {
+            "type": "string",
+            "description": "End, `HH:MM`."
+          },
+          "starts": {
+            "type": "string",
+            "description": "Start, `HH:MM`."
+          }
+        }
+      },
+      "TokenStatusChange": {
+        "type": "object",
+        "description": "A token status change.",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "`in_chair`, `done` or `left`."
+          }
+        }
+      },
+      "WalkInBody": {
+        "type": "object",
+        "description": "A walk-in.",
+        "required": [
+          "patient_id"
+        ],
+        "properties": {
+          "branch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Branch; the default branch when left out."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient (register them first if new)."
+          },
+          "practitioner_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The doctor, if known."
+          }
+        }
+      },
+      "WorkingHours": {
+        "type": "object",
+        "description": "A doctor's week.",
+        "required": [
+          "shifts"
+        ],
+        "properties": {
+          "shifts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkingShift"
+            },
+            "description": "Shifts by weekday and start; split shifts are two entries."
+          }
+        }
+      },
+      "WorkingShift": {
+        "type": "object",
+        "description": "One stretch of a doctor's week, in the clinic's local time.",
+        "required": [
+          "weekday",
+          "starts",
+          "ends"
+        ],
+        "properties": {
+          "branch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Branch; the default branch when left out."
+          },
+          "ends": {
+            "type": "string",
+            "description": "End, `HH:MM`, after the start."
+          },
+          "starts": {
+            "type": "string",
+            "description": "Start, `HH:MM`."
+          },
+          "weekday": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1 Monday to 7 Sunday.",
+            "minimum": 0
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -2080,6 +4746,18 @@
     {
       "name": "patients",
       "description": "A clinic's patients; clinic host only"
+    },
+    {
+      "name": "schedule",
+      "description": "A clinic's chairs, doctors, working hours and leave; clinic host only"
+    },
+    {
+      "name": "appointments",
+      "description": "The calendar, appointments and Today; clinic host only"
+    },
+    {
+      "name": "queue",
+      "description": "The waiting-room queue; clinic host only"
     },
     {
       "name": "staff",

@@ -380,8 +380,8 @@ pub async fn book(
     .await
 }
 
-/// Changes to an appointment. `None` leaves a value as it is; `Some(None)` clears the room,
-/// reason or note. A new start without a new end keeps the length.
+/// Changes to an appointment. `None` leaves a value as it is; `Some(None)` clears the room and
+/// an empty reason or note clears it. A new start without a new end keeps the length.
 #[derive(Debug, Clone, Default)]
 pub struct ChangeAppointment {
     /// Another doctor.
@@ -394,10 +394,10 @@ pub struct ChangeAppointment {
     pub ends_at: Option<OffsetDateTime>,
     /// New kind.
     pub kind: Option<String>,
-    /// New reason, or none.
-    pub reason: Option<Option<String>>,
-    /// New note, or none.
-    pub notes: Option<Option<String>>,
+    /// New reason; empty clears it.
+    pub reason: Option<String>,
+    /// New note; empty clears it.
+    pub notes: Option<String>,
 }
 
 fn record_change(changes: &mut Map<String, Value>, column: &str, old: &Value, new: &Value) {
@@ -485,13 +485,13 @@ pub async fn change(
         .map_err(|error| AppError::invalid("kind", error))?;
     let reason = input
         .reason
-        .as_ref()
-        .map(|text| parse_reason(text.as_deref()))
+        .as_deref()
+        .map(|text| parse_reason(Some(text)))
         .transpose()?;
     let notes = input
         .notes
-        .as_ref()
-        .map(|text| parse_notes(text.as_deref()))
+        .as_deref()
+        .map(|text| parse_notes(Some(text)))
         .transpose()?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let profile = clinic::profile(tx.conn())

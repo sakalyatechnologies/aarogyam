@@ -52,15 +52,26 @@ async fn clinics_never_see_each_other() {
     for query in ["priya", "9876543210", "AD-1"] {
         let (status, body) = app
             .send(
-                Method::GET,
+                Method::POST,
                 BETA,
-                &format!("/api/v1/patients?q={query}"),
+                "/api/v1/patients/search",
                 Some(&beta),
-                None,
+                Some(json!({ "q": query })),
             )
             .await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body["items"].as_array().unwrap().len(), 0, "{query}");
+        // Alpha's own search does find it.
+        let (_, own) = app
+            .send(
+                Method::POST,
+                ALPHA,
+                "/api/v1/patients/search",
+                Some(&alpha),
+                Some(json!({ "q": query })),
+            )
+            .await;
+        assert_eq!(own["items"].as_array().unwrap().len(), 1, "{query}");
     }
     // Numbers are per clinic.
     let beta_patient = register(&app, BETA, &beta, "Priya Sharma", "98765 43210").await;

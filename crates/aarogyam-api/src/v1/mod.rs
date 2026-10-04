@@ -18,7 +18,8 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
     let router = Router::new()
         .route("/me", get(me::me))
         .route("/session", get(me::session))
-        .route("/patients", get(patients::search).post(patients::register))
+        .route("/patients", get(patients::recent).post(patients::register))
+        .route("/patients/search", post(patients::search))
         .route("/patients/{id}", get(patients::open))
         .route(
             "/console/clinics",

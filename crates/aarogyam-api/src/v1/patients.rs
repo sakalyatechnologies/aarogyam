@@ -6,7 +6,7 @@ use aarogyam_domain::permission::require::{PatientsRead, PatientsWrite};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
-use sakalya_http::{ApiError, ApiJson, ApiPath, ApiQuery};
+use sakalya_http::{ApiError, ApiJson, ApiPath};
 use serde::{Deserialize, Serialize};
 use time::{Date, OffsetDateTime};
 use utoipa::ToSchema;
@@ -76,9 +76,9 @@ pub struct PatientList {
     pub items: Vec<Patient>,
 }
 
-/// What to search for.
-#[derive(Debug, Deserialize)]
-pub struct SearchParams {
+/// What to search for. Sent in the body, never the URL: search terms are names and phone numbers.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct SearchRequest {
     /// A number (`SD-1042` or `1042`), a phone number, or the start of a name. Empty lists
     /// the most recently registered patients.
     #[serde(default)]
@@ -87,15 +87,13 @@ pub struct SearchParams {
     pub limit: Option<i64>,
 }
 
-/// Finds patients by number, phone or name.
+/// Finds patients by number, phone or name. A POST so names and phone numbers stay out of
+/// URLs, which proxies, browsers and logs keep.
 #[utoipa::path(
-    get,
-    path = "/api/v1/patients",
+    post,
+    path = "/api/v1/patients/search",
     tag = "patients",
-    params(
-        ("q" = Option<String>, Query, description = "A number (SD-1042 or 1042), a phone number, or the start of a name; empty lists recent patients"),
-        ("limit" = Option<i64>, Query, description = "Most results, 1 to 50 (default 20)")
-    ),
+    request_body = SearchRequest,
     security(("bearer" = [])),
     responses(
         (status = 200, body = PatientList),
@@ -107,14 +105,45 @@ pub struct SearchParams {
 pub(crate) async fn search(
     State(state): State<AppState>,
     Require { request, .. }: Require<PatientsRead>,
-    ApiQuery(params): ApiQuery<SearchParams>,
+    ApiJson(body): ApiJson<SearchRequest>,
 ) -> Result<Json<PatientList>, ApiFailure> {
     let rows = app::search(
         state.db(),
         &request.actor,
         request.request_id,
-        &params.q,
-        params.limit.unwrap_or(20),
+        &body.q,
+        body.limit.unwrap_or(20),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(PatientList {
+        items: rows.into_iter().map(Patient::from).collect(),
+    }))
+}
+
+/// The most recently registered patients.
+#[utoipa::path(
+    get,
+    path = "/api/v1/patients",
+    tag = "patients",
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = PatientList),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks patients.read"),
+        (status = 404, description = "Not a clinic, or not a member of it")
+    )
+)]
+pub(crate) async fn recent(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<PatientsRead>,
+) -> Result<Json<PatientList>, ApiFailure> {
+    let rows = app::search(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        "",
+        20,
         OffsetDateTime::now_utc(),
     )
     .await?;

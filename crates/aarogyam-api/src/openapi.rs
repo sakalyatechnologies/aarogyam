@@ -25,6 +25,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         healthz,
         crate::v1::me::me,
         crate::v1::me::session,
+        crate::v1::patients::recent,
         crate::v1::patients::search,
         crate::v1::patients::register,
         crate::v1::patients::open,

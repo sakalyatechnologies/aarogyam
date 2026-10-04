@@ -38,6 +38,13 @@ Each backend package works in its own worktree and branch, with its own dev data
 
 Order: M3, M4 and M5 backends → UI 2 (calendar and queue, visit and dental chart, prescriptions, billing) → Quality and E2E → Deploy prep → merge, full gates, push, handoff by 07:00.
 
+### Added at 01:30: real sign-in, registration and onboarding (founder)
+
+| Package | Where | What |
+|---|---|---|
+| **Onboarding backend** | `feat/onboarding` | The API accepts Supabase tokens (JWKS) and, only when `environment = local` and enabled, dev tokens too. Supabase Admin client (server-only `SUPABASE_SECRET_KEY` from `.env.supabase` / Secret Manager) creates confirmed users for invitations. Platform table `clinic_applications` (clinic name, city, specialty, contact name, email, phone; pending/approved/rejected; no patient data); public `POST /api/v1/registrations` (throttled per IP, validated, never reveals whether an email exists); console `GET /console/applications`, `POST /console/applications/{id}/approve` (creates the clinic, the owner's Supabase user and invitation, outbox email) and `/reject`; console `GET /console/clinics/{id}` (members, counts) and `POST /console/clinics/{id}/invitations` (doctors and staff by email and role). `aarogyam admin grant-platform --email … --role owner` looks up the Supabase user and makes them platform staff; run it for the founder. Tests: Supabase-token path with the testkit JWKS server, applications, approval, console invitations, permissions, route audit allowlist for the public route. |
+| **Onboarding UI** | `web/` | Landing page (signed out) with Sign in and Register your clinic, modelled on MyDwarpal's sign-in flow (email → 6-digit code, 60 s resend, paste, `autocomplete="one-time-code"`, no account enumeration); thank-you page; accept-invite flow with real email codes; console Applications (approve/reject) and Clinic detail (members, invite doctor/staff). Supabase mode is the default when `VITE_SUPABASE_*` is set; dev sign-in only behind `VITE_DEV_SIGN_IN=1`. |
+
 ## Rules every package follows
 
 - The patients module is the pattern: domain values in `aarogyam-domain`, compile-checked queries in `aarogyam-dal`, use cases in `aarogyam-app` inside `db.scoped(...)`, handlers taking `Require<P>` in `aarogyam-api`, OpenAPI annotations, `docs/api/openapi.json` regenerated.

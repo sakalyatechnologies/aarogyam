@@ -215,6 +215,95 @@ export type ImportResult = Schemas["ImportResult"];
 export type ImportRow = Schemas["ImportRow"];
 export type ImportMode = "preview" | "commit";
 
+// Clinical flags: allergies and conditions (M4) --------------------------------------------------
+
+export type Code = Schemas["Code"];
+export type CodeSystem = "icd10" | "icd11" | "snomed" | "loinc" | "custom";
+export type ClinicalSource = "clinician" | "assistant" | "patient" | "import";
+export type ClinicalStatus = "active" | "resolved" | "entered_in_error";
+export type Severity = "mild" | "moderate" | "severe";
+
+export type Allergy = Schemas["Allergy"];
+export type AllergyFields = Schemas["AllergyFields"];
+export type AllergyList = Schemas["AllergyList"];
+
+export type Condition = Schemas["Condition"];
+export type ConditionFields = Schemas["ConditionFields"];
+export type ConditionList = Schemas["ConditionList"];
+
+export type ClinicalFlags = Schemas["ClinicalFlags"];
+
+// Visits, notes, vitals and procedures (M4) ------------------------------------------------------
+
+export type Visit = Schemas["Visit"];
+export type VisitDetail = Schemas["VisitDetail"];
+export type VisitList = Schemas["VisitList"];
+export type NewVisit = Schemas["NewVisit"];
+export type VisitStatus = "open" | "closed";
+
+export type Timeline = Schemas["Timeline"];
+export type TimelineEvent = Schemas["TimelineEvent"];
+export type TimelineEventKind = "visit" | "note" | "procedure" | "attachment";
+
+export type Note = Schemas["Note"];
+export type NoteContent = Schemas["NoteContent"];
+export type NoteSections = Schemas["NoteSections"];
+export type NoteKind = "soap" | "progress" | "procedure" | "intake" | "front_desk";
+export type NoteStatus = "draft" | "signed" | "conflict" | "entered_in_error";
+export type NoteSource = "typed" | "voice" | "ai_draft";
+export type Addendum = Schemas["Addendum"];
+export type NewAddendum = Schemas["NewAddendum"];
+export type EnteredInError = Schemas["EnteredInError"];
+
+export type ObservationKind = "bp_systolic" | "bp_diastolic" | "pulse" | "temperature" | "spo2" | "weight" | "height" | "blood_sugar";
+export type ObservationStatus = "final" | "corrected" | "entered_in_error";
+export type Observation = Schemas["Observation"];
+export type ObservationList = Schemas["ObservationList"];
+export type NewReading = Schemas["NewReading"];
+export type NewReadings = Schemas["NewReadings"];
+
+export type WorkFields = Schemas["WorkFields"];
+export type ProcedureStatus = "planned" | "done" | "entered_in_error";
+export type Procedure = Schemas["Procedure"];
+export type ProcedureList = Schemas["ProcedureList"];
+export type NewProcedure = Schemas["NewProcedure"];
+
+export type PlanStatus = "proposed" | "accepted" | "in_progress" | "completed" | "declined";
+export type PlanItemStatus = "proposed" | "accepted" | "done" | "cancelled";
+export type ToothSurface = "M" | "O" | "D" | "B" | "L";
+export type Plan = Schemas["Plan"];
+export type PlanItem = Schemas["PlanItem"];
+export type PlanList = Schemas["PlanList"];
+export type NewPlan = Schemas["NewPlan"];
+export type NewPlanItem = Schemas["NewPlanItem"];
+export type Acceptance = Schemas["Acceptance"];
+
+// Dental chart (M4) -------------------------------------------------------------------------------
+
+export type ChartFinding =
+  | "sound"
+  | "caries"
+  | "filled"
+  | "crown"
+  | "missing"
+  | "implant"
+  | "root_canal"
+  | "bridge"
+  | "fractured"
+  | "watch";
+export type ChartEntryStatus = "current" | "superseded" | "entered_in_error";
+export type ChartEntry = Schemas["ChartEntry"];
+export type DentalChart = Schemas["DentalChart"];
+export type NewChartEntry = Schemas["NewChartEntry"];
+export type NewChartEntries = Schemas["NewChartEntries"];
+
+// Patient files (M4) ------------------------------------------------------------------------------
+
+export type AttachmentKind = "photo" | "xray" | "report" | "document" | "audio" | "consent";
+export type Attachment = Schemas["Attachment"];
+export type AttachmentList = Schemas["AttachmentList"];
+export type DownloadLink = Schemas["DownloadLink"];
+
 export type TestSuite = "unit" | "integration" | "e2e_web" | "e2e_mobile" | "canary" | "load";
 export type QualityEnvironment = "ci" | "staging" | "production";
 export type RunStatus = "running" | "passed" | "failed" | "cancelled";

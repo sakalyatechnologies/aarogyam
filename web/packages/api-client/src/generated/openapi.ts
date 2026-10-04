@@ -64,6 +64,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attachments/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Streams a file through a signed link from `GET /attachments/{id}/download`. The link is the
+         *     proof of access, so no sign-in header is needed (an `<img>` can use it); it works on the
+         *     clinic's own host for five minutes, and every use is written to the access record.
+         */
+        get: operations["content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attachments/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Issues a five-minute download link for a file. Opening the link writes the access record. */
+        get: operations["link"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/clinics": {
         parameters: {
             query?: never;
@@ -263,6 +301,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Replaces a draft's sections. Only the author may, and only while it is a draft. */
+        patch: operations["edit_note"];
+        trace?: never;
+    };
+    "/api/v1/notes/{id}/addenda": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adds an addendum to a signed note. Addenda are never edited or removed. */
+        post: operations["add_addendum"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notes/{id}/entered-in-error": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marks a note entered in error with a reason. It stays in the record, marked; nothing is
+         *     deleted. A draft can be withdrawn only by its author.
+         */
+        post: operations["note_in_error"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notes/{id}/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Signs a draft. Only its author may; the note never changes afterwards. */
+        post: operations["sign_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/observations/{id}/entered-in-error": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marks a reading entered in error with a reason. It stays in the record, marked. */
+        post: operations["in_error"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients": {
         parameters: {
             query?: never;
@@ -322,6 +448,136 @@ export interface paths {
         patch: operations["edit"];
         trace?: never;
     };
+    "/api/v1/patients/{id}/allergies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A patient's allergies, active and severe first. */
+        get: operations["allergies"];
+        put?: never;
+        /** Records an allergy. */
+        post: operations["add_allergy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/allergies/{allergy_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edits an allergy: resolve it, change its severity, or mark it entered in error. */
+        patch: operations["edit_allergy"];
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A patient's files, newest first. */
+        get: operations["list_attachments"];
+        put?: never;
+        /**
+         * Uploads a patient file (`multipart/form-data`, field `file` up to 10 MB). Its type is read
+         *     from its content; anything but JPEG, PNG, PDF or DICOM is refused.
+         */
+        post: operations["upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/clinical-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patient's clinical flags: active allergies and flagged active conditions. */
+        get: operations["flags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/conditions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A patient's conditions, active first. */
+        get: operations["conditions"];
+        put?: never;
+        /** Adds a condition to a patient's problem list. */
+        post: operations["add_condition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/conditions/{condition_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edits a condition: resolve it, flag it, correct it, or mark it entered in error. */
+        patch: operations["edit_condition"];
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/dental-chart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A patient's dental chart, with one tooth's history when `tooth` is given. */
+        get: operations["get"];
+        put?: never;
+        /**
+         * Records findings. Each supersedes the current entry for its tooth and surface (a crown,
+         *     implant or missing tooth also supersedes the tooth's surface entries); the history keeps
+         *     everything. Returns the updated chart.
+         */
+        post: operations["record_dental_chart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/identifiers": {
         parameters: {
             query?: never;
@@ -352,6 +608,79 @@ export interface paths {
         post?: never;
         /** Removes a number from a patient. */
         delete: operations["remove_identifier"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/procedures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A patient's procedures, newest first. */
+        get: operations["procedures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A patient's clinical timeline, newest first: visits, signed notes, procedures and files.
+         *     Prescriptions and bills join it when they exist. Reading it writes the access record.
+         */
+        get: operations["timeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/treatment-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A patient's treatment plans, newest first. */
+        get: operations["plans"];
+        put?: never;
+        /** Proposes a treatment plan with an estimate per item. */
+        post: operations["create_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/visits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A patient's visits, newest first. */
+        get: operations["list_visits"];
+        put?: never;
+        /** Starts a visit, with the caller as the clinician responsible. */
+        post: operations["start"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -405,6 +734,40 @@ export interface paths {
         /** Replaces a doctor's weekly hours. An empty list clears them. */
         put: operations["set_hours"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/procedures/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marks a planned procedure done; its plan item, if any, is done too. */
+        post: operations["complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/procedures/{id}/entered-in-error": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marks a procedure entered in error with a reason; its plan item is open again. */
+        post: operations["procedure_in_error"];
         delete?: never;
         options?: never;
         head?: never;
@@ -618,6 +981,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/treatment-plans/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Records the patient's acceptance of a proposed plan. */
+        post: operations["accept_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visits/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opens a visit with everything recorded in it. Every open is written to the access record. */
+        get: operations["open_visit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visits/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Closes a visit. Addenda and corrections still work afterwards; new notes, vitals and
+         *     procedures don't.
+         */
+        post: operations["close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visits/{id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Starts a draft note in an open visit, written by the caller. */
+        post: operations["create_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visits/{id}/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Records vital signs in a visit. A closed visit takes corrections only. */
+        post: operations["record_observation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visits/{id}/procedures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Records a procedure in an open visit. */
+        post: operations["record_procedure"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -649,6 +1117,22 @@ export interface components {
             /** @description The secret from the invitation link. */
             token: string;
         };
+        /** @description Which items the patient accepted. */
+        Acceptance: {
+            /** @description The accepted items; every proposed item when left out. The others are cancelled. */
+            item_ids?: string[] | null;
+        };
+        /** @description An addendum to a signed note. */
+        Addendum: {
+            /** @description Who wrote it. */
+            author: components["schemas"]["Member"];
+            /** @description The text. */
+            body: string;
+            /** @description When (RFC 3339). */
+            created_at: string;
+            /** @description Identifier. */
+            id: string;
+        };
         /** @description A postal address. Every part is optional. */
         Address: {
             /** @description City or town. */
@@ -661,6 +1145,47 @@ export interface components {
             pincode?: string | null;
             /** @description State or union territory. */
             state?: string | null;
+        };
+        /** @description An allergy. */
+        Allergy: {
+            code?: components["schemas"]["Code"] | null;
+            /** @description When it was recorded (RFC 3339). */
+            created_at: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description What happens. */
+            reaction?: string | null;
+            /** @description `mild`, `moderate` or `severe`. */
+            severity: string;
+            /** @description `clinician`, `assistant`, `patient` or `import`. */
+            source: string;
+            /** @description `active`, `resolved` or `entered_in_error`. */
+            status: string;
+            /** @description The substance, such as penicillin or latex. */
+            substance: string;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+            /** @description The member who recorded or last confirmed it. */
+            verified_by?: string | null;
+        };
+        /** @description An allergy to record or edit. On an edit, fields left out stay as they are. */
+        AllergyFields: {
+            code?: components["schemas"]["Code"] | null;
+            /** @description What happens, or empty to clear it. */
+            reaction?: string | null;
+            /** @description `mild`, `moderate` (default) or `severe`. */
+            severity?: string | null;
+            /** @description `clinician` (default), `assistant`, `patient` or `import`. */
+            source?: string | null;
+            /** @description `active` (default), `resolved` or `entered_in_error`. */
+            status?: string | null;
+            /** @description The substance, 1 to 200 characters; required for a new allergy. */
+            substance?: string | null;
+        };
+        /** @description A patient's allergies, active and severe first. */
+        AllergyList: {
+            /** @description The allergies. */
+            items: components["schemas"]["Allergy"][];
         };
         /** @description An appointment. */
         Appointment: {
@@ -730,6 +1255,40 @@ export interface components {
         AppointmentList: {
             /** @description By start. */
             items: components["schemas"]["Appointment"][];
+        };
+        /** @description A patient file's details. The bytes come from its download link. */
+        Attachment: {
+            /** @description A caption. */
+            caption?: string | null;
+            /** @description When it was uploaded (RFC 3339). */
+            created_at: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description `photo`, `xray`, `report`, `document`, `audio` or `consent`. */
+            kind: string;
+            /** @description `image/jpeg`, `image/png`, `application/pdf` or `application/dicom`, from the content. */
+            mime_type: string;
+            /** @description SHA-256 of the content, hex. */
+            sha256: string;
+            /**
+             * Format: int64
+             * @description Size in bytes.
+             */
+            size_bytes: number;
+            /** @description When it was taken (RFC 3339). */
+            taken_at?: string | null;
+            /**
+             * Format: int32
+             * @description FDI number of the tooth it shows.
+             */
+            tooth?: number | null;
+            /** @description The visit it belongs to. */
+            visit_id?: string | null;
+        };
+        /** @description A patient's files, newest first. */
+        AttachmentList: {
+            /** @description The files. */
+            items: components["schemas"]["Attachment"][];
         };
         /** @description Something the front desk should look at. */
         AttentionItem: {
@@ -803,6 +1362,32 @@ export interface components {
             /** @description `in_use` while a patient is in it, otherwise `free`. */
             status: string;
         };
+        /** @description A finding on a tooth or one of its surfaces. */
+        ChartEntry: {
+            /** @description When the finding was made (RFC 3339). */
+            effective_at: string;
+            /** @description `sound`, `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`. */
+            finding: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description The clinician's remark. */
+            note?: string | null;
+            /** @description The member who recorded it. */
+            recorded_by?: string | null;
+            /** @description `current`, `superseded` or `entered_in_error`. */
+            status: string;
+            /** @description The entry it replaced. */
+            supersedes_id?: string | null;
+            /** @description `M`, `O`, `D`, `B` or `L`; absent for the whole tooth. */
+            surface?: string | null;
+            /**
+             * Format: int32
+             * @description FDI tooth number: 11-48, or 51-85 for primary teeth.
+             */
+            tooth: number;
+            /** @description The visit that recorded it. */
+            visit_id?: string | null;
+        };
         /** @description The clinic's settings. */
         ClinicSettings: {
             /** @description The main branch's address. */
@@ -846,6 +1431,80 @@ export interface components {
             timezone?: string | null;
             /** @description UPI ID, like `name@bank`. */
             upi_id?: string | null;
+        };
+        /**
+         * @description Patient 360's safety banner. Anyone who can see the patient learns that flags exist and how
+         *     many; the substances and conditions need `clinical.read`.
+         */
+        ClinicalFlags: {
+            /** @description Active allergies, severe first. */
+            allergies: components["schemas"]["Allergy"][];
+            /** @description Active allergies. */
+            allergy_count: number;
+            /** @description Flagged active conditions. */
+            condition_count: number;
+            /** @description Flagged active conditions. */
+            conditions: components["schemas"]["Condition"][];
+            /** @description True when the lists below were left out because the role lacks `clinical.read`. */
+            details_hidden: boolean;
+            /** @description Whether any active allergy is severe. */
+            severe_allergy: boolean;
+        };
+        /** @description An optional clinical code. Free text always works without one. */
+        Code: {
+            /** @description The code; empty clears it on an edit. */
+            code: string;
+            /** @description `icd10`, `icd11`, `snomed`, `loinc` or `custom`. */
+            system: string;
+        };
+        /** @description A condition on the problem list. */
+        Condition: {
+            code?: components["schemas"]["Code"] | null;
+            /** @description When it was recorded (RFC 3339). */
+            created_at: string;
+            /** @description What the doctor wrote. */
+            display_text: string;
+            /** @description Shown in the clinical flags banner while active. */
+            flagged: boolean;
+            /** @description Identifier. */
+            id: string;
+            /** @description A remark. */
+            note?: string | null;
+            /** @description When it began (`YYYY-MM-DD`). */
+            onset?: string | null;
+            /** @description `clinician`, `assistant`, `patient` or `import`. */
+            source: string;
+            /** @description `active`, `resolved` or `entered_in_error`. */
+            status: string;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+            /** @description The member who recorded or last confirmed it. */
+            verified_by?: string | null;
+            /** @description The visit it was found in. */
+            visit_id?: string | null;
+        };
+        /** @description A condition to record or edit. On an edit, fields left out stay as they are. */
+        ConditionFields: {
+            code?: components["schemas"]["Code"] | null;
+            /** @description What the doctor wrote, 1 to 300 characters; required for a new condition. */
+            display_text?: string | null;
+            /** @description Show in the clinical flags banner while active (diabetes, a bleeding disorder, pregnancy). */
+            flagged?: boolean | null;
+            /** @description A remark, or empty to clear it. */
+            note?: string | null;
+            /** @description When it began (`YYYY-MM-DD`), or empty to clear it. */
+            onset?: string | null;
+            /** @description `clinician` (default), `assistant`, `patient` or `import`. */
+            source?: string | null;
+            /** @description `active` (default), `resolved` or `entered_in_error`. */
+            status?: string | null;
+            /** @description The visit it was found in; new conditions only. */
+            visit_id?: string | null;
+        };
+        /** @description A patient's conditions, active first. */
+        ConditionList: {
+            /** @description The conditions. */
+            items: components["schemas"]["Condition"][];
         };
         /** @description A clinic, with counts only. */
         ConsoleClinic: {
@@ -910,6 +1569,13 @@ export interface components {
             /** @description The role they will get. */
             role_key: string;
         };
+        /** @description A patient's dental chart. Teeth without entries are absent: draw them as sound. */
+        DentalChart: {
+            /** @description The current entries, by tooth (the whole-tooth entry first, then surfaces). */
+            current: components["schemas"]["ChartEntry"][];
+            /** @description Every entry of the requested tooth, newest first; empty unless `tooth` was given. */
+            history: components["schemas"]["ChartEntry"][];
+        };
         /** @description Who to sign in as. */
         DevTokenRequest: {
             /** @description The person's Supabase Auth id (`users.auth_uid`), from the local seed. */
@@ -926,6 +1592,13 @@ export interface components {
              * @description Seconds until it expires.
              */
             expires_in: number;
+        };
+        /** @description A short-lived link to a file. */
+        DownloadLink: {
+            /** @description When the link stops working (RFC 3339), five minutes from now. */
+            expires_at: string;
+            /** @description Path to fetch on the same clinic host, with the signed token; no sign-in header needed. */
+            url: string;
         };
         /** @description What one drain did. */
         DrainReport: {
@@ -944,6 +1617,11 @@ export interface components {
             retrying: number;
             /** @description Delivered. */
             sent: number;
+        };
+        /** @description Why a record is being marked entered in error. */
+        EnteredInError: {
+            /** @description 3 to 500 characters, such as "wrong patient". */
+            reason: string;
         };
         /** @description Appointments starting in one local hour. */
         HourBar: {
@@ -1083,6 +1761,11 @@ export interface components {
             /** @description Most recently used first. */
             items: components["schemas"]["MySession"][];
         };
+        /** @description An addendum's text. */
+        NewAddendum: {
+            /** @description 1 to 10,000 characters. */
+            body: string;
+        };
         /** @description An appointment to book. */
         NewAppointmentBody: {
             /** @description Branch; the room's, or the default branch. */
@@ -1105,6 +1788,27 @@ export interface components {
             source?: string | null;
             /** @description Start (RFC 3339). */
             starts_at: string;
+        };
+        /** @description Findings recorded together. */
+        NewChartEntries: {
+            /** @description 1 to 64 entries, applied in order. */
+            entries: components["schemas"]["NewChartEntry"][];
+            /** @description The open visit they were found in, if any. */
+            visit_id?: string | null;
+        };
+        /** @description One finding to record. */
+        NewChartEntry: {
+            /** @description `sound` (clears an earlier finding), `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`. */
+            finding: string;
+            /** @description A remark, up to 500 characters. */
+            note?: string | null;
+            /** @description `M`, `O`, `D`, `B` or `L`; leave out for the whole tooth (crown, missing, implant, root canal and bridge are whole-tooth only). */
+            surface?: string | null;
+            /**
+             * Format: int64
+             * @description FDI tooth number: 11-48, or 51-85 for primary teeth.
+             */
+            tooth: number;
         };
         /** @description A clinic to create. */
         NewClinic: {
@@ -1161,6 +1865,158 @@ export interface components {
             preferred_language?: string | null;
             /** @description `female`, `male`, `other` or `unknown` (default). */
             sex?: string | null;
+        };
+        /** @description A treatment plan to propose. */
+        NewPlan: {
+            /** @description 1 to 50 items. */
+            items: components["schemas"]["NewPlanItem"][];
+            /** @description Its title, 1 to 200 characters. */
+            title: string;
+            /** @description The visit it is proposed in. */
+            visit_id?: string | null;
+        };
+        /** @description A plan item to propose. */
+        NewPlanItem: components["schemas"]["WorkFields"] & {
+            /**
+             * Format: int64
+             * @description Estimated cost in paise.
+             */
+            estimate_paise: number;
+            /**
+             * Format: int32
+             * @description Phase, 1 (default) to 20.
+             */
+            phase?: number | null;
+        };
+        /** @description A procedure to record. */
+        NewProcedure: components["schemas"]["WorkFields"] & {
+            /** @description A remark, up to 1,000 characters. */
+            note?: string | null;
+            /** @description An accepted treatment plan item this carries out; when done, the item is done too. */
+            plan_item_id?: string | null;
+            /**
+             * Format: int64
+             * @description The fee in paise; the plan item's estimate when left out.
+             */
+            price_paise?: number | null;
+            /** @description `done` (default) or `planned`. */
+            status?: string | null;
+        };
+        /** @description One reading. */
+        NewReading: {
+            /** @description `bp_systolic`, `bp_diastolic`, `pulse`, `temperature`, `spo2`, `weight`, `height` or `blood_sugar`. */
+            kind: string;
+            /** @description An earlier reading of the same patient and kind that this one corrects. */
+            supersedes_id?: string | null;
+            /** @description The unit; the kind's usual unit when left out (`Cel` for temperature, which also takes `[degF]`). */
+            unit?: string | null;
+            /**
+             * Format: double
+             * @description The value; checked against a plausible range for the kind and unit.
+             */
+            value: number;
+        };
+        /** @description Readings taken together, such as a blood pressure pair and a pulse. */
+        NewReadings: {
+            /** @description 1 to 20 readings. */
+            readings: components["schemas"]["NewReading"][];
+            /** @description When they were taken (RFC 3339); now when left out. */
+            recorded_at?: string | null;
+            /** @description `clinician` (default), `assistant`, `patient` or `import`. */
+            source?: string | null;
+        };
+        /** @description A visit to start. */
+        NewVisit: {
+            /** @description The appointment the patient came for; a walk-in has none. One visit per appointment. */
+            appointment_id?: string | null;
+            /** @description Why the patient came, up to 1,000 characters. */
+            chief_complaint?: string | null;
+        };
+        /**
+         * @description A clinical note. Signed notes never change: corrections go in addenda, and a mistaken note
+         *     is marked `entered_in_error` with a reason.
+         */
+        Note: {
+            /** @description Addenda, oldest first. */
+            addenda: components["schemas"]["Addendum"][];
+            /** @description Who wrote it; only they may edit or sign it. */
+            author: components["schemas"]["Member"];
+            /** @description For a conflict: the signed note it collided with. */
+            conflicts_with_id?: string | null;
+            /** @description When it was written (RFC 3339). */
+            created_at: string;
+            /** @description Why it was marked entered in error. */
+            error_reason?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description `soap`, `progress`, `procedure`, `intake` or `front_desk`. */
+            kind: string;
+            /** @description The sections. */
+            sections: components["schemas"]["NoteSections"];
+            /** @description When it was signed (RFC 3339). */
+            signed_at?: string | null;
+            /** @description `typed`, `voice` or `ai_draft`. */
+            source: string;
+            /** @description `draft`, `signed`, `conflict` (collided with a signed note during sync) or `entered_in_error`. */
+            status: string;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+            /** @description The visit. */
+            visit_id: string;
+        };
+        /** @description A note's content. Sections are replaced as a whole when editing. */
+        NoteContent: {
+            /** @description `soap` (default), `progress`, `procedure`, `intake` or `front_desk`. */
+            kind?: string | null;
+            /** @description The sections, each up to 10,000 characters. */
+            sections?: components["schemas"]["NoteSections"];
+        };
+        /** @description A note's sections. Each may be empty while drafting; signing needs at least one. */
+        NoteSections: {
+            /** @description The clinician's assessment. */
+            assessment?: string | null;
+            /** @description What the clinician found. */
+            objective?: string | null;
+            /** @description What happens next. */
+            plan?: string | null;
+            /** @description What the patient reports. */
+            subjective?: string | null;
+        };
+        /**
+         * @description A measurement. Values never change: a correction is a new reading whose `supersedes_id`
+         *     names the old one, which stays with status `corrected`.
+         */
+        Observation: {
+            /** @description LOINC code. */
+            code?: string | null;
+            /** @description Why it was marked entered in error. */
+            error_reason?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description `bp_systolic`, `bp_diastolic`, `pulse`, `temperature`, `spo2`, `weight`, `height` or `blood_sugar`. */
+            kind: string;
+            /** @description When it was measured (RFC 3339). */
+            recorded_at: string;
+            /** @description `clinician`, `assistant`, `patient` or `import`. */
+            source: string;
+            /** @description `final`, `corrected` or `entered_in_error`. */
+            status: string;
+            /** @description The reading this one corrects. */
+            supersedes_id?: string | null;
+            /** @description UCUM unit: `mmHg`, `/min`, `Cel`, `[degF]`, `%`, `kg`, `cm` or `mg/dL`. */
+            unit: string;
+            /**
+             * Format: double
+             * @description The value, to two decimal places.
+             */
+            value: number;
+            /** @description The visit it was taken in. */
+            visit_id?: string | null;
+        };
+        /** @description Readings recorded together. */
+        ObservationList: {
+            /** @description The new readings. */
+            items: components["schemas"]["Observation"][];
         };
         /** @description A patient. Phone and email are masked (`+91******3210`) unless the role has `patients.contact`. */
         Patient: {
@@ -1282,6 +2138,66 @@ export interface components {
             /** @description The role they will get. */
             role_key: string;
         };
+        /** @description A treatment plan with its estimate. */
+        Plan: {
+            /** @description When the patient accepted it (RFC 3339). */
+            accepted_at?: string | null;
+            /** @description The member who proposed it. */
+            clinician: components["schemas"]["Member"];
+            /** @description When it was proposed (RFC 3339). */
+            created_at: string;
+            /**
+             * Format: int64
+             * @description The sum of the items that aren't cancelled, in paise.
+             */
+            estimate_paise: number;
+            /** @description Identifier. */
+            id: string;
+            /** @description Its items, by phase. */
+            items: components["schemas"]["PlanItem"][];
+            /** @description The patient. */
+            patient_id: string;
+            /** @description `proposed`, `accepted`, `in_progress`, `completed` or `declined`. */
+            status: string;
+            /** @description Its title. */
+            title: string;
+            /** @description The visit it was proposed in. */
+            visit_id?: string | null;
+        };
+        /** @description A step of a treatment plan. */
+        PlanItem: {
+            code?: components["schemas"]["Code"] | null;
+            /**
+             * Format: int64
+             * @description Estimated cost in paise.
+             */
+            estimate_paise: number;
+            /** @description Identifier. */
+            id: string;
+            /** @description What is to be done. */
+            name: string;
+            /**
+             * Format: int32
+             * @description Phase, from 1.
+             */
+            phase: number;
+            /** @description The procedure carrying it out. */
+            procedure_id?: string | null;
+            /** @description `proposed`, `accepted`, `done` or `cancelled`. */
+            status: string;
+            /** @description Surfaces: `M`, `O`, `D`, `B`, `L`. */
+            surfaces: string[];
+            /**
+             * Format: int32
+             * @description FDI tooth number.
+             */
+            tooth?: number | null;
+        };
+        /** @description A patient's treatment plans, newest first. */
+        PlanList: {
+            /** @description The plans. */
+            items: components["schemas"]["Plan"][];
+        };
         /** @description A doctor who sees patients. */
         Practitioner: {
             /** @description Whether they can be booked. */
@@ -1330,6 +2246,50 @@ export interface components {
         PractitionerList: {
             /** @description By name. */
             items: components["schemas"]["Practitioner"][];
+        };
+        /**
+         * @description A procedure planned or done in a visit. Done procedures never change; a mistaken one is
+         *     marked `entered_in_error` with a reason.
+         */
+        Procedure: {
+            /** @description The member who did it. */
+            clinician: components["schemas"]["Member"];
+            code?: components["schemas"]["Code"] | null;
+            /** @description When it was recorded (RFC 3339). */
+            created_at: string;
+            /** @description Why it was marked entered in error. */
+            error_reason?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description What was done. */
+            name: string;
+            /** @description A remark. */
+            note?: string | null;
+            /** @description When it was done (RFC 3339). */
+            performed_at?: string | null;
+            /** @description The treatment plan item it carries out. */
+            plan_item_id?: string | null;
+            /**
+             * Format: int64
+             * @description The fee in paise.
+             */
+            price_paise?: number | null;
+            /** @description `planned`, `done` or `entered_in_error`. */
+            status: string;
+            /** @description Surfaces: `M`, `O`, `D`, `B`, `L`. */
+            surfaces: string[];
+            /**
+             * Format: int32
+             * @description FDI tooth number.
+             */
+            tooth?: number | null;
+            /** @description The visit. */
+            visit_id: string;
+        };
+        /** @description A patient's procedures, newest first. */
+        ProcedureList: {
+            /** @description The procedures. */
+            items: components["schemas"]["Procedure"][];
         };
         /** @description A day's queue. */
         QueueDay: {
@@ -1541,6 +2501,34 @@ export interface components {
             /** @description Specialty. */
             specialty?: string | null;
         };
+        /** @description A page of a patient's timeline, newest first. */
+        Timeline: {
+            /** @description The events. */
+            items: components["schemas"]["TimelineEvent"][];
+        };
+        /** @description One event on a patient's timeline. */
+        TimelineEvent: {
+            /**
+             * Format: int64
+             * @description The fee in paise, for procedures.
+             */
+            amount_paise?: number | null;
+            /** @description When it happened (RFC 3339): a visit's start, a note's signing, a procedure's doing. */
+            at: string;
+            by?: components["schemas"]["Member"] | null;
+            /** @description More detail: the chief complaint, the assessment, the tooth or the caption. */
+            detail?: string | null;
+            /** @description The record: open it through its own route. */
+            id: string;
+            /** @description `visit`, `note` (signed), `procedure` or `attachment`. */
+            kind: string;
+            /** @description The record's status. */
+            status?: string | null;
+            /** @description A short title: the visit number, the note kind, the procedure name or the file kind. */
+            title: string;
+            /** @description The visit it belongs to. */
+            visit_id?: string | null;
+        };
         /** @description The day's numbers. */
         TodayCounts: {
             /** @description Arrived and waiting. */
@@ -1593,6 +2581,66 @@ export interface components {
             /** @description `in_chair`, `done` or `left`. */
             status: string;
         };
+        /** @description The form an upload sends (`multipart/form-data`). */
+        UploadForm: {
+            /** @description A caption, up to 300 characters. */
+            caption?: string | null;
+            /**
+             * Format: binary
+             * @description The file: JPEG, PNG, PDF or DICOM, up to 10 MB. Its type is read from its content.
+             */
+            file: string;
+            /** @description `photo`, `xray`, `report`, `document` (default), `audio` or `consent`. */
+            kind?: string | null;
+            /**
+             * Format: int64
+             * @description FDI number of the tooth it shows.
+             */
+            tooth?: number | null;
+            /** @description The visit it belongs to. */
+            visit_id?: string | null;
+        };
+        /** @description A visit. */
+        Visit: {
+            /** @description The appointment it was started from. */
+            appointment_id?: string | null;
+            /** @description Why the patient came. */
+            chief_complaint?: string | null;
+            /** @description The member responsible. */
+            clinician: components["schemas"]["Member"];
+            /** @description When it was closed (RFC 3339). */
+            ended_at?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description Readable number, such as `V-318`. */
+            number: string;
+            /** @description The patient. */
+            patient_id: string;
+            /** @description When it started (RFC 3339). */
+            started_at: string;
+            /** @description `open` or `closed`. */
+            status: string;
+        };
+        /** @description Everything recorded in a visit. */
+        VisitDetail: {
+            /** @description Files attached to the visit. */
+            attachments: components["schemas"]["Attachment"][];
+            /** @description Dental chart entries recorded in the visit. */
+            chart_entries: components["schemas"]["ChartEntry"][];
+            /** @description Notes with their addenda, oldest first. */
+            notes: components["schemas"]["Note"][];
+            /** @description Vital signs recorded in the visit, oldest first; corrected values stay, marked by status. */
+            observations: components["schemas"]["Observation"][];
+            /** @description Procedures planned or done in the visit. */
+            procedures: components["schemas"]["Procedure"][];
+            /** @description The visit. */
+            visit: components["schemas"]["Visit"];
+        };
+        /** @description A patient's visits, newest first. */
+        VisitList: {
+            /** @description The visits. */
+            items: components["schemas"]["Visit"][];
+        };
         /** @description A walk-in. */
         WalkInBody: {
             /** @description Branch; the default branch when left out. */
@@ -1601,6 +2649,19 @@ export interface components {
             patient_id: string;
             /** @description The doctor, if known. */
             practitioner_id?: string | null;
+        };
+        /** @description What is done and where. */
+        WorkFields: {
+            code?: components["schemas"]["Code"] | null;
+            /** @description What is done, 1 to 200 characters, such as "Composite filling". */
+            name?: string | null;
+            /** @description Surfaces: `M`, `O`, `D`, `B`, `L`. */
+            surfaces?: string[];
+            /**
+             * Format: int64
+             * @description FDI tooth number: 11-48, or 51-85 for primary teeth.
+             */
+            tooth?: number | null;
         };
         /** @description A doctor's week. */
         WorkingHours: {
@@ -1844,6 +2905,87 @@ export interface operations {
                 content?: never;
             };
             /** @description No such appointment in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    content: {
+        parameters: {
+            query: {
+                /** @description The signed token from the download link */
+                token: string;
+            };
+            header?: never;
+            path: {
+                /** @description The file */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, with its media type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link has expired; ask for a new one */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a valid link for this file on this host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The file */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadLink"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such file in this clinic */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2323,6 +3465,300 @@ export interface operations {
             };
         };
     };
+    edit_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The note */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteContent"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write, or the note is someone else's */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such note in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The note is signed; add an addendum instead */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    add_addendum: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The note */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewAddendum"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such note in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The note isn't signed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    note_in_error: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The note */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnteredInError"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write, or the draft is someone else's */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such note in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already marked */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sign_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The note */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write, or the note is someone else's */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such note in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a draft, or every section is empty */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    in_error: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The reading */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnteredInError"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Observation"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such reading in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already corrected or marked */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     recent: {
         parameters: {
             query?: never;
@@ -2548,6 +3984,573 @@ export interface operations {
             };
         };
     };
+    allergies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllergyList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    add_allergy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllergyFields"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Allergy"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    edit_allergy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description The allergy */
+                allergy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllergyFields"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Allergy"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such allergy for this patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_attachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["UploadForm"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+            /** @description Not a JPEG, PNG, PDF or DICOM file, a bad field, or a visit of another patient */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 10 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    flags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicalFlags"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    conditions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConditionList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    add_condition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConditionFields"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Condition"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    edit_condition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description The condition */
+                condition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConditionFields"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Condition"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such condition for this patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: {
+                /** @description FDI tooth number whose full history to include */
+                tooth?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DentalChart"];
+                };
+            };
+            /** @description Not an FDI tooth number */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    record_dental_chart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewChartEntries"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DentalChart"];
+                };
+            };
+            /** @description A bad tooth, surface or finding, or a visit of another patient */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The visit is closed, or the chart changed at the same moment */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     identifiers: {
         parameters: {
             query?: never;
@@ -2689,6 +4692,305 @@ export interface operations {
             };
             /** @description No such identifier in this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    procedures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcedureList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    timeline: {
+        parameters: {
+            query?: {
+                /** @description Only events before this time (RFC 3339) */
+                before?: string;
+                /** @description Most events, 1 to 200 (default 50) */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Timeline"];
+                };
+            };
+            /** @description before isn't RFC 3339 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    plans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPlan"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_visits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewVisit"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Visit"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The appointment already has a visit */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2987,6 +5289,117 @@ export interface operations {
             };
             /** @description No such doctor in this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The procedure */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Procedure"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such procedure in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not planned */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    procedure_in_error: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The procedure */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnteredInError"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Procedure"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such procedure in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already marked */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3694,6 +6107,343 @@ export interface operations {
             };
             /** @description Not a clinic, or not a member of it */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    accept_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The treatment plan */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Acceptance"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            /** @description A chosen item isn't a proposed item of this plan */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such plan in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The plan isn't proposed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    open_visit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitDetail"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    close: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Visit"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already closed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteContent"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The visit is closed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    record_observation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewReadings"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationList"];
+                };
+            };
+            /** @description An implausible value, a wrong unit, or another patient's reading */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The corrected reading isn't final, or the visit is closed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    record_procedure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewProcedure"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Procedure"];
+                };
+            };
+            /** @description Invalid input, or a plan item of another patient */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The visit is closed, or the plan item isn't accepted or already has a procedure */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

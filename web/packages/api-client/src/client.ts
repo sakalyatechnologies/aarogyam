@@ -3,14 +3,24 @@
 import type { ApiResult } from "./result.js";
 import type {
   AcceptInvitation,
+  AllergyFields,
+  AllergyPage,
   AppointmentChanges,
   AppointmentId,
   AppointmentPage,
+  Attachment,
+  AttachmentId,
+  AttachmentPage,
   ClinicSettings,
   ClinicSettingsChanges,
+  ClinicalFlags,
+  ConditionFields,
+  ConditionPage,
   ConsoleClinicPage,
   CreatedClinic,
   CreatedInvitation,
+  DentalChart,
+  DownloadLink,
   ImportResult,
   Leave,
   LeaveId,
@@ -23,10 +33,18 @@ import type {
   MetricsRange,
   MySessions,
   NewAppointmentBody,
+  NewChartEntries,
   NewClinic,
   NewInvitation,
   NewLeave,
   NewPatient,
+  NewProcedure,
+  NewReadings,
+  NewVisit,
+  Note,
+  NoteContent,
+  NoteId,
+  ObservationPage,
   Patient,
   PatientChanges,
   PatientId,
@@ -36,6 +54,9 @@ import type {
   PractitionerFields,
   PractitionerId,
   PractitionerPage,
+  Procedure,
+  ProcedureId,
+  ProcedurePage,
   QualityReport,
   QueueDayPage,
   QueueToken,
@@ -52,8 +73,13 @@ import type {
   StatusChange,
   StatusChanged,
   Joined,
+  Timeline,
   TokenStatusChange,
   Today,
+  Visit,
+  VisitDetail,
+  VisitId,
+  VisitPage,
   WalkInBody,
   WorkingHours,
 } from "./schemas.js";
@@ -182,4 +208,53 @@ export interface ApiClient {
   getMetrics(range: MetricsRange, options?: RequestOptions): Promise<ApiResult<Metrics>>;
   /** Console host (draft, fake only). */
   getQualityReport(options?: RequestOptions): Promise<ApiResult<QualityReport>>;
+
+  /** Clinic host: Patient 360's safety banner. Needs `patients.read`; substances and conditions need `clinical.read`. */
+  getClinicalFlags(id: PatientId, options?: RequestOptions): Promise<ApiResult<ClinicalFlags>>;
+  /** Clinic host: a patient's allergies, active and severe first. Needs `clinical.read`. */
+  listAllergies(id: PatientId, options?: RequestOptions): Promise<ApiResult<AllergyPage>>;
+  /** Clinic host: records an allergy. Needs `clinical.write`. */
+  addAllergy(id: PatientId, input: AllergyFields, options?: RequestOptions): Promise<ApiResult<AllergyPage["items"][number]>>;
+  /** Clinic host: a patient's conditions, active first. Needs `clinical.read`. */
+  listConditions(id: PatientId, options?: RequestOptions): Promise<ApiResult<ConditionPage>>;
+  /** Clinic host: records a condition. Needs `clinical.write`. */
+  addCondition(id: PatientId, input: ConditionFields, options?: RequestOptions): Promise<ApiResult<ConditionPage["items"][number]>>;
+
+  /** Clinic host: a patient's visits, notes, procedures and files, newest first. Needs `clinical.read`. */
+  getTimeline(id: PatientId, options?: RequestOptions): Promise<ApiResult<Timeline>>;
+  /** Clinic host: a patient's visits, newest first. Needs `clinical.read`. */
+  listVisits(id: PatientId, options?: RequestOptions): Promise<ApiResult<VisitPage>>;
+  /** Clinic host: everything recorded in one visit. Needs `clinical.read`. */
+  getVisit(id: VisitId, options?: RequestOptions): Promise<ApiResult<VisitDetail>>;
+  /** Clinic host: starts a visit. One open visit per appointment. Needs `clinical.write`. */
+  startVisit(patientId: PatientId, input: NewVisit, options?: RequestOptions): Promise<ApiResult<Visit>>;
+  /** Clinic host: closes a visit. Needs `clinical.write`. */
+  closeVisit(id: VisitId, options?: RequestOptions): Promise<ApiResult<Visit>>;
+
+  /** Clinic host: writes a draft clinical note. Needs `clinical.write`. */
+  createNote(visitId: VisitId, content: NoteContent, options?: RequestOptions): Promise<ApiResult<Note>>;
+  /** Clinic host: signs a note; it can no longer change except by addendum. Needs `clinical.write`. */
+  signNote(id: NoteId, options?: RequestOptions): Promise<ApiResult<Note>>;
+
+  /** Clinic host: records vital signs together. Needs `clinical.write`. */
+  recordObservations(visitId: VisitId, input: NewReadings, options?: RequestOptions): Promise<ApiResult<ObservationPage>>;
+
+  /** Clinic host: a patient's procedures, newest first. Needs `clinical.read`. */
+  listProcedures(id: PatientId, options?: RequestOptions): Promise<ApiResult<ProcedurePage>>;
+  /** Clinic host: records a procedure, planned or done. Needs `clinical.write`. */
+  recordProcedure(visitId: VisitId, input: NewProcedure, options?: RequestOptions): Promise<ApiResult<Procedure>>;
+  /** Clinic host: marks a planned procedure done. Needs `clinical.write`. */
+  completeProcedure(id: ProcedureId, options?: RequestOptions): Promise<ApiResult<Procedure>>;
+
+  /** Clinic host: a patient's dental chart; teeth without entries are sound. Needs `clinical.read`. */
+  getDentalChart(id: PatientId, tooth?: number, options?: RequestOptions): Promise<ApiResult<DentalChart>>;
+  /** Clinic host: records chart findings. Needs `clinical.write`. */
+  recordChartEntries(id: PatientId, input: NewChartEntries, options?: RequestOptions): Promise<ApiResult<DentalChart>>;
+
+  /** Clinic host: a patient's files, newest first. Needs `clinical.read`. */
+  listAttachments(id: PatientId, options?: RequestOptions): Promise<ApiResult<AttachmentPage>>;
+  /** Clinic host: uploads a file (JPEG, PNG, PDF or DICOM, up to 10 MB). Needs `clinical.write`. */
+  uploadAttachment(id: PatientId, form: FormData, options?: RequestOptions): Promise<ApiResult<Attachment>>;
+  /** Clinic host: a short-lived link to download a file. Needs `clinical.read`. */
+  getDownloadLink(id: AttachmentId, options?: RequestOptions): Promise<ApiResult<DownloadLink>>;
 }

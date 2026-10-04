@@ -48,6 +48,33 @@ export type LeaveId = z.output<typeof leaveId>;
 export const queueTokenId = z.string().min(1).brand<"QueueTokenId">();
 export type QueueTokenId = z.output<typeof queueTokenId>;
 
+export const visitId = z.string().min(1).brand<"VisitId">();
+export type VisitId = z.output<typeof visitId>;
+
+export const noteId = z.string().min(1).brand<"NoteId">();
+export type NoteId = z.output<typeof noteId>;
+
+export const observationId = z.string().min(1).brand<"ObservationId">();
+export type ObservationId = z.output<typeof observationId>;
+
+export const procedureId = z.string().min(1).brand<"ProcedureId">();
+export type ProcedureId = z.output<typeof procedureId>;
+
+export const planId = z.string().min(1).brand<"PlanId">();
+export type PlanId = z.output<typeof planId>;
+
+export const chartEntryId = z.string().min(1).brand<"ChartEntryId">();
+export type ChartEntryId = z.output<typeof chartEntryId>;
+
+export const attachmentId = z.string().min(1).brand<"AttachmentId">();
+export type AttachmentId = z.output<typeof attachmentId>;
+
+export const allergyId = z.string().min(1).brand<"AllergyId">();
+export type AllergyId = z.output<typeof allergyId>;
+
+export const conditionId = z.string().min(1).brand<"ConditionId">();
+export type ConditionId = z.output<typeof conditionId>;
+
 export const qualityRunId = z.string().min(1).brand<"QualityRunId">();
 export type QualityRunId = z.output<typeof qualityRunId>;
 
@@ -679,6 +706,367 @@ export const devTokenResponse = z.object({
 /** `POST /api/v1/invitations/accept`: the clinic joined and the new membership. */
 export const joined = z.object({ org_id: clinicId, membership_id: membershipId }) satisfies z.ZodType<C.Joined>;
 export type Joined = z.output<typeof joined>;
+
+// Clinical flags: allergies and conditions (M4) --------------------------------------------------
+
+export const codeSystem = z.enum(["icd10", "icd11", "snomed", "loinc", "custom"]) satisfies z.ZodType<C.CodeSystem>;
+export const code = z.object({ system: codeSystem, code: z.string() }) satisfies z.ZodType<C.Code>;
+export type Code = z.output<typeof code>;
+
+export const clinicalSource = z.enum(["clinician", "assistant", "patient", "import"]) satisfies z.ZodType<C.ClinicalSource>;
+export type ClinicalSource = z.output<typeof clinicalSource>;
+
+export const clinicalStatus = z.enum(["active", "resolved", "entered_in_error"]) satisfies z.ZodType<C.ClinicalStatus>;
+export type ClinicalStatus = z.output<typeof clinicalStatus>;
+
+export const severity = z.enum(["mild", "moderate", "severe"]) satisfies z.ZodType<C.Severity>;
+export type Severity = z.output<typeof severity>;
+
+export const allergy = z.object({
+  id: allergyId,
+  substance: z.string(),
+  reaction: optionalText,
+  severity,
+  status: clinicalStatus,
+  source: clinicalSource,
+  code: code.nullable().exactOptional(),
+  verified_by: membershipId.nullable().exactOptional(),
+  created_at: timestamp,
+  updated_at: timestamp,
+}) satisfies z.ZodType<C.Allergy>;
+export type Allergy = z.output<typeof allergy>;
+
+export const allergyList = z.object({ items: z.array(allergy) }) satisfies z.ZodType<C.AllergyList>;
+export type AllergyPage = z.output<typeof allergyList>;
+
+/** Body of `POST /api/v1/patients/{id}/allergies` and `PATCH .../allergies/{allergy_id}`. */
+export type AllergyFields = C.AllergyFields;
+
+export const condition = z.object({
+  id: conditionId,
+  display_text: z.string(),
+  flagged: z.boolean(),
+  status: clinicalStatus,
+  source: clinicalSource,
+  onset: date.nullable().exactOptional(),
+  note: optionalText,
+  code: code.nullable().exactOptional(),
+  verified_by: membershipId.nullable().exactOptional(),
+  visit_id: visitId.nullable().exactOptional(),
+  created_at: timestamp,
+  updated_at: timestamp,
+}) satisfies z.ZodType<C.Condition>;
+export type Condition = z.output<typeof condition>;
+
+export const conditionList = z.object({ items: z.array(condition) }) satisfies z.ZodType<C.ConditionList>;
+export type ConditionPage = z.output<typeof conditionList>;
+
+/** Body of `POST /api/v1/patients/{id}/conditions` and `PATCH .../conditions/{condition_id}`. */
+export type ConditionFields = C.ConditionFields;
+
+export const clinicalFlags = z.object({
+  allergies: z.array(allergy),
+  allergy_count: count,
+  conditions: z.array(condition),
+  condition_count: count,
+  severe_allergy: z.boolean(),
+  details_hidden: z.boolean(),
+}) satisfies z.ZodType<C.ClinicalFlags>;
+export type ClinicalFlags = z.output<typeof clinicalFlags>;
+
+// Visits, notes, vitals and procedures (M4) ------------------------------------------------------
+
+export const visitStatus = z.enum(["open", "closed"]) satisfies z.ZodType<C.VisitStatus>;
+export type VisitStatus = z.output<typeof visitStatus>;
+
+export const visit = z.object({
+  id: visitId,
+  number: z.string(),
+  patient_id: patientId,
+  clinician: member,
+  appointment_id: appointmentId.nullable().exactOptional(),
+  chief_complaint: optionalText,
+  status: visitStatus,
+  started_at: timestamp,
+  ended_at: optionalTimestamp,
+}) satisfies z.ZodType<C.Visit>;
+export type Visit = z.output<typeof visit>;
+
+export const visitList = z.object({ items: z.array(visit) }) satisfies z.ZodType<C.VisitList>;
+export type VisitPage = z.output<typeof visitList>;
+
+/** Body of `POST /api/v1/patients/{id}/visits`. */
+export type NewVisit = C.NewVisit;
+
+export const timelineEventKind = z.enum(["visit", "note", "procedure", "attachment"]) satisfies z.ZodType<C.TimelineEventKind>;
+export type TimelineEventKind = z.output<typeof timelineEventKind>;
+
+export const timelineEvent = z.object({
+  id: z.string().min(1),
+  kind: timelineEventKind,
+  at: timestamp,
+  title: z.string(),
+  detail: optionalText,
+  status: optionalText,
+  by: member.nullable().exactOptional(),
+  visit_id: visitId.nullable().exactOptional(),
+  amount_paise: paise.nullable().exactOptional(),
+}) satisfies z.ZodType<C.TimelineEvent>;
+export type TimelineEvent = z.output<typeof timelineEvent>;
+
+export const timeline = z.object({ items: z.array(timelineEvent) }) satisfies z.ZodType<C.Timeline>;
+export type Timeline = z.output<typeof timeline>;
+
+export const noteKind = z.enum(["soap", "progress", "procedure", "intake", "front_desk"]) satisfies z.ZodType<C.NoteKind>;
+export type NoteKind = z.output<typeof noteKind>;
+
+export const noteStatus = z.enum(["draft", "signed", "conflict", "entered_in_error"]) satisfies z.ZodType<C.NoteStatus>;
+export type NoteStatus = z.output<typeof noteStatus>;
+
+export const noteSource = z.enum(["typed", "voice", "ai_draft"]) satisfies z.ZodType<C.NoteSource>;
+export type NoteSource = z.output<typeof noteSource>;
+
+export const noteSections = z.object({
+  subjective: optionalText,
+  objective: optionalText,
+  assessment: optionalText,
+  plan: optionalText,
+}) satisfies z.ZodType<C.NoteSections>;
+export type NoteSections = z.output<typeof noteSections>;
+
+const addendum = z.object({ id: z.string().min(1), author: member, body: z.string(), created_at: timestamp }) satisfies z.ZodType<C.Addendum>;
+export type Addendum = z.output<typeof addendum>;
+
+export const note = z.object({
+  id: noteId,
+  visit_id: visitId,
+  author: member,
+  kind: noteKind,
+  source: noteSource,
+  status: noteStatus,
+  sections: noteSections,
+  addenda: z.array(addendum),
+  error_reason: optionalText,
+  conflicts_with_id: noteId.nullable().exactOptional(),
+  signed_at: optionalTimestamp,
+  created_at: timestamp,
+  updated_at: timestamp,
+}) satisfies z.ZodType<C.Note>;
+export type Note = z.output<typeof note>;
+
+/** Body of `POST /api/v1/visits/{id}/notes` and `PATCH /api/v1/notes/{id}`. */
+export type NoteContent = C.NoteContent;
+/** Body of `POST /api/v1/notes/{id}/addenda`. */
+export type NewAddendum = C.NewAddendum;
+/** Body of every `.../entered-in-error` action. */
+export type EnteredInError = C.EnteredInError;
+
+export const observationKind = z.enum([
+  "bp_systolic",
+  "bp_diastolic",
+  "pulse",
+  "temperature",
+  "spo2",
+  "weight",
+  "height",
+  "blood_sugar",
+]) satisfies z.ZodType<C.ObservationKind>;
+export type ObservationKind = z.output<typeof observationKind>;
+
+export const observationStatus = z.enum(["final", "corrected", "entered_in_error"]) satisfies z.ZodType<C.ObservationStatus>;
+export type ObservationStatus = z.output<typeof observationStatus>;
+
+export const observation = z.object({
+  id: observationId,
+  visit_id: visitId.nullable().exactOptional(),
+  kind: observationKind,
+  value: z.number(),
+  unit: z.string(),
+  code: optionalText,
+  status: observationStatus,
+  source: clinicalSource,
+  supersedes_id: observationId.nullable().exactOptional(),
+  error_reason: optionalText,
+  recorded_at: timestamp,
+}) satisfies z.ZodType<C.Observation>;
+export type Observation = z.output<typeof observation>;
+
+export const observationList = z.object({ items: z.array(observation) }) satisfies z.ZodType<C.ObservationList>;
+export type ObservationPage = z.output<typeof observationList>;
+
+/** Body of `POST /api/v1/visits/{id}/observations`. */
+export type NewReadings = C.NewReadings;
+
+export const toothSurface = z.enum(["M", "O", "D", "B", "L"]) satisfies z.ZodType<C.ToothSurface>;
+export type ToothSurface = z.output<typeof toothSurface>;
+
+export const procedureStatus = z.enum(["planned", "done", "entered_in_error"]) satisfies z.ZodType<C.ProcedureStatus>;
+export type ProcedureStatus = z.output<typeof procedureStatus>;
+
+export const procedure = z.object({
+  id: procedureId,
+  visit_id: visitId,
+  clinician: member,
+  name: z.string(),
+  code: code.nullable().exactOptional(),
+  tooth: count.nullable().exactOptional(),
+  surfaces: z.array(toothSurface),
+  status: procedureStatus,
+  note: optionalText,
+  price_paise: paise.nullable().exactOptional(),
+  plan_item_id: z.string().min(1).nullable().exactOptional(),
+  performed_at: optionalTimestamp,
+  error_reason: optionalText,
+  created_at: timestamp,
+}) satisfies z.ZodType<C.Procedure>;
+export type Procedure = z.output<typeof procedure>;
+
+export const procedureList = z.object({ items: z.array(procedure) }) satisfies z.ZodType<C.ProcedureList>;
+export type ProcedurePage = z.output<typeof procedureList>;
+
+/** Body of `POST /api/v1/visits/{id}/procedures`. */
+export type NewProcedure = C.NewProcedure;
+
+export const planStatus = z.enum(["proposed", "accepted", "in_progress", "completed", "declined"]) satisfies z.ZodType<C.PlanStatus>;
+export type PlanStatus = z.output<typeof planStatus>;
+
+export const planItemStatus = z.enum(["proposed", "accepted", "done", "cancelled"]) satisfies z.ZodType<C.PlanItemStatus>;
+export type PlanItemStatus = z.output<typeof planItemStatus>;
+
+const planItem = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  code: code.nullable().exactOptional(),
+  tooth: count.nullable().exactOptional(),
+  surfaces: z.array(toothSurface),
+  phase: z.number().int().min(1),
+  estimate_paise: paise,
+  status: planItemStatus,
+  procedure_id: procedureId.nullable().exactOptional(),
+}) satisfies z.ZodType<C.PlanItem>;
+export type PlanItem = z.output<typeof planItem>;
+
+export const plan = z.object({
+  id: planId,
+  patient_id: patientId,
+  visit_id: visitId.nullable().exactOptional(),
+  clinician: member,
+  title: z.string(),
+  status: planStatus,
+  items: z.array(planItem),
+  estimate_paise: paise,
+  created_at: timestamp,
+  accepted_at: optionalTimestamp,
+}) satisfies z.ZodType<C.Plan>;
+export type Plan = z.output<typeof plan>;
+
+export const planList = z.object({ items: z.array(plan) }) satisfies z.ZodType<C.PlanList>;
+export type PlanPage = z.output<typeof planList>;
+
+/** Body of `POST /api/v1/patients/{id}/treatment-plans`. */
+export type NewPlan = C.NewPlan;
+/** Body of `POST /api/v1/treatment-plans/{id}/accept`. */
+export type Acceptance = C.Acceptance;
+
+export const visitDetail = z.object({
+  visit,
+  notes: z.array(note),
+  observations: z.array(observation),
+  procedures: z.array(procedure),
+  chart_entries: z.array(
+    z.object({
+      id: z.string().min(1),
+      tooth: count,
+      surface: toothSurface.nullable().exactOptional(),
+      finding: z.string(),
+      status: z.string(),
+      note: optionalText,
+      effective_at: timestamp,
+      recorded_by: membershipId.nullable().exactOptional(),
+      supersedes_id: z.string().min(1).nullable().exactOptional(),
+      visit_id: visitId.nullable().exactOptional(),
+    }),
+  ),
+  attachments: z.array(
+    z.object({
+      id: z.string().min(1),
+      kind: z.string(),
+      mime_type: z.string(),
+      size_bytes: count,
+      sha256: z.string(),
+      caption: optionalText,
+      tooth: count.nullable().exactOptional(),
+      taken_at: optionalTimestamp,
+      visit_id: visitId.nullable().exactOptional(),
+      created_at: timestamp,
+    }),
+  ),
+}) satisfies z.ZodType<C.VisitDetail>;
+export type VisitDetail = z.output<typeof visitDetail>;
+
+// Dental chart (M4) -------------------------------------------------------------------------------
+
+export const chartFinding = z.enum([
+  "sound",
+  "caries",
+  "filled",
+  "crown",
+  "missing",
+  "implant",
+  "root_canal",
+  "bridge",
+  "fractured",
+  "watch",
+]) satisfies z.ZodType<C.ChartFinding>;
+export type ChartFinding = z.output<typeof chartFinding>;
+
+export const chartEntryStatus = z.enum(["current", "superseded", "entered_in_error"]) satisfies z.ZodType<C.ChartEntryStatus>;
+export type ChartEntryStatus = z.output<typeof chartEntryStatus>;
+
+export const chartEntry = z.object({
+  id: chartEntryId,
+  tooth: count,
+  surface: toothSurface.nullable().exactOptional(),
+  finding: chartFinding,
+  note: optionalText,
+  status: chartEntryStatus,
+  recorded_by: membershipId.nullable().exactOptional(),
+  supersedes_id: chartEntryId.nullable().exactOptional(),
+  visit_id: visitId.nullable().exactOptional(),
+  effective_at: timestamp,
+}) satisfies z.ZodType<C.ChartEntry>;
+export type ChartEntry = z.output<typeof chartEntry>;
+
+export const dentalChart = z.object({ current: z.array(chartEntry), history: z.array(chartEntry) }) satisfies z.ZodType<C.DentalChart>;
+export type DentalChart = z.output<typeof dentalChart>;
+
+/** Body of `POST /api/v1/patients/{id}/dental-chart`. */
+export type NewChartEntries = C.NewChartEntries;
+
+// Patient files (M4) ------------------------------------------------------------------------------
+
+export const attachmentKind = z.enum(["photo", "xray", "report", "document", "audio", "consent"]) satisfies z.ZodType<C.AttachmentKind>;
+export type AttachmentKind = z.output<typeof attachmentKind>;
+
+export const attachment = z.object({
+  id: attachmentId,
+  kind: attachmentKind,
+  mime_type: z.string(),
+  size_bytes: count,
+  sha256: z.string(),
+  caption: optionalText,
+  tooth: count.nullable().exactOptional(),
+  taken_at: optionalTimestamp,
+  visit_id: visitId.nullable().exactOptional(),
+  created_at: timestamp,
+}) satisfies z.ZodType<C.Attachment>;
+export type Attachment = z.output<typeof attachment>;
+
+export const attachmentList = z.object({ items: z.array(attachment) }) satisfies z.ZodType<C.AttachmentList>;
+export type AttachmentPage = z.output<typeof attachmentList>;
+
+export const downloadLink = z.object({ url: z.string().min(1), expires_at: timestamp }) satisfies z.ZodType<C.DownloadLink>;
+export type DownloadLink = z.output<typeof downloadLink>;
 
 // Requests -----------------------------------------------------------------------------------
 

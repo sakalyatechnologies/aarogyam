@@ -15,17 +15,25 @@ import { failure, parseApiError, success, type ApiResult } from "../result.js";
 import * as S from "../schemas.js";
 import {
   ROLES,
+  type FakeAllergy,
   type FakeAppointment,
+  type FakeAttachment,
+  type FakeChartEntry,
   type FakeClinic,
+  type FakeCondition,
   type FakeLeave,
   type FakeMembership,
+  type FakeNote,
+  type FakeObservation,
   type FakePatient,
   type FakePlatformUser,
   type FakePractitioner,
+  type FakeProcedure,
   type FakeQueueToken,
   type FakeRole,
   type FakeRoom,
   type FakeUser,
+  type FakeVisit,
   type Fixtures,
 } from "./fixtures.js";
 import { createMetrics } from "./metrics.js";
@@ -1096,6 +1104,673 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           } satisfies C.ImportResult);
         }),
 
+      getClinicalFlags: (id, opts) =>
+        respond(S.clinicalFlags, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const detailsAllowed = hasPermission(caller.membership.role.permissions, "clinical.read");
+          const allergies = state.allergies
+            .filter((a) => a.clinic_id === caller.clinic.id && a.patient_id === id && a.status === "active")
+            .sort((a, b) => Number(b.severity === "severe") - Number(a.severity === "severe"));
+          const conditions = state.conditions.filter(
+            (c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.status === "active" && c.flagged,
+          );
+          return reply({
+            allergies: detailsAllowed ? allergies.map(wireAllergy) : [],
+            allergy_count: allergies.length,
+            conditions: detailsAllowed ? conditions.map(wireCondition) : [],
+            condition_count: conditions.length,
+            severe_allergy: allergies.some((a) => a.severity === "severe"),
+            details_hidden: !detailsAllowed,
+          } satisfies C.ClinicalFlags);
+        }),
+
+      listAllergies: (id, opts) =>
+        respond(S.allergyList, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const items = state.allergies
+            .filter((a) => a.clinic_id === caller.clinic.id && a.patient_id === id)
+            .sort((a, b) => Number(b.severity === "severe") - Number(a.severity === "severe") || b.created_at.localeCompare(a.created_at))
+            .map(wireAllergy);
+          return reply({ items } satisfies C.AllergyList);
+        }),
+
+      addAllergy: (id, input, opts) =>
+        respond(S.allergy, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const substance = (input.substance ?? "").trim();
+          if (substance.length < 1 || substance.length > 200) {
+            return invalid("substance", "must be 1 to 200 characters");
+          }
+          const severityParsed = S.severity.safeParse(input.severity ?? "moderate");
+          if (!severityParsed.success) {
+            return invalid("severity", "must be mild, moderate or severe");
+          }
+          const sourceParsed = S.clinicalSource.safeParse(input.source ?? "clinician");
+          if (!sourceParsed.success) {
+            return invalid("source", "must be clinician, assistant, patient or import");
+          }
+          const now = clock().toISOString();
+          const record: FakeAllergy = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            patient_id: id,
+            substance,
+            reaction: input.reaction ?? null,
+            severity: severityParsed.data,
+            status: "active",
+            source: sourceParsed.data,
+            code: input.code ?? null,
+            verified_by: caller.membership.id,
+            created_at: now,
+            updated_at: now,
+          };
+          state.allergies.push(record);
+          return reply(wireAllergy(record) satisfies C.Allergy);
+        }),
+
+      listConditions: (id, opts) =>
+        respond(S.conditionList, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const items = state.conditions
+            .filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id)
+            .sort((a, b) => Number(b.status === "active") - Number(a.status === "active") || b.created_at.localeCompare(a.created_at))
+            .map(wireCondition);
+          return reply({ items } satisfies C.ConditionList);
+        }),
+
+      addCondition: (id, input, opts) =>
+        respond(S.condition, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const displayText = (input.display_text ?? "").trim();
+          if (displayText.length < 1 || displayText.length > 300) {
+            return invalid("display_text", "must be 1 to 300 characters");
+          }
+          const now = clock().toISOString();
+          const record: FakeCondition = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            patient_id: id,
+            display_text: displayText,
+            flagged: input.flagged ?? false,
+            status: "active",
+            source: S.clinicalSource.catch("clinician").parse(input.source ?? "clinician"),
+            code: input.code ?? null,
+            note: input.note ?? null,
+            onset: input.onset ?? null,
+            verified_by: caller.membership.id,
+            visit_id: input.visit_id ?? null,
+            created_at: now,
+            updated_at: now,
+          };
+          state.conditions.push(record);
+          return reply(wireCondition(record) satisfies C.Condition);
+        }),
+
+      getTimeline: (id, opts) =>
+        respond(S.timeline, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const events: C.TimelineEvent[] = [];
+          for (const v of state.visits.filter((entry) => entry.clinic_id === caller.clinic.id && entry.patient_id === id)) {
+            const clinician = memberOf(state, v.clinician_membership_id);
+            events.push({
+              id: v.id,
+              kind: "visit",
+              at: v.started_at,
+              title: v.number,
+              detail: v.chief_complaint ?? null,
+              status: v.status,
+              by: clinician ?? null,
+              visit_id: v.id,
+              amount_paise: null,
+            });
+          }
+          for (const n of state.notes.filter((entry) => entry.clinic_id === caller.clinic.id && entry.status === "signed")) {
+            const parentVisit = state.visits.find((v) => v.id === n.visit_id && v.patient_id === id);
+            if (parentVisit === undefined) {
+              continue;
+            }
+            const author = memberOf(state, n.author_membership_id);
+            events.push({
+              id: n.id,
+              kind: "note",
+              at: n.signed_at ?? n.created_at,
+              title: `${n.kind} note`,
+              detail: n.sections.assessment ?? n.sections.subjective ?? null,
+              status: n.status,
+              by: author ?? null,
+              visit_id: n.visit_id,
+              amount_paise: null,
+            });
+          }
+          for (const p of state.procedures.filter(
+            (entry) => entry.clinic_id === caller.clinic.id && entry.patient_id === id && entry.status !== "entered_in_error",
+          )) {
+            const clinician = memberOf(state, p.clinician_membership_id);
+            events.push({
+              id: p.id,
+              kind: "procedure",
+              at: p.performed_at ?? p.created_at,
+              title: p.name,
+              detail: p.tooth == null ? null : `Tooth ${String(p.tooth)}`,
+              status: p.status,
+              by: clinician ?? null,
+              visit_id: p.visit_id,
+              amount_paise: p.price_paise ?? null,
+            });
+          }
+          for (const a of state.attachments.filter((entry) => entry.clinic_id === caller.clinic.id && entry.patient_id === id)) {
+            events.push({
+              id: a.id,
+              kind: "attachment",
+              at: a.created_at,
+              title: a.kind,
+              detail: a.caption ?? null,
+              status: null,
+              by: null,
+              visit_id: a.visit_id ?? null,
+              amount_paise: null,
+            });
+          }
+          events.sort((a, b) => b.at.localeCompare(a.at));
+          return reply({ items: events } satisfies C.Timeline);
+        }),
+
+      listVisits: (id, opts) =>
+        respond(S.visitList, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const items = state.visits
+            .filter((v) => v.clinic_id === caller.clinic.id && v.patient_id === id)
+            .sort((a, b) => b.started_at.localeCompare(a.started_at))
+            .flatMap((v) => {
+              const wired = wireVisit(v, state);
+              return wired === undefined ? [] : [wired];
+            });
+          return reply({ items } satisfies C.VisitList);
+        }),
+
+      getVisit: (id, opts) =>
+        respond(S.visitDetail, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const wiredVisit = wireVisit(found, state);
+          if (wiredVisit === undefined) {
+            return notFound;
+          }
+          const notes = state.notes
+            .filter((n) => n.visit_id === id)
+            .flatMap((n) => {
+              const wired = wireNote(n, state);
+              return wired === undefined ? [] : [wired];
+            });
+          const observations = state.observations.filter((o) => o.visit_id === id).map(wireObservation);
+          const procedures = state.procedures
+            .filter((p) => p.visit_id === id)
+            .flatMap((p) => {
+              const wired = wireProcedure(p, state);
+              return wired === undefined ? [] : [wired];
+            });
+          const chart_entries = state.chartEntries.filter((c) => c.visit_id === id).map(wireChartEntry);
+          const attachments = state.attachments.filter((a) => a.visit_id === id).map(wireAttachment);
+          return reply({ visit: wiredVisit, notes, observations, procedures, chart_entries, attachments } satisfies C.VisitDetail);
+        }),
+
+      startVisit: (patientIdValue, input, opts) =>
+        respond(S.visit, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === patientIdValue)) {
+            return notFound;
+          }
+          if (input.appointment_id != null) {
+            const clash = state.visits.some(
+              (v) => v.clinic_id === caller.clinic.id && v.appointment_id === input.appointment_id && v.status === "open",
+            );
+            if (clash) {
+              return refuse(409, "conflict", "That appointment already has an open visit.");
+            }
+          }
+          const now = clock();
+          const number = `V-${String(1 + state.visits.filter((v) => v.clinic_id === caller.clinic.id).length)}`;
+          const record: FakeVisit = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            patient_id: patientIdValue,
+            clinician_membership_id: caller.membership.id,
+            number,
+            appointment_id: input.appointment_id ?? null,
+            chief_complaint: input.chief_complaint ?? null,
+            status: "open",
+            started_at: now.toISOString(),
+            ended_at: null,
+          };
+          state.visits.push(record);
+          const wired = wireVisit(record, state);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply(wired satisfies C.Visit);
+        }),
+
+      closeVisit: (id, opts) =>
+        respond(S.visit, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status === "closed") {
+            return refuse(409, "conflict", "That visit is already closed.");
+          }
+          found.status = "closed";
+          found.ended_at = clock().toISOString();
+          const wired = wireVisit(found, state);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply(wired satisfies C.Visit);
+        }),
+
+      createNote: (visitIdValue, content, opts) =>
+        respond(S.note, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const parentVisit = state.visits.find((v) => v.id === visitIdValue && v.clinic_id === caller.clinic.id);
+          if (parentVisit === undefined) {
+            return notFound;
+          }
+          if (parentVisit.status === "closed") {
+            return refuse(409, "conflict", "That visit is closed.");
+          }
+          const kindParsed = S.noteKind.safeParse(content.kind ?? "soap");
+          if (!kindParsed.success) {
+            return invalid("kind", "unknown note kind");
+          }
+          const now = clock().toISOString();
+          const record: FakeNote = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            visit_id: visitIdValue,
+            author_membership_id: caller.membership.id,
+            kind: kindParsed.data,
+            source: "typed",
+            status: "draft",
+            sections: {
+              subjective: content.sections?.subjective ?? null,
+              objective: content.sections?.objective ?? null,
+              assessment: content.sections?.assessment ?? null,
+              plan: content.sections?.plan ?? null,
+            },
+            addenda: [],
+            signed_at: null,
+            created_at: now,
+            updated_at: now,
+          };
+          state.notes.push(record);
+          const wired = wireNote(record, state);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply(wired satisfies C.Note);
+        }),
+
+      signNote: (id, opts) =>
+        respond(S.note, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.notes.find((n) => n.id === id && n.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.author_membership_id !== caller.membership.id) {
+            return refuse(403, "forbidden", "Only the author may sign this note.");
+          }
+          if (found.status !== "draft") {
+            return refuse(409, "conflict", "That note can't be signed any more.");
+          }
+          const hasContent = [found.sections.subjective, found.sections.objective, found.sections.assessment, found.sections.plan].some(
+            (section) => section != null && section.trim() !== "",
+          );
+          if (!hasContent) {
+            return invalid("sections", "write at least one section before signing");
+          }
+          const now = clock().toISOString();
+          found.status = "signed";
+          found.signed_at = now;
+          found.updated_at = now;
+          const wired = wireNote(found, state);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply(wired satisfies C.Note);
+        }),
+
+      recordObservations: (visitIdValue, input, opts) =>
+        respond(S.observationList, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const parentVisit = state.visits.find((v) => v.id === visitIdValue && v.clinic_id === caller.clinic.id);
+          if (parentVisit === undefined) {
+            return notFound;
+          }
+          if (input.readings.length < 1 || input.readings.length > 20) {
+            return invalid("readings", "give 1 to 20 readings");
+          }
+          const sourceParsed = S.clinicalSource.safeParse(input.source ?? "clinician");
+          if (!sourceParsed.success) {
+            return invalid("source", "unknown source");
+          }
+          const now = clock();
+          const recordedAt = input.recorded_at ?? now.toISOString();
+          const created: FakeObservation[] = [];
+          for (const reading of input.readings) {
+            const kindParsed = S.observationKind.safeParse(reading.kind);
+            if (!kindParsed.success) {
+              return invalid("kind", "unknown reading kind");
+            }
+            created.push({
+              id: fakeUuid(random, now),
+              clinic_id: caller.clinic.id,
+              patient_id: parentVisit.patient_id,
+              visit_id: visitIdValue,
+              kind: kindParsed.data,
+              value: reading.value,
+              unit: reading.unit ?? OBSERVATION_UNITS[kindParsed.data],
+              status: "final",
+              source: sourceParsed.data,
+              supersedes_id: reading.supersedes_id ?? null,
+              recorded_at: recordedAt,
+            });
+          }
+          state.observations.push(...created);
+          return reply({ items: created.map(wireObservation) } satisfies C.ObservationList);
+        }),
+
+      listProcedures: (id, opts) =>
+        respond(S.procedureList, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const items = state.procedures
+            .filter((p) => p.clinic_id === caller.clinic.id && p.patient_id === id)
+            .sort((a, b) => b.created_at.localeCompare(a.created_at))
+            .flatMap((p) => {
+              const wired = wireProcedure(p, state);
+              return wired === undefined ? [] : [wired];
+            });
+          return reply({ items } satisfies C.ProcedureList);
+        }),
+
+      recordProcedure: (visitIdValue, input, opts) =>
+        respond(S.procedure, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const parentVisit = state.visits.find((v) => v.id === visitIdValue && v.clinic_id === caller.clinic.id);
+          if (parentVisit === undefined) {
+            return notFound;
+          }
+          const name = (input.name ?? "").trim();
+          if (name.length < 1 || name.length > 200) {
+            return invalid("name", "must be 1 to 200 characters");
+          }
+          const statusParsed = S.procedureStatus.safeParse(input.status ?? "done");
+          if (!statusParsed.success || statusParsed.data === "entered_in_error") {
+            return invalid("status", "must be done or planned");
+          }
+          const surfaces = parseSurfaces(input.surfaces);
+          const now = clock().toISOString();
+          const record: FakeProcedure = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            patient_id: parentVisit.patient_id,
+            visit_id: visitIdValue,
+            clinician_membership_id: caller.membership.id,
+            name,
+            tooth: input.tooth ?? null,
+            surfaces,
+            status: statusParsed.data,
+            note: input.note ?? null,
+            price_paise: input.price_paise ?? null,
+            plan_item_id: input.plan_item_id ?? null,
+            performed_at: statusParsed.data === "done" ? now : null,
+            created_at: now,
+          };
+          state.procedures.push(record);
+          const wired = wireProcedure(record, state);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply(wired satisfies C.Procedure);
+        }),
+
+      completeProcedure: (id, opts) =>
+        respond(S.procedure, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.procedures.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "planned") {
+            return refuse(409, "conflict", "That procedure is already finished.");
+          }
+          found.status = "done";
+          found.performed_at = clock().toISOString();
+          const wired = wireProcedure(found, state);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply(wired satisfies C.Procedure);
+        }),
+
+      getDentalChart: (id, tooth, opts) =>
+        respond(S.dentalChart, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const current = state.chartEntries.filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.status === "current");
+          const history =
+            tooth === undefined
+              ? []
+              : state.chartEntries
+                  .filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.tooth === tooth)
+                  .sort((a, b) => b.effective_at.localeCompare(a.effective_at));
+          return reply({ current: current.map(wireChartEntry), history: history.map(wireChartEntry) } satisfies C.DentalChart);
+        }),
+
+      recordChartEntries: (id, input, opts) =>
+        respond(S.dentalChart, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          if (input.entries.length < 1 || input.entries.length > 64) {
+            return invalid("entries", "give 1 to 64 entries");
+          }
+          const now = clock().toISOString();
+          for (const entry of input.entries) {
+            const findingParsed = S.chartFinding.safeParse(entry.finding);
+            if (!findingParsed.success) {
+              return invalid("finding", "unknown finding");
+            }
+            const surface = entry.surface ?? null;
+            const existing = state.chartEntries.find(
+              (c) =>
+                c.clinic_id === caller.clinic.id &&
+                c.patient_id === id &&
+                c.status === "current" &&
+                c.tooth === entry.tooth &&
+                (c.surface ?? null) === surface,
+            );
+            if (existing !== undefined) {
+              existing.status = "superseded";
+            }
+            const record: FakeChartEntry = {
+              id: fakeUuid(random, clock()),
+              clinic_id: caller.clinic.id,
+              patient_id: id,
+              tooth: entry.tooth,
+              surface: parseSurface(surface),
+              finding: findingParsed.data,
+              note: entry.note ?? null,
+              status: "current",
+              recorded_by: caller.membership.id,
+              supersedes_id: existing?.id ?? null,
+              visit_id: input.visit_id ?? null,
+              effective_at: now,
+            };
+            state.chartEntries.push(record);
+          }
+          const current = state.chartEntries.filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.status === "current");
+          return reply({ current: current.map(wireChartEntry), history: [] } satisfies C.DentalChart);
+        }),
+
+      listAttachments: (id, opts) =>
+        respond(S.attachmentList, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const items = state.attachments
+            .filter((a) => a.clinic_id === caller.clinic.id && a.patient_id === id)
+            .sort((a, b) => b.created_at.localeCompare(a.created_at))
+            .map(wireAttachment);
+          return reply({ items } satisfies C.AttachmentList);
+        }),
+
+      uploadAttachment: (id, form, opts) =>
+        respond(S.attachment, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const file = form.get("file");
+          if (!(file instanceof File)) {
+            return invalid("file", "choose a file");
+          }
+          if (file.size > 10 * 1024 * 1024) {
+            return refuse(413, "payload_too_large", "That file is larger than 10 MB.");
+          }
+          const kindParsed = S.attachmentKind.safeParse(form.get("kind") ?? "document");
+          if (!kindParsed.success) {
+            return invalid("kind", "unknown file kind");
+          }
+          const captionRaw = form.get("caption");
+          const toothRaw = form.get("tooth");
+          const visitRaw = form.get("visit_id");
+          const toothParsed = typeof toothRaw === "string" && toothRaw !== "" ? Number.parseInt(toothRaw, 10) : undefined;
+          const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : `blob:fake/${fakeUuid(random, clock())}`;
+          const record: FakeAttachment = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            patient_id: id,
+            visit_id: typeof visitRaw === "string" && visitRaw !== "" ? visitRaw : null,
+            kind: kindParsed.data,
+            mime_type: file.type || "application/octet-stream",
+            size_bytes: file.size,
+            sha256: random.hex(64),
+            caption: typeof captionRaw === "string" && captionRaw !== "" ? captionRaw : null,
+            tooth: toothParsed ?? null,
+            taken_at: null,
+            created_at: clock().toISOString(),
+            url,
+          };
+          state.attachments.push(record);
+          return reply(wireAttachment(record) satisfies C.Attachment);
+        }),
+
+      getDownloadLink: (id, opts) =>
+        respond(S.downloadLink, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.attachments.find((a) => a.id === id && a.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          return reply({ url: found.url, expires_at: new Date(clock().getTime() + 5 * 60_000).toISOString() } satisfies C.DownloadLink);
+        }),
+
       listStaff: (opts) =>
         respond(S.staffResponse, opts?.signal, async () => {
           const caller = await inClinic("staff.manage");
@@ -1679,6 +2354,176 @@ function wireQueueToken(token: FakeQueueToken, state: Fixtures, now: Date): C.Qu
     done_at: token.done_at ?? null,
     wait_minutes: waitMinutes,
   };
+}
+
+function memberOf(state: Fixtures, membershipId: string): C.Member | undefined {
+  const membership = state.memberships.find((m) => m.id === membershipId);
+  return membership === undefined ? undefined : wireMember(membership, state);
+}
+
+function wireAllergy(a: FakeAllergy): C.Allergy {
+  return {
+    id: a.id,
+    substance: a.substance,
+    reaction: a.reaction ?? null,
+    severity: a.severity,
+    status: a.status,
+    source: a.source,
+    code: a.code ?? null,
+    verified_by: a.verified_by ?? null,
+    created_at: a.created_at,
+    updated_at: a.updated_at,
+  };
+}
+
+function wireCondition(c: FakeCondition): C.Condition {
+  return {
+    id: c.id,
+    display_text: c.display_text,
+    flagged: c.flagged,
+    status: c.status,
+    source: c.source,
+    code: c.code ?? null,
+    note: c.note ?? null,
+    onset: c.onset ?? null,
+    verified_by: c.verified_by ?? null,
+    visit_id: c.visit_id ?? null,
+    created_at: c.created_at,
+    updated_at: c.updated_at,
+  };
+}
+
+function wireVisit(v: FakeVisit, state: Fixtures): C.Visit | undefined {
+  const clinician = memberOf(state, v.clinician_membership_id);
+  if (clinician === undefined) {
+    return undefined;
+  }
+  return {
+    id: v.id,
+    number: v.number,
+    patient_id: v.patient_id,
+    clinician,
+    appointment_id: v.appointment_id ?? null,
+    chief_complaint: v.chief_complaint ?? null,
+    status: v.status,
+    started_at: v.started_at,
+    ended_at: v.ended_at ?? null,
+  };
+}
+
+function wireNote(n: FakeNote, state: Fixtures): C.Note | undefined {
+  const author = memberOf(state, n.author_membership_id);
+  if (author === undefined) {
+    return undefined;
+  }
+  const addenda = n.addenda.flatMap((addendum): C.Addendum[] => {
+    const addendumAuthor = memberOf(state, addendum.author_membership_id);
+    return addendumAuthor === undefined ? [] : [{ id: addendum.id, author: addendumAuthor, body: addendum.body, created_at: addendum.created_at }];
+  });
+  return {
+    id: n.id,
+    visit_id: n.visit_id,
+    author,
+    kind: n.kind,
+    source: n.source,
+    status: n.status,
+    sections: n.sections,
+    addenda,
+    error_reason: n.error_reason ?? null,
+    conflicts_with_id: n.conflicts_with_id ?? null,
+    signed_at: n.signed_at ?? null,
+    created_at: n.created_at,
+    updated_at: n.updated_at,
+  };
+}
+
+function wireObservation(o: FakeObservation): C.Observation {
+  return {
+    id: o.id,
+    visit_id: o.visit_id ?? null,
+    kind: o.kind,
+    value: o.value,
+    unit: o.unit,
+    status: o.status,
+    source: o.source,
+    supersedes_id: o.supersedes_id ?? null,
+    error_reason: o.error_reason ?? null,
+    recorded_at: o.recorded_at,
+  };
+}
+
+function wireProcedure(p: FakeProcedure, state: Fixtures): C.Procedure | undefined {
+  const clinician = memberOf(state, p.clinician_membership_id);
+  if (clinician === undefined) {
+    return undefined;
+  }
+  return {
+    id: p.id,
+    visit_id: p.visit_id,
+    clinician,
+    name: p.name,
+    tooth: p.tooth ?? null,
+    surfaces: p.surfaces,
+    status: p.status,
+    note: p.note ?? null,
+    price_paise: p.price_paise ?? null,
+    plan_item_id: p.plan_item_id ?? null,
+    performed_at: p.performed_at ?? null,
+    error_reason: p.error_reason ?? null,
+    created_at: p.created_at,
+  };
+}
+
+function wireChartEntry(c: FakeChartEntry): C.ChartEntry {
+  return {
+    id: c.id,
+    tooth: c.tooth,
+    surface: c.surface ?? null,
+    finding: c.finding,
+    note: c.note ?? null,
+    status: c.status,
+    recorded_by: c.recorded_by ?? null,
+    supersedes_id: c.supersedes_id ?? null,
+    visit_id: c.visit_id ?? null,
+    effective_at: c.effective_at,
+  };
+}
+
+function wireAttachment(a: FakeAttachment): C.Attachment {
+  return {
+    id: a.id,
+    kind: a.kind,
+    mime_type: a.mime_type,
+    size_bytes: a.size_bytes,
+    sha256: a.sha256,
+    caption: a.caption ?? null,
+    tooth: a.tooth ?? null,
+    taken_at: a.taken_at ?? null,
+    visit_id: a.visit_id ?? null,
+    created_at: a.created_at,
+  };
+}
+
+const OBSERVATION_UNITS: Readonly<Record<C.ObservationKind, string>> = {
+  bp_systolic: "mmHg",
+  bp_diastolic: "mmHg",
+  pulse: "/min",
+  temperature: "Cel",
+  spo2: "%",
+  weight: "kg",
+  height: "cm",
+  blood_sugar: "mg/dL",
+};
+
+function parseSurface(value: string | null | undefined): C.ToothSurface | null {
+  return value === "M" || value === "O" || value === "D" || value === "B" || value === "L" ? value : null;
+}
+
+function parseSurfaces(values: readonly string[] | undefined): C.ToothSurface[] {
+  return (values ?? []).flatMap((value) => {
+    const parsed = parseSurface(value);
+    return parsed === null ? [] : [parsed];
+  });
 }
 
 /** Whether two `[start, end)` instants (as ISO strings) overlap. */

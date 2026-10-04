@@ -180,6 +180,134 @@ export interface FakeQueueToken {
   done_at?: string | null;
 }
 
+/** An allergy, server-shaped except for `clinic_id`. */
+export interface FakeAllergy {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  substance: string;
+  reaction?: string | null;
+  severity: C.Severity;
+  status: C.ClinicalStatus;
+  source: C.ClinicalSource;
+  code?: C.Code | null;
+  verified_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FakeCondition {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  display_text: string;
+  flagged: boolean;
+  status: C.ClinicalStatus;
+  source: C.ClinicalSource;
+  code?: C.Code | null;
+  note?: string | null;
+  onset?: string | null;
+  verified_by?: string | null;
+  visit_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FakeVisit {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  clinician_membership_id: string;
+  number: string;
+  appointment_id?: string | null;
+  chief_complaint?: string | null;
+  status: C.VisitStatus;
+  started_at: string;
+  ended_at?: string | null;
+}
+
+export interface FakeNote {
+  id: string;
+  clinic_id: string;
+  visit_id: string;
+  author_membership_id: string;
+  kind: C.NoteKind;
+  source: C.NoteSource;
+  status: C.NoteStatus;
+  sections: C.NoteSections;
+  addenda: { id: string; author_membership_id: string; body: string; created_at: string }[];
+  error_reason?: string | null;
+  conflicts_with_id?: string | null;
+  signed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FakeObservation {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  visit_id?: string | null;
+  kind: C.ObservationKind;
+  value: number;
+  unit: string;
+  status: C.ObservationStatus;
+  source: C.ClinicalSource;
+  supersedes_id?: string | null;
+  error_reason?: string | null;
+  recorded_at: string;
+}
+
+export interface FakeProcedure {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  visit_id: string;
+  clinician_membership_id: string;
+  name: string;
+  tooth?: number | null;
+  surfaces: C.ToothSurface[];
+  status: C.ProcedureStatus;
+  note?: string | null;
+  price_paise?: number | null;
+  plan_item_id?: string | null;
+  performed_at?: string | null;
+  error_reason?: string | null;
+  created_at: string;
+}
+
+export interface FakeChartEntry {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  tooth: number;
+  surface?: C.ToothSurface | null;
+  finding: C.ChartFinding;
+  note?: string | null;
+  status: C.ChartEntryStatus;
+  recorded_by?: string | null;
+  supersedes_id?: string | null;
+  visit_id?: string | null;
+  effective_at: string;
+}
+
+export interface FakeAttachment {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  visit_id?: string | null;
+  kind: C.AttachmentKind;
+  mime_type: string;
+  size_bytes: number;
+  sha256: string;
+  caption?: string | null;
+  tooth?: number | null;
+  taken_at?: string | null;
+  created_at: string;
+  /** Where the fake serves its bytes from: a blob URL, since there is no real server. */
+  url: string;
+}
+
 export interface Fixtures {
   users: FakeUser[];
   platformUsers: FakePlatformUser[];
@@ -192,6 +320,14 @@ export interface Fixtures {
   leave: FakeLeave[];
   appointments: FakeAppointment[];
   queueTokens: FakeQueueToken[];
+  allergies: FakeAllergy[];
+  conditions: FakeCondition[];
+  visits: FakeVisit[];
+  notes: FakeNote[];
+  observations: FakeObservation[];
+  procedures: FakeProcedure[];
+  chartEntries: FakeChartEntry[];
+  attachments: FakeAttachment[];
   sessions: FakeSession[];
   quality: C.QualityReport;
 }
@@ -213,6 +349,8 @@ export const ROLES = {
       "patients.contact",
       "appointments.read",
       "appointments.write",
+      "clinical.read",
+      "clinical.write",
       "billing.read",
       "finance.view",
       "settings.manage",
@@ -222,15 +360,23 @@ export const ROLES = {
   doctor: {
     key: "doctor",
     name: "Doctor",
-    permissions: ["patients.read", "patients.write", "patients.contact", "appointments.read", "appointments.write"],
+    permissions: [
+      "patients.read",
+      "patients.write",
+      "patients.contact",
+      "appointments.read",
+      "appointments.write",
+      "clinical.read",
+      "clinical.write",
+    ],
   },
   frontDesk: {
     key: "front_desk",
     name: "Front desk",
     permissions: ["patients.read", "patients.write", "patients.contact", "appointments.read", "appointments.write", "billing.read"],
   },
-  assistant: { key: "assistant", name: "Assistant", permissions: ["patients.read", "appointments.read"] },
-  consultant: { key: "consultant", name: "Visiting consultant", permissions: ["appointments.read"] },
+  assistant: { key: "assistant", name: "Assistant", permissions: ["patients.read", "appointments.read", "clinical.read"] },
+  consultant: { key: "consultant", name: "Visiting consultant", permissions: ["appointments.read", "clinical.read"] },
 } as const satisfies Record<string, FakeRole>;
 
 /** Builds the full synthetic data set. Deterministic for a given seed and `now`. */
@@ -417,6 +563,148 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     },
   ];
 
+  // A little seeded clinical history: one patient with flags, another with one closed visit.
+  const flagPatient = sunrisePatients[2];
+  const visitPatient = sunrisePatients[5];
+
+  const allergies: FakeAllergy[] =
+    flagPatient === undefined
+      ? []
+      : [
+          {
+            id: id(),
+            clinic_id: sunrise.id,
+            patient_id: flagPatient.id,
+            substance: "Penicillin",
+            reaction: "Rash and swelling",
+            severity: "severe",
+            status: "active",
+            source: "clinician",
+            verified_by: sunriseDoctorMembership.id,
+            created_at: isoDaysAgo(now, 120),
+            updated_at: isoDaysAgo(now, 120),
+          },
+        ];
+
+  const conditions: FakeCondition[] =
+    flagPatient === undefined
+      ? []
+      : [
+          {
+            id: id(),
+            clinic_id: sunrise.id,
+            patient_id: flagPatient.id,
+            display_text: "Type 2 diabetes",
+            flagged: true,
+            status: "active",
+            source: "clinician",
+            verified_by: sunriseDoctorMembership.id,
+            created_at: isoDaysAgo(now, 200),
+            updated_at: isoDaysAgo(now, 200),
+          },
+        ];
+
+  const pastVisit: FakeVisit | undefined =
+    visitPatient === undefined
+      ? undefined
+      : {
+          id: id(),
+          clinic_id: sunrise.id,
+          patient_id: visitPatient.id,
+          clinician_membership_id: sunriseDoctorMembership.id,
+          number: "V-1",
+          appointment_id: null,
+          chief_complaint: "Toothache, lower right",
+          status: "closed",
+          started_at: isoDaysAgo(now, 30),
+          ended_at: isoDaysAgo(now, 30),
+        };
+
+  const visits: FakeVisit[] = pastVisit === undefined ? [] : [pastVisit];
+
+  const notes: FakeNote[] =
+    pastVisit === undefined
+      ? []
+      : [
+          {
+            id: id(),
+            clinic_id: sunrise.id,
+            visit_id: pastVisit.id,
+            author_membership_id: sunriseDoctorMembership.id,
+            kind: "soap",
+            source: "typed",
+            status: "signed",
+            sections: {
+              subjective: "Pain on chewing, lower right molar.",
+              objective: "Caries on 46 distal surface.",
+              assessment: "Dental caries, 46.",
+              plan: "Composite filling.",
+            },
+            addenda: [],
+            signed_at: pastVisit.ended_at ?? null,
+            created_at: pastVisit.started_at,
+            updated_at: pastVisit.ended_at ?? pastVisit.started_at,
+          },
+        ];
+
+  const observations: FakeObservation[] =
+    pastVisit === undefined || visitPatient === undefined
+      ? []
+      : [
+          {
+            id: id(),
+            clinic_id: sunrise.id,
+            patient_id: visitPatient.id,
+            visit_id: pastVisit.id,
+            kind: "pulse",
+            value: 76,
+            unit: "/min",
+            status: "final",
+            source: "clinician",
+            recorded_at: pastVisit.started_at,
+          },
+        ];
+
+  const procedures: FakeProcedure[] =
+    pastVisit === undefined || visitPatient === undefined
+      ? []
+      : [
+          {
+            id: id(),
+            clinic_id: sunrise.id,
+            patient_id: visitPatient.id,
+            visit_id: pastVisit.id,
+            clinician_membership_id: sunriseDoctorMembership.id,
+            name: "Composite filling",
+            tooth: 46,
+            surfaces: ["D"],
+            status: "done",
+            price_paise: 180_000,
+            performed_at: pastVisit.ended_at ?? null,
+            created_at: pastVisit.started_at,
+          },
+        ];
+
+  const chartEntries: FakeChartEntry[] =
+    pastVisit === undefined || visitPatient === undefined
+      ? []
+      : [
+          {
+            id: id(),
+            clinic_id: sunrise.id,
+            patient_id: visitPatient.id,
+            tooth: 46,
+            surface: "D",
+            finding: "filled",
+            status: "current",
+            recorded_by: sunriseDoctorMembership.id,
+            visit_id: pastVisit.id,
+            effective_at: pastVisit.ended_at ?? pastVisit.started_at,
+          },
+        ];
+
+  const attachments: FakeAttachment[] = [];
+
   const sessions: FakeSession[] = Object.values(users).flatMap((user): FakeSession[] => [
     {
       id: id(),
@@ -450,6 +738,14 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     leave,
     appointments,
     queueTokens,
+    allergies,
+    conditions,
+    visits,
+    notes,
+    observations,
+    procedures,
+    chartEntries,
+    attachments,
     sessions,
     quality: createQualityReport(random, now),
   };

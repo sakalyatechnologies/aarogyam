@@ -5,12 +5,21 @@ import type { z } from "zod";
 import type { ApiClient, DateRange } from "./client.js";
 import { failure, parseApiError, success, type ApiResult } from "./result.js";
 import {
+  allergy,
+  allergyList,
   appointmentList,
+  attachment,
+  attachmentList,
   clinicSettings,
+  clinicalFlags,
+  condition,
+  conditionList,
   consoleClinics,
   createdClinic,
   createdInvitation,
+  dentalChart,
   devTokenResponse,
+  downloadLink,
   importResult,
   joined,
   leave,
@@ -19,10 +28,14 @@ import {
   member,
   metricsResponse,
   mySessionsResponse,
+  note,
+  observationList,
   patient,
   patientList,
   practitioner,
   practitionerList,
+  procedure,
+  procedureList,
   qualityReport,
   queueDay,
   queueToken,
@@ -34,7 +47,11 @@ import {
   sessionResponse,
   staffResponse,
   statusChanged,
+  timeline,
   todayResponse,
+  visit,
+  visitDetail,
+  visitList,
   voidResponse,
   workingHours,
   type RequestId,
@@ -75,7 +92,10 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     }
     // Patient data must never sit in the browser's HTTP cache.
     const init: RequestInit = { method, headers, cache: "no-store" };
-    if (body !== undefined) {
+    if (body instanceof FormData) {
+      // The browser sets `content-type` itself, with the multipart boundary.
+      init.body = body;
+    } else if (body !== undefined) {
       headers.set("content-type", "application/json");
       init.body = JSON.stringify(body);
     }
@@ -188,6 +208,76 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     importPatients: (input, opts) =>
       call({ method: "POST", path: "/api/v1/imports/patients", schema: importResult, body: input, signal: opts?.signal }),
+
+    getClinicalFlags: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/clinical-flags`, schema: clinicalFlags, signal: opts?.signal }),
+    listAllergies: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/allergies`, schema: allergyList, signal: opts?.signal }),
+    addAllergy: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/allergies`, schema: allergy, body: input, signal: opts?.signal }),
+    listConditions: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/conditions`, schema: conditionList, signal: opts?.signal }),
+    addCondition: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/conditions`, schema: condition, body: input, signal: opts?.signal }),
+
+    getTimeline: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/timeline`, schema: timeline, signal: opts?.signal }),
+    listVisits: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/visits`, schema: visitList, signal: opts?.signal }),
+    getVisit: (id, opts) => call({ method: "GET", path: `/api/v1/visits/${encodeURIComponent(id)}`, schema: visitDetail, signal: opts?.signal }),
+    startVisit: (patientId, input, opts) =>
+      call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(patientId)}/visits`, schema: visit, body: input, signal: opts?.signal }),
+    closeVisit: (id, opts) => call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/close`, schema: visit, signal: opts?.signal }),
+
+    createNote: (visitId, content, opts) =>
+      call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(visitId)}/notes`, schema: note, body: content, signal: opts?.signal }),
+    signNote: (id, opts) => call({ method: "POST", path: `/api/v1/notes/${encodeURIComponent(id)}/sign`, schema: note, signal: opts?.signal }),
+
+    recordObservations: (visitId, input, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/visits/${encodeURIComponent(visitId)}/observations`,
+        schema: observationList,
+        body: input,
+        signal: opts?.signal,
+      }),
+
+    listProcedures: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/procedures`, schema: procedureList, signal: opts?.signal }),
+    recordProcedure: (visitId, input, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/visits/${encodeURIComponent(visitId)}/procedures`,
+        schema: procedure,
+        body: input,
+        signal: opts?.signal,
+      }),
+    completeProcedure: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/procedures/${encodeURIComponent(id)}/complete`, schema: procedure, signal: opts?.signal }),
+
+    getDentalChart: (id, tooth, opts) =>
+      call({
+        method: "GET",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart`,
+        schema: dentalChart,
+        query: { tooth },
+        signal: opts?.signal,
+      }),
+    recordChartEntries: (id, input, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart`,
+        schema: dentalChart,
+        body: input,
+        signal: opts?.signal,
+      }),
+
+    listAttachments: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/attachments`, schema: attachmentList, signal: opts?.signal }),
+    uploadAttachment: (id, form, opts) =>
+      call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/attachments`, schema: attachment, body: form, signal: opts?.signal }),
+    getDownloadLink: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/attachments/${encodeURIComponent(id)}/download`, schema: downloadLink, signal: opts?.signal }),
 
     listStaff: (opts) => call({ method: "GET", path: "/api/v1/staff", schema: staffResponse, signal: opts?.signal }),
     inviteStaff: (input, opts) =>

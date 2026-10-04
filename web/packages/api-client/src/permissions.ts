@@ -8,6 +8,8 @@ export const PERMISSIONS = [
   "patients.contact",
   "appointments.read",
   "appointments.write",
+  "clinical.read",
+  "clinical.write",
   "billing.read",
   /** Fake only, for Today's money tiles, until the API has a finance permission. */
   "finance.view",

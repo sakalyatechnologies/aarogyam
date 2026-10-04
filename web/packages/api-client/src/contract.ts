@@ -234,6 +234,7 @@ export type ClinicalFlags = Schemas["ClinicalFlags"];
 
 // Visits, notes, vitals and procedures (M4) ------------------------------------------------------
 
+export type MemberRef = Schemas["MemberRef"];
 export type Visit = Schemas["Visit"];
 export type VisitDetail = Schemas["VisitDetail"];
 export type VisitList = Schemas["VisitList"];

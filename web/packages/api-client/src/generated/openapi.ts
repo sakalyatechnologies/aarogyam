@@ -1702,7 +1702,7 @@ export interface components {
         /** @description An addendum to a signed note. */
         Addendum: {
             /** @description Who wrote it. */
-            author: components["schemas"]["Member"];
+            author: components["schemas"]["MemberRef"];
             /** @description The text. */
             body: string;
             /** @description When (RFC 3339). */
@@ -2831,6 +2831,17 @@ export interface components {
             /** @description `active` (reactivate), `suspended` or `left`. */
             status?: string | null;
         };
+        /**
+         * @description A member named on a clinical record: who saw the patient, wrote a note or acted.
+         *
+         *     Not the staff list's `Member`, which carries the whole membership.
+         */
+        MemberRef: {
+            /** @description Their membership. */
+            id: string;
+            /** @description Their display name. */
+            name: string;
+        };
         /** @description Money received by one method. */
         MethodTotal: {
             /**
@@ -3147,7 +3158,7 @@ export interface components {
             /** @description Addenda, oldest first. */
             addenda: components["schemas"]["Addendum"][];
             /** @description Who wrote it; only they may edit or sign it. */
-            author: components["schemas"]["Member"];
+            author: components["schemas"]["MemberRef"];
             /** @description For a conflict: the signed note it collided with. */
             conflicts_with_id?: string | null;
             /** @description When it was written (RFC 3339). */
@@ -3452,7 +3463,7 @@ export interface components {
             /** @description When the patient accepted it (RFC 3339). */
             accepted_at?: string | null;
             /** @description The member who proposed it. */
-            clinician: components["schemas"]["Member"];
+            clinician: components["schemas"]["MemberRef"];
             /** @description When it was proposed (RFC 3339). */
             created_at: string;
             /**
@@ -3685,7 +3696,7 @@ export interface components {
          */
         Procedure: {
             /** @description The member who did it. */
-            clinician: components["schemas"]["Member"];
+            clinician: components["schemas"]["MemberRef"];
             code?: components["schemas"]["Code"] | null;
             /** @description When it was recorded (RFC 3339). */
             created_at: string;
@@ -4119,7 +4130,7 @@ export interface components {
             amount_paise?: number | null;
             /** @description When it happened (RFC 3339): a visit's start, a note's signing, a procedure's doing. */
             at: string;
-            by?: components["schemas"]["Member"] | null;
+            by?: components["schemas"]["MemberRef"] | null;
             /** @description More detail: the chief complaint, the assessment, the tooth or the caption. */
             detail?: string | null;
             /** @description The record: open it through its own route. */
@@ -4268,7 +4279,7 @@ export interface components {
             /** @description Why the patient came. */
             chief_complaint?: string | null;
             /** @description The member responsible. */
-            clinician: components["schemas"]["Member"];
+            clinician: components["schemas"]["MemberRef"];
             /** @description When it was closed (RFC 3339). */
             ended_at?: string | null;
             /** @description Identifier. */

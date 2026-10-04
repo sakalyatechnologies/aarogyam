@@ -81,7 +81,7 @@ export function VisitsPanel({ patientId }: { patientId: PatientId }) {
                   {event.detail == null ? null : <p className="truncate text-xs text-muted">{event.detail}</p>}
                   <p className="text-xs text-muted">
                     {formatDateTime(event.at)}
-                    {event.by == null ? "" : ` · ${event.by.display_name}`}
+                    {event.by == null ? "" : ` · ${event.by.name}`}
                   </p>
                 </div>
                 {event.status == null ? null : <Pill tone="neutral">{event.status}</Pill>}

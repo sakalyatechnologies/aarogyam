@@ -84,7 +84,7 @@ function VisitView({ patientId, detail }: { patientId: PatientId; detail: NonNul
     <>
       <PageHeader
         title={`Visit ${visit.number}`}
-        subtitle={`${formatDateTime(visit.started_at)} · ${visit.clinician.display_name}`}
+        subtitle={`${formatDateTime(visit.started_at)} · ${visit.clinician.name}`}
         end={
           <div className="flex items-center gap-2">
             <Pill tone={isOpen ? "warning" : "success"}>{isOpen ? "Open" : "Closed"}</Pill>
@@ -227,7 +227,7 @@ function NoteCard({ visitId, note, canAddend }: { visitId: VisitId; note: Note; 
               <li key={a.id} className="text-sm">
                 <p className="text-text">{a.body}</p>
                 <p className="text-xs text-muted">
-                  {a.author.display_name} · {formatDateTime(a.created_at)}
+                  {a.author.name} · {formatDateTime(a.created_at)}
                 </p>
               </li>
             ))}

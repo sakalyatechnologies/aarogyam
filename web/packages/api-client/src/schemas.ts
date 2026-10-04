@@ -779,6 +779,10 @@ export type ClinicalFlags = z.output<typeof clinicalFlags>;
 
 // Visits, notes, vitals and procedures (M4) ------------------------------------------------------
 
+/** A member named on a clinical record. Not the staff list's `member`. */
+export const memberRef = z.object({ id: membershipId, name: z.string() }) satisfies z.ZodType<C.MemberRef>;
+export type MemberRef = z.output<typeof memberRef>;
+
 export const visitStatus = z.enum(["open", "closed"]) satisfies z.ZodType<C.VisitStatus>;
 export type VisitStatus = z.output<typeof visitStatus>;
 
@@ -786,7 +790,7 @@ export const visit = z.object({
   id: visitId,
   number: z.string(),
   patient_id: patientId,
-  clinician: member,
+  clinician: memberRef,
   appointment_id: appointmentId.nullable().exactOptional(),
   chief_complaint: optionalText,
   status: visitStatus,
@@ -811,7 +815,7 @@ export const timelineEvent = z.object({
   title: z.string(),
   detail: optionalText,
   status: optionalText,
-  by: member.nullable().exactOptional(),
+  by: memberRef.nullable().exactOptional(),
   visit_id: visitId.nullable().exactOptional(),
   amount_paise: paise.nullable().exactOptional(),
 }) satisfies z.ZodType<C.TimelineEvent>;
@@ -837,13 +841,13 @@ export const noteSections = z.object({
 }) satisfies z.ZodType<C.NoteSections>;
 export type NoteSections = z.output<typeof noteSections>;
 
-const addendum = z.object({ id: z.string().min(1), author: member, body: z.string(), created_at: timestamp }) satisfies z.ZodType<C.Addendum>;
+const addendum = z.object({ id: z.string().min(1), author: memberRef, body: z.string(), created_at: timestamp }) satisfies z.ZodType<C.Addendum>;
 export type Addendum = z.output<typeof addendum>;
 
 export const note = z.object({
   id: noteId,
   visit_id: visitId,
-  author: member,
+  author: memberRef,
   kind: noteKind,
   source: noteSource,
   status: noteStatus,
@@ -909,7 +913,7 @@ export type ProcedureStatus = z.output<typeof procedureStatus>;
 export const procedure = z.object({
   id: procedureId,
   visit_id: visitId,
-  clinician: member,
+  clinician: memberRef,
   name: z.string(),
   code: code.nullable().exactOptional(),
   tooth: count.nullable().exactOptional(),
@@ -953,7 +957,7 @@ export const plan = z.object({
   id: planId,
   patient_id: patientId,
   visit_id: visitId.nullable().exactOptional(),
-  clinician: member,
+  clinician: memberRef,
   title: z.string(),
   status: planStatus,
   items: z.array(planItem),

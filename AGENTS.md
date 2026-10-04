@@ -24,6 +24,9 @@ Scope every command to what you changed. See `docs/guidelines/build-speed.md`.
 | Database tests | `DATABASE_URL=postgres://postgres@localhost:5432/postgres cargo test -p <crate> -- --include-ignored` |
 | Lint | `cargo clippy -p <crate> --all-targets -- -D warnings` |
 | Final check before commit | `cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace` |
+| Web: install (needs `../sakalya-web`, installed) | `pnpm install` |
+| Web: console dev server | `pnpm dev:console` |
+| Web: final check before commit | `pnpm check` |
 
 ## Product rules (on top of the shared rules)
 

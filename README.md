@@ -14,3 +14,17 @@ A multi-specialty clinic platform: a portal and phone apps for doctors and their
 Shared Rust foundations (types, config, telemetry, HTTP, auth, database, test kit) live in [`sakalya-backend`](../sakalya-backend).
 
 Status: design and guidelines only. Code starts with the foundation milestone in `docs/decisions.md`.
+
+## Web
+
+The clinic portal and the Sakalya console live in `web/`: a pnpm workspace with React, TypeScript, Vite and Tailwind. Until `@sakalya/tokens` and `@sakalya/ui` are published, clone [`sakalya-web`](../sakalya-web) next to this repository and install it once, because the apps link its packages' source.
+
+```sh
+(cd ../sakalya-web && pnpm install)
+pnpm install
+pnpm dev:console   # http://localhost:5174: fake data, development sign-in
+pnpm check         # typecheck, lint, tests, build
+```
+
+Settings go in `web/apps/<app>/.env.local`: `VITE_API_MODE=fake|http` (default `fake`), `VITE_API_BASE_URL` (default: same origin, proxied to `localhost:8080` in dev), and `VITE_SUPABASE_URL` plus `VITE_SUPABASE_ANON_KEY` for email-code sign-in (otherwise development sign-in, never in a production `http` build).
+

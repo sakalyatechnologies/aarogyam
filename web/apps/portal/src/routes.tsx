@@ -3,6 +3,7 @@ import { Navigate, Outlet, type RouteObject } from "react-router";
 import { RouterLinks } from "@aarogyam/app-kit";
 
 import { ClinicGate, RequireAuth } from "./layout/portal-layout.js";
+import { ComingSoonPage } from "./pages/coming-soon-page.js";
 import { InvitePage } from "./pages/invite-page.js";
 import { NotFoundPage } from "./pages/not-found-page.js";
 import { NewPatientPage } from "./pages/patients/new-patient-page.js";
@@ -34,6 +35,26 @@ export const routes: RouteObject[] = [
               { path: "patients", element: <PatientsPage /> },
               { path: "patients/new", element: <NewPatientPage /> },
               { path: "patients/:id", element: <PatientPage /> },
+              {
+                path: "calendar",
+                element: <ComingSoonPage title="Calendar" description="Book and see the week at a glance, once appointment booking lands in M3." />,
+              },
+              {
+                path: "billing",
+                element: <ComingSoonPage title="Billing" description="Collections, invoices and payments, once billing lands in M5." />,
+              },
+              {
+                path: "stock",
+                element: <ComingSoonPage title="Stock" description="Material and medicine stock levels. Not yet scheduled." />,
+              },
+              {
+                path: "messages",
+                element: <ComingSoonPage title="Messages" description="Reminders, recalls and campaigns. Not yet scheduled." />,
+              },
+              {
+                path: "settings",
+                element: <ComingSoonPage title="Settings" description="Clinic profile, notifications and website, once settings lands in M2." />,
+              },
               { path: "*", element: <NotFoundPage /> },
             ],
           },

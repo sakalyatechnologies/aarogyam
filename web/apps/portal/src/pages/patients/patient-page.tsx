@@ -135,14 +135,24 @@ function PatientView({ patient }: { patient: Patient }) {
               ),
             },
             {
+              value: "flags",
+              label: "Clinical flags",
+              content: (
+                <EmptyState
+                  title="No clinical flags recorded yet"
+                  description="Allergies and conditions will show here, prominently, once visits land in M4. Front desk will still see that a flag exists, even without clinical detail."
+                />
+              ),
+            },
+            {
               value: "visits",
               label: "Visits",
-              content: <EmptyState title="Visits come next" description="Each visit, note and treatment will appear here in order." />,
+              content: <EmptyState title="No visits yet" description="Each visit, note and treatment will appear here in order, once visits land in M4." />,
             },
             {
               value: "billing",
               label: "Billing",
-              content: <EmptyState title="Billing comes next" description="Bills, payments and dues will appear here." />,
+              content: <EmptyState title="No bills yet" description="Bills, payments and dues will appear here, once billing lands in M5." />,
             },
           ]}
         />

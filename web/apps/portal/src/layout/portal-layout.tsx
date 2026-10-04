@@ -1,4 +1,4 @@
-import { Building2, CalendarCheck, LogOut, Smile, UsersRound } from "lucide-react";
+import { Building2, CalendarCheck, CalendarRange, LogOut, MessageSquare, Package, Settings, Smile, UsersRound, Wallet } from "lucide-react";
 import { useMemo } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 
@@ -139,9 +139,16 @@ function PortalShell() {
   const auth = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  // Calendar, Billing and Settings show once their screens land; Stock and Messages are Phase 2
+  // per docs/ui-spec.md and stay visible as "coming soon" so the design language is in place.
   const nav: NavEntry[] = [
     ...(can("appointments.read") ? [{ id: "today", label: "Today", icon: <CalendarCheck />, href: "/today" }] : []),
     ...(can("patients.read") ? [{ id: "patients", label: "Patients", icon: <UsersRound />, href: "/patients" }] : []),
+    ...(can("appointments.read") ? [{ id: "calendar", label: "Calendar", icon: <CalendarRange />, href: "/calendar" }] : []),
+    ...(can("billing.read") ? [{ id: "billing", label: "Billing", icon: <Wallet />, href: "/billing" }] : []),
+    { id: "stock", label: "Stock", icon: <Package />, href: "/stock" },
+    { id: "messages", label: "Messages", icon: <MessageSquare />, href: "/messages" },
+    ...(can("settings.manage") ? [{ id: "settings", label: "Settings", icon: <Settings />, href: "/settings" }] : []),
   ];
   const activeId = nav.find((entry) => location.pathname.startsWith(entry.href))?.id ?? "";
   const others = me.clinics.filter((clinic) => clinic.org_id !== access.org_id);

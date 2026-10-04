@@ -1,9 +1,37 @@
-import { CalendarDays, CheckCircle2, CircleDot, Clock3, IndianRupee, Play, ReceiptText, UsersRound, XCircle } from "lucide-react";
+import {
+  Armchair,
+  CalendarDays,
+  CheckCircle2,
+  CircleDot,
+  Clock3,
+  IndianRupee,
+  PieChart,
+  Play,
+  ReceiptText,
+  UsersRound,
+  XCircle,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 import { apiErrorOf, type AppointmentStatus, type Today, type TodayAppointment } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatRupees, formatTime, useDocumentTitle } from "@aarogyam/app-kit";
-import { BarChart, Button, Card, EmptyState, Link, PageHeader, PersonList, Pill, Skeleton, StatCard, Timeline, type Status } from "@sakalya/ui";
+import {
+  Avatar,
+  BarChart,
+  Button,
+  Card,
+  DataTable,
+  EmptyState,
+  Link,
+  PageHeader,
+  Pill,
+  PersonList,
+  Skeleton,
+  StatCard,
+  Timeline,
+  type DataTableColumn,
+  type Status,
+} from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { ageSex, patientPath } from "../../lib/patients.js";
@@ -185,6 +213,58 @@ function TodayBody({ today, timeZone }: { today: Today; timeZone: string }) {
             <BarChart data={hours} totalLabel="Booked" partLabel="Completed" categoryLabel="Hour" summary="Appointments booked and completed in each hour today" />
           </Card>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card title="Attention required">
+          <EmptyState
+            title="Nothing needs attention"
+            description="Allergy flags, recalls and unpaid invoices will appear here once M4 and M5 land."
+            icon={null}
+          />
+        </Card>
+        <Card title="Chair status">
+          <EmptyState title="Chair status isn't available yet" description="Needs a small shape change to appointments, planned for M3." icon={<Armchair className="size-7" />} />
+        </Card>
+      </div>
+
+      <Card title="Recent patients">
+        <DataTable
+          caption="Recent patients"
+          columns={
+            [
+              {
+                id: "patient",
+                header: "Patient",
+                cell: (a) => (
+                  <Link href={patientPath(a.patient)} className="flex items-center gap-3 font-semibold text-text hover:underline">
+                    <Avatar name={a.patient.full_name} size="sm" />
+                    {a.patient.full_name}
+                  </Link>
+                ),
+              },
+              { id: "time", header: "Seen at", cell: (a) => formatTime(a.starts_at, timeZone) },
+              { id: "reason", header: "Reason", cell: (a) => a.reason ?? "Consultation" },
+              { id: "status", header: "Status", cell: () => <Pill tone="success">Completed</Pill> },
+            ] satisfies DataTableColumn<TodayAppointment>[]
+          }
+          rows={done}
+          rowKey={(a) => a.id}
+          pageSize={8}
+          empty={{ title: "No completed visits yet", description: "Patients seen today will show here." }}
+        />
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <Card title="Revenue mix">
+          <EmptyState title="Revenue mix isn't available yet" description="Shows once collections reporting lands in M5." icon={<PieChart className="size-7" />} />
+        </Card>
+        <Card title="Pending payments">
+          <EmptyState title="Pending payments aren't available yet" description="Shows once invoices land in M5." icon={<ReceiptText className="size-7" />} />
+        </Card>
+        <Card title="Team today">
+          <EmptyState title="Team today isn't available yet" description="Shows once working hours and shifts land in M3." icon={<UsersRound className="size-7" />} />
+        </Card>
       </div>
     </div>
   );

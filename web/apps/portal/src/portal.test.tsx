@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { failure, parseApiError, type ApiClient } from "@aarogyam/api-client";
+import { failure, parseApiError, patientId, patientNumber, success, type ApiClient, type Patient } from "@aarogyam/api-client";
 import { ROLES, fakeTokenFor } from "@aarogyam/api-client/fake";
 
 import { PEOPLE, fakeApi, renderPortal } from "./test/render.js";
@@ -94,6 +94,51 @@ describe("Patients search", () => {
     expect(await screen.findByText("No patients match your search")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "New patient" }).length).toBeGreaterThan(0);
   });
+
+  it("narrows the list to patients registered this month with the quick filter", async () => {
+    const user = userEvent.setup();
+    const patients: Patient[] = [
+      {
+        id: patientId.parse("11111111-1111-4111-8111-111111111111"),
+        number: patientNumber.parse("SD-1"),
+        full_name: "New This Month",
+        sex: "female",
+        birth_date_estimated: false,
+        preferred_language: "en-IN",
+        status: "active",
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: patientId.parse("22222222-2222-4222-8222-222222222222"),
+        number: patientNumber.parse("SD-2"),
+        full_name: "Registered Long Ago",
+        sex: "male",
+        birth_date_estimated: false,
+        preferred_language: "en-IN",
+        status: "active",
+        created_at: "2000-01-01T00:00:00.000Z",
+      },
+    ];
+    renderPortal("/patients", {
+      as: PEOPLE.farah,
+      wrap: (client): ApiClient => ({ ...client, listPatients: () => Promise.resolve(success({ items: patients })) }),
+    });
+    const table = await screen.findByRole("table", { name: "Patients" });
+    await within(table).findByText("New This Month");
+    expect(within(table).getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual(["New This Month", "Registered Long Ago"]);
+
+    await user.click(screen.getByRole("button", { name: "New this month" }));
+    await waitFor(() => {
+      expect(within(screen.getByRole("table", { name: "Patients" })).getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual([
+        "New This Month",
+      ]);
+    });
+
+    await user.click(screen.getByRole("button", { name: "All" }));
+    await waitFor(() => {
+      expect(within(screen.getByRole("table", { name: "Patients" })).getAllByRole("rowheader")).toHaveLength(2);
+    });
+  });
 });
 
 describe("Permissions", () => {
@@ -123,6 +168,26 @@ describe("Permissions", () => {
     expect(await screen.findByText("Today's appointments")).toBeTruthy();
     expect(screen.queryByText("Today's collection")).toBeNull();
   });
+
+  it("shows Stock and Messages as coming soon to everyone, but Settings only to the owner", async () => {
+    renderPortal("/today", { as: PEOPLE.farah });
+    await screen.findByText("Today's appointments");
+    const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
+    if (nav === undefined) throw new Error("no main navigation");
+    expect(within(nav).getByRole("link", { name: "Stock" })).toBeTruthy();
+    expect(within(nav).getByRole("link", { name: "Messages" })).toBeTruthy();
+    expect(within(nav).queryByRole("link", { name: "Settings" })).toBeNull();
+  });
+
+  it("lets the owner open Settings, which says it's coming soon", async () => {
+    const user = userEvent.setup();
+    renderPortal("/today", { as: PEOPLE.asha });
+    await screen.findByText("Today's collection");
+    const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
+    if (nav === undefined) throw new Error("no main navigation");
+    await user.click(within(nav).getByRole("link", { name: "Settings" }));
+    expect(await screen.findByText("Settings is coming soon")).toBeTruthy();
+  });
 });
 
 describe("Patient 360", () => {
@@ -146,6 +211,40 @@ describe("Patient 360", () => {
   it("refuses a malformed address without calling the API", async () => {
     renderPortal("/patients/ananya-gupta", { as: PEOPLE.farah });
     expect(await screen.findByText("We couldn't find that patient")).toBeTruthy();
+  });
+
+  it("shows a Clinical flags tab with an empty state until M4 lands", async () => {
+    const user = userEvent.setup();
+    let path = "";
+    const backend = fakeApi((fixtures) => {
+      const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
+      const patient = fixtures.patients.find((p) => p.clinic_id === sunrise?.id);
+      path = `/patients/${patient?.id ?? ""}`;
+    });
+    renderPortal(path, { as: PEOPLE.farah, backend });
+    await user.click(await screen.findByRole("tab", { name: "Clinical flags" }));
+    expect(await screen.findByText("No clinical flags recorded yet")).toBeTruthy();
+  });
+});
+
+describe("Today enrichment", () => {
+  it("shows a clear empty state for each widget that has no milestone yet", async () => {
+    renderPortal("/today", { as: PEOPLE.farah });
+    await screen.findByText("Today's appointments");
+    expect(screen.getByText("Nothing needs attention")).toBeTruthy();
+    expect(screen.getByText("Chair status isn't available yet")).toBeTruthy();
+    expect(screen.getByText("Revenue mix isn't available yet")).toBeTruthy();
+    expect(screen.getByText("Pending payments aren't available yet")).toBeTruthy();
+    expect(screen.getByText("Team today isn't available yet")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Recent patients" })).toBeTruthy();
+  });
+
+  it("feeds Recent patients from today's completed appointments", async () => {
+    renderPortal("/today", { as: PEOPLE.farah });
+    const table = await screen.findByRole("table", { name: "Recent patients" });
+    // The fake day's schedule always has some appointments that finished before the fixed clock.
+    expect(within(table).getAllByRole("rowheader").length).toBeGreaterThan(0);
+    expect(within(table).getAllByText("Completed").length).toBeGreaterThan(0);
   });
 });
 

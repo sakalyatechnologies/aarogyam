@@ -1,0 +1,106 @@
+# Cloud Build pipeline for the aarogyam API: build once, migrate, then deploy that exact image
+# by digest. Free tier (2,500 build-minutes/month). Triggered by pushes to `main` only — the
+# branch guard below refuses every other branch, per docs/lessons-from-mydwarpal.md ("branch-to-
+# service mapping with production refusing other branches"). See docs/deploy.md for setup and
+# `gcloud builds submit` / trigger commands.
+#
+# Fill in _SUPABASE_PROJECT_REF (or set it on the trigger) before the first run.
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _REGION: asia-south1
+  _REPO: services
+  _SERVICE: aarogyam-api
+  _AR_HOST: asia-south1-docker.pkg.dev
+  _SUPABASE_PROJECT_REF: REPLACE_WITH_SUPABASE_PROJECT_REF
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/sakalya-backend-read-token/versions/latest
+      env: GIT_TOKEN
+
+steps:
+  - id: branch-guard
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [ "$BRANCH_NAME" != "main" ]; then
+          echo "Refusing to build '$BRANCH_NAME': only main deploys to staging." >&2
+          exit 1
+        fi
+
+  - id: build-and-push
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    env: ["DOCKER_BUILDKIT=1"]
+    secretEnv: ["GIT_TOKEN"]
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE="$_AR_HOST/$PROJECT_ID/$_REPO/$_SERVICE:$SHORT_SHA"
+        docker build --secret id=git_token,env=GIT_TOKEN -t "$$IMAGE" .
+        docker push "$$IMAGE"
+
+  - id: resolve-digest
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        gcloud artifacts docker images describe \
+          "$_AR_HOST/$PROJECT_ID/$_REPO/$_SERVICE:$SHORT_SHA" \
+          --format='get(image_summary.fully_qualified_digest)' > /workspace/digest.txt
+        echo "Deploying by digest: $(cat /workspace/digest.txt)"
+
+  - id: render-manifests
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        DIGEST="$(cat /workspace/digest.txt)"
+        for f in migrate-job aarogyam-api; do
+          sed -e "s#asia-south1-docker.pkg.dev/sakalya-clinic-staging/services/aarogyam-api@sha256:REPLACE_WITH_DIGEST#$${DIGEST}#g" \
+              -e "s#REPLACE_WITH_SUPABASE_PROJECT_REF#$_SUPABASE_PROJECT_REF#g" \
+              "deploy/cloud-run/$${f}.yaml" > "/workspace/$${f}.rendered.yaml"
+        done
+
+  - id: apply-migrate-job
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - jobs
+      - replace
+      - /workspace/migrate-job.rendered.yaml
+      - --region=$_REGION
+      - --project=$PROJECT_ID
+
+  - id: run-migration
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - jobs
+      - execute
+      - aarogyam-migrate
+      - --region=$_REGION
+      - --project=$PROJECT_ID
+      - --wait
+
+  - id: deploy-service
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - services
+      - replace
+      - /workspace/aarogyam-api.rendered.yaml
+      - --region=$_REGION
+      - --project=$PROJECT_ID
+
+timeout: 1200s

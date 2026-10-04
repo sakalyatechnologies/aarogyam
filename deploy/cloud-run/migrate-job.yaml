@@ -1,0 +1,63 @@
+# Cloud Run job that applies pending migrations before traffic moves to a new revision.
+# Apply with:
+#   gcloud run jobs replace deploy/cloud-run/migrate-job.yaml --region asia-south1 \
+#     --project sakalya-clinic-staging
+# Run with:
+#   gcloud run jobs execute aarogyam-migrate --region asia-south1 --project sakalya-clinic-staging --wait
+# cloudbuild.yaml does both, with the real image digest, before deploying the service.
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: aarogyam-migrate
+spec:
+  template:
+    spec:
+      template:
+        spec:
+          serviceAccountName: aarogyam-migrate-run@sakalya-clinic-staging.iam.gserviceaccount.com
+          maxRetries: 0
+          timeoutSeconds: 120
+          containers:
+            - image: asia-south1-docker.pkg.dev/sakalya-clinic-staging/services/aarogyam-api@sha256:REPLACE_WITH_DIGEST
+              args: ["migrate"]
+              resources:
+                limits:
+                  cpu: "1"
+                  memory: 512Mi
+              env:
+                - name: ARO_ENVIRONMENT
+                  value: staging
+                # Fields Config requires but `migrate` never reads; kept so one Config loads
+                # for both commands without `deny_unknown_fields` tripping on a missing key.
+                - name: ARO_AUTH__MODE
+                  value: supabase
+                - name: ARO_AUTH__ISSUER
+                  value: https://REPLACE_WITH_SUPABASE_PROJECT_REF.supabase.co/auth/v1
+                - name: ARO_AUTH__AUDIENCE
+                  value: authenticated
+                - name: ARO_AUTH__JWKS_URL
+                  value: https://REPLACE_WITH_SUPABASE_PROJECT_REF.supabase.co/auth/v1/.well-known/jwks.json
+                - name: ARO_HOSTS__PORTAL_HOST_TEMPLATE
+                  value: aarogyam-portal.aarogyam.workers.dev
+                - name: ARO_HOSTS__APP
+                  value: aarogyam-portal.aarogyam.workers.dev
+                - name: ARO_HOSTS__CONSOLE
+                  value: aarogyam-console.aarogyam.workers.dev
+                - name: ARO_TELEMETRY__FORMAT
+                  value: cloud-logging
+                - name: ARO_TELEMETRY__FILTER
+                  value: info
+                # `aarogyam migrate` reads db.owner_url, not db.url, but DbSettings requires
+                # `url` regardless. It connects, but `migrate` never queries through it.
+                - name: ARO_DB__URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: aarogyam-db-url
+                      key: latest
+                # The schema owner connection (Supabase's `postgres` user). A separate secret
+                # from ARO_DB__URL's `aarogyam_api` role, which cannot alter schema.
+                - name: ARO_DB__OWNER_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: aarogyam-db-owner-url
+                      key: latest

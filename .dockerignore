@@ -1,0 +1,17 @@
+target
+var
+.git
+.github
+.githooks
+.claude
+.cargo/registry
+.cargo/git
+node_modules
+web
+mobile
+docs
+*.md
+.env
+.env.*
+!.env.example
+.DS_Store

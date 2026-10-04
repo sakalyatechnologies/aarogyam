@@ -112,6 +112,121 @@ API's compute (the founder's Mac). No Google Cloud spend in this path.
 
 ## Cloud Run + Cloudflare Workers (staging)
 
-The full staging deploy — Dockerfile, Cloud Run service and migration job, Cloud Build pipeline,
-and pointing the same Workers at the Cloud Run URL instead of a tunnel — is tracked separately and
-lands in this section next.
+The API moves off the founder's Mac onto Cloud Run; the Workers don't change except for one
+`--var API_ORIGIN:<cloud-run-url>` redeploy. Everything here is free tier. `docker` isn't
+installed in this environment, so the Dockerfile and image build were reviewed by hand, not
+built — build it once with real Docker before relying on it:
+`DOCKER_BUILDKIT=1 docker build --secret id=git_token,env=GIT_TOKEN -t aarogyam-api:test .`
+(`GIT_TOKEN` is a GitHub read-only token for the private `sakalya-backend` repo).
+
+### One-time setup (run interactively; needs `gcloud auth login` first)
+
+```bash
+PROJECT=sakalya-clinic-staging
+REGION=asia-south1
+
+# 1. APIs
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com \
+  cloudbuild.googleapis.com secretmanager.googleapis.com --project "$PROJECT"
+
+# 2. Artifact Registry (scanning off, a cleanup policy, Mumbai region)
+gcloud artifacts repositories create services --repository-format=docker \
+  --location="$REGION" --project "$PROJECT" --disable-vulnerability-scanning \
+  --description="aarogyam container images"
+
+# 3. Least-privilege runtime service accounts (not the default compute account, which has Editor)
+gcloud iam service-accounts create aarogyam-api-run --project "$PROJECT" \
+  --display-name="aarogyam-api Cloud Run runtime"
+gcloud iam service-accounts create aarogyam-migrate-run --project "$PROJECT" \
+  --display-name="aarogyam migrate job runtime"
+# Both need Secret Manager access to the secrets they read (below); neither needs more.
+for SA in aarogyam-api-run aarogyam-migrate-run; do
+  for SECRET in aarogyam-db-url aarogyam-edge-secret aarogyam-files-signing-key aarogyam-db-owner-url; do
+    gcloud secrets add-iam-policy-binding "$SECRET" --project "$PROJECT" \
+      --member="serviceAccount:${SA}@${PROJECT}.iam.gserviceaccount.com" \
+      --role="roles/secretmanager.secretAccessor" 2>/dev/null || true  # skip secrets a SA doesn't use
+  done
+done
+
+# 4. A deploy account needs iam.serviceAccountUser on the two runtime accounts above, plus
+#    Cloud Run Admin and Artifact Registry Writer. Cloud Build's own service account already has
+#    Cloud Build's default roles; grant it these two:
+CLOUDBUILD_SA="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')@cloudbuild.gserviceaccount.com"
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:${CLOUDBUILD_SA}" --role="roles/run.admin"
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:${CLOUDBUILD_SA}" --role="roles/iam.serviceAccountUser"
+
+# 5. Secrets, from a git-ignored .env.supabase (DB_URL, DB_OWNER_URL, SAKALYA_BACKEND_READ_TOKEN,
+#    SUPABASE_SECRET_KEY) — never echoed
+set -a; . ./.env.supabase; set +a
+printf '%s' "$DB_URL" | gcloud secrets create aarogyam-db-url --project "$PROJECT" --data-file=-
+printf '%s' "$DB_OWNER_URL" | gcloud secrets create aarogyam-db-owner-url --project "$PROJECT" --data-file=-
+printf '%s' "$(openssl rand -hex 32)" | gcloud secrets create aarogyam-edge-secret --project "$PROJECT" --data-file=-
+printf '%s' "$(openssl rand -hex 32)" | gcloud secrets create aarogyam-files-signing-key --project "$PROJECT" --data-file=-
+# A read-only GitHub token for the private sakalya-backend repo (cargo's git dependency, and
+# cloudbuild.yaml's GIT_TOKEN secretEnv):
+printf '%s' "$SAKALYA_BACKEND_READ_TOKEN" | gcloud secrets create sakalya-backend-read-token --project "$PROJECT" --data-file=-
+# supabase-secret-key: provisioned for future Supabase management-API use. No ARO_* field reads
+# it today (config.rs has no such setting), so it isn't mounted on the Cloud Run service yet.
+printf '%s' "$SUPABASE_SECRET_KEY" | gcloud secrets create supabase-secret-key --project "$PROJECT" --data-file=-
+
+# 6. Budget alert (all free tier, but catch surprises)
+gcloud billing budgets create --billing-account="$(gcloud billing projects describe "$PROJECT" --format='value(billingAccountName)')" \
+  --display-name="aarogyam staging" --budget-amount=100INR \
+  --threshold-rule=percent=0.5 --threshold-rule=percent=1.0
+
+# 7. Cloud Build trigger (or skip and use scripts/deploy-api.sh / gcloud builds submit by hand)
+gcloud builds triggers create github --project "$PROJECT" \
+  --repo-name=aarogyam --repo-owner=sakalyatechnologies --branch-pattern='^main$' \
+  --build-config=cloudbuild.yaml \
+  --substitutions=_SUPABASE_PROJECT_REF=<project-ref>
+```
+
+Fill in `<project-ref>` once the staging Supabase project exists, and replace the placeholder
+digests in `deploy/cloud-run/*.yaml` — `cloudbuild.yaml` does this automatically on every build,
+so those two files only need editing for a one-off `gcloud run services replace` by hand.
+
+### Deploy
+
+```bash
+# API: either push to main with the trigger above, or run it by hand:
+scripts/deploy-api.sh <supabase-project-ref>
+
+# Workers: point the existing deploy script at the Cloud Run URL instead of a tunnel.
+CLOUD_RUN_URL="$(gcloud run services describe aarogyam-api --region asia-south1 \
+  --project sakalya-clinic-staging --format='value(status.url)')"
+scripts/deploy-workers.sh "$CLOUD_RUN_URL"
+```
+
+### Map the demo clinic's host
+
+Same `org_domains` SQL as the tunnel demo above — the Workers' public hosts don't change when
+the API moves to Cloud Run, so if it's already run once there's nothing more to do here.
+
+### Smoke test
+
+```bash
+API_URL="$(gcloud run services describe aarogyam-api --region asia-south1 --project sakalya-clinic-staging --format='value(status.url)')"
+curl -s -o /dev/null -w '%{http_code}\n' "$API_URL/healthz"             # 200 direct (no edge secret needed on /healthz)
+curl -s -o /dev/null -w '%{http_code}\n' "$API_URL/api/v1/me"           # 401: no edge secret, refused as designed
+curl -s -o /dev/null -w '%{http_code}\n' https://aarogyam-portal.aarogyam.workers.dev/api/v1/me  # 401: reached the API, no token
+```
+
+### Rollback
+
+```bash
+# API: list revisions, then move traffic back to the one that was serving before.
+gcloud run revisions list --service aarogyam-api --region asia-south1 --project sakalya-clinic-staging
+gcloud run services update-traffic aarogyam-api --region asia-south1 --project sakalya-clinic-staging \
+  --to-revisions=<previous-revision>=100
+# Migration job: migrations are expand-then-contract (docs/architecture.md), so a rollback never
+# needs a database change; re-running the job is safe if it ever does.
+```
+
+### Costs
+
+Cloud Run: free tier covers staging traffic at min 0 / max 2 instances with CPU only while
+handling requests. Artifact Registry and Cloud Build: free tier (2,500 build-minutes/month).
+Workers: free plan. Supabase: free project. The ₹100 budget alert above is the only thing to
+watch; nothing here is expected to bill.

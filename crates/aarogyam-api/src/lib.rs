@@ -53,10 +53,18 @@ pub fn router(state: AppState) -> Router {
     let http = state.http().clone();
     let local_dev = state.dev_tokens().is_some();
     let metrics = std::sync::Arc::clone(state.metrics());
-    let routes = Router::new()
+    let throttle = state.throttle().cloned();
+    let mut routes = Router::new()
         .nest("/api/v1", v1::routes(local_dev))
-        .with_state(state)
-        .merge(sakalya_http::health_routes());
+        .with_state(state);
+    if let Some(throttle) = throttle {
+        // Inside the standard layers, so the edge has already established the client IP.
+        routes = routes.layer(axum::middleware::from_fn_with_state(
+            throttle,
+            sakalya_throttle::before_auth,
+        ));
+    }
+    let routes = routes.merge(sakalya_http::health_routes());
     // Outside the standard layers, so timeouts and panics they turn into responses are counted.
     sakalya_http::with_standard_layers(routes, &http).layer(axum::middleware::from_fn_with_state(
         metrics,

@@ -11,6 +11,7 @@ use axum::http::HeaderMap;
 use sakalya_auth::{Claims, JwtVerifier, bearer_token};
 use sakalya_db::Db;
 use sakalya_http::{ApiError, HttpConfig};
+use sakalya_throttle::Throttle;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -62,6 +63,7 @@ struct Inner {
     host_cache: TtlCache<Box<str>, Option<HostClinic>>,
     grant_cache: TtlCache<(Uuid, Uuid, Uuid), Option<Authorization>>,
     metrics: Arc<ServiceMetrics>,
+    throttle: Option<Throttle>,
 }
 
 /// Shared state; cheap to clone.
@@ -83,8 +85,23 @@ impl AppState {
                 host_cache: TtlCache::new(CACHE_TTL, CACHE_CAPACITY),
                 grant_cache: TtlCache::new(CACHE_TTL, CACHE_CAPACITY),
                 metrics: Arc::new(ServiceMetrics::new()),
+                throttle: None,
             }),
         }
+    }
+
+    /// Adds request throttling, applied before any token is checked. Call before the state is
+    /// shared (cloned); afterwards it has no effect.
+    #[must_use]
+    pub fn with_throttle(mut self, throttle: Throttle) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.throttle = Some(throttle);
+        }
+        self
+    }
+
+    pub(crate) fn throttle(&self) -> Option<&Throttle> {
+        self.inner.throttle.as_ref()
     }
 
     /// The database handle.

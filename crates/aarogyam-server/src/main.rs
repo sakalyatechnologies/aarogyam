@@ -10,6 +10,7 @@ use sakalya_auth::{JwtConfig, JwtVerifier};
 use sakalya_config::Environment;
 use sakalya_db::{Db, DbConfig};
 use sakalya_http::{EdgeConfig, EdgeSecret};
+use sakalya_throttle::{KeyKind, RuleConfig, Throttle, ThrottleConfig};
 
 /// Aarogyam's API server.
 #[derive(Debug, Parser)]
@@ -110,7 +111,13 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         console: config.hosts.console,
         app: config.hosts.app,
     };
-    let state = AppState::new(db, http, tokens, hosts);
+    // Per-IP limits before any token is checked; sign-in itself is Supabase's, with its own limits.
+    let throttle = Throttle::new(ThrottleConfig::default().with_rules(vec![
+        RuleConfig::new("ip", KeyKind::Ip, 600, 60),
+        RuleConfig::new("ip-dev-sign-in", KeyKind::Ip, 30, 15 * 60).on_paths(&["/api/v1/dev/"]),
+    ]))
+    .context("invalid throttle rules")?;
+    let state = AppState::new(db, http, tokens, hosts).with_throttle(throttle);
     sakalya_http::serve(aarogyam_api::router(state), config.http.bind)
         .await
         .context("the server stopped with an error")

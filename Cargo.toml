@@ -11,6 +11,7 @@ repository = "https://github.com/sakalyatechnologies/aarogyam"
 
 [workspace.dependencies]
 # Shared Sakalya crates, by tag. A local .cargo/config.toml may [patch] them to a checkout.
+sakalya-throttle = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
 sakalya-types = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
 sakalya-config = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }
 sakalya-telemetry = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.1.0" }

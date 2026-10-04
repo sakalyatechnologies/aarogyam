@@ -13,9 +13,10 @@ use axum::http::{Method, Request, StatusCode};
 use sakalya_auth::{JwtConfig, JwtVerifier};
 use sakalya_db::{Db, DbConfig};
 use sakalya_http::{EdgeConfig, EdgeSecret, HttpConfig, REQUEST_ID_HEADER};
+use sakalya_throttle::{KeyKind, RuleConfig, Throttle, ThrottleConfig};
 use secrecy::SecretString;
 use serde_json::json;
-use support::{offline_router, send};
+use support::{offline_router, offline_state, send};
 use tower::ServiceExt;
 
 #[tokio::test]
@@ -130,5 +131,26 @@ async fn behind_the_edge_requests_without_the_secret_are_refused() {
         None,
     )
     .await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn floods_are_refused_before_any_token_is_checked() {
+    let throttle = Throttle::new(ThrottleConfig::default().with_rules(vec![RuleConfig::new(
+        "ip",
+        KeyKind::Ip,
+        2,
+        60,
+    )]))
+    .unwrap();
+    let router = router(offline_state(HttpConfig::default()).with_throttle(throttle));
+    for _ in 0..2 {
+        let (status, _) = send(&router, Method::GET, "localhost", "/api/v1/me", None, None).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+    let (status, _) = send(&router, Method::GET, "localhost", "/api/v1/me", None, None).await;
+    assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+    // Health checks are never throttled.
+    let (status, _) = send(&router, Method::GET, "localhost", "/healthz", None, None).await;
     assert_eq!(status, StatusCode::OK);
 }

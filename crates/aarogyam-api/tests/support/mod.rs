@@ -103,16 +103,16 @@ fn hosts() -> Hosts {
     }
 }
 
-/// A router whose database is never contacted, for tests that stop before the database.
-pub fn offline_router(http: HttpConfig) -> Router {
+/// State whose database is never contacted, for tests that stop before the database.
+pub fn offline_state(http: HttpConfig) -> AppState {
     let url = SecretString::from("postgres://aarogyam_api@localhost:5432/never_contacted");
     let db = Db::connect_lazy(&DbConfig::new(url)).unwrap();
-    router(AppState::new(
-        db,
-        http,
-        TokenCheck::Dev(dev_tokens()),
-        hosts(),
-    ))
+    AppState::new(db, http, TokenCheck::Dev(dev_tokens()), hosts())
+}
+
+/// A router whose database is never contacted.
+pub fn offline_router(http: HttpConfig) -> Router {
+    router(offline_state(http))
 }
 
 impl TestApp {

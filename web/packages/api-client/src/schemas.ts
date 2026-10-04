@@ -39,6 +39,15 @@ export type AppointmentId = z.output<typeof appointmentId>;
 export const practitionerId = z.string().min(1).brand<"PractitionerId">();
 export type PractitionerId = z.output<typeof practitionerId>;
 
+export const roomId = z.string().min(1).brand<"RoomId">();
+export type RoomId = z.output<typeof roomId>;
+
+export const leaveId = z.string().min(1).brand<"LeaveId">();
+export type LeaveId = z.output<typeof leaveId>;
+
+export const queueTokenId = z.string().min(1).brand<"QueueTokenId">();
+export type QueueTokenId = z.output<typeof queueTokenId>;
+
 export const qualityRunId = z.string().min(1).brand<"QualityRunId">();
 export type QualityRunId = z.output<typeof qualityRunId>;
 
@@ -250,41 +259,288 @@ export type MySessions = z.output<typeof mySessionsResponse>;
 /** Body of `PATCH /api/v1/patients/{id}`. Fields left out stay as they are. */
 export type PatientChanges = C.PatientChanges;
 
-const appointmentStatus = z.enum([
-  "scheduled",
+export const appointmentStatus = z.enum([
+  "booked",
   "confirmed",
   "arrived",
-  "in_progress",
+  "in_chair",
   "completed",
   "cancelled",
   "no_show",
 ]) satisfies z.ZodType<C.AppointmentStatus>;
 export type AppointmentStatus = z.output<typeof appointmentStatus>;
 
-const todayAppointment = z.object({
+export const appointmentKind = z.enum(["new", "follow_up", "procedure", "emergency"]) satisfies z.ZodType<C.AppointmentKind>;
+export type AppointmentKind = z.output<typeof appointmentKind>;
+
+export const appointmentSource = z.enum(["front_desk", "phone", "website", "app", "whatsapp"]) satisfies z.ZodType<C.AppointmentSource>;
+export type AppointmentSource = z.output<typeof appointmentSource>;
+
+export const bookingWarningCode = z.enum([
+  "practitioner_busy",
+  "practitioner_on_leave",
+  "outside_working_hours",
+]) satisfies z.ZodType<C.BookingWarningCode>;
+export type BookingWarningCode = z.output<typeof bookingWarningCode>;
+
+export const patientBrief = z.object({
+  id: patientId,
+  number: patientNumber,
+  full_name: z.string(),
+  sex,
+  age_years: count.nullable().exactOptional(),
+}) satisfies z.ZodType<C.PatientBrief>;
+export type PatientBrief = z.output<typeof patientBrief>;
+
+export const practitionerBrief = z.object({
+  id: practitionerId,
+  display_name: z.string(),
+  calendar_color: optionalText,
+}) satisfies z.ZodType<C.PractitionerBrief>;
+export type PractitionerBrief = z.output<typeof practitionerBrief>;
+
+export const appointment = z.object({
   id: appointmentId,
+  branch_id: z.string().min(1),
   starts_at: timestamp,
   ends_at: timestamp,
   status: appointmentStatus,
-  kind: z.enum(["new", "follow_up", "procedure", "teleconsult"]),
+  kind: appointmentKind,
+  source: appointmentSource,
   reason: optionalText,
+  notes: optionalText,
+  has_notes: z.boolean(),
   room: optionalText,
+  room_id: roomId.nullable().exactOptional(),
+  patient: patientBrief,
+  practitioner: practitionerBrief,
   arrived_at: optionalTimestamp,
-  patient: z.object({ id: patientId, number: patientNumber, full_name: z.string(), sex, age_years: count.nullable().exactOptional() }),
-  practitioner: z.object({ id: practitionerId, display_name: z.string() }),
-}) satisfies z.ZodType<C.TodayAppointment>;
-export type TodayAppointment = z.output<typeof todayAppointment>;
+  seated_at: optionalTimestamp,
+  completed_at: optionalTimestamp,
+  cancel_reason: optionalText,
+  token_number: count.nullable().exactOptional(),
+}) satisfies z.ZodType<C.Appointment>;
+export type Appointment = z.output<typeof appointment>;
+
+export const appointmentList = z.object({ items: z.array(appointment) }) satisfies z.ZodType<C.AppointmentList>;
+export type AppointmentPage = z.output<typeof appointmentList>;
+
+/** Body of `POST /api/v1/appointments`. */
+export type NewAppointmentBody = C.NewAppointmentBody;
+/** Body of `PATCH /api/v1/appointments/{id}`. Fields left out stay as they are. */
+export type AppointmentChanges = C.AppointmentChanges;
+/** Body of `POST /api/v1/appointments/{id}/status` and `POST /api/v1/queue/{id}/status`. */
+export type StatusChange = C.StatusChange;
+export type TokenStatusChange = C.TokenStatusChange;
+
+export const bookingWarning = z.object({ code: bookingWarningCode, message: z.string() }) satisfies z.ZodType<C.BookingWarning>;
+export type BookingWarning = z.output<typeof bookingWarning>;
+
+export const savedAppointment = z.object({ appointment, warnings: z.array(bookingWarning) }) satisfies z.ZodType<C.SavedAppointment>;
+export type SavedAppointment = z.output<typeof savedAppointment>;
+
+export const statusChanged = z.object({
+  appointment,
+  queue_token_id: queueTokenId.nullable().exactOptional(),
+}) satisfies z.ZodType<C.StatusChanged>;
+export type StatusChanged = z.output<typeof statusChanged>;
+
+// Rooms, practitioners, hours and leave (M3) -----------------------------------------------------
+
+export const roomKind = z.enum(["chair", "room", "lab"]) satisfies z.ZodType<C.RoomKind>;
+export type RoomKind = z.output<typeof roomKind>;
+
+export const room = z.object({
+  id: roomId,
+  branch_id: z.string().min(1),
+  name: z.string(),
+  kind: roomKind,
+  active: z.boolean(),
+  sort_order: count,
+}) satisfies z.ZodType<C.Room>;
+export type Room = z.output<typeof room>;
+
+export const roomList = z.object({ items: z.array(room) }) satisfies z.ZodType<C.RoomList>;
+export type RoomPage = z.output<typeof roomList>;
+
+/** Body of `POST /api/v1/rooms` and `PATCH /api/v1/rooms/{id}`. */
+export type RoomFields = C.RoomFields;
+
+export const practitioner = z.object({
+  id: practitionerId,
+  display_name: z.string(),
+  calendar_color: z.string(),
+  active: z.boolean(),
+  membership_id: membershipId.nullable().exactOptional(),
+  registration_number: optionalText,
+  specialty: optionalText,
+}) satisfies z.ZodType<C.Practitioner>;
+export type Practitioner = z.output<typeof practitioner>;
+
+export const practitionerList = z.object({ items: z.array(practitioner) }) satisfies z.ZodType<C.PractitionerList>;
+export type PractitionerPage = z.output<typeof practitionerList>;
+
+/** Body of `POST /api/v1/practitioners` and `PATCH /api/v1/practitioners/{id}`. */
+export type PractitionerFields = C.PractitionerFields;
+
+const workingShift = z.object({
+  weekday: z.number().int().min(1).max(7),
+  starts: z.string(),
+  ends: z.string(),
+  branch_id: z.string().min(1).nullable().exactOptional(),
+}) satisfies z.ZodType<C.WorkingShift>;
+export type WorkingShift = z.output<typeof workingShift>;
+
+export const workingHours = z.object({ shifts: z.array(workingShift) }) satisfies z.ZodType<C.WorkingHours>;
+export type WorkingHours = z.output<typeof workingHours>;
+
+export const leave = z.object({
+  id: leaveId,
+  practitioner_id: practitionerId,
+  starts_at: timestamp,
+  ends_at: timestamp,
+  reason: optionalText,
+}) satisfies z.ZodType<C.Leave>;
+export type Leave = z.output<typeof leave>;
+
+export const leaveList = z.object({ items: z.array(leave) }) satisfies z.ZodType<C.LeaveList>;
+export type LeavePage = z.output<typeof leaveList>;
+
+/** Body of `POST /api/v1/leave-blocks`. */
+export type NewLeave = C.NewLeave;
+
+// Queue (M3) --------------------------------------------------------------------------------------
+
+export const queueTokenStatus = z.enum(["waiting", "in_chair", "done", "left"]) satisfies z.ZodType<C.QueueTokenStatus>;
+export type QueueTokenStatus = z.output<typeof queueTokenStatus>;
+
+export const queueToken = z.object({
+  id: queueTokenId,
+  branch_id: z.string().min(1),
+  day: date,
+  token_number: count,
+  patient: patientBrief,
+  practitioner: practitionerBrief.nullable().exactOptional(),
+  appointment_id: appointmentId.nullable().exactOptional(),
+  status: queueTokenStatus,
+  issued_at: timestamp,
+  called_at: optionalTimestamp,
+  done_at: optionalTimestamp,
+  wait_minutes: z.number().int().nonnegative(),
+}) satisfies z.ZodType<C.QueueToken>;
+export type QueueToken = z.output<typeof queueToken>;
+
+export const queueDay = z.object({ date, items: z.array(queueToken) }) satisfies z.ZodType<C.QueueDay>;
+export type QueueDayPage = z.output<typeof queueDay>;
+
+/** Body of `POST /api/v1/queue`. */
+export type WalkInBody = C.WalkInBody;
+
+// Today (M3) --------------------------------------------------------------------------------------
+
+export const attentionKind = z.enum(["late_arrival", "long_wait"]) satisfies z.ZodType<C.AttentionKind>;
+export type AttentionKind = z.output<typeof attentionKind>;
+
+const attentionPatient = z.object({ id: patientId, number: patientNumber, full_name: z.string() }) satisfies z.ZodType<C.AttentionPatient>;
+
+export const attentionItem = z.object({
+  kind: attentionKind,
+  message: z.string(),
+  minutes: z.number().int().nonnegative(),
+  patient: attentionPatient,
+  appointment_id: appointmentId.nullable().exactOptional(),
+  queue_token_id: queueTokenId.nullable().exactOptional(),
+}) satisfies z.ZodType<C.AttentionItem>;
+export type AttentionItem = z.output<typeof attentionItem>;
+
+const chairAppointment = z.object({
+  appointment_id: appointmentId,
+  starts_at: timestamp,
+  ends_at: timestamp,
+  status: appointmentStatus,
+  patient: patientBrief,
+  practitioner: practitionerBrief,
+}) satisfies z.ZodType<C.ChairAppointment>;
+
+export const chairOccupancy = z.enum(["in_use", "free"]) satisfies z.ZodType<C.ChairOccupancy>;
+export type ChairOccupancy = z.output<typeof chairOccupancy>;
+
+export const chairStatus = z.object({
+  room_id: roomId,
+  name: z.string(),
+  kind: roomKind,
+  status: chairOccupancy,
+  current: chairAppointment.nullable().exactOptional(),
+  next: chairAppointment.nullable().exactOptional(),
+}) satisfies z.ZodType<C.ChairStatus>;
+export type ChairStatus = z.output<typeof chairStatus>;
+
+const hourBar = z.object({ hour: z.number().int().min(0).max(23), booked: count, completed: count }) satisfies z.ZodType<C.HourBar>;
+export type HourBar = z.output<typeof hourBar>;
+
+const todayShift = z.object({ starts: z.string(), ends: z.string() }) satisfies z.ZodType<C.TodayShift>;
+export type TodayShift = z.output<typeof todayShift>;
+
+const teamMemberToday = z.object({
+  practitioner: practitionerBrief,
+  specialty: optionalText,
+  on_leave: z.boolean(),
+  appointments: count,
+  shifts: z.array(todayShift),
+}) satisfies z.ZodType<C.TeamMemberToday>;
+export type TeamMemberToday = z.output<typeof teamMemberToday>;
+
+export const todayCounts = z.object({
+  total: count,
+  booked: count,
+  arrived: count,
+  in_chair: count,
+  done: count,
+  cancelled: count,
+  no_shows: count,
+  waiting: count,
+}) satisfies z.ZodType<C.TodayCounts>;
+export type TodayCounts = z.output<typeof todayCounts>;
 
 export const todayResponse = z.object({
   date,
   as_of: timestamp,
-  appointments: z.array(todayAppointment),
-  money: z
-    .object({ collected_paise: paise, pending_dues_paise: paise, pending_dues_patients: count })
-    .nullable()
-    .exactOptional(),
+  counts: todayCounts,
+  appointments: z.array(appointment),
+  by_hour: z.array(hourBar),
+  chairs: z.array(chairStatus),
+  attention: z.array(attentionItem),
+  recent_patients: z.array(queueToken),
+  team: z.array(teamMemberToday),
 }) satisfies z.ZodType<C.TodayResponse>;
 export type Today = z.output<typeof todayResponse>;
+
+// Patient import (M3) ------------------------------------------------------------------------
+
+export const importMode = z.enum(["preview", "commit"]) satisfies z.ZodType<C.ImportMode>;
+export type ImportMode = z.output<typeof importMode>;
+
+const importRow = z.object({
+  line: z.number().int().positive(),
+  valid: z.boolean(),
+  errors: z.array(z.string()),
+  patient_id: patientId.nullable().exactOptional(),
+  number: patientNumber.nullable().exactOptional(),
+}) satisfies z.ZodType<C.ImportRow>;
+export type ImportRow = z.output<typeof importRow>;
+
+export const importResult = z.object({
+  mode: importMode,
+  total: count,
+  valid: count,
+  invalid: count,
+  import_id: z.string().min(1).nullable().exactOptional(),
+  rows: z.array(importRow),
+}) satisfies z.ZodType<C.ImportResult>;
+export type ImportResult = z.output<typeof importResult>;
+
+/** Body of `POST /api/v1/imports/patients`. */
+export type PatientImport = C.PatientImport;
 
 // Console host -------------------------------------------------------------------------------
 

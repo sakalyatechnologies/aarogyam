@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p .",
-    "generate": "openapi-typescript ../../../docs/api/openapi.json -o src/generated/openapi.ts --empty-objects-unknown"
+    "generate": "node scripts/generate-openapi.mjs"
   },
   "dependencies": {
     "zod": "^4.6.5"

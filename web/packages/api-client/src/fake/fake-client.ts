@@ -15,11 +15,16 @@ import { failure, parseApiError, success, type ApiResult } from "../result.js";
 import * as S from "../schemas.js";
 import {
   ROLES,
+  type FakeAppointment,
   type FakeClinic,
+  type FakeLeave,
   type FakeMembership,
   type FakePatient,
   type FakePlatformUser,
+  type FakePractitioner,
+  type FakeQueueToken,
   type FakeRole,
+  type FakeRoom,
   type FakeUser,
   type Fixtures,
 } from "./fixtures.js";
@@ -317,8 +322,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!isCaller(caller)) {
             return caller;
           }
-          const withMoney = hasPermission(caller.membership.role.permissions, "finance.view");
-          return reply(buildToday(state, caller.clinic, clock(), withMoney) satisfies C.TodayResponse);
+          return reply(buildToday(state, caller.clinic, clock()) satisfies C.TodayResponse);
         }),
 
       updatePatient: (id, changes, opts) =>
@@ -352,6 +356,744 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (changes.email !== undefined) found.email = changes.email === "" ? null : changes.email;
           if (changes.preferred_language != null) found.preferred_language = changes.preferred_language;
           return reply(wirePatient(found, caller) satisfies C.Patient);
+        }),
+
+      listRooms: (opts) =>
+        respond(S.roomList, opts?.signal, async () => {
+          const caller = await inClinic("appointments.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const items = state.rooms
+            .filter((r) => r.clinic_id === caller.clinic.id)
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map(wireRoom);
+          return reply({ items } satisfies C.RoomList);
+        }),
+
+      addRoom: (input, opts) =>
+        respond(S.room, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const name = (input.name ?? "").trim();
+          if (name.length < 1 || name.length > 60) {
+            return invalid("name", "must be 1 to 60 characters");
+          }
+          const kindParsed = S.roomKind.safeParse(input.kind ?? "chair");
+          if (!kindParsed.success) {
+            return invalid("kind", "must be chair, room or lab");
+          }
+          const sortOrder = input.sort_order ?? state.rooms.filter((r) => r.clinic_id === caller.clinic.id).length;
+          const record: FakeRoom = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            branch_id: input.branch_id ?? caller.clinic.id,
+            name,
+            kind: kindParsed.data,
+            active: input.active ?? true,
+            sort_order: sortOrder,
+          };
+          state.rooms.push(record);
+          return reply(wireRoom(record) satisfies C.Room);
+        }),
+
+      changeRoom: (id, changes, opts) =>
+        respond(S.room, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.rooms.find((r) => r.id === id && r.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (changes.name != null) {
+            const name = changes.name.trim();
+            if (name.length < 1 || name.length > 60) {
+              return invalid("name", "must be 1 to 60 characters");
+            }
+            found.name = name;
+          }
+          if (changes.kind != null) {
+            const kindParsed = S.roomKind.safeParse(changes.kind);
+            if (!kindParsed.success) {
+              return invalid("kind", "must be chair, room or lab");
+            }
+            found.kind = kindParsed.data;
+          }
+          if (changes.active != null) found.active = changes.active;
+          if (changes.sort_order != null) found.sort_order = changes.sort_order;
+          return reply(wireRoom(found) satisfies C.Room);
+        }),
+
+      removeRoom: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.rooms.find((r) => r.id === id && r.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const now = clock().toISOString();
+          const hasUpcoming = state.appointments.some(
+            (a) => a.room_id === id && a.ends_at > now && a.status !== "cancelled" && a.status !== "no_show",
+          );
+          if (hasUpcoming) {
+            return refuse(409, "conflict", "This chair has upcoming appointments.");
+          }
+          state.rooms = state.rooms.filter((r) => r.id !== id);
+          return { ok: true, body: undefined };
+        }),
+
+      listPractitioners: (opts) =>
+        respond(S.practitionerList, opts?.signal, async () => {
+          const caller = await inClinic("appointments.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const items = state.practitioners
+            .filter((p) => p.clinic_id === caller.clinic.id)
+            .sort((a, b) => a.display_name.localeCompare(b.display_name))
+            .map(wirePractitioner);
+          return reply({ items } satisfies C.PractitionerList);
+        }),
+
+      addPractitioner: (input, opts) =>
+        respond(S.practitioner, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const name = (input.display_name ?? "").trim();
+          if (name.length < 1 || name.length > 120) {
+            return invalid("display_name", "must be 1 to 120 characters");
+          }
+          if (input.calendar_color != null && !HEX_COLOR.test(input.calendar_color)) {
+            return invalid("calendar_color", "must be a #RRGGBB colour");
+          }
+          const record: FakePractitioner = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            display_name: name,
+            calendar_color: input.calendar_color ?? "#64748b",
+            active: input.active ?? true,
+            membership_id: input.membership_id ?? null,
+            registration_number: input.registration_number ?? null,
+            specialty: input.specialty ?? null,
+          };
+          state.practitioners.push(record);
+          return reply(wirePractitioner(record) satisfies C.Practitioner);
+        }),
+
+      changePractitioner: (id, changes, opts) =>
+        respond(S.practitioner, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.practitioners.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (changes.display_name != null) {
+            const name = changes.display_name.trim();
+            if (name.length < 1 || name.length > 120) {
+              return invalid("display_name", "must be 1 to 120 characters");
+            }
+            found.display_name = name;
+          }
+          if (changes.calendar_color != null) {
+            if (!HEX_COLOR.test(changes.calendar_color)) {
+              return invalid("calendar_color", "must be a #RRGGBB colour");
+            }
+            found.calendar_color = changes.calendar_color;
+          }
+          if (changes.active != null) found.active = changes.active;
+          if (changes.membership_id !== undefined) found.membership_id = changes.membership_id === "" ? null : changes.membership_id;
+          if (changes.registration_number !== undefined) {
+            found.registration_number = changes.registration_number === "" ? null : changes.registration_number;
+          }
+          if (changes.specialty !== undefined) found.specialty = changes.specialty === "" ? null : changes.specialty;
+          return reply(wirePractitioner(found) satisfies C.Practitioner);
+        }),
+
+      removePractitioner: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.practitioners.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const now = clock().toISOString();
+          const hasUpcoming = state.appointments.some(
+            (a) => a.practitioner_id === id && a.ends_at > now && a.status !== "cancelled" && a.status !== "no_show",
+          );
+          if (hasUpcoming) {
+            return refuse(409, "conflict", "This doctor has upcoming appointments.");
+          }
+          state.practitioners = state.practitioners.filter((p) => p.id !== id);
+          state.workingShifts = state.workingShifts.filter((s) => s.practitioner_id !== id);
+          return { ok: true, body: undefined };
+        }),
+
+      getWorkingHours: (id, opts) =>
+        respond(S.workingHours, opts?.signal, async () => {
+          const caller = await inClinic("appointments.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.practitioners.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          return reply({ shifts: wireShifts(state, id) } satisfies C.WorkingHours);
+        }),
+
+      setWorkingHours: (id, hours, opts) =>
+        respond(S.workingHours, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.practitioners.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          for (const shift of hours.shifts) {
+            if (!Number.isInteger(shift.weekday) || shift.weekday < 1 || shift.weekday > 7) {
+              return invalid("shifts", "weekday must be 1 to 7");
+            }
+            if (shift.starts >= shift.ends) {
+              return invalid("shifts", "end must be after the start");
+            }
+          }
+          state.workingShifts = state.workingShifts.filter((s) => s.practitioner_id !== id);
+          const now = clock();
+          for (const shift of hours.shifts) {
+            state.workingShifts.push({
+              id: fakeUuid(random, now),
+              clinic_id: caller.clinic.id,
+              practitioner_id: id,
+              branch_id: shift.branch_id ?? caller.clinic.id,
+              weekday: shift.weekday,
+              starts: shift.starts,
+              ends: shift.ends,
+            });
+          }
+          return reply({ shifts: wireShifts(state, id) } satisfies C.WorkingHours);
+        }),
+
+      listLeave: (range, opts) =>
+        respond(S.leaveList, opts?.signal, async () => {
+          const caller = await inClinic("appointments.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const fromIso = atLocalTime(range.from, 0, caller.clinic.timezone).toISOString();
+          const toIso = atLocalTime(range.to, 1440, caller.clinic.timezone).toISOString();
+          const items = state.leave
+            .filter((l) => l.clinic_id === caller.clinic.id && l.starts_at < toIso && l.ends_at > fromIso)
+            .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+            .map(wireLeave);
+          return reply({ items } satisfies C.LeaveList);
+        }),
+
+      addLeave: (input, opts) =>
+        respond(S.leave, opts?.signal, async () => {
+          const caller = await inClinic("appointments.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const practitioner = state.practitioners.find((p) => p.id === input.practitioner_id && p.clinic_id === caller.clinic.id);
+          if (practitioner === undefined) {
+            return invalid("practitioner_id", "unknown doctor");
+          }
+          if (Date.parse(input.ends_at) <= Date.parse(input.starts_at)) {
+            return invalid("ends_at", "must be after the start");
+          }
+          const record: FakeLeave = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            practitioner_id: input.practitioner_id,
+            starts_at: input.starts_at,
+            ends_at: input.ends_at,
+            reason: input.reason ?? null,
+          };
+          state.leave.push(record);
+          return reply(wireLeave(record) satisfies C.Leave);
+        }),
+
+      removeLeave: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("appointments.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.leave.find((l) => l.id === id && l.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          state.leave = state.leave.filter((l) => l.id !== id);
+          return { ok: true, body: undefined };
+        }),
+
+      listAppointments: (filter, opts) =>
+        respond(S.appointmentList, opts?.signal, async () => {
+          const caller = await inClinic("appointments.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const fromIso = atLocalTime(filter.from, 0, caller.clinic.timezone).toISOString();
+          const toIso = atLocalTime(filter.to, 1440, caller.clinic.timezone).toISOString();
+          const now = clock();
+          const items = state.appointments
+            .filter((a) => a.clinic_id === caller.clinic.id && a.starts_at >= fromIso && a.starts_at < toIso)
+            .filter((a) => filter.roomId === undefined || a.room_id === filter.roomId)
+            .filter((a) => filter.practitionerId === undefined || a.practitioner_id === filter.practitionerId)
+            .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+            .flatMap((a) => {
+              const wired = wireAppointment(a, state, now);
+              return wired === undefined ? [] : [wired];
+            });
+          return reply({ items } satisfies C.AppointmentList);
+        }),
+
+      bookAppointment: (input, opts) =>
+        respond(S.savedAppointment, opts?.signal, async () => {
+          const caller = await inClinic("appointments.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === input.patient_id)) {
+            return invalid("patient_id", "unknown patient");
+          }
+          const practitioner = state.practitioners.find((p) => p.id === input.practitioner_id && p.clinic_id === caller.clinic.id);
+          if (practitioner === undefined) {
+            return invalid("practitioner_id", "unknown doctor");
+          }
+          const startsAt = input.starts_at;
+          const endsAt = input.ends_at;
+          if (Date.parse(endsAt) <= Date.parse(startsAt)) {
+            return invalid("ends_at", "must be after the start");
+          }
+          const durationMinutes = (Date.parse(endsAt) - Date.parse(startsAt)) / 60_000;
+          if (durationMinutes < 5 || durationMinutes > 720) {
+            return invalid("ends_at", "must be 5 minutes to 12 hours after the start");
+          }
+          let roomId: string | null = null;
+          if (input.room_id != null && input.room_id !== "") {
+            const roomRecord = state.rooms.find((r) => r.id === input.room_id && r.clinic_id === caller.clinic.id);
+            if (roomRecord === undefined) {
+              return invalid("room_id", "unknown chair or room");
+            }
+            const overlap = state.appointments.some(
+              (a) =>
+                a.clinic_id === caller.clinic.id &&
+                a.room_id === input.room_id &&
+                a.status !== "cancelled" &&
+                a.status !== "no_show" &&
+                overlaps(a.starts_at, a.ends_at, startsAt, endsAt),
+            );
+            if (overlap) {
+              return refuse(409, "conflict", "That chair is already booked then.");
+            }
+            roomId = input.room_id;
+          }
+          const warnings = bookingWarnings(state, caller.clinic, input.practitioner_id, startsAt, endsAt, undefined);
+          const record: FakeAppointment = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            branch_id: input.branch_id ?? caller.clinic.id,
+            patient_id: input.patient_id,
+            practitioner_id: input.practitioner_id,
+            room_id: roomId,
+            starts_at: startsAt,
+            ends_at: endsAt,
+            status: "booked",
+            kind: S.appointmentKind.catch("follow_up").parse(input.kind ?? "follow_up"),
+            source: S.appointmentSource.catch("front_desk").parse(input.source ?? "front_desk"),
+            reason: input.reason ?? null,
+            notes: input.notes ?? null,
+            cancel_reason: null,
+            arrived_at: null,
+            seated_at: null,
+            completed_at: null,
+            token_number: null,
+          };
+          state.appointments.push(record);
+          const wired = wireAppointment(record, state, clock());
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply({ appointment: wired, warnings } satisfies C.SavedAppointment);
+        }),
+
+      changeAppointment: (id, changes, opts) =>
+        respond(S.savedAppointment, opts?.signal, async () => {
+          const caller = await inClinic("appointments.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.appointments.find((a) => a.id === id && a.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status === "completed" || found.status === "cancelled" || found.status === "no_show") {
+            return refuse(409, "conflict", "That appointment can't be changed any more.");
+          }
+          const nextStart = changes.starts_at ?? found.starts_at;
+          const nextEnd =
+            changes.ends_at ??
+            (changes.starts_at != null
+              ? new Date(Date.parse(changes.starts_at) + (Date.parse(found.ends_at) - Date.parse(found.starts_at))).toISOString()
+              : found.ends_at);
+          if (Date.parse(nextEnd) <= Date.parse(nextStart)) {
+            return invalid("ends_at", "must be after the start");
+          }
+          const nextRoomId = changes.room_id === undefined ? found.room_id ?? null : changes.room_id === "" ? null : changes.room_id;
+          const nextPractitionerId = changes.practitioner_id ?? found.practitioner_id;
+          if (changes.practitioner_id != null) {
+            const practitioner = state.practitioners.find((p) => p.id === changes.practitioner_id && p.clinic_id === caller.clinic.id);
+            if (practitioner === undefined) {
+              return invalid("practitioner_id", "unknown doctor");
+            }
+          }
+          if (nextRoomId != null) {
+            const roomRecord = state.rooms.find((r) => r.id === nextRoomId && r.clinic_id === caller.clinic.id);
+            if (roomRecord === undefined) {
+              return invalid("room_id", "unknown chair or room");
+            }
+            const overlap = state.appointments.some(
+              (a) =>
+                a.id !== id &&
+                a.clinic_id === caller.clinic.id &&
+                a.room_id === nextRoomId &&
+                a.status !== "cancelled" &&
+                a.status !== "no_show" &&
+                overlaps(a.starts_at, a.ends_at, nextStart, nextEnd),
+            );
+            if (overlap) {
+              return refuse(409, "conflict", "That chair is already booked then.");
+            }
+          }
+          const warnings = bookingWarnings(state, caller.clinic, nextPractitionerId, nextStart, nextEnd, id);
+          found.starts_at = nextStart;
+          found.ends_at = nextEnd;
+          found.room_id = nextRoomId;
+          found.practitioner_id = nextPractitionerId;
+          if (changes.kind != null) found.kind = S.appointmentKind.catch(found.kind).parse(changes.kind);
+          if (changes.reason !== undefined) found.reason = changes.reason === "" ? null : changes.reason;
+          if (changes.notes !== undefined) found.notes = changes.notes === "" ? null : changes.notes;
+          const wired = wireAppointment(found, state, clock());
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply({ appointment: wired, warnings } satisfies C.SavedAppointment);
+        }),
+
+      setAppointmentStatus: (id, change, opts) =>
+        respond(S.statusChanged, opts?.signal, async () => {
+          const caller = await inClinic("appointments.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.appointments.find((a) => a.id === id && a.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const parsedStatus = S.appointmentStatus.safeParse(change.status);
+          if (!parsedStatus.success) {
+            return invalid("status", "unknown status");
+          }
+          const target = parsedStatus.data;
+          if (found.status === "completed" || found.status === "cancelled" || found.status === "no_show") {
+            return refuse(409, "conflict", "That appointment is already finished.");
+          }
+          if (target === "cancelled" && (change.reason ?? "").trim() === "") {
+            return invalid("reason", "a reason is required to cancel");
+          }
+          if (target === "no_show" && found.status !== "booked" && found.status !== "confirmed") {
+            return refuse(409, "conflict", "Only a booked appointment can be marked no-show.");
+          }
+          if (target !== "cancelled" && target !== "no_show") {
+            const currentIndex = APPOINTMENT_ORDER.indexOf(found.status);
+            const targetIndex = APPOINTMENT_ORDER.indexOf(target);
+            if (targetIndex <= currentIndex) {
+              return refuse(409, "conflict", "That status doesn't come next.");
+            }
+          }
+          const now = clock();
+          let queueTokenId: string | null = null;
+          found.status = target;
+          if (target === "cancelled") {
+            found.cancel_reason = change.reason ?? null;
+          } else if (target === "arrived") {
+            found.arrived_at = now.toISOString();
+            const day = localClock(now, caller.clinic.timezone).date;
+            const nextNumber =
+              1 +
+              Math.max(
+                0,
+                ...state.queueTokens
+                  .filter((t) => t.clinic_id === caller.clinic.id && t.branch_id === found.branch_id && t.day === day)
+                  .map((t) => t.token_number),
+              );
+            const token: FakeQueueToken = {
+              id: fakeUuid(random, now),
+              clinic_id: caller.clinic.id,
+              branch_id: found.branch_id,
+              day,
+              token_number: nextNumber,
+              patient_id: found.patient_id,
+              practitioner_id: found.practitioner_id,
+              appointment_id: found.id,
+              status: "waiting",
+              issued_at: now.toISOString(),
+              called_at: null,
+              done_at: null,
+            };
+            state.queueTokens.push(token);
+            found.token_number = nextNumber;
+            queueTokenId = token.id;
+          } else if (target === "in_chair") {
+            found.seated_at = now.toISOString();
+            const token = state.queueTokens.find((t) => t.appointment_id === found.id);
+            if (token !== undefined) {
+              token.status = "in_chair";
+              token.called_at = now.toISOString();
+              queueTokenId = token.id;
+            }
+          } else if (target === "completed") {
+            found.completed_at = now.toISOString();
+            const token = state.queueTokens.find((t) => t.appointment_id === found.id);
+            if (token !== undefined) {
+              token.status = "done";
+              token.done_at = now.toISOString();
+              queueTokenId = token.id;
+            }
+          }
+          const wired = wireAppointment(found, state, now);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply({ appointment: wired, queue_token_id: queueTokenId } satisfies C.StatusChanged);
+        }),
+
+      listQueue: (dateValue, opts) =>
+        respond(S.queueDay, opts?.signal, async () => {
+          const caller = await inClinic("appointments.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const now = clock();
+          const day = dateValue ?? localClock(now, caller.clinic.timezone).date;
+          const items = state.queueTokens
+            .filter((t) => t.clinic_id === caller.clinic.id && t.day === day)
+            .sort((a, b) => a.token_number - b.token_number)
+            .flatMap((t) => {
+              const wired = wireQueueToken(t, state, now);
+              return wired === undefined ? [] : [wired];
+            });
+          return reply({ date: day, items } satisfies C.QueueDay);
+        }),
+
+      addWalkIn: (input, opts) =>
+        respond(S.queueToken, opts?.signal, async () => {
+          const caller = await inClinic("appointments.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === input.patient_id)) {
+            return invalid("patient_id", "unknown patient");
+          }
+          if (input.practitioner_id != null) {
+            const practitioner = state.practitioners.find((p) => p.id === input.practitioner_id && p.clinic_id === caller.clinic.id);
+            if (practitioner === undefined) {
+              return invalid("practitioner_id", "unknown doctor");
+            }
+          }
+          const now = clock();
+          const branchId = input.branch_id ?? caller.clinic.id;
+          const day = localClock(now, caller.clinic.timezone).date;
+          const nextNumber =
+            1 +
+            Math.max(
+              0,
+              ...state.queueTokens
+                .filter((t) => t.clinic_id === caller.clinic.id && t.branch_id === branchId && t.day === day)
+                .map((t) => t.token_number),
+            );
+          const token: FakeQueueToken = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            branch_id: branchId,
+            day,
+            token_number: nextNumber,
+            patient_id: input.patient_id,
+            practitioner_id: input.practitioner_id ?? null,
+            appointment_id: null,
+            status: "waiting",
+            issued_at: now.toISOString(),
+            called_at: null,
+            done_at: null,
+          };
+          state.queueTokens.push(token);
+          const wired = wireQueueToken(token, state, now);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply(wired satisfies C.QueueToken);
+        }),
+
+      setQueueStatus: (id, change, opts) =>
+        respond(S.queueToken, opts?.signal, async () => {
+          const caller = await inClinic("appointments.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.queueTokens.find((t) => t.id === id && t.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const parsed = S.queueTokenStatus.safeParse(change.status);
+          if (!parsed.success || parsed.data === "waiting") {
+            return invalid("status", "must be in_chair, done or left");
+          }
+          if (found.status === "done" || found.status === "left") {
+            return refuse(409, "conflict", "That token is already finished.");
+          }
+          const now = clock();
+          found.status = parsed.data;
+          if (parsed.data === "in_chair") found.called_at = now.toISOString();
+          if (parsed.data === "done" || parsed.data === "left") found.done_at = now.toISOString();
+          if (found.appointment_id != null) {
+            const appt = state.appointments.find((a) => a.id === found.appointment_id);
+            if (appt !== undefined) {
+              if (parsed.data === "in_chair" && appt.status === "arrived") {
+                appt.status = "in_chair";
+                appt.seated_at = now.toISOString();
+              } else if (parsed.data === "done" && appt.status !== "completed") {
+                appt.status = "completed";
+                appt.completed_at = now.toISOString();
+              }
+            }
+          }
+          const wired = wireQueueToken(found, state, now);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply(wired satisfies C.QueueToken);
+        }),
+
+      importPatients: (input, opts) =>
+        respond(S.importResult, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const parsedMode = S.importMode.safeParse(input.mode);
+          if (!parsedMode.success) {
+            return invalid("mode", "must be preview or commit");
+          }
+          const rows = parseCsv(input.csv);
+          if (rows.length < 2) {
+            return invalid("csv", "no data rows found");
+          }
+          if (rows.length > 5001) {
+            return invalid("csv", "at most 5,000 rows");
+          }
+          const header = rows[0] ?? [];
+          const dataRows = rows.slice(1);
+          const columnIndex = new Map<string, number>();
+          for (const [field, column] of Object.entries(input.mapping)) {
+            const index = header.findIndex((h) => h.trim().toLowerCase() === column.trim().toLowerCase());
+            if (index >= 0) columnIndex.set(field, index);
+          }
+          const now = clock();
+          const existingNumbers = state.patients.filter((p) => p.clinic_id === caller.clinic.id).map((p) => Number(p.number.split("-")[1] ?? 0));
+          let nextNumber = 1 + Math.max(0, ...existingNumbers);
+          const resultRows: C.ImportRow[] = [];
+          for (const [rowIndex, cells] of dataRows.entries()) {
+            const line = rowIndex + 2;
+            const get = (field: string): string | undefined => {
+              const index = columnIndex.get(field);
+              const value = index === undefined ? undefined : cells[index];
+              return value?.trim();
+            };
+            const fullName = get("full_name") ?? "";
+            const errors: string[] = [];
+            if (fullName.length < 1 || fullName.length > 200) {
+              errors.push("full_name: must be 1 to 200 characters of text");
+            }
+            const sexRaw = get("sex");
+            let sexValue: C.Sex = "unknown";
+            if (sexRaw != null && sexRaw !== "") {
+              const sexParsed = S.sex.safeParse(sexRaw.toLowerCase());
+              if (sexParsed.success) {
+                sexValue = sexParsed.data;
+              } else {
+                errors.push("sex: must be female, male, other or unknown");
+              }
+            }
+            const phoneRaw = get("phone");
+            const phone = phoneRaw == null || phoneRaw === "" ? null : phoneRaw.startsWith("+") ? phoneRaw : `+91${phoneRaw}`;
+            if (phone != null && !(E164.test(phone) && (!phone.startsWith("+91") || INDIAN_MOBILE.test(phone)))) {
+              errors.push("phone: invalid phone number");
+            }
+            const emailRaw = get("email");
+            if (emailRaw != null && emailRaw !== "" && !EMAIL.test(emailRaw)) {
+              errors.push("email: invalid email address");
+            }
+            const dobRaw = get("date_of_birth");
+            const ageRaw = get("age_years");
+            if (dobRaw != null && dobRaw !== "" && ageRaw != null && ageRaw !== "") {
+              errors.push("date_of_birth: give a date of birth or an age, not both");
+            }
+
+            if (errors.length > 0) {
+              resultRows.push({ line, valid: false, errors, patient_id: null, number: null });
+              continue;
+            }
+            if (input.mode === "commit") {
+              const number = `${caller.clinic.number_prefix}-${String(nextNumber)}`;
+              nextNumber += 1;
+              const record: FakePatient = {
+                clinic_id: caller.clinic.id,
+                id: fakeUuid(random, now),
+                number,
+                full_name: fullName.replace(/\s+/g, " "),
+                sex: sexValue,
+                date_of_birth: dobRaw ?? null,
+                birth_date_estimated: (dobRaw == null || dobRaw === "") && ageRaw != null && ageRaw !== "",
+                phone,
+                email: emailRaw == null || emailRaw === "" ? null : emailRaw,
+                preferred_language: get("preferred_language") ?? "en-IN",
+                status: "active",
+                created_at: now.toISOString(),
+                last_visit_at: null,
+              };
+              state.patients.push(record);
+              resultRows.push({ line, valid: true, errors: [], patient_id: record.id, number: record.number });
+            } else {
+              resultRows.push({ line, valid: true, errors: [], patient_id: null, number: null });
+            }
+          }
+          const validCount = resultRows.filter((r) => r.valid).length;
+          return reply({
+            mode: input.mode,
+            total: resultRows.length,
+            valid: validCount,
+            invalid: resultRows.length - validCount,
+            import_id: input.mode === "commit" ? fakeUuid(random, now) : null,
+            rows: resultRows,
+          } satisfies C.ImportResult);
         }),
 
       listStaff: (opts) =>
@@ -848,60 +1590,334 @@ function validateNewClinic(input: C.NewClinic, slug: string, clinics: readonly F
   return null;
 }
 
-/**
- * Today's schedule with statuses worked out from the clock, held inside clinic hours so the page
- * always has someone in the chair, people waiting and people to come.
- */
-function buildToday(state: Fixtures, clinic: FakeClinic, now: Date, withMoney: boolean): C.TodayResponse {
-  const entries = state.schedule.filter((e) => e.clinic_id === clinic.id).sort((a, b) => a.start_minutes - b.start_minutes);
-  const { date, minutes } = localClock(now, clinic.timezone);
-  const first = entries[0]?.start_minutes ?? 540;
-  const last = entries.at(-1)?.start_minutes ?? 1080;
-  const clockMinutes = Math.min(Math.max(minutes, first + 40), last + 20);
-  const at = (local: number) => atLocalTime(date, local, clinic.timezone).toISOString();
-  let inChair = false;
-  let waiting = 0;
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+const APPOINTMENT_ORDER: readonly C.AppointmentStatus[] = ["booked", "confirmed", "arrived", "in_chair", "completed"];
 
-  const appointments = entries.flatMap((entry, index): C.TodayAppointment[] => {
-    const patient = state.patients.find((p) => p.id === entry.patient_id);
-    if (patient === undefined) {
-      return [];
-    }
-    const end = entry.start_minutes + entry.duration_minutes;
-    let status: C.AppointmentStatus;
-    let arrived: number | null = null;
-    if (entry.outcome === "cancelled") {
-      status = "cancelled";
-    } else if (end <= clockMinutes) {
-      status = entry.outcome === "no_show" ? "no_show" : "completed";
-      arrived = status === "completed" ? entry.start_minutes - 6 : null;
-    } else if (!inChair && entry.start_minutes <= clockMinutes) {
-      status = "in_progress";
-      arrived = entry.start_minutes - 9;
-      inChair = true;
-    } else if (waiting < 2) {
-      status = "arrived";
-      arrived = clockMinutes - (waiting === 0 ? 12 : 5);
-      waiting += 1;
+function wireRoom(r: FakeRoom): C.Room {
+  return { id: r.id, branch_id: r.branch_id, name: r.name, kind: r.kind, active: r.active, sort_order: r.sort_order };
+}
+
+function wirePractitioner(p: FakePractitioner): C.Practitioner {
+  return {
+    id: p.id,
+    display_name: p.display_name,
+    calendar_color: p.calendar_color,
+    active: p.active,
+    membership_id: p.membership_id ?? null,
+    registration_number: p.registration_number ?? null,
+    specialty: p.specialty ?? null,
+  };
+}
+
+function wirePractitionerBrief(p: FakePractitioner): C.PractitionerBrief {
+  return { id: p.id, display_name: p.display_name, calendar_color: p.calendar_color };
+}
+
+function wireLeave(l: FakeLeave): C.Leave {
+  return { id: l.id, practitioner_id: l.practitioner_id, starts_at: l.starts_at, ends_at: l.ends_at, reason: l.reason ?? null };
+}
+
+function wireShifts(state: Fixtures, practitionerId: string): C.WorkingShift[] {
+  return state.workingShifts
+    .filter((s) => s.practitioner_id === practitionerId)
+    .map((s) => ({ weekday: s.weekday, starts: s.starts, ends: s.ends, branch_id: s.branch_id }));
+}
+
+function wirePatientBrief(p: FakePatient, now: Date): C.PatientBrief {
+  return { id: p.id, number: p.number, full_name: p.full_name, sex: p.sex, age_years: ageYears(p.date_of_birth, now) };
+}
+
+function wireAppointment(appt: FakeAppointment, state: Fixtures, now: Date): C.Appointment | undefined {
+  const patient = state.patients.find((p) => p.id === appt.patient_id);
+  const practitioner = state.practitioners.find((p) => p.id === appt.practitioner_id);
+  if (patient === undefined || practitioner === undefined) {
+    return undefined;
+  }
+  const room = appt.room_id == null ? undefined : state.rooms.find((r) => r.id === appt.room_id);
+  return {
+    id: appt.id,
+    branch_id: appt.branch_id,
+    starts_at: appt.starts_at,
+    ends_at: appt.ends_at,
+    status: appt.status,
+    kind: appt.kind,
+    source: appt.source,
+    reason: appt.reason ?? null,
+    notes: appt.notes ?? null,
+    has_notes: appt.notes != null && appt.notes !== "",
+    room: room?.name ?? null,
+    room_id: appt.room_id ?? null,
+    patient: wirePatientBrief(patient, now),
+    practitioner: wirePractitionerBrief(practitioner),
+    arrived_at: appt.arrived_at ?? null,
+    seated_at: appt.seated_at ?? null,
+    completed_at: appt.completed_at ?? null,
+    cancel_reason: appt.cancel_reason ?? null,
+    token_number: appt.token_number ?? null,
+  };
+}
+
+function wireQueueToken(token: FakeQueueToken, state: Fixtures, now: Date): C.QueueToken | undefined {
+  const patient = state.patients.find((p) => p.id === token.patient_id);
+  if (patient === undefined) {
+    return undefined;
+  }
+  const practitioner = token.practitioner_id == null ? null : state.practitioners.find((p) => p.id === token.practitioner_id) ?? null;
+  const waitUntil = token.status === "waiting" ? now.toISOString() : token.called_at ?? token.done_at ?? now.toISOString();
+  const waitMinutes = Math.max(0, Math.round((Date.parse(waitUntil) - Date.parse(token.issued_at)) / 60_000));
+  return {
+    id: token.id,
+    branch_id: token.branch_id,
+    day: token.day,
+    token_number: token.token_number,
+    patient: wirePatientBrief(patient, now),
+    practitioner: practitioner === null ? null : wirePractitionerBrief(practitioner),
+    appointment_id: token.appointment_id ?? null,
+    status: token.status,
+    issued_at: token.issued_at,
+    called_at: token.called_at ?? null,
+    done_at: token.done_at ?? null,
+    wait_minutes: waitMinutes,
+  };
+}
+
+/** Whether two `[start, end)` instants (as ISO strings) overlap. */
+function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+  return Date.parse(aStart) < Date.parse(bEnd) && Date.parse(bStart) < Date.parse(aEnd);
+}
+
+function toMinutes(hhmm: string): number {
+  const [h = 0, m = 0] = hhmm.split(":").map((part) => Number.parseInt(part, 10));
+  return h * 60 + m;
+}
+
+/** 1 Monday to 7 Sunday, for a `YYYY-MM-DD` local date. */
+function isoWeekday(date: string): number {
+  const [year = 1970, month = 1, day = 1] = date.split("-").map((part) => Number.parseInt(part, 10));
+  const jsDay = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  return jsDay === 0 ? 7 : jsDay;
+}
+
+function withinWorkingHours(state: Fixtures, clinic: FakeClinic, practitionerId: string, startsAt: string, endsAt: string): boolean {
+  const start = localClock(new Date(startsAt), clinic.timezone);
+  const end = localClock(new Date(endsAt), clinic.timezone);
+  if (start.date !== end.date) {
+    return false;
+  }
+  const weekday = isoWeekday(start.date);
+  return state.workingShifts
+    .filter((s) => s.clinic_id === clinic.id && s.practitioner_id === practitionerId && s.weekday === weekday)
+    .some((s) => toMinutes(s.starts) <= start.minutes && end.minutes <= toMinutes(s.ends));
+}
+
+/** Warnings for booking or moving an appointment: busy elsewhere, on leave, or outside hours. Never blocks. */
+function bookingWarnings(
+  state: Fixtures,
+  clinic: FakeClinic,
+  practitionerId: string,
+  startsAt: string,
+  endsAt: string,
+  excludeAppointmentId: string | undefined,
+): C.BookingWarning[] {
+  const warnings: C.BookingWarning[] = [];
+  const busy = state.appointments.some(
+    (a) =>
+      a.id !== excludeAppointmentId &&
+      a.clinic_id === clinic.id &&
+      a.practitioner_id === practitionerId &&
+      a.status !== "cancelled" &&
+      a.status !== "no_show" &&
+      overlaps(a.starts_at, a.ends_at, startsAt, endsAt),
+  );
+  if (busy) {
+    warnings.push({ code: "practitioner_busy", message: "This doctor is booked in another chair at this time." });
+  }
+  const onLeave = state.leave.some(
+    (l) => l.clinic_id === clinic.id && l.practitioner_id === practitionerId && overlaps(l.starts_at, l.ends_at, startsAt, endsAt),
+  );
+  if (onLeave) {
+    warnings.push({ code: "practitioner_on_leave", message: "This doctor is on leave at this time." });
+  }
+  if (!withinWorkingHours(state, clinic, practitionerId, startsAt, endsAt)) {
+    warnings.push({ code: "outside_working_hours", message: "This is outside the doctor's working hours." });
+  }
+  return warnings;
+}
+
+/** A small CSV parser: commas, quoted fields (with escaped `""`), and `\n` or `\r\n` line endings. */
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  const pushField = () => {
+    row.push(field);
+    field = "";
+  };
+  const pushRow = () => {
+    pushField();
+    rows.push(row);
+    row = [];
+  };
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch ?? "";
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ",") {
+      pushField();
+    } else if (ch === "\n") {
+      pushRow();
+    } else if (ch === "\r") {
+      // Ignore; a following "\n" ends the row.
     } else {
-      status = index % 3 === 0 ? "scheduled" : "confirmed";
+      field += ch ?? "";
     }
-    return [
-      {
-        id: entry.id,
-        starts_at: at(entry.start_minutes),
-        ends_at: at(end),
-        status,
-        kind: entry.kind,
-        reason: entry.reason,
-        room: entry.room,
-        arrived_at: arrived === null ? null : at(arrived),
-        patient: { id: patient.id, number: patient.number, full_name: patient.full_name, sex: patient.sex, age_years: ageYears(patient.date_of_birth, now) },
-        practitioner: entry.practitioner,
-      },
-    ];
-  });
+  }
+  if (field !== "" || row.length > 0) {
+    pushRow();
+  }
+  return rows.filter((r) => !(r.length === 1 && r[0] === ""));
+}
 
-  const day = state.days.find((d) => d.clinic_id === clinic.id);
-  return { date, as_of: at(clockMinutes), appointments, money: withMoney ? (day?.money ?? null) : null };
+/**
+ * Today at the clinic, from appointments and queue tokens whose status and timing were worked
+ * out once when fixtures built (relative to the fixture's own clock), not recomputed per request.
+ */
+function buildToday(state: Fixtures, clinic: FakeClinic, now: Date): C.TodayResponse {
+  const { date } = localClock(now, clinic.timezone);
+  const todaysAppointments = state.appointments.filter((a) => a.clinic_id === clinic.id && localClock(new Date(a.starts_at), clinic.timezone).date === date);
+  const wired = todaysAppointments.flatMap((a) => {
+    const w = wireAppointment(a, state, now);
+    return w === undefined ? [] : [w];
+  });
+  const todaysTokens = state.queueTokens.filter((t) => t.clinic_id === clinic.id && t.day === date);
+
+  const counts: C.TodayCounts = {
+    total: wired.filter((a) => a.status !== "cancelled").length,
+    booked: wired.filter((a) => a.status === "booked" || a.status === "confirmed").length,
+    arrived: wired.filter((a) => a.status === "arrived").length,
+    in_chair: wired.filter((a) => a.status === "in_chair").length,
+    done: wired.filter((a) => a.status === "completed").length,
+    cancelled: wired.filter((a) => a.status === "cancelled").length,
+    no_shows: wired.filter((a) => a.status === "no_show").length,
+    waiting: todaysTokens.filter((t) => t.status === "waiting").length,
+  };
+
+  const byHour = new Map<number, { booked: number; completed: number }>();
+  for (const a of wired) {
+    if (a.status === "cancelled") continue;
+    const hour = Number(new Intl.DateTimeFormat("en-IN", { hour: "numeric", hourCycle: "h23", timeZone: clinic.timezone }).format(new Date(a.starts_at)));
+    const bucket = byHour.get(hour) ?? { booked: 0, completed: 0 };
+    bucket.booked += 1;
+    if (a.status === "completed") bucket.completed += 1;
+    byHour.set(hour, bucket);
+  }
+  const by_hour: C.HourBar[] = [...byHour.entries()].sort((a, b) => a[0] - b[0]).map(([hour, v]) => ({ hour, booked: v.booked, completed: v.completed }));
+
+  const toChairAppointment = (a: C.Appointment): C.ChairAppointment => ({
+    appointment_id: a.id,
+    starts_at: a.starts_at,
+    ends_at: a.ends_at,
+    status: a.status,
+    patient: a.patient,
+    practitioner: a.practitioner,
+  });
+  const chairs: C.ChairStatus[] = state.rooms
+    .filter((r) => r.clinic_id === clinic.id && r.active && r.kind === "chair")
+    .map((r) => {
+      const roomAppointments = wired
+        .filter((a) => a.room_id === r.id && a.status !== "cancelled" && a.status !== "no_show")
+        .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+      const current = roomAppointments.find((a) => a.status === "in_chair");
+      const next = roomAppointments.find(
+        (a) => a.id !== current?.id && (a.status === "booked" || a.status === "confirmed" || a.status === "arrived"),
+      );
+      return {
+        room_id: r.id,
+        name: r.name,
+        kind: r.kind,
+        status: current === undefined ? "free" : "in_use",
+        current: current === undefined ? null : toChairAppointment(current),
+        next: next === undefined ? null : toChairAppointment(next),
+      } satisfies C.ChairStatus;
+    });
+
+  const attention: C.AttentionItem[] = [];
+  for (const a of wired) {
+    if (a.status !== "booked" && a.status !== "confirmed") continue;
+    const lateMinutes = Math.round((now.getTime() - Date.parse(a.starts_at)) / 60_000);
+    if (lateMinutes >= 15) {
+      attention.push({
+        kind: "late_arrival",
+        message: `${String(lateMinutes)} minutes late`,
+        minutes: lateMinutes,
+        patient: { id: a.patient.id, number: a.patient.number, full_name: a.patient.full_name },
+        appointment_id: a.id,
+        queue_token_id: null,
+      });
+    }
+  }
+  for (const t of todaysTokens) {
+    if (t.status !== "waiting") continue;
+    const waitMinutes = Math.max(0, Math.round((now.getTime() - Date.parse(t.issued_at)) / 60_000));
+    if (waitMinutes < 30) continue;
+    const patient = state.patients.find((p) => p.id === t.patient_id);
+    if (patient === undefined) continue;
+    attention.push({
+      kind: "long_wait",
+      message: `Waiting ${String(waitMinutes)} minutes`,
+      minutes: waitMinutes,
+      patient: { id: patient.id, number: patient.number, full_name: patient.full_name },
+      appointment_id: t.appointment_id ?? null,
+      queue_token_id: t.id,
+    });
+  }
+  attention.sort((a, b) => b.minutes - a.minutes);
+
+  const recent_patients = todaysTokens
+    .slice()
+    .sort((a, b) => b.issued_at.localeCompare(a.issued_at))
+    .flatMap((t) => {
+      const w = wireQueueToken(t, state, now);
+      return w === undefined ? [] : [w];
+    })
+    .slice(0, 10);
+
+  const weekday = isoWeekday(date);
+  const dayStart = atLocalTime(date, 0, clinic.timezone).toISOString();
+  const dayEnd = atLocalTime(date, 1440, clinic.timezone).toISOString();
+  const team: C.TeamMemberToday[] = state.practitioners
+    .filter((p) => p.clinic_id === clinic.id && p.active)
+    .map((p) => {
+      const shifts = state.workingShifts
+        .filter((s) => s.clinic_id === clinic.id && s.practitioner_id === p.id && s.weekday === weekday)
+        .map((s): C.TodayShift => ({ starts: s.starts, ends: s.ends }));
+      const onLeave = state.leave.some((l) => l.clinic_id === clinic.id && l.practitioner_id === p.id && overlaps(l.starts_at, l.ends_at, dayStart, dayEnd));
+      const appointments = wired.filter((a) => a.practitioner.id === p.id && a.status !== "cancelled").length;
+      return { practitioner: wirePractitionerBrief(p), specialty: p.specialty ?? null, on_leave: onLeave, appointments, shifts } satisfies C.TeamMemberToday;
+    })
+    .filter((member) => member.shifts.length > 0);
+
+  return {
+    date,
+    as_of: now.toISOString(),
+    counts,
+    appointments: wired,
+    by_hour,
+    chairs,
+    attention,
+    recent_patients,
+    team,
+  };
 }

@@ -2,28 +2,41 @@
 
 import type { z } from "zod";
 
-import type { ApiClient } from "./client.js";
+import type { ApiClient, DateRange } from "./client.js";
 import { failure, parseApiError, success, type ApiResult } from "./result.js";
 import {
+  appointmentList,
   clinicSettings,
   consoleClinics,
   createdClinic,
   createdInvitation,
   devTokenResponse,
+  importResult,
   joined,
+  leave,
+  leaveList,
   meResponse,
   member,
   metricsResponse,
   mySessionsResponse,
   patient,
   patientList,
+  practitioner,
+  practitionerList,
   qualityReport,
+  queueDay,
+  queueToken,
   requestId,
+  room,
+  roomList,
   rolesResponse,
+  savedAppointment,
   sessionResponse,
   staffResponse,
+  statusChanged,
   todayResponse,
   voidResponse,
+  workingHours,
   type RequestId,
 } from "./schemas.js";
 
@@ -38,7 +51,7 @@ export interface HttpClientOptions {
 type Query = Readonly<Record<string, string | number | undefined>>;
 
 interface Call<T> {
-  method: "GET" | "POST" | "PATCH";
+  method: "GET" | "POST" | "PATCH" | "DELETE";
   path: string;
   schema: z.ZodType<T>;
   query?: Query;
@@ -121,6 +134,61 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     updatePatient: (id, changes, opts) =>
       call({ method: "PATCH", path: `/api/v1/patients/${encodeURIComponent(id)}`, schema: patient, body: changes, signal: opts?.signal }),
 
+    listRooms: (opts) => call({ method: "GET", path: "/api/v1/rooms", schema: roomList, signal: opts?.signal }),
+    addRoom: (input, opts) => call({ method: "POST", path: "/api/v1/rooms", schema: room, body: input, signal: opts?.signal }),
+    changeRoom: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/rooms/${encodeURIComponent(id)}`, schema: room, body: changes, signal: opts?.signal }),
+    removeRoom: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/rooms/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+
+    listPractitioners: (opts) => call({ method: "GET", path: "/api/v1/practitioners", schema: practitionerList, signal: opts?.signal }),
+    addPractitioner: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/practitioners", schema: practitioner, body: input, signal: opts?.signal }),
+    changePractitioner: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/practitioners/${encodeURIComponent(id)}`, schema: practitioner, body: changes, signal: opts?.signal }),
+    removePractitioner: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/practitioners/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+    getWorkingHours: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/practitioners/${encodeURIComponent(id)}/working-hours`, schema: workingHours, signal: opts?.signal }),
+    setWorkingHours: (id, hours, opts) =>
+      call({
+        method: "PATCH",
+        path: `/api/v1/practitioners/${encodeURIComponent(id)}/working-hours`,
+        schema: workingHours,
+        body: hours,
+        signal: opts?.signal,
+      }),
+
+    listLeave: (range, opts) =>
+      call({ method: "GET", path: "/api/v1/leave-blocks", schema: leaveList, query: dateQuery(range), signal: opts?.signal }),
+    addLeave: (input, opts) => call({ method: "POST", path: "/api/v1/leave-blocks", schema: leave, body: input, signal: opts?.signal }),
+    removeLeave: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/leave-blocks/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+
+    listAppointments: (filter, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/appointments",
+        schema: appointmentList,
+        query: { ...dateQuery(filter), room_id: filter.roomId, practitioner_id: filter.practitionerId },
+        signal: opts?.signal,
+      }),
+    bookAppointment: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/appointments", schema: savedAppointment, body: input, signal: opts?.signal }),
+    changeAppointment: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/appointments/${encodeURIComponent(id)}`, schema: savedAppointment, body: changes, signal: opts?.signal }),
+    setAppointmentStatus: (id, change, opts) =>
+      call({ method: "POST", path: `/api/v1/appointments/${encodeURIComponent(id)}/status`, schema: statusChanged, body: change, signal: opts?.signal }),
+
+    listQueue: (dateValue, opts) =>
+      call({ method: "GET", path: "/api/v1/queue", schema: queueDay, query: { date: dateValue }, signal: opts?.signal }),
+    addWalkIn: (input, opts) => call({ method: "POST", path: "/api/v1/queue", schema: queueToken, body: input, signal: opts?.signal }),
+    setQueueStatus: (id, change, opts) =>
+      call({ method: "POST", path: `/api/v1/queue/${encodeURIComponent(id)}/status`, schema: queueToken, body: change, signal: opts?.signal }),
+
+    importPatients: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/imports/patients", schema: importResult, body: input, signal: opts?.signal }),
+
     listStaff: (opts) => call({ method: "GET", path: "/api/v1/staff", schema: staffResponse, signal: opts?.signal }),
     inviteStaff: (input, opts) =>
       call({ method: "POST", path: "/api/v1/staff/invitations", schema: createdInvitation, body: input, signal: opts?.signal }),
@@ -145,6 +213,10 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     getQualityReport: (opts) =>
       call({ method: "GET", path: "/api/v1/console/quality", schema: qualityReport, signal: opts?.signal }),
   };
+}
+
+function dateQuery(range: DateRange): Query {
+  return { from: range.from, to: range.to };
 }
 
 function toSearch(query: Query | undefined): string {

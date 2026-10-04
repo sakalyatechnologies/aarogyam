@@ -272,23 +272,21 @@ describe("Patient 360", () => {
 });
 
 describe("Today enrichment", () => {
-  it("shows a clear empty state for each widget that has no milestone yet", async () => {
-    renderPortal("/today", { as: PEOPLE.farah });
+  it("shows real chair status and team today, and keeps money and billing widgets as M5 placeholders", async () => {
+    renderPortal("/today", { as: PEOPLE.asha });
     await screen.findByText("Today's appointments");
-    expect(screen.getByText("Nothing needs attention")).toBeTruthy();
-    expect(screen.getByText("Chair status isn't available yet")).toBeTruthy();
+    expect(screen.getByText("Today's collection")).toBeTruthy();
+    expect(screen.getAllByText("Chair 1").length).toBeGreaterThan(0);
     expect(screen.getByText("Revenue mix isn't available yet")).toBeTruthy();
     expect(screen.getByText("Pending payments aren't available yet")).toBeTruthy();
-    expect(screen.getByText("Team today isn't available yet")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Recent patients" })).toBeTruthy();
   });
 
-  it("feeds Recent patients from today's completed appointments", async () => {
+  it("feeds Recent patients from today's queue tokens", async () => {
     renderPortal("/today", { as: PEOPLE.farah });
     const table = await screen.findByRole("table", { name: "Recent patients" });
-    // The fake day's schedule always has some appointments that finished before the fixed clock.
+    // The fake day's schedule always has someone who has arrived before the fixed clock.
     expect(within(table).getAllByRole("rowheader").length).toBeGreaterThan(0);
-    expect(within(table).getAllByText("Completed").length).toBeGreaterThan(0);
   });
 });
 

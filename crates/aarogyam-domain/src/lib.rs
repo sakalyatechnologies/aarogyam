@@ -6,14 +6,20 @@
 //! this crate adds the clinic's concepts on top: who may act ([`access`]), the permission
 //! catalogue ([`permission`]), typed identifiers ([`ids`]), patients ([`patient`]), patient
 //! search ([`search`]), the clinic's own settings ([`clinic`]), staff ([`staff`]), queued
-//! messages ([`outbox`]) and business event names ([`event`]).
+//! messages ([`outbox`]), business event names ([`event`]), and the clinical record: visits and
+//! notes ([`clinical`]), vital signs ([`vitals`]), the dental chart ([`dental`]) and patient
+//! files ([`files`]).
 
 pub mod access;
 pub mod clinic;
+pub mod clinical;
+pub mod dental;
 pub mod event;
+pub mod files;
 pub mod ids;
 pub mod outbox;
 pub mod patient;
 pub mod permission;
 pub mod search;
 pub mod staff;
+pub mod vitals;

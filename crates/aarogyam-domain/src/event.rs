@@ -20,6 +20,24 @@ pub enum Event {
     MessageRetried,
     /// A queued message failed for the last time.
     MessageFailed,
+    /// A visit was started.
+    VisitStarted,
+    /// A visit was closed.
+    VisitClosed,
+    /// A clinical note was signed.
+    NoteSigned,
+    /// An addendum was added to a signed note.
+    NoteAmended,
+    /// A clinical record was marked entered in error.
+    RecordRetracted,
+    /// A treatment plan was accepted.
+    TreatmentPlanAccepted,
+    /// A procedure was done.
+    ProcedureCompleted,
+    /// A patient file was uploaded.
+    AttachmentUploaded,
+    /// A patient file was downloaded.
+    AttachmentDownloaded,
 }
 
 impl Event {
@@ -35,6 +53,15 @@ impl Event {
             Self::MessageSent => "message.sent",
             Self::MessageRetried => "message.retried",
             Self::MessageFailed => "message.failed",
+            Self::VisitStarted => "visit.started",
+            Self::VisitClosed => "visit.closed",
+            Self::NoteSigned => "note.signed",
+            Self::NoteAmended => "note.amended",
+            Self::RecordRetracted => "record.retracted",
+            Self::TreatmentPlanAccepted => "treatment_plan.accepted",
+            Self::ProcedureCompleted => "procedure.completed",
+            Self::AttachmentUploaded => "attachment.uploaded",
+            Self::AttachmentDownloaded => "attachment.downloaded",
         }
     }
 }

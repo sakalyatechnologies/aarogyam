@@ -3,7 +3,9 @@ import { Navigate, Outlet, type RouteObject } from "react-router";
 import { RouterLinks } from "@aarogyam/app-kit";
 
 import { ConsoleLayout, RequireAuth } from "./layout/console-layout.js";
+import { ApplicationsPage } from "./pages/applications/applications-page.js";
 import { AuthCallbackPage } from "./pages/auth-callback-page.js";
+import { ClinicDetailPage } from "./pages/clinics/clinic-detail-page.js";
 import { ClinicsPage } from "./pages/clinics/clinics-page.js";
 import { NewClinicPage } from "./pages/clinics/new-clinic-page.js";
 import { HealthPage } from "./pages/health/health-page.js";
@@ -29,8 +31,10 @@ export const routes: RouteObject[] = [
             children: [
               { index: true, element: <Navigate to="/health" replace /> },
               { path: "health", element: <HealthPage /> },
+              { path: "applications", element: <ApplicationsPage /> },
               { path: "clinics", element: <ClinicsPage /> },
               { path: "clinics/new", element: <NewClinicPage /> },
+              { path: "clinics/:id", element: <ClinicDetailPage /> },
               { path: "*", element: <NotFoundPage /> },
             ],
           },

@@ -4,13 +4,22 @@ import { useNavigate } from "react-router";
 
 import type { ConsoleClinic } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatNumber, useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, Card, DataTable, Field, PageHeader, TextInput, type DataTableColumn } from "@sakalya/ui";
+import { Button, Card, DataTable, Field, Link, PageHeader, TextInput, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinics } from "../../api.js";
 import { ClinicStatusPill } from "./clinic-status.js";
 
 const COLUMNS: readonly DataTableColumn<ConsoleClinic>[] = [
-  { id: "name", header: "Clinic", cell: (row) => <span className="font-semibold">{row.name}</span>, sortValue: (row) => row.name },
+  {
+    id: "name",
+    header: "Clinic",
+    cell: (row) => (
+      <Link href={`/clinics/${row.id}`} className="font-semibold text-text hover:underline">
+        {row.name}
+      </Link>
+    ),
+    sortValue: (row) => row.name,
+  },
   {
     id: "address",
     header: "Portal",

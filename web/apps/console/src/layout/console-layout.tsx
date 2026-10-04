@@ -1,4 +1,4 @@
-import { Activity, Building2, LogOut } from "lucide-react";
+import { Activity, Building2, Inbox, LogOut } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router";
 
 import { renderRouterLink } from "@aarogyam/app-kit";
@@ -9,6 +9,7 @@ import { ConsoleBrand } from "../brand.js";
 
 const NAV: readonly NavEntry[] = [
   { id: "health", label: "Service health", icon: <Activity />, href: "/health" },
+  { id: "applications", label: "Applications", icon: <Inbox />, href: "/applications" },
   { id: "clinics", label: "Clinics", icon: <Building2 />, href: "/clinics" },
 ];
 

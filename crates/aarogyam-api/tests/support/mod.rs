@@ -7,7 +7,11 @@
     reason = "each test binary uses a different part of this shared module"
 )]
 
+use std::path::PathBuf;
+use std::sync::Arc;
+
 use aarogyam_api::{AppState, DevTokens, Hosts, TokenCheck, router};
+use aarogyam_app::files::{Files, LinkSigner, LocalDisk};
 use axum::Router;
 use axum::body::{Body, to_bytes};
 use axum::http::{Method, Request, StatusCode};
@@ -23,6 +27,8 @@ use uuid::Uuid;
 pub const ALPHA: &str = "alpha.localtest.me";
 pub const BETA: &str = "beta.localtest.me";
 pub const CONSOLE: &str = "console.localtest.me";
+/// The secret the test API signs download links with.
+pub const FILE_KEY: &[u8] = b"test-file-signing-key-0123456789abcdef";
 
 /// People in the test seed, by their Supabase Auth id.
 pub mod people {
@@ -78,6 +84,8 @@ pub struct TestApp {
     admin: PgConnectOptions,
     database: String,
     api_url: String,
+    /// Where the test API keeps patient files.
+    pub files_dir: PathBuf,
 }
 
 fn admin_options() -> PgConnectOptions {
@@ -172,12 +180,14 @@ impl TestApp {
             admin.get_port()
         );
         let db = Db::connect_lazy(&DbConfig::new(SecretString::from(api_url.clone()))).unwrap();
-        let router = router(adjust(AppState::new(
-            db,
-            http,
-            TokenCheck::Dev(dev_tokens()),
-            hosts(),
-        )));
+        let files_dir = std::env::temp_dir().join(format!("aarogyam-files-{database}"));
+        let files = Files::new(
+            Arc::new(LocalDisk::new(&files_dir)),
+            LinkSigner::new(FILE_KEY).unwrap(),
+        );
+        let router = router(adjust(
+            AppState::new(db, http, TokenCheck::Dev(dev_tokens()), hosts()).with_files(files),
+        ));
         Self {
             router,
             tokens: dev_tokens(),
@@ -185,6 +195,7 @@ impl TestApp {
             admin,
             database,
             api_url,
+            files_dir,
         }
     }
 
@@ -232,6 +243,7 @@ impl TestApp {
 
     /// Drops the database. Called at the end of each test; a failed test leaves it for inspection.
     pub async fn finish(self) {
+        let _ = std::fs::remove_dir_all(&self.files_dir);
         self.owner.close().await;
         let pool = PgPoolOptions::new()
             .max_connections(1)

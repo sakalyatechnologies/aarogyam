@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.queue_tokens\n             (id, branch_id, day, token_number, patient_id, appointment_id, practitioner_id, issued_at)\n           values ($1, $2, $3, $4, $5, $6, $7, $8)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Int4",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1e1a32cbd5292253b39037765b4a18582b2ffafc9073d050ca62c932b28ee4d0"
+}

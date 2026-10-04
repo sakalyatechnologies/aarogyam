@@ -4,6 +4,66 @@
  */
 
 export interface paths {
+    "/api/v1/appointments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Appointments starting on the clinic's local days `from` to `to`, cancelled ones included. */
+        get: operations["list_appointments"];
+        put?: never;
+        /**
+         * Books an appointment. Two active bookings can't overlap in one chair (`409`); a doctor
+         *     booked in another chair at the same time, on leave, or outside their hours is allowed, with
+         *     `warnings`.
+         */
+        post: operations["book"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/appointments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Moves, reassigns or edits an appointment that isn't completed, cancelled or a no-show. */
+        patch: operations["change_appointment"];
+        trace?: never;
+    };
+    "/api/v1/appointments/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Moves an appointment along: booked → confirmed → arrived → in the chair → completed, or
+         *     cancelled (with a reason) or no-show before arrival. Arriving issues the branch's next queue
+         *     token for the clinic day.
+         */
+        post: operations["set_appointment_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/clinics": {
         parameters: {
             query?: never;
@@ -56,6 +116,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/imports/patients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Imports patients from CSV. Preview checks every row like a registration; commit registers
+         *     the valid rows in one transaction with numbers from the clinic's sequence, keeps
+         *     `file_number` and `legacy_id` as identifiers, and records the import and each row's result.
+         */
+        post: operations["import_patients"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/internal/outbox/drain": {
         parameters: {
             query?: never;
@@ -91,6 +172,41 @@ export interface paths {
          */
         post: operations["accept"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave-blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Leave overlapping the local days `from` to `to`. */
+        get: operations["leave"];
+        put?: never;
+        /** Records a doctor's leave. Bookings already made stay; new ones get a warning. */
+        post: operations["add_leave"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave-blocks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Removes leave. */
+        delete: operations["remove_leave"];
         options?: never;
         head?: never;
         patch?: never;
@@ -206,6 +322,130 @@ export interface paths {
         patch: operations["edit"];
         trace?: never;
     };
+    "/api/v1/patients/{id}/identifiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A patient's other numbers: file number, legacy ID, smart card, ABHA. */
+        get: operations["identifiers"];
+        put?: never;
+        /** Adds a number to a patient. Each number belongs to one patient per clinic and kind. */
+        post: operations["add_identifier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/identifiers/{identifier_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Removes a number from a patient. */
+        delete: operations["remove_identifier"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/practitioners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's doctors, by name. */
+        get: operations["practitioners"];
+        put?: never;
+        /** Adds a doctor. */
+        post: operations["add_practitioner"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/practitioners/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Removes a doctor with no upcoming appointments, and their weekly hours. */
+        delete: operations["remove_practitioner"];
+        options?: never;
+        head?: never;
+        /** Changes a doctor's details. */
+        patch: operations["change_practitioner"];
+        trace?: never;
+    };
+    "/api/v1/practitioners/{id}/working-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A doctor's weekly hours. */
+        get: operations["hours"];
+        /** Replaces a doctor's weekly hours. An empty list clears them. */
+        put: operations["set_hours"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The queue of a clinic day, with each token's wait. */
+        get: operations["list_queue"];
+        put?: never;
+        /** Issues a token to a patient without an appointment. */
+        post: operations["walk_in"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/queue/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Moves a token along. A token with an appointment moves the appointment too. */
+        post: operations["set_queue_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/roles": {
         parameters: {
             query?: never;
@@ -221,6 +461,42 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rooms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's chairs and rooms, in list order. */
+        get: operations["rooms"];
+        put?: never;
+        /** Adds a chair or room. */
+        post: operations["add_room"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rooms/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Removes a chair or room with no upcoming appointments. */
+        delete: operations["remove_room"];
+        options?: never;
+        head?: never;
+        /** Renames, moves, retires or reorders a chair or room. */
+        patch: operations["change_room"];
         trace?: never;
     };
     "/api/v1/session": {
@@ -272,7 +548,7 @@ export interface paths {
             cookie?: never;
         };
         /** The clinic's members, with their roles, status and branches, and pending invitations. */
-        get: operations["list"];
+        get: operations["list_staff"];
         put?: never;
         post?: never;
         delete?: never;
@@ -319,7 +595,27 @@ export interface paths {
          *     changes their own role, only owners make or change owners, and the last active owner
          *     can't be suspended, removed or demoted.
          */
-        patch: operations["change"];
+        patch: operations["change_staff"];
+        trace?: never;
+    };
+    "/api/v1/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Today's schedule, chairs, counts, appointments by hour, recent patients, the team on duty
+         *     and the attention list, in the clinic's time zone.
+         */
+        get: operations["today"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/healthz": {
@@ -366,12 +662,146 @@ export interface components {
             /** @description State or union territory. */
             state?: string | null;
         };
+        /** @description An appointment. */
+        Appointment: {
+            /** @description When the patient arrived (RFC 3339). */
+            arrived_at?: string | null;
+            /** @description Branch. */
+            branch_id: string;
+            /** @description Why it was cancelled. */
+            cancel_reason?: string | null;
+            /** @description When the visit ended (RFC 3339). */
+            completed_at?: string | null;
+            /** @description End (RFC 3339, UTC). */
+            ends_at: string;
+            /** @description Whether there is a front-desk note. */
+            has_notes: boolean;
+            /** @description The appointment. */
+            id: string;
+            /** @description `new`, `follow_up`, `procedure` or `emergency`. */
+            kind: string;
+            /** @description Front-desk note. */
+            notes?: string | null;
+            /** @description The patient. */
+            patient: components["schemas"]["PatientBrief"];
+            /** @description The doctor. */
+            practitioner: components["schemas"]["PractitionerBrief"];
+            /** @description Reason for the visit. */
+            reason?: string | null;
+            /** @description The room's name. */
+            room?: string | null;
+            /** @description Chair or room, if booked into one. */
+            room_id?: string | null;
+            /** @description When they sat in the chair (RFC 3339). */
+            seated_at?: string | null;
+            /** @description `front_desk`, `phone`, `website`, `app` or `whatsapp`. */
+            source: string;
+            /** @description Start (RFC 3339, UTC). */
+            starts_at: string;
+            /** @description `booked`, `confirmed`, `arrived`, `in_chair`, `completed`, `cancelled` or `no_show`. */
+            status: string;
+            /**
+             * Format: int32
+             * @description The day's queue token number, once arrived.
+             */
+            token_number?: number | null;
+        };
+        /**
+         * @description Changes to an appointment. Fields left out stay as they are; an empty `room_id`, `reason`
+         *     or `notes` clears it. A new start without a new end keeps the length.
+         */
+        AppointmentChanges: {
+            /** @description New end (RFC 3339). */
+            ends_at?: string | null;
+            /** @description `new`, `follow_up`, `procedure` or `emergency`. */
+            kind?: string | null;
+            /** @description Front-desk note; empty to clear. */
+            notes?: string | null;
+            /** @description Another doctor. */
+            practitioner_id?: string | null;
+            /** @description Reason for the visit; empty to clear. */
+            reason?: string | null;
+            /** @description Another chair or room; empty for none. */
+            room_id?: string | null;
+            /** @description New start (RFC 3339). */
+            starts_at?: string | null;
+        };
+        /** @description Appointments in a range. */
+        AppointmentList: {
+            /** @description By start. */
+            items: components["schemas"]["Appointment"][];
+        };
+        /** @description Something the front desk should look at. */
+        AttentionItem: {
+            /** @description The appointment, if any. */
+            appointment_id?: string | null;
+            /**
+             * @description `late_arrival` (not arrived 15 minutes after the start) or `long_wait` (waiting over 30
+             *     minutes).
+             */
+            kind: string;
+            /** @description What to show, without patient details. */
+            message: string;
+            /**
+             * Format: int64
+             * @description Minutes late, or minutes waited.
+             */
+            minutes: number;
+            /** @description The patient. */
+            patient: components["schemas"]["AttentionPatient"];
+            /** @description The queue token, if any. */
+            queue_token_id?: string | null;
+        };
+        /** @description The patient an attention item is about. */
+        AttentionPatient: {
+            /** @description Full name. */
+            full_name: string;
+            /** @description The patient. */
+            id: string;
+            /** @description Readable number. */
+            number: string;
+        };
+        /** @description Something worth knowing that didn't stop the booking. */
+        BookingWarning: {
+            /** @description `practitioner_busy`, `practitioner_on_leave` or `outside_working_hours`. */
+            code: string;
+            /** @description What to tell the front desk. */
+            message: string;
+        };
         /** @description The portal's look. */
         Branding: {
             /** @description Brand colour, `#RRGGBB`. */
             brand?: string | null;
             /** @description `light` or `dark`. */
             mode?: string | null;
+        };
+        /** @description An appointment as a chair tile shows it. */
+        ChairAppointment: {
+            /** @description The appointment. */
+            appointment_id: string;
+            /** @description End (RFC 3339). */
+            ends_at: string;
+            /** @description The patient. */
+            patient: components["schemas"]["PatientBrief"];
+            /** @description The doctor. */
+            practitioner: components["schemas"]["PractitionerBrief"];
+            /** @description Start (RFC 3339). */
+            starts_at: string;
+            /** @description Its status. */
+            status: string;
+        };
+        /** @description A chair right now. */
+        ChairStatus: {
+            current?: components["schemas"]["ChairAppointment"] | null;
+            /** @description `chair`, `room` or `lab`. */
+            kind: string;
+            /** @description Its name. */
+            name: string;
+            next?: components["schemas"]["ChairAppointment"] | null;
+            /** @description The room. */
+            room_id: string;
+            /** @description `in_use` while a patient is in it, otherwise `free`. */
+            status: string;
         };
         /** @description The clinic's settings. */
         ClinicSettings: {
@@ -515,12 +945,70 @@ export interface components {
             /** @description Delivered. */
             sent: number;
         };
+        /** @description Appointments starting in one local hour. */
+        HourBar: {
+            /** @description Appointments, not counting cancelled ones. */
+            booked: number;
+            /** @description Of those, completed. */
+            completed: number;
+            /**
+             * Format: int32
+             * @description Local hour, 0 to 23.
+             */
+            hour: number;
+        };
+        /** @description An import's result. */
+        ImportResult: {
+            /** @description The recorded import, on commit. */
+            import_id?: string | null;
+            /** @description Rows with errors. */
+            invalid: number;
+            /** @description `preview` or `commit`. */
+            mode: string;
+            /** @description Every row, in file order. */
+            rows: components["schemas"]["ImportRow"][];
+            /** @description Rows read. */
+            total: number;
+            /** @description Rows that are (or were) imported. */
+            valid: number;
+        };
+        /** @description One row's result. */
+        ImportRow: {
+            /** @description What is wrong, as `field: problem`. */
+            errors: string[];
+            /** @description Line in the file (the header is line 1). */
+            line: number;
+            /** @description Their new number, on commit. */
+            number?: string | null;
+            /** @description The patient registered, on commit. */
+            patient_id?: string | null;
+            /** @description Whether the row is (or was) imported. */
+            valid: boolean;
+        };
         /** @description The clinic just joined. */
         Joined: {
             /** @description The new membership. */
             membership_id: string;
             /** @description The clinic. */
             org_id: string;
+        };
+        /** @description Time a doctor is away. */
+        Leave: {
+            /** @description End (RFC 3339). */
+            ends_at: string;
+            /** @description The leave. */
+            id: string;
+            /** @description The doctor. */
+            practitioner_id: string;
+            /** @description Why. */
+            reason?: string | null;
+            /** @description Start (RFC 3339). */
+            starts_at: string;
+        };
+        /** @description Leave in a range. */
+        LeaveList: {
+            /** @description By start. */
+            items: components["schemas"]["Leave"][];
         };
         /** @description The signed-in person's clinics. */
         Me: {
@@ -595,6 +1083,29 @@ export interface components {
             /** @description Most recently used first. */
             items: components["schemas"]["MySession"][];
         };
+        /** @description An appointment to book. */
+        NewAppointmentBody: {
+            /** @description Branch; the room's, or the default branch. */
+            branch_id?: string | null;
+            /** @description End (RFC 3339), 5 minutes to 12 hours after the start. */
+            ends_at: string;
+            /** @description `new`, `follow_up` (default), `procedure` or `emergency`. */
+            kind?: string | null;
+            /** @description Front-desk note, up to 2000 characters. */
+            notes?: string | null;
+            /** @description The patient. */
+            patient_id: string;
+            /** @description The doctor. */
+            practitioner_id: string;
+            /** @description Reason for the visit, up to 200 characters. */
+            reason?: string | null;
+            /** @description The chair or room. */
+            room_id?: string | null;
+            /** @description `front_desk` (default), `phone`, `website`, `app` or `whatsapp`. */
+            source?: string | null;
+            /** @description Start (RFC 3339). */
+            starts_at: string;
+        };
         /** @description A clinic to create. */
         NewClinic: {
             /** @description The clinic's name. */
@@ -606,12 +1117,30 @@ export interface components {
             /** @description `dental` (default) or `general`. */
             specialty?: string | null;
         };
+        /** @description An identifier to add. */
+        NewIdentifier: {
+            /** @description `file_number`, `legacy`, `smart_card`, `abha_number` or `abha_address`. */
+            kind: string;
+            /** @description The number, 1 to 64 characters. */
+            value: string;
+        };
         /** @description Someone to invite. */
         NewInvitation: {
             /** @description Their email; they sign in with it to accept. */
             email: string;
             /** @description The role they will get, such as `doctor`. */
             role_key: string;
+        };
+        /** @description Leave to record. */
+        NewLeave: {
+            /** @description End (RFC 3339), after the start. */
+            ends_at: string;
+            /** @description The doctor. */
+            practitioner_id: string;
+            /** @description Why, up to 200 characters. */
+            reason?: string | null;
+            /** @description Start (RFC 3339). */
+            starts_at: string;
         };
         /** @description A patient to register. */
         NewPatient: {
@@ -665,6 +1194,22 @@ export interface components {
             /** @description `active`, `inactive`, `deceased` or `merged`. */
             status: string;
         };
+        /** @description A patient as the calendar and queue show them. */
+        PatientBrief: {
+            /**
+             * Format: int32
+             * @description Age in whole years today.
+             */
+            age_years?: number | null;
+            /** @description Full name. */
+            full_name: string;
+            /** @description The patient. */
+            id: string;
+            /** @description Readable number, such as `SD-1042`. */
+            number: string;
+            /** @description `female`, `male`, `other` or `unknown`. */
+            sex: string;
+        };
         /**
          * @description Changes to a patient. Fields left out stay as they are; an empty `phone`, `email` or
          *     `date_of_birth` clears it.
@@ -688,6 +1233,37 @@ export interface components {
             /** @description `female`, `male`, `other` or `unknown`. */
             sex?: string | null;
         };
+        /** @description Another number a patient is known by. */
+        PatientIdentifier: {
+            /** @description When it was added (RFC 3339). */
+            created_at: string;
+            /** @description The identifier. */
+            id: string;
+            /** @description `file_number`, `legacy`, `smart_card`, `abha_number` or `abha_address`. */
+            kind: string;
+            /** @description The number. */
+            value: string;
+        };
+        /** @description A patient's identifiers. */
+        PatientIdentifierList: {
+            /** @description By kind. */
+            items: components["schemas"]["PatientIdentifier"][];
+        };
+        /** @description A patient import. */
+        PatientImport: {
+            /** @description The CSV text, header line first; at most 5,000 rows and 2 MB. */
+            csv: string;
+            /**
+             * @description Our field to the file's column header (matched ignoring case). Fields: `full_name`
+             *     (required), `sex`, `date_of_birth`, `age_years`, `phone`, `email`,
+             *     `preferred_language`, `file_number`, `legacy_id`.
+             */
+            mapping: {
+                [key: string]: string;
+            };
+            /** @description `preview` checks every row and saves nothing; `commit` saves the valid rows. */
+            mode: string;
+        };
         /** @description Search results. */
         PatientList: {
             /** @description Matching patients, best first. */
@@ -705,6 +1281,94 @@ export interface components {
             id: string;
             /** @description The role they will get. */
             role_key: string;
+        };
+        /** @description A doctor who sees patients. */
+        Practitioner: {
+            /** @description Whether they can be booked. */
+            active: boolean;
+            /** @description Calendar colour, `#RRGGBB`. */
+            calendar_color: string;
+            /** @description Name shown on the calendar. */
+            display_name: string;
+            /** @description The doctor. */
+            id: string;
+            /** @description Their membership, if they sign in. */
+            membership_id?: string | null;
+            /** @description Council registration number. */
+            registration_number?: string | null;
+            /** @description Specialty, such as `Orthodontics`. */
+            specialty?: string | null;
+        };
+        /** @description A doctor as the calendar shows them. */
+        PractitionerBrief: {
+            /** @description Calendar colour, `#RRGGBB`. */
+            calendar_color?: string | null;
+            /** @description Name shown on the calendar. */
+            display_name: string;
+            /** @description The doctor. */
+            id: string;
+        };
+        /**
+         * @description A doctor to add, or changes to one. Fields left out stay as they are; an empty
+         *     `membership_id`, `registration_number` or `specialty` clears it.
+         */
+        PractitionerFields: {
+            /** @description Whether they can be booked (default true). */
+            active?: boolean | null;
+            /** @description Calendar colour, `#RRGGBB`. */
+            calendar_color?: string | null;
+            /** @description Name shown on the calendar, 1 to 120 characters; required when adding. */
+            display_name?: string | null;
+            /** @description The member who is this doctor. */
+            membership_id?: string | null;
+            /** @description Council registration number. */
+            registration_number?: string | null;
+            /** @description Specialty. */
+            specialty?: string | null;
+        };
+        /** @description The clinic's doctors. */
+        PractitionerList: {
+            /** @description By name. */
+            items: components["schemas"]["Practitioner"][];
+        };
+        /** @description A day's queue. */
+        QueueDay: {
+            /** @description The clinic day, `YYYY-MM-DD`. */
+            date: string;
+            /** @description Tokens by branch and number. */
+            items: components["schemas"]["QueueToken"][];
+        };
+        /** @description A waiting-room token. */
+        QueueToken: {
+            /** @description The appointment; none for a walk-in. */
+            appointment_id?: string | null;
+            /** @description Branch. */
+            branch_id: string;
+            /** @description When the patient was called in (RFC 3339). */
+            called_at?: string | null;
+            /** @description The clinic day, `YYYY-MM-DD`. */
+            day: string;
+            /** @description When they were done or left (RFC 3339). */
+            done_at?: string | null;
+            /** @description The token. */
+            id: string;
+            /** @description When it was issued (RFC 3339). */
+            issued_at: string;
+            /** @description The patient. */
+            patient: components["schemas"]["PatientBrief"];
+            practitioner?: components["schemas"]["PractitionerBrief"] | null;
+            /** @description `waiting`, `in_chair`, `done` or `left`. */
+            status: string;
+            /**
+             * Format: int32
+             * @description Number shown on the screen; restarts at 1 each day per branch.
+             */
+            token_number: number;
+            /**
+             * Format: int64
+             * @description Minutes waited: until now while waiting, otherwise until called.
+             */
+            wait_minutes: number;
         };
         /** @description A role. */
         Role: {
@@ -732,6 +1396,52 @@ export interface components {
         Roles: {
             /** @description Standard roles first, then by name. */
             items: components["schemas"]["Role"][];
+        };
+        /** @description A chair, room or lab. */
+        Room: {
+            /** @description Whether it can be booked. */
+            active: boolean;
+            /** @description Its branch. */
+            branch_id: string;
+            /** @description The room. */
+            id: string;
+            /** @description `chair`, `room` or `lab`. */
+            kind: string;
+            /** @description Name, such as `Chair 1`. */
+            name: string;
+            /**
+             * Format: int32
+             * @description Position in lists.
+             */
+            sort_order: number;
+        };
+        /** @description A room to add, or changes to one. Fields left out stay as they are (or take the default). */
+        RoomFields: {
+            /** @description Whether it can be booked (default true). */
+            active?: boolean | null;
+            /** @description Branch; the default branch when adding without one. */
+            branch_id?: string | null;
+            /** @description `chair` (default), `room` or `lab`. */
+            kind?: string | null;
+            /** @description Name, 1 to 60 characters; required when adding. */
+            name?: string | null;
+            /**
+             * Format: int32
+             * @description Position in lists, 0 to 999.
+             */
+            sort_order?: number | null;
+        };
+        /** @description The clinic's rooms. */
+        RoomList: {
+            /** @description In list order. */
+            items: components["schemas"]["Room"][];
+        };
+        /** @description An appointment after a booking or change. */
+        SavedAppointment: {
+            /** @description The appointment. */
+            appointment: components["schemas"]["Appointment"];
+            /** @description Warnings; empty when all is well. */
+            warnings: components["schemas"]["BookingWarning"][];
         };
         /** @description What to search for. Sent in the body, never the URL: search terms are names and phone numbers. */
         SearchRequest: {
@@ -804,6 +1514,113 @@ export interface components {
             /** @description Members, active first, then by name. */
             members: components["schemas"]["Member"][];
         };
+        /** @description A status change. */
+        StatusChange: {
+            /** @description Why; required to cancel, up to 200 characters. */
+            reason?: string | null;
+            /** @description `confirmed`, `arrived`, `in_chair`, `completed`, `cancelled` or `no_show`. */
+            status: string;
+        };
+        /** @description An appointment after a status change. */
+        StatusChanged: {
+            /** @description The appointment. */
+            appointment: components["schemas"]["Appointment"];
+            /** @description Its queue token, once the patient has arrived. */
+            queue_token_id?: string | null;
+        };
+        /** @description A doctor working today. */
+        TeamMemberToday: {
+            /** @description Appointments today, not counting cancelled ones. */
+            appointments: number;
+            /** @description Whether they have leave today. */
+            on_leave: boolean;
+            /** @description The doctor. */
+            practitioner: components["schemas"]["PractitionerBrief"];
+            /** @description Today's shifts. */
+            shifts: components["schemas"]["TodayShift"][];
+            /** @description Specialty. */
+            specialty?: string | null;
+        };
+        /** @description The day's numbers. */
+        TodayCounts: {
+            /** @description Arrived and waiting. */
+            arrived: number;
+            /** @description Booked or confirmed, not arrived yet. */
+            booked: number;
+            /** @description Cancelled. */
+            cancelled: number;
+            /** @description Completed. */
+            done: number;
+            /** @description In the chair now. */
+            in_chair: number;
+            /** @description Didn't come. */
+            no_shows: number;
+            /** @description Appointments today, not counting cancelled ones. */
+            total: number;
+            /** @description Queue tokens waiting, walk-ins included. */
+            waiting: number;
+        };
+        /** @description Today at the clinic. Money tiles arrive with billing. */
+        TodayResponse: {
+            /** @description Today's appointments by start, cancelled ones included. */
+            appointments: components["schemas"]["Appointment"][];
+            /** @description When this was built (RFC 3339); waits are measured from here. */
+            as_of: string;
+            /** @description Late arrivals and long waits, longest first. */
+            attention: components["schemas"]["AttentionItem"][];
+            /** @description Appointments per local hour, for hours that have any. */
+            by_hour: components["schemas"]["HourBar"][];
+            /** @description Each active chair: who is in it and who is next. */
+            chairs: components["schemas"]["ChairStatus"][];
+            /** @description The day's numbers. */
+            counts: components["schemas"]["TodayCounts"];
+            /** @description The clinic's local date, `YYYY-MM-DD`. */
+            date: string;
+            /** @description The latest patients through the queue today, newest first. */
+            recent_patients: components["schemas"]["QueueToken"][];
+            /** @description Doctors with working hours today. */
+            team: components["schemas"]["TeamMemberToday"][];
+        };
+        /** @description A shift today, local time. */
+        TodayShift: {
+            /** @description End, `HH:MM`. */
+            ends: string;
+            /** @description Start, `HH:MM`. */
+            starts: string;
+        };
+        /** @description A token status change. */
+        TokenStatusChange: {
+            /** @description `in_chair`, `done` or `left`. */
+            status: string;
+        };
+        /** @description A walk-in. */
+        WalkInBody: {
+            /** @description Branch; the default branch when left out. */
+            branch_id?: string | null;
+            /** @description The patient (register them first if new). */
+            patient_id: string;
+            /** @description The doctor, if known. */
+            practitioner_id?: string | null;
+        };
+        /** @description A doctor's week. */
+        WorkingHours: {
+            /** @description Shifts by weekday and start; split shifts are two entries. */
+            shifts: components["schemas"]["WorkingShift"][];
+        };
+        /** @description One stretch of a doctor's week, in the clinic's local time. */
+        WorkingShift: {
+            /** @description Branch; the default branch when left out. */
+            branch_id?: string | null;
+            /** @description End, `HH:MM`, after the start. */
+            ends: string;
+            /** @description Start, `HH:MM`. */
+            starts: string;
+            /**
+             * Format: int32
+             * @description 1 Monday to 7 Sunday.
+             */
+            weekday: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -813,6 +1630,228 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_appointments: {
+        parameters: {
+            query: {
+                /** @description First local day, `YYYY-MM-DD` */
+                from: string;
+                /** @description Last local day, `YYYY-MM-DD`; at most 31 days counting both */
+                to: string;
+                /** @description Only this chair or room */
+                room_id?: string;
+                /** @description Only this doctor */
+                practitioner_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentList"];
+                };
+            };
+            /** @description Bad dates, ids, or a range over 31 days */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    book: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewAppointmentBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedAppointment"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The chair is already booked for part of this time */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    change_appointment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The appointment */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedAppointment"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such appointment in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The appointment is finished, or the chair is taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_appointment_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The appointment */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusChanged"];
+                };
+            };
+            /** @description Unknown status, a move the table doesn't allow, or a cancel without a reason */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such appointment in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     clinics: {
         parameters: {
             query?: never;
@@ -943,6 +1982,57 @@ export interface operations {
             };
         };
     };
+    import_patients: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientImport"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResult"];
+                };
+            };
+            /** @description The file or mapping can't be used; the message says why */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     drain_outbox: {
         parameters: {
             query?: never;
@@ -999,6 +2089,146 @@ export interface operations {
             };
             /** @description The invitation is for another email address */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    leave: {
+        parameters: {
+            query: {
+                /** @description First local day, `YYYY-MM-DD` */
+                from: string;
+                /** @description Last local day, `YYYY-MM-DD`; at most 31 days counting both */
+                to: string;
+                /** @description Only this doctor */
+                practitioner_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveList"];
+                };
+            };
+            /** @description Bad dates or a range over 31 days */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    add_leave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewLeave"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Leave"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such doctor in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    remove_leave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The leave */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such leave in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1318,6 +2548,602 @@ export interface operations {
             };
         };
     };
+    identifiers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientIdentifierList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    add_identifier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewIdentifier"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientIdentifier"];
+                };
+            };
+            /** @description Unknown kind or bad value */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Another patient already has this number */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    remove_identifier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description The identifier */
+                identifier_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such identifier in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    practitioners: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PractitionerList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    add_practitioner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PractitionerFields"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Practitioner"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The member is already a doctor */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    remove_practitioner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The doctor */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such doctor in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The doctor has upcoming appointments */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    change_practitioner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The doctor */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PractitionerFields"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Practitioner"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such doctor in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The member is already a doctor */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    hours: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The doctor */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkingHours"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such doctor in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_hours: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The doctor */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkingHours"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkingHours"];
+                };
+            };
+            /** @description Bad or overlapping shifts */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such doctor in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_queue: {
+        parameters: {
+            query?: {
+                /** @description The clinic day, `YYYY-MM-DD`; today when left out */
+                date?: string;
+                /** @description Only this branch */
+                branch_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueDay"];
+                };
+            };
+            /** @description Bad date or id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    walk_in: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WalkInBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_queue_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The token */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenStatusChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            /** @description Unknown status or a move the table doesn't allow */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such token in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     roles: {
         parameters: {
             query?: never;
@@ -1351,6 +3177,207 @@ export interface operations {
             };
             /** @description Not a clinic, or not a member of it */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    rooms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    add_room: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoomFields"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Room"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The branch already has a room of that name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    remove_room: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The room */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such room in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The room has upcoming appointments */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    change_room: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The room */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoomFields"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Room"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such room in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The branch already has a room of that name */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1482,7 +3509,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    list_staff: {
         parameters: {
             query?: never;
             header?: never;
@@ -1573,7 +3600,7 @@ export interface operations {
             };
         };
     };
-    change: {
+    change_staff: {
         parameters: {
             query?: never;
             header?: never;
@@ -1627,6 +3654,46 @@ export interface operations {
             };
             /** @description Your own role, or the last active owner */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    today: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodayResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

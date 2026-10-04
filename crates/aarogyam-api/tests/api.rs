@@ -480,6 +480,8 @@ async fn every_route_requires_sign_in_and_a_permission() {
             || path.starts_with("/api/v1/dev/")
             || path.starts_with("/api/v1/internal/")
             || public.contains(&path.as_str())
+            // A signed download link is its own proof of access, checked by the clinical tests.
+            || path == "/api/v1/attachments/{id}/content"
         {
             continue;
         }

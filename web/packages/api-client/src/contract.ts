@@ -5,7 +5,7 @@
  * @aarogyam/api-client generate`). Only three kinds of type are written by hand here:
  * 1. Refinements where the spec leaves an object untyped (metrics `api`, `db` and `edge`).
  * 2. The error body, which the spec does not describe.
- * 3. Drafts the API has not built yet, served only by the fake client (Today, Quality).
+ * 3. Drafts the API has not built yet, served only by the fake client (console Quality).
  * `schemas.ts` is type-checked against every type here.
  */
 
@@ -147,43 +147,73 @@ export interface ErrorBody {
   };
 }
 
-// Drafts, fake only ---------------------------------------------------------------------------
-
 export type Sex = "female" | "male" | "other" | "unknown";
 
-export type AppointmentStatus = "scheduled" | "confirmed" | "arrived" | "in_progress" | "completed" | "cancelled" | "no_show";
+// Rooms, practitioners, hours and leave (M3) ---------------------------------------------------
 
-export type AppointmentKind = "new" | "follow_up" | "procedure" | "teleconsult";
+export type Room = Schemas["Room"];
+export type RoomFields = Schemas["RoomFields"];
+export type RoomList = Schemas["RoomList"];
+export type RoomKind = "chair" | "room" | "lab";
 
-export interface TodayAppointment {
-  id: string;
-  starts_at: string;
-  ends_at: string;
-  status: AppointmentStatus;
-  kind: AppointmentKind;
-  reason?: string | null;
-  room?: string | null;
-  arrived_at?: string | null;
-  patient: { id: string; number: string; full_name: string; sex: Sex; age_years?: number | null };
-  practitioner: { id: string; display_name: string };
-}
+export type Practitioner = Schemas["Practitioner"];
+export type PractitionerFields = Schemas["PractitionerFields"];
+export type PractitionerList = Schemas["PractitionerList"];
+export type PractitionerBrief = Schemas["PractitionerBrief"];
 
-/** Present only for members with `finance.view`. Amounts are in paise. */
-export interface TodayMoney {
-  collected_paise: number;
-  pending_dues_paise: number;
-  pending_dues_patients: number;
-}
+export type WorkingHours = Schemas["WorkingHours"];
+export type WorkingShift = Schemas["WorkingShift"];
 
-/** `GET /api/v1/today` (draft, fake only). */
-export interface TodayResponse {
-  /** The clinic's local date, `YYYY-MM-DD`. */
-  date: string;
-  /** When the server built this view; waiting times are measured from here. */
-  as_of: string;
-  appointments: TodayAppointment[];
-  money?: TodayMoney | null;
-}
+export type Leave = Schemas["Leave"];
+export type LeaveList = Schemas["LeaveList"];
+export type NewLeave = Schemas["NewLeave"];
+
+// Appointments (M3) -----------------------------------------------------------------------------
+
+export type PatientBrief = Schemas["PatientBrief"];
+export type Appointment = Schemas["Appointment"];
+export type AppointmentChanges = Schemas["AppointmentChanges"];
+export type AppointmentList = Schemas["AppointmentList"];
+export type NewAppointmentBody = Schemas["NewAppointmentBody"];
+export type BookingWarning = Schemas["BookingWarning"];
+export type SavedAppointment = Schemas["SavedAppointment"];
+export type StatusChange = Schemas["StatusChange"];
+export type StatusChanged = Schemas["StatusChanged"];
+
+/** These replace the web draft's `scheduled`/`in_progress`/`teleconsult` (`docs/decisions.md`, 4 Oct). */
+export type AppointmentStatus = "booked" | "confirmed" | "arrived" | "in_chair" | "completed" | "cancelled" | "no_show";
+export type AppointmentKind = "new" | "follow_up" | "procedure" | "emergency";
+export type AppointmentSource = "front_desk" | "phone" | "website" | "app" | "whatsapp";
+export type BookingWarningCode = "practitioner_busy" | "practitioner_on_leave" | "outside_working_hours";
+
+// Queue (M3) --------------------------------------------------------------------------------------
+
+export type QueueDay = Schemas["QueueDay"];
+export type QueueToken = Schemas["QueueToken"];
+export type WalkInBody = Schemas["WalkInBody"];
+export type TokenStatusChange = Schemas["TokenStatusChange"];
+export type QueueTokenStatus = "waiting" | "in_chair" | "done" | "left";
+
+// Today (M3) --------------------------------------------------------------------------------------
+
+export type TodayResponse = Schemas["TodayResponse"];
+export type TodayCounts = Schemas["TodayCounts"];
+export type ChairStatus = Schemas["ChairStatus"];
+export type ChairAppointment = Schemas["ChairAppointment"];
+export type AttentionItem = Schemas["AttentionItem"];
+export type AttentionPatient = Schemas["AttentionPatient"];
+export type HourBar = Schemas["HourBar"];
+export type TeamMemberToday = Schemas["TeamMemberToday"];
+export type TodayShift = Schemas["TodayShift"];
+export type AttentionKind = "late_arrival" | "long_wait";
+export type ChairOccupancy = "in_use" | "free";
+
+// Patient import (M3) --------------------------------------------------------------------------
+
+export type PatientImport = Schemas["PatientImport"];
+export type ImportResult = Schemas["ImportResult"];
+export type ImportRow = Schemas["ImportRow"];
+export type ImportMode = "preview" | "commit";
 
 export type TestSuite = "unit" | "integration" | "e2e_web" | "e2e_mobile" | "canary" | "load";
 export type QualityEnvironment = "ci" | "staging" | "production";

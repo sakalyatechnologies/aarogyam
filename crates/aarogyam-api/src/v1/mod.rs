@@ -2,30 +2,46 @@
 //! [`crate::extract::Require`] (a clinic member with a permission), [`crate::extract::PlatformRequest`]
 //! (Sakalya staff on the console host) or [`crate::extract::SignedIn`] (anyone signed in).
 
+pub(crate) mod appointments;
 pub(crate) mod billing;
+pub(crate) mod chart;
 pub(crate) mod console;
+pub(crate) mod facts;
+pub(crate) mod files;
+pub(crate) mod imports;
 pub(crate) mod internal;
 pub(crate) mod invitations;
 pub(crate) mod me;
 pub(crate) mod patients;
 pub(crate) mod payments;
 pub(crate) mod prescriptions;
+pub(crate) mod queue;
 pub(crate) mod recalls;
 pub(crate) mod reports;
+pub(crate) mod schedule;
 pub(crate) mod settings;
 pub(crate) mod staff;
+pub(crate) mod today;
+pub(crate) mod treatment;
+pub(crate) mod visits;
+pub(crate) mod vitals;
 
 use axum::Router;
-use axum::routing::{get, patch, post};
+use axum::extract::DefaultBodyLimit;
+use axum::routing::{delete, get, patch, post};
 use sakalya_http::ApiError;
 use time::format_description::well_known::Rfc3339;
-use time::{Date, OffsetDateTime};
+use time::{Date, OffsetDateTime, Time};
 use uuid::Uuid;
 
 use crate::AppState;
 
 /// The version 1 routes. `local_dev` adds the development sign-in and the outbox drain, which
 /// deployed servers don't have until Cloud Scheduler's signed calls are checked.
+#[expect(
+    clippy::too_many_lines,
+    reason = "every route in one table, so reviews and the route audit see them together"
+)]
 pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
     let router = Router::new()
         .route("/me", get(me::me))
@@ -36,6 +52,108 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/patients", get(patients::recent).post(patients::register))
         .route("/patients/search", post(patients::search))
         .route("/patients/{id}", get(patients::open).patch(patients::edit))
+        .route(
+            "/patients/{id}/identifiers",
+            get(imports::identifiers).post(imports::add_identifier),
+        )
+        .route(
+            "/patients/{id}/identifiers/{identifier_id}",
+            delete(imports::remove_identifier),
+        )
+        .route(
+            "/imports/patients",
+            // 2 MB of CSV, plus JSON escaping.
+            post(imports::import_patients).layer(DefaultBodyLimit::max(3 * 1024 * 1024)),
+        )
+        .route("/rooms", get(schedule::rooms).post(schedule::add_room))
+        .route(
+            "/rooms/{id}",
+            patch(schedule::change_room).delete(schedule::remove_room),
+        )
+        .route(
+            "/practitioners",
+            get(schedule::practitioners).post(schedule::add_practitioner),
+        )
+        .route(
+            "/practitioners/{id}",
+            patch(schedule::change_practitioner).delete(schedule::remove_practitioner),
+        )
+        .route(
+            "/practitioners/{id}/working-hours",
+            get(schedule::hours).put(schedule::set_hours),
+        )
+        .route(
+            "/leave-blocks",
+            get(schedule::leave).post(schedule::add_leave),
+        )
+        .route("/leave-blocks/{id}", delete(schedule::remove_leave))
+        .route(
+            "/appointments",
+            get(appointments::list).post(appointments::book),
+        )
+        .route("/appointments/{id}", patch(appointments::change))
+        .route("/appointments/{id}/status", post(appointments::set_status))
+        .route("/queue", get(queue::list).post(queue::walk_in))
+        .route("/queue/{id}/status", post(queue::set_status))
+        .route("/today", get(today::today))
+        .route(
+            "/patients/{id}/visits",
+            get(visits::list).post(visits::start),
+        )
+        .route("/patients/{id}/timeline", get(visits::timeline))
+        .route("/visits/{id}", get(visits::open))
+        .route("/visits/{id}/close", post(visits::close))
+        .route("/visits/{id}/notes", post(visits::create_note))
+        .route("/notes/{id}", patch(visits::edit_note))
+        .route("/notes/{id}/sign", post(visits::sign_note))
+        .route("/notes/{id}/addenda", post(visits::add_addendum))
+        .route("/notes/{id}/entered-in-error", post(visits::note_in_error))
+        .route("/visits/{id}/observations", post(vitals::record))
+        .route(
+            "/observations/{id}/entered-in-error",
+            post(vitals::in_error),
+        )
+        .route(
+            "/patients/{id}/conditions",
+            get(facts::conditions).post(facts::add_condition),
+        )
+        .route(
+            "/patients/{id}/conditions/{condition_id}",
+            patch(facts::edit_condition),
+        )
+        .route(
+            "/patients/{id}/allergies",
+            get(facts::allergies).post(facts::add_allergy),
+        )
+        .route(
+            "/patients/{id}/allergies/{allergy_id}",
+            patch(facts::edit_allergy),
+        )
+        .route("/patients/{id}/clinical-flags", get(facts::flags))
+        .route(
+            "/patients/{id}/dental-chart",
+            get(chart::get).post(chart::record),
+        )
+        .route("/visits/{id}/procedures", post(treatment::record_procedure))
+        .route("/patients/{id}/procedures", get(treatment::procedures))
+        .route("/procedures/{id}/complete", post(treatment::complete))
+        .route(
+            "/procedures/{id}/entered-in-error",
+            post(treatment::procedure_in_error),
+        )
+        .route(
+            "/patients/{id}/treatment-plans",
+            get(treatment::plans).post(treatment::create_plan),
+        )
+        .route("/treatment-plans/{id}/accept", post(treatment::accept_plan))
+        .route(
+            "/patients/{id}/attachments",
+            get(files::list)
+                .post(files::upload)
+                .layer(DefaultBodyLimit::max(files::MAX_UPLOAD_BODY)),
+        )
+        .route("/attachments/{id}/download", get(files::link))
+        .route("/attachments/{id}/content", get(files::content))
         .route("/staff", get(staff::list))
         .route("/staff/invitations", post(staff::invite))
         .route("/staff/{membership_id}", patch(staff::change))
@@ -113,14 +231,6 @@ pub(crate) fn rfc3339(at: OffsetDateTime) -> String {
     at.format(&Rfc3339).unwrap_or_default()
 }
 
-/// A clinic day, `YYYY-MM-DD`.
-pub(crate) fn parse_day(field: &'static str, text: &str) -> Result<Date, ApiError> {
-    let format = time::macros::format_description!("[year]-[month]-[day]");
-    Date::parse(text.trim(), &format).map_err(|_| {
-        ApiError::bad_request("invalid_request", format!("{field}: must be YYYY-MM-DD"))
-    })
-}
-
 /// An optional identifier where an empty string means none.
 pub(crate) fn optional_uuid(field: &'static str, text: &str) -> Result<Option<Uuid>, ApiError> {
     let text = text.trim();
@@ -130,4 +240,40 @@ pub(crate) fn optional_uuid(field: &'static str, text: &str) -> Result<Option<Uu
     Uuid::parse_str(text)
         .map(Some)
         .map_err(|_| ApiError::bad_request("invalid_request", format!("{field}: must be an id")))
+}
+
+fn bad(field: &str, problem: &str) -> ApiError {
+    ApiError::bad_request("invalid_request", format!("{field}: {problem}"))
+}
+
+/// An instant in RFC 3339, such as `2026-10-05T10:00:00+05:30`.
+pub(crate) fn parse_instant(field: &str, text: &str) -> Result<OffsetDateTime, ApiError> {
+    OffsetDateTime::parse(text.trim(), &Rfc3339).map_err(|_| {
+        bad(
+            field,
+            "must be an RFC 3339 time such as 2026-10-05T10:00:00+05:30",
+        )
+    })
+}
+
+/// A local date, `YYYY-MM-DD`.
+pub(crate) fn parse_day(field: &str, text: &str) -> Result<Date, ApiError> {
+    let format = time::macros::format_description!("[year]-[month]-[day]");
+    Date::parse(text.trim(), &format).map_err(|_| bad(field, "must be YYYY-MM-DD"))
+}
+
+/// A local time of day, `HH:MM`.
+pub(crate) fn parse_clock(field: &str, text: &str) -> Result<Time, ApiError> {
+    let format = time::macros::format_description!("[hour]:[minute]");
+    Time::parse(text.trim(), &format).map_err(|_| bad(field, "must be HH:MM"))
+}
+
+/// A local time of day as `HH:MM`.
+pub(crate) fn clock(at: Time) -> String {
+    format!("{:02}:{:02}", at.hour(), at.minute())
+}
+
+/// An identifier sent in a body.
+pub(crate) fn parse_id(field: &str, text: &str) -> Result<Uuid, ApiError> {
+    Uuid::parse_str(text.trim()).map_err(|_| bad(field, "must be an id"))
 }

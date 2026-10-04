@@ -6,6 +6,330 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/appointments": {
+      "get": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Appointments starting on the clinic's local days `from` to `to`, cancelled ones included.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First local day, `YYYY-MM-DD`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last local day, `YYYY-MM-DD`; at most 31 days counting both",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "room_id",
+            "in": "query",
+            "description": "Only this chair or room",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "practitioner_id",
+            "in": "query",
+            "description": "Only this doctor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad dates, ids, or a range over 31 days"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Books an appointment. Two active bookings can't overlap in one chair (`409`); a doctor\nbooked in another chair at the same time, on leave, or outside their hours is allowed, with\n`warnings`.",
+        "operationId": "book",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewAppointmentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedAppointment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "The chair is already booked for part of this time"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/appointments/{id}": {
+      "patch": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Moves, reassigns or edits an appointment that isn't completed, cancelled or a no-show.",
+        "operationId": "change",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The appointment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedAppointment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such appointment in this clinic"
+          },
+          "409": {
+            "description": "The appointment is finished, or the chair is taken"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/appointments/{id}/status": {
+      "post": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Moves an appointment along: booked → confirmed → arrived → in the chair → completed, or\ncancelled (with a reason) or no-show before arrival. Arriving issues the branch's next queue\ntoken for the clinic day.",
+        "operationId": "set_status",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The appointment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusChanged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown status, a move the table doesn't allow, or a cancel without a reason"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such appointment in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/attachments/{id}/content": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Streams a file through a signed link from `GET /attachments/{id}/download`. The link is the\nproof of access, so no sign-in header is needed (an `<img>` can use it); it works on the\nclinic's own host for five minutes, and every use is written to the access record.",
+        "operationId": "content",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "description": "The signed token from the download link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, with its media type"
+          },
+          "403": {
+            "description": "The link has expired; ask for a new one"
+          },
+          "404": {
+            "description": "Not a valid link for this file on this host"
+          }
+        }
+      }
+    },
+    "/api/v1/attachments/{id}/download": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Issues a five-minute download link for a file. Opening the link writes the access record.",
+        "operationId": "link",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadLink"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such file in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/console/clinics": {
       "get": {
         "tags": [
@@ -181,6 +505,53 @@
           },
           "403": {
             "description": "The role lacks prescriptions.issue"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/imports/patients": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Imports patients from CSV. Preview checks every row like a registration; commit registers\nthe valid rows in one transaction with numbers from the clinic's sequence, keeps\n`file_number` and `legacy_id` as identifiers, and records the import and each row's result.",
+        "operationId": "import_patients",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The file or mapping can't be used; the message says why"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "413": {
+            "description": "The request is too large"
           }
         },
         "security": [
@@ -597,6 +968,153 @@
         ]
       }
     },
+    "/api/v1/leave-blocks": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Leave overlapping the local days `from` to `to`.",
+        "operationId": "leave",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First local day, `YYYY-MM-DD`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last local day, `YYYY-MM-DD`; at most 31 days counting both",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "practitioner_id",
+            "in": "query",
+            "description": "Only this doctor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad dates or a range over 31 days"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Records a doctor's leave. Bookings already made stay; new ones get a warning.",
+        "operationId": "add_leave",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewLeave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Leave"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such doctor in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/leave-blocks/{id}": {
+      "delete": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Removes leave.",
+        "operationId": "remove_leave",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The leave",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such leave in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me": {
       "get": {
         "tags": [
@@ -680,6 +1198,298 @@
           },
           "404": {
             "description": "Not one of the person's sessions"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notes/{id}": {
+      "patch": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Replaces a draft's sections. Only the author may, and only while it is a draft.",
+        "operationId": "edit_note",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The note",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteContent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write, or the note is someone else's"
+          },
+          "404": {
+            "description": "No such note in this clinic"
+          },
+          "409": {
+            "description": "The note is signed; add an addendum instead"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notes/{id}/addenda": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Adds an addendum to a signed note. Addenda are never edited or removed.",
+        "operationId": "add_addendum",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The note",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewAddendum"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such note in this clinic"
+          },
+          "409": {
+            "description": "The note isn't signed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notes/{id}/entered-in-error": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Marks a note entered in error with a reason. It stays in the record, marked; nothing is\ndeleted. A draft can be withdrawn only by its author.",
+        "operationId": "note_in_error",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The note",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnteredInError"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write, or the draft is someone else's"
+          },
+          "404": {
+            "description": "No such note in this clinic"
+          },
+          "409": {
+            "description": "Already marked"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notes/{id}/sign": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Signs a draft. Only its author may; the note never changes afterwards.",
+        "operationId": "sign_note",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The note",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write, or the note is someone else's"
+          },
+          "404": {
+            "description": "No such note in this clinic"
+          },
+          "409": {
+            "description": "Not a draft, or every section is empty"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/observations/{id}/entered-in-error": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Marks a reading entered in error with a reason. It stays in the record, marked.",
+        "operationId": "in_error",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The reading",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnteredInError"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Observation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such reading in this clinic"
+          },
+          "409": {
+            "description": "Already corrected or marked"
           }
         },
         "security": [
@@ -910,6 +1720,760 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/allergies": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's allergies, active and severe first.",
+        "operationId": "allergies",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllergyList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Records an allergy.",
+        "operationId": "add_allergy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllergyFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Allergy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/allergies/{allergy_id}": {
+      "patch": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Edits an allergy: resolve it, change its severity, or mark it entered in error.",
+        "operationId": "edit_allergy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "allergy_id",
+            "in": "path",
+            "description": "The allergy",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllergyFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Allergy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such allergy for this patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/attachments": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's files, newest first.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Uploads a patient file (`multipart/form-data`, field `file` up to 10 MB). Its type is read\nfrom its content; anything but JPEG, PNG, PDF or DICOM is refused.",
+        "operationId": "upload",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a JPEG, PNG, PDF or DICOM file, a bad field, or a visit of another patient"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "413": {
+            "description": "Larger than 10 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/clinical-flags": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The patient's clinical flags: active allergies and flagged active conditions.",
+        "operationId": "flags",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicalFlags"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/conditions": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's conditions, active first.",
+        "operationId": "conditions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Adds a condition to a patient's problem list.",
+        "operationId": "add_condition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Condition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/conditions/{condition_id}": {
+      "patch": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Edits a condition: resolve it, flag it, correct it, or mark it entered in error.",
+        "operationId": "edit_condition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "condition_id",
+            "in": "path",
+            "description": "The condition",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Condition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such condition for this patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/dental-chart": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's dental chart, with one tooth's history when `tooth` is given.",
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tooth",
+            "in": "query",
+            "description": "FDI tooth number whose full history to include",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DentalChart"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not an FDI tooth number"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Records findings. Each supersedes the current entry for its tooth and surface (a crown,\nimplant or missing tooth also supersedes the tooth's surface entries); the history keeps\neverything. Returns the updated chart.",
+        "operationId": "record",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewChartEntries"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DentalChart"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad tooth, surface or finding, or a visit of another patient"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "The visit is closed, or the chart changed at the same moment"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/identifiers": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "A patient's other numbers: file number, legacy ID, smart card, ABHA.",
+        "operationId": "identifiers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientIdentifierList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Adds a number to a patient. Each number belongs to one patient per clinic and kind.",
+        "operationId": "add_identifier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewIdentifier"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientIdentifier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown kind or bad value"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "Another patient already has this number"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/identifiers/{identifier_id}": {
+      "delete": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Removes a number from a patient.",
+        "operationId": "remove_identifier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "identifier_id",
+            "in": "path",
+            "description": "The identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such identifier in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/prescriptions": {
       "get": {
         "tags": [
@@ -1056,6 +2620,51 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/procedures": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's procedures, newest first.",
+        "operationId": "procedures",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcedureList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/recalls": {
       "post": {
         "tags": [
@@ -1105,6 +2714,278 @@
           },
           "404": {
             "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/timeline": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's clinical timeline, newest first: visits, signed notes, procedures and files.\nPrescriptions and bills join it when they exist. Reading it writes the access record.",
+        "operationId": "timeline",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "Only events before this time (RFC 3339)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Most events, 1 to 200 (default 50)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Timeline"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "before isn't RFC 3339"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/treatment-plans": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's treatment plans, newest first.",
+        "operationId": "plans",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Proposes a treatment plan with an estimate per item.",
+        "operationId": "create_plan",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewPlan"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Plan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/visits": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A patient's visits, newest first.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Starts a visit, with the caller as the clinician responsible.",
+        "operationId": "start",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewVisit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Visit"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "The appointment already has a visit"
           }
         },
         "security": [
@@ -1345,6 +3226,287 @@
           },
           "409": {
             "description": "Already void"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/practitioners": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "The clinic's doctors, by name.",
+        "operationId": "practitioners",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PractitionerList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Adds a doctor.",
+        "operationId": "add_practitioner",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PractitionerFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Practitioner"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "409": {
+            "description": "The member is already a doctor"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/practitioners/{id}": {
+      "delete": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Removes a doctor with no upcoming appointments, and their weekly hours.",
+        "operationId": "remove_practitioner",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The doctor",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such doctor in this clinic"
+          },
+          "409": {
+            "description": "The doctor has upcoming appointments"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Changes a doctor's details.",
+        "operationId": "change_practitioner",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The doctor",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PractitionerFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Practitioner"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such doctor in this clinic"
+          },
+          "409": {
+            "description": "The member is already a doctor"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/practitioners/{id}/working-hours": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "A doctor's weekly hours.",
+        "operationId": "hours",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The doctor",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkingHours"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "No such doctor in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Replaces a doctor's weekly hours. An empty list clears them.",
+        "operationId": "set_hours",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The doctor",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkingHours"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkingHours"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad or overlapping shifts"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such doctor in this clinic"
           }
         },
         "security": [
@@ -1775,6 +3937,272 @@
         ]
       }
     },
+    "/api/v1/procedures/{id}/complete": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Marks a planned procedure done; its plan item, if any, is done too.",
+        "operationId": "complete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The procedure",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Procedure"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such procedure in this clinic"
+          },
+          "409": {
+            "description": "Not planned"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/procedures/{id}/entered-in-error": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Marks a procedure entered in error with a reason; its plan item is open again.",
+        "operationId": "procedure_in_error",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The procedure",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnteredInError"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Procedure"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such procedure in this clinic"
+          },
+          "409": {
+            "description": "Already marked"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/queue": {
+      "get": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "The queue of a clinic day, with each token's wait.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The clinic day, `YYYY-MM-DD`; today when left out",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "branch_id",
+            "in": "query",
+            "description": "Only this branch",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueDay"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad date or id"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Issues a token to a patient without an appointment.",
+        "operationId": "walk_in",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalkInBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/queue/{id}/status": {
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Moves a token along. A token with an appointment moves the appointment too.",
+        "operationId": "set_status",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenStatusChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown status or a move the table doesn't allow"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such token in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/recalls": {
       "get": {
         "tags": [
@@ -1978,6 +4406,186 @@
           },
           "404": {
             "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/rooms": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "The clinic's chairs and rooms, in list order.",
+        "operationId": "rooms",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Adds a chair or room.",
+        "operationId": "add_room",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Room"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "409": {
+            "description": "The branch already has a room of that name"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/rooms/{id}": {
+      "delete": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Removes a chair or room with no upcoming appointments.",
+        "operationId": "remove_room",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The room",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such room in this clinic"
+          },
+          "409": {
+            "description": "The room has upcoming appointments"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Renames, moves, retires or reorders a chair or room.",
+        "operationId": "change_room",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The room",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Room"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such room in this clinic"
+          },
+          "409": {
+            "description": "The branch already has a room of that name"
           }
         },
         "security": [
@@ -2326,6 +4934,40 @@
         ]
       }
     },
+    "/api/v1/today": {
+      "get": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Today's schedule, chairs, counts, appointments by hour, recent patients, the team on duty\nand the attention list, in the clinic's time zone.",
+        "operationId": "today",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/today/money": {
       "get": {
         "tags": [
@@ -2348,6 +4990,67 @@
           },
           "403": {
             "description": "The role lacks finance.view"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/treatment-plans/{id}/accept": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Records the patient's acceptance of a proposed plan.",
+        "operationId": "accept_plan",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The treatment plan",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Acceptance"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Plan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A chosen item isn't a proposed item of this plan"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such plan in this clinic"
+          },
+          "409": {
+            "description": "The plan isn't proposed"
           }
         },
         "security": [
@@ -2389,6 +5092,282 @@
             "description": "No such prescription"
           }
         }
+      }
+    },
+    "/api/v1/visits/{id}": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Opens a visit with everything recorded in it. Every open is written to the access record.",
+        "operationId": "open",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/close": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Closes a visit. Addenda and corrections still work afterwards; new notes, vitals and\nprocedures don't.",
+        "operationId": "close",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Visit"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          },
+          "409": {
+            "description": "Already closed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/notes": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Starts a draft note in an open visit, written by the caller.",
+        "operationId": "create_note",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteContent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          },
+          "409": {
+            "description": "The visit is closed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/observations": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Records vital signs in a visit. A closed visit takes corrections only.",
+        "operationId": "record",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewReadings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObservationList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An implausible value, a wrong unit, or another patient's reading"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          },
+          "409": {
+            "description": "The corrected reading isn't final, or the visit is closed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/procedures": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Records a procedure in an open visit.",
+        "operationId": "record_procedure",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewProcedure"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Procedure"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input, or a plan item of another patient"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          },
+          "409": {
+            "description": "The visit is closed, or the plan item isn't accepted or already has a procedure"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
       }
     },
     "/healthz": {
@@ -2433,6 +5412,50 @@
           "token": {
             "type": "string",
             "description": "The secret from the invitation link."
+          }
+        }
+      },
+      "Acceptance": {
+        "type": "object",
+        "description": "Which items the patient accepted.",
+        "properties": {
+          "item_ids": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "The accepted items; every proposed item when left out. The others are cancelled."
+          }
+        }
+      },
+      "Addendum": {
+        "type": "object",
+        "description": "An addendum to a signed note.",
+        "required": [
+          "id",
+          "author",
+          "body",
+          "created_at"
+        ],
+        "properties": {
+          "author": {
+            "$ref": "#/components/schemas/Member",
+            "description": "Who wrote it."
+          },
+          "body": {
+            "type": "string",
+            "description": "The text."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
           }
         }
       },
@@ -2554,6 +5577,142 @@
           }
         }
       },
+      "Allergy": {
+        "type": "object",
+        "description": "An allergy.",
+        "required": [
+          "id",
+          "substance",
+          "severity",
+          "status",
+          "source",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was recorded (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "reaction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What happens."
+          },
+          "severity": {
+            "type": "string",
+            "description": "`mild`, `moderate` or `severe`."
+          },
+          "source": {
+            "type": "string",
+            "description": "`clinician`, `assistant`, `patient` or `import`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`active`, `resolved` or `entered_in_error`."
+          },
+          "substance": {
+            "type": "string",
+            "description": "The substance, such as penicillin or latex."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          },
+          "verified_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who recorded or last confirmed it."
+          }
+        }
+      },
+      "AllergyFields": {
+        "type": "object",
+        "description": "An allergy to record or edit. On an edit, fields left out stay as they are.",
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reaction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What happens, or empty to clear it."
+          },
+          "severity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`mild`, `moderate` (default) or `severe`."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`clinician` (default), `assistant`, `patient` or `import`."
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`active` (default), `resolved` or `entered_in_error`."
+          },
+          "substance": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The substance, 1 to 200 characters; required for a new allergy."
+          }
+        }
+      },
+      "AllergyList": {
+        "type": "object",
+        "description": "A patient's allergies, active and severe first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Allergy"
+            },
+            "description": "The allergies."
+          }
+        }
+      },
       "Allocation": {
         "type": "object",
         "description": "Part of a payment going to a bill.",
@@ -2570,6 +5729,368 @@
           "invoice_id": {
             "type": "string",
             "description": "The bill: issued, of the same patient."
+          }
+        }
+      },
+      "Appointment": {
+        "type": "object",
+        "description": "An appointment.",
+        "required": [
+          "id",
+          "branch_id",
+          "starts_at",
+          "ends_at",
+          "status",
+          "kind",
+          "has_notes",
+          "source",
+          "patient",
+          "practitioner"
+        ],
+        "properties": {
+          "arrived_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the patient arrived (RFC 3339)."
+          },
+          "branch_id": {
+            "type": "string",
+            "description": "Branch."
+          },
+          "cancel_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was cancelled."
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the visit ended (RFC 3339)."
+          },
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339, UTC)."
+          },
+          "has_notes": {
+            "type": "boolean",
+            "description": "Whether there is a front-desk note."
+          },
+          "id": {
+            "type": "string",
+            "description": "The appointment."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`new`, `follow_up`, `procedure` or `emergency`."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Front-desk note."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientBrief",
+            "description": "The patient."
+          },
+          "practitioner": {
+            "$ref": "#/components/schemas/PractitionerBrief",
+            "description": "The doctor."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Reason for the visit."
+          },
+          "room": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The room's name."
+          },
+          "room_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Chair or room, if booked into one."
+          },
+          "seated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When they sat in the chair (RFC 3339)."
+          },
+          "source": {
+            "type": "string",
+            "description": "`front_desk`, `phone`, `website`, `app` or `whatsapp`."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339, UTC)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`booked`, `confirmed`, `arrived`, `in_chair`, `completed`, `cancelled` or `no_show`."
+          },
+          "token_number": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The day's queue token number, once arrived."
+          }
+        }
+      },
+      "AppointmentChanges": {
+        "type": "object",
+        "description": "Changes to an appointment. Fields left out stay as they are; an empty `room_id`, `reason`\nor `notes` clears it. A new start without a new end keeps the length.",
+        "properties": {
+          "ends_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New end (RFC 3339)."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`new`, `follow_up`, `procedure` or `emergency`."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Front-desk note; empty to clear."
+          },
+          "practitioner_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Another doctor."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Reason for the visit; empty to clear."
+          },
+          "room_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Another chair or room; empty for none."
+          },
+          "starts_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New start (RFC 3339)."
+          }
+        }
+      },
+      "AppointmentList": {
+        "type": "object",
+        "description": "Appointments in a range.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Appointment"
+            },
+            "description": "By start."
+          }
+        }
+      },
+      "Attachment": {
+        "type": "object",
+        "description": "A patient file's details. The bytes come from its download link.",
+        "required": [
+          "id",
+          "kind",
+          "mime_type",
+          "size_bytes",
+          "sha256",
+          "created_at"
+        ],
+        "properties": {
+          "caption": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A caption."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was uploaded (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`photo`, `xray`, `report`, `document`, `audio` or `consent`."
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "`image/jpeg`, `image/png`, `application/pdf` or `application/dicom`, from the content."
+          },
+          "sha256": {
+            "type": "string",
+            "description": "SHA-256 of the content, hex."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Size in bytes."
+          },
+          "taken_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was taken (RFC 3339)."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "FDI number of the tooth it shows.",
+            "minimum": 0
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it belongs to."
+          }
+        }
+      },
+      "AttachmentList": {
+        "type": "object",
+        "description": "A patient's files, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            },
+            "description": "The files."
+          }
+        }
+      },
+      "AttentionItem": {
+        "type": "object",
+        "description": "Something the front desk should look at.",
+        "required": [
+          "kind",
+          "message",
+          "minutes",
+          "patient"
+        ],
+        "properties": {
+          "appointment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The appointment, if any."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`late_arrival` (not arrived 15 minutes after the start) or `long_wait` (waiting over 30\nminutes)."
+          },
+          "message": {
+            "type": "string",
+            "description": "What to show, without patient details."
+          },
+          "minutes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minutes late, or minutes waited."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/AttentionPatient",
+            "description": "The patient."
+          },
+          "queue_token_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The queue token, if any."
+          }
+        }
+      },
+      "AttentionPatient": {
+        "type": "object",
+        "description": "The patient an attention item is about.",
+        "required": [
+          "id",
+          "number",
+          "full_name"
+        ],
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "description": "Full name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "number": {
+            "type": "string",
+            "description": "Readable number."
+          }
+        }
+      },
+      "BookingWarning": {
+        "type": "object",
+        "description": "Something worth knowing that didn't stop the booking.",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "`practitioner_busy`, `practitioner_on_leave` or `outside_working_hours`."
+          },
+          "message": {
+            "type": "string",
+            "description": "What to tell the front desk."
           }
         }
       },
@@ -2634,6 +6155,164 @@
                 "type": "null"
               }
             ]
+          }
+        }
+      },
+      "ChairAppointment": {
+        "type": "object",
+        "description": "An appointment as a chair tile shows it.",
+        "required": [
+          "appointment_id",
+          "starts_at",
+          "ends_at",
+          "status",
+          "patient",
+          "practitioner"
+        ],
+        "properties": {
+          "appointment_id": {
+            "type": "string",
+            "description": "The appointment."
+          },
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339)."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientBrief",
+            "description": "The patient."
+          },
+          "practitioner": {
+            "$ref": "#/components/schemas/PractitionerBrief",
+            "description": "The doctor."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339)."
+          },
+          "status": {
+            "type": "string",
+            "description": "Its status."
+          }
+        }
+      },
+      "ChairStatus": {
+        "type": "object",
+        "description": "A chair right now.",
+        "required": [
+          "room_id",
+          "name",
+          "kind",
+          "status"
+        ],
+        "properties": {
+          "current": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChairAppointment",
+                "description": "Who is in it."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "description": "`chair`, `room` or `lab`."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "next": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChairAppointment",
+                "description": "Who is next today."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "room_id": {
+            "type": "string",
+            "description": "The room."
+          },
+          "status": {
+            "type": "string",
+            "description": "`in_use` while a patient is in it, otherwise `free`."
+          }
+        }
+      },
+      "ChartEntry": {
+        "type": "object",
+        "description": "A finding on a tooth or one of its surfaces.",
+        "required": [
+          "id",
+          "tooth",
+          "finding",
+          "status",
+          "effective_at"
+        ],
+        "properties": {
+          "effective_at": {
+            "type": "string",
+            "description": "When the finding was made (RFC 3339)."
+          },
+          "finding": {
+            "type": "string",
+            "description": "`sound`, `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinician's remark."
+          },
+          "recorded_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who recorded it."
+          },
+          "status": {
+            "type": "string",
+            "description": "`current`, `superseded` or `entered_in_error`."
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The entry it replaced."
+          },
+          "surface": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`M`, `O`, `D`, `B` or `L`; absent for the whole tooth."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth number: 11-48, or 51-85 for primary teeth.",
+            "minimum": 0
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit that recorded it."
           }
         }
       },
@@ -2777,6 +6456,70 @@
           }
         }
       },
+      "ClinicalFlags": {
+        "type": "object",
+        "description": "Patient 360's safety banner. Anyone who can see the patient learns that flags exist and how\nmany; the substances and conditions need `clinical.read`.",
+        "required": [
+          "allergy_count",
+          "severe_allergy",
+          "condition_count",
+          "details_hidden",
+          "allergies",
+          "conditions"
+        ],
+        "properties": {
+          "allergies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Allergy"
+            },
+            "description": "Active allergies, severe first."
+          },
+          "allergy_count": {
+            "type": "integer",
+            "description": "Active allergies.",
+            "minimum": 0
+          },
+          "condition_count": {
+            "type": "integer",
+            "description": "Flagged active conditions.",
+            "minimum": 0
+          },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Condition"
+            },
+            "description": "Flagged active conditions."
+          },
+          "details_hidden": {
+            "type": "boolean",
+            "description": "True when the lists below were left out because the role lacks `clinical.read`."
+          },
+          "severe_allergy": {
+            "type": "boolean",
+            "description": "Whether any active allergy is severe."
+          }
+        }
+      },
+      "Code": {
+        "type": "object",
+        "description": "An optional clinical code. Free text always works without one.",
+        "required": [
+          "system",
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The code; empty clears it on an edit."
+          },
+          "system": {
+            "type": "string",
+            "description": "`icd10`, `icd11`, `snomed`, `loinc` or `custom`."
+          }
+        }
+      },
       "Collections": {
         "type": "object",
         "description": "Collections over clinic days `from` to `to`.",
@@ -2854,6 +6597,170 @@
           "to": {
             "type": "string",
             "description": "Last day, included."
+          }
+        }
+      },
+      "Condition": {
+        "type": "object",
+        "description": "A condition on the problem list.",
+        "required": [
+          "id",
+          "display_text",
+          "status",
+          "flagged",
+          "source",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was recorded (RFC 3339)."
+          },
+          "display_text": {
+            "type": "string",
+            "description": "What the doctor wrote."
+          },
+          "flagged": {
+            "type": "boolean",
+            "description": "Shown in the clinical flags banner while active."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A remark."
+          },
+          "onset": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it began (`YYYY-MM-DD`)."
+          },
+          "source": {
+            "type": "string",
+            "description": "`clinician`, `assistant`, `patient` or `import`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`active`, `resolved` or `entered_in_error`."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          },
+          "verified_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who recorded or last confirmed it."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it was found in."
+          }
+        }
+      },
+      "ConditionFields": {
+        "type": "object",
+        "description": "A condition to record or edit. On an edit, fields left out stay as they are.",
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "display_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the doctor wrote, 1 to 300 characters; required for a new condition."
+          },
+          "flagged": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Show in the clinical flags banner while active (diabetes, a bleeding disorder, pregnancy)."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A remark, or empty to clear it."
+          },
+          "onset": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it began (`YYYY-MM-DD`), or empty to clear it."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`clinician` (default), `assistant`, `patient` or `import`."
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`active` (default), `resolved` or `entered_in_error`."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it was found in; new conditions only."
+          }
+        }
+      },
+      "ConditionList": {
+        "type": "object",
+        "description": "A patient's conditions, active first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Condition"
+            },
+            "description": "The conditions."
           }
         }
       },
@@ -3026,6 +6933,30 @@
           }
         }
       },
+      "DentalChart": {
+        "type": "object",
+        "description": "A patient's dental chart. Teeth without entries are absent: draw them as sound.",
+        "required": [
+          "current",
+          "history"
+        ],
+        "properties": {
+          "current": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChartEntry"
+            },
+            "description": "The current entries, by tooth (the whole-tooth entry first, then surfaces)."
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChartEntry"
+            },
+            "description": "Every entry of the requested tooth, newest first; empty unless `tooth` was given."
+          }
+        }
+      },
       "DevTokenRequest": {
         "type": "object",
         "description": "Who to sign in as.",
@@ -3062,6 +6993,24 @@
             "type": "integer",
             "format": "int64",
             "description": "Seconds until it expires."
+          }
+        }
+      },
+      "DownloadLink": {
+        "type": "object",
+        "description": "A short-lived link to a file.",
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "description": "When the link stops working (RFC 3339), five minutes from now."
+          },
+          "url": {
+            "type": "string",
+            "description": "Path to fetch on the same clinic host, with the signed token; no sign-in header needed."
           }
         }
       },
@@ -3199,6 +7148,133 @@
           "q": {
             "type": "string",
             "description": "Part of a name or strength, such as `amox` or `500`."
+          }
+        }
+      },
+      "EnteredInError": {
+        "type": "object",
+        "description": "Why a record is being marked entered in error.",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "3 to 500 characters, such as \"wrong patient\"."
+          }
+        }
+      },
+      "HourBar": {
+        "type": "object",
+        "description": "Appointments starting in one local hour.",
+        "required": [
+          "hour",
+          "booked",
+          "completed"
+        ],
+        "properties": {
+          "booked": {
+            "type": "integer",
+            "description": "Appointments, not counting cancelled ones.",
+            "minimum": 0
+          },
+          "completed": {
+            "type": "integer",
+            "description": "Of those, completed.",
+            "minimum": 0
+          },
+          "hour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Local hour, 0 to 23.",
+            "minimum": 0
+          }
+        }
+      },
+      "ImportResult": {
+        "type": "object",
+        "description": "An import's result.",
+        "required": [
+          "mode",
+          "total",
+          "valid",
+          "invalid",
+          "rows"
+        ],
+        "properties": {
+          "import_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The recorded import, on commit."
+          },
+          "invalid": {
+            "type": "integer",
+            "description": "Rows with errors.",
+            "minimum": 0
+          },
+          "mode": {
+            "type": "string",
+            "description": "`preview` or `commit`."
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportRow"
+            },
+            "description": "Every row, in file order."
+          },
+          "total": {
+            "type": "integer",
+            "description": "Rows read.",
+            "minimum": 0
+          },
+          "valid": {
+            "type": "integer",
+            "description": "Rows that are (or were) imported.",
+            "minimum": 0
+          }
+        }
+      },
+      "ImportRow": {
+        "type": "object",
+        "description": "One row's result.",
+        "required": [
+          "line",
+          "valid",
+          "errors"
+        ],
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What is wrong, as `field: problem`."
+          },
+          "line": {
+            "type": "integer",
+            "description": "Line in the file (the header is line 1).",
+            "minimum": 0
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their new number, on commit."
+          },
+          "patient_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The patient registered, on commit."
+          },
+          "valid": {
+            "type": "boolean",
+            "description": "Whether the row is (or was) imported."
           }
         }
       },
@@ -3664,6 +7740,57 @@
           }
         }
       },
+      "Leave": {
+        "type": "object",
+        "description": "Time a doctor is away.",
+        "required": [
+          "id",
+          "practitioner_id",
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The leave."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339)."
+          }
+        }
+      },
+      "LeaveList": {
+        "type": "object",
+        "description": "Leave in a range.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Leave"
+            },
+            "description": "By start."
+          }
+        }
+      },
       "Me": {
         "type": "object",
         "description": "The signed-in person's clinics.",
@@ -3921,6 +8048,145 @@
           }
         }
       },
+      "NewAddendum": {
+        "type": "object",
+        "description": "An addendum's text.",
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "1 to 10,000 characters."
+          }
+        }
+      },
+      "NewAppointmentBody": {
+        "type": "object",
+        "description": "An appointment to book.",
+        "required": [
+          "patient_id",
+          "practitioner_id",
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "branch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Branch; the room's, or the default branch."
+          },
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339), 5 minutes to 12 hours after the start."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`new`, `follow_up` (default), `procedure` or `emergency`."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Front-desk note, up to 2000 characters."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Reason for the visit, up to 200 characters."
+          },
+          "room_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The chair or room."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`front_desk` (default), `phone`, `website`, `app` or `whatsapp`."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339)."
+          }
+        }
+      },
+      "NewChartEntries": {
+        "type": "object",
+        "description": "Findings recorded together.",
+        "required": [
+          "entries"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewChartEntry"
+            },
+            "description": "1 to 64 entries, applied in order."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The open visit they were found in, if any."
+          }
+        }
+      },
+      "NewChartEntry": {
+        "type": "object",
+        "description": "One finding to record.",
+        "required": [
+          "tooth",
+          "finding"
+        ],
+        "properties": {
+          "finding": {
+            "type": "string",
+            "description": "`sound` (clears an earlier finding), `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A remark, up to 500 characters."
+          },
+          "surface": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`M`, `O`, `D`, `B` or `L`; leave out for the whole tooth (crown, missing, implant, root canal and bridge are whole-tooth only)."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int64",
+            "description": "FDI tooth number: 11-48, or 51-85 for primary teeth."
+          }
+        }
+      },
       "NewClinic": {
         "type": "object",
         "description": "A clinic to create.",
@@ -3950,6 +8216,24 @@
               "null"
             ],
             "description": "`dental` (default) or `general`."
+          }
+        }
+      },
+      "NewIdentifier": {
+        "type": "object",
+        "description": "An identifier to add.",
+        "required": [
+          "kind",
+          "value"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "`file_number`, `legacy`, `smart_card`, `abha_number` or `abha_address`."
+          },
+          "value": {
+            "type": "string",
+            "description": "The number, 1 to 64 characters."
           }
         }
       },
@@ -4016,6 +8300,36 @@
               "null"
             ],
             "description": "The voided bill this one replaces."
+          }
+        }
+      },
+      "NewLeave": {
+        "type": "object",
+        "description": "Leave to record.",
+        "required": [
+          "practitioner_id",
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339), after the start."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why, up to 200 characters."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339)."
           }
         }
       },
@@ -4114,6 +8428,170 @@
           }
         }
       },
+      "NewPlan": {
+        "type": "object",
+        "description": "A treatment plan to propose.",
+        "required": [
+          "title",
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewPlanItem"
+            },
+            "description": "1 to 50 items."
+          },
+          "title": {
+            "type": "string",
+            "description": "Its title, 1 to 200 characters."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it is proposed in."
+          }
+        }
+      },
+      "NewPlanItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkFields",
+            "description": "What and where; `name` is required."
+          },
+          {
+            "type": "object",
+            "required": [
+              "estimate_paise"
+            ],
+            "properties": {
+              "estimate_paise": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Estimated cost in paise."
+              },
+              "phase": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int32",
+                "description": "Phase, 1 (default) to 20."
+              }
+            }
+          }
+        ],
+        "description": "A plan item to propose."
+      },
+      "NewProcedure": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkFields",
+            "description": "What and where; taken from the plan item when left out."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "A remark, up to 1,000 characters."
+              },
+              "plan_item_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "An accepted treatment plan item this carries out; when done, the item is done too."
+              },
+              "price_paise": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64",
+                "description": "The fee in paise; the plan item's estimate when left out."
+              },
+              "status": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "`done` (default) or `planned`."
+              }
+            }
+          }
+        ],
+        "description": "A procedure to record."
+      },
+      "NewReading": {
+        "type": "object",
+        "description": "One reading.",
+        "required": [
+          "kind",
+          "value"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "`bp_systolic`, `bp_diastolic`, `pulse`, `temperature`, `spo2`, `weight`, `height` or `blood_sugar`."
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An earlier reading of the same patient and kind that this one corrects."
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The unit; the kind's usual unit when left out (`Cel` for temperature, which also takes `[degF]`)."
+          },
+          "value": {
+            "type": "number",
+            "format": "double",
+            "description": "The value; checked against a plausible range for the kind and unit."
+          }
+        }
+      },
+      "NewReadings": {
+        "type": "object",
+        "description": "Readings taken together, such as a blood pressure pair and a pulse.",
+        "required": [
+          "readings"
+        ],
+        "properties": {
+          "readings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewReading"
+            },
+            "description": "1 to 20 readings."
+          },
+          "recorded_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When they were taken (RFC 3339); now when left out."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`clinician` (default), `assistant`, `patient` or `import`."
+          }
+        }
+      },
       "NewRecall": {
         "type": "object",
         "description": "A follow-up to plan.",
@@ -4136,6 +8614,247 @@
           "reason": {
             "type": "string",
             "description": "Why, 1 to 300 characters."
+          }
+        }
+      },
+      "NewVisit": {
+        "type": "object",
+        "description": "A visit to start.",
+        "properties": {
+          "appointment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The appointment the patient came for; a walk-in has none. One visit per appointment."
+          },
+          "chief_complaint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the patient came, up to 1,000 characters."
+          }
+        }
+      },
+      "Note": {
+        "type": "object",
+        "description": "A clinical note. Signed notes never change: corrections go in addenda, and a mistaken note\nis marked `entered_in_error` with a reason.",
+        "required": [
+          "id",
+          "visit_id",
+          "kind",
+          "source",
+          "status",
+          "sections",
+          "author",
+          "created_at",
+          "updated_at",
+          "addenda"
+        ],
+        "properties": {
+          "addenda": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Addendum"
+            },
+            "description": "Addenda, oldest first."
+          },
+          "author": {
+            "$ref": "#/components/schemas/Member",
+            "description": "Who wrote it; only they may edit or sign it."
+          },
+          "conflicts_with_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "For a conflict: the signed note it collided with."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was written (RFC 3339)."
+          },
+          "error_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was marked entered in error."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`soap`, `progress`, `procedure`, `intake` or `front_desk`."
+          },
+          "sections": {
+            "$ref": "#/components/schemas/NoteSections",
+            "description": "The sections."
+          },
+          "signed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was signed (RFC 3339)."
+          },
+          "source": {
+            "type": "string",
+            "description": "`typed`, `voice` or `ai_draft`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`draft`, `signed`, `conflict` (collided with a signed note during sync) or `entered_in_error`."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          },
+          "visit_id": {
+            "type": "string",
+            "description": "The visit."
+          }
+        }
+      },
+      "NoteContent": {
+        "type": "object",
+        "description": "A note's content. Sections are replaced as a whole when editing.",
+        "properties": {
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`soap` (default), `progress`, `procedure`, `intake` or `front_desk`."
+          },
+          "sections": {
+            "$ref": "#/components/schemas/NoteSections",
+            "description": "The sections, each up to 10,000 characters."
+          }
+        }
+      },
+      "NoteSections": {
+        "type": "object",
+        "description": "A note's sections. Each may be empty while drafting; signing needs at least one.",
+        "properties": {
+          "assessment": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinician's assessment."
+          },
+          "objective": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the clinician found."
+          },
+          "plan": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What happens next."
+          },
+          "subjective": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the patient reports."
+          }
+        }
+      },
+      "Observation": {
+        "type": "object",
+        "description": "A measurement. Values never change: a correction is a new reading whose `supersedes_id`\nnames the old one, which stays with status `corrected`.",
+        "required": [
+          "id",
+          "kind",
+          "value",
+          "unit",
+          "recorded_at",
+          "status",
+          "source"
+        ],
+        "properties": {
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "LOINC code."
+          },
+          "error_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was marked entered in error."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`bp_systolic`, `bp_diastolic`, `pulse`, `temperature`, `spo2`, `weight`, `height` or `blood_sugar`."
+          },
+          "recorded_at": {
+            "type": "string",
+            "description": "When it was measured (RFC 3339)."
+          },
+          "source": {
+            "type": "string",
+            "description": "`clinician`, `assistant`, `patient` or `import`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`final`, `corrected` or `entered_in_error`."
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The reading this one corrects."
+          },
+          "unit": {
+            "type": "string",
+            "description": "UCUM unit: `mmHg`, `/min`, `Cel`, `[degF]`, `%`, `kg`, `cm` or `mg/dL`."
+          },
+          "value": {
+            "type": "number",
+            "format": "double",
+            "description": "The value, to two decimal places."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it was taken in."
+          }
+        }
+      },
+      "ObservationList": {
+        "type": "object",
+        "description": "Readings recorded together.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Observation"
+            },
+            "description": "The new readings."
           }
         }
       },
@@ -4237,6 +8956,43 @@
           }
         }
       },
+      "PatientBrief": {
+        "type": "object",
+        "description": "A patient as the calendar and queue show them.",
+        "required": [
+          "id",
+          "number",
+          "full_name",
+          "sex"
+        ],
+        "properties": {
+          "age_years": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Age in whole years today.",
+            "minimum": 0
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Full name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "number": {
+            "type": "string",
+            "description": "Readable number, such as `SD-1042`."
+          },
+          "sex": {
+            "type": "string",
+            "description": "`female`, `male`, `other` or `unknown`."
+          }
+        }
+      },
       "PatientChanges": {
         "type": "object",
         "description": "Changes to a patient. Fields left out stay as they are; an empty `phone`, `email` or\n`date_of_birth` clears it.",
@@ -4291,6 +9047,79 @@
               "null"
             ],
             "description": "`female`, `male`, `other` or `unknown`."
+          }
+        }
+      },
+      "PatientIdentifier": {
+        "type": "object",
+        "description": "Another number a patient is known by.",
+        "required": [
+          "id",
+          "kind",
+          "value",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was added (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`file_number`, `legacy`, `smart_card`, `abha_number` or `abha_address`."
+          },
+          "value": {
+            "type": "string",
+            "description": "The number."
+          }
+        }
+      },
+      "PatientIdentifierList": {
+        "type": "object",
+        "description": "A patient's identifiers.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientIdentifier"
+            },
+            "description": "By kind."
+          }
+        }
+      },
+      "PatientImport": {
+        "type": "object",
+        "description": "A patient import.",
+        "required": [
+          "csv",
+          "mode",
+          "mapping"
+        ],
+        "properties": {
+          "csv": {
+            "type": "string",
+            "description": "The CSV text, header line first; at most 5,000 rows and 2 MB."
+          },
+          "mapping": {
+            "type": "object",
+            "description": "Our field to the file's column header (matched ignoring case). Fields: `full_name`\n(required), `sex`, `date_of_birth`, `age_years`, `phone`, `email`,\n`preferred_language`, `file_number`, `legacy_id`.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "mode": {
+            "type": "string",
+            "description": "`preview` checks every row and saves nothing; `commit` saves the valid rows."
           }
         }
       },
@@ -4553,6 +9382,296 @@
             "type": "integer",
             "description": "Patients who owe.",
             "minimum": 0
+          }
+        }
+      },
+      "Plan": {
+        "type": "object",
+        "description": "A treatment plan with its estimate.",
+        "required": [
+          "id",
+          "patient_id",
+          "clinician",
+          "title",
+          "status",
+          "created_at",
+          "estimate_paise",
+          "items"
+        ],
+        "properties": {
+          "accepted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the patient accepted it (RFC 3339)."
+          },
+          "clinician": {
+            "$ref": "#/components/schemas/Member",
+            "description": "The member who proposed it."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was proposed (RFC 3339)."
+          },
+          "estimate_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The sum of the items that aren't cancelled, in paise."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanItem"
+            },
+            "description": "Its items, by phase."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "status": {
+            "type": "string",
+            "description": "`proposed`, `accepted`, `in_progress`, `completed` or `declined`."
+          },
+          "title": {
+            "type": "string",
+            "description": "Its title."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it was proposed in."
+          }
+        }
+      },
+      "PlanItem": {
+        "type": "object",
+        "description": "A step of a treatment plan.",
+        "required": [
+          "id",
+          "name",
+          "surfaces",
+          "phase",
+          "estimate_paise",
+          "status"
+        ],
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estimate_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Estimated cost in paise."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "What is to be done."
+          },
+          "phase": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Phase, from 1."
+          },
+          "procedure_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The procedure carrying it out."
+          },
+          "status": {
+            "type": "string",
+            "description": "`proposed`, `accepted`, `done` or `cancelled`."
+          },
+          "surfaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Surfaces: `M`, `O`, `D`, `B`, `L`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "FDI tooth number.",
+            "minimum": 0
+          }
+        }
+      },
+      "PlanList": {
+        "type": "object",
+        "description": "A patient's treatment plans, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Plan"
+            },
+            "description": "The plans."
+          }
+        }
+      },
+      "Practitioner": {
+        "type": "object",
+        "description": "A doctor who sees patients.",
+        "required": [
+          "id",
+          "display_name",
+          "calendar_color",
+          "active"
+        ],
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "description": "Whether they can be booked."
+          },
+          "calendar_color": {
+            "type": "string",
+            "description": "Calendar colour, `#RRGGBB`."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Name shown on the calendar."
+          },
+          "id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their membership, if they sign in."
+          },
+          "registration_number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Council registration number."
+          },
+          "specialty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Specialty, such as `Orthodontics`."
+          }
+        }
+      },
+      "PractitionerBrief": {
+        "type": "object",
+        "description": "A doctor as the calendar shows them.",
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "properties": {
+          "calendar_color": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Calendar colour, `#RRGGBB`."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Name shown on the calendar."
+          },
+          "id": {
+            "type": "string",
+            "description": "The doctor."
+          }
+        }
+      },
+      "PractitionerFields": {
+        "type": "object",
+        "description": "A doctor to add, or changes to one. Fields left out stay as they are; an empty\n`membership_id`, `registration_number` or `specialty` clears it.",
+        "properties": {
+          "active": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether they can be booked (default true)."
+          },
+          "calendar_color": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Calendar colour, `#RRGGBB`."
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name shown on the calendar, 1 to 120 characters; required when adding."
+          },
+          "membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who is this doctor."
+          },
+          "registration_number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Council registration number."
+          },
+          "specialty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Specialty."
+          }
+        }
+      },
+      "PractitionerList": {
+        "type": "object",
+        "description": "The clinic's doctors.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Practitioner"
+            },
+            "description": "By name."
           }
         }
       },
@@ -4892,6 +10011,227 @@
           }
         }
       },
+      "Procedure": {
+        "type": "object",
+        "description": "A procedure planned or done in a visit. Done procedures never change; a mistaken one is\nmarked `entered_in_error` with a reason.",
+        "required": [
+          "id",
+          "visit_id",
+          "clinician",
+          "name",
+          "surfaces",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "clinician": {
+            "$ref": "#/components/schemas/Member",
+            "description": "The member who did it."
+          },
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was recorded (RFC 3339)."
+          },
+          "error_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was marked entered in error."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "What was done."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A remark."
+          },
+          "performed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was done (RFC 3339)."
+          },
+          "plan_item_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The treatment plan item it carries out."
+          },
+          "price_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The fee in paise."
+          },
+          "status": {
+            "type": "string",
+            "description": "`planned`, `done` or `entered_in_error`."
+          },
+          "surfaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Surfaces: `M`, `O`, `D`, `B`, `L`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "FDI tooth number.",
+            "minimum": 0
+          },
+          "visit_id": {
+            "type": "string",
+            "description": "The visit."
+          }
+        }
+      },
+      "ProcedureList": {
+        "type": "object",
+        "description": "A patient's procedures, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Procedure"
+            },
+            "description": "The procedures."
+          }
+        }
+      },
+      "QueueDay": {
+        "type": "object",
+        "description": "A day's queue.",
+        "required": [
+          "date",
+          "items"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueToken"
+            },
+            "description": "Tokens by branch and number."
+          }
+        }
+      },
+      "QueueToken": {
+        "type": "object",
+        "description": "A waiting-room token.",
+        "required": [
+          "id",
+          "branch_id",
+          "day",
+          "token_number",
+          "status",
+          "issued_at",
+          "wait_minutes",
+          "patient"
+        ],
+        "properties": {
+          "appointment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The appointment; none for a walk-in."
+          },
+          "branch_id": {
+            "type": "string",
+            "description": "Branch."
+          },
+          "called_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the patient was called in (RFC 3339)."
+          },
+          "day": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`."
+          },
+          "done_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When they were done or left (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The token."
+          },
+          "issued_at": {
+            "type": "string",
+            "description": "When it was issued (RFC 3339)."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientBrief",
+            "description": "The patient."
+          },
+          "practitioner": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PractitionerBrief",
+                "description": "The doctor, if known."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "`waiting`, `in_chair`, `done` or `left`."
+          },
+          "token_number": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number shown on the screen; restarts at 1 each day per branch."
+          },
+          "wait_minutes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minutes waited: until now while waiting, otherwise until called."
+          }
+        }
+      },
       "Reason": {
         "type": "object",
         "description": "A reason, for voiding or cancelling.",
@@ -5043,6 +10383,103 @@
           }
         }
       },
+      "Room": {
+        "type": "object",
+        "description": "A chair, room or lab.",
+        "required": [
+          "id",
+          "branch_id",
+          "name",
+          "kind",
+          "active",
+          "sort_order"
+        ],
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "description": "Whether it can be booked."
+          },
+          "branch_id": {
+            "type": "string",
+            "description": "Its branch."
+          },
+          "id": {
+            "type": "string",
+            "description": "The room."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`chair`, `room` or `lab`."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name, such as `Chair 1`."
+          },
+          "sort_order": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Position in lists."
+          }
+        }
+      },
+      "RoomFields": {
+        "type": "object",
+        "description": "A room to add, or changes to one. Fields left out stay as they are (or take the default).",
+        "properties": {
+          "active": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether it can be booked (default true)."
+          },
+          "branch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Branch; the default branch when adding without one."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`chair` (default), `room` or `lab`."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name, 1 to 60 characters; required when adding."
+          },
+          "sort_order": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Position in lists, 0 to 999."
+          }
+        }
+      },
+      "RoomList": {
+        "type": "object",
+        "description": "The clinic's rooms.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Room"
+            },
+            "description": "In list order."
+          }
+        }
+      },
       "RxItem": {
         "type": "object",
         "description": "A medicine on a prescription.",
@@ -5162,6 +10599,27 @@
               "null"
             ],
             "description": "Language, such as `hi-IN`; the patient's by default."
+          }
+        }
+      },
+      "SavedAppointment": {
+        "type": "object",
+        "description": "An appointment after a booking or change.",
+        "required": [
+          "appointment",
+          "warnings"
+        ],
+        "properties": {
+          "appointment": {
+            "$ref": "#/components/schemas/Appointment",
+            "description": "The appointment."
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingWarning"
+            },
+            "description": "Warnings; empty when all is well."
           }
         }
       },
@@ -5400,6 +10858,225 @@
           }
         }
       },
+      "StatusChange": {
+        "type": "object",
+        "description": "A status change.",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why; required to cancel, up to 200 characters."
+          },
+          "status": {
+            "type": "string",
+            "description": "`confirmed`, `arrived`, `in_chair`, `completed`, `cancelled` or `no_show`."
+          }
+        }
+      },
+      "StatusChanged": {
+        "type": "object",
+        "description": "An appointment after a status change.",
+        "required": [
+          "appointment"
+        ],
+        "properties": {
+          "appointment": {
+            "$ref": "#/components/schemas/Appointment",
+            "description": "The appointment."
+          },
+          "queue_token_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its queue token, once the patient has arrived."
+          }
+        }
+      },
+      "TeamMemberToday": {
+        "type": "object",
+        "description": "A doctor working today.",
+        "required": [
+          "practitioner",
+          "shifts",
+          "on_leave",
+          "appointments"
+        ],
+        "properties": {
+          "appointments": {
+            "type": "integer",
+            "description": "Appointments today, not counting cancelled ones.",
+            "minimum": 0
+          },
+          "on_leave": {
+            "type": "boolean",
+            "description": "Whether they have leave today."
+          },
+          "practitioner": {
+            "$ref": "#/components/schemas/PractitionerBrief",
+            "description": "The doctor."
+          },
+          "shifts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TodayShift"
+            },
+            "description": "Today's shifts."
+          },
+          "specialty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Specialty."
+          }
+        }
+      },
+      "Timeline": {
+        "type": "object",
+        "description": "A page of a patient's timeline, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimelineEvent"
+            },
+            "description": "The events."
+          }
+        }
+      },
+      "TimelineEvent": {
+        "type": "object",
+        "description": "One event on a patient's timeline.",
+        "required": [
+          "kind",
+          "id",
+          "at",
+          "title"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The fee in paise, for procedures."
+          },
+          "at": {
+            "type": "string",
+            "description": "When it happened (RFC 3339): a visit's start, a note's signing, a procedure's doing."
+          },
+          "by": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Member",
+                "description": "The member responsible."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "More detail: the chief complaint, the assessment, the tooth or the caption."
+          },
+          "id": {
+            "type": "string",
+            "description": "The record: open it through its own route."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`visit`, `note` (signed), `procedure` or `attachment`."
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The record's status."
+          },
+          "title": {
+            "type": "string",
+            "description": "A short title: the visit number, the note kind, the procedure name or the file kind."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it belongs to."
+          }
+        }
+      },
+      "TodayCounts": {
+        "type": "object",
+        "description": "The day's numbers.",
+        "required": [
+          "total",
+          "booked",
+          "arrived",
+          "in_chair",
+          "done",
+          "no_shows",
+          "cancelled",
+          "waiting"
+        ],
+        "properties": {
+          "arrived": {
+            "type": "integer",
+            "description": "Arrived and waiting.",
+            "minimum": 0
+          },
+          "booked": {
+            "type": "integer",
+            "description": "Booked or confirmed, not arrived yet.",
+            "minimum": 0
+          },
+          "cancelled": {
+            "type": "integer",
+            "description": "Cancelled.",
+            "minimum": 0
+          },
+          "done": {
+            "type": "integer",
+            "description": "Completed.",
+            "minimum": 0
+          },
+          "in_chair": {
+            "type": "integer",
+            "description": "In the chair now.",
+            "minimum": 0
+          },
+          "no_shows": {
+            "type": "integer",
+            "description": "Didn't come.",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "description": "Appointments today, not counting cancelled ones.",
+            "minimum": 0
+          },
+          "waiting": {
+            "type": "integer",
+            "description": "Queue tokens waiting, walk-ins included.",
+            "minimum": 0
+          }
+        }
+      },
       "TodayMoney": {
         "type": "object",
         "description": "The Today screen's money widgets.",
@@ -5477,6 +11154,151 @@
           }
         }
       },
+      "TodayResponse": {
+        "type": "object",
+        "description": "Today at the clinic. Money tiles arrive with billing.",
+        "required": [
+          "date",
+          "as_of",
+          "appointments",
+          "counts",
+          "by_hour",
+          "chairs",
+          "recent_patients",
+          "team",
+          "attention"
+        ],
+        "properties": {
+          "appointments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Appointment"
+            },
+            "description": "Today's appointments by start, cancelled ones included."
+          },
+          "as_of": {
+            "type": "string",
+            "description": "When this was built (RFC 3339); waits are measured from here."
+          },
+          "attention": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttentionItem"
+            },
+            "description": "Late arrivals and long waits, longest first."
+          },
+          "by_hour": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HourBar"
+            },
+            "description": "Appointments per local hour, for hours that have any."
+          },
+          "chairs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChairStatus"
+            },
+            "description": "Each active chair: who is in it and who is next."
+          },
+          "counts": {
+            "$ref": "#/components/schemas/TodayCounts",
+            "description": "The day's numbers."
+          },
+          "date": {
+            "type": "string",
+            "description": "The clinic's local date, `YYYY-MM-DD`."
+          },
+          "recent_patients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueToken"
+            },
+            "description": "The latest patients through the queue today, newest first."
+          },
+          "team": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMemberToday"
+            },
+            "description": "Doctors with working hours today."
+          }
+        }
+      },
+      "TodayShift": {
+        "type": "object",
+        "description": "A shift today, local time.",
+        "required": [
+          "starts",
+          "ends"
+        ],
+        "properties": {
+          "ends": {
+            "type": "string",
+            "description": "End, `HH:MM`."
+          },
+          "starts": {
+            "type": "string",
+            "description": "Start, `HH:MM`."
+          }
+        }
+      },
+      "TokenStatusChange": {
+        "type": "object",
+        "description": "A token status change.",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "`in_chair`, `done` or `left`."
+          }
+        }
+      },
+      "UploadForm": {
+        "type": "object",
+        "description": "The form an upload sends (`multipart/form-data`).",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "caption": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A caption, up to 300 characters."
+          },
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "The file: JPEG, PNG, PDF or DICOM, up to 10 MB. Its type is read from its content."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`photo`, `xray`, `report`, `document` (default), `audio` or `consent`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "FDI number of the tooth it shows."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it belongs to."
+          }
+        }
+      },
       "Verification": {
         "type": "object",
         "description": "What the QR code shows: never patient data.",
@@ -5508,6 +11330,248 @@
             "description": "`valid` or `cancelled`."
           }
         }
+      },
+      "Visit": {
+        "type": "object",
+        "description": "A visit.",
+        "required": [
+          "id",
+          "number",
+          "patient_id",
+          "clinician",
+          "status",
+          "started_at"
+        ],
+        "properties": {
+          "appointment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The appointment it was started from."
+          },
+          "chief_complaint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the patient came."
+          },
+          "clinician": {
+            "$ref": "#/components/schemas/Member",
+            "description": "The member responsible."
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was closed (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "number": {
+            "type": "string",
+            "description": "Readable number, such as `V-318`."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "started_at": {
+            "type": "string",
+            "description": "When it started (RFC 3339)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`open` or `closed`."
+          }
+        }
+      },
+      "VisitDetail": {
+        "type": "object",
+        "description": "Everything recorded in a visit.",
+        "required": [
+          "visit",
+          "notes",
+          "observations",
+          "chart_entries",
+          "procedures",
+          "attachments"
+        ],
+        "properties": {
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            },
+            "description": "Files attached to the visit."
+          },
+          "chart_entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChartEntry"
+            },
+            "description": "Dental chart entries recorded in the visit."
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Note"
+            },
+            "description": "Notes with their addenda, oldest first."
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Observation"
+            },
+            "description": "Vital signs recorded in the visit, oldest first; corrected values stay, marked by status."
+          },
+          "procedures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Procedure"
+            },
+            "description": "Procedures planned or done in the visit."
+          },
+          "visit": {
+            "$ref": "#/components/schemas/Visit",
+            "description": "The visit."
+          }
+        }
+      },
+      "VisitList": {
+        "type": "object",
+        "description": "A patient's visits, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Visit"
+            },
+            "description": "The visits."
+          }
+        }
+      },
+      "WalkInBody": {
+        "type": "object",
+        "description": "A walk-in.",
+        "required": [
+          "patient_id"
+        ],
+        "properties": {
+          "branch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Branch; the default branch when left out."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient (register them first if new)."
+          },
+          "practitioner_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The doctor, if known."
+          }
+        }
+      },
+      "WorkFields": {
+        "type": "object",
+        "description": "What is done and where.",
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Code",
+                "description": "Optional code."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What is done, 1 to 200 characters, such as \"Composite filling\"."
+          },
+          "surfaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Surfaces: `M`, `O`, `D`, `B`, `L`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "FDI tooth number: 11-48, or 51-85 for primary teeth."
+          }
+        }
+      },
+      "WorkingHours": {
+        "type": "object",
+        "description": "A doctor's week.",
+        "required": [
+          "shifts"
+        ],
+        "properties": {
+          "shifts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkingShift"
+            },
+            "description": "Shifts by weekday and start; split shifts are two entries."
+          }
+        }
+      },
+      "WorkingShift": {
+        "type": "object",
+        "description": "One stretch of a doctor's week, in the clinic's local time.",
+        "required": [
+          "weekday",
+          "starts",
+          "ends"
+        ],
+        "properties": {
+          "branch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Branch; the default branch when left out."
+          },
+          "ends": {
+            "type": "string",
+            "description": "End, `HH:MM`, after the start."
+          },
+          "starts": {
+            "type": "string",
+            "description": "Start, `HH:MM`."
+          },
+          "weekday": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1 Monday to 7 Sunday.",
+            "minimum": 0
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -5530,6 +11594,22 @@
     {
       "name": "patients",
       "description": "A clinic's patients; clinic host only"
+    },
+    {
+      "name": "schedule",
+      "description": "A clinic's chairs, doctors, working hours and leave; clinic host only"
+    },
+    {
+      "name": "appointments",
+      "description": "The calendar, appointments and Today; clinic host only"
+    },
+    {
+      "name": "queue",
+      "description": "The waiting-room queue; clinic host only"
+    },
+    {
+      "name": "clinical",
+      "description": "Visits, notes, vitals, the dental chart, treatment and files; clinic host only"
     },
     {
       "name": "staff",

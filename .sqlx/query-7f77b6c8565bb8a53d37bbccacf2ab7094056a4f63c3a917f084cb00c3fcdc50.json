@@ -1,0 +1,137 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.encounters set status = 'closed', ended_at = greatest($2, started_at)\n           where id = $1\n           returning id, number, patient_id, clinician_id, branch_id, appointment_id, status,\n                     chief_complaint, started_at, ended_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "clinician_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "clinician_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "branch_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "branch_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "appointment_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "appointment_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "chief_complaint",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "chief_complaint"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "ended_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "ended_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "7f77b6c8565bb8a53d37bbccacf2ab7094056a4f63c3a917f084cb00c3fcdc50"
+}

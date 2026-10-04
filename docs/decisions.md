@@ -2,6 +2,14 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-04: The visit record (M4)
+
+- **Clinicians are memberships.** Visits, notes, procedures and plans point at `memberships`; a doctor's practitioner record (registration, fees) hangs off the same membership. `encounters.appointment_id` has no foreign key until the appointments table merges; a follow-up migration adds the composite key.
+- **Final means frozen by trigger.** `app.freeze_when()` lets a signed note, a recorded reading, a chart entry or a done procedure only move to its allowed next status (entered in error, corrected, superseded); corrections are new rows. Every child of a visit carries `patient_id` with a composite key `(org_id, encounter_id, patient_id)`.
+- **Only a note's author edits or signs it;** any clinician may add an addendum or mark a signed note entered in error with a reason.
+- **Clinical flags need only `patients.read`:** everyone who can see the patient learns that flags exist and how many; substances and conditions need `clinical.read`.
+- **Files are typed by their content** (JPEG, PNG, PDF, DICOM), stored at `<clinic>/<file>` behind a `Storage` trait (local disk until Supabase Storage), and served through five-minute HMAC links that write the access record.
+
 ## 2026-10-03: Fourth review (three independent principal engineers) and the build plan
 
 Three reviewers checked strategy and cost, the library code, and the database design before coding (71 findings, 17 marked P0; full reports are summarised in `delivery-plan.md`). Decided with the founder:
@@ -139,6 +147,14 @@ One notification module owns every outbound message. Rules (birthdays, appointme
 ## 2026-10-02: Automated clinic websites
 
 Onboarding answers become a site configuration. A GitHub App creates the clinic's repository from a template, commits the configuration, and a shared workflow builds it with Astro and deploys to Cloudflare. Website repositories hold only public content, so they can be public and get free CI minutes.
+
+## 2026-10-04: Front desk scheduling rules (M3)
+
+- A chair is the hard limit: an exclusion constraint refuses two active (not cancelled, not no-show, not deleted) appointments overlapping in one room, answered as `409`. A doctor booked in two chairs at once, on leave or outside weekly hours is allowed with `warnings` (R3-11).
+- Statuses are `booked`, `confirmed`, `arrived`, `in_chair`, `completed`, `cancelled`, `no_show`, moving only forward (`aarogyam_domain::schedule`); cancelling needs a reason. Kinds are `new`, `follow_up`, `procedure`, `emergency`. These replace the web draft's `scheduled`/`in_progress`/`teleconsult`.
+- Arrival issues a queue token numbered per branch per clinic day from `number_sequences` (kind `queue_token`, series = branch, period = local date). Tokens are `waiting`, `in_chair`, `done` or `left`; moving a token moves its appointment.
+- Chairs, doctors and weekly hours change with `settings.manage`; leave with `appointments.write`, because the front desk records it.
+- Patient imports take CSV text (≤ 5,000 rows, ≤ 2 MB) with a column mapping; a preview saves nothing, a commit saves the valid rows in one transaction and records every row's result.
 
 ## Next milestone: foundation (golden clinic journey)
 

@@ -3,6 +3,7 @@ import { Navigate, Outlet, type RouteObject } from "react-router";
 import { RouterLinks } from "@aarogyam/app-kit";
 
 import { ClinicGate, RequireAuth } from "./layout/portal-layout.js";
+import { CalendarPage } from "./pages/calendar/calendar-page.js";
 import { ComingSoonPage } from "./pages/coming-soon-page.js";
 import { InvitePage } from "./pages/invite-page.js";
 import { NotFoundPage } from "./pages/not-found-page.js";
@@ -10,6 +11,7 @@ import { EditPatientPage } from "./pages/patients/edit-patient-page.js";
 import { NewPatientPage } from "./pages/patients/new-patient-page.js";
 import { PatientPage } from "./pages/patients/patient-page.js";
 import { PatientsPage } from "./pages/patients/patients-page.js";
+import { QueuePage } from "./pages/queue/queue-page.js";
 import { SettingsPage } from "./pages/settings/settings-page.js";
 import { SignInPage } from "./pages/sign-in-page.js";
 import { TodayPage } from "./pages/today/today-page.js";
@@ -38,10 +40,8 @@ export const routes: RouteObject[] = [
               { path: "patients/new", element: <NewPatientPage /> },
               { path: "patients/:id", element: <PatientPage /> },
               { path: "patients/:id/edit", element: <EditPatientPage /> },
-              {
-                path: "calendar",
-                element: <ComingSoonPage title="Calendar" description="Book and see the week at a glance, once appointment booking lands in M3." />,
-              },
+              { path: "calendar", element: <CalendarPage /> },
+              { path: "queue", element: <QueuePage /> },
               {
                 path: "billing",
                 element: <ComingSoonPage title="Billing" description="Collections, invoices and payments, once billing lands in M5." />,

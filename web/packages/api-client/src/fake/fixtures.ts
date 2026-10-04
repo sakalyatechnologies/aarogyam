@@ -10,6 +10,7 @@ import type { Permission } from "../permissions.js";
 import { DENTAL_REASONS, FEMALE_NAMES, MALE_NAMES, SURNAMES } from "./names.js";
 import { createQualityReport } from "./quality.js";
 import { createRandom, fakeUuid, type Random } from "./random.js";
+import { atLocalTime, localClock } from "./zoned-time.js";
 
 const DAY = 86_400_000;
 
@@ -97,25 +98,86 @@ export interface FakePatient extends Omit<C.Patient, "sex" | "status" | "age_yea
   status: "active" | "inactive" | "deceased" | "merged";
 }
 
-/** A booked slot today. Its status is worked out from the clock when the day is served. */
-export interface FakeScheduleEntry {
+/** A chair, room or lab. Fixtures model one branch per clinic, so `branch_id` is the clinic's id. */
+export interface FakeRoom {
   id: string;
   clinic_id: string;
-  /** Local start, in minutes after midnight. */
-  start_minutes: number;
-  duration_minutes: number;
-  patient_id: string;
-  practitioner: { id: string; display_name: string };
-  room: string;
-  kind: C.AppointmentKind;
-  reason: string;
-  /** An outcome that holds whatever the time. */
-  outcome?: "cancelled" | "no_show";
+  branch_id: string;
+  name: string;
+  kind: C.RoomKind;
+  active: boolean;
+  sort_order: number;
 }
 
-export interface FakeClinicDay {
+/** A doctor who sees patients, separate from the `FakeUser`/membership that signs them in. */
+export interface FakePractitioner {
+  id: string;
   clinic_id: string;
-  money: C.TodayMoney;
+  display_name: string;
+  calendar_color: string;
+  active: boolean;
+  membership_id?: string | null;
+  registration_number?: string | null;
+  specialty?: string | null;
+}
+
+/** One stretch of a doctor's week, local time. */
+export interface FakeWorkingShift {
+  id: string;
+  clinic_id: string;
+  practitioner_id: string;
+  branch_id: string;
+  /** 1 Monday to 7 Sunday. */
+  weekday: number;
+  starts: string;
+  ends: string;
+}
+
+export interface FakeLeave {
+  id: string;
+  clinic_id: string;
+  practitioner_id: string;
+  starts_at: string;
+  ends_at: string;
+  reason?: string | null;
+}
+
+/** A booked appointment. Status, arrival and completion are worked out once when fixtures build. */
+export interface FakeAppointment {
+  id: string;
+  clinic_id: string;
+  branch_id: string;
+  patient_id: string;
+  practitioner_id: string;
+  room_id?: string | null;
+  starts_at: string;
+  ends_at: string;
+  status: C.AppointmentStatus;
+  kind: C.AppointmentKind;
+  source: C.AppointmentSource;
+  reason?: string | null;
+  notes?: string | null;
+  cancel_reason?: string | null;
+  arrived_at?: string | null;
+  seated_at?: string | null;
+  completed_at?: string | null;
+  token_number?: number | null;
+}
+
+/** A waiting-room token, issued when a patient (booked or walk-in) arrives. */
+export interface FakeQueueToken {
+  id: string;
+  clinic_id: string;
+  branch_id: string;
+  day: string;
+  token_number: number;
+  patient_id: string;
+  practitioner_id?: string | null;
+  appointment_id?: string | null;
+  status: C.QueueTokenStatus;
+  issued_at: string;
+  called_at?: string | null;
+  done_at?: string | null;
 }
 
 export interface Fixtures {
@@ -124,8 +186,12 @@ export interface Fixtures {
   clinics: FakeClinic[];
   memberships: FakeMembership[];
   patients: FakePatient[];
-  schedule: FakeScheduleEntry[];
-  days: FakeClinicDay[];
+  rooms: FakeRoom[];
+  practitioners: FakePractitioner[];
+  workingShifts: FakeWorkingShift[];
+  leave: FakeLeave[];
+  appointments: FakeAppointment[];
+  queueTokens: FakeQueueToken[];
   sessions: FakeSession[];
   quality: C.QualityReport;
 }
@@ -233,56 +299,113 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     number_prefix: "LD",
   };
 
+  const sunriseOwnerMembership = { id: id(), user_id: users.asha.id, clinic_id: sunrise.id, role: ROLES.owner };
+  const sunriseDoctorMembership = { id: id(), user_id: users.dev.id, clinic_id: sunrise.id, role: ROLES.doctor };
+  const lotusOwnerMembership = { id: id(), user_id: users.bina.id, clinic_id: lotus.id, role: ROLES.owner };
+
   const memberships: FakeMembership[] = [
-    { id: id(), user_id: users.asha.id, clinic_id: sunrise.id, role: ROLES.owner },
-    { id: id(), user_id: users.dev.id, clinic_id: sunrise.id, role: ROLES.doctor },
+    sunriseOwnerMembership,
+    sunriseDoctorMembership,
     { id: id(), user_id: users.dev.id, clinic_id: lotus.id, role: ROLES.consultant },
     { id: id(), user_id: users.farah.id, clinic_id: sunrise.id, role: ROLES.frontDesk },
-    { id: id(), user_id: users.bina.id, clinic_id: lotus.id, role: ROLES.owner },
+    lotusOwnerMembership,
   ];
-
 
   const sunrisePatients = makePatients(random, sunrise, 48, now, 1, 10_000);
   const lotusPatients = makePatients(random, lotus, 12, now, 1, 20_000);
 
-  const practitioners = {
-    asha: { id: id(), display_name: users.asha.display_name },
-    dev: { id: id(), display_name: users.dev.display_name },
-    bina: { id: id(), display_name: users.bina.display_name },
+  const sunriseChair1 = makeRoom(random, now, sunrise, "Chair 1", 0);
+  const sunriseChair2 = makeRoom(random, now, sunrise, "Chair 2", 1);
+  const lotusChair1 = makeRoom(random, now, lotus, "Chair 1", 0);
+  const sunriseRooms = [sunriseChair1, sunriseChair2];
+  const lotusRooms = [lotusChair1];
+
+  // Asha also sees a few patients at Lotus as a guest dentist, with no membership there.
+  const sunriseAsha: FakePractitioner = {
+    id: id(),
+    clinic_id: sunrise.id,
+    display_name: users.asha.display_name,
+    calendar_color: "#136650",
+    active: true,
+    membership_id: sunriseOwnerMembership.id,
+    specialty: "Prosthodontics",
   };
+  const sunriseDev: FakePractitioner = {
+    id: id(),
+    clinic_id: sunrise.id,
+    display_name: users.dev.display_name,
+    calendar_color: "#2563eb",
+    active: true,
+    membership_id: sunriseDoctorMembership.id,
+    specialty: "Orthodontics",
+  };
+  const lotusBina: FakePractitioner = {
+    id: id(),
+    clinic_id: lotus.id,
+    display_name: users.bina.display_name,
+    calendar_color: "#db2777",
+    active: true,
+    membership_id: lotusOwnerMembership.id,
+    specialty: "General dentistry",
+  };
+  const lotusAsha: FakePractitioner = {
+    id: id(),
+    clinic_id: lotus.id,
+    display_name: users.asha.display_name,
+    calendar_color: "#136650",
+    active: true,
+    membership_id: null,
+    specialty: "Prosthodontics",
+  };
+  const practitioners: FakePractitioner[] = [sunriseAsha, sunriseDev, lotusBina, lotusAsha];
 
-  const schedule: FakeScheduleEntry[] = [
-    ...makeSchedule(random, sunrise, sunrisePatients, now, [
-      { at: "09:00", who: practitioners.asha, room: "Chair 1" },
-      { at: "09:30", who: practitioners.dev, room: "Chair 2", outcome: "no_show" },
-      { at: "10:00", who: practitioners.asha, room: "Chair 1" },
-      { at: "10:30", who: practitioners.dev, room: "Chair 2" },
-      { at: "11:00", who: practitioners.asha, room: "Chair 1" },
-      { at: "11:30", who: practitioners.dev, room: "Chair 2" },
-      { at: "12:00", who: practitioners.asha, room: "Chair 1" },
-      { at: "12:30", who: practitioners.dev, room: "Chair 2", outcome: "cancelled" },
-      { at: "14:00", who: practitioners.asha, room: "Chair 1" },
-      { at: "14:30", who: practitioners.dev, room: "Chair 2" },
-      { at: "15:00", who: practitioners.asha, room: "Chair 1" },
-      { at: "16:00", who: practitioners.dev, room: "Chair 2", reason: "Braces review" },
-      { at: "16:30", who: practitioners.dev, room: "Chair 2", reason: "Aligner check" },
-      { at: "17:00", who: practitioners.dev, room: "Chair 1" },
-      { at: "17:30", who: practitioners.asha, room: "Chair 1" },
-    ]),
-    ...makeSchedule(random, lotus, lotusPatients, now, [
-      { at: "10:00", who: practitioners.bina, room: "Chair 1" },
-      { at: "11:00", who: practitioners.asha, room: "Chair 1" },
-      { at: "12:00", who: practitioners.bina, room: "Chair 1" },
-      { at: "17:00", who: practitioners.asha, room: "Chair 1" },
-      { at: "18:00", who: practitioners.bina, room: "Chair 1" },
-      { at: "18:30", who: practitioners.asha, room: "Chair 1" },
-    ]),
+  const workingShifts: FakeWorkingShift[] = [
+    ...makeWeeklyShifts(random, now, sunrise, sunriseAsha, "09:00", "18:00"),
+    ...makeWeeklyShifts(random, now, sunrise, sunriseDev, "09:00", "18:00"),
+    ...makeWeeklyShifts(random, now, lotus, lotusBina, "10:00", "19:00"),
+    ...makeWeeklyShifts(random, now, lotus, lotusAsha, "11:00", "13:00"),
   ];
 
-  const days: FakeClinicDay[] = [
-    { clinic_id: sunrise.id, money: { collected_paise: 2_850_000, pending_dues_paise: 6_400_000, pending_dues_patients: 5 } },
-    { clinic_id: lotus.id, money: { collected_paise: 640_000, pending_dues_paise: 1_250_000, pending_dues_patients: 2 } },
+  const leave: FakeLeave[] = [
+    {
+      id: id(),
+      clinic_id: sunrise.id,
+      practitioner_id: sunriseDev.id,
+      starts_at: isoDaysAhead(now, 10),
+      ends_at: isoDaysAhead(now, 12),
+      reason: "Conference",
+    },
   ];
+
+  const { appointments: sunriseAppointments, queueTokens: sunriseQueueTokens } = makeClinicDay(random, sunrise, sunrisePatients, now, [
+    { at: "09:00", who: sunriseAsha, room: sunriseChair1 },
+    { at: "09:30", who: sunriseDev, room: sunriseChair2, outcome: "no_show" },
+    { at: "10:00", who: sunriseAsha, room: sunriseChair1 },
+    { at: "10:30", who: sunriseDev, room: sunriseChair2 },
+    { at: "11:00", who: sunriseAsha, room: sunriseChair1 },
+    { at: "11:30", who: sunriseDev, room: sunriseChair2 },
+    { at: "12:00", who: sunriseAsha, room: sunriseChair1 },
+    { at: "12:30", who: sunriseDev, room: sunriseChair2, outcome: "cancelled" },
+    { at: "14:00", who: sunriseAsha, room: sunriseChair1 },
+    { at: "14:30", who: sunriseDev, room: sunriseChair2 },
+    { at: "15:00", who: sunriseAsha, room: sunriseChair1 },
+    { at: "16:00", who: sunriseDev, room: sunriseChair2, reason: "Braces review" },
+    { at: "16:30", who: sunriseDev, room: sunriseChair2, reason: "Aligner check" },
+    { at: "17:00", who: sunriseDev, room: sunriseChair1 },
+    { at: "17:30", who: sunriseAsha, room: sunriseChair1 },
+  ]);
+  const { appointments: lotusAppointments, queueTokens: lotusQueueTokens } = makeClinicDay(random, lotus, lotusPatients, now, [
+    { at: "10:00", who: lotusBina, room: lotusChair1 },
+    { at: "11:00", who: lotusAsha, room: lotusChair1 },
+    { at: "12:00", who: lotusBina, room: lotusChair1 },
+    { at: "17:00", who: lotusBina, room: lotusChair1 },
+    { at: "18:00", who: lotusBina, room: lotusChair1 },
+    { at: "18:30", who: lotusBina, room: lotusChair1 },
+  ]);
+
+  const rooms = [...sunriseRooms, ...lotusRooms];
+  const appointments = [...sunriseAppointments, ...lotusAppointments];
+  const queueTokens = [...sunriseQueueTokens, ...lotusQueueTokens];
 
   const platformUsers: FakePlatformUser[] = [
     {
@@ -321,14 +444,22 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     clinics: [sunrise, lotus, ...makeConsoleOnlyClinics(random, now)],
     memberships,
     patients: [...sunrisePatients, ...lotusPatients],
-    schedule,
-    days,
+    rooms,
+    practitioners,
+    workingShifts,
+    leave,
+    appointments,
+    queueTokens,
     sessions,
     quality: createQualityReport(random, now),
   };
 }
 
 function isoDaysAgo(now: Date, days: number): string {
+  return new Date(now.getTime() - days * DAY).toISOString();
+}
+
+function isoDaysAhead(now: Date, days: number): string {
   return new Date(now.getTime() - days * DAY).toISOString();
 }
 
@@ -419,39 +550,158 @@ function makePatients(
   return patients;
 }
 
+function makeRoom(random: Random, now: Date, clinic: FakeClinic, name: string, sortOrder: number): FakeRoom {
+  return {
+    id: fakeUuid(random, new Date(now.getTime() - (10 - sortOrder) * DAY)),
+    clinic_id: clinic.id,
+    branch_id: clinic.id,
+    name,
+    kind: "chair",
+    active: true,
+    sort_order: sortOrder,
+  };
+}
+
+function makeWeeklyShifts(
+  random: Random,
+  now: Date,
+  clinic: FakeClinic,
+  practitioner: FakePractitioner,
+  starts: string,
+  ends: string,
+): FakeWorkingShift[] {
+  return [1, 2, 3, 4, 5, 6].map((weekday) => ({
+    id: fakeUuid(random, new Date(now.getTime() - weekday * DAY)),
+    clinic_id: clinic.id,
+    practitioner_id: practitioner.id,
+    branch_id: clinic.id,
+    weekday,
+    starts,
+    ends,
+  }));
+}
+
 interface SlotPlan {
   at: string;
-  who: { id: string; display_name: string };
-  room: string;
+  who: FakePractitioner;
+  room: FakeRoom;
   reason?: string;
   outcome?: "cancelled" | "no_show";
 }
 
-function makeSchedule(
+/**
+ * Builds one clinic day's appointments, with status, arrival and completion worked out once
+ * relative to `now`, plus the queue tokens for whoever has arrived (numbered by arrival order).
+ */
+function makeClinicDay(
   random: Random,
   clinic: FakeClinic,
   patients: readonly FakePatient[],
   now: Date,
   plan: readonly SlotPlan[],
-): FakeScheduleEntry[] {
+): { appointments: FakeAppointment[]; queueTokens: FakeQueueToken[] } {
   const pool = patients.filter((p) => p.status === "active");
-  return plan.map((slot, index) => {
-    const [hours = 9, minutes = 0] = slot.at.split(":").map((part) => Number.parseInt(part, 10));
+  const { date, minutes: rawClockMinutes } = localClock(now, clinic.timezone);
+  const slots = plan.map((slot, index) => {
+    const [hours = 9, mins = 0] = slot.at.split(":").map((part) => Number.parseInt(part, 10));
+    return { ...slot, index, startMinutes: hours * 60 + mins };
+  });
+  const first = slots[0]?.startMinutes ?? 540;
+  const last = slots.at(-1)?.startMinutes ?? 1080;
+  const clockMinutes = Math.min(Math.max(rawClockMinutes, first + 40), last + 20);
+  const at = (local: number) => atLocalTime(date, local, clinic.timezone).toISOString();
+
+  let inChair = false;
+  let waiting = 0;
+  const appointments: FakeAppointment[] = [];
+  const arrivals: { appointment: FakeAppointment; arrivedAt: string; seatedAt: string | null; doneAt: string | null }[] = [];
+
+  for (const slot of slots) {
     const reason = slot.reason ?? random.pick(DENTAL_REASONS);
-    const patient = pool[(index * 3) % pool.length] ?? random.pick(pool);
-    const entry: FakeScheduleEntry = {
+    const patient = pool[(slot.index * 3) % pool.length] ?? random.pick(pool);
+    const endMinutes = slot.startMinutes + 30;
+    const kind: C.AppointmentKind =
+      reason === "Consultation" ? "new" : reason.includes("sitting 2") || reason.includes("review") ? "follow_up" : "procedure";
+
+    let status: C.AppointmentStatus;
+    let arrivedAt: number | null = null;
+    let seatedAt: number | null = null;
+    let completedAt: number | null = null;
+    if (slot.outcome === "cancelled") {
+      status = "cancelled";
+    } else if (endMinutes <= clockMinutes) {
+      status = slot.outcome === "no_show" ? "no_show" : "completed";
+      if (status === "completed") {
+        arrivedAt = slot.startMinutes - 6;
+        seatedAt = slot.startMinutes - 3;
+        completedAt = endMinutes;
+      }
+    } else if (!inChair && slot.startMinutes <= clockMinutes) {
+      status = "in_chair";
+      arrivedAt = slot.startMinutes - 9;
+      seatedAt = slot.startMinutes - 2;
+      inChair = true;
+    } else if (waiting < 2) {
+      status = "arrived";
+      arrivedAt = clockMinutes - (waiting === 0 ? 12 : 5);
+      waiting += 1;
+    } else {
+      status = slot.index % 3 === 0 ? "booked" : "confirmed";
+    }
+
+    const appointment: FakeAppointment = {
       id: fakeUuid(random, new Date(now.getTime() - random.int(1, 20) * DAY)),
       clinic_id: clinic.id,
-      start_minutes: hours * 60 + minutes,
-      duration_minutes: 30,
+      branch_id: clinic.id,
       patient_id: patient.id,
-      practitioner: slot.who,
-      room: slot.room,
-      kind: reason === "Consultation" ? "new" : reason.includes("sitting 2") || reason.includes("review") ? "follow_up" : "procedure",
+      practitioner_id: slot.who.id,
+      room_id: slot.room.id,
+      starts_at: at(slot.startMinutes),
+      ends_at: at(endMinutes),
+      status,
+      kind,
+      source: "front_desk",
       reason,
+      arrived_at: arrivedAt === null ? null : at(arrivedAt),
+      seated_at: seatedAt === null ? null : at(seatedAt),
+      completed_at: completedAt === null ? null : at(completedAt),
+      cancel_reason: status === "cancelled" ? "Patient requested" : null,
+      token_number: null,
     };
-    return slot.outcome === undefined ? entry : { ...entry, outcome: slot.outcome };
+    appointments.push(appointment);
+    if (arrivedAt !== null) {
+      arrivals.push({
+        appointment,
+        arrivedAt: at(arrivedAt),
+        seatedAt: seatedAt === null ? null : at(seatedAt),
+        doneAt: completedAt === null ? null : at(completedAt),
+      });
+    }
+  }
+
+  arrivals.sort((a, b) => a.arrivedAt.localeCompare(b.arrivedAt));
+  const queueTokens: FakeQueueToken[] = arrivals.map((entry, index) => {
+    const tokenNumber = index + 1;
+    entry.appointment.token_number = tokenNumber;
+    const tokenStatus: C.QueueTokenStatus =
+      entry.appointment.status === "completed" ? "done" : entry.appointment.status === "in_chair" ? "in_chair" : "waiting";
+    return {
+      id: fakeUuid(random, new Date(entry.arrivedAt)),
+      clinic_id: clinic.id,
+      branch_id: clinic.id,
+      day: date,
+      token_number: tokenNumber,
+      patient_id: entry.appointment.patient_id,
+      practitioner_id: entry.appointment.practitioner_id,
+      appointment_id: entry.appointment.id,
+      status: tokenStatus,
+      issued_at: entry.arrivedAt,
+      called_at: entry.seatedAt,
+      done_at: entry.doneAt,
+    };
   });
+
+  return { appointments, queueTokens };
 }
 
 /** Clinics that exist only in the console listing: no staff or patients behind them. */

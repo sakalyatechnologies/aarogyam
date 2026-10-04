@@ -94,18 +94,17 @@ impl FromRequestParts<AppState> for ClinicRequest {
     }
 }
 
-/// A request to an open clinic's host with no sign-in: a patient opening a link, or anyone
-/// scanning a prescription's QR code. Only the few public routes take this; what they return
-/// is limited by the link's token (and PIN), never by a member's permissions.
+/// The open clinic named by the host, for routes that carry their own proof of access instead
+/// of a sign-in token (signed download links). Unknown hosts and closed clinics get `404`.
 #[derive(Debug)]
-pub struct PublicClinic {
-    /// The clinic, from the host name.
+pub struct ClinicHost {
+    /// The clinic.
     pub clinic_id: aarogyam_domain::ids::ClinicId,
     /// The request ID, for the access record.
     pub request_id: Option<Uuid>,
 }
 
-impl FromRequestParts<AppState> for PublicClinic {
+impl FromRequestParts<AppState> for ClinicHost {
     type Rejection = ApiFailure;
 
     async fn from_request_parts(
@@ -121,7 +120,7 @@ impl FromRequestParts<AppState> for PublicClinic {
             .clinic_for_host(&host)
             .await?
             .filter(|clinic| clinic.status.is_some_and(ClinicStatus::is_open))
-            .ok_or(Denied::UnknownClinic)?;
+            .ok_or_else(|| ApiFailure(not_found()))?;
         sakalya_telemetry::record_tenant(clinic.clinic_id.uuid());
         Ok(Self {
             clinic_id: clinic.clinic_id,

@@ -138,14 +138,15 @@ describe("fake client: patients", () => {
 });
 
 describe("fake client: today", () => {
-  it("has one patient in the chair and two waiting, with money only for finance.view", async () => {
+  it("has one patient in the chair and two waiting, with the day's counts and chair status", async () => {
     const { as } = setup();
     const today = value(await as(PEOPLE.farah, SUNRISE).getToday());
     expect(today.date).toBe("2026-10-03");
-    expect(today.appointments.filter((a) => a.status === "in_progress")).toHaveLength(1);
+    expect(today.appointments.filter((a) => a.status === "in_chair")).toHaveLength(1);
     expect(today.appointments.filter((a) => a.status === "arrived")).toHaveLength(2);
-    expect(today.money).toBeNull();
-    expect(value(await as(PEOPLE.asha, SUNRISE).getToday()).money?.collected_paise).toBe(2_850_000);
+    expect(today.counts.in_chair).toBe(1);
+    expect(today.counts.waiting).toBe(2);
+    expect(today.chairs.some((c) => c.status === "in_use")).toBe(true);
   });
 });
 

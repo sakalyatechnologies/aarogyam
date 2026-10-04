@@ -1,0 +1,168 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.allergies\n           set substance = $2, code_system = $3, code = $4, reaction = $5, severity = $6, status = $7,\n               source = $8, verified_by = $9, verified_at = now()\n           where id = $1\n           returning id, patient_id, substance, code_system, code, reaction, severity, status, source,\n                     verified_by, created_at, updated_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "substance",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "substance"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "code_system",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "code_system"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "reaction",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "reaction"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "severity",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "severity"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "source"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "verified_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "verified_by"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.allergies",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "55515a0d0bca4148647894fd70c14bccef0ff6871475dfa1c8580c9222981f0d"
+}

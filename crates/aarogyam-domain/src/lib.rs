@@ -6,8 +6,11 @@
 //! this crate adds the clinic's concepts on top: who may act ([`access`]), the permission
 //! catalogue ([`permission`]), typed identifiers ([`ids`]), patients ([`patient`]), patient
 //! search ([`search`]), the clinic's own settings ([`clinic`]), staff ([`staff`]), queued
-//! messages ([`outbox`]) and business event names ([`event`]), money ([`billing`]),
-//! prescriptions ([`prescription`]) and patient links ([`share`]).
+//! messages ([`outbox`]), appointments, chairs and the queue ([`schedule`]), patient imports
+//! ([`import`]), business event names ([`event`]), the clinical record: visits and notes
+//! ([`clinical`]), vital signs ([`vitals`]), the dental chart ([`dental`]) and patient files
+//! ([`files`]), money ([`billing`]), prescriptions ([`prescription`]) and patient links
+//! ([`share`]).
 
 /// A stored text value that is not one of the enum's values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -60,12 +63,18 @@ macro_rules! text_value {
 pub mod access;
 pub mod billing;
 pub mod clinic;
+pub mod clinical;
+pub mod dental;
 pub mod event;
+pub mod files;
 pub mod ids;
+pub mod import;
 pub mod outbox;
 pub mod patient;
 pub mod permission;
 pub mod prescription;
+pub mod schedule;
 pub mod search;
 pub mod share;
 pub mod staff;
+pub mod vitals;

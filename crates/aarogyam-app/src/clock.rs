@@ -1,7 +1,7 @@
 //! Dates as a clinic sees them. "Today", ages and financial years follow the clinic's time
 //! zone: 00:30 in Mumbai on 1 April is still 31 March in UTC.
 
-use time::{OffsetDateTime, UtcOffset};
+use time::{Date, Duration, OffsetDateTime, PrimitiveDateTime, Time, UtcOffset};
 
 /// The UTC offset of a clinic's IANA time zone. Indian zones are fixed at +05:30 (no daylight
 /// saving); other zones fall back to UTC until a time-zone database is added for clinics
@@ -16,26 +16,31 @@ pub fn clinic_offset(timezone: &str) -> UtcOffset {
 
 /// Today's date in the clinic's time zone.
 #[must_use]
-pub fn clinic_today(timezone: &str, now: OffsetDateTime) -> time::Date {
+pub fn clinic_today(timezone: &str, now: OffsetDateTime) -> Date {
     now.to_offset(clinic_offset(timezone)).date()
 }
 
-/// The instant a clinic's day begins (local midnight).
+/// The instants covering clinic days `from` to `to`, both included (see [`days_bounds`]).
 #[must_use]
-pub fn day_start(timezone: &str, date: time::Date) -> OffsetDateTime {
-    time::PrimitiveDateTime::new(date, time::Time::MIDNIGHT).assume_offset(clinic_offset(timezone))
+pub fn day_range(timezone: &str, from: Date, to: Date) -> (OffsetDateTime, OffsetDateTime) {
+    days_bounds(timezone, from, to)
 }
 
-/// The instants covering clinic days `from` to `to`, both included: `[start of from, start of
-/// the day after to)`.
+/// The instants a clinic's local day starts and ends: `[start, end)` in UTC.
 #[must_use]
-pub fn day_range(
-    timezone: &str,
-    from: time::Date,
-    to: time::Date,
-) -> (OffsetDateTime, OffsetDateTime) {
-    let end = to.next_day().unwrap_or(to);
-    (day_start(timezone, from), day_start(timezone, end))
+pub fn day_bounds(timezone: &str, day: Date) -> (OffsetDateTime, OffsetDateTime) {
+    let start = PrimitiveDateTime::new(day, Time::MIDNIGHT)
+        .assume_offset(clinic_offset(timezone))
+        .to_offset(UtcOffset::UTC);
+    (start, start + Duration::DAY)
+}
+
+/// The first instant of `from` to the last instant of `to`, both local days: `[start, end)`.
+#[must_use]
+pub fn days_bounds(timezone: &str, from: Date, to: Date) -> (OffsetDateTime, OffsetDateTime) {
+    let (start, _) = day_bounds(timezone, from);
+    let (_, end) = day_bounds(timezone, to);
+    (start, end)
 }
 
 #[cfg(test)]
@@ -53,5 +58,15 @@ mod tests {
         let (start, end) = day_range("Asia/Kolkata", date!(2027 - 03 - 31), date!(2027 - 03 - 31));
         assert_eq!(start, datetime!(2027-03-30 18:30 UTC));
         assert_eq!(end, datetime!(2027-03-31 18:30 UTC));
+    }
+
+    #[test]
+    fn a_clinic_day_starts_at_local_midnight() {
+        let (start, end) = day_bounds("Asia/Kolkata", date!(2026 - 10 - 04));
+        assert_eq!(start, datetime!(2026-10-03 18:30 UTC));
+        assert_eq!(end, datetime!(2026-10-04 18:30 UTC));
+        let (start, end) =
+            days_bounds("Asia/Kolkata", date!(2026 - 10 - 04), date!(2026 - 10 - 10));
+        assert_eq!(end - start, Duration::days(7));
     }
 }

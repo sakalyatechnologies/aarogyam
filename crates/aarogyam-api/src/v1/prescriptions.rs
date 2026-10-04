@@ -21,7 +21,7 @@ use uuid::Uuid;
 use super::billing::PatientRef;
 use super::{optional_uuid, parse_day, rfc3339};
 use crate::AppState;
-use crate::extract::{PublicClinic, Require};
+use crate::extract::{ClinicHost, Require};
 use crate::failure::ApiFailure;
 
 /// A medicine from the catalogue.
@@ -721,7 +721,7 @@ pub struct SharedPreview {
 )]
 pub(crate) async fn shared_preview(
     State(state): State<AppState>,
-    public: PublicClinic,
+    public: ClinicHost,
     ApiPath(token): ApiPath<String>,
 ) -> Result<Json<SharedPreview>, ApiFailure> {
     let preview = share::preview(
@@ -765,7 +765,7 @@ pub struct OpenRequest {
 )]
 pub(crate) async fn shared_open(
     State(state): State<AppState>,
-    public: PublicClinic,
+    public: ClinicHost,
     ApiPath(token): ApiPath<String>,
     ApiJson(body): ApiJson<OpenRequest>,
 ) -> Result<Response, ApiFailure> {
@@ -837,7 +837,7 @@ pub struct Verification {
 )]
 pub(crate) async fn verify(
     State(state): State<AppState>,
-    public: PublicClinic,
+    public: ClinicHost,
     ApiPath(token): ApiPath<String>,
 ) -> Result<Json<Verification>, ApiFailure> {
     let found = share::verify(state.db(), public.clinic_id, public.request_id, &token).await?;

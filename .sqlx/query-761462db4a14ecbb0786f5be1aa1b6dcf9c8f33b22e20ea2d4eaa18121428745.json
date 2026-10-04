@@ -1,0 +1,122 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.specialty_records\n             (id, patient_id, encounter_id, module, kind, schema_version, data, supersedes_id,\n              effective_at, source, verified_by, verified_at)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())\n           returning id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "encounter_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "encounter_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "tooth",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "tooth"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "data",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "data"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "supersedes_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "supersedes_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "effective_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "effective_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "verified_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "verified_by"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4",
+        "Jsonb",
+        "Uuid",
+        "Timestamptz",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "761462db4a14ecbb0786f5be1aa1b6dcf9c8f33b22e20ea2d4eaa18121428745"
+}

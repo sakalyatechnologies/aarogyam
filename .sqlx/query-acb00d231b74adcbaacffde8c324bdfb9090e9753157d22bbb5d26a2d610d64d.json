@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.patient_identifiers set deleted_at = now()\n           where id = $1 and patient_id = $2 and deleted_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "acb00d231b74adcbaacffde8c324bdfb9090e9753157d22bbb5d26a2d610d64d"
+}

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select value from aarogyam.patient_identifiers\n           where kind = $1 and value = any($2) and deleted_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "value",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patient_identifiers",
+            "name": "value"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b3934b2c91693d164240e0aaae9f05ce37bd37a0eecd3c5a88091cb25305881c"
+}

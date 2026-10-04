@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.specialty_records set status = 'superseded'\n           where id = $1 and status = 'current'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5b1e68d62d99c52aa5dd09211bfcc97d05e53a85e9449b3a491ee1770cf6a8d8"
+}

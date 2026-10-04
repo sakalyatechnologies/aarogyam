@@ -82,6 +82,18 @@ impl AppError {
     }
 }
 
+impl AppError {
+    /// `message` as a conflict when `error` broke `constraint`; the database error otherwise.
+    #[must_use]
+    pub fn on_constraint(error: DbError, constraint: &str, message: &'static str) -> Self {
+        if error.constraint() == Some(constraint) {
+            Self::Conflict(message)
+        } else {
+            Self::Db(error)
+        }
+    }
+}
+
 impl From<Denied> for AppError {
     fn from(denied: Denied) -> Self {
         Self::Denied(denied)

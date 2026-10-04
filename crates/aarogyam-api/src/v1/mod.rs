@@ -149,6 +149,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/treatment-plans/{id}/accept", post(treatment::accept_plan))
         .route(
+            "/treatment-plan-items/{id}",
+            patch(treatment::set_item_status),
+        )
+        .route(
             "/patients/{id}/attachments",
             get(files::list)
                 .post(files::upload)

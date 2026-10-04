@@ -1755,6 +1755,35 @@
         ],
         "summary": "The most recently registered patients.",
         "operationId": "recent",
+        "parameters": [
+          {
+            "name": "with_balance",
+            "in": "query",
+            "description": "Only patients with a balance (needs billing.read)",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "recalls_due",
+            "in": "query",
+            "description": "Only patients with an open recall due",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "new_this_month",
+            "in": "query",
+            "description": "Only patients registered this month",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -5285,6 +5314,67 @@
         ]
       }
     },
+    "/api/v1/treatment-plan-items/{id}": {
+      "patch": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Marks an accepted plan item done or cancelled; the plan follows (in progress, then completed).",
+        "operationId": "set_item_status",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The plan item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemStatusChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Plan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The status isn't done or cancelled"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such item in this clinic"
+          },
+          "409": {
+            "description": "The item isn't accepted (finished items are frozen)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/treatment-plans/{id}/accept": {
       "post": {
         "tags": [
@@ -8391,6 +8481,19 @@
           }
         }
       },
+      "ItemStatusChange": {
+        "type": "object",
+        "description": "The new status of a plan item.",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "`done` or `cancelled`."
+          }
+        }
+      },
       "Joined": {
         "type": "object",
         "description": "The clinic just joined.",
@@ -9373,6 +9476,24 @@
           }
         }
       },
+      "NextAppointment": {
+        "type": "object",
+        "description": "A patient's next booking.",
+        "required": [
+          "starts_at",
+          "practitioner"
+        ],
+        "properties": {
+          "practitioner": {
+            "type": "string",
+            "description": "The practitioner's name."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "When it starts (RFC 3339)."
+          }
+        }
+      },
       "Note": {
         "type": "object",
         "description": "A clinical note. Signed notes never change: corrections go in addenda, and a mistaken note\nis marked `entered_in_error` with a reason.",
@@ -9618,7 +9739,8 @@
           "birth_date_estimated",
           "preferred_language",
           "status",
-          "created_at"
+          "created_at",
+          "recall_due"
         ],
         "properties": {
           "age_years": {
@@ -9629,6 +9751,14 @@
             "format": "int32",
             "description": "Age in whole years today.",
             "minimum": 0
+          },
+          "balance_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Paise owed on issued bills; null without `billing.read`."
           },
           "birth_date_estimated": {
             "type": "boolean",
@@ -9667,6 +9797,25 @@
             ],
             "description": "The last visit (RFC 3339), once visits exist."
           },
+          "lifetime_paid_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Paise received in total; null without `billing.read`."
+          },
+          "next_appointment": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NextAppointment",
+                "description": "The next booked or confirmed appointment, from the list and the record only."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "number": {
             "type": "string",
             "description": "Readable number, such as `SD-1042`."
@@ -9681,6 +9830,10 @@
           "preferred_language": {
             "type": "string",
             "description": "Language tag, such as `hi-IN`."
+          },
+          "recall_due": {
+            "type": "boolean",
+            "description": "Whether an open recall is due on or before today."
           },
           "sex": {
             "type": "string",
@@ -11402,9 +11555,21 @@
             "format": "int64",
             "description": "Most results, 1 to 50 (default 20)."
           },
+          "new_this_month": {
+            "type": "boolean",
+            "description": "Only patients registered this month, in the clinic's time zone."
+          },
           "q": {
             "type": "string",
             "description": "A number (`SD-1042` or `1042`), a phone number, or the start of a name. Empty lists\nthe most recently registered patients."
+          },
+          "recalls_due": {
+            "type": "boolean",
+            "description": "Only patients with an open recall due on or before today."
+          },
+          "with_balance": {
+            "type": "boolean",
+            "description": "Only patients with a balance on issued bills (needs `billing.read`)."
           }
         }
       },

@@ -10,12 +10,12 @@ use aarogyam_domain::patient::{
 };
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::search::PatientQuery;
-use sakalya_db::Db;
+use sakalya_db::{Db, ScopedTx};
 use sakalya_types::{CallingCode, PhoneE164};
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
-use crate::clock::clinic_today;
+use crate::clock::{clinic_today, day_bounds};
 use crate::error::AppError;
 use crate::scope::{STAFF, staff_scope as scope};
 
@@ -52,6 +52,40 @@ pub struct PatientView {
     pub created_at: OffsetDateTime,
     /// The last visit, once visits exist.
     pub last_visit_at: Option<OffsetDateTime>,
+    /// The next booked or confirmed appointment, when summaries were loaded.
+    pub next_appointment: Option<NextAppointment>,
+    /// Owed on issued bills; only with `billing.read`.
+    pub balance_paise: Option<i64>,
+    /// Received in total; only with `billing.read`.
+    pub lifetime_paid_paise: Option<i64>,
+    /// Whether an open recall is due.
+    pub recall_due: bool,
+}
+
+/// A patient's next booking.
+#[derive(Debug, Clone)]
+pub struct NextAppointment {
+    /// When it starts.
+    pub starts_at: OffsetDateTime,
+    /// The practitioner's display name.
+    pub practitioner: String,
+}
+
+/// Which patients the list shows; see [`aarogyam_dal::patients::ListFilter`].
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PatientFilter {
+    /// Only patients with a balance (needs `billing.read`).
+    pub with_balance: bool,
+    /// Only patients with an open recall due on or before today.
+    pub recalls_due: bool,
+    /// Only patients registered this month, in the clinic's time zone.
+    pub new_this_month: bool,
+}
+
+impl PatientFilter {
+    const fn is_empty(self) -> bool {
+        !(self.with_balance || self.recalls_due || self.new_this_month)
+    }
 }
 
 /// Input for registering a patient, as received; validated here.
@@ -289,7 +323,40 @@ fn view(row: patients::PatientRow, actor: &ClinicActor, today: Date) -> PatientV
         status: row.status,
         created_at: row.created_at,
         last_visit_at: row.last_visit_at,
+        next_appointment: None,
+        balance_paise: None,
+        lifetime_paid_paise: None,
+        recall_due: false,
     }
+}
+
+/// Adds the summaries (one query for all of `views`).
+async fn attach_summaries(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    views: &mut [PatientView],
+    now: OffsetDateTime,
+    today: Date,
+) -> Result<(), AppError> {
+    let ids: Vec<Uuid> = views.iter().map(|view| view.id.uuid()).collect();
+    let money = actor.permissions.allows(Permission::BillingRead);
+    let rows = patients::summaries(tx.conn(), &ids, now, today).await?;
+    for view in views {
+        if let Some(row) = rows.iter().find(|row| row.patient_id == view.id.uuid()) {
+            view.next_appointment = row.next_starts_at.zip(row.next_practitioner.clone()).map(
+                |(starts_at, practitioner)| NextAppointment {
+                    starts_at,
+                    practitioner,
+                },
+            );
+            view.recall_due = row.recall_due;
+            if money {
+                view.balance_paise = Some(row.balance_paise);
+                view.lifetime_paid_paise = Some(row.lifetime_paid_paise);
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Registers a patient: validates, issues the clinic's next number, saves.
@@ -392,18 +459,31 @@ pub async fn search(
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     query: &str,
+    filter: PatientFilter,
     limit: i64,
     now: OffsetDateTime,
 ) -> Result<Vec<PatientView>, AppError> {
     actor.require(Permission::PatientsRead)?;
+    if filter.with_balance {
+        actor.require(Permission::BillingRead)?;
+    }
     let limit = limit.clamp(1, MAX_RESULTS);
     db.scoped(&scope(actor, request_id), async |tx| {
         let profile = clinic::profile(tx.conn())
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
         let today = clinic_today(&profile.timezone, now);
+        let created_since = filter
+            .new_this_month
+            .then(|| day_bounds(&profile.timezone, today.replace_day(1).unwrap_or(today)).0);
+        let list_filter = patients::ListFilter {
+            with_balance: filter.with_balance,
+            recalls_due: filter.recalls_due,
+            created_since,
+        };
         let rows = match PatientQuery::classify(query, CallingCode::INDIA) {
-            None => patients::recent(tx.conn(), limit).await?,
+            None if filter.is_empty() => patients::recent(tx.conn(), limit).await?,
+            None => patients::recent_filtered(tx.conn(), &list_filter, today, limit).await?,
             Some(PatientQuery::Number(number)) => {
                 patients::find_by_number(tx.conn(), number.as_str())
                     .await?
@@ -434,10 +514,19 @@ pub async fn search(
                 rows
             }
         };
-        Ok(rows
+        let mut views: Vec<PatientView> = rows
             .into_iter()
+            .filter(|row| created_since.is_none_or(|since| row.created_at >= since))
             .map(|row| view(row, actor, today))
-            .collect())
+            .collect();
+        attach_summaries(tx, actor, &mut views, now, today).await?;
+        if !query.trim().is_empty() {
+            views.retain(|view| {
+                (!filter.with_balance || view.balance_paise.is_some_and(|b| b > 0))
+                    && (!filter.recalls_due || view.recall_due)
+            });
+        }
+        Ok(views)
     })
     .await
 }
@@ -475,7 +564,10 @@ pub async fn open(
             },
         )
         .await?;
-        Ok(view(row, actor, clinic_today(&profile.timezone, now)))
+        let today = clinic_today(&profile.timezone, now);
+        let mut views = vec![view(row, actor, today)];
+        attach_summaries(tx, actor, &mut views, now, today).await?;
+        views.pop().ok_or(AppError::Internal("patient vanished"))
     })
     .await
 }

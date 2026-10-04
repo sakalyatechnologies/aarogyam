@@ -1635,6 +1635,11 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             Some(json!({})),
         ),
         (
+            Method::PATCH,
+            format!("/api/v1/treatment-plan-items/{plan}"),
+            Some(json!({ "status": "done" })),
+        ),
+        (
             Method::GET,
             format!("/api/v1/patients/{patient}/attachments"),
             None,
@@ -1767,5 +1772,122 @@ async fn clinical_routes_need_their_permission() {
             );
         }
     }
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn plan_items_are_finished_one_by_one_and_then_frozen() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let beta = app.token(BETA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let (status, plan) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/patients/{patient}/treatment-plans"),
+            Some(&owner),
+            Some(json!({ "title": "Molar", "items": [
+                { "name": "Root canal treatment", "estimate_paise": 450_000 },
+                { "name": "Scaling", "estimate_paise": 80_000 },
+            ] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{plan}");
+    let plan_id = plan["id"].as_str().unwrap().to_owned();
+    let first = plan["items"][0]["id"].as_str().unwrap().to_owned();
+    let second = plan["items"][1]["id"].as_str().unwrap().to_owned();
+    let patch = |id: &str| format!("/api/v1/treatment-plan-items/{id}");
+    let set = |status: &str| Some(json!({ "status": status }));
+
+    // A proposed item can't be finished before the plan is accepted.
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &patch(&first),
+            Some(&owner),
+            set("done"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/treatment-plans/{plan_id}/accept"),
+            Some(&owner),
+            Some(json!({})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &patch(&first),
+            Some(&assistant),
+            set("done"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            BETA,
+            &patch(&first),
+            Some(&beta),
+            set("done"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &patch(&first),
+            Some(&owner),
+            set("proposed"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    let (status, after) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &patch(&first),
+            Some(&owner),
+            set("done"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{after}");
+    assert_eq!(after["status"], "in_progress");
+    assert_eq!(after["items"][0]["status"], "done");
+    // Finished items are frozen.
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &patch(&first),
+            Some(&owner),
+            set("cancelled"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    let (status, after) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &patch(&second),
+            Some(&owner),
+            set("cancelled"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{after}");
+    assert_eq!(after["status"], "completed");
     app.finish().await;
 }

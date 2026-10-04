@@ -1,0 +1,75 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select p.id as \"patient_id!\",\n                  nx.starts_at as next_starts_at,\n                  nx.display_name as next_practitioner,\n                  (coalesce((select sum(i.total_paise) from aarogyam.invoices i\n                             where i.patient_id = p.id and i.status = 'issued'), 0)\n                   - coalesce((select sum(a.amount_paise)\n                               from aarogyam.invoices i\n                               join aarogyam.payment_allocations a\n                                 on a.org_id = i.org_id and a.invoice_id = i.id and a.patient_id = i.patient_id\n                               join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id\n                               where i.patient_id = p.id and i.status = 'issued' and m.status = 'received'), 0)\n                  )::bigint as \"balance_paise!\",\n                  coalesce((select sum(m.amount_paise) from aarogyam.payments m\n                            where m.patient_id = p.id and m.status = 'received'), 0)::bigint as \"lifetime_paid_paise!\",\n                  exists (select 1 from aarogyam.recalls r\n                          where r.patient_id = p.id and r.status in ('due', 'notified')\n                            and r.due_on <= $3) as \"recall_due!\"\n           from aarogyam.patients p\n           left join lateral (\n             select a.starts_at, pr.display_name\n             from aarogyam.appointments a\n             join aarogyam.practitioners pr on pr.org_id = a.org_id and pr.id = a.practitioner_id\n             where a.patient_id = p.id and a.deleted_at is null\n               and a.status in ('booked', 'confirmed') and a.starts_at >= $2\n             order by a.starts_at\n             limit 1\n           ) nx on true\n           where p.id = any($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "patient_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "next_starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "next_practitioner",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "balance_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "lifetime_paid_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "recall_due!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Timestamptz",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "f1b4b636ff7eaddc3bda47cc8425ca2002fd13ba427c9a7240d93bffcf3620cf"
+}

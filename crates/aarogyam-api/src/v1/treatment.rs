@@ -530,3 +530,44 @@ pub(crate) async fn accept_plan(
     tracing::info!(event = Event::TreatmentPlanAccepted.as_str(), plan_id = %id, "treatment plan accepted");
     Ok(Json(view.into()))
 }
+
+/// The new status of a plan item.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ItemStatusChange {
+    /// `done` or `cancelled`.
+    pub status: String,
+}
+
+/// Marks an accepted plan item done or cancelled; the plan follows (in progress, then completed).
+#[utoipa::path(
+    patch,
+    path = "/api/v1/treatment-plan-items/{id}",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The plan item")),
+    request_body = ItemStatusChange,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = Plan),
+        (status = 400, description = "The status isn't done or cancelled"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write"),
+        (status = 404, description = "No such item in this clinic"),
+        (status = 409, description = "The item isn't accepted (finished items are frozen)")
+    )
+)]
+pub(crate) async fn set_item_status(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<ItemStatusChange>,
+) -> Result<Json<Plan>, ApiFailure> {
+    let view = app::set_item_status(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        TreatmentPlanItemId::from_uuid(id),
+        &body.status,
+    )
+    .await?;
+    Ok(Json(view.into()))
+}

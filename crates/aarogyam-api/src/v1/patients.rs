@@ -1,13 +1,15 @@
 //! Patients: register, search, open, edit.
 
-use aarogyam_app::patients::{self as app, EditPatient, PatientView, RegisterPatient};
+use aarogyam_app::patients::{
+    self as app, EditPatient, PatientFilter, PatientView, RegisterPatient,
+};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::PatientId;
 use aarogyam_domain::permission::require::{PatientsRead, PatientsWrite};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
-use sakalya_http::{ApiError, ApiJson, ApiPath};
+use sakalya_http::{ApiError, ApiJson, ApiPath, ApiQuery};
 use serde::{Deserialize, Serialize};
 use time::{Date, OffsetDateTime};
 use utoipa::ToSchema;
@@ -48,6 +50,23 @@ pub struct Patient {
     pub created_at: String,
     /// The last visit (RFC 3339), once visits exist.
     pub last_visit_at: Option<String>,
+    /// The next booked or confirmed appointment, from the list and the record only.
+    pub next_appointment: Option<NextAppointment>,
+    /// Paise owed on issued bills; null without `billing.read`.
+    pub balance_paise: Option<i64>,
+    /// Paise received in total; null without `billing.read`.
+    pub lifetime_paid_paise: Option<i64>,
+    /// Whether an open recall is due on or before today.
+    pub recall_due: bool,
+}
+
+/// A patient's next booking.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct NextAppointment {
+    /// When it starts (RFC 3339).
+    pub starts_at: String,
+    /// The practitioner's name.
+    pub practitioner: String,
 }
 
 impl From<PatientView> for Patient {
@@ -66,6 +85,13 @@ impl From<PatientView> for Patient {
             status: view.status,
             created_at: rfc3339(view.created_at),
             last_visit_at: view.last_visit_at.map(rfc3339),
+            next_appointment: view.next_appointment.map(|next| NextAppointment {
+                starts_at: rfc3339(next.starts_at),
+                practitioner: next.practitioner,
+            }),
+            balance_paise: view.balance_paise,
+            lifetime_paid_paise: view.lifetime_paid_paise,
+            recall_due: view.recall_due,
         }
     }
 }
@@ -86,6 +112,29 @@ pub struct SearchRequest {
     pub q: String,
     /// Most results, 1 to 50 (default 20).
     pub limit: Option<i64>,
+    /// Only patients with a balance on issued bills (needs `billing.read`).
+    #[serde(default)]
+    pub with_balance: bool,
+    /// Only patients with an open recall due on or before today.
+    #[serde(default)]
+    pub recalls_due: bool,
+    /// Only patients registered this month, in the clinic's time zone.
+    #[serde(default)]
+    pub new_this_month: bool,
+}
+
+/// Filters for the list. Flags only: no names or numbers in the URL.
+#[derive(Debug, Deserialize)]
+pub struct ListQuery {
+    /// Only patients with a balance on issued bills (needs `billing.read`).
+    #[serde(default)]
+    pub with_balance: bool,
+    /// Only patients with an open recall due on or before today.
+    #[serde(default)]
+    pub recalls_due: bool,
+    /// Only patients registered this month, in the clinic's time zone.
+    #[serde(default)]
+    pub new_this_month: bool,
 }
 
 /// Finds patients by number, phone or name. A POST so names and phone numbers stay out of
@@ -113,6 +162,11 @@ pub(crate) async fn search(
         &request.actor,
         request.request_id,
         &body.q,
+        PatientFilter {
+            with_balance: body.with_balance,
+            recalls_due: body.recalls_due,
+            new_this_month: body.new_this_month,
+        },
         body.limit.unwrap_or(20),
         OffsetDateTime::now_utc(),
     )
@@ -127,6 +181,11 @@ pub(crate) async fn search(
     get,
     path = "/api/v1/patients",
     tag = "patients",
+    params(
+        ("with_balance" = Option<bool>, Query, description = "Only patients with a balance (needs billing.read)"),
+        ("recalls_due" = Option<bool>, Query, description = "Only patients with an open recall due"),
+        ("new_this_month" = Option<bool>, Query, description = "Only patients registered this month")
+    ),
     security(("bearer" = [])),
     responses(
         (status = 200, body = PatientList),
@@ -138,12 +197,18 @@ pub(crate) async fn search(
 pub(crate) async fn recent(
     State(state): State<AppState>,
     Require { request, .. }: Require<PatientsRead>,
+    ApiQuery(query): ApiQuery<ListQuery>,
 ) -> Result<Json<PatientList>, ApiFailure> {
     let rows = app::search(
         state.db(),
         &request.actor,
         request.request_id,
         "",
+        PatientFilter {
+            with_balance: query.with_balance,
+            recalls_due: query.recalls_due,
+            new_this_month: query.new_this_month,
+        },
         20,
         OffsetDateTime::now_utc(),
     )

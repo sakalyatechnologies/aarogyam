@@ -1,4 +1,4 @@
-import { Navigate, Outlet, type RouteObject } from "react-router";
+import { Outlet, type RouteObject } from "react-router";
 
 import { RouterLinks } from "@aarogyam/app-kit";
 
@@ -7,6 +7,7 @@ import { AuthCallbackPage } from "./pages/auth-callback-page.js";
 import { CalendarPage } from "./pages/calendar/calendar-page.js";
 import { ComingSoonPage } from "./pages/coming-soon-page.js";
 import { InvitePage } from "./pages/invite-page.js";
+import { RootPage } from "./pages/landing-page.js";
 import { NotFoundPage } from "./pages/not-found-page.js";
 import { EditPatientPage } from "./pages/patients/edit-patient-page.js";
 import { ImportPage } from "./pages/patients/import-page.js";
@@ -14,6 +15,7 @@ import { NewPatientPage } from "./pages/patients/new-patient-page.js";
 import { PatientPage } from "./pages/patients/patient-page.js";
 import { PatientsPage } from "./pages/patients/patients-page.js";
 import { QueuePage } from "./pages/queue/queue-page.js";
+import { RegisterPage } from "./pages/register-page.js";
 import { SettingsPage } from "./pages/settings/settings-page.js";
 import { VisitPage } from "./pages/visits/visit-page.js";
 import { SignInPage } from "./pages/sign-in-page.js";
@@ -29,8 +31,10 @@ export const routes: RouteObject[] = [
       </RouterLinks>
     ),
     children: [
+      { index: true, element: <RootPage /> },
       { path: "sign-in", element: <SignInPage /> },
       { path: "auth/callback", element: <AuthCallbackPage /> },
+      { path: "register", element: <RegisterPage /> },
       { path: "invite", element: <InvitePage /> },
       {
         element: <RequireAuth />,
@@ -38,7 +42,6 @@ export const routes: RouteObject[] = [
           {
             element: <ClinicGate />,
             children: [
-              { index: true, element: <Navigate to="/today" replace /> },
               { path: "today", element: <TodayPage /> },
               { path: "patients", element: <PatientsPage /> },
               { path: "patients/new", element: <NewPatientPage /> },

@@ -40,6 +40,7 @@ export function RequireAuth() {
 export function ClinicGate() {
   const services = useServices();
   const auth = useAuth();
+  const navigate = useNavigate();
   const me = useMe();
   const choice = useClinicChoice(me.data);
   const host = choice.current?.host ?? choice.current?.slug;
@@ -61,11 +62,21 @@ export function ClinicGate() {
     return (
       <EmptyState
         title="You're not part of a clinic yet"
-        description="Open the invitation link your clinic sent you, or ask the owner to invite you."
+        description="Open the invitation link your clinic sent you, or ask the owner to invite you. Setting up a new clinic instead?"
         action={
-          <Button variant="secondary" onClick={() => void auth.signOut()}>
-            Sign out
-          </Button>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                void navigate("/register");
+              }}
+            >
+              Register your clinic
+            </Button>
+            <Button variant="ghost" onClick={() => void auth.signOut()}>
+              Sign out
+            </Button>
+          </div>
         }
       />
     );

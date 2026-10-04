@@ -2,29 +2,40 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import {
   unwrap,
+  type AllergyFields,
   type AppointmentChanges,
   type AppointmentFilter,
   type AppointmentId,
+  type AttachmentId,
   type ClinicSettingsChanges,
+  type ConditionFields,
   type DateRange,
   type LeaveId,
   type MemberChanges,
   type MembershipId,
   type NewAppointmentBody,
+  type NewChartEntries,
   type NewInvitation,
   type NewLeave,
   type NewPatient,
+  type NewProcedure,
+  type NewReadings,
+  type NewVisit,
+  type NoteContent,
+  type NoteId,
   type PatientChanges,
   type PatientId,
   type PatientImport,
   type PractitionerFields,
   type PractitionerId,
+  type ProcedureId,
   type QueueTokenId,
   type RoomFields,
   type RoomId,
   type SessionId,
   type StatusChange,
   type TokenStatusChange,
+  type VisitId,
   type WalkInBody,
   type WorkingHours,
 } from "@aarogyam/api-client";
@@ -355,4 +366,195 @@ export function useImportPatients() {
       }
     },
   });
+}
+
+// Clinical: flags, timeline, visits, notes, vitals, procedures, dental chart, files (M4) ---------
+
+export function useClinicalFlags(patientId: PatientId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["clinical-flags", access.org_id, patientId],
+    queryFn: ({ signal }) => (patientId === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.getClinicalFlags(patientId, { signal }))),
+    enabled: patientId !== undefined,
+  });
+}
+
+export function useAddAllergy(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AllergyFields) => unwrap(api.addAllergy(patientId, input)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["clinical-flags", access.org_id, patientId] }),
+  });
+}
+
+export function useAddCondition(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ConditionFields) => unwrap(api.addCondition(patientId, input)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["clinical-flags", access.org_id, patientId] }),
+  });
+}
+
+export function useTimeline(patientId: PatientId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["timeline", access.org_id, patientId],
+    queryFn: ({ signal }) => (patientId === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.getTimeline(patientId, { signal }))),
+    enabled: patientId !== undefined,
+  });
+}
+
+export function useVisits(patientId: PatientId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["visits", access.org_id, patientId],
+    queryFn: ({ signal }) => (patientId === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.listVisits(patientId, { signal }))),
+    enabled: patientId !== undefined,
+  });
+}
+
+export function useVisit(visitId: VisitId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["visit", access.org_id, visitId],
+    queryFn: ({ signal }) => (visitId === undefined ? Promise.reject(new Error("no visit")) : unwrap(api.getVisit(visitId, { signal }))),
+    enabled: visitId !== undefined,
+  });
+}
+
+function invalidatePatientRecord(queryClient: ReturnType<typeof useQueryClient>, orgId: string, patientId: PatientId) {
+  void queryClient.invalidateQueries({ queryKey: ["timeline", orgId, patientId] });
+  void queryClient.invalidateQueries({ queryKey: ["visits", orgId, patientId] });
+  void queryClient.invalidateQueries({ queryKey: ["procedures", orgId, patientId] });
+  void queryClient.invalidateQueries({ queryKey: ["dental-chart", orgId, patientId] });
+}
+
+export function useStartVisit(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NewVisit) => unwrap(api.startVisit(patientId, input)),
+    onSuccess: () => {
+      invalidatePatientRecord(queryClient, access.org_id, patientId);
+    },
+  });
+}
+
+export function useCloseVisit(patientId: PatientId, visitId: VisitId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.closeVisit(visitId)),
+    onSuccess: () => {
+      invalidatePatientRecord(queryClient, access.org_id, patientId);
+      void queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] });
+    },
+  });
+}
+
+export function useCreateNote(visitId: VisitId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (content: NoteContent) => unwrap(api.createNote(visitId, content)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] }),
+  });
+}
+
+export function useSignNote(visitId: VisitId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: NoteId) => unwrap(api.signNote(id)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] });
+      void queryClient.invalidateQueries({ queryKey: ["timeline", access.org_id] });
+    },
+  });
+}
+
+export function useRecordObservations(visitId: VisitId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NewReadings) => unwrap(api.recordObservations(visitId, input)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] }),
+  });
+}
+
+export function useProcedures(patientId: PatientId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["procedures", access.org_id, patientId],
+    queryFn: ({ signal }) => (patientId === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.listProcedures(patientId, { signal }))),
+    enabled: patientId !== undefined,
+  });
+}
+
+export function useRecordProcedure(visitId: VisitId, patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NewProcedure) => unwrap(api.recordProcedure(visitId, input)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] });
+      void queryClient.invalidateQueries({ queryKey: ["procedures", access.org_id, patientId] });
+      void queryClient.invalidateQueries({ queryKey: ["timeline", access.org_id, patientId] });
+    },
+  });
+}
+
+export function useCompleteProcedure(visitId: VisitId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: ProcedureId) => unwrap(api.completeProcedure(id)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] }),
+  });
+}
+
+export function useDentalChart(patientId: PatientId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["dental-chart", access.org_id, patientId],
+    queryFn: ({ signal }) => (patientId === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.getDentalChart(patientId, undefined, { signal }))),
+    enabled: patientId !== undefined,
+  });
+}
+
+export function useRecordChartEntries(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NewChartEntries) => unwrap(api.recordChartEntries(patientId, input)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dental-chart", access.org_id, patientId] }),
+  });
+}
+
+export function useAttachments(patientId: PatientId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["attachments", access.org_id, patientId],
+    queryFn: ({ signal }) => (patientId === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.listAttachments(patientId, { signal }))),
+    enabled: patientId !== undefined,
+  });
+}
+
+export function useUploadAttachment(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (form: FormData) => unwrap(api.uploadAttachment(patientId, form)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["attachments", access.org_id, patientId] });
+      void queryClient.invalidateQueries({ queryKey: ["timeline", access.org_id, patientId] });
+    },
+  });
+}
+
+export function useDownloadLink() {
+  const { api } = useClinic();
+  return useMutation({ mutationFn: (id: AttachmentId) => unwrap(api.getDownloadLink(id)) });
 }

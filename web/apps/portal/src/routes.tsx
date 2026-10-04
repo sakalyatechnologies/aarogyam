@@ -14,6 +14,7 @@ import { PatientPage } from "./pages/patients/patient-page.js";
 import { PatientsPage } from "./pages/patients/patients-page.js";
 import { QueuePage } from "./pages/queue/queue-page.js";
 import { SettingsPage } from "./pages/settings/settings-page.js";
+import { VisitPage } from "./pages/visits/visit-page.js";
 import { SignInPage } from "./pages/sign-in-page.js";
 import { TodayPage } from "./pages/today/today-page.js";
 
@@ -42,6 +43,7 @@ export const routes: RouteObject[] = [
               { path: "patients/import", element: <ImportPage /> },
               { path: "patients/:id", element: <PatientPage /> },
               { path: "patients/:id/edit", element: <EditPatientPage /> },
+              { path: "patients/:id/visits/:visitId", element: <VisitPage /> },
               { path: "calendar", element: <CalendarPage /> },
               { path: "queue", element: <QueuePage /> },
               {

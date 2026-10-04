@@ -10,6 +10,10 @@ import { useClinic } from "../../clinic.js";
 import { ageSex, formatPhone, languageLabel, maskEmail, maskPhone, patientPath } from "../../lib/patients.js";
 import { usePatient } from "../../queries.js";
 import { NotFoundPage } from "../not-found-page.js";
+import { ClinicalFlagsPanel } from "./clinical-flags-panel.js";
+import { DentalChartPanel } from "./dental-chart-panel.js";
+import { FilesPanel } from "./files-panel.js";
+import { VisitsPanel } from "./visits-panel.js";
 
 /** The URL carries the patient's ID, validated before it reaches the API. */
 function parseId(param: string | undefined): PatientId | undefined {
@@ -81,6 +85,7 @@ export function PatientPage() {
 function PatientView({ patient }: { patient: Patient }) {
   const { can } = useClinic();
   const navigate = useNavigate();
+  const canSeeClinical = can("clinical.read") || can("clinical.write");
   // Without patients.contact the API sends contact details already masked: show them as they are.
   const revealable = can("patients.contact");
   const age = patient.age_years ?? null;
@@ -146,21 +151,14 @@ function PatientView({ patient }: { patient: Patient }) {
                 </dl>
               ),
             },
-            {
-              value: "flags",
-              label: "Clinical flags",
-              content: (
-                <EmptyState
-                  title="No clinical flags recorded yet"
-                  description="Allergies and conditions will show here, prominently, once visits land in M4. Front desk will still see that a flag exists, even without clinical detail."
-                />
-              ),
-            },
-            {
-              value: "visits",
-              label: "Visits",
-              content: <EmptyState title="No visits yet" description="Each visit, note and treatment will appear here in order, once visits land in M4." />,
-            },
+            { value: "flags", label: "Clinical flags", content: <ClinicalFlagsPanel patientId={patient.id} /> },
+            ...(canSeeClinical
+              ? [
+                  { value: "visits", label: "Visits", content: <VisitsPanel patientId={patient.id} /> },
+                  { value: "dental-chart", label: "Dental chart", content: <DentalChartPanel patientId={patient.id} /> },
+                  { value: "files", label: "Files", content: <FilesPanel patientId={patient.id} /> },
+                ]
+              : []),
             {
               value: "billing",
               label: "Billing",

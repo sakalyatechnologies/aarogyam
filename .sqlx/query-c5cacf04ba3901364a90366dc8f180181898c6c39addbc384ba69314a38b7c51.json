@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update aarogyam.practitioners\n           set membership_id = $2, display_name = $3, registration_number = $4, specialty = $5,\n               calendar_color = $6, active = $7\n           where id = $1 and deleted_at is null\n           returning id, membership_id, display_name, registration_number, specialty, calendar_color, active",
+  "query": "insert into aarogyam.practitioners\n             (id, membership_id, display_name, registration_number, qualifications, specialty, calendar_color, active)\n           values ($1, $2, $3, $4, $5, $6, $7, $8)\n           returning id, membership_id, display_name, registration_number, qualifications, specialty, calendar_color, active",
   "describe": {
     "columns": [
       {
@@ -49,6 +49,17 @@
       },
       {
         "ordinal": 4,
+        "name": "qualifications",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "qualifications"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "specialty",
         "type_info": "Text",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "calendar_color",
         "type_info": "Text",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "active",
         "type_info": "Bool",
         "origin": {
@@ -89,6 +100,7 @@
         "Text",
         "Text",
         "Text",
+        "Text",
         "Bool"
       ]
     },
@@ -98,9 +110,10 @@
       false,
       true,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "3ad499ff0be96e9131f45fed2aa0fa9b9a94a551cfc005d69f063495ce7ef120"
+  "hash": "c5cacf04ba3901364a90366dc8f180181898c6c39addbc384ba69314a38b7c51"
 }

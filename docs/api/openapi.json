@@ -12017,6 +12017,13 @@
             ],
             "description": "Their membership, if they sign in."
           },
+          "qualifications": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Qualifications printed on the letterhead, such as `BDS, MDS`."
+          },
           "registration_number": {
             "type": [
               "string",
@@ -12060,7 +12067,7 @@
       },
       "PractitionerFields": {
         "type": "object",
-        "description": "A doctor to add, or changes to one. Fields left out stay as they are; an empty\n`membership_id`, `registration_number` or `specialty` clears it.",
+        "description": "A doctor to add, or changes to one. Fields left out stay as they are; an empty\n`membership_id`, `registration_number`, `qualifications` or `specialty` clears it.",
         "properties": {
           "active": {
             "type": [
@@ -12089,6 +12096,13 @@
               "null"
             ],
             "description": "The member who is this doctor."
+          },
+          "qualifications": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Qualifications, up to 160 characters."
           },
           "registration_number": {
             "type": [

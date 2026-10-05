@@ -881,6 +881,7 @@ Doctors who see patients at the clinic, with registration and fees.
 | `membership_id` | `uuid?` | → `memberships`. null for a visiting consultant without a sign-in |
 | `display_name` | `text` |  |
 | `registration_number` | `text?` |  |
+| `qualifications` | `text?` |  |
 | `specialty` | `text?` |  |
 | `calendar_color` | `text` | #RRGGBB |
 | `active` | `bool` |  |

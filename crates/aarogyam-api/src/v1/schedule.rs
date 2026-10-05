@@ -232,6 +232,8 @@ pub struct Practitioner {
     pub display_name: String,
     /// Council registration number.
     pub registration_number: Option<String>,
+    /// Qualifications printed on the letterhead, such as `BDS, MDS`.
+    pub qualifications: Option<String>,
     /// Specialty, such as `Orthodontics`.
     pub specialty: Option<String>,
     /// Calendar colour, `#RRGGBB`.
@@ -247,6 +249,7 @@ impl From<PractitionerRow> for Practitioner {
             membership_id: row.membership_id,
             display_name: row.display_name,
             registration_number: row.registration_number,
+            qualifications: row.qualifications,
             specialty: row.specialty,
             calendar_color: row.calendar_color,
             active: row.active,
@@ -285,7 +288,7 @@ pub(crate) async fn practitioners(
 }
 
 /// A doctor to add, or changes to one. Fields left out stay as they are; an empty
-/// `membership_id`, `registration_number` or `specialty` clears it.
+/// `membership_id`, `registration_number`, `qualifications` or `specialty` clears it.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct PractitionerFields {
     /// The member who is this doctor.
@@ -294,6 +297,8 @@ pub struct PractitionerFields {
     pub display_name: Option<String>,
     /// Council registration number.
     pub registration_number: Option<String>,
+    /// Qualifications, up to 160 characters.
+    pub qualifications: Option<String>,
     /// Specialty.
     pub specialty: Option<String>,
     /// Calendar colour, `#RRGGBB`.
@@ -316,6 +321,7 @@ impl PractitionerFields {
             membership_id,
             display_name: self.display_name,
             registration_number: self.registration_number,
+            qualifications: self.qualifications,
             specialty: self.specialty,
             calendar_color: self.calendar_color,
             active: self.active,

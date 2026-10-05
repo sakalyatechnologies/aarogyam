@@ -318,6 +318,7 @@ export type LetterheadDocument = z.output<typeof letterheadDocument>;
 
 export const clinicSettings = z.object({
   name: z.string(),
+  specialty: z.string(),
   legal_name: optionalText,
   gstin: optionalText,
   timezone: z.string(),

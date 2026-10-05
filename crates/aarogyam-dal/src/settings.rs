@@ -11,6 +11,8 @@ use uuid::Uuid;
 pub struct SettingsRow {
     /// Display name.
     pub name: String,
+    /// The clinic's specialty: `dental` or `general`.
+    pub specialty: String,
     /// Registered legal name.
     pub legal_name: Option<String>,
     /// GST identification number.
@@ -40,7 +42,7 @@ pub struct SettingsRow {
 pub async fn get(conn: &mut PgConnection) -> Result<Option<SettingsRow>, DbError> {
     let row = sqlx::query_as!(
         SettingsRow,
-        r#"select o.name, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription, s.booking,
+        r#"select o.name, o.specialty, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription, s.booking,
                   b.id as "branch_id?", b.address as "address?", b.phone_e164
            from aarogyam.organizations o
            join aarogyam.org_settings s on s.org_id = o.id
@@ -60,7 +62,7 @@ pub async fn get(conn: &mut PgConnection) -> Result<Option<SettingsRow>, DbError
 pub async fn get_for_update(conn: &mut PgConnection) -> Result<Option<SettingsRow>, DbError> {
     let row = sqlx::query_as!(
         SettingsRow,
-        r#"select o.name, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription, s.booking,
+        r#"select o.name, o.specialty, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription, s.booking,
                   b.id as "branch_id?", b.address as "address?", b.phone_e164
            from aarogyam.organizations o
            join aarogyam.org_settings s on s.org_id = o.id

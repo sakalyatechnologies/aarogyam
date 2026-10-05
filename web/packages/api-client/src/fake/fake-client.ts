@@ -4338,6 +4338,7 @@ function wireMember(membership: FakeMembership, state: Fixtures): C.Member {
 function wireClinicSettings(clinic: FakeClinic): C.ClinicSettings {
   return {
     name: clinic.name,
+    specialty: clinic.specialty,
     legal_name: clinic.legal_name ?? null,
     gstin: clinic.gstin ?? null,
     timezone: clinic.timezone,

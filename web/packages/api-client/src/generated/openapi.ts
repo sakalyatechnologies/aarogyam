@@ -2823,6 +2823,8 @@ export interface components {
             phone?: string | null;
             /** @description Footer printed on prescriptions. */
             prescription_footer?: string | null;
+            /** @description `dental` or `general`; fixed when the clinic is created. */
+            specialty: string;
             /** @description IANA time zone; `Asia/Kolkata` is the only one supported. */
             timezone: string;
             /** @description UPI ID shown on bills, such as `clinic@okicici`. */

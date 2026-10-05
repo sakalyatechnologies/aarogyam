@@ -8973,6 +8973,7 @@
         "description": "The clinic's settings.",
         "required": [
           "name",
+          "specialty",
           "timezone",
           "branding",
           "address",
@@ -9027,6 +9028,10 @@
               "null"
             ],
             "description": "Footer printed on prescriptions."
+          },
+          "specialty": {
+            "type": "string",
+            "description": "`dental` or `general`; fixed when the clinic is created."
           },
           "timezone": {
             "type": "string",

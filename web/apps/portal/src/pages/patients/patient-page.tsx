@@ -141,7 +141,7 @@ function PatientView({ patient }: { patient: Patient }) {
             <Button
               className="flex-1 justify-center"
               onClick={() => {
-                void navigate("/calendar");
+                void navigate(`/calendar?book=1&patient=${patient.id}`);
               }}
             >
               + Follow-up

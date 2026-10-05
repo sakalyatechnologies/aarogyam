@@ -8,6 +8,7 @@
 --                                             today's appointments and queue around the time of seeding
 --   Lotus Dental Care  lotus.localtest.me     owner Bina; Dev also consults here
 --   Console            Sakalya Admin (platform owner)
+--   Billing            then demo-billing.sql adds Sunrise's bills and receipts
 \set ON_ERROR_STOP 1
 \if :{?portal_host_template}
 \else
@@ -226,3 +227,6 @@ values ('01920000-0000-7000-8000-00000000e001', :'priya', :'dev', 'Scaling and p
         now() - interval '12 days' + interval '30 minutes', 120000);
 
 commit;
+
+-- Synthetic billing for Sunrise (bills, receipts, balances); also usable on its own on a seeded database.
+\ir demo-billing.sql

@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# Builds and deploys the clinic portal, Sakalya console and clinic website (aarogyam-site) to Cloudflare Workers, pointed at
+# Builds and deploys the clinic portal and Sakalya console to Cloudflare Workers, pointed at
 # <api-origin> (a scripts/tunnel-up.sh tunnel today, a Cloud Run URL later). Reads credentials
 # from git-ignored .env files and never echoes their values.
 #
 # Usage: scripts/deploy-workers.sh <api-origin> [clinic-worker-name]
-#   With a clinic Worker name (such as suhasya-aarogyam), deploys a full copy of the portal under
-#   that name. Superseded: the outbox job now gives every clinic a small forwarding Worker
-#   automatically, and scripts/provision-hosts.sh backfills existing ones (docs/deploy.md
-#   "Clinic addresses"). Re-deploying the portal here also updates every clinic's address.
+#   With a clinic Worker name (such as aarogyam-suhasya), deploys only the portal under that
+#   name. workers.dev has no wildcard subdomains, so each demo clinic gets its own Worker at
+#   <name>.<account subdomain>.workers.dev, matching the API's ARO_HOSTS__PORTAL_HOST_TEMPLATE.
 #   DEMO_DEV_SIGNIN=1 scripts/deploy-workers.sh <api-origin>   # skip Supabase; use the API's
-#                                                               # dev-token sign-in, no central sign-in (local API,
+#                                                               # dev-token sign-in (local API,
 #                                                               # ARO_ENVIRONMENT=local, only)
 set -euo pipefail
 
@@ -72,13 +71,6 @@ SUBDOMAIN="${CLOUDFLARE_WORKERS_SUBDOMAIN:-<subdomain>}"
 DEFAULT_TEMPLATE='{slug}'"-aarogyam.${SUBDOMAIN}.workers.dev"
 PORTAL_HOST_TEMPLATE="${PORTAL_HOST_TEMPLATE:-$DEFAULT_TEMPLATE}"
 
-# Everyone signs in on the public website; the portal and console send signed-out visitors there.
-# Set CENTRAL_SIGNIN_URL to the custom domain's /sign-in later. Empty keeps each app's own sign-in.
-CENTRAL_SIGNIN_URL="${CENTRAL_SIGNIN_URL-https://aarogyam-website.pages.dev/sign-in}"
-if [ "${DEMO_DEV_SIGNIN:-0}" = "1" ]; then
-  CENTRAL_SIGNIN_URL=""
-fi
-
 deploy_app() {
   local app_dir="$1" worker_dir="$2" worker_name="$3"
 
@@ -91,8 +83,6 @@ deploy_app() {
     VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
     VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
     VITE_PORTAL_HOST_TEMPLATE="$PORTAL_HOST_TEMPLATE" \
-    VITE_CENTRAL_SIGNIN_URL="$CENTRAL_SIGNIN_URL" \
-    VITE_BOOKING_URL_TEMPLATE="https://${PORTAL_HOST_TEMPLATE}/book" \
       pnpm build
   )
 
@@ -114,12 +104,8 @@ fi
 
 deploy_app "web/apps/portal" "deploy/cloudflare/portal" "aarogyam-portal"
 deploy_app "web/apps/console" "deploy/cloudflare/console" "aarogyam-console"
-# Clinic websites: every published site's address is a small Worker (made by the outbox job)
-# that hands requests to this one, so deploy it before the first site is published.
-deploy_app "web/apps/site" "deploy/cloudflare/site" "aarogyam-site"
 
 echo ""
 echo "Deployed. API origin: ${API_ORIGIN}"
 echo "  Portal:  https://aarogyam-portal.${SUBDOMAIN}.workers.dev"
 echo "  Console: https://aarogyam-console.${SUBDOMAIN}.workers.dev"
-echo "  Site:    https://aarogyam-site.${SUBDOMAIN}.workers.dev (clinic sites: <slug>-site.${SUBDOMAIN}.workers.dev)"

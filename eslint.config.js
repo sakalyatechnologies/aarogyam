@@ -2,6 +2,7 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
+import { e2eRestrictedSyntax } from "@sakalya/e2e/lint";
 
 export default tseslint.config(
   { ignores: ["**/dist/**", "**/node_modules/**", "**/*.config.*", "target/**", "**/scripts/**/*.mjs", "web/apps/website/src/routeTree.gen.ts"] },
@@ -40,4 +41,13 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "warn",
     },
   },
+  // End-to-end tests follow the kit's conventions: no sleeps, no networkidle, no CSS or XPath
+  // locators, no force clicks (docs/e2e.md).
+  // Playwright fixtures call `use`, which isn't React's hook.
+  {
+    files: ["web/e2e/**/*.ts"],
+    rules: { "no-restricted-syntax": ["error", ...e2eRestrictedSyntax], "react-hooks/rules-of-hooks": "off" },
+  },
+  // Playwright loads global setup by its default export.
+  { files: ["web/e2e/src/global-setup.ts"], rules: { "no-restricted-syntax": "off" } },
 );

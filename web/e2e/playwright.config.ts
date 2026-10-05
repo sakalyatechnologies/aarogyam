@@ -1,24 +1,23 @@
-import { defineConfig } from "@playwright/test";
+import { defineE2EConfig } from "@sakalya/e2e";
+
+import { API_URL, CLINIC_TIME_ZONE, CONSOLE_URL, THROTTLE_BYPASS, THROTTLE_BYPASS_HEADER } from "./src/stack.ts";
 
 /**
- * The golden-journey E2E suite: console and portal against the local dev stack (API :8080,
- * portal :5173 on `sunrise.localtest.me`, console :5174), started separately
- * (`cargo run -p aarogyam-server -- serve` and `pnpm dev:portal` / `pnpm dev:console` with
- * `VITE_API_MODE=http`). `src/hosts.ts` refuses to run this suite against anything else.
+ * Aarogyam's end-to-end journeys against the isolated e2e stack (`scripts/e2e-stack.sh up`):
+ * its own database, API (:8181), portal (:5273, one host per clinic) and console (:5274). Each
+ * test file gets a fresh synthetic clinic, so files run in parallel and in any order.
  */
-// One stamp for the whole run, shared with the worker Playwright restarts after a failure.
-process.env["E2E_STAMP"] ??= String(Date.now());
-
-export default defineConfig({
+export default defineE2EConfig({
   testDir: "./tests",
-  fullyParallel: false,
-  forbidOnly: Boolean(process.env["CI"]),
-  retries: 0,
-  reporter: [["list"], ["json", { outputFile: "results.json" }]],
-  timeout: 30_000,
+  projects: [{ name: "chromium", baseURL: CONSOLE_URL, use: { browserName: "chromium" } }],
+  targets: [API_URL],
   use: {
-    screenshot: "only-on-failure",
-    trace: "retain-on-failure",
-    video: "retain-on-failure",
+    timezoneId: CLINIC_TIME_ZONE,
+    locale: "en-IN",
+    // The suite signs in far more often than a person: the e2e API accepts this token from
+    // loopback and skips its per-IP limits (ARO_THROTTLE__BYPASS_TOKEN).
+    extraHTTPHeaders: { [THROTTLE_BYPASS_HEADER]: THROTTLE_BYPASS },
   },
+  quality: { suite: "journeys (Playwright)" },
+  globalSetup: "./src/global-setup.ts",
 });

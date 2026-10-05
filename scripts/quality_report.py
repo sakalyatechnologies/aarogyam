@@ -13,7 +13,8 @@ Usage: quality_report.py <work_dir> <out_dir> <run_id> <started_at> <finished_at
   <key>.ms        wall time in milliseconds (integer)
   <key>.cargo.log cargo test's text output, for the unit and db suites
   <key>.vitest.json  vitest's --reporter=json output, for the web suite
-  <key>.playwright.json  Playwright's --reporter=json output, for the e2e suite
+  <key>.suite.json  a suite summary in the Quality format, written by @sakalya/e2e's reporter
+                   (the e2e suite): counts, failures, flaky tests and every test's result
   <key>.counts    "passed failed skipped" when a suite was skipped outright (no log to parse)
 A suite directory with none of these present is left out of the report.
 """
@@ -78,35 +79,6 @@ def parse_vitest_json(data: dict) -> tuple[int, int, int, list[dict]]:
     return passed, failed, skipped, failures
 
 
-def parse_playwright_json(data: dict) -> tuple[int, int, int, list[dict]]:
-    passed = failed = skipped = 0
-    failures: list[dict] = []
-
-    def walk(suite: dict, prefix: str) -> None:
-        nonlocal passed, failed, skipped
-        title = f"{prefix}{suite.get('title', '')} › " if suite.get("title") else prefix
-        for spec in suite.get("specs", []):
-            name = f"{title}{spec.get('title', 'unknown test')}"
-            for test in spec.get("tests", []):
-                outcome = test.get("status", "unexpected")
-                if outcome in ("expected", "flaky"):
-                    passed += 1
-                elif outcome == "skipped":
-                    skipped += 1
-                else:
-                    failed += 1
-                    last = (test.get("results") or [{}])[-1]
-                    errors = last.get("errors") or [{}]
-                    error = errors[0].get("message", "failed") or "failed"
-                    failures.append({"test": name, "message": truncate(error)})
-        for child in suite.get("suites", []):
-            walk(child, title)
-
-    for suite in data.get("suites", []):
-        walk(suite, "")
-    return passed, failed, skipped, failures
-
-
 def load(path: Path) -> str | None:
     return path.read_text() if path.exists() else None
 
@@ -127,8 +99,15 @@ def build_suite(work_dir: Path, key: str) -> dict | None:
         passed, failed, skipped, failures = parse_cargo_log(log)
     elif (raw := load(work_dir / f"{key}.vitest.json")) is not None:
         passed, failed, skipped, failures = parse_vitest_json(json.loads(raw))
-    elif (raw := load(work_dir / f"{key}.playwright.json")) is not None:
-        passed, failed, skipped, failures = parse_playwright_json(json.loads(raw))
+    elif (raw := load(work_dir / f"{key}.suite.json")) is not None:
+        # Already in the Quality format: keep its extra fields (flaky, flaky_tests, tests).
+        summary = json.loads(raw)
+        summary.update({"name": name, "kind": kind, "duration_ms": duration_ms})
+        summary["failures"] = [
+            {"test": f.get("test", "unknown test"), "message": truncate(f.get("message", ""))}
+            for f in summary.get("failures", [])
+        ]
+        return summary
     else:
         passed = failed = skipped = 0
         failures = []
@@ -168,8 +147,9 @@ def main() -> None:
         total = suite["passed"] + suite["failed"] + suite["skipped"]
         print(
             f"  {suite['name']:<28} {suite['kind']:<5} "
-            f"{suite['passed']}/{total} passed, {suite['failed']} failed, {suite['skipped']} skipped "
-            f"({suite['duration_ms']} ms)"
+            f"{suite['passed']}/{total} passed, {suite['failed']} failed, {suite['skipped']} skipped"
+            + (f", {suite['flaky']} flaky" if suite.get("flaky") else "")
+            + f" ({suite['duration_ms']} ms)"
         )
     if any(s["failed"] > 0 for s in suites):
         sys.exit(1)

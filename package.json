@@ -15,10 +15,12 @@
     "lint": "eslint web",
     "test": "vitest run",
     "build": "pnpm -r --if-present build",
-    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
+    "e2e": "pnpm --filter @aarogyam/e2e e2e"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@sakalya/e2e": "link:../sakalya-e2e",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "eslint": "^10.11.0",

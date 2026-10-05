@@ -520,11 +520,12 @@ pub async fn my_practitioner(
 
 /// A doctor's own details: name, qualifications, registration number and specialty. Nothing
 /// else about the record (colour, whether they can be booked, who they are linked to) can be
-/// changed this way.
+/// changed this way. A member who can issue prescriptions and has no doctor record yet gets
+/// one, named after their account unless a name is given.
 ///
 /// # Errors
-/// [`AppError::NotFound`] when the member is not a doctor here; [`AppError::Invalid`] for bad
-/// input.
+/// [`AppError::NotFound`] when the member is not a doctor here and cannot be; [`AppError::Invalid`]
+/// for bad input.
 pub async fn change_my_practitioner(
     db: &Db,
     actor: &ClinicActor,
@@ -538,9 +539,27 @@ pub async fn change_my_practitioner(
         ..input
     };
     db.scoped(&scope(actor, request_id), async |tx| {
-        let current = dal::practitioner_of(tx.conn(), actor.membership_id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("practitioner"))?;
+        let Some(current) = dal::practitioner_of(tx.conn(), actor.membership_id.uuid()).await?
+        else {
+            actor
+                .require(Permission::PrescriptionsIssue)
+                .map_err(|_| AppError::NotFound("practitioner"))?;
+            let display_name = match &input.display_name {
+                Some(name) => Some(name.clone()),
+                None => clinic::display_name(tx.conn(), actor.user_id.uuid()).await?,
+            };
+            let first = PractitionerInput {
+                membership_id: Some(Some(actor.membership_id)),
+                display_name,
+                ..input.clone()
+            };
+            let row = practitioner_values(tx, &first, None).await?;
+            return dal::insert_practitioner(tx.conn(), row.id, &practitioner_row_values(&row))
+                .await
+                .map_err(|error| {
+                    AppError::on_constraint(error, "practitioners_membership", ALREADY_A_DOCTOR)
+                });
+        };
         let row = practitioner_values(tx, &input, Some(&current)).await?;
         dal::update_practitioner(tx.conn(), row.id, &practitioner_row_values(&row))
             .await?

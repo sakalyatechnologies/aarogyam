@@ -65,4 +65,17 @@ describe("fake setup", () => {
     expect(errorOf(await dev.setMyWorkingHours({ shifts: [{ weekday: 2, starts: "09:00", ends: "13:00" }, { weekday: 2, starts: "12:00", ends: "14:00" }] }))?.status).toBe(400);
     expect(value(await dev.getMyWorkingHours()).shifts).toHaveLength(2);
   });
+
+  it("makes a doctor record on first save for someone who can issue prescriptions", async () => {
+    const { as, fixtures } = world();
+    // Asha is the owner; drop her record to start from a member with none.
+    fixtures.practitioners = fixtures.practitioners.filter((p) => !fixtures.memberships.some((m) => m.id === p.membership_id && m.user_id === ASHA));
+    const owner = as(ASHA);
+    expect(errorOf(await owner.getMyPractitioner())?.status).toBe(404);
+    const made = value(await owner.changeMyPractitioner({ qualifications: "BDS, MDS" }));
+    expect(made).toMatchObject({ qualifications: "BDS, MDS", display_name: "Asha Kulkarni" });
+    expect(value(await owner.getMyPractitioner()).id).toBe(made.id);
+    // The front desk cannot be a doctor.
+    expect(errorOf(await as(FARAH).changeMyPractitioner({ qualifications: "BDS" }))?.status).toBe(404);
+  });
 });

@@ -576,7 +576,9 @@ export interface paths {
         head?: never;
         /**
          * Changes the member's own doctor details: name, qualifications, registration number and
-         *     specialty. Colour, availability and the link to the member are ignored.
+         *     specialty. Colour, availability and the link to the member are ignored. A member who can
+         *     issue prescriptions and has no doctor record yet gets one, named after their account unless
+         *     a name is given.
          */
         patch: operations["update_my_practitioner"];
         trace?: never;
@@ -7839,7 +7841,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Not a clinic, a member of it, or not a doctor here */
+            /** @description Not a clinic, a member of it, or not a doctor here and unable to be one */
             404: {
                 headers: {
                     [name: string]: unknown;

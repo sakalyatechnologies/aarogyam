@@ -223,7 +223,9 @@ pub(crate) async fn my_practitioner(
 }
 
 /// Changes the member's own doctor details: name, qualifications, registration number and
-/// specialty. Colour, availability and the link to the member are ignored.
+/// specialty. Colour, availability and the link to the member are ignored. A member who can
+/// issue prescriptions and has no doctor record yet gets one, named after their account unless
+/// a name is given.
 #[utoipa::path(
     patch,
     path = "/api/v1/me/practitioner",
@@ -234,7 +236,7 @@ pub(crate) async fn my_practitioner(
         (status = 200, body = Practitioner),
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 401, description = "Not signed in"),
-        (status = 404, description = "Not a clinic, a member of it, or not a doctor here")
+        (status = 404, description = "Not a clinic, a member of it, or not a doctor here and unable to be one")
     )
 )]
 pub(crate) async fn update_my_practitioner(

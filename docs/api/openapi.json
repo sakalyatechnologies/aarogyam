@@ -1840,7 +1840,7 @@
         "tags": [
           "setup"
         ],
-        "summary": "Changes the member's own doctor details: name, qualifications, registration number and\nspecialty. Colour, availability and the link to the member are ignored.",
+        "summary": "Changes the member's own doctor details: name, qualifications, registration number and\nspecialty. Colour, availability and the link to the member are ignored. A member who can\nissue prescriptions and has no doctor record yet gets one, named after their account unless\na name is given.",
         "operationId": "update_my_practitioner",
         "requestBody": {
           "content": {
@@ -1869,7 +1869,7 @@
             "description": "Not signed in"
           },
           "404": {
-            "description": "Not a clinic, a member of it, or not a doctor here"
+            "description": "Not a clinic, a member of it, or not a doctor here and unable to be one"
           }
         },
         "security": [

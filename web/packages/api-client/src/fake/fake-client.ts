@@ -3992,9 +3992,24 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!isCaller(caller)) {
             return caller;
           }
-          const found = state.practitioners.find((p) => p.clinic_id === caller.clinic.id && p.membership_id === caller.membership.id);
+          let found = state.practitioners.find((p) => p.clinic_id === caller.clinic.id && p.membership_id === caller.membership.id);
           if (found === undefined) {
-            return notFound;
+            // Only someone who can issue prescriptions gets a doctor record, made on first save.
+            if (!hasPermission(caller.membership.role.permissions, "prescriptions.issue")) {
+              return notFound;
+            }
+            found = {
+              id: fakeUuid(random, clock()),
+              clinic_id: caller.clinic.id,
+              display_name: caller.user.display_name,
+              calendar_color: "#64748b",
+              active: true,
+              membership_id: caller.membership.id,
+              registration_number: null,
+              qualifications: null,
+              specialty: null,
+            };
+            state.practitioners.push(found);
           }
           if (changes.display_name != null) {
             const name = changes.display_name.trim();

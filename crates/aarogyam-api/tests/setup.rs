@@ -227,6 +227,44 @@ async fn an_invited_doctor_fills_in_their_own_screen_and_nothing_else() {
         assert_eq!(status, StatusCode::NOT_FOUND, "{path}");
     }
 
+    // Without the right to issue prescriptions there is no doctor record to make.
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            "/api/v1/me/practitioner",
+            Some(&assistant),
+            Some(json!({ "qualifications": "BDS" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // A member who can issue prescriptions gets their record on first save, named after their
+    // account and linked to them.
+    let (status, own) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            "/api/v1/me/practitioner",
+            Some(&owner),
+            Some(json!({ "qualifications": "BDS, MDS", "registration_number": "MH-9" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{own}");
+    assert_eq!(own["display_name"], "Asha Owner");
+    assert_eq!(own["qualifications"], "BDS, MDS");
+    let (status, again) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            "/api/v1/me/practitioner",
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(again["id"], own["id"]);
+
     // The owner makes the member a doctor, as the invitation flow does.
     let (_, session) = app
         .send(

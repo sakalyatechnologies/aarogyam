@@ -4259,7 +4259,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Prescription"
+                  "$ref": "#/components/schemas/IssuedPrescription"
                 }
               }
             }
@@ -9391,6 +9391,13 @@
         "type": "object",
         "description": "Issuing a prescription.",
         "properties": {
+          "notify_patient": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Email the patient a link to the prescription (default true). Send `false` to skip."
+          },
           "override_reason": {
             "type": [
               "string",
@@ -9399,6 +9406,27 @@
             "description": "Why to go ahead despite the allergy alerts; needed only when there are alerts."
           }
         }
+      },
+      "IssuedPrescription": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Prescription",
+            "description": "The prescription."
+          },
+          {
+            "type": "object",
+            "required": [
+              "patient_message"
+            ],
+            "properties": {
+              "patient_message": {
+                "$ref": "#/components/schemas/PatientMessage",
+                "description": "Whether the patient was emailed."
+              }
+            }
+          }
+        ],
+        "description": "An issued prescription and what happened to the patient's copy."
       },
       "ItemDetailResponse": {
         "type": "object",
@@ -11089,6 +11117,40 @@
               "$ref": "#/components/schemas/Patient"
             },
             "description": "Matching patients, best first."
+          }
+        }
+      },
+      "PatientMessage": {
+        "type": "object",
+        "description": "What happened to the patient's copy.",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the emailed link stops working. Only when sent."
+          },
+          "pin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The six-digit PIN to tell the patient; shown once, never in the email. Only when sent."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why nothing was sent: `declined`, `no_email` (give the printed copy) or `no_portal`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`sent` or `not_sent`."
           }
         }
       },

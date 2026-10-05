@@ -35,6 +35,8 @@ impl Channel {
 pub enum MessageKind {
     /// Someone was invited to join a clinic's staff.
     StaffInvited,
+    /// A prescription link was sent to its patient.
+    PrescriptionShared,
 }
 
 impl MessageKind {
@@ -43,6 +45,7 @@ impl MessageKind {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::StaffInvited => "staff.invited",
+            Self::PrescriptionShared => "prescription.shared",
         }
     }
 
@@ -51,6 +54,7 @@ impl MessageKind {
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "staff.invited" => Some(Self::StaffInvited),
+            "prescription.shared" => Some(Self::PrescriptionShared),
             _ => None,
         }
     }

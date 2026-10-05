@@ -39,6 +39,12 @@ impl PortalLinks {
     pub fn invite(&self, host: &str, token: &str) -> String {
         format!("{}/invite#{token}", self.pattern.replace("{host}", host))
     }
+
+    /// The page where a patient opens a shared prescription with its PIN.
+    #[must_use]
+    pub fn shared(&self, host: &str, token: &str) -> String {
+        format!("{}/shared/{token}", self.pattern.replace("{host}", host))
+    }
 }
 
 impl Default for PortalLinks {
@@ -133,6 +139,47 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
                 html,
             })
         }
+        Some(MessageKind::PrescriptionShared) => {
+            let clinic = field(&message.payload, "clinic_name")?;
+            let doctor = field(&message.payload, "doctor_name")?;
+            let host = field(&message.payload, "portal_host")?;
+            let expires = field(&message.payload, "expires_on")?;
+            let token = message
+                .secret
+                .as_deref()
+                .ok_or_else(|| Failure::permanent("no share token"))?;
+            let link = links.shared(host, token);
+            let doctor = if doctor.starts_with("Dr") {
+                doctor.to_owned()
+            } else {
+                format!("Dr {doctor}")
+            };
+            let subject = format!("Your prescription from {doctor} is ready");
+            let text = format!(
+                "{clinic}\n\n\
+                 Your prescription from {doctor} is ready.\n\n\
+                 Open it: {link}\n\n\
+                 Enter the PIN printed on your prescription, or given at the clinic. \
+                 The link expires on {expires}."
+            );
+            let html = format!(
+                "<p><strong>{clinic}</strong></p>\
+                 <p>Your prescription from {doctor} is ready.</p>\
+                 <p><a href=\"{link}\">Open your prescription</a></p>\
+                 <p>Enter the PIN printed on your prescription, or given at the clinic. \
+                 The link expires on {expires}.</p>",
+                clinic = escape(clinic),
+                doctor = escape(&doctor),
+                link = escape(&link),
+                expires = escape(expires),
+            );
+            Ok(Email {
+                to,
+                subject,
+                text,
+                html,
+            })
+        }
         None => Err(Failure::permanent("unknown message kind")),
     }
 }
@@ -181,6 +228,26 @@ mod tests {
                 .text
                 .contains("https://sunrise.localtest.me/invite#tok3n")
         );
+    }
+
+    #[test]
+    fn shared_prescriptions_link_to_the_portal_without_a_pin() {
+        let mut message = invitation(json!({
+            "clinic_name": "Sunrise",
+            "doctor_name": "Ravi Rao",
+            "portal_host": "sunrise.localtest.me",
+            "expires_on": "10 October 2026",
+        }));
+        message.event_key = "prescription.shared".into();
+        let email = render(&message, &PortalLinks::default()).unwrap();
+        assert_eq!(email.subject, "Your prescription from Dr Ravi Rao is ready");
+        assert!(
+            email
+                .text
+                .contains("https://sunrise.localtest.me/shared/tok3n")
+        );
+        assert!(email.text.contains("PIN printed on your prescription"));
+        assert!(email.html.contains("10 October 2026"));
     }
 
     #[test]

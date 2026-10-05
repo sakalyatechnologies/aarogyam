@@ -8,6 +8,7 @@ use aarogyam_dal::prescriptions::{self as dal, RxFilter, RxHeader, RxItemRow};
 use aarogyam_dal::{access, patients, settings};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::ids::{DrugId, PatientId, PrescriptionId};
+use aarogyam_domain::outbox::MessageKind;
 use aarogyam_domain::patient::BirthDate;
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::prescription::{
@@ -22,7 +23,9 @@ use uuid::Uuid;
 use crate::billing::PatientRef;
 use crate::clock::clinic_today;
 use crate::error::AppError;
+use crate::outbox::{PatientEmail, enqueue_patient_email};
 use crate::scope::{STAFF, staff_scope as scope};
+use crate::share;
 use crate::tokens::new_token;
 
 /// The line every printed prescription carries, with the QR.
@@ -554,9 +557,98 @@ pub async fn edit(
 #[derive(Debug, Clone)]
 pub enum IssueOutcome {
     /// Issued; the alerts the doctor overrode are recorded on it.
-    Issued(Box<RxView>),
+    Issued(Box<RxView>, Sharing),
     /// Not issued: these alerts need the doctor's reason to go ahead.
     NeedsOverride(Vec<AlertView>),
+}
+
+/// What happened to the patient's copy when a prescription was issued.
+#[derive(Debug, Clone)]
+pub enum Sharing {
+    /// A link was emailed to the patient; the doctor gives them this PIN.
+    Sent {
+        /// The six-digit PIN. Shown once; never in the email.
+        pin: String,
+        /// When the link stops working.
+        expires_at: OffsetDateTime,
+    },
+    /// Nothing was sent, for this reason.
+    NotSent(NotSent),
+}
+
+/// Why no message went to the patient.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NotSent {
+    /// The doctor chose not to send.
+    Declined,
+    /// The patient has no email address.
+    NoEmail,
+    /// The clinic has no verified portal address to link to.
+    NoPortal,
+}
+
+impl NotSent {
+    /// The value the API returns.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Declined => "declined",
+            Self::NoEmail => "no_email",
+            Self::NoPortal => "no_portal",
+        }
+    }
+}
+
+/// Makes the share link and queues the patient's email, in the issuing transaction.
+async fn share_with_patient(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: PrescriptionId,
+    patient_id: Uuid,
+    doctor_name: &str,
+    now: OffsetDateTime,
+) -> Result<Sharing, AppError> {
+    let patient = patients::get(tx.conn(), patient_id)
+        .await?
+        .ok_or(AppError::NotFound("patient"))?;
+    let Some(email) = patient
+        .email
+        .and_then(|text| aarogyam_domain::patient::Email::parse(&text).ok())
+    else {
+        return Ok(Sharing::NotSent(NotSent::NoEmail));
+    };
+    let Some(host) = aarogyam_dal::staff::portal_host(tx.conn()).await? else {
+        return Ok(Sharing::NotSent(NotSent::NoPortal));
+    };
+    let profile = aarogyam_dal::clinic::profile(tx.conn())
+        .await?
+        .ok_or(AppError::NotFound("clinic"))?;
+    let link = share::create_in(tx, actor, request_id, id, patient_id, now).await?;
+    let expires_on = link
+        .expires_at
+        .to_offset(crate::clock::clinic_offset(&profile.timezone))
+        .date();
+    enqueue_patient_email(
+        tx,
+        &PatientEmail {
+            kind: MessageKind::PrescriptionShared,
+            to: &email,
+            payload: json!({
+                "prescription_id": id.uuid(),
+                "clinic_name": profile.name,
+                "doctor_name": doctor_name,
+                "portal_host": host,
+                "expires_on": format!("{} {} {}", expires_on.day(), expires_on.month(), expires_on.year()),
+            }),
+            secret: Some(&link.token),
+        },
+    )
+    .await?;
+    Ok(Sharing::Sent {
+        pin: link.pin,
+        expires_at: link.expires_at,
+    })
 }
 
 fn letterhead(row: &settings::SettingsRow) -> Value {
@@ -615,6 +707,46 @@ async fn print_facts(
     })
 }
 
+/// The doctor's choices when issuing.
+#[derive(Debug, Clone, Copy)]
+pub struct IssueChoices<'a> {
+    /// Why to go ahead despite allergy alerts.
+    pub override_reason: Option<&'a str>,
+    /// Email the patient a link, when they have an email.
+    pub notify_patient: bool,
+}
+
+/// Records each alert the doctor overrode, with their reason.
+async fn record_overrides(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    id: PrescriptionId,
+    items: &[RxItemRow],
+    alerts: &[rules::AllergyAlert],
+    reason: Option<&String>,
+) -> Result<(), AppError> {
+    for alert in alerts {
+        let item = items
+            .iter()
+            .find(|item| i32::from(item.line_no) == i32::from(alert.line_no));
+        dal::insert_alert(
+            tx.conn(),
+            id.uuid(),
+            &dal::AlertRow {
+                prescription_item_id: item.map(|item| item.id),
+                kind: "allergy".into(),
+                severity: alert.severity.as_str().into(),
+                message: alert.message.clone(),
+                action: "overridden".into(),
+                override_reason: reason.cloned(),
+            },
+            actor.membership_id.uuid(),
+        )
+        .await?;
+    }
+    Ok(())
+}
+
 /// Issues a draft: checks the medicines against the patient's recorded allergies, numbers it
 /// (`RX-412`), and freezes it with what the paper shows. With alerts and no override reason,
 /// nothing changes and the alerts come back.
@@ -628,11 +760,15 @@ pub async fn issue(
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     id: PrescriptionId,
-    override_reason: Option<&str>,
+    choices: IssueChoices<'_>,
     allergy_source: &dyn AllergySource,
     now: OffsetDateTime,
 ) -> Result<IssueOutcome, AppError> {
     actor.require(Permission::PrescriptionsIssue)?;
+    let IssueChoices {
+        override_reason,
+        notify_patient,
+    } = choices;
     let override_reason = match override_reason.map(str::trim) {
         None | Some("") => None,
         Some(text) => Some(rules::reason(text).map_err(rx("override_reason"))?),
@@ -683,25 +819,7 @@ pub async fn issue(
                     .collect(),
             ));
         }
-        for alert in &alerts {
-            let item = items
-                .iter()
-                .find(|item| i32::from(item.line_no) == i32::from(alert.line_no));
-            dal::insert_alert(
-                tx.conn(),
-                id.uuid(),
-                &dal::AlertRow {
-                    prescription_item_id: item.map(|item| item.id),
-                    kind: "allergy".into(),
-                    severity: alert.severity.as_str().into(),
-                    message: alert.message.clone(),
-                    action: "overridden".into(),
-                    override_reason: override_reason.clone(),
-                },
-                actor.membership_id.uuid(),
-            )
-            .await?;
-        }
+        record_overrides(tx, actor, id, &items, &alerts, override_reason.as_ref()).await?;
         let facts = print_facts(tx, actor, patient_id, now).await?;
         let serial = patients::next_number(tx.conn(), "prescription").await?;
         let number = format!("RX-{serial}");
@@ -720,13 +838,22 @@ pub async fn issue(
                 },
                 verify_token: &verify_token,
                 letterhead: facts.letterhead,
-                doctor: facts.doctor,
+                doctor: facts.doctor.clone(),
                 recipient: facts.recipient,
                 footer: facts.footer.as_deref(),
             },
         )
         .await?;
-        Ok(IssueOutcome::Issued(Box::new(load(tx, id.uuid()).await?)))
+        let sharing = if notify_patient {
+            let doctor_name = facts.doctor["name"].as_str().unwrap_or_default();
+            share_with_patient(tx, actor, request_id, id, patient_id, doctor_name, now).await?
+        } else {
+            Sharing::NotSent(NotSent::Declined)
+        };
+        Ok(IssueOutcome::Issued(
+            Box::new(load(tx, id.uuid()).await?),
+            sharing,
+        ))
     })
     .await
 }

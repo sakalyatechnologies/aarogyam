@@ -53,8 +53,22 @@ pub use state::{AppState, Hosts, TokenCheck, WebsiteLinks};
 /// # Errors
 /// [`sakalya_throttle::ConfigError`] if a rule is invalid (a bug).
 pub fn standard_throttle() -> Result<sakalya_throttle::Throttle, sakalya_throttle::ConfigError> {
+    standard_throttle_with(None)
+}
+
+/// [`standard_throttle`], plus a bypass token: requests carrying it in
+/// [`sakalya_throttle::BYPASS_HEADER`] skip every rule. For end-to-end suites and canaries, which
+/// sign in far more often than any person; the server only accepts one in the `local`
+/// environment until canaries need it deployed.
+///
+/// # Errors
+/// [`sakalya_throttle::ConfigError`] if a rule is invalid (a bug) or the token is shorter than
+/// 32 bytes.
+pub fn standard_throttle_with(
+    bypass: Option<secrecy::SecretString>,
+) -> Result<sakalya_throttle::Throttle, sakalya_throttle::ConfigError> {
     use sakalya_throttle::{KeyKind, RuleConfig, Throttle, ThrottleConfig};
-    Throttle::new(ThrottleConfig::default().with_rules(vec![
+    let config = ThrottleConfig::default().with_rules(vec![
         RuleConfig::new("ip", KeyKind::Ip, 600, 60),
         RuleConfig::new("ip-dev-sign-in", KeyKind::Ip, 30, 15 * 60).on_paths(&["/api/v1/dev/"]),
         RuleConfig::new("ip-registration", KeyKind::Ip, 5, 60 * 60)
@@ -72,7 +86,11 @@ pub fn standard_throttle() -> Result<sakalya_throttle::Throttle, sakalya_throttl
             .on_paths(&["/api/v1/public/bookings"])
             .on_methods(&["POST"]),
         RuleConfig::new("public-booking-identity", KeyKind::Custom, 6, 60 * 60),
-    ]))
+    ]);
+    Throttle::new(match bypass {
+        Some(token) => config.with_bypass_token(token),
+        None => config,
+    })
 }
 
 /// Builds the API: `GET /healthz`, the routes under `/api/v1`, and the standard middleware

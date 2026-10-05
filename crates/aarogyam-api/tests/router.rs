@@ -165,3 +165,65 @@ async fn floods_are_refused_before_any_token_is_checked() {
     let (status, _) = send(&router, Method::GET, "localhost", "/healthz", None, None).await;
     assert_eq!(status, StatusCode::OK);
 }
+
+/// Asks for a development token from `ip`, optionally carrying a throttle bypass token.
+async fn dev_token_from(router: &axum::Router, ip: [u8; 4], bypass: Option<&str>) -> StatusCode {
+    let mut builder = Request::builder()
+        .method(Method::POST)
+        .uri("/api/v1/dev/token")
+        .header("host", "localhost")
+        .header("content-type", "application/json");
+    if let Some(token) = bypass {
+        builder = builder.header(sakalya_throttle::BYPASS_HEADER, token);
+    }
+    let mut request = builder
+        .body(Body::from(
+            r#"{"auth_uid":"a0000000-0000-4000-8000-000000000001"}"#,
+        ))
+        .unwrap();
+    request
+        .extensions_mut()
+        .insert(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+            ip, 40_000,
+        ))));
+    router.clone().oneshot(request).await.unwrap().status()
+}
+
+#[tokio::test]
+async fn the_bypass_token_lets_local_test_suites_past_the_sign_in_limit() {
+    let token = "e2e-bypass-token-at-least-32-bytes-long";
+    let throttle = aarogyam_api::standard_throttle_with(Some(SecretString::from(token))).unwrap();
+    let router = router(offline_state(HttpConfig::default()).with_throttle(throttle));
+    let local = [127, 0, 0, 1];
+    // More sign-ins than the per-IP limit of 30 in 15 minutes, none of them counted.
+    for _ in 0..40 {
+        assert_eq!(
+            dev_token_from(&router, local, Some(token)).await,
+            StatusCode::OK
+        );
+    }
+    for _ in 0..30 {
+        assert_eq!(dev_token_from(&router, local, None).await, StatusCode::OK);
+    }
+    assert_eq!(
+        dev_token_from(&router, local, None).await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    let wrong = "not-the-token-but-also-32-bytes-long";
+    assert_eq!(
+        dev_token_from(&router, local, Some(wrong)).await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    // From outside this machine and without the edge secret, even the right token is ignored.
+    let remote = [203, 0, 113, 9];
+    for _ in 0..30 {
+        assert_eq!(
+            dev_token_from(&router, remote, Some(token)).await,
+            StatusCode::OK
+        );
+    }
+    assert_eq!(
+        dev_token_from(&router, remote, Some(token)).await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+}

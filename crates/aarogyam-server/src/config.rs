@@ -51,6 +51,9 @@ pub struct Config {
     /// Where `scripts/quality-run.sh` writes its run summaries (`ARO_QUALITY__DIR`).
     #[serde(default)]
     pub quality: QualitySettings,
+    /// Request limits (`ARO_THROTTLE__*`).
+    #[serde(default)]
+    pub throttle: ThrottleSettings,
 }
 
 impl Config {
@@ -375,4 +378,15 @@ impl Default for QualitySettings {
             dir: "var/quality".into(),
         }
     }
+}
+
+/// Request limits. The rules themselves are code (`aarogyam_api::standard_throttle`); only the
+/// bypass is configured.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ThrottleSettings {
+    /// Requests carrying this token in `x-sakalya-throttle-bypass` skip the limits
+    /// (`ARO_THROTTLE__BYPASS_TOKEN`, at least 32 bytes): the local end-to-end stack sets it,
+    /// because a suite signs in far more often than a person. Refused outside `local`.
+    pub bypass_token: Option<SecretString>,
 }

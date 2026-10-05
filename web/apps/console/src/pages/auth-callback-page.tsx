@@ -1,10 +1,11 @@
+import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router";
 
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import { useCompleteAuthRedirect } from "@aarogyam/auth";
-import { Button, Card } from "@sakalya/ui";
+import { AuthHeading, useCompleteAuthRedirect } from "@aarogyam/auth";
+import { Button } from "@sakalya/ui";
 
-import { ConsoleBrand } from "../brand.js";
+import { ConsoleAuthShell } from "./sign-in-page.js";
 
 /** Where a sign-in email's link lands (`emailRedirectTo`). Finishes the sign-in, then continues home. */
 export function AuthCallbackPage() {
@@ -15,29 +16,27 @@ export function AuthCallbackPage() {
   });
 
   return (
-    <main className="flex min-h-full items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <ConsoleBrand />
-        <Card className="mt-6">
-          {problem === undefined ? (
-            <p className="text-sm text-muted">Signing you in…</p>
-          ) : (
-            <>
-              <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-text">That link didn't work</h1>
-              <p role="alert" className="mb-5 text-sm text-danger-text">
-                {problem}
-              </p>
-              <Button
-                onClick={() => {
-                  void navigate("/sign-in", { replace: true });
-                }}
-              >
-                Back to sign in
-              </Button>
-            </>
-          )}
-        </Card>
-      </div>
-    </main>
+    <ConsoleAuthShell>
+      {problem === undefined ? (
+        <div role="status" className="flex items-center gap-3 text-sm text-muted">
+          <Loader2 aria-hidden="true" className="size-5 animate-spin text-primary" />
+          Signing you in…
+        </div>
+      ) : (
+        <>
+          <AuthHeading title="That link didn't work" />
+          <p role="alert" className="mb-5 rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger-text">
+            {problem}
+          </p>
+          <Button
+            onClick={() => {
+              void navigate("/sign-in", { replace: true });
+            }}
+          >
+            Back to sign in
+          </Button>
+        </>
+      )}
+    </ConsoleAuthShell>
   );
 }

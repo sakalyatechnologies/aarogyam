@@ -2,7 +2,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AUTH_MESSAGES, createDevAuth, DevSignIn, EmailCodeSignIn, type AuthOutcome, type EmailCodeAuthClient } from "./index.js";
+import { AUTH_MESSAGES, AuthShell, AuthSteps, createDevAuth, DevSignIn, digitsOnly, EmailCodeSignIn, type AuthOutcome, type EmailCodeAuthClient } from "./index.js";
 
 afterEach(() => {
   cleanup();
@@ -99,6 +99,92 @@ describe("EmailCodeSignIn", () => {
 
     expect(screen.getByRole("alert").textContent).toBe(AUTH_MESSAGES.rateLimited);
     expect(screen.getByRole("button", { name: /try again in 60 s/i }).hasAttribute("disabled")).toBe(true);
+  });
+});
+
+describe("EmailCodeSignIn: the code step", () => {
+  async function toCodeStep(responses: Parameters<typeof stubAuth>[0] = {}) {
+    const user = userEvent.setup();
+    const stub = stubAuth(responses);
+    render(<EmailCodeSignIn auth={stub.auth} />);
+    await user.type(screen.getByLabelText(/work email/i), "aarav@sakalya.example{Enter}");
+    return { user, ...stub };
+  }
+
+  it("shows two steps and marks the current one", async () => {
+    const user = userEvent.setup();
+    render(<EmailCodeSignIn auth={stubAuth().auth} />);
+    expect(screen.getByRole("listitem", { current: "step" }).textContent).toContain("Your email");
+    await user.type(screen.getByLabelText(/work email/i), "aarav@sakalya.example{Enter}");
+    expect(screen.getByRole("listitem", { current: "step" }).textContent).toContain("Your code");
+  });
+
+  it("signs in as soon as the sixth digit is typed", async () => {
+    const { user, verifyCode } = await toCodeStep();
+    await user.type(screen.getByLabelText(/6-digit code/i), "12345");
+    expect(verifyCode).not.toHaveBeenCalled();
+    await user.type(screen.getByLabelText(/6-digit code/i), "6");
+    expect(verifyCode).toHaveBeenCalledExactlyOnceWith("aarav@sakalya.example", "123456");
+  });
+
+  it("takes a pasted code with spaces and dashes", async () => {
+    const { user, verifyCode } = await toCodeStep();
+    screen.getByLabelText(/6-digit code/i).focus();
+    await user.paste("123 456");
+    expect(verifyCode).toHaveBeenCalledWith("aarav@sakalya.example", "123456");
+  });
+
+  it("returns to the email step with a different address", async () => {
+    const { user } = await toCodeStep();
+    await user.click(screen.getByRole("button", { name: "Use a different email" }));
+    expect(screen.getByLabelText(/work email/i)).toHaveProperty("value", "aarav@sakalya.example");
+    // The same address must wait out the resend timer; a corrected one may go at once.
+    expect(screen.getByRole("button", { name: /try again in 60 s/i }).hasAttribute("disabled")).toBe(true);
+    await user.type(screen.getByLabelText(/work email/i), "x");
+    expect(screen.getByRole("button", { name: "Send code" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("can hide its own progress bar inside a flow that has one", () => {
+    render(<EmailCodeSignIn auth={stubAuth().auth} showSteps={false} />);
+    expect(screen.queryByRole("list", { name: "Sign-in steps" })).toBeNull();
+  });
+});
+
+describe("email step validation", () => {
+  it("flags a malformed email when the field loses focus, and clears it once fixed", async () => {
+    const user = userEvent.setup();
+    render(<EmailCodeSignIn auth={stubAuth().auth} />);
+    await user.type(screen.getByLabelText(/work email/i), "aarav@");
+    await user.tab();
+    expect(screen.getByText(AUTH_MESSAGES.invalidEmail)).toBeTruthy();
+    await user.type(screen.getByLabelText(/work email/i), "sakalya.example");
+    expect(screen.queryByText(AUTH_MESSAGES.invalidEmail)).toBeNull();
+  });
+});
+
+describe("helpers and shell", () => {
+  it("keeps only digits, at most six", () => {
+    expect(digitsOnly("12-34 56789", 6)).toBe("123456");
+    expect(digitsOnly("abc", 6)).toBe("");
+  });
+
+  it("frames a form beside a product picture, with the brand once for screen readers' landmarks", () => {
+    render(
+      <AuthShell name="Aarogyam" tagline="Care" icon={null} headline="Calm" points={["One", "Two"]} visual="clinic">
+        <h1>Sign in</h1>
+      </AuthShell>,
+    );
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeTruthy();
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getByText("One")).toBeTruthy();
+  });
+
+  it("marks done and current steps", () => {
+    render(<AuthSteps steps={["A", "B", "C"]} current={1} />);
+    const items = screen.getAllByRole("listitem");
+    expect(items[0]?.textContent).toContain("(done)");
+    expect(items[1]?.getAttribute("aria-current")).toBe("step");
+    expect(items[2]?.getAttribute("aria-current")).toBeNull();
   });
 });
 

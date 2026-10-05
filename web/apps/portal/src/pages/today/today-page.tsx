@@ -1,19 +1,18 @@
 import { Download, Play } from "lucide-react";
-import { useEffect, useRef } from "react";
 import { Link } from "react-router";
 
-import { apiErrorOf, type AppointmentStatus, type PendingItem, type Today, type TodayMoney } from "@aarogyam/api-client";
+import { apiErrorOf, type Member, type PendingItem, type Today, type TodayMoney } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatRupees, formatTime, useDocumentTitle } from "@aarogyam/app-kit";
 import { EmptyState, Skeleton } from "@sakalya/ui";
 
-import { Bars, Donut, Empty, Kpi, MkAvatar, MkCard, Tag, type TagTone } from "../../components/mk/index.js";
+import { Bars, Donut, Empty, Kpi, MkAvatar, MkCard, Tag } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { usePatientPeek } from "../../layout/peek.js";
+import { DayTimeline } from "./day-timeline.js";
 import { FinishSetupCard } from "../setup/finish-card.js";
-import { scrollTopToCentre } from "../../lib/time-grid.js";
 import { patientPath } from "../../lib/patients.js";
 import { compactRupees } from "../../lib/money.js";
-import { useToday } from "../../queries.js";
+import { useStaff, useToday } from "../../queries.js";
 import { useTodayMoney } from "../billing/queries.js";
 
 const MINUTE = 60_000;
@@ -27,17 +26,6 @@ type TodayQueueToken = Today["recent_patients"][number];
 function waitingMinutes(appointment: TodayAppointment, asOf: string): number {
   return appointment.arrived_at == null ? 0 : Math.max(0, Math.round((Date.parse(asOf) - Date.parse(appointment.arrived_at)) / MINUTE));
 }
-
-const TAGS: Readonly<Record<AppointmentStatus, { label: string; tone: TagTone }>> = {
-  requested: { label: "REQUESTED", tone: "wait" },
-  booked: { label: "BOOKED", tone: "next" },
-  confirmed: { label: "CONFIRMED", tone: "info" },
-  arrived: { label: "WAITING", tone: "wait" },
-  in_chair: { label: "IN CHAIR", tone: "next" },
-  completed: { label: "DONE", tone: "done" },
-  cancelled: { label: "CANCELLED", tone: "neutral" },
-  no_show: { label: "NO-SHOW", tone: "down" },
-};
 
 function greeting(asOf: string, timeZone: string): string {
   const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone }).format(new Date(asOf)));
@@ -108,26 +96,10 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
   const chairsInUse = today.chairs.filter((c) => c.status === "in_use").length;
   const firstName = session.user.display_name.split(" ")[0] ?? session.user.display_name;
   const firstUpcoming = nextUp?.id;
-  const nowTime = formatTime(today.as_of, timeZone);
-  // Instants compare as numbers, not strings, and the NOW label is the clinic's wall clock, whatever the browser's zone.
-  const asOfMs = Date.parse(today.as_of);
-  const nowIndex = today.appointments.findIndex((a) => Date.parse(a.starts_at) > asOfMs);
-  const timeline = useRef<HTMLDivElement>(null);
-  // Open the schedule on the current time rather than the first visit of the morning.
-  useEffect(() => {
-    const wrap = timeline.current;
-    const marker = wrap?.querySelector(".mk-now");
-    if (wrap == null || marker == null) return;
-    wrap.scrollTop = scrollTopToCentre(wrap.getBoundingClientRect(), marker.getBoundingClientRect(), wrap.scrollTop);
-  }, [today.as_of, today.appointments.length]);
-  const rows = today.appointments.flatMap((a, index) => [
-    ...(index === nowIndex ? [{ kind: "now" as const }] : []),
-    { kind: "appointment" as const, a },
-  ]);
-  if (nowIndex === -1 && today.appointments.length > 0) {
-    rows.push({ kind: "now" });
-  }
   const pendingItems = money.data?.pending ?? [];
+  const staff = useStaff(can("staff.manage"));
+  const doctorNames = new Set(today.team.map((t) => t.practitioner.display_name.toLowerCase()));
+  const staffOthers = (staff.data?.members ?? []).filter((m) => m.status === "active" && !doctorNames.has(m.display_name.toLowerCase())).length;
 
   return (
     <div className="mk-panel">
@@ -231,48 +203,16 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
           {today.appointments.length === 0 ? (
             <Empty title="No appointments today" />
           ) : (
-            <div className="mk-tlwrap" ref={timeline} role="region" aria-label="Today's schedule, scrollable" tabIndex={0}>
-              <ol className="mk-tl">
-                {rows.map((row, index) => {
-                  if (row.kind === "now") {
-                    return (
-                      <li key={`now-${String(index)}`} className="mk-now" aria-label={`Now, ${nowTime}`}>
-                        <div>
-                          <span>NOW {nowTime}</span>
-                        </div>
-                      </li>
-                    );
-                  }
-                  const a = row.a;
-                  const tag = a.id === firstUpcoming ? { label: "NEXT", tone: "next" as const } : TAGS[a.status];
-                  const minutes = Math.round((Date.parse(a.ends_at) - Date.parse(a.starts_at)) / MINUTE);
-                  const state = a.status === "completed" ? "done" : a.status === "arrived" ? "wait" : "";
-                  return (
-                    <li key={a.id} className={state}>
-                      <span className="mk-t">{formatTime(a.starts_at, timeZone)}</span>
-                      <span className="mk-d" />
-                      <button
-                        type="button"
-                        className={`mk-ev ${a.id === firstUpcoming ? "next" : ""}`}
-                        onClick={() => {
-                          peek({ id: a.patient.id, name: a.patient.full_name, number: a.patient.number });
-                        }}
-                      >
-                        <MkAvatar name={a.patient.full_name} size="pa" />
-                        <div>
-                          <b>{a.patient.full_name}</b>
-                          <p>
-                            {a.reason ?? "Consultation"} · {a.room ?? "No room"} · {minutes} min
-                            {a.status === "arrived" ? ` · waiting ${String(waitingMinutes(a, today.as_of))} min` : ""}
-                          </p>
-                        </div>
-                        <Tag tone={tag.tone}>{tag.label}</Tag>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ol>
-            </div>
+            <DayTimeline
+              appointments={today.appointments}
+              asOf={today.as_of}
+              timeZone={timeZone}
+              nextId={firstUpcoming}
+              waitingMinutes={(a) => waitingMinutes(a, today.as_of)}
+              onOpen={(a) => {
+                peek({ id: a.patient.id, name: a.patient.full_name, number: a.patient.number });
+              }}
+            />
           )}
         </MkCard>
         <div className="mk-stack">
@@ -318,8 +258,8 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
             </MkCard>
           </>
         ) : null}
-        <MkCard title="Team today" hint={`On duty · ${String(today.team.length)} ${today.team.length === 1 ? "doctor" : "doctors"}`}>
-          <TeamToday team={today.team} />
+        <MkCard title="Team today" hint={`On duty · ${String(today.team.length)} ${today.team.length === 1 ? "doctor" : "doctors"}${staffOthers === 0 ? "" : ` · ${String(staffOthers)} staff`}`}>
+          <TeamToday team={today.team} staff={staff.data?.members ?? []} />
         </MkCard>
       </div>
     </div>
@@ -482,14 +422,24 @@ function PendingPayments({ pending }: { pending: readonly PendingItem[] | undefi
   );
 }
 
-function TeamToday({ team }: { team: readonly TodayTeamMember[] }) {
-  if (team.length === 0) {
+/** Who is on duty: the doctors (from today's schedule) and, for those who may see them, the clinic's other active staff. */
+export function TeamToday({ team, staff }: { team: readonly TodayTeamMember[]; staff: readonly Member[] }) {
+  const doctorNames = new Set(team.map((t) => t.practitioner.display_name.toLowerCase()));
+  const others = staff.filter((m) => m.status === "active" && !doctorNames.has(m.display_name.toLowerCase()));
+  if (team.length === 0 && others.length === 0) {
     return <Empty title="Team today isn't available yet">Shows once a doctor has working hours set for today.</Empty>;
   }
   return (
     <div className="mk-tablewrap">
       <table className="mk-table">
         <caption className="mk-sr">Team today</caption>
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Role</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
         <tbody>
           {team.map((t) => (
             <tr key={t.practitioner.id}>
@@ -499,9 +449,25 @@ function TeamToday({ team }: { team: readonly TodayTeamMember[] }) {
                   {t.practitioner.display_name}
                 </span>
               </th>
-              <td>{t.appointments} visits</td>
+              <td>
+                {t.specialty ?? "Doctor"} · {t.appointments} {t.appointments === 1 ? "visit" : "visits"}
+              </td>
               <td>
                 <Tag tone={t.on_leave ? "wait" : "done"}>{t.on_leave ? "ON LEAVE" : "IN"}</Tag>
+              </td>
+            </tr>
+          ))}
+          {others.map((m) => (
+            <tr key={m.id}>
+              <th scope="row">
+                <span className="mk-pname">
+                  <MkAvatar name={m.display_name} />
+                  {m.display_name}
+                </span>
+              </th>
+              <td>{m.role_name}</td>
+              <td>
+                <Tag tone="done">ACTIVE</Tag>
               </td>
             </tr>
           ))}

@@ -58,6 +58,7 @@ pub struct PatientIdentifierList {
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/identifiers",
+    operation_id = "listPatientIdentifiers",
     tag = "patients",
     params(("id" = String, Path, description = "The patient")),
     security(("bearer" = [])),
@@ -98,6 +99,7 @@ pub struct NewIdentifier {
 #[utoipa::path(
     post,
     path = "/api/v1/patients/{id}/identifiers",
+    operation_id = "addPatientIdentifier",
     tag = "patients",
     params(("id" = String, Path, description = "The patient")),
     request_body = NewIdentifier,
@@ -133,6 +135,7 @@ pub(crate) async fn add_identifier(
 #[utoipa::path(
     delete,
     path = "/api/v1/patients/{id}/identifiers/{identifier_id}",
+    operation_id = "removePatientIdentifier",
     tag = "patients",
     params(
         ("id" = String, Path, description = "The patient"),
@@ -215,6 +218,7 @@ pub struct ImportResult {
 #[utoipa::path(
     post,
     path = "/api/v1/imports/patients",
+    operation_id = "importPatients",
     tag = "patients",
     request_body = PatientImport,
     security(("bearer" = [])),

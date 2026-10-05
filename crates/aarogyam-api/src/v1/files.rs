@@ -206,6 +206,7 @@ async fn read_form(mut form: Multipart) -> Result<Upload, ApiFailure> {
 #[utoipa::path(
     post,
     path = "/api/v1/patients/{id}/attachments",
+    operation_id = "uploadAttachment",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     request_body(content = UploadForm, content_type = "multipart/form-data"),
@@ -245,6 +246,7 @@ pub(crate) async fn upload(
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/attachments",
+    operation_id = "listAttachments",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     security(("bearer" = [])),
@@ -285,6 +287,7 @@ pub struct DownloadLink {
 #[utoipa::path(
     get,
     path = "/api/v1/attachments/{id}/download",
+    operation_id = "getAttachmentDownloadLink",
     tag = "clinical",
     params(("id" = String, Path, description = "The file")),
     security(("bearer" = [])),
@@ -333,6 +336,7 @@ pub struct ContentQuery {
 #[utoipa::path(
     get,
     path = "/api/v1/attachments/{id}/content",
+    operation_id = "getAttachmentContent",
     tag = "clinical",
     params(
         ("id" = String, Path, description = "The file"),

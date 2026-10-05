@@ -88,6 +88,7 @@ impl From<SupplierValues> for SupplierInput {
 #[utoipa::path(
     get,
     path = "/api/v1/suppliers",
+    operation_id = "listSuppliers",
     tag = "inventory",
     security(("bearer" = [])),
     responses(
@@ -111,6 +112,7 @@ pub(crate) async fn suppliers(
 #[utoipa::path(
     post,
     path = "/api/v1/suppliers",
+    operation_id = "createSupplier",
     tag = "inventory",
     request_body = SupplierValues,
     security(("bearer" = [])),
@@ -136,6 +138,7 @@ pub(crate) async fn create_supplier(
 #[utoipa::path(
     patch,
     path = "/api/v1/suppliers/{id}",
+    operation_id = "updateSupplier",
     tag = "inventory",
     params(("id" = String, Path, description = "The supplier")),
     request_body = SupplierValues,
@@ -170,6 +173,7 @@ pub(crate) async fn update_supplier(
 #[utoipa::path(
     delete,
     path = "/api/v1/suppliers/{id}",
+    operation_id = "deleteSupplier",
     tag = "inventory",
     params(("id" = String, Path, description = "The supplier")),
     security(("bearer" = [])),
@@ -391,6 +395,7 @@ impl From<ItemDetail> for ItemDetailResponse {
 #[utoipa::path(
     get,
     path = "/api/v1/inventory-items",
+    operation_id = "listInventoryItems",
     tag = "inventory",
     security(("bearer" = [])),
     responses(
@@ -420,6 +425,7 @@ pub(crate) async fn items(
 #[utoipa::path(
     post,
     path = "/api/v1/inventory-items",
+    operation_id = "createInventoryItem",
     tag = "inventory",
     request_body = ItemValues,
     security(("bearer" = [])),
@@ -445,6 +451,7 @@ pub(crate) async fn create_item(
 #[utoipa::path(
     get,
     path = "/api/v1/inventory-items/{id}",
+    operation_id = "getInventoryItem",
     tag = "inventory",
     params(("id" = String, Path, description = "The item")),
     security(("bearer" = [])),
@@ -475,6 +482,7 @@ pub(crate) async fn item(
 #[utoipa::path(
     patch,
     path = "/api/v1/inventory-items/{id}",
+    operation_id = "updateInventoryItem",
     tag = "inventory",
     params(("id" = String, Path, description = "The item")),
     request_body = ItemValues,
@@ -509,6 +517,7 @@ pub(crate) async fn update_item(
 #[utoipa::path(
     delete,
     path = "/api/v1/inventory-items/{id}",
+    operation_id = "deleteInventoryItem",
     tag = "inventory",
     params(("id" = String, Path, description = "The item")),
     security(("bearer" = [])),
@@ -575,6 +584,7 @@ pub struct StockSummary {
 #[utoipa::path(
     get,
     path = "/api/v1/stock",
+    operation_id = "getStockSummary",
     tag = "inventory",
     security(("bearer" = [])),
     responses(
@@ -605,6 +615,7 @@ pub(crate) async fn summary(
 #[utoipa::path(
     get,
     path = "/api/v1/stock/low",
+    operation_id = "listLowStock",
     tag = "inventory",
     security(("bearer" = [])),
     responses(
@@ -686,6 +697,7 @@ pub struct ExpiringParams {
 #[utoipa::path(
     get,
     path = "/api/v1/stock/expiring",
+    operation_id = "listExpiringStock",
     tag = "inventory",
     params(("days" = Option<i64>, Query, description = "Days ahead, 0 to 3650; 30 by default")),
     security(("bearer" = [])),
@@ -771,6 +783,7 @@ pub struct ReceiveBody {
 #[utoipa::path(
     post,
     path = "/api/v1/stock/receive",
+    operation_id = "receiveStock",
     tag = "inventory",
     request_body = ReceiveBody,
     security(("bearer" = [])),
@@ -840,6 +853,7 @@ pub struct UseBody {
 #[utoipa::path(
     post,
     path = "/api/v1/stock/use",
+    operation_id = "useStock",
     tag = "inventory",
     request_body = UseBody,
     security(("bearer" = [])),
@@ -890,6 +904,7 @@ pub struct AdjustBody {
 #[utoipa::path(
     post,
     path = "/api/v1/stock/adjust",
+    operation_id = "adjustStock",
     tag = "inventory",
     request_body = AdjustBody,
     security(("bearer" = [])),
@@ -936,6 +951,7 @@ pub struct ExpireBody {
 #[utoipa::path(
     post,
     path = "/api/v1/stock/batches/{id}/expire",
+    operation_id = "expireStockBatch",
     tag = "inventory",
     params(("id" = String, Path, description = "The batch")),
     request_body = ExpireBody,

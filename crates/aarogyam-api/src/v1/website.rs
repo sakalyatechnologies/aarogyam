@@ -536,6 +536,7 @@ fn settings_view(state: &AppState, view: &WebsiteView) -> Result<WebsiteSettings
 #[utoipa::path(
     get,
     path = "/api/v1/settings/website",
+    operation_id = "getWebsiteSettings",
     tag = "website",
     security(("bearer" = [])),
     responses(
@@ -577,6 +578,7 @@ pub struct WebsiteChanges {
 #[utoipa::path(
     patch,
     path = "/api/v1/settings/website",
+    operation_id = "updateWebsiteSettings",
     tag = "website",
     request_body = WebsiteChanges,
     security(("bearer" = [])),
@@ -694,6 +696,7 @@ async fn read_form(mut form: Multipart) -> Result<PhotoUpload, ApiFailure> {
 #[utoipa::path(
     post,
     path = "/api/v1/settings/website/photos",
+    operation_id = "uploadWebsitePhoto",
     tag = "website",
     request_body(content = PhotoForm, content_type = "multipart/form-data"),
     security(("bearer" = [])),
@@ -735,6 +738,7 @@ pub struct PhotoChanges {
 #[utoipa::path(
     patch,
     path = "/api/v1/settings/website/photos/{id}",
+    operation_id = "describeWebsitePhoto",
     tag = "website",
     params(("id" = String, Path, description = "The picture")),
     request_body = PhotoChanges,
@@ -768,6 +772,7 @@ pub(crate) async fn describe_photo(
 #[utoipa::path(
     delete,
     path = "/api/v1/settings/website/photos/{id}",
+    operation_id = "deleteWebsitePhoto",
     tag = "website",
     params(("id" = String, Path, description = "The picture")),
     security(("bearer" = [])),
@@ -800,6 +805,7 @@ pub(crate) async fn delete_photo(
 #[utoipa::path(
     get,
     path = "/api/v1/public/site",
+    operation_id = "getPublicSite",
     tag = "public",
     responses(
         (status = 200, body = SitePage),
@@ -826,6 +832,7 @@ pub(crate) async fn public_site(
 #[utoipa::path(
     get,
     path = "/api/v1/public/site/photos/{id}",
+    operation_id = "getPublicSitePhoto",
     tag = "public",
     params(("id" = String, Path, description = "The picture")),
     responses(

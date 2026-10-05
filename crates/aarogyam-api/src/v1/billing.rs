@@ -111,6 +111,7 @@ impl From<PriceItemValues> for PriceItemInput {
 #[utoipa::path(
     get,
     path = "/api/v1/price-items",
+    operation_id = "listPriceItems",
     tag = "billing",
     security(("bearer" = [])),
     responses(
@@ -134,6 +135,7 @@ pub(crate) async fn price_items(
 #[utoipa::path(
     post,
     path = "/api/v1/price-items",
+    operation_id = "createPriceItem",
     tag = "billing",
     request_body = PriceItemValues,
     security(("bearer" = [])),
@@ -159,6 +161,7 @@ pub(crate) async fn create_price_item(
 #[utoipa::path(
     patch,
     path = "/api/v1/price-items/{id}",
+    operation_id = "updatePriceItem",
     tag = "billing",
     params(("id" = String, Path, description = "The price list entry")),
     request_body = PriceItemValues,
@@ -462,6 +465,7 @@ pub struct Reason {
 #[utoipa::path(
     post,
     path = "/api/v1/invoices",
+    operation_id = "createInvoice",
     tag = "billing",
     request_body = NewInvoice,
     security(("bearer" = [])),
@@ -494,6 +498,7 @@ pub(crate) async fn create_invoice(
 #[utoipa::path(
     patch,
     path = "/api/v1/invoices/{id}",
+    operation_id = "updateInvoice",
     tag = "billing",
     params(("id" = String, Path, description = "The bill")),
     request_body = InvoiceEdit,
@@ -540,6 +545,7 @@ pub(crate) async fn edit_invoice(
 #[utoipa::path(
     post,
     path = "/api/v1/invoices/{id}/issue",
+    operation_id = "issueInvoice",
     tag = "billing",
     params(("id" = String, Path, description = "The bill")),
     security(("bearer" = [])),
@@ -573,6 +579,7 @@ pub(crate) async fn issue_invoice(
 #[utoipa::path(
     post,
     path = "/api/v1/invoices/{id}/void",
+    operation_id = "voidInvoice",
     tag = "billing",
     params(("id" = String, Path, description = "The bill")),
     request_body = Reason,
@@ -609,6 +616,7 @@ pub(crate) async fn void_invoice(
 #[utoipa::path(
     get,
     path = "/api/v1/invoices/{id}",
+    operation_id = "getInvoice",
     tag = "billing",
     params(("id" = String, Path, description = "The bill")),
     security(("bearer" = [])),
@@ -653,6 +661,7 @@ pub struct InvoiceParams {
 #[utoipa::path(
     get,
     path = "/api/v1/invoices",
+    operation_id = "listInvoices",
     tag = "billing",
     params(
         ("status" = Option<String>, Query, description = "draft, issued or void"),

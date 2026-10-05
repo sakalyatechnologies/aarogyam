@@ -113,6 +113,7 @@ pub struct RangeParams {
 #[utoipa::path(
     get,
     path = "/api/v1/reports/collections",
+    operation_id = "getCollectionsReport",
     tag = "reports",
     params(
         ("from" = Option<String>, Query, description = "First clinic day, YYYY-MM-DD (default: six days before to)"),
@@ -254,6 +255,7 @@ pub struct PendingReport {
 #[utoipa::path(
     get,
     path = "/api/v1/reports/pending",
+    operation_id = "getPendingReport",
     tag = "reports",
     security(("bearer" = [])),
     responses(
@@ -319,6 +321,7 @@ pub struct TodayMoney {
 #[utoipa::path(
     get,
     path = "/api/v1/today/money",
+    operation_id = "getTodayMoney",
     tag = "reports",
     security(("bearer" = [])),
     responses(

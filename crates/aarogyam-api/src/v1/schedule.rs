@@ -71,6 +71,7 @@ pub struct RoomList {
 #[utoipa::path(
     get,
     path = "/api/v1/rooms",
+    operation_id = "listRooms",
     tag = "schedule",
     security(("bearer" = [])),
     responses(
@@ -125,6 +126,7 @@ impl RoomFields {
 #[utoipa::path(
     post,
     path = "/api/v1/rooms",
+    operation_id = "addRoom",
     tag = "schedule",
     request_body = RoomFields,
     security(("bearer" = [])),
@@ -156,6 +158,7 @@ pub(crate) async fn add_room(
 #[utoipa::path(
     patch,
     path = "/api/v1/rooms/{id}",
+    operation_id = "updateRoom",
     tag = "schedule",
     params(("id" = String, Path, description = "The room")),
     request_body = RoomFields,
@@ -191,6 +194,7 @@ pub(crate) async fn change_room(
 #[utoipa::path(
     delete,
     path = "/api/v1/rooms/{id}",
+    operation_id = "removeRoom",
     tag = "schedule",
     params(("id" = String, Path, description = "The room")),
     security(("bearer" = [])),
@@ -268,6 +272,7 @@ pub struct PractitionerList {
 #[utoipa::path(
     get,
     path = "/api/v1/practitioners",
+    operation_id = "listPractitioners",
     tag = "schedule",
     security(("bearer" = [])),
     responses(
@@ -333,6 +338,7 @@ impl PractitionerFields {
 #[utoipa::path(
     post,
     path = "/api/v1/practitioners",
+    operation_id = "addPractitioner",
     tag = "schedule",
     request_body = PractitionerFields,
     security(("bearer" = [])),
@@ -364,6 +370,7 @@ pub(crate) async fn add_practitioner(
 #[utoipa::path(
     patch,
     path = "/api/v1/practitioners/{id}",
+    operation_id = "updatePractitioner",
     tag = "schedule",
     params(("id" = String, Path, description = "The doctor")),
     request_body = PractitionerFields,
@@ -399,6 +406,7 @@ pub(crate) async fn change_practitioner(
 #[utoipa::path(
     delete,
     path = "/api/v1/practitioners/{id}",
+    operation_id = "removePractitioner",
     tag = "schedule",
     params(("id" = String, Path, description = "The doctor")),
     security(("bearer" = [])),
@@ -462,6 +470,7 @@ pub struct WorkingHours {
 #[utoipa::path(
     get,
     path = "/api/v1/practitioners/{id}/working-hours",
+    operation_id = "getPractitionerHours",
     tag = "schedule",
     params(("id" = String, Path, description = "The doctor")),
     security(("bearer" = [])),
@@ -493,6 +502,7 @@ pub(crate) async fn hours(
 #[utoipa::path(
     put,
     path = "/api/v1/practitioners/{id}/working-hours",
+    operation_id = "setPractitionerHours",
     tag = "schedule",
     params(("id" = String, Path, description = "The doctor")),
     request_body = WorkingHours,
@@ -589,6 +599,7 @@ pub struct LeaveQuery {
 #[utoipa::path(
     get,
     path = "/api/v1/leave-blocks",
+    operation_id = "listLeaveBlocks",
     tag = "schedule",
     params(
         ("from" = String, Query, description = "First local day, `YYYY-MM-DD`"),
@@ -643,6 +654,7 @@ pub struct NewLeave {
 #[utoipa::path(
     post,
     path = "/api/v1/leave-blocks",
+    operation_id = "addLeaveBlock",
     tag = "schedule",
     request_body = NewLeave,
     security(("bearer" = [])),
@@ -677,6 +689,7 @@ pub(crate) async fn add_leave(
 #[utoipa::path(
     delete,
     path = "/api/v1/leave-blocks/{id}",
+    operation_id = "removeLeaveBlock",
     tag = "schedule",
     params(("id" = String, Path, description = "The leave")),
     security(("bearer" = [])),

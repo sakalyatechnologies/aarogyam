@@ -231,6 +231,7 @@ impl utoipa::Modify for BearerAuth {
 #[utoipa::path(
     get,
     path = "/healthz",
+    operation_id = "getHealth",
     tag = "health",
     responses(
         (status = 200, description = "The process is serving", body = String, content_type = "text/plain")

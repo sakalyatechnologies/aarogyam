@@ -47,6 +47,7 @@ pub struct Me {
 #[utoipa::path(
     get,
     path = "/api/v1/me",
+    operation_id = "getMe",
     tag = "session",
     security(("bearer" = [])),
     responses((status = 200, body = Me), (status = 401, description = "Not signed in"))
@@ -126,6 +127,7 @@ pub struct Session {
 #[utoipa::path(
     get,
     path = "/api/v1/session",
+    operation_id = "getSession",
     tag = "session",
     security(("bearer" = [])),
     responses(
@@ -193,6 +195,7 @@ pub struct MySessions {
 #[utoipa::path(
     get,
     path = "/api/v1/me/sessions",
+    operation_id = "listMySessions",
     tag = "session",
     security(("bearer" = [])),
     responses((status = 200, body = MySessions), (status = 401, description = "Not signed in"))
@@ -225,6 +228,7 @@ pub(crate) async fn sessions(
 #[utoipa::path(
     post,
     path = "/api/v1/me/sessions/{id}/revoke",
+    operation_id = "revokeMySession",
     tag = "session",
     params(("id" = String, Path, description = "The session")),
     security(("bearer" = [])),

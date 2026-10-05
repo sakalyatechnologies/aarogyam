@@ -35,6 +35,7 @@ pub struct DrainReport {
 #[utoipa::path(
     post,
     path = "/api/v1/internal/outbox/drain",
+    operation_id = "drainOutbox",
     tag = "internal",
     responses((status = 200, body = DrainReport))
 )]

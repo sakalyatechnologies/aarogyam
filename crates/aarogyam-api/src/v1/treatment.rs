@@ -155,6 +155,7 @@ pub struct NewProcedure {
 #[utoipa::path(
     post,
     path = "/api/v1/visits/{id}/procedures",
+    operation_id = "recordProcedure",
     tag = "clinical",
     params(("id" = String, Path, description = "The visit")),
     request_body = NewProcedure,
@@ -199,6 +200,7 @@ pub(crate) async fn record_procedure(
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/procedures",
+    operation_id = "listProcedures",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     security(("bearer" = [])),
@@ -230,6 +232,7 @@ pub(crate) async fn procedures(
 #[utoipa::path(
     post,
     path = "/api/v1/procedures/{id}/complete",
+    operation_id = "completeProcedure",
     tag = "clinical",
     params(("id" = String, Path, description = "The procedure")),
     security(("bearer" = [])),
@@ -262,6 +265,7 @@ pub(crate) async fn complete(
 #[utoipa::path(
     post,
     path = "/api/v1/procedures/{id}/entered-in-error",
+    operation_id = "markProcedureEnteredInError",
     tag = "clinical",
     params(("id" = String, Path, description = "The procedure")),
     request_body = EnteredInError,
@@ -414,6 +418,7 @@ pub struct NewPlan {
 #[utoipa::path(
     post,
     path = "/api/v1/patients/{id}/treatment-plans",
+    operation_id = "createTreatmentPlan",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     request_body = NewPlan,
@@ -460,6 +465,7 @@ pub(crate) async fn create_plan(
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/treatment-plans",
+    operation_id = "listTreatmentPlans",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     security(("bearer" = [])),
@@ -499,6 +505,7 @@ pub struct Acceptance {
 #[utoipa::path(
     post,
     path = "/api/v1/treatment-plans/{id}/accept",
+    operation_id = "acceptTreatmentPlan",
     tag = "clinical",
     params(("id" = String, Path, description = "The treatment plan")),
     request_body = Acceptance,
@@ -542,6 +549,7 @@ pub struct ItemStatusChange {
 #[utoipa::path(
     patch,
     path = "/api/v1/treatment-plan-items/{id}",
+    operation_id = "setTreatmentPlanItemStatus",
     tag = "clinical",
     params(("id" = String, Path, description = "The plan item")),
     request_body = ItemStatusChange,

@@ -247,6 +247,7 @@ pub struct NewVisit {
 #[utoipa::path(
     post,
     path = "/api/v1/patients/{id}/visits",
+    operation_id = "startVisit",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     request_body = NewVisit,
@@ -286,6 +287,7 @@ pub(crate) async fn start(
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/visits",
+    operation_id = "listVisits",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     security(("bearer" = [])),
@@ -317,6 +319,7 @@ pub(crate) async fn list(
 #[utoipa::path(
     get,
     path = "/api/v1/visits/{id}",
+    operation_id = "getVisit",
     tag = "clinical",
     params(("id" = String, Path, description = "The visit")),
     security(("bearer" = [])),
@@ -347,6 +350,7 @@ pub(crate) async fn open(
 #[utoipa::path(
     post,
     path = "/api/v1/visits/{id}/close",
+    operation_id = "closeVisit",
     tag = "clinical",
     params(("id" = String, Path, description = "The visit")),
     security(("bearer" = [])),
@@ -401,6 +405,7 @@ impl From<NoteContent> for NoteInput {
 #[utoipa::path(
     post,
     path = "/api/v1/visits/{id}/notes",
+    operation_id = "createNote",
     tag = "clinical",
     params(("id" = String, Path, description = "The visit")),
     request_body = NoteContent,
@@ -435,6 +440,7 @@ pub(crate) async fn create_note(
 #[utoipa::path(
     patch,
     path = "/api/v1/notes/{id}",
+    operation_id = "updateNote",
     tag = "clinical",
     params(("id" = String, Path, description = "The note")),
     request_body = NoteContent,
@@ -469,6 +475,7 @@ pub(crate) async fn edit_note(
 #[utoipa::path(
     post,
     path = "/api/v1/notes/{id}/sign",
+    operation_id = "signNote",
     tag = "clinical",
     params(("id" = String, Path, description = "The note")),
     security(("bearer" = [])),
@@ -508,6 +515,7 @@ pub struct NewAddendum {
 #[utoipa::path(
     post,
     path = "/api/v1/notes/{id}/addenda",
+    operation_id = "addNoteAddendum",
     tag = "clinical",
     params(("id" = String, Path, description = "The note")),
     request_body = NewAddendum,
@@ -551,6 +559,7 @@ pub struct EnteredInError {
 #[utoipa::path(
     post,
     path = "/api/v1/notes/{id}/entered-in-error",
+    operation_id = "markNoteEnteredInError",
     tag = "clinical",
     params(("id" = String, Path, description = "The note")),
     request_body = EnteredInError,
@@ -629,6 +638,7 @@ pub struct TimelineQuery {
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/timeline",
+    operation_id = "getPatientTimeline",
     tag = "clinical",
     params(
         ("id" = String, Path, description = "The patient"),

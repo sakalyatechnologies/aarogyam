@@ -38,6 +38,7 @@ pub struct Joined {
 #[utoipa::path(
     post,
     path = "/api/v1/invitations/accept",
+    operation_id = "acceptInvitation",
     tag = "session",
     request_body = AcceptInvitation,
     security(("bearer" = [])),

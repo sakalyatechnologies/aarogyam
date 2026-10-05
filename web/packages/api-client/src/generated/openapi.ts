@@ -12,14 +12,14 @@ export interface paths {
             cookie?: never;
         };
         /** Appointments starting on the clinic's local days `from` to `to`, cancelled ones included. */
-        get: operations["list_appointments"];
+        get: operations["listAppointments"];
         put?: never;
         /**
          * Books an appointment. Two active bookings can't overlap in one chair (`409`); a doctor
          *     booked in another chair at the same time, on leave, or outside their hours is allowed, with
          *     `warnings`.
          */
-        post: operations["book"];
+        post: operations["bookAppointment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -40,7 +40,7 @@ export interface paths {
         options?: never;
         head?: never;
         /** Moves, reassigns or edits an appointment that isn't completed, cancelled or a no-show. */
-        patch: operations["change_appointment"];
+        patch: operations["updateAppointment"];
         trace?: never;
     };
     "/api/v1/appointments/{id}/status": {
@@ -57,7 +57,7 @@ export interface paths {
          *     cancelled (with a reason) or no-show before arrival. Arriving issues the branch's next queue
          *     token for the clinic day.
          */
-        post: operations["set_appointment_status"];
+        post: operations["setAppointmentStatus"];
         delete?: never;
         options?: never;
         head?: never;
@@ -76,7 +76,7 @@ export interface paths {
          *     proof of access, so no sign-in header is needed (an `<img>` can use it); it works on the
          *     clinic's own host for five minutes, and every use is written to the access record.
          */
-        get: operations["content"];
+        get: operations["getAttachmentContent"];
         put?: never;
         post?: never;
         delete?: never;
@@ -93,7 +93,7 @@ export interface paths {
             cookie?: never;
         };
         /** Issues a five-minute download link for a file. Opening the link writes the access record. */
-        get: operations["link"];
+        get: operations["getAttachmentDownloadLink"];
         put?: never;
         post?: never;
         delete?: never;
@@ -110,7 +110,7 @@ export interface paths {
             cookie?: never;
         };
         /** Lists clinic applications. */
-        get: operations["applications"];
+        get: operations["listApplications"];
         put?: never;
         post?: never;
         delete?: never;
@@ -132,7 +132,7 @@ export interface paths {
          * Approves an application: creates the clinic, the owner's sign-in account and invitation,
          *     and emails the invitation.
          */
-        post: operations["approve"];
+        post: operations["approveApplication"];
         delete?: never;
         options?: never;
         head?: never;
@@ -149,7 +149,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Rejects an application. */
-        post: operations["reject"];
+        post: operations["rejectApplication"];
         delete?: never;
         options?: never;
         head?: never;
@@ -164,10 +164,10 @@ export interface paths {
             cookie?: never;
         };
         /** Lists every clinic with member and patient counts. */
-        get: operations["clinics"];
+        get: operations["listClinics"];
         put?: never;
         /** Creates a clinic and invites its owner. Owner and onboarding staff only. */
-        post: operations["create_clinic"];
+        post: operations["createClinic"];
         delete?: never;
         options?: never;
         head?: never;
@@ -182,7 +182,7 @@ export interface paths {
             cookie?: never;
         };
         /** One clinic, with its staff. Counts only, never patient data. */
-        get: operations["clinic"];
+        get: operations["getClinic"];
         put?: never;
         post?: never;
         delete?: never;
@@ -204,7 +204,7 @@ export interface paths {
          * Invites a doctor or other staff to a clinic: creates their sign-in account and invitation,
          *     and emails it.
          */
-        post: operations["invite_to_clinic"];
+        post: operations["inviteClinicStaff"];
         delete?: never;
         options?: never;
         head?: never;
@@ -219,7 +219,7 @@ export interface paths {
             cookie?: never;
         };
         /** Service health: API, database and edge. */
-        get: operations["metrics"];
+        get: operations["getConsoleMetrics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -236,7 +236,7 @@ export interface paths {
             cookie?: never;
         };
         /** Recent quality runs, each suite's pass-rate trend, and the currently failing tests. */
-        get: operations["quality"];
+        get: operations["getConsoleQuality"];
         put?: never;
         post?: never;
         delete?: never;
@@ -255,7 +255,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Signs in as a seeded person (local development only). */
-        post: operations["token"];
+        post: operations["createDevToken"];
         delete?: never;
         options?: never;
         head?: never;
@@ -272,7 +272,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Finds medicines in the shared list. */
-        post: operations["search_drugs"];
+        post: operations["searchDrugs"];
         delete?: never;
         options?: never;
         head?: never;
@@ -293,7 +293,7 @@ export interface paths {
          *     the valid rows in one transaction with numbers from the clinic's sequence, keeps
          *     `file_number` and `legacy_id` as identifiers, and records the import and each row's result.
          */
-        post: operations["import_patients"];
+        post: operations["importPatients"];
         delete?: never;
         options?: never;
         head?: never;
@@ -313,7 +313,7 @@ export interface paths {
          * Delivers due outbox messages across clinics (local development only; later Cloud
          *     Scheduler with a Google-signed token).
          */
-        post: operations["drain_outbox"];
+        post: operations["drainOutbox"];
         delete?: never;
         options?: never;
         head?: never;
@@ -328,10 +328,10 @@ export interface paths {
             cookie?: never;
         };
         /** The clinic's stock items, by name, each with its level. */
-        get: operations["items"];
+        get: operations["listInventoryItems"];
         put?: never;
         /** Adds a stock item. */
-        post: operations["create_item"];
+        post: operations["createInventoryItem"];
         delete?: never;
         options?: never;
         head?: never;
@@ -346,15 +346,15 @@ export interface paths {
             cookie?: never;
         };
         /** One item with its deliveries and latest changes. */
-        get: operations["item"];
+        get: operations["getInventoryItem"];
         put?: never;
         post?: never;
         /** Removes an item from the lists. Only an item with nothing on the shelf can go. */
-        delete: operations["delete_item"];
+        delete: operations["deleteInventoryItem"];
         options?: never;
         head?: never;
         /** Changes a stock item. */
-        patch: operations["update_item"];
+        patch: operations["updateInventoryItem"];
         trace?: never;
     };
     "/api/v1/invitations/accept": {
@@ -370,7 +370,7 @@ export interface paths {
          * Accepts an invitation. The person must have signed in with the email address it was sent
          *     to; each invitation works once and expires after seven days.
          */
-        post: operations["accept"];
+        post: operations["acceptInvitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -385,10 +385,10 @@ export interface paths {
             cookie?: never;
         };
         /** Bills, newest first, without lines. */
-        get: operations["list_invoices"];
+        get: operations["listInvoices"];
         put?: never;
         /** Starts a draft bill for a patient. */
-        post: operations["create_invoice"];
+        post: operations["createInvoice"];
         delete?: never;
         options?: never;
         head?: never;
@@ -403,14 +403,14 @@ export interface paths {
             cookie?: never;
         };
         /** Opens a bill with its lines. Writes the access record. */
-        get: operations["get_invoice"];
+        get: operations["getInvoice"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         /** Edits a draft bill. Issued and void bills never change. */
-        patch: operations["edit_invoice"];
+        patch: operations["updateInvoice"];
         trace?: never;
     };
     "/api/v1/invoices/{id}/issue": {
@@ -426,7 +426,7 @@ export interface paths {
          * Issues a draft: GST per line (CGST and SGST, or IGST across states), round-off to the
          *     rupee, a number in the clinic's financial year, and the printed facts captured. Final.
          */
-        post: operations["issue_invoice"];
+        post: operations["issueInvoice"];
         delete?: never;
         options?: never;
         head?: never;
@@ -443,7 +443,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Voids a bill with a reason. It is kept with its number; bill again to correct it. */
-        post: operations["void_invoice"];
+        post: operations["voidInvoice"];
         delete?: never;
         options?: never;
         head?: never;
@@ -458,10 +458,10 @@ export interface paths {
             cookie?: never;
         };
         /** Leave overlapping the local days `from` to `to`. */
-        get: operations["leave"];
+        get: operations["listLeaveBlocks"];
         put?: never;
         /** Records a doctor's leave. Bookings already made stay; new ones get a warning. */
-        post: operations["add_leave"];
+        post: operations["addLeaveBlock"];
         delete?: never;
         options?: never;
         head?: never;
@@ -479,7 +479,7 @@ export interface paths {
         put?: never;
         post?: never;
         /** Removes leave. */
-        delete: operations["remove_leave"];
+        delete: operations["removeLeaveBlock"];
         options?: never;
         head?: never;
         patch?: never;
@@ -496,7 +496,7 @@ export interface paths {
          * What a document prints for the signed-in member's clinic: the letterhead, clinic details,
          *     doctors, and signed image links.
          */
-        get: operations["document"];
+        get: operations["getLetterhead"];
         put?: never;
         post?: never;
         delete?: never;
@@ -516,7 +516,7 @@ export interface paths {
          * Streams a letterhead image through its signed link. The link is the proof of access (an
          *     `<img>` can use it) and works on the clinic's own host for an hour.
          */
-        get: operations["image_content"];
+        get: operations["getLetterheadImageContent"];
         put?: never;
         post?: never;
         delete?: never;
@@ -533,7 +533,7 @@ export interface paths {
             cookie?: never;
         };
         /** The signed-in person's clinics, for the clinic switcher. */
-        get: operations["me"];
+        get: operations["getMe"];
         put?: never;
         post?: never;
         delete?: never;
@@ -550,14 +550,14 @@ export interface paths {
             cookie?: never;
         };
         /** The signed-in member's own setup (a doctor's one screen). */
-        get: operations["get_my_setup"];
+        get: operations["getMySetup"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         /** Answers the member's own step or closes their card. */
-        patch: operations["update_my_setup"];
+        patch: operations["updateMySetup"];
         trace?: never;
     };
     "/api/v1/me/practitioner": {
@@ -568,7 +568,7 @@ export interface paths {
             cookie?: never;
         };
         /** The doctor record linked to the signed-in member. */
-        get: operations["my_practitioner"];
+        get: operations["getMyPractitioner"];
         put?: never;
         post?: never;
         delete?: never;
@@ -580,7 +580,7 @@ export interface paths {
          *     issue prescriptions and has no doctor record yet gets one, named after their account unless
          *     a name is given.
          */
-        patch: operations["update_my_practitioner"];
+        patch: operations["updateMyPractitioner"];
         trace?: never;
     };
     "/api/v1/me/sessions": {
@@ -591,7 +591,7 @@ export interface paths {
             cookie?: never;
         };
         /** Where the signed-in person is signed in: their sessions that are neither revoked nor expired. */
-        get: operations["sessions"];
+        get: operations["listMySessions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -610,7 +610,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Signs one of the person's own sessions out. Its next request gets `401`, on every host. */
-        post: operations["revoke_session"];
+        post: operations["revokeMySession"];
         delete?: never;
         options?: never;
         head?: never;
@@ -625,9 +625,9 @@ export interface paths {
             cookie?: never;
         };
         /** The signed-in doctor's weekly hours. */
-        get: operations["my_hours"];
+        get: operations["getMyHours"];
         /** Replaces the signed-in doctor's weekly hours. An empty list clears them. */
-        put: operations["set_my_hours"];
+        put: operations["setMyHours"];
         post?: never;
         delete?: never;
         options?: never;
@@ -649,7 +649,7 @@ export interface paths {
         options?: never;
         head?: never;
         /** Replaces a draft's sections. Only the author may, and only while it is a draft. */
-        patch: operations["edit_note"];
+        patch: operations["updateNote"];
         trace?: never;
     };
     "/api/v1/notes/{id}/addenda": {
@@ -662,7 +662,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Adds an addendum to a signed note. Addenda are never edited or removed. */
-        post: operations["add_addendum"];
+        post: operations["addNoteAddendum"];
         delete?: never;
         options?: never;
         head?: never;
@@ -682,7 +682,7 @@ export interface paths {
          * Marks a note entered in error with a reason. It stays in the record, marked; nothing is
          *     deleted. A draft can be withdrawn only by its author.
          */
-        post: operations["note_in_error"];
+        post: operations["markNoteEnteredInError"];
         delete?: never;
         options?: never;
         head?: never;
@@ -699,7 +699,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Signs a draft. Only its author may; the note never changes afterwards. */
-        post: operations["sign_note"];
+        post: operations["signNote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -716,7 +716,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Marks a reading entered in error with a reason. It stays in the record, marked. */
-        post: operations["in_error"];
+        post: operations["markObservationEnteredInError"];
         delete?: never;
         options?: never;
         head?: never;
@@ -731,10 +731,10 @@ export interface paths {
             cookie?: never;
         };
         /** The most recently registered patients. */
-        get: operations["recent"];
+        get: operations["listPatients"];
         put?: never;
         /** Registers a patient and issues the clinic's next number. */
-        post: operations["register"];
+        post: operations["registerPatient"];
         delete?: never;
         options?: never;
         head?: never;
@@ -754,7 +754,7 @@ export interface paths {
          * Finds patients by number, phone or name. A POST so names and phone numbers stay out of
          *     URLs, which proxies, browsers and logs keep.
          */
-        post: operations["search"];
+        post: operations["searchPatients"];
         delete?: never;
         options?: never;
         head?: never;
@@ -769,7 +769,7 @@ export interface paths {
             cookie?: never;
         };
         /** Opens a patient's record. Every open is written to the access record. */
-        get: operations["open"];
+        get: operations["getPatient"];
         put?: never;
         post?: never;
         delete?: never;
@@ -779,7 +779,7 @@ export interface paths {
          * Edits a patient's details with the same rules as registration. Changing the phone or email
          *     also needs `patients.contact`. The change history records each change.
          */
-        patch: operations["edit"];
+        patch: operations["updatePatient"];
         trace?: never;
     };
     "/api/v1/patients/{id}/allergies": {
@@ -790,10 +790,10 @@ export interface paths {
             cookie?: never;
         };
         /** A patient's allergies, active and severe first. */
-        get: operations["allergies"];
+        get: operations["listAllergies"];
         put?: never;
         /** Records an allergy. */
-        post: operations["add_allergy"];
+        post: operations["addAllergy"];
         delete?: never;
         options?: never;
         head?: never;
@@ -814,7 +814,7 @@ export interface paths {
         options?: never;
         head?: never;
         /** Edits an allergy: resolve it, change its severity, or mark it entered in error. */
-        patch: operations["edit_allergy"];
+        patch: operations["updateAllergy"];
         trace?: never;
     };
     "/api/v1/patients/{id}/attachments": {
@@ -825,7 +825,7 @@ export interface paths {
             cookie?: never;
         };
         /** A patient's files, newest first. */
-        get: operations["list_attachments"];
+        get: operations["listAttachments"];
         put?: never;
         /**
          * Uploads a patient file (`multipart/form-data`, field `file` up to 10 MB). Its type is read
@@ -834,7 +834,7 @@ export interface paths {
          *     linked to a note with `note_id`; a signed note takes it only together with the uploader's own
          *     `addendum_id`.
          */
-        post: operations["upload"];
+        post: operations["uploadAttachment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -849,7 +849,7 @@ export interface paths {
             cookie?: never;
         };
         /** The patient's clinical flags: active allergies and flagged active conditions. */
-        get: operations["flags"];
+        get: operations["getClinicalFlags"];
         put?: never;
         post?: never;
         delete?: never;
@@ -866,10 +866,10 @@ export interface paths {
             cookie?: never;
         };
         /** A patient's conditions, active first. */
-        get: operations["conditions"];
+        get: operations["listConditions"];
         put?: never;
         /** Adds a condition to a patient's problem list. */
-        post: operations["add_condition"];
+        post: operations["addCondition"];
         delete?: never;
         options?: never;
         head?: never;
@@ -890,7 +890,7 @@ export interface paths {
         options?: never;
         head?: never;
         /** Edits a condition: resolve it, flag it, correct it, or mark it entered in error. */
-        patch: operations["edit_condition"];
+        patch: operations["updateCondition"];
         trace?: never;
     };
     "/api/v1/patients/{id}/dental-chart": {
@@ -901,14 +901,14 @@ export interface paths {
             cookie?: never;
         };
         /** A patient's dental chart, with one tooth's history when `tooth` is given. */
-        get: operations["get"];
+        get: operations["getDentalChart"];
         put?: never;
         /**
          * Records findings. Each supersedes the current entry for its tooth and surface (a crown,
          *     implant or missing tooth also supersedes the tooth's surface entries); the history keeps
          *     everything. Returns the updated chart.
          */
-        post: operations["record_dental_chart"];
+        post: operations["recordDentalChart"];
         delete?: never;
         options?: never;
         head?: never;
@@ -923,10 +923,10 @@ export interface paths {
             cookie?: never;
         };
         /** A patient's other numbers: file number, legacy ID, smart card, ABHA. */
-        get: operations["identifiers"];
+        get: operations["listPatientIdentifiers"];
         put?: never;
         /** Adds a number to a patient. Each number belongs to one patient per clinic and kind. */
-        post: operations["add_identifier"];
+        post: operations["addPatientIdentifier"];
         delete?: never;
         options?: never;
         head?: never;
@@ -944,7 +944,7 @@ export interface paths {
         put?: never;
         post?: never;
         /** Removes a number from a patient. */
-        delete: operations["remove_identifier"];
+        delete: operations["removePatientIdentifier"];
         options?: never;
         head?: never;
         patch?: never;
@@ -958,10 +958,10 @@ export interface paths {
             cookie?: never;
         };
         /** A patient's prescriptions, newest first. */
-        get: operations["for_patient"];
+        get: operations["listPatientPrescriptions"];
         put?: never;
         /** Starts a draft prescription for a patient. */
-        post: operations["create"];
+        post: operations["createPrescription"];
         delete?: never;
         options?: never;
         head?: never;
@@ -976,7 +976,7 @@ export interface paths {
             cookie?: never;
         };
         /** The patient's last issued prescription, for Quick Rx (repeat it as a new draft). */
-        get: operations["last"];
+        get: operations["getLastPrescription"];
         put?: never;
         post?: never;
         delete?: never;
@@ -993,7 +993,7 @@ export interface paths {
             cookie?: never;
         };
         /** A patient's procedures, newest first. */
-        get: operations["procedures"];
+        get: operations["listProcedures"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1012,7 +1012,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Plans a follow-up for a patient. */
-        post: operations["create_recall"];
+        post: operations["createRecall"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1030,7 +1030,7 @@ export interface paths {
          * A patient's clinical timeline, newest first: visits, signed notes, procedures and files.
          *     Prescriptions and bills join it when they exist. Reading it writes the access record.
          */
-        get: operations["timeline"];
+        get: operations["getPatientTimeline"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1047,10 +1047,10 @@ export interface paths {
             cookie?: never;
         };
         /** A patient's treatment plans, newest first. */
-        get: operations["plans"];
+        get: operations["listTreatmentPlans"];
         put?: never;
         /** Proposes a treatment plan with an estimate per item. */
-        post: operations["create_plan"];
+        post: operations["createTreatmentPlan"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1065,10 +1065,10 @@ export interface paths {
             cookie?: never;
         };
         /** A patient's visits, newest first. */
-        get: operations["list_visits"];
+        get: operations["listVisits"];
         put?: never;
         /** Starts a visit, with the caller as the clinician responsible. */
-        post: operations["start"];
+        post: operations["startVisit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1083,13 +1083,13 @@ export interface paths {
             cookie?: never;
         };
         /** Payments received, newest first. */
-        get: operations["list"];
+        get: operations["listPayments"];
         put?: never;
         /**
          * Records a payment against issued bills and issues a receipt number. Needs an
          *     `Idempotency-Key` header.
          */
-        post: operations["record"];
+        post: operations["recordPayment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1104,7 +1104,7 @@ export interface paths {
             cookie?: never;
         };
         /** One payment, for its receipt. */
-        get: operations["get_payment"];
+        get: operations["getPayment"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1123,7 +1123,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Voids a payment with a reason. The bills it paid show their balance again. */
-        post: operations["void"];
+        post: operations["voidPayment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1138,10 +1138,10 @@ export interface paths {
             cookie?: never;
         };
         /** The clinic's doctors, by name. */
-        get: operations["practitioners"];
+        get: operations["listPractitioners"];
         put?: never;
         /** Adds a doctor. */
-        post: operations["add_practitioner"];
+        post: operations["addPractitioner"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1159,11 +1159,11 @@ export interface paths {
         put?: never;
         post?: never;
         /** Removes a doctor with no upcoming appointments, and their weekly hours. */
-        delete: operations["remove_practitioner"];
+        delete: operations["removePractitioner"];
         options?: never;
         head?: never;
         /** Changes a doctor's details. */
-        patch: operations["change_practitioner"];
+        patch: operations["updatePractitioner"];
         trace?: never;
     };
     "/api/v1/practitioners/{id}/working-hours": {
@@ -1174,9 +1174,9 @@ export interface paths {
             cookie?: never;
         };
         /** A doctor's weekly hours. */
-        get: operations["hours"];
+        get: operations["getPractitionerHours"];
         /** Replaces a doctor's weekly hours. An empty list clears them. */
-        put: operations["set_hours"];
+        put: operations["setPractitionerHours"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1192,14 +1192,14 @@ export interface paths {
             cookie?: never;
         };
         /** Opens a prescription with its print data. Writes the access record. */
-        get: operations["get_prescription"];
+        get: operations["getPrescription"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         /** Edits a draft. Issued prescriptions never change. */
-        patch: operations["edit_prescription"];
+        patch: operations["updatePrescription"];
         trace?: never;
     };
     "/api/v1/prescriptions/{id}/cancel": {
@@ -1215,7 +1215,7 @@ export interface paths {
          * Cancels an issued prescription with a reason and, by default, starts a corrected draft
          *     copied from it.
          */
-        post: operations["cancel"];
+        post: operations["cancelPrescription"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1235,7 +1235,7 @@ export interface paths {
          * Issues a draft: allergy check, number, print data, frozen. With alerts and no
          *     `override_reason`, answers `409` with the alerts and changes nothing.
          */
-        post: operations["issue"];
+        post: operations["issuePrescription"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1252,7 +1252,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Makes a seven-day link for the patient to open the prescription with a PIN. */
-        post: operations["create_share"];
+        post: operations["createPrescriptionShare"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1267,10 +1267,10 @@ export interface paths {
             cookie?: never;
         };
         /** The clinic's price list. */
-        get: operations["price_items"];
+        get: operations["listPriceItems"];
         put?: never;
         /** Adds a price list entry. */
-        post: operations["create_price_item"];
+        post: operations["createPriceItem"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1291,7 +1291,7 @@ export interface paths {
         options?: never;
         head?: never;
         /** Changes a price list entry. Issued bills keep what they printed. */
-        patch: operations["update_price_item"];
+        patch: operations["updatePriceItem"];
         trace?: never;
     };
     "/api/v1/procedures/{id}/complete": {
@@ -1304,7 +1304,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Marks a planned procedure done; its plan item, if any, is done too. */
-        post: operations["complete"];
+        post: operations["completeProcedure"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1321,7 +1321,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Marks a procedure entered in error with a reason; its plan item is open again. */
-        post: operations["procedure_in_error"];
+        post: operations["markProcedureEnteredInError"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1339,7 +1339,7 @@ export interface paths {
          * Public, no sign-in: a doctor's free slots on a local day, from working hours minus leave
          *     minus active appointments, in the clinic's time zone. No patient data.
          */
-        get: operations["free_slots"];
+        get: operations["listFreeSlots"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1356,7 +1356,7 @@ export interface paths {
             cookie?: never;
         };
         /** Public, no sign-in: the clinic's name, booking settings and bookable doctors. */
-        get: operations["booking_options"];
+        get: operations["getBookingOptions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1379,7 +1379,7 @@ export interface paths {
          *     Supabase) and need not belong to the clinic. The appointment is `requested`, or `confirmed`
          *     when the clinic auto-confirms. Never says whether a patient record already existed.
          */
-        post: operations["book_online"];
+        post: operations["bookOnline"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1397,7 +1397,7 @@ export interface paths {
          * Public, no sign-in: the clinic's published website. Holds the clinic's name, doctors,
          *     services, hours and contact details, and nothing about patients.
          */
-        get: operations["public_site"];
+        get: operations["getPublicSite"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1414,7 +1414,7 @@ export interface paths {
             cookie?: never;
         };
         /** Public, no sign-in: one of the clinic's website pictures. */
-        get: operations["public_photo"];
+        get: operations["getPublicSitePhoto"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1431,10 +1431,10 @@ export interface paths {
             cookie?: never;
         };
         /** The queue of a clinic day, with each token's wait. */
-        get: operations["list_queue"];
+        get: operations["listQueue"];
         put?: never;
         /** Issues a token to a patient without an appointment. */
-        post: operations["walk_in"];
+        post: operations["addWalkIn"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1451,7 +1451,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Moves a token along. A token with an appointment moves the appointment too. */
-        post: operations["set_queue_status"];
+        post: operations["setQueueTokenStatus"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1466,7 +1466,7 @@ export interface paths {
             cookie?: never;
         };
         /** Open follow-ups, soonest first. */
-        get: operations["due"];
+        get: operations["listRecallsDue"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1485,7 +1485,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Marks a follow-up done. */
-        post: operations["done"];
+        post: operations["markRecallDone"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1502,7 +1502,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Applies to join Aarogyam (public, throttled per IP). */
-        post: operations["submit_registration"];
+        post: operations["submitRegistration"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1520,7 +1520,7 @@ export interface paths {
          * Collections by day, week and method, and the revenue mix. The last seven days by default;
          *     at most 366 days.
          */
-        get: operations["collections"];
+        get: operations["getCollectionsReport"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1537,7 +1537,7 @@ export interface paths {
             cookie?: never;
         };
         /** Issued bills with a balance, oldest first, with aging buckets. */
-        get: operations["pending"];
+        get: operations["getPendingReport"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1554,7 +1554,7 @@ export interface paths {
             cookie?: never;
         };
         /** The clinic's roles and the permissions each holds, for choosing a role. */
-        get: operations["roles"];
+        get: operations["listRoles"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1571,10 +1571,10 @@ export interface paths {
             cookie?: never;
         };
         /** The clinic's chairs and rooms, in list order. */
-        get: operations["rooms"];
+        get: operations["listRooms"];
         put?: never;
         /** Adds a chair or room. */
-        post: operations["add_room"];
+        post: operations["addRoom"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1592,11 +1592,11 @@ export interface paths {
         put?: never;
         post?: never;
         /** Removes a chair or room with no upcoming appointments. */
-        delete: operations["remove_room"];
+        delete: operations["removeRoom"];
         options?: never;
         head?: never;
         /** Renames, moves, retires or reorders a chair or room. */
-        patch: operations["change_room"];
+        patch: operations["updateRoom"];
         trace?: never;
     };
     "/api/v1/session": {
@@ -1610,7 +1610,7 @@ export interface paths {
          * The clinic, member and permissions for this host. The portal hides what the role can't
          *     do; the API still enforces it.
          */
-        get: operations["session"];
+        get: operations["getSession"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1630,14 +1630,14 @@ export interface paths {
          * The clinic's settings: profile, GSTIN, time zone, branding, prescription footer, address,
          *     phone and UPI ID.
          */
-        get: operations["get_clinic"];
+        get: operations["getClinicSettings"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         /** Changes the clinic's settings. The change history records each change. */
-        patch: operations["update_clinic"];
+        patch: operations["updateClinicSettings"];
         trace?: never;
     };
     "/api/v1/settings/letterhead/images/{slot}": {
@@ -1653,13 +1653,13 @@ export interface paths {
          *     `multipart/form-data` field `file`: PNG or JPEG, up to 2 MB, checked by content. Replaces the
          *     previous one. Returns the letterhead settings.
          */
-        put: operations["upload_image"];
+        put: operations["uploadLetterheadImage"];
         post?: never;
         /**
          * Removes the letterhead image or the logo. Without an image, upload mode falls back to the
          *     generated design.
          */
-        delete: operations["remove_image"];
+        delete: operations["removeLetterheadImage"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1673,14 +1673,14 @@ export interface paths {
             cookie?: never;
         };
         /** The clinic's first-run setup. Nothing is stored until the owner answers a step. */
-        get: operations["get_clinic_setup"];
+        get: operations["getClinicSetup"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         /** Answers a step of the clinic's setup, closes the card, or says how the clinic practises. */
-        patch: operations["update_clinic_setup"];
+        patch: operations["updateClinicSetup"];
         trace?: never;
     };
     "/api/v1/settings/website": {
@@ -1691,7 +1691,7 @@ export interface paths {
             cookie?: never;
         };
         /** The owner's website settings, pictures and a preview of the page. */
-        get: operations["get_settings"];
+        get: operations["getWebsiteSettings"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1701,7 +1701,7 @@ export interface paths {
          * Changes the website: design, content, published state or domain. Doctors in `content` must
          *     belong to the clinic; links must start with `https://`.
          */
-        patch: operations["update_settings"];
+        patch: operations["updateWebsiteSettings"];
         trace?: never;
     };
     "/api/v1/settings/website/photos": {
@@ -1717,7 +1717,7 @@ export interface paths {
          * Uploads a website picture (`multipart/form-data`, field `file` up to 5 MB). A logo, hero or
          *     about picture replaces the one before it.
          */
-        post: operations["upload_photo"];
+        post: operations["uploadWebsitePhoto"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1735,11 +1735,11 @@ export interface paths {
         put?: never;
         post?: never;
         /** Removes a picture. Doctors who used it as a portrait lose it. */
-        delete: operations["delete_photo"];
+        delete: operations["deleteWebsitePhoto"];
         options?: never;
         head?: never;
         /** Changes a picture's description. */
-        patch: operations["describe_photo"];
+        patch: operations["describeWebsitePhoto"];
         trace?: never;
     };
     "/api/v1/shared/{token}": {
@@ -1750,7 +1750,7 @@ export interface paths {
             cookie?: never;
         };
         /** Public, no sign-in: whether a link exists and which clinic sent it. */
-        get: operations["shared_preview"];
+        get: operations["previewSharedPrescription"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1770,7 +1770,7 @@ export interface paths {
          * Public, no sign-in: the letterhead for a share link's page, so the page prints the clinic's
          *     header even before the PIN. Needs a link that exists; holds no patient data.
          */
-        get: operations["shared_document"];
+        get: operations["getSharedLetterhead"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1792,7 +1792,7 @@ export interface paths {
          * Public, no sign-in: opens the prescription with the PIN. Five wrong PINs lock the link.
          *     Every open is written to the access record.
          */
-        post: operations["shared_open"];
+        post: operations["openSharedPrescription"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1807,7 +1807,7 @@ export interface paths {
             cookie?: never;
         };
         /** The clinic's members, with their roles, status and branches, and pending invitations. */
-        get: operations["list_staff"];
+        get: operations["listStaff"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1829,7 +1829,7 @@ export interface paths {
          * Invites someone to the staff and emails them the link (through the outbox). Only owners
          *     may invite owners.
          */
-        post: operations["invite"];
+        post: operations["inviteStaff"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1854,7 +1854,7 @@ export interface paths {
          *     changes their own role, only owners make or change owners, and the last active owner
          *     can't be suspended, removed or demoted.
          */
-        patch: operations["change_staff"];
+        patch: operations["updateStaffMember"];
         trace?: never;
     };
     "/api/v1/stock": {
@@ -1868,7 +1868,7 @@ export interface paths {
          * Stock levels: units on hand, reorder level and status for every item, with counts for the
          *     summary cards.
          */
-        get: operations["summary"];
+        get: operations["getStockSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1887,7 +1887,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Corrects stock after a count. */
-        post: operations["adjust"];
+        post: operations["adjustStock"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1904,7 +1904,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Writes off what is left of a batch that has expired. */
-        post: operations["expire_batch"];
+        post: operations["expireStockBatch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1919,7 +1919,7 @@ export interface paths {
             cookie?: never;
         };
         /** Batches with stock left that expire within `days` days or already have. */
-        get: operations["expiring"];
+        get: operations["listExpiringStock"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1936,7 +1936,7 @@ export interface paths {
             cookie?: never;
         };
         /** Active items at or below their reorder level, worst first. */
-        get: operations["low"];
+        get: operations["listLowStock"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1955,7 +1955,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Adds a delivery to stock: a new batch and a `receive` movement. */
-        post: operations["receive"];
+        post: operations["receiveStock"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1975,7 +1975,7 @@ export interface paths {
          * Uses stock: takes from the batches that expire first and skips expired ones. When the usable
          *     stock is short, nothing is taken.
          */
-        post: operations["use_stock"];
+        post: operations["useStock"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1990,10 +1990,10 @@ export interface paths {
             cookie?: never;
         };
         /** The clinic's suppliers. */
-        get: operations["suppliers"];
+        get: operations["listSuppliers"];
         put?: never;
         /** Adds a supplier. */
-        post: operations["create_supplier"];
+        post: operations["createSupplier"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2011,11 +2011,11 @@ export interface paths {
         put?: never;
         post?: never;
         /** Removes a supplier from the list. Deliveries already received keep their supplier. */
-        delete: operations["delete_supplier"];
+        delete: operations["deleteSupplier"];
         options?: never;
         head?: never;
         /** Changes a supplier. */
-        patch: operations["update_supplier"];
+        patch: operations["updateSupplier"];
         trace?: never;
     };
     "/api/v1/today": {
@@ -2029,7 +2029,7 @@ export interface paths {
          * Today's schedule, chairs, counts, appointments by hour, recent patients, the team on duty
          *     and the attention list, in the clinic's time zone.
          */
-        get: operations["today"];
+        get: operations["getToday"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2049,7 +2049,7 @@ export interface paths {
          * Money for the Today screen: today's collections, pending dues, this month's revenue mix
          *     and the largest unpaid balances.
          */
-        get: operations["today_money"];
+        get: operations["getTodayMoney"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2072,7 +2072,7 @@ export interface paths {
         options?: never;
         head?: never;
         /** Marks an accepted plan item done or cancelled; the plan follows (in progress, then completed). */
-        patch: operations["set_item_status"];
+        patch: operations["setTreatmentPlanItemStatus"];
         trace?: never;
     };
     "/api/v1/treatment-plans/{id}/accept": {
@@ -2085,7 +2085,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Records the patient's acceptance of a proposed plan. */
-        post: operations["accept_plan"];
+        post: operations["acceptTreatmentPlan"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2100,7 +2100,7 @@ export interface paths {
             cookie?: never;
         };
         /** Public, no sign-in: the QR code's check that a prescription is genuine. */
-        get: operations["verify"];
+        get: operations["verifyPrescription"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2117,7 +2117,7 @@ export interface paths {
             cookie?: never;
         };
         /** Opens a visit with everything recorded in it. Every open is written to the access record. */
-        get: operations["open_visit"];
+        get: operations["getVisit"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2139,7 +2139,7 @@ export interface paths {
          * Closes a visit. Addenda and corrections still work afterwards; new notes, vitals and
          *     procedures don't.
          */
-        post: operations["close"];
+        post: operations["closeVisit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2156,7 +2156,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Starts a draft note in an open visit, written by the caller. */
-        post: operations["create_note"];
+        post: operations["createNote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2173,7 +2173,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Records vital signs in a visit. A closed visit takes corrections only. */
-        post: operations["record_observation"];
+        post: operations["recordObservations"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2190,7 +2190,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Records a procedure in an open visit. */
-        post: operations["record_procedure"];
+        post: operations["recordProcedure"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2208,7 +2208,7 @@ export interface paths {
          * Liveness check.
          * @description Answers `ok` while the process is serving; a database outage does not fail it.
          */
-        get: operations["healthz"];
+        get: operations["getHealth"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6038,7 +6038,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    list_appointments: {
+    listAppointments: {
         parameters: {
             query: {
                 /** @description First local day, `YYYY-MM-DD` */
@@ -6087,7 +6087,7 @@ export interface operations {
             };
         };
     };
-    book: {
+    bookAppointment: {
         parameters: {
             query?: never;
             header?: never;
@@ -6145,7 +6145,7 @@ export interface operations {
             };
         };
     };
-    change_appointment: {
+    updateAppointment: {
         parameters: {
             query?: never;
             header?: never;
@@ -6206,7 +6206,7 @@ export interface operations {
             };
         };
     };
-    set_appointment_status: {
+    setAppointmentStatus: {
         parameters: {
             query?: never;
             header?: never;
@@ -6260,7 +6260,7 @@ export interface operations {
             };
         };
     };
-    content: {
+    getAttachmentContent: {
         parameters: {
             query: {
                 /** @description The signed token from the download link */
@@ -6298,7 +6298,7 @@ export interface operations {
             };
         };
     };
-    link: {
+    getAttachmentDownloadLink: {
         parameters: {
             query?: never;
             header?: never;
@@ -6341,7 +6341,7 @@ export interface operations {
             };
         };
     };
-    applications: {
+    listApplications: {
         parameters: {
             query?: {
                 /** @description pending, approved or rejected */
@@ -6377,7 +6377,7 @@ export interface operations {
             };
         };
     };
-    approve: {
+    approveApplication: {
         parameters: {
             query?: never;
             header?: never;
@@ -6438,7 +6438,7 @@ export interface operations {
             };
         };
     };
-    reject: {
+    rejectApplication: {
         parameters: {
             query?: never;
             header?: never;
@@ -6477,7 +6477,7 @@ export interface operations {
             };
         };
     };
-    clinics: {
+    listClinics: {
         parameters: {
             query?: never;
             header?: never;
@@ -6510,7 +6510,7 @@ export interface operations {
             };
         };
     };
-    create_clinic: {
+    createClinic: {
         parameters: {
             query?: never;
             header?: never;
@@ -6554,7 +6554,7 @@ export interface operations {
             };
         };
     };
-    clinic: {
+    getClinic: {
         parameters: {
             query?: never;
             header?: never;
@@ -6590,7 +6590,7 @@ export interface operations {
             };
         };
     };
-    invite_to_clinic: {
+    inviteClinicStaff: {
         parameters: {
             query?: never;
             header?: never;
@@ -6644,7 +6644,7 @@ export interface operations {
             };
         };
     };
-    metrics: {
+    getConsoleMetrics: {
         parameters: {
             query?: {
                 /** @description 1h (default), 6h, 24h or 7d */
@@ -6673,7 +6673,7 @@ export interface operations {
             };
         };
     };
-    quality: {
+    getConsoleQuality: {
         parameters: {
             query?: {
                 /** @description Most recent runs to return (default 30, at most 200) */
@@ -6709,7 +6709,7 @@ export interface operations {
             };
         };
     };
-    token: {
+    createDevToken: {
         parameters: {
             query?: never;
             header?: never;
@@ -6733,7 +6733,7 @@ export interface operations {
             };
         };
     };
-    search_drugs: {
+    searchDrugs: {
         parameters: {
             query?: never;
             header?: never;
@@ -6770,7 +6770,7 @@ export interface operations {
             };
         };
     };
-    import_patients: {
+    importPatients: {
         parameters: {
             query?: never;
             header?: never;
@@ -6821,7 +6821,7 @@ export interface operations {
             };
         };
     };
-    drain_outbox: {
+    drainOutbox: {
         parameters: {
             query?: never;
             header?: never;
@@ -6840,7 +6840,7 @@ export interface operations {
             };
         };
     };
-    items: {
+    listInventoryItems: {
         parameters: {
             query?: never;
             header?: never;
@@ -6880,7 +6880,7 @@ export interface operations {
             };
         };
     };
-    create_item: {
+    createInventoryItem: {
         parameters: {
             query?: never;
             header?: never;
@@ -6931,7 +6931,7 @@ export interface operations {
             };
         };
     };
-    item: {
+    getInventoryItem: {
         parameters: {
             query?: never;
             header?: never;
@@ -6974,7 +6974,7 @@ export interface operations {
             };
         };
     };
-    delete_item: {
+    deleteInventoryItem: {
         parameters: {
             query?: never;
             header?: never;
@@ -7023,7 +7023,7 @@ export interface operations {
             };
         };
     };
-    update_item: {
+    updateInventoryItem: {
         parameters: {
             query?: never;
             header?: never;
@@ -7084,7 +7084,7 @@ export interface operations {
             };
         };
     };
-    accept: {
+    acceptInvitation: {
         parameters: {
             query?: never;
             header?: never;
@@ -7128,7 +7128,7 @@ export interface operations {
             };
         };
     };
-    list_invoices: {
+    listInvoices: {
         parameters: {
             query?: {
                 /** @description draft, issued or void */
@@ -7179,7 +7179,7 @@ export interface operations {
             };
         };
     };
-    create_invoice: {
+    createInvoice: {
         parameters: {
             query?: never;
             header?: never;
@@ -7230,7 +7230,7 @@ export interface operations {
             };
         };
     };
-    get_invoice: {
+    getInvoice: {
         parameters: {
             query?: never;
             header?: never;
@@ -7273,7 +7273,7 @@ export interface operations {
             };
         };
     };
-    edit_invoice: {
+    updateInvoice: {
         parameters: {
             query?: never;
             header?: never;
@@ -7334,7 +7334,7 @@ export interface operations {
             };
         };
     };
-    issue_invoice: {
+    issueInvoice: {
         parameters: {
             query?: never;
             header?: never;
@@ -7391,7 +7391,7 @@ export interface operations {
             };
         };
     };
-    void_invoice: {
+    voidInvoice: {
         parameters: {
             query?: never;
             header?: never;
@@ -7452,7 +7452,7 @@ export interface operations {
             };
         };
     };
-    leave: {
+    listLeaveBlocks: {
         parameters: {
             query: {
                 /** @description First local day, `YYYY-MM-DD` */
@@ -7499,7 +7499,7 @@ export interface operations {
             };
         };
     };
-    add_leave: {
+    addLeaveBlock: {
         parameters: {
             query?: never;
             header?: never;
@@ -7550,7 +7550,7 @@ export interface operations {
             };
         };
     };
-    remove_leave: {
+    removeLeaveBlock: {
         parameters: {
             query?: never;
             header?: never;
@@ -7592,7 +7592,7 @@ export interface operations {
             };
         };
     };
-    document: {
+    getLetterhead: {
         parameters: {
             query?: never;
             header?: never;
@@ -7632,7 +7632,7 @@ export interface operations {
             };
         };
     };
-    image_content: {
+    getLetterheadImageContent: {
         parameters: {
             query: {
                 /** @description The signed token from the letterhead document */
@@ -7670,7 +7670,7 @@ export interface operations {
             };
         };
     };
-    me: {
+    getMe: {
         parameters: {
             query?: never;
             header?: never;
@@ -7696,7 +7696,7 @@ export interface operations {
             };
         };
     };
-    get_my_setup: {
+    getMySetup: {
         parameters: {
             query?: never;
             header?: never;
@@ -7729,7 +7729,7 @@ export interface operations {
             };
         };
     };
-    update_my_setup: {
+    updateMySetup: {
         parameters: {
             query?: never;
             header?: never;
@@ -7773,7 +7773,7 @@ export interface operations {
             };
         };
     };
-    my_practitioner: {
+    getMyPractitioner: {
         parameters: {
             query?: never;
             header?: never;
@@ -7806,7 +7806,7 @@ export interface operations {
             };
         };
     };
-    update_my_practitioner: {
+    updateMyPractitioner: {
         parameters: {
             query?: never;
             header?: never;
@@ -7850,7 +7850,7 @@ export interface operations {
             };
         };
     };
-    sessions: {
+    listMySessions: {
         parameters: {
             query?: never;
             header?: never;
@@ -7876,7 +7876,7 @@ export interface operations {
             };
         };
     };
-    revoke_session: {
+    revokeMySession: {
         parameters: {
             query?: never;
             header?: never;
@@ -7911,7 +7911,7 @@ export interface operations {
             };
         };
     };
-    my_hours: {
+    getMyHours: {
         parameters: {
             query?: never;
             header?: never;
@@ -7944,7 +7944,7 @@ export interface operations {
             };
         };
     };
-    set_my_hours: {
+    setMyHours: {
         parameters: {
             query?: never;
             header?: never;
@@ -7988,7 +7988,7 @@ export interface operations {
             };
         };
     };
-    edit_note: {
+    updateNote: {
         parameters: {
             query?: never;
             header?: never;
@@ -8049,7 +8049,7 @@ export interface operations {
             };
         };
     };
-    add_addendum: {
+    addNoteAddendum: {
         parameters: {
             query?: never;
             header?: never;
@@ -8110,7 +8110,7 @@ export interface operations {
             };
         };
     };
-    note_in_error: {
+    markNoteEnteredInError: {
         parameters: {
             query?: never;
             header?: never;
@@ -8171,7 +8171,7 @@ export interface operations {
             };
         };
     };
-    sign_note: {
+    signNote: {
         parameters: {
             query?: never;
             header?: never;
@@ -8221,7 +8221,7 @@ export interface operations {
             };
         };
     };
-    in_error: {
+    markObservationEnteredInError: {
         parameters: {
             query?: never;
             header?: never;
@@ -8282,7 +8282,7 @@ export interface operations {
             };
         };
     };
-    recent: {
+    listPatients: {
         parameters: {
             query?: {
                 /** @description Only patients with a balance (needs billing.read) */
@@ -8329,7 +8329,7 @@ export interface operations {
             };
         };
     };
-    register: {
+    registerPatient: {
         parameters: {
             query?: never;
             header?: never;
@@ -8373,7 +8373,7 @@ export interface operations {
             };
         };
     };
-    search: {
+    searchPatients: {
         parameters: {
             query?: never;
             header?: never;
@@ -8417,7 +8417,7 @@ export interface operations {
             };
         };
     };
-    open: {
+    getPatient: {
         parameters: {
             query?: never;
             header?: never;
@@ -8460,7 +8460,7 @@ export interface operations {
             };
         };
     };
-    edit: {
+    updatePatient: {
         parameters: {
             query?: never;
             header?: never;
@@ -8514,7 +8514,7 @@ export interface operations {
             };
         };
     };
-    allergies: {
+    listAllergies: {
         parameters: {
             query?: never;
             header?: never;
@@ -8557,7 +8557,7 @@ export interface operations {
             };
         };
     };
-    add_allergy: {
+    addAllergy: {
         parameters: {
             query?: never;
             header?: never;
@@ -8611,7 +8611,7 @@ export interface operations {
             };
         };
     };
-    edit_allergy: {
+    updateAllergy: {
         parameters: {
             query?: never;
             header?: never;
@@ -8667,7 +8667,7 @@ export interface operations {
             };
         };
     };
-    list_attachments: {
+    listAttachments: {
         parameters: {
             query?: never;
             header?: never;
@@ -8710,7 +8710,7 @@ export interface operations {
             };
         };
     };
-    upload: {
+    uploadAttachment: {
         parameters: {
             query?: never;
             header?: never;
@@ -8778,7 +8778,7 @@ export interface operations {
             };
         };
     };
-    flags: {
+    getClinicalFlags: {
         parameters: {
             query?: never;
             header?: never;
@@ -8821,7 +8821,7 @@ export interface operations {
             };
         };
     };
-    conditions: {
+    listConditions: {
         parameters: {
             query?: never;
             header?: never;
@@ -8864,7 +8864,7 @@ export interface operations {
             };
         };
     };
-    add_condition: {
+    addCondition: {
         parameters: {
             query?: never;
             header?: never;
@@ -8918,7 +8918,7 @@ export interface operations {
             };
         };
     };
-    edit_condition: {
+    updateCondition: {
         parameters: {
             query?: never;
             header?: never;
@@ -8974,7 +8974,7 @@ export interface operations {
             };
         };
     };
-    get: {
+    getDentalChart: {
         parameters: {
             query?: {
                 /** @description FDI tooth number whose full history to include */
@@ -9027,7 +9027,7 @@ export interface operations {
             };
         };
     };
-    record_dental_chart: {
+    recordDentalChart: {
         parameters: {
             query?: never;
             header?: never;
@@ -9088,7 +9088,7 @@ export interface operations {
             };
         };
     };
-    identifiers: {
+    listPatientIdentifiers: {
         parameters: {
             query?: never;
             header?: never;
@@ -9131,7 +9131,7 @@ export interface operations {
             };
         };
     };
-    add_identifier: {
+    addPatientIdentifier: {
         parameters: {
             query?: never;
             header?: never;
@@ -9192,7 +9192,7 @@ export interface operations {
             };
         };
     };
-    remove_identifier: {
+    removePatientIdentifier: {
         parameters: {
             query?: never;
             header?: never;
@@ -9236,7 +9236,7 @@ export interface operations {
             };
         };
     };
-    for_patient: {
+    listPatientPrescriptions: {
         parameters: {
             query?: never;
             header?: never;
@@ -9279,7 +9279,7 @@ export interface operations {
             };
         };
     };
-    create: {
+    createPrescription: {
         parameters: {
             query?: never;
             header?: never;
@@ -9333,7 +9333,7 @@ export interface operations {
             };
         };
     };
-    last: {
+    getLastPrescription: {
         parameters: {
             query?: never;
             header?: never;
@@ -9376,7 +9376,7 @@ export interface operations {
             };
         };
     };
-    procedures: {
+    listProcedures: {
         parameters: {
             query?: never;
             header?: never;
@@ -9419,7 +9419,7 @@ export interface operations {
             };
         };
     };
-    create_recall: {
+    createRecall: {
         parameters: {
             query?: never;
             header?: never;
@@ -9473,7 +9473,7 @@ export interface operations {
             };
         };
     };
-    timeline: {
+    getPatientTimeline: {
         parameters: {
             query?: {
                 /** @description Only events before this time (RFC 3339) */
@@ -9528,7 +9528,7 @@ export interface operations {
             };
         };
     };
-    plans: {
+    listTreatmentPlans: {
         parameters: {
             query?: never;
             header?: never;
@@ -9571,7 +9571,7 @@ export interface operations {
             };
         };
     };
-    create_plan: {
+    createTreatmentPlan: {
         parameters: {
             query?: never;
             header?: never;
@@ -9625,7 +9625,7 @@ export interface operations {
             };
         };
     };
-    list_visits: {
+    listVisits: {
         parameters: {
             query?: never;
             header?: never;
@@ -9668,7 +9668,7 @@ export interface operations {
             };
         };
     };
-    start: {
+    startVisit: {
         parameters: {
             query?: never;
             header?: never;
@@ -9729,7 +9729,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    listPayments: {
         parameters: {
             query?: {
                 /** @description First clinic day, YYYY-MM-DD */
@@ -9776,7 +9776,7 @@ export interface operations {
             };
         };
     };
-    record: {
+    recordPayment: {
         parameters: {
             query?: never;
             header: {
@@ -9847,7 +9847,7 @@ export interface operations {
             };
         };
     };
-    get_payment: {
+    getPayment: {
         parameters: {
             query?: never;
             header?: never;
@@ -9890,7 +9890,7 @@ export interface operations {
             };
         };
     };
-    void: {
+    voidPayment: {
         parameters: {
             query?: never;
             header?: never;
@@ -9951,7 +9951,7 @@ export interface operations {
             };
         };
     };
-    practitioners: {
+    listPractitioners: {
         parameters: {
             query?: never;
             header?: never;
@@ -9991,7 +9991,7 @@ export interface operations {
             };
         };
     };
-    add_practitioner: {
+    addPractitioner: {
         parameters: {
             query?: never;
             header?: never;
@@ -10042,7 +10042,7 @@ export interface operations {
             };
         };
     };
-    remove_practitioner: {
+    removePractitioner: {
         parameters: {
             query?: never;
             header?: never;
@@ -10091,7 +10091,7 @@ export interface operations {
             };
         };
     };
-    change_practitioner: {
+    updatePractitioner: {
         parameters: {
             query?: never;
             header?: never;
@@ -10152,7 +10152,7 @@ export interface operations {
             };
         };
     };
-    hours: {
+    getPractitionerHours: {
         parameters: {
             query?: never;
             header?: never;
@@ -10195,7 +10195,7 @@ export interface operations {
             };
         };
     };
-    set_hours: {
+    setPractitionerHours: {
         parameters: {
             query?: never;
             header?: never;
@@ -10249,7 +10249,7 @@ export interface operations {
             };
         };
     };
-    get_prescription: {
+    getPrescription: {
         parameters: {
             query?: never;
             header?: never;
@@ -10292,7 +10292,7 @@ export interface operations {
             };
         };
     };
-    edit_prescription: {
+    updatePrescription: {
         parameters: {
             query?: never;
             header?: never;
@@ -10353,7 +10353,7 @@ export interface operations {
             };
         };
     };
-    cancel: {
+    cancelPrescription: {
         parameters: {
             query?: never;
             header?: never;
@@ -10414,7 +10414,7 @@ export interface operations {
             };
         };
     };
-    issue: {
+    issuePrescription: {
         parameters: {
             query?: never;
             header?: never;
@@ -10477,7 +10477,7 @@ export interface operations {
             };
         };
     };
-    create_share: {
+    createPrescriptionShare: {
         parameters: {
             query?: never;
             header?: never;
@@ -10527,7 +10527,7 @@ export interface operations {
             };
         };
     };
-    price_items: {
+    listPriceItems: {
         parameters: {
             query?: never;
             header?: never;
@@ -10567,7 +10567,7 @@ export interface operations {
             };
         };
     };
-    create_price_item: {
+    createPriceItem: {
         parameters: {
             query?: never;
             header?: never;
@@ -10618,7 +10618,7 @@ export interface operations {
             };
         };
     };
-    update_price_item: {
+    updatePriceItem: {
         parameters: {
             query?: never;
             header?: never;
@@ -10679,7 +10679,7 @@ export interface operations {
             };
         };
     };
-    complete: {
+    completeProcedure: {
         parameters: {
             query?: never;
             header?: never;
@@ -10729,7 +10729,7 @@ export interface operations {
             };
         };
     };
-    procedure_in_error: {
+    markProcedureEnteredInError: {
         parameters: {
             query?: never;
             header?: never;
@@ -10790,7 +10790,7 @@ export interface operations {
             };
         };
     };
-    free_slots: {
+    listFreeSlots: {
         parameters: {
             query: {
                 /** @description The local day, `YYYY-MM-DD` */
@@ -10835,7 +10835,7 @@ export interface operations {
             };
         };
     };
-    booking_options: {
+    getBookingOptions: {
         parameters: {
             query?: never;
             header?: never;
@@ -10868,7 +10868,7 @@ export interface operations {
             };
         };
     };
-    book_online: {
+    bookOnline: {
         parameters: {
             query?: never;
             header?: never;
@@ -10933,7 +10933,7 @@ export interface operations {
             };
         };
     };
-    public_site: {
+    getPublicSite: {
         parameters: {
             query?: never;
             header?: never;
@@ -10966,7 +10966,7 @@ export interface operations {
             };
         };
     };
-    public_photo: {
+    getPublicSitePhoto: {
         parameters: {
             query?: never;
             header?: never;
@@ -11001,7 +11001,7 @@ export interface operations {
             };
         };
     };
-    list_queue: {
+    listQueue: {
         parameters: {
             query?: {
                 /** @description The clinic day, `YYYY-MM-DD`; today when left out */
@@ -11046,7 +11046,7 @@ export interface operations {
             };
         };
     };
-    walk_in: {
+    addWalkIn: {
         parameters: {
             query?: never;
             header?: never;
@@ -11097,7 +11097,7 @@ export interface operations {
             };
         };
     };
-    set_queue_status: {
+    setQueueTokenStatus: {
         parameters: {
             query?: never;
             header?: never;
@@ -11151,7 +11151,7 @@ export interface operations {
             };
         };
     };
-    due: {
+    listRecallsDue: {
         parameters: {
             query?: {
                 /** @description Only those due before this day, YYYY-MM-DD */
@@ -11194,7 +11194,7 @@ export interface operations {
             };
         };
     };
-    done: {
+    markRecallDone: {
         parameters: {
             query?: never;
             header?: never;
@@ -11244,7 +11244,7 @@ export interface operations {
             };
         };
     };
-    submit_registration: {
+    submitRegistration: {
         parameters: {
             query?: never;
             header?: never;
@@ -11282,7 +11282,7 @@ export interface operations {
             };
         };
     };
-    collections: {
+    getCollectionsReport: {
         parameters: {
             query?: {
                 /** @description First clinic day, YYYY-MM-DD (default: six days before to) */
@@ -11327,7 +11327,7 @@ export interface operations {
             };
         };
     };
-    pending: {
+    getPendingReport: {
         parameters: {
             query?: never;
             header?: never;
@@ -11360,7 +11360,7 @@ export interface operations {
             };
         };
     };
-    roles: {
+    listRoles: {
         parameters: {
             query?: never;
             header?: never;
@@ -11400,7 +11400,7 @@ export interface operations {
             };
         };
     };
-    rooms: {
+    listRooms: {
         parameters: {
             query?: never;
             header?: never;
@@ -11440,7 +11440,7 @@ export interface operations {
             };
         };
     };
-    add_room: {
+    addRoom: {
         parameters: {
             query?: never;
             header?: never;
@@ -11491,7 +11491,7 @@ export interface operations {
             };
         };
     };
-    remove_room: {
+    removeRoom: {
         parameters: {
             query?: never;
             header?: never;
@@ -11540,7 +11540,7 @@ export interface operations {
             };
         };
     };
-    change_room: {
+    updateRoom: {
         parameters: {
             query?: never;
             header?: never;
@@ -11601,7 +11601,7 @@ export interface operations {
             };
         };
     };
-    session: {
+    getSession: {
         parameters: {
             query?: never;
             header?: never;
@@ -11634,7 +11634,7 @@ export interface operations {
             };
         };
     };
-    get_clinic: {
+    getClinicSettings: {
         parameters: {
             query?: never;
             header?: never;
@@ -11674,7 +11674,7 @@ export interface operations {
             };
         };
     };
-    update_clinic: {
+    updateClinicSettings: {
         parameters: {
             query?: never;
             header?: never;
@@ -11725,7 +11725,7 @@ export interface operations {
             };
         };
     };
-    upload_image: {
+    uploadLetterheadImage: {
         parameters: {
             query?: never;
             header?: never;
@@ -11779,7 +11779,7 @@ export interface operations {
             };
         };
     };
-    remove_image: {
+    removeLetterheadImage: {
         parameters: {
             query?: never;
             header?: never;
@@ -11822,7 +11822,7 @@ export interface operations {
             };
         };
     };
-    get_clinic_setup: {
+    getClinicSetup: {
         parameters: {
             query?: never;
             header?: never;
@@ -11862,7 +11862,7 @@ export interface operations {
             };
         };
     };
-    update_clinic_setup: {
+    updateClinicSetup: {
         parameters: {
             query?: never;
             header?: never;
@@ -11913,7 +11913,7 @@ export interface operations {
             };
         };
     };
-    get_settings: {
+    getWebsiteSettings: {
         parameters: {
             query?: never;
             header?: never;
@@ -11953,7 +11953,7 @@ export interface operations {
             };
         };
     };
-    update_settings: {
+    updateWebsiteSettings: {
         parameters: {
             query?: never;
             header?: never;
@@ -12004,7 +12004,7 @@ export interface operations {
             };
         };
     };
-    upload_photo: {
+    uploadWebsitePhoto: {
         parameters: {
             query?: never;
             header?: never;
@@ -12055,7 +12055,7 @@ export interface operations {
             };
         };
     };
-    delete_photo: {
+    deleteWebsitePhoto: {
         parameters: {
             query?: never;
             header?: never;
@@ -12097,7 +12097,7 @@ export interface operations {
             };
         };
     };
-    describe_photo: {
+    describeWebsitePhoto: {
         parameters: {
             query?: never;
             header?: never;
@@ -12151,7 +12151,7 @@ export interface operations {
             };
         };
     };
-    shared_preview: {
+    previewSharedPrescription: {
         parameters: {
             query?: never;
             header?: never;
@@ -12180,7 +12180,7 @@ export interface operations {
             };
         };
     };
-    shared_document: {
+    getSharedLetterhead: {
         parameters: {
             query?: never;
             header?: never;
@@ -12209,7 +12209,7 @@ export interface operations {
             };
         };
     };
-    shared_open: {
+    openSharedPrescription: {
         parameters: {
             query?: never;
             header?: never;
@@ -12263,7 +12263,7 @@ export interface operations {
             };
         };
     };
-    list_staff: {
+    listStaff: {
         parameters: {
             query?: never;
             header?: never;
@@ -12303,7 +12303,7 @@ export interface operations {
             };
         };
     };
-    invite: {
+    inviteStaff: {
         parameters: {
             query?: never;
             header?: never;
@@ -12354,7 +12354,7 @@ export interface operations {
             };
         };
     };
-    change_staff: {
+    updateStaffMember: {
         parameters: {
             query?: never;
             header?: never;
@@ -12415,7 +12415,7 @@ export interface operations {
             };
         };
     };
-    summary: {
+    getStockSummary: {
         parameters: {
             query?: never;
             header?: never;
@@ -12455,7 +12455,7 @@ export interface operations {
             };
         };
     };
-    adjust: {
+    adjustStock: {
         parameters: {
             query?: never;
             header?: never;
@@ -12513,7 +12513,7 @@ export interface operations {
             };
         };
     };
-    expire_batch: {
+    expireStockBatch: {
         parameters: {
             query?: never;
             header?: never;
@@ -12567,7 +12567,7 @@ export interface operations {
             };
         };
     };
-    expiring: {
+    listExpiringStock: {
         parameters: {
             query?: {
                 /** @description Days ahead, 0 to 3650; 30 by default */
@@ -12617,7 +12617,7 @@ export interface operations {
             };
         };
     };
-    low: {
+    listLowStock: {
         parameters: {
             query?: never;
             header?: never;
@@ -12657,7 +12657,7 @@ export interface operations {
             };
         };
     };
-    receive: {
+    receiveStock: {
         parameters: {
             query?: never;
             header?: never;
@@ -12708,7 +12708,7 @@ export interface operations {
             };
         };
     };
-    use_stock: {
+    useStock: {
         parameters: {
             query?: never;
             header?: never;
@@ -12766,7 +12766,7 @@ export interface operations {
             };
         };
     };
-    suppliers: {
+    listSuppliers: {
         parameters: {
             query?: never;
             header?: never;
@@ -12806,7 +12806,7 @@ export interface operations {
             };
         };
     };
-    create_supplier: {
+    createSupplier: {
         parameters: {
             query?: never;
             header?: never;
@@ -12857,7 +12857,7 @@ export interface operations {
             };
         };
     };
-    delete_supplier: {
+    deleteSupplier: {
         parameters: {
             query?: never;
             header?: never;
@@ -12899,7 +12899,7 @@ export interface operations {
             };
         };
     };
-    update_supplier: {
+    updateSupplier: {
         parameters: {
             query?: never;
             header?: never;
@@ -12960,7 +12960,7 @@ export interface operations {
             };
         };
     };
-    today: {
+    getToday: {
         parameters: {
             query?: never;
             header?: never;
@@ -13000,7 +13000,7 @@ export interface operations {
             };
         };
     };
-    today_money: {
+    getTodayMoney: {
         parameters: {
             query?: never;
             header?: never;
@@ -13033,7 +13033,7 @@ export interface operations {
             };
         };
     };
-    set_item_status: {
+    setTreatmentPlanItemStatus: {
         parameters: {
             query?: never;
             header?: never;
@@ -13094,7 +13094,7 @@ export interface operations {
             };
         };
     };
-    accept_plan: {
+    acceptTreatmentPlan: {
         parameters: {
             query?: never;
             header?: never;
@@ -13155,7 +13155,7 @@ export interface operations {
             };
         };
     };
-    verify: {
+    verifyPrescription: {
         parameters: {
             query?: never;
             header?: never;
@@ -13184,7 +13184,7 @@ export interface operations {
             };
         };
     };
-    open_visit: {
+    getVisit: {
         parameters: {
             query?: never;
             header?: never;
@@ -13227,7 +13227,7 @@ export interface operations {
             };
         };
     };
-    close: {
+    closeVisit: {
         parameters: {
             query?: never;
             header?: never;
@@ -13277,7 +13277,7 @@ export interface operations {
             };
         };
     };
-    create_note: {
+    createNote: {
         parameters: {
             query?: never;
             header?: never;
@@ -13338,7 +13338,7 @@ export interface operations {
             };
         };
     };
-    record_observation: {
+    recordObservations: {
         parameters: {
             query?: never;
             header?: never;
@@ -13399,7 +13399,7 @@ export interface operations {
             };
         };
     };
-    record_procedure: {
+    recordProcedure: {
         parameters: {
             query?: never;
             header?: never;
@@ -13460,7 +13460,7 @@ export interface operations {
             };
         };
     };
-    healthz: {
+    getHealth: {
         parameters: {
             query?: never;
             header?: never;

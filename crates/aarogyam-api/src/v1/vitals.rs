@@ -106,6 +106,7 @@ pub struct NewReadings {
 #[utoipa::path(
     post,
     path = "/api/v1/visits/{id}/observations",
+    operation_id = "recordObservations",
     tag = "clinical",
     params(("id" = String, Path, description = "The visit")),
     request_body = NewReadings,
@@ -166,6 +167,7 @@ pub(crate) async fn record(
 #[utoipa::path(
     post,
     path = "/api/v1/observations/{id}/entered-in-error",
+    operation_id = "markObservationEnteredInError",
     tag = "clinical",
     params(("id" = String, Path, description = "The reading")),
     request_body = EnteredInError,

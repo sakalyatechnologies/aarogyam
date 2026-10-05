@@ -105,6 +105,7 @@ pub struct QueueQuery {
 #[utoipa::path(
     get,
     path = "/api/v1/queue",
+    operation_id = "listQueue",
     tag = "queue",
     params(
         ("date" = Option<String>, Query, description = "The clinic day, `YYYY-MM-DD`; today when left out"),
@@ -165,6 +166,7 @@ pub struct WalkInBody {
 #[utoipa::path(
     post,
     path = "/api/v1/queue",
+    operation_id = "addWalkIn",
     tag = "queue",
     request_body = WalkInBody,
     security(("bearer" = [])),
@@ -221,6 +223,7 @@ pub struct TokenStatusChange {
 #[utoipa::path(
     post,
     path = "/api/v1/queue/{id}/status",
+    operation_id = "setQueueTokenStatus",
     tag = "queue",
     params(("id" = String, Path, description = "The token")),
     request_body = TokenStatusChange,

@@ -98,6 +98,7 @@ pub struct Applications {
 #[utoipa::path(
     get,
     path = "/api/v1/console/applications",
+    operation_id = "listApplications",
     tag = "console",
     params(("status" = Option<String>, Query, description = "pending, approved or rejected")),
     security(("bearer" = [])),
@@ -171,6 +172,7 @@ pub struct ApprovedApplication {
 #[utoipa::path(
     post,
     path = "/api/v1/console/applications/{id}/approve",
+    operation_id = "approveApplication",
     tag = "console",
     params(("id" = String, Path, description = "The application")),
     request_body = ApproveApplication,
@@ -231,6 +233,7 @@ pub struct RejectApplication {
 #[utoipa::path(
     post,
     path = "/api/v1/console/applications/{id}/reject",
+    operation_id = "rejectApplication",
     tag = "console",
     params(("id" = String, Path, description = "The application")),
     request_body = RejectApplication,
@@ -326,6 +329,7 @@ pub struct ClinicDetail {
 #[utoipa::path(
     get,
     path = "/api/v1/console/clinics/{id}",
+    operation_id = "getClinic",
     tag = "console",
     params(("id" = String, Path, description = "The clinic")),
     security(("bearer" = [])),
@@ -414,6 +418,7 @@ pub struct ClinicInvited {
 #[utoipa::path(
     post,
     path = "/api/v1/console/clinics/{id}/invitations",
+    operation_id = "inviteClinicStaff",
     tag = "console",
     params(("id" = String, Path, description = "The clinic")),
     request_body = NewClinicInvitation,

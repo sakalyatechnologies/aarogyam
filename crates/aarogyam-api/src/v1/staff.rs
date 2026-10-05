@@ -100,6 +100,7 @@ pub struct Staff {
 #[utoipa::path(
     get,
     path = "/api/v1/staff",
+    operation_id = "listStaff",
     tag = "staff",
     security(("bearer" = [])),
     responses(
@@ -161,6 +162,7 @@ pub struct CreatedInvitation {
 #[utoipa::path(
     post,
     path = "/api/v1/staff/invitations",
+    operation_id = "inviteStaff",
     tag = "staff",
     request_body = NewInvitation,
     security(("bearer" = [])),
@@ -221,6 +223,7 @@ pub struct MemberChanges {
 #[utoipa::path(
     patch,
     path = "/api/v1/staff/{membership_id}",
+    operation_id = "updateStaffMember",
     tag = "staff",
     params(("membership_id" = String, Path, description = "The membership")),
     request_body = MemberChanges,
@@ -301,6 +304,7 @@ pub struct Roles {
 #[utoipa::path(
     get,
     path = "/api/v1/roles",
+    operation_id = "listRoles",
     tag = "staff",
     security(("bearer" = [])),
     responses(

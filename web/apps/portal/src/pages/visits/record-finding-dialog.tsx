@@ -4,6 +4,7 @@ import { apiErrorOf, type ChartFinding, type PatientId, type ToothSurface, type 
 import { Button, Dialog, Field, Select, TextInput, useToast } from "@sakalya/ui";
 
 import { useRecordChartEntries } from "../../queries.js";
+import { isWholeToothFinding } from "./odontogram/model.js";
 
 const FINDINGS: readonly { value: ChartFinding; label: string }[] = [
   { value: "sound", label: "Sound (clears an earlier finding)" },
@@ -32,19 +33,26 @@ export function RecordFindingDialog({
   patientId,
   tooth,
   visitId,
+  initialSurface,
   onOpenChange,
 }: {
   patientId: PatientId;
   tooth: number;
   visitId?: VisitId | undefined;
+  /** Pre-selects a surface, for a click on one in the odontogram. */
+  initialSurface?: ToothSurface | undefined;
   onOpenChange: () => void;
 }) {
   const [finding, setFinding] = useState<ChartFinding>("caries");
-  const [surface, setSurface] = useState<ToothSurface | "whole">("whole");
+  const [surface, setSurface] = useState<ToothSurface | "whole">(initialSurface ?? "whole");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
   const record = useRecordChartEntries(patientId);
   const toast = useToast();
+
+  // Crown, root canal, missing, implant and bridge cover the whole tooth; the API refuses a surface for them.
+  const wholeOnly = isWholeToothFinding(finding);
+  const chosen = wholeOnly ? "whole" : surface;
 
   const submit = () => {
     setError(undefined);
@@ -54,7 +62,7 @@ export function RecordFindingDialog({
           {
             tooth,
             finding,
-            ...(surface === "whole" ? {} : { surface }),
+            ...(chosen === "whole" ? {} : { surface: chosen }),
             ...(note.trim() === "" ? {} : { note: note.trim() }),
           },
         ],
@@ -93,7 +101,7 @@ export function RecordFindingDialog({
           <Select options={FINDINGS} value={finding} onValueChange={setFinding} />
         </Field>
         <Field label="Surface">
-          <Select options={SURFACES} value={surface} onValueChange={setSurface} />
+          <Select options={wholeOnly ? SURFACES.slice(0, 1) : SURFACES} value={chosen} onValueChange={setSurface} />
         </Field>
         <Field label="Remark">
           <TextInput

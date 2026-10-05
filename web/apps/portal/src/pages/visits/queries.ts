@@ -1,5 +1,5 @@
 /** Visit-screen mutations that have no home in the shared `queries.ts`, kept here so this work never touches it. */
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { unwrap, type NoteContent, type NoteId, type PatientId, type VisitId } from "@aarogyam/api-client";
 
@@ -55,5 +55,15 @@ export function useUploadRecording(patientId: PatientId, visitId: VisitId) {
       void queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] });
       void queryClient.invalidateQueries({ queryKey: ["attachments", access.org_id, patientId] });
     },
+  });
+}
+
+/** One tooth's full history, including superseded rows. Refreshed with the chart because the key shares its prefix. */
+export function useToothHistory(patientId: PatientId, tooth: number | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["dental-chart", access.org_id, patientId, "tooth", tooth],
+    queryFn: ({ signal }) => (tooth === undefined ? Promise.reject(new Error("no tooth")) : unwrap(api.getDentalChart(patientId, tooth, { signal }))),
+    enabled: tooth !== undefined,
   });
 }

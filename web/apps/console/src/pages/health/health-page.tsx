@@ -13,30 +13,36 @@ import {
   formatTime,
   useDocumentTitle,
 } from "@aarogyam/app-kit";
-import { BarChart, Card, DataTable, EmptyState, PageHeader, Pill, RadioGroup, Skeleton, StatCard, type DataTableColumn } from "@sakalya/ui";
+import { Card, DataTable, EmptyState, LineChart, PageHeader, Pill, RadioGroup, Skeleton, StatCard, type DataTableColumn } from "@sakalya/ui";
 
 import { useMetrics } from "../../api.js";
 import {
   HEALTH_TONE,
   P95_BUDGET_MS,
   RANGE_MINUTES,
-  bucketSeries,
   clsHealth,
   inpHealth,
   latencyHealth,
   lcpHealth,
   serverErrorHealth,
   successHealth,
+  timeFormatter,
+  timelineView,
   type Health,
 } from "./metrics-view.js";
 
 const RANGES = [
   { value: "1h", label: "1 hour" },
+  { value: "6h", label: "6 hours" },
   { value: "24h", label: "24 hours" },
-  { value: "7d", label: "7 days" },
 ] as const;
 
-const RANGE_WORDS: Readonly<Record<MetricsRange, string>> = { "1h": "the last hour", "24h": "the last 24 hours", "7d": "the last 7 days" };
+const RANGE_WORDS: Readonly<Record<MetricsRange, string>> = {
+  "1h": "the last hour",
+  "6h": "the last 6 hours",
+  "24h": "the last 24 hours",
+  "7d": "the last 7 days",
+};
 
 function HealthNote({ health, children }: { health: Health; children: ReactNode }) {
   const Icon = health === "good" ? CheckCircle2 : health === "watch" ? AlertTriangle : OctagonAlert;
@@ -51,7 +57,7 @@ function HealthNote({ health, children }: { health: Health; children: ReactNode 
 export function HealthPage() {
   useDocumentTitle("Service health", "Sakalya Console");
   const [params, setParams] = useSearchParams();
-  const range = metricsRange.catch("24h").parse(params.get("range"));
+  const range = metricsRange.catch("1h").parse(params.get("range"));
   const metrics = useMetrics(range);
 
   return (
@@ -79,10 +85,19 @@ export function HealthPage() {
         />
       </div>
       {metrics.isPending ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" role="status" aria-label="Loading service health">
-          {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton key={index} shape="block" />
-          ))}
+        <div className="flex flex-col gap-4" role="status" aria-label="Loading service health">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }, (_, index) => (
+              <Skeleton key={index} shape="block" />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            {CHARTS.map((chart) => (
+              <Card key={chart.title} title={chart.title}>
+                <LineChart loading times={[]} series={[]} summary="" xLabel="Time" yLabel={chart.title} formatX={String} />
+              </Card>
+            ))}
+          </div>
         </div>
       ) : metrics.isError ? (
         <ApiErrorNotice title="Couldn't load service health" error={metrics.error} onRetry={() => void metrics.refetch()} />
@@ -96,9 +111,6 @@ export function HealthPage() {
 function HealthBody({ metrics, range }: { metrics: Metrics; range: MetricsRange }) {
   const { api } = metrics;
   const perMinute = api.requests / RANGE_MINUTES[range];
-  const buckets = bucketSeries(api.series, range, DEFAULT_TIME_ZONE);
-  const busiest = buckets.reduce((top, bucket) => (bucket.requests > (top?.requests ?? -1) ? bucket : top), buckets[0]);
-  const slowest = buckets.reduce((top, bucket) => (bucket.p95 > (top?.p95 ?? -1) ? bucket : top), buckets[0]);
   const success = successHealth(api.success_rate);
   const serverErrors = serverErrorHealth(api.rate_5xx);
   const p95 = latencyHealth(api.p95_ms);
@@ -146,26 +158,7 @@ function HealthBody({ metrics, range }: { metrics: Metrics; range: MetricsRange 
         <StatCard label="Latency p99" value={formatMs(api.p99_ms)} tone="neutral" icon={<Clock3 className="size-7" />} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card title="Requests and errors">
-          <BarChart
-            data={buckets.map((b) => ({ label: b.label, total: b.requests, part: b.errors }))}
-            totalLabel="Requests"
-            partLabel="Errors"
-            categoryLabel="Time"
-            summary={`Requests and errors over ${RANGE_WORDS[range]}; busiest at ${busiest?.label ?? "—"} with ${formatNumber(busiest?.requests ?? 0)} requests.`}
-          />
-        </Card>
-        <Card title="Latency p95">
-          <BarChart
-            data={buckets.map((b) => ({ label: b.label, total: b.p95, part: Math.min(b.p95, P95_BUDGET_MS) }))}
-            totalLabel="p95 latency (ms)"
-            partLabel={`Within ${String(P95_BUDGET_MS)} ms budget`}
-            categoryLabel="Time"
-            summary={`Highest p95 latency in each period over ${RANGE_WORDS[range]}; slowest at ${slowest?.label ?? "—"} with ${formatMs(slowest?.p95 ?? 0)}.`}
-          />
-        </Card>
-      </div>
+      <TrafficCharts api={api} range={range} />
 
       <Card title="Routes by traffic">
         <DataTable
@@ -181,6 +174,95 @@ function HealthBody({ metrics, range }: { metrics: Metrics; range: MetricsRange 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <DatabasePanel db={metrics.db} />
         <EdgePanel edge={metrics.edge} />
+      </div>
+    </div>
+  );
+}
+
+const CHARTS = [
+  { title: "Requests per minute", unit: "requests per minute" },
+  { title: "Errors per minute", unit: "errors per minute" },
+  { title: "Error rate", unit: "% of requests" },
+  { title: "Errors by class", unit: "errors per minute" },
+  { title: "Latency", unit: "milliseconds" },
+] as const;
+
+const one = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 1 });
+const rateOf = (value: number) => `${one.format(value)}%`;
+const msOf = (value: number) => `${one.format(value)} ms`;
+const perMin = (value: number) => (value < 10 ? one.format(Math.round(value * 10) / 10) : formatNumber(Math.round(value)));
+
+/** The time-series charts: traffic, failures (total, rate and by class) and latency against its budget. */
+function TrafficCharts({ api, range }: { api: Metrics["api"]; range: MetricsRange }) {
+  const view = timelineView(api);
+  const formatX = timeFormatter(range, DEFAULT_TIME_ZONE);
+  const words = RANGE_WORDS[range];
+  const empty = view.total === 0 ? `No requests in ${words} yet.` : undefined;
+  const times = empty === undefined ? view.times : [];
+  const common = { times, formatX, xLabel: "Time (IST)", ...(empty === undefined ? {} : { emptyMessage: empty }) };
+  const peak = Math.max(0, ...view.requests);
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <Card title="Requests per minute">
+        <LineChart
+          {...common}
+          yLabel="Requests per minute"
+          formatY={perMin}
+          series={[{ id: "requests", label: "Requests", values: view.requests, color: "var(--sk-chart-1)" }]}
+          summary={`Requests per minute over ${words}; the busiest minute averaged ${perMin(peak)} requests.`}
+        />
+      </Card>
+      <Card title="Errors per minute">
+        <p className="mb-2 text-xs text-muted">Server errors (5xx) and throttled requests (429), the failures that count against the success rate.</p>
+        <LineChart
+          {...common}
+          yLabel="Errors per minute"
+          formatY={perMin}
+          series={[{ id: "errors", label: "Errors", values: view.errors, color: "var(--sk-danger)" }]}
+          summary={`Errors per minute over ${words}.`}
+        />
+      </Card>
+      <Card title="Error rate">
+        <LineChart
+          {...common}
+          yLabel="Error rate (% of requests)"
+          formatY={rateOf}
+          series={[{ id: "rate", label: "Error rate", values: view.errorRate, color: "var(--sk-danger)", dash: "7 4" }]}
+          reference={{ value: 0.5, label: "Target: under 0.5%", color: "var(--sk-success)" }}
+          summary={`Share of requests that failed over ${words}, against a 0.5% target.`}
+        />
+      </Card>
+      <Card title="Errors by class">
+        <p className="mb-2 text-xs text-muted">Client errors (4xx) are bad input, expired sessions or missing records; 429 means a caller was throttled.</p>
+        <LineChart
+          {...common}
+          yLabel="Errors per minute"
+          formatY={perMin}
+          series={[
+            { id: "4xx", label: "4xx client errors", values: view.errors4xx, color: "var(--sk-warning)", dash: "7 4" },
+            { id: "5xx", label: "5xx server errors", values: view.errors5xx, color: "var(--sk-danger)" },
+            { id: "429", label: "429 throttled", values: view.errors429, color: "var(--sk-info)", dash: "2 3" },
+          ]}
+          summary={`Errors per minute over ${words}, split into 4xx client errors, 5xx server errors and 429 throttled requests.`}
+        />
+      </Card>
+      <div className="xl:col-span-2">
+        <Card title="Latency">
+          <LineChart
+            {...common}
+            height={240}
+            yLabel="Latency (ms)"
+            formatY={(value) => one.format(value)}
+            formatValue={msOf}
+            series={[
+              { id: "p50", label: "p50 (median)", values: view.p50, color: "var(--sk-chart-3)", dash: "2 3" },
+              { id: "p95", label: "p95", values: view.p95, color: "var(--sk-chart-1)" },
+              { id: "p99", label: "p99", values: view.p99, color: "var(--sk-info)", dash: "7 4" },
+            ]}
+            reference={{ value: P95_BUDGET_MS, label: `p95 budget ${String(P95_BUDGET_MS)} ms`, color: "var(--sk-danger)" }}
+            summary={`Request latency percentiles over ${words}, against the ${String(P95_BUDGET_MS)} ms p95 budget.`}
+          />
+        </Card>
       </div>
     </div>
   );

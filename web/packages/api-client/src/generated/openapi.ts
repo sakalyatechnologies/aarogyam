@@ -4976,7 +4976,7 @@ export interface components {
             edge?: Record<string, unknown> | null;
             /** @description When this was produced (RFC 3339). */
             generated_at: string;
-            /** @description The window: `1h`, `24h` or `7d`. */
+            /** @description The window: `1h`, `6h`, `24h` or `7d`. */
             range: string;
         };
         /** @description The current clinic session. */
@@ -6535,7 +6535,7 @@ export interface operations {
     metrics: {
         parameters: {
             query?: {
-                /** @description 1h (default), 24h or 7d */
+                /** @description 1h (default), 6h, 24h or 7d */
                 range?: string;
             };
             header?: never;

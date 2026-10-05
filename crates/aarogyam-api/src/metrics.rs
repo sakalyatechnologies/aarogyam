@@ -91,8 +91,10 @@ const BOUNDS_MS: [u32; 11] = [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10
 const BUCKETS: usize = BOUNDS_MS.len() + 1;
 const MINUTE: u64 = 60;
 const HOUR: u64 = 3600;
-/// Minute slots kept: one hour.
-const MINUTE_SLOTS: u32 = 60;
+/// Minute slots kept for each route: six hours.
+const ROUTE_MINUTE_SLOTS: u32 = 360;
+/// Minute slots kept for the whole API: one day, so the timeline can show a day per minute.
+const OVERALL_MINUTE_SLOTS: u32 = 1440;
 /// Hour slots kept: one week.
 const HOUR_SLOTS: u32 = 168;
 /// 9999-12-31T23:59:59Z, the last second RFC 3339 can write. Later clocks are clamped to it.
@@ -142,10 +144,12 @@ impl ServiceMetrics {
         let last = period(unix_seconds(now), seconds);
         let periods = last.saturating_sub(slots - 1)..=last;
         // Only sum under the lock; percentiles and sorting happen after it is released.
-        let (overall, points, routes) = {
+        let (timeline_seconds, timeline_steps, _) = range.timeline();
+        let (overall, points, timeline, routes) = {
             let inner = self.lock();
             let ring = inner.overall.ring(range);
             let points: Vec<_> = periods.clone().map(|p| (p, ring.totals(p..=p))).collect();
+            let timeline = inner.overall.timeline(range, unix_seconds(now));
             let mut routes = Vec::new();
             for (method, by_route) in inner.routes.iter().enumerate() {
                 for (route, series) in by_route {
@@ -155,7 +159,7 @@ impl ServiceMetrics {
                     }
                 }
             }
-            (ring.totals(periods), points, routes)
+            (ring.totals(periods), points, timeline, routes)
         };
         let mut routes: Vec<RouteStats> = routes
             .into_iter()
@@ -191,6 +195,20 @@ impl ServiceMetrics {
                     p95_ms: totals.percentile(0.95),
                 })
                 .collect(),
+            timeline_interval_seconds: timeline_seconds * timeline_steps,
+            timeline: timeline
+                .iter()
+                .map(|(period, totals)| TimelinePoint {
+                    at: start_of(*period, timeline_seconds),
+                    requests: totals.requests(),
+                    errors_4xx: totals.client_errors.saturating_sub(totals.throttled),
+                    errors_429: totals.throttled,
+                    errors_5xx: totals.server_errors,
+                    p50_ms: totals.percentile(0.50),
+                    p95_ms: totals.percentile(0.95),
+                    p99_ms: totals.percentile(0.99),
+                })
+                .collect(),
             routes: routes.into(),
         }
     }
@@ -219,6 +237,8 @@ impl fmt::Debug for ServiceMetrics {
 pub enum Range {
     /// `1h`: the current minute and the 59 before it, one point per minute.
     LastHour,
+    /// `6h`: the current minute and the 359 before it, one point per minute.
+    LastSixHours,
     /// `24h`: the current hour and the 23 before it, one point per hour.
     LastDay,
     /// `7d`: the current hour and the 167 before it, one point per hour.
@@ -226,20 +246,33 @@ pub enum Range {
 }
 
 impl Range {
-    /// The text [`str::parse`] accepts for this range: `1h`, `24h` or `7d`.
+    /// The text [`str::parse`] accepts for this range: `1h`, `6h`, `24h` or `7d`.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::LastHour => "1h",
+            Self::LastSixHours => "6h",
             Self::LastDay => "24h",
             Self::LastWeek => "7d",
+        }
+    }
+
+    /// The timeline's resolution: seconds per stored slot, slots merged into each point, and
+    /// points. A day is shown at five minutes a point to keep the response small.
+    const fn timeline(self) -> (u64, u64, u64) {
+        match self {
+            Self::LastHour => (MINUTE, 1, 60),
+            Self::LastSixHours => (MINUTE, 1, 360),
+            Self::LastDay => (MINUTE, 5, 288),
+            Self::LastWeek => (HOUR, 1, 168),
         }
     }
 
     /// Seconds per slot, and slots in the window.
     const fn slots(self) -> (u64, u32) {
         match self {
-            Self::LastHour => (MINUTE, MINUTE_SLOTS),
+            Self::LastHour => (MINUTE, 60),
+            Self::LastSixHours => (MINUTE, 360),
             Self::LastDay => (HOUR, 24),
             Self::LastWeek => (HOUR, HOUR_SLOTS),
         }
@@ -252,6 +285,7 @@ impl FromStr for Range {
     fn from_str(text: &str) -> Result<Self, Self::Err> {
         match text {
             "1h" => Ok(Self::LastHour),
+            "6h" => Ok(Self::LastSixHours),
             "24h" => Ok(Self::LastDay),
             "7d" => Ok(Self::LastWeek),
             _ => Err(UnknownRange),
@@ -265,9 +299,9 @@ impl fmt::Display for Range {
     }
 }
 
-/// The text was not `1h`, `24h` or `7d`.
+/// The text was not `1h`, `6h`, `24h` or `7d`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-#[error("unknown range, expected 1h, 24h or 7d")]
+#[error("unknown range, expected 1h, 6h, 24h or 7d")]
 pub struct UnknownRange;
 
 /// Service health over one [`Range`], as the console's Service health page reads it.
@@ -293,6 +327,11 @@ pub struct ApiSnapshot {
     /// One point per minute (`1h`) or hour (`24h`, `7d`), oldest first; the last is the
     /// current, unfinished one.
     pub series: Box<[SeriesPoint]>,
+    /// Seconds between `timeline` points: 60 for `1h` and `6h`, 300 for `24h`, 3600 for `7d`.
+    pub timeline_interval_seconds: u64,
+    /// Requests, errors by class and latency percentiles per interval, oldest first; the last
+    /// point is the current, unfinished one.
+    pub timeline: Box<[TimelinePoint]>,
     /// Each method and route with requests in the range, busiest first.
     pub routes: Box<[RouteStats]>,
 }
@@ -309,6 +348,28 @@ pub struct SeriesPoint {
     pub errors: u64,
     /// 95th percentile latency in milliseconds.
     pub p95_ms: f64,
+}
+
+/// One interval of an [`ApiSnapshot`]'s timeline.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct TimelinePoint {
+    /// When the interval starts, as RFC 3339 in UTC.
+    #[serde(with = "time::serde::rfc3339")]
+    pub at: OffsetDateTime,
+    /// Requests answered.
+    pub requests: u64,
+    /// Answered with a 4xx status other than 429.
+    pub errors_4xx: u64,
+    /// Answered with 429 Too Many Requests.
+    pub errors_429: u64,
+    /// Answered with a 5xx status.
+    pub errors_5xx: u64,
+    /// Median latency in milliseconds.
+    pub p50_ms: f64,
+    /// 95th percentile latency in milliseconds.
+    pub p95_ms: f64,
+    /// 99th percentile latency in milliseconds.
+    pub p99_ms: f64,
 }
 
 /// One method and route of an [`ApiSnapshot`].
@@ -340,7 +401,7 @@ struct Inner {
 impl Inner {
     fn new() -> Self {
         Self {
-            overall: Series::new(),
+            overall: Series::new(OVERALL_MINUTE_SLOTS),
             routes: Default::default(),
             tracked: 0,
         }
@@ -364,7 +425,7 @@ impl Inner {
         if let Some(series) = routes.get_mut(route) {
             series.add(sample);
         } else {
-            let mut series = Series::new();
+            let mut series = Series::new(ROUTE_MINUTE_SLOTS);
             series.add(sample);
             routes.insert(route.into(), series);
         }
@@ -378,11 +439,33 @@ struct Series {
 }
 
 impl Series {
-    fn new() -> Self {
+    fn new(minute_slots: u32) -> Self {
         Self {
-            minutes: Ring::new(MINUTE_SLOTS),
+            minutes: Ring::new(minute_slots),
             hours: Ring::new(HOUR_SLOTS),
         }
+    }
+
+    /// The timeline of `range` ending at `now`: the start period and totals of each point,
+    /// oldest first. Periods are minutes or hours as [`Range::timeline`] says.
+    fn timeline(&self, range: Range, now: u64) -> Vec<(u32, Totals)> {
+        let (seconds, step, points) = range.timeline();
+        let ring = if seconds == MINUTE {
+            &self.minutes
+        } else {
+            &self.hours
+        };
+        let last = u64::from(period(now, seconds));
+        let mut timeline: Vec<(u32, Totals)> = (0..points)
+            .filter_map(|back| {
+                let end = last.checked_sub(back * step)?;
+                let start = end.saturating_sub(step - 1);
+                let (start, end) = (u32::try_from(start).ok()?, u32::try_from(end).ok()?);
+                Some((start, ring.totals(start..=end)))
+            })
+            .collect();
+        timeline.reverse();
+        timeline
     }
 
     fn add(&mut self, sample: &Sample) {
@@ -396,7 +479,7 @@ impl Series {
 
     const fn ring(&self, range: Range) -> &Ring {
         match range {
-            Range::LastHour => &self.minutes,
+            Range::LastHour | Range::LastSixHours => &self.minutes,
             Range::LastDay | Range::LastWeek => &self.hours,
         }
     }
@@ -727,6 +810,13 @@ mod tests {
         let hour = datetime!(2026-10-03 09:00 UTC);
         let cases = [
             (Range::LastHour, 1, 60, datetime!(2026-10-03 09:14 UTC), 60),
+            (
+                Range::LastSixHours,
+                2,
+                360,
+                datetime!(2026-10-03 09:14 UTC),
+                60,
+            ),
             (Range::LastDay, 2, 24, hour, 3600),
             (Range::LastWeek, 3, 168, hour, 3600),
         ];
@@ -742,7 +832,12 @@ mod tests {
 
     #[test]
     fn ranges_parse_from_their_query_values() {
-        for range in [Range::LastHour, Range::LastDay, Range::LastWeek] {
+        for range in [
+            Range::LastHour,
+            Range::LastSixHours,
+            Range::LastDay,
+            Range::LastWeek,
+        ] {
             assert_eq!(range.as_str().parse(), Ok(range));
         }
         assert_eq!("2h".parse::<Range>(), Err(UnknownRange));
@@ -814,12 +909,25 @@ mod tests {
             "routes",
             "series",
             "success_rate",
+            "timeline",
+            "timeline_interval_seconds",
         ];
         assert_eq!(keys(&json), top);
         assert_eq!(
             keys(&json["series"][0]),
             ["at", "errors", "p95_ms", "requests"]
         );
+        let point = [
+            "at",
+            "errors_429",
+            "errors_4xx",
+            "errors_5xx",
+            "p50_ms",
+            "p95_ms",
+            "p99_ms",
+            "requests",
+        ];
+        assert_eq!(keys(&json["timeline"][0]), point);
         let route = [
             "error_rate",
             "method",
@@ -831,5 +939,58 @@ mod tests {
         assert_eq!(keys(&json["routes"][0]), route);
         assert_eq!(json["series"][0]["at"], "2026-10-03T08:15:00Z");
         assert_eq!(json["series"][59]["at"], "2026-10-03T09:14:00Z");
+    }
+
+    #[test]
+    fn the_timeline_splits_errors_by_class_with_percentiles_per_interval() {
+        let metrics = ServiceMetrics::new();
+        get(&metrics, now(), "/r", 200, 20);
+        get(&metrics, now(), "/r", 404, 20);
+        get(&metrics, now(), "/r", 429, 20);
+        get(&metrics, now(), "/r", 503, 400);
+        get(&metrics, now() - 120, "/r", 200, 20);
+        let snapshot = last_hour(&metrics);
+        assert_eq!(snapshot.timeline_interval_seconds, 60);
+        assert_eq!(snapshot.timeline.len(), 60);
+        let current = snapshot.timeline.last().unwrap();
+        assert_eq!(current.at, datetime!(2026-10-03 09:14 UTC));
+        let counts = (
+            current.requests,
+            current.errors_4xx,
+            current.errors_429,
+            current.errors_5xx,
+        );
+        assert_eq!(counts, (4, 1, 1, 1));
+        assert!(current.p99_ms > current.p50_ms);
+        let earlier = &snapshot.timeline[57];
+        assert_eq!((earlier.requests, earlier.errors_4xx), (1, 0));
+        assert_eq!(snapshot.timeline[58].requests, 0);
+    }
+
+    #[test]
+    fn a_day_is_shown_at_five_minutes_a_point_from_minute_counts() {
+        let metrics = ServiceMetrics::new();
+        get(&metrics, now(), "/r", 200, 10);
+        get(&metrics, now() - 23 * HOUR, "/r", 500, 10);
+        let snapshot = metrics.snapshot(Range::LastDay, at(now()));
+        assert_eq!(snapshot.timeline_interval_seconds, 300);
+        assert_eq!(snapshot.timeline.len(), 288);
+        let total: u64 = snapshot.timeline.iter().map(|p| p.requests).sum();
+        assert_eq!(total, 2);
+        assert_eq!(
+            snapshot.timeline.iter().map(|p| p.errors_5xx).sum::<u64>(),
+            1
+        );
+        let gap = snapshot.timeline[1].at - snapshot.timeline[0].at;
+        assert_eq!(gap.whole_seconds(), 300);
+    }
+
+    #[test]
+    fn six_hours_keep_per_route_minutes() {
+        let metrics = ServiceMetrics::new();
+        get(&metrics, now() - 5 * HOUR, "/r", 200, 10);
+        let snapshot = metrics.snapshot(Range::LastSixHours, at(now()));
+        assert_eq!(snapshot.requests, 1);
+        assert_eq!(snapshot.routes.len(), 1);
     }
 }

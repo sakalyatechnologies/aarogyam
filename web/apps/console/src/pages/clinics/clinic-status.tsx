@@ -1,7 +1,9 @@
 import type { ClinicStatus } from "@aarogyam/api-client";
-import { Pill, type Tone } from "@sakalya/ui";
+import type { Tone } from "@sakalya/ui";
 
-const STATUS: Readonly<Record<ClinicStatus, { label: string; tone: Tone }>> = {
+import { StatusChip } from "../../ui/status-chip.js";
+
+export const CLINIC_STATUS: Readonly<Record<ClinicStatus, { label: string; tone: Tone }>> = {
   trial: { label: "Trial", tone: "info" },
   active: { label: "Active", tone: "success" },
   suspended: { label: "Suspended", tone: "warning" },
@@ -9,5 +11,5 @@ const STATUS: Readonly<Record<ClinicStatus, { label: string; tone: Tone }>> = {
 };
 
 export function ClinicStatusPill({ status }: { status: ClinicStatus }) {
-  return <Pill tone={STATUS[status].tone}>{STATUS[status].label}</Pill>;
+  return <StatusChip tone={CLINIC_STATUS[status].tone}>{CLINIC_STATUS[status].label}</StatusChip>;
 }

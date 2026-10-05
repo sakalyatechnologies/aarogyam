@@ -3,10 +3,11 @@ import { useState, type SubmitEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import { SignInPanel, useAuth, useAuthState, type DevAuthClient } from "@aarogyam/auth";
-import { Button, Card, EmptyState, Field, Skeleton, TextInput } from "@sakalya/ui";
+import { AuthHeading, AuthSteps, SignInPanel, useAuth, useAuthState, type DevAuthClient } from "@aarogyam/auth";
+import { Button, EmptyState, Field, Skeleton, TextInput } from "@sakalya/ui";
 
 import { CLINIC_STORAGE_KEY, clinicUrl, useServices } from "../clinic.js";
+import { PortalAuthShell } from "./brand.js";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -22,24 +23,31 @@ export function InvitePage() {
   const state = useAuthState();
 
   if (token === "") {
-    return <EmptyState title="This invitation link is incomplete" description="Open the full link from your invitation message." />;
+    return (
+      <PortalAuthShell>
+        <EmptyState title="This invitation link is incomplete" description="Open the full link from your invitation message." />
+      </PortalAuthShell>
+    );
   }
   return (
-    <main className="flex min-h-full items-center justify-center px-4 py-10">
-      <Card className="w-full max-w-md">
-        <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-text">Join your clinic on Aarogyam</h1>
-        {state.status === "loading" ? (
-          <Skeleton shape="block" />
-        ) : state.status === "signed_out" ? (
-          <>
-            <p className="mb-5 text-sm text-muted">Sign in with the email address the invitation was sent to.</p>
-            {auth.kind === "dev" ? <JoinAsNewPerson auth={auth} /> : <SignInPanel auth={auth} />}
-          </>
+    <PortalAuthShell>
+      <AuthSteps steps={["Sign in", "Join the clinic"]} current={state.status === "signed_in" ? 1 : 0} label="Invitation steps" />
+      <AuthHeading
+        title="Join your clinic on Aarogyam"
+        subtitle={state.status === "signed_in" ? "You're signed in. One more step." : "Sign in with the email address the invitation was sent to."}
+      />
+      {state.status === "loading" ? (
+        <Skeleton shape="block" />
+      ) : state.status === "signed_out" ? (
+        auth.kind === "dev" ? (
+          <JoinAsNewPerson auth={auth} />
         ) : (
-          <Accept token={token} defaultName={state.user.displayName ?? ""} />
-        )}
-      </Card>
-    </main>
+          <SignInPanel auth={auth} showSteps={false} />
+        )
+      ) : (
+        <Accept token={token} defaultName={state.user.displayName ?? ""} />
+      )}
+    </PortalAuthShell>
   );
 }
 
@@ -114,7 +122,7 @@ function Accept({ token, defaultName }: { token: string; defaultName: string }) 
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted">You're signed in. Join the clinic to open its portal.</p>
+      <p className="text-sm text-muted">Join the clinic to open its portal.</p>
       <Field label="Name to show colleagues" hint="Used the first time you join.">
         <TextInput autoComplete="name" value={name} onChange={(event) => { setName(event.currentTarget.value); }} />
       </Field>

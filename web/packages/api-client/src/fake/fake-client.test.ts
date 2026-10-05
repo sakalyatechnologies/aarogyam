@@ -192,6 +192,12 @@ describe("fake client: console", () => {
     expect(metrics.api.series).toHaveLength(24);
     expect(metrics.api.routes[0]?.route).toMatch(/^\/api\/v1\//);
     expect(value(await as(PEOPLE.admin).getMetrics("1h")).api.series).toHaveLength(12);
+    const hour = value(await as(PEOPLE.admin).getMetrics("1h")).api;
+    expect(hour.timeline).toHaveLength(60);
+    expect(hour.timeline_interval_seconds).toBe(60);
+    expect(value(await as(PEOPLE.admin).getMetrics("6h")).api.timeline).toHaveLength(360);
+    expect(metrics.api.timeline).toHaveLength(288);
+    expect(metrics.api.timeline_interval_seconds).toBe(300);
   });
 });
 

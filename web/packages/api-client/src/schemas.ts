@@ -699,7 +699,7 @@ export const createdClinic = z.object({
 }) satisfies z.ZodType<C.CreatedClinic>;
 export type CreatedClinic = z.output<typeof createdClinic>;
 
-export const metricsRange = z.enum(["1h", "24h", "7d"]) satisfies z.ZodType<C.MetricsRange>;
+export const metricsRange = z.enum(["1h", "6h", "24h", "7d"]) satisfies z.ZodType<C.MetricsRange>;
 export type MetricsRange = z.output<typeof metricsRange>;
 
 export const metricsResponse = z.object({
@@ -714,6 +714,21 @@ export const metricsResponse = z.object({
     p95_ms: millis,
     p99_ms: millis,
     series: z.array(z.object({ at: timestamp, requests: count, errors: count, p95_ms: millis })),
+    timeline_interval_seconds: count.default(60),
+    timeline: z
+      .array(
+        z.object({
+          at: timestamp,
+          requests: count,
+          errors_4xx: count,
+          errors_429: count,
+          errors_5xx: count,
+          p50_ms: millis,
+          p95_ms: millis,
+          p99_ms: millis,
+        }),
+      )
+      .default([]),
     routes: z.array(
       z.object({ method: z.string(), route: z.string(), requests: count, error_rate: ratio, p95_ms: millis, p99_ms: millis }),
     ),
@@ -742,6 +757,7 @@ export const metricsResponse = z.object({
 export type Metrics = z.output<typeof metricsResponse>;
 export type ApiMetrics = Metrics["api"];
 export type RouteMetrics = ApiMetrics["routes"][number];
+export type TimelinePoint = ApiMetrics["timeline"][number];
 export type DatabaseMetrics = Metrics["db"];
 export type EdgeMetrics = NonNullable<Metrics["edge"]>;
 

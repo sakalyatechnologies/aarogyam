@@ -26,7 +26,8 @@ describe("Patient 360 bills and prescriptions", () => {
     const list = await screen.findByRole("list", { name: "Recent bills" });
     expect(within(list).getAllByRole("link").length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "New bill" }));
-    expect(router.state.location.pathname).toBe("/billing/invoices/new");
+    // The page's code loads on first visit, so the navigation lands a moment later.
+    await waitFor(() => { expect(router.state.location.pathname).toBe("/billing/invoices/new"); });
   });
 
   it("starts a prescription draft from the Prescriptions tab", async () => {

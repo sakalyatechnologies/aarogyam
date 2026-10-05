@@ -1,87 +1,60 @@
 import { Outlet, type RouteObject } from "react-router";
 
-import { RouterLinks } from "@aarogyam/app-kit";
+import { lazyPage, RouterLinks } from "@aarogyam/app-kit";
 
 import { ClinicGate, RequireAuth } from "./layout/portal-layout.js";
-import { AuthCallbackPage } from "./pages/auth-callback-page.js";
-import { BillingPage } from "./pages/billing/billing-page.js";
-import { InvoiceDetailPage } from "./pages/billing/invoice-detail-page.js";
-import { InvoicePrintPage } from "./pages/billing/invoice-print-page.js";
-import { NewInvoicePage } from "./pages/billing/new-invoice-page.js";
-import { PendingPaymentsPage } from "./pages/billing/pending-page.js";
-import { ReceiptPrintPage } from "./pages/billing/receipt-print-page.js";
-import { CalendarPage } from "./pages/calendar/calendar-page.js";
-import { InvitePage } from "./pages/invite-page.js";
-import { RootPage } from "./pages/landing-page.js";
-import { MessagesPage } from "./pages/messages/messages-page.js";
-import { NotFoundPage } from "./pages/not-found-page.js";
-import { EditPatientPage } from "./pages/patients/edit-patient-page.js";
-import { ImportPage } from "./pages/patients/import-page.js";
-import { NewPatientPage } from "./pages/patients/new-patient-page.js";
-import { PatientPage } from "./pages/patients/patient-page.js";
-import { PatientsPage } from "./pages/patients/patients-page.js";
-import { PatientPrescriptionsPage } from "./pages/prescriptions/patient-prescriptions-page.js";
-import { PrescriptionPage } from "./pages/prescriptions/prescription-page.js";
-import { PrescriptionsPage } from "./pages/prescriptions/prescriptions-page.js";
-import { PrescriptionPrintPage } from "./pages/prescriptions/print-page.js";
-import { BookPage } from "./pages/public/book-page.js";
-import { SharedPage } from "./pages/public/shared-page.js";
-import { VerifyPrescriptionPage } from "./pages/public/verify-page.js";
-import { QueuePage } from "./pages/queue/queue-page.js";
-import { RegisterPage } from "./pages/register-page.js";
-import { SettingsPage } from "./pages/settings/settings-page.js";
-import { StockPage } from "./pages/stock/stock-page.js";
-import { VisitPage } from "./pages/visits/visit-page.js";
-import { SignInPage } from "./pages/sign-in-page.js";
-import { TodayPage } from "./pages/today/today-page.js";
+
+/** Shown while the first page's code loads. */
+const loading = <div className="p-6" role="status" aria-label="Loading" />;
 
 /** Paths carry IDs only: never names, phones or search terms. The invite token rides in the fragment. */
 export const routes: RouteObject[] = [
   {
     path: "/",
+    hydrateFallbackElement: loading,
     element: (
       <RouterLinks>
         <Outlet />
       </RouterLinks>
     ),
     children: [
-      { index: true, element: <RootPage /> },
-      { path: "sign-in", element: <SignInPage /> },
-      { path: "auth/callback", element: <AuthCallbackPage /> },
-      { path: "register", element: <RegisterPage /> },
-      { path: "invite", element: <InvitePage /> },
-      { path: "book", element: <BookPage /> },
-      { path: "shared/:token", element: <SharedPage /> },
-      { path: "verify/prescriptions/:token", element: <VerifyPrescriptionPage /> },
+      { index: true, lazy: lazyPage(() => import("./pages/landing-page.js"), (m) => m.RootPage) },
+      { path: "sign-in", lazy: lazyPage(() => import("./pages/sign-in-page.js"), (m) => m.SignInPage) },
+      { path: "auth/callback", lazy: lazyPage(() => import("./pages/auth-callback-page.js"), (m) => m.AuthCallbackPage) },
+      { path: "register", lazy: lazyPage(() => import("./pages/register-page.js"), (m) => m.RegisterPage) },
+      { path: "invite", lazy: lazyPage(() => import("./pages/invite-page.js"), (m) => m.InvitePage) },
+      { path: "book", lazy: lazyPage(() => import("./pages/public/book-page.js"), (m) => m.BookPage) },
+      { path: "shared/:token", lazy: lazyPage(() => import("./pages/public/shared-page.js"), (m) => m.SharedPage) },
+      { path: "verify/prescriptions/:token", lazy: lazyPage(() => import("./pages/public/verify-page.js"), (m) => m.VerifyPrescriptionPage) },
       {
         element: <RequireAuth />,
         children: [
           {
             element: <ClinicGate />,
             children: [
-              { path: "today", element: <TodayPage /> },
-              { path: "patients", element: <PatientsPage /> },
-              { path: "patients/new", element: <NewPatientPage /> },
-              { path: "patients/import", element: <ImportPage /> },
-              { path: "patients/:id", element: <PatientPage /> },
-              { path: "patients/:id/edit", element: <EditPatientPage /> },
-              { path: "patients/:id/visits/:visitId", element: <VisitPage /> },
-              { path: "patients/:patientId/prescriptions", element: <PatientPrescriptionsPage /> },
-              { path: "calendar", element: <CalendarPage /> },
-              { path: "queue", element: <QueuePage /> },
-              { path: "prescriptions", element: <PrescriptionsPage /> },
-              { path: "prescriptions/:id", element: <PrescriptionPage /> },
-              { path: "prescriptions/:id/print", element: <PrescriptionPrintPage /> },
-              { path: "billing", element: <BillingPage /> },
-              { path: "billing/pending", element: <PendingPaymentsPage /> },
-              { path: "billing/invoices/new", element: <NewInvoicePage /> },
-              { path: "billing/invoices/:id", element: <InvoiceDetailPage /> },
-              { path: "billing/invoices/:id/print", element: <InvoicePrintPage /> },
-              { path: "billing/payments/:id/receipt", element: <ReceiptPrintPage /> },
-              { path: "stock", element: <StockPage /> },
-              { path: "messages", element: <MessagesPage /> },
-              { path: "settings", element: <SettingsPage /> },
-              { path: "*", element: <NotFoundPage /> },
+              { path: "today", lazy: lazyPage(() => import("./pages/today/today-page.js"), (m) => m.TodayPage) },
+              { path: "patients", lazy: lazyPage(() => import("./pages/patients/patients-page.js"), (m) => m.PatientsPage) },
+              { path: "patients/new", lazy: lazyPage(() => import("./pages/patients/new-patient-page.js"), (m) => m.NewPatientPage) },
+              { path: "patients/import", lazy: lazyPage(() => import("./pages/patients/import-page.js"), (m) => m.ImportPage) },
+              { path: "patients/:id", lazy: lazyPage(() => import("./pages/patients/patient-page.js"), (m) => m.PatientPage) },
+              { path: "patients/:id/edit", lazy: lazyPage(() => import("./pages/patients/edit-patient-page.js"), (m) => m.EditPatientPage) },
+              { path: "patients/:id/visits/:visitId", lazy: lazyPage(() => import("./pages/visits/visit-page.js"), (m) => m.VisitPage) },
+              { path: "patients/:patientId/prescriptions", lazy: lazyPage(() => import("./pages/prescriptions/patient-prescriptions-page.js"), (m) => m.PatientPrescriptionsPage) },
+              { path: "calendar", lazy: lazyPage(() => import("./pages/calendar/calendar-page.js"), (m) => m.CalendarPage) },
+              { path: "queue", lazy: lazyPage(() => import("./pages/queue/queue-page.js"), (m) => m.QueuePage) },
+              { path: "prescriptions", lazy: lazyPage(() => import("./pages/prescriptions/prescriptions-page.js"), (m) => m.PrescriptionsPage) },
+              { path: "prescriptions/:id", lazy: lazyPage(() => import("./pages/prescriptions/prescription-page.js"), (m) => m.PrescriptionPage) },
+              { path: "prescriptions/:id/print", lazy: lazyPage(() => import("./pages/prescriptions/print-page.js"), (m) => m.PrescriptionPrintPage) },
+              { path: "billing", lazy: lazyPage(() => import("./pages/billing/billing-page.js"), (m) => m.BillingPage) },
+              { path: "billing/pending", lazy: lazyPage(() => import("./pages/billing/pending-page.js"), (m) => m.PendingPaymentsPage) },
+              { path: "billing/invoices/new", lazy: lazyPage(() => import("./pages/billing/new-invoice-page.js"), (m) => m.NewInvoicePage) },
+              { path: "billing/invoices/:id", lazy: lazyPage(() => import("./pages/billing/invoice-detail-page.js"), (m) => m.InvoiceDetailPage) },
+              { path: "billing/invoices/:id/print", lazy: lazyPage(() => import("./pages/billing/invoice-print-page.js"), (m) => m.InvoicePrintPage) },
+              { path: "billing/payments/:id/receipt", lazy: lazyPage(() => import("./pages/billing/receipt-print-page.js"), (m) => m.ReceiptPrintPage) },
+              { path: "stock", lazy: lazyPage(() => import("./pages/stock/stock-page.js"), (m) => m.StockPage) },
+              { path: "messages", lazy: lazyPage(() => import("./pages/messages/messages-page.js"), (m) => m.MessagesPage) },
+              { path: "settings", lazy: lazyPage(() => import("./pages/settings/settings-page.js"), (m) => m.SettingsPage) },
+              { path: "*", lazy: lazyPage(() => import("./pages/not-found-page.js"), (m) => m.NotFoundPage) },
             ],
           },
         ],

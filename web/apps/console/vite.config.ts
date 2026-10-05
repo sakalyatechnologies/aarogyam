@@ -15,6 +15,10 @@ export default defineConfig(({ mode }) => {
       port: 5174,
       strictPort: true,
       host: "127.0.0.1",
+      // Compile every page at start-up rather than on its first visit, so the first screen a
+      // person (or an end-to-end test) opens after a restart doesn't wait seconds for it.
+      // Not under Vitest, which serves only the modules its tests import.
+      ...(process.env["VITEST"] === undefined ? { warmup: { clientFiles: ["./src/main.tsx", "./src/pages/**/*.tsx", "!./src/**/*.test.tsx"] } } : {}),
       // console.localtest.me resolves to 127.0.0.1; the API tells hosts apart by name.
       allowedHosts: [".localtest.me"],
       // Same-origin /api goes to the local API with the browser's Host header kept

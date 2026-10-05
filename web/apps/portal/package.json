@@ -12,6 +12,7 @@
     "@aarogyam/api-client": "workspace:*",
     "@aarogyam/app-kit": "workspace:*",
     "@aarogyam/auth": "workspace:*",
+    "@aarogyam/site-kit": "workspace:*",
     "@base-ui/react": "^1.8.0",
     "@hookform/resolvers": "^5.9.1",
     "@sakalya/tokens": "link:../../../../sakalya-web/packages/tokens",

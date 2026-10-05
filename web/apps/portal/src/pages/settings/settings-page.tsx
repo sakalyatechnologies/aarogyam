@@ -36,6 +36,7 @@ import {
 } from "../../queries.js";
 import { ChairsDoctorsPanel } from "./chairs-doctors-panel.js";
 import { PriceListPanel } from "./price-list-panel.js";
+import { WebsitePanel } from "./website/website-panel.js";
 
 /** Clinic profile, notifications and website cards in the mock-up's layout, then the admin panels. */
 export function SettingsPage() {
@@ -43,6 +44,7 @@ export function SettingsPage() {
   useDocumentTitle("Settings", session.clinic.name);
   const items: TabItem[] = [
     ...(can("settings.manage") ? [{ value: "chairs-doctors", label: "Chairs and doctors", content: <ChairsDoctorsPanel /> }] : []),
+    ...(can("settings.manage") ? [{ value: "website", label: "Website", content: <WebsitePanel /> }] : []),
     ...(can("billing.read") ? [{ value: "price-list", label: "Price list", content: <PriceListPanel /> }] : []),
     ...(can("staff.manage") ? [{ value: "staff", label: "Staff", content: <StaffPanel /> }] : []),
     { value: "sessions", label: "Sessions", content: <SessionsPanel /> },

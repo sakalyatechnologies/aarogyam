@@ -24,7 +24,7 @@
 .cs-root :where(ul, ol) { list-style: none; }
 .cs-root address { font-style: normal; }
 .cs-root img { display: block; max-width: 100%; }
-.cs-root a { color: inherit; text-decoration: none; }
+.cs-root :where(a) { color: inherit; text-decoration: none; }
 .cs-root :where(h1, h2, h3, h4) { font-family: var(--font-head); line-height: 1.12; letter-spacing: -0.01em; text-wrap: balance; }
 .cs-root p { text-wrap: pretty; }
 

@@ -1,4 +1,5 @@
 import { Download, Play } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { Link } from "react-router";
 
 import { apiErrorOf, type AppointmentStatus, type PendingItem, type Today, type TodayMoney } from "@aarogyam/api-client";
@@ -8,6 +9,7 @@ import { EmptyState, Skeleton } from "@sakalya/ui";
 import { Bars, Donut, Empty, Kpi, MkAvatar, MkCard, Tag, type TagTone } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { usePatientPeek } from "../../layout/peek.js";
+import { scrollTopToCentre } from "../../lib/time-grid.js";
 import { patientPath } from "../../lib/patients.js";
 import { compactRupees } from "../../lib/money.js";
 import { useToday } from "../../queries.js";
@@ -97,7 +99,17 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
   const firstName = session.user.display_name.split(" ")[0] ?? session.user.display_name;
   const firstUpcoming = nextUp?.id;
   const nowTime = formatTime(today.as_of, timeZone);
-  const nowIndex = today.appointments.findIndex((a) => a.starts_at > today.as_of);
+  // Instants compare as numbers, not strings, and the NOW label is the clinic's wall clock, whatever the browser's zone.
+  const asOfMs = Date.parse(today.as_of);
+  const nowIndex = today.appointments.findIndex((a) => Date.parse(a.starts_at) > asOfMs);
+  const timeline = useRef<HTMLDivElement>(null);
+  // Open the schedule on the current time rather than the first visit of the morning.
+  useEffect(() => {
+    const wrap = timeline.current;
+    const marker = wrap?.querySelector(".mk-now");
+    if (wrap == null || marker == null) return;
+    wrap.scrollTop = scrollTopToCentre(wrap.getBoundingClientRect(), marker.getBoundingClientRect(), wrap.scrollTop);
+  }, [today.as_of, today.appointments.length]);
   const rows = today.appointments.flatMap((a, index) => [
     ...(index === nowIndex ? [{ kind: "now" as const }] : []),
     { kind: "appointment" as const, a },
@@ -209,7 +221,7 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
           {today.appointments.length === 0 ? (
             <Empty title="No appointments today" />
           ) : (
-            <div className="mk-tlwrap">
+            <div className="mk-tlwrap" ref={timeline} role="region" aria-label="Today's schedule, scrollable" tabIndex={0}>
               <ol className="mk-tl">
                 {rows.map((row, index) => {
                   if (row.kind === "now") {

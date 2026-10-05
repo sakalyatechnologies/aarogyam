@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { addMonths, monthWeeks } from "./time.js";
-import { clockLabel, gridHours, nowMinutes, offsetPercent, packColumns, placementOf } from "./time-grid.js";
+import { clockLabel, gridHours, nowMinutes, offsetPercent, packColumns, placementOf, scrollTopToCentre } from "./time-grid.js";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -67,5 +67,12 @@ describe("month maths", () => {
     expect(weeks[0]?.[0]).toBe("2026-09-28");
     expect(weeks.at(-1)?.[6]).toBe("2026-11-01");
     expect(weeks.every((w) => w.length === 7)).toBe(true);
+  });
+});
+
+describe("scrolling to now", () => {
+  it("centres the marker and never scrolls above the top", () => {
+    expect(scrollTopToCentre({ top: 100, height: 300 }, { top: 700, height: 20 }, 50)).toBe(50 + 600 - 150 + 10);
+    expect(scrollTopToCentre({ top: 100, height: 300 }, { top: 120, height: 20 }, 0)).toBe(0);
   });
 });

@@ -92,3 +92,8 @@ export function nowMinutes(now: string | Date, timeZone: string): { date: string
   const { date, hour } = localDateHour(typeof now === "string" ? now : now.toISOString(), timeZone);
   return { date, minutes: Math.round(hour * 60) };
 }
+
+/** The scrollTop that centres `marker` inside `container` (both as viewport rects), never below zero. */
+export function scrollTopToCentre(container: { top: number; height: number }, marker: { top: number; height: number }, scrollTop: number): number {
+  return Math.max(0, scrollTop + (marker.top - container.top) - container.height / 2 + marker.height / 2);
+}

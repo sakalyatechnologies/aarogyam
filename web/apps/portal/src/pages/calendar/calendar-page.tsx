@@ -13,7 +13,7 @@ import { useClinic } from "../../clinic.js";
 import { gridHours, nowMinutes, placementOf } from "../../lib/time-grid.js";
 import { addDays, addMonths, mondayOf, monthStartOf, monthWeeks, todayIn } from "../../lib/time.js";
 import { formatTime } from "@aarogyam/app-kit";
-import { useAppointments, usePractitioners, useRooms } from "../../queries.js";
+import { useAppointments, usePractitioners, useRooms, useWorkingHoursForDates, workingSpansOn } from "../../queries.js";
 import { AppointmentDialog } from "./appointment-dialog.js";
 import { MonthView, type MonthItem } from "./month-view.js";
 import { TimeGrid, type GridColumn, type GridEvent } from "./time-grid.js";
@@ -138,6 +138,12 @@ export function CalendarPage() {
   const rooms = useRooms();
   const practitioners = usePractitioners();
   const canWrite = can("appointments.write");
+  // Load working hours for doctors when viewing day view grouped by doctor
+  const doctorIds = lane === "doctor" && view === "day" ? (practitioners.data?.items ?? []).map((p) => p.id) : [];
+  const workingHoursResults = useWorkingHoursForDates(doctorIds, anchor);
+  const workingSpans: readonly ({ startMin: number; endMin: number }[] | undefined)[] | undefined = lane === "doctor" && view === "day" 
+    ? workingHoursResults.map((result) => (result.data ? workingSpansOn(result.data, anchor) : undefined))
+    : undefined;
 
   const items = appointments.data?.items ?? [];
   const selected = items.find((a) => a.id === selectedId);
@@ -292,6 +298,7 @@ export function CalendarPage() {
             endHour={hours.end}
             nowMinute={nowOnClinicClock.minutes}
             workingMinutes={WORKING_MINUTES}
+            workingSpans={workingSpans}
             summary={`Appointments from ${from} to ${to}`}
             onSelect={setSelectedId}
           />

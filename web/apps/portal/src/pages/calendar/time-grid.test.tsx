@@ -77,3 +77,38 @@ describe("TimeGrid cards", () => {
     expect(container.querySelector(".mk-tg-col.current")).not.toBeNull();
   });
 });
+
+describe("TimeGrid working spans", () => {
+  it("shades outside per-column working spans", () => {
+    const { container } = render(
+      <TimeGrid
+        columns={[{ id: "d", label: "Mon" }]}
+        events={[event("A", 600, 660)]}
+        startHour={8}
+        endHour={18}
+        workingSpans={[[{ startMin: 600, endMin: 660 }, { startMin: 720, endMin: 780 }]]}
+        onSelect={() => undefined}
+        summary="Grid"
+      />,
+    );
+    // Two working spans means 3 shading areas (before first, between, after last)
+    expect(container.querySelectorAll(".mk-tg-off").length).toBe(3);
+  });
+
+  it("shades the whole column when working spans are empty", () => {
+    const { container } = render(
+      <TimeGrid
+        columns={[{ id: "d", label: "Mon" }]}
+        events={[]}
+        startHour={8}
+        endHour={18}
+        workingSpans={[[]]}
+        onSelect={() => undefined}
+        summary="Grid"
+      />,
+    );
+    // Empty spans means the whole column should be shaded
+    expect(container.querySelectorAll(".mk-tg-off").length).toBe(1);
+    expect(Number.parseFloat(container.querySelector<HTMLElement>(".mk-tg-off")?.style.height ?? "100")).toBe(100);
+  });
+});

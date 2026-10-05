@@ -17,6 +17,7 @@ use axum::body::{Body, to_bytes};
 use axum::http::{Method, Request, StatusCode};
 use sakalya_db::{Db, DbConfig};
 use sakalya_http::HttpConfig;
+use sakalya_testkit::PgRoundTrips;
 use secrecy::SecretString;
 use serde_json::Value;
 use sqlx::postgres::{PgConnectOptions, PgPool, PgPoolOptions};
@@ -75,6 +76,10 @@ begin
   join aarogyam.roles r on r.org_id = alpha and r.key = m.role_key;
 end $$;
 ";
+
+/// Part of the SQL sakalya-db's pool runs on every released connection, which
+/// [`TestApp::counting_db`] counts apart from the request's own statements.
+pub const RELEASE_CHECK: &str = "pg_catalog.statement_timestamp()";
 
 /// A running API on its own database.
 pub struct TestApp {
@@ -212,6 +217,40 @@ impl TestApp {
     /// A database handle on the API's login role, for row-level security checks.
     pub fn api_db(&self) -> Db {
         Db::connect_lazy(&DbConfig::new(SecretString::from(self.api_url.clone()))).unwrap()
+    }
+
+    /// A database handle on the API's login role whose traffic passes through a proxy that
+    /// counts round trips. Build routers on it with [`Self::router_on`].
+    pub async fn counting_db(&self) -> (Db, PgRoundTrips) {
+        let target = format!("{}:{}", self.admin.get_host(), self.admin.get_port());
+        let trips = PgRoundTrips::start(&target)
+            .await
+            .unwrap()
+            .with_marker(RELEASE_CHECK);
+        let port = trips.port();
+        let url = format!(
+            "postgres://aarogyam_api@127.0.0.1:{port}/{}?sslmode=disable",
+            self.database
+        );
+        let db = Db::connect_lazy(&DbConfig::new(SecretString::from(url))).unwrap();
+        (db, trips)
+    }
+
+    /// A router on its own state (empty caches) over `db`.
+    pub fn router_on(&self, db: Db) -> Router {
+        let files = Files::new(
+            Arc::new(LocalDisk::new(&self.files_dir)),
+            LinkSigner::new(FILE_KEY).unwrap(),
+        );
+        router(
+            AppState::new(
+                db,
+                HttpConfig::default(),
+                TokenCheck::Dev(dev_tokens()),
+                hosts(),
+            )
+            .with_files(files),
+        )
     }
 
     /// The id of the seeded clinic with this slug.

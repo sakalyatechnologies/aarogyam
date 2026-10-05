@@ -102,7 +102,7 @@ pub struct Saved {
 pub struct CalendarQuery {
     /// First local day.
     pub from: Date,
-    /// Last local day, at most 31 days after `from` counting both.
+    /// Last local day, at most 42 days after `from` counting both.
     pub to: Date,
     /// Only this room.
     pub room_id: Option<RoomId>,

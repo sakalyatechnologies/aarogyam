@@ -26,7 +26,7 @@
           {
             "name": "to",
             "in": "query",
-            "description": "Last local day, `YYYY-MM-DD`; at most 31 days counting both",
+            "description": "Last local day, `YYYY-MM-DD`; at most 42 days counting both",
             "required": true,
             "schema": {
               "type": "string"
@@ -62,7 +62,7 @@
             }
           },
           "400": {
-            "description": "Bad dates, ids, or a range over 31 days"
+            "description": "Bad dates, ids, or a range over 42 days"
           },
           "401": {
             "description": "Not signed in"
@@ -1504,7 +1504,7 @@
           {
             "name": "to",
             "in": "query",
-            "description": "Last local day, `YYYY-MM-DD`; at most 31 days counting both",
+            "description": "Last local day, `YYYY-MM-DD`; at most 42 days counting both",
             "required": true,
             "schema": {
               "type": "string"
@@ -1531,7 +1531,7 @@
             }
           },
           "400": {
-            "description": "Bad dates or a range over 31 days"
+            "description": "Bad dates or a range over 42 days"
           },
           "401": {
             "description": "Not signed in"

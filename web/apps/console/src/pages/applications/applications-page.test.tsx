@@ -71,8 +71,57 @@ describe("Applications", () => {
     await within(table).findByText("Smile Care Dental");
     expect(within(table).queryByText("Riverside Family Dentistry")).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Rejected" }));
+    await user.click(screen.getByRole("button", { name: /^Rejected/ }));
     const rejectedTable = await screen.findByRole("table");
     expect(await within(rejectedTable).findByText("Riverside Family Dentistry")).toBeTruthy();
+  });
+
+  it("counts applications by status and filters them by search", async () => {
+    const user = userEvent.setup();
+    renderAt("/applications");
+    expect(await screen.findByRole("button", { name: "Pending (2)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Approved (0)" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "All (3)" }));
+    await user.type(screen.getByRole("searchbox", { name: "Search applications" }), "nashik{Enter}");
+    const table = await screen.findByRole("table");
+    expect(await within(table).findByText("Riverside Family Dentistry")).toBeTruthy();
+    expect(within(table).queryByText("Smile Care Dental")).toBeNull();
+    expect(screen.getByText("Showing 1 of 3 applications")).toBeTruthy();
+  });
+
+  it("says why nothing is shown when filters match nothing", async () => {
+    const user = userEvent.setup();
+    renderAt("/applications");
+    await user.type(await screen.findByRole("searchbox", { name: "Search applications" }), "zzzz{Enter}");
+    expect(await screen.findByText("No applications match")).toBeTruthy();
+  });
+
+  it("opens the details of an application with the applicant's note", async () => {
+    const user = userEvent.setup();
+    renderAt("/applications");
+    const table = await screen.findByRole("table");
+    await user.click(await within(table).findByRole("button", { name: "Smile Care Dental" }));
+    expect(await screen.findByText("We're a two-chair clinic looking to go digital.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Approve…" })).toBeTruthy();
+  });
+
+  it("asks for a reason before rejecting, and offers common ones", async () => {
+    const user = userEvent.setup();
+    renderAt("/applications");
+    const row = await tableRow("Riverside Family Dentistry");
+    await user.click(row.getByRole("button", { name: "Reject" }));
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+    expect(await screen.findByText("Give a reason so the decision can be reviewed later.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Duplicate application" }));
+    expect(screen.getByLabelText(/reason/i)).toHaveProperty("value", "Duplicate application");
+  });
+
+  it("says what approving does before it does it", async () => {
+    const user = userEvent.setup();
+    renderAt("/applications");
+    const row = await tableRow("Smile Care Dental");
+    await user.click(row.getByRole("button", { name: "Approve" }));
+    expect(screen.getByText(/sends an owner invitation to/)).toBeTruthy();
+    expect(screen.getByText("rohit@smilecare.example", { selector: "strong" })).toBeTruthy();
   });
 });

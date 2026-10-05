@@ -93,6 +93,108 @@ pub struct TestApp {
     pub files_dir: PathBuf,
 }
 
+/// Advisory lock key shared by every test process that creates databases on this server.
+const TEMPLATE_LOCK: i64 = 0x6161_726f_6779_616d; // "aarogyam"
+
+/// A name for the migrated and seeded template of this exact migration set and seed, so a
+/// branch with other migrations gets its own template.
+fn template_name() -> String {
+    use std::hash::{Hash as _, Hasher as _};
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../db/migrations");
+    let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "sql"))
+        .collect();
+    files.sort();
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    for file in &files {
+        file.file_name().hash(&mut hasher);
+        std::fs::read(file).unwrap().hash(&mut hasher);
+    }
+    SEED.hash(&mut hasher);
+    format!("aarogyam_test_tpl_{:016x}", hasher.finish())
+}
+
+/// Creates `database` as a copy of the migrated, seeded template, building the template first
+/// if this migration set has none. Every test process takes the same advisory lock, so only
+/// one migrates at a time: migrations change cluster-wide roles, and concurrent runs from
+/// several worktrees otherwise fail on their own `lock_timeout`. Copying a template is also
+/// much faster than migrating each test database.
+async fn create_from_template(admin: &PgConnectOptions, database: &str) {
+    let template = template_name();
+    // One connection, not a pool: the advisory lock belongs to the session.
+    let mut conn = admin.connect().await.unwrap();
+    sqlx::query("select pg_advisory_lock($1)")
+        .bind(TEMPLATE_LOCK)
+        .execute(&mut conn)
+        .await
+        .unwrap();
+    let exists: bool =
+        sqlx::query_scalar("select exists (select from pg_database where datname = $1)")
+            .bind(&template)
+            .fetch_one(&mut conn)
+            .await
+            .unwrap();
+    if !exists {
+        sqlx::raw_sql(
+            r"do $$ begin create role aarogyam_owner login createrole createdb bypassrls;
+               exception when duplicate_object then null; end $$;
+              do $$ declare r text; begin
+                foreach r in array array['app_user', 'aarogyam_api'] loop
+                  if exists (select from pg_roles where rolname = r) then
+                    execute format('grant %I to aarogyam_owner with admin true, inherit false, set false', r);
+                  end if;
+                end loop;
+              end $$;",
+        )
+        .execute(&mut conn)
+        .await
+        .unwrap();
+        // Build under a temporary name and rename at the end, so a failed build never leaves
+        // a half-migrated template behind.
+        let building = format!("aarogyam_test_build_{}", Uuid::now_v7().simple());
+        // Both names are generated here, so they are safe to splice into the statements.
+        sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
+            "create database {building} owner aarogyam_owner"
+        )))
+        .execute(&mut conn)
+        .await
+        .unwrap();
+        let owner = PgPoolOptions::new()
+            .max_connections(1)
+            .connect_with(admin.clone().username("aarogyam_owner").database(&building))
+            .await
+            .unwrap();
+        aarogyam_dal::migrate(&owner).await.unwrap();
+        sqlx::raw_sql(SEED).execute(&owner).await.unwrap();
+        owner.close().await;
+        sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
+            "alter database {building} rename to {template}"
+        )))
+        .execute(&mut conn)
+        .await
+        .unwrap();
+        sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
+            "alter database {template} is_template true"
+        )))
+        .execute(&mut conn)
+        .await
+        .unwrap();
+    }
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
+        "create database {database} owner aarogyam_owner template {template}"
+    )))
+    .execute(&mut conn)
+    .await
+    .unwrap();
+    sqlx::query("select pg_advisory_unlock($1)")
+        .bind(TEMPLATE_LOCK)
+        .execute(&mut conn)
+        .await
+        .unwrap();
+}
+
 fn admin_options() -> PgConnectOptions {
     let url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://localhost:5432/postgres".into());
@@ -153,32 +255,8 @@ impl TestApp {
         configure: impl FnOnce(AppState) -> AppState,
     ) -> Self {
         let admin = admin_options();
-        let conn = PgPoolOptions::new()
-            .max_connections(1)
-            .connect_with(admin.clone())
-            .await
-            .unwrap();
-        conn.execute(
-            r"do $$ begin create role aarogyam_owner login createrole createdb bypassrls;
-               exception when duplicate_object then null; end $$;
-              do $$ declare r text; begin
-                foreach r in array array['app_user', 'aarogyam_api'] loop
-                  if exists (select from pg_roles where rolname = r) then
-                    execute format('grant %I to aarogyam_owner with admin true, inherit false, set false', r);
-                  end if;
-                end loop;
-              end $$;",
-        )
-        .await
-        .unwrap();
         let database = format!("aarogyam_test_{}", Uuid::now_v7().simple());
-        // The name is generated here, so it is safe to splice into the statement.
-        conn.execute(sqlx::AssertSqlSafe(format!(
-            "create database {database} owner aarogyam_owner"
-        )))
-        .await
-        .unwrap();
-        conn.close().await;
+        create_from_template(&admin, &database).await;
 
         let owner_options = admin.clone().username("aarogyam_owner").database(&database);
         let owner = PgPoolOptions::new()
@@ -186,8 +264,6 @@ impl TestApp {
             .connect_with(owner_options)
             .await
             .unwrap();
-        aarogyam_dal::migrate(&owner).await.unwrap();
-        sqlx::raw_sql(SEED).execute(&owner).await.unwrap();
 
         let api_url = format!(
             "postgres://aarogyam_api@{}:{}/{database}",

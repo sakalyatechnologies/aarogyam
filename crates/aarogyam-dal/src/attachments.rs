@@ -30,6 +30,14 @@ pub struct AttachmentRow {
     pub taken_at: Option<OffsetDateTime>,
     /// When it was uploaded.
     pub created_at: OffsetDateTime,
+    /// The note a recording belongs to.
+    pub note_id: Option<Uuid>,
+    /// The addendum a recording belongs to, for a signed note.
+    pub addendum_id: Option<Uuid>,
+    /// A recording's length in seconds.
+    pub duration_seconds: Option<i32>,
+    /// A recording's spoken language tag.
+    pub language: Option<String>,
 }
 
 /// Values for a new file.
@@ -57,6 +65,14 @@ pub struct NewAttachment<'a> {
     pub tooth: Option<i16>,
     /// Source value.
     pub source: &'a str,
+    /// The note a recording belongs to.
+    pub note_id: Option<Uuid>,
+    /// The addendum a recording belongs to.
+    pub addendum_id: Option<Uuid>,
+    /// A recording's length in seconds.
+    pub duration_seconds: Option<i32>,
+    /// A recording's spoken language tag.
+    pub language: Option<&'a str>,
 }
 
 /// Inserts a file's details.
@@ -71,10 +87,10 @@ pub async fn insert(
         AttachmentRow,
         r#"insert into aarogyam.attachments
              (id, patient_id, encounter_id, kind, storage_key, mime_type, size_bytes, sha256, caption,
-              tooth, source)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+              tooth, source, note_id, addendum_id, duration_seconds, language)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
            returning id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,
-                     taken_at, created_at"#,
+                     taken_at, created_at, note_id, addendum_id, duration_seconds, language"#,
         new.id,
         new.patient_id,
         new.encounter_id,
@@ -85,7 +101,11 @@ pub async fn insert(
         new.sha256,
         new.caption,
         new.tooth,
-        new.source
+        new.source,
+        new.note_id,
+        new.addendum_id,
+        new.duration_seconds,
+        new.language
     )
     .fetch_one(conn)
     .await?;
@@ -100,7 +120,7 @@ pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<AttachmentR
     let row = sqlx::query_as!(
         AttachmentRow,
         r#"select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,
-                  taken_at, created_at
+                  taken_at, created_at, note_id, addendum_id, duration_seconds, language
            from aarogyam.attachments where id = $1 and deleted_at is null"#,
         id
     )
@@ -120,7 +140,7 @@ pub async fn list(
     let rows = sqlx::query_as!(
         AttachmentRow,
         r#"select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,
-                  taken_at, created_at
+                  taken_at, created_at, note_id, addendum_id, duration_seconds, language
            from aarogyam.attachments where patient_id = $1 and deleted_at is null
            order by created_at desc, id desc"#,
         patient_id
@@ -141,7 +161,7 @@ pub async fn of_encounter(
     let rows = sqlx::query_as!(
         AttachmentRow,
         r#"select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,
-                  taken_at, created_at
+                  taken_at, created_at, note_id, addendum_id, duration_seconds, language
            from aarogyam.attachments where encounter_id = $1 and deleted_at is null
            order by created_at, id"#,
         encounter_id

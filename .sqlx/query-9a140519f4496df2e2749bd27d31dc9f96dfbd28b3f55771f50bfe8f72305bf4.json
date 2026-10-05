@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into aarogyam.attachments\n             (id, patient_id, encounter_id, kind, storage_key, mime_type, size_bytes, sha256, caption,\n              tooth, source)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n           returning id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,\n                     taken_at, created_at",
+  "query": "select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,\n                  taken_at, created_at, note_id, addendum_id, duration_seconds, language\n           from aarogyam.attachments where patient_id = $1 and deleted_at is null\n           order by created_at desc, id desc",
   "describe": {
     "columns": [
       {
@@ -123,21 +123,55 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 11,
+        "name": "note_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "note_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "addendum_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "addendum_id"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "duration_seconds",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "duration_seconds"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "language",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "language"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Uuid",
-        "Uuid",
-        "Text",
-        "Text",
-        "Text",
-        "Int8",
-        "Text",
-        "Text",
-        "Int2",
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -151,8 +185,12 @@
       true,
       true,
       true,
-      false
+      false,
+      true,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "e63b0361480fb86fe48d8a8b60094193fb79191c74ca4301429ec9539ea57328"
+  "hash": "9a140519f4496df2e2749bd27d31dc9f96dfbd28b3f55771f50bfe8f72305bf4"
 }

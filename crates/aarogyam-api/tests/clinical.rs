@@ -1309,6 +1309,242 @@ async fn files_upload_by_content_and_download_through_short_lived_links() {
     app.finish().await;
 }
 
+/// A tiny `WebM` recording: the EBML header plus filler.
+fn webm() -> Vec<u8> {
+    let mut bytes = vec![0x1A, 0x45, 0xDF, 0xA3];
+    bytes.extend_from_slice(&[9_u8; 1024]);
+    bytes
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn voice_recordings_link_to_notes_and_signed_notes_take_them_only_with_an_addendum() {
+    let app = TestApp::start().await;
+    add_doctor(&app).await;
+    let owner = app.token(ALPHA_OWNER);
+    let doctor = app.token(ALPHA_DOCTOR);
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let beta = app.token(BETA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let other = register(&app, ALPHA, &owner, "Ravi Kumar").await;
+    let visit = start_visit(&app, &owner, &patient).await;
+    let other_visit = start_visit(&app, &owner, &other).await;
+    let (status, note) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}/notes"),
+            Some(&owner),
+            Some(json!({ "sections": { "subjective": "Pain on chewing" } })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{note}");
+    let note_id = note["id"].as_str().unwrap().to_owned();
+    assert_eq!(note["source"], "typed");
+    let audio = webm();
+    let fields = |extra: &[(&'static str, String)]| -> Vec<(&'static str, String)> {
+        let mut all = vec![
+            ("note_id", note_id.clone()),
+            ("duration_seconds", "42".to_owned()),
+            ("language", "hi-IN".to_owned()),
+        ];
+        all.extend_from_slice(extra);
+        all
+    };
+    let send = async |host: &str, token: &str, patient: &str, form: Vec<(&'static str, String)>| {
+        let borrowed: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        upload(&app, host, token, patient, &audio, &borrowed).await
+    };
+
+    let (status, file) = send(ALPHA, &owner, &patient, fields(&[])).await;
+    assert_eq!(status, StatusCode::CREATED, "{file}");
+    assert_eq!(file["kind"], "audio");
+    assert_eq!(file["mime_type"], "audio/webm");
+    assert_eq!(file["note_id"], note_id.as_str());
+    assert_eq!(file["visit_id"], visit.as_str());
+    assert_eq!(file["duration_seconds"], 42);
+    assert_eq!(file["language"], "hi-IN");
+    let id = file["id"].as_str().unwrap().to_owned();
+    let (_, detail) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(detail["attachments"][0]["note_id"], note_id.as_str());
+    assert_eq!(detail["notes"][0]["source"], "voice");
+
+    // Refused: no length, too long, bad language, another visit, another patient's note, a
+    // note that is another member's draft, and audio sent as a document.
+    for (form, expected) in [
+        (vec![("note_id", note_id.clone())], StatusCode::BAD_REQUEST),
+        (
+            fields(&[("duration_seconds", "601".to_owned())]),
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            fields(&[("language", "fr-FR".to_owned())]),
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            fields(&[("visit_id", other_visit.clone())]),
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            fields(&[("kind", "document".to_owned())]),
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            fields(&[("addendum_id", Uuid::now_v7().to_string())]),
+            StatusCode::BAD_REQUEST,
+        ),
+    ] {
+        let (status, error) = send(ALPHA, &owner, &patient, form.clone()).await;
+        assert_eq!(status, expected, "{form:?}: {error}");
+    }
+    assert_eq!(
+        send(ALPHA, &owner, &other, fields(&[])).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        send(ALPHA, &doctor, &patient, fields(&[])).await.0,
+        StatusCode::FORBIDDEN
+    );
+    // Recording needs clinical.write; another clinic gets 404 for everything.
+    assert_eq!(
+        send(ALPHA, &assistant, &patient, fields(&[])).await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        send(BETA, &beta, &patient, fields(&[])).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        status_of(
+            &app,
+            Method::GET,
+            BETA,
+            &format!("/api/v1/attachments/{id}/download"),
+            &beta,
+            None
+        )
+        .await,
+        StatusCode::NOT_FOUND
+    );
+
+    // Playing needs clinical.read; opening the link is in the access record.
+    let (status, link) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/attachments/{id}/download"),
+            Some(&assistant),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{link}");
+    let (status, content_type, bytes) = fetch(&app, ALPHA, link["url"].as_str().unwrap()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(content_type, "audio/webm");
+    assert_eq!(bytes, audio);
+    let (downloads,): (i64,) = sqlx::query_as(
+        "select count(*) from audit.access_log
+         where resource = 'attachment' and action = 'download' and resource_id = $1::uuid",
+    )
+    .bind(&id)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(downloads, 1);
+
+    // Signed notes are frozen: a recording joins one only through the member's own addendum.
+    let sign = format!("/api/v1/notes/{note_id}/sign");
+    assert_eq!(
+        status_of(&app, Method::POST, ALPHA, &sign, &owner, None).await,
+        StatusCode::OK
+    );
+    assert_eq!(
+        send(ALPHA, &owner, &patient, fields(&[])).await.0,
+        StatusCode::BAD_REQUEST
+    );
+    let addenda = format!("/api/v1/notes/{note_id}/addenda");
+    let (_, theirs) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &addenda,
+            Some(&doctor),
+            Some(json!({ "body": "Second opinion" })),
+        )
+        .await;
+    let (status, mine) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &addenda,
+            Some(&owner),
+            Some(json!({ "body": "Dictated follow-up" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{mine}");
+    let theirs = theirs["addenda"][0]["id"].as_str().unwrap().to_owned();
+    let mine = mine["addenda"][1]["id"].as_str().unwrap().to_owned();
+    assert_eq!(
+        send(ALPHA, &owner, &patient, fields(&[("addendum_id", theirs)]))
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    let (status, file) = send(
+        ALPHA,
+        &owner,
+        &patient,
+        fields(&[("addendum_id", mine.clone())]),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{file}");
+    assert_eq!(file["addendum_id"], mine.as_str());
+    // The signed note itself is unchanged by the recording.
+    let (_, detail) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(detail["notes"][0]["source"], "voice");
+    assert_eq!(detail["attachments"].as_array().unwrap().len(), 2);
+
+    // The database refuses a recording on a signed note without an addendum, even for a
+    // direct insert.
+    let alpha = app.clinic_id("alpha").await;
+    let error = app
+        .api_db()
+        .scoped(&Scope::tenant(alpha), async |tx| {
+            sqlx::query(
+                "insert into aarogyam.attachments
+                   (encounter_id, patient_id, note_id, kind, storage_key, mime_type, size_bytes, sha256, duration_seconds)
+                 values ($1::uuid, $2::uuid, $3::uuid, 'audio', gen_random_uuid() || '/' || gen_random_uuid(),
+                         'audio/webm', 10, repeat('a', 64), 5)",
+            )
+            .bind(&visit)
+            .bind(&patient)
+            .bind(&note_id)
+            .execute(tx.conn())
+            .await
+            .map_err(DbError::from)
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(error.kind(), DbErrorKind::Invalid);
+    app.finish().await;
+}
+
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
 async fn the_timeline_lists_the_record_newest_first() {

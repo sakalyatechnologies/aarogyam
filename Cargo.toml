@@ -11,14 +11,14 @@ repository = "https://github.com/sakalyatechnologies/aarogyam"
 
 [workspace.dependencies]
 # Shared Sakalya crates, by tag. A local .cargo/config.toml may [patch] them to a checkout.
-sakalya-throttle = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.2" }
-sakalya-types = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.2" }
-sakalya-config = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.2" }
-sakalya-telemetry = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.2" }
-sakalya-http = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.2" }
-sakalya-auth = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.2" }
-sakalya-db = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.2" }
-sakalya-testkit = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.2" }
+sakalya-throttle = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.4" }
+sakalya-types = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.4" }
+sakalya-config = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.4" }
+sakalya-telemetry = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.4" }
+sakalya-http = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.4" }
+sakalya-auth = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.4" }
+sakalya-db = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.4" }
+sakalya-testkit = { git = "https://github.com/sakalyatechnologies/sakalya-backend", tag = "v0.2.4" }
 
 # Our crates
 aarogyam-dal = { path = "crates/aarogyam-dal" }

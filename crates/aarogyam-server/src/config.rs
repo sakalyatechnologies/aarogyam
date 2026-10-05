@@ -90,6 +90,10 @@ pub struct HttpSettings {
     /// Required outside `local`: without it anyone could call the Cloud Run URL directly and
     /// claim any host or client IP.
     pub edge_secret: Option<SecretString>,
+    /// Header the Worker puts the clinic's host in (`ARO_HTTP__EDGE_HOST_HEADER`). Default
+    /// `x-forwarded-host`. The laptop demo behind Tailscale Funnel sets `x-sakalya-host`,
+    /// since Funnel overwrites `x-forwarded-host` with its own name.
+    pub edge_host_header: Option<String>,
 }
 
 impl HttpSettings {
@@ -114,6 +118,7 @@ impl Default for HttpSettings {
             request_timeout_secs: 30,
             body_limit_bytes: 1024 * 1024,
             edge_secret: None,
+            edge_host_header: None,
         }
     }
 }

@@ -12,6 +12,7 @@ use aarogyam_domain::patient::Email;
 use aarogyam_notify::{Notifier, PortalLinks};
 use aarogyam_server::config::{AuthMode, Config};
 use anyhow::Context;
+use axum::http::HeaderName;
 use clap::{Parser, Subcommand};
 use sakalya_auth::{JwtConfig, JwtVerifier};
 use sakalya_config::Environment;
@@ -147,7 +148,13 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         Some(secret) => {
             let secret =
                 EdgeSecret::new(secret).context("http.edge_secret must be at least 32 bytes")?;
-            http = http.with_edge(EdgeConfig::new(secret));
+            let mut edge = EdgeConfig::new(secret);
+            if let Some(name) = &config.http.edge_host_header {
+                let name = HeaderName::try_from(name.as_str())
+                    .context("http.edge_host_header must be a valid header name")?;
+                edge = edge.with_host_header(name);
+            }
+            http = http.with_edge(edge);
         }
         None => anyhow::ensure!(
             local,

@@ -17,7 +17,7 @@ export interface Env {
   EDGE_SECRET: string;
 }
 
-const STRIPPED_REQUEST_HEADERS = ["x-forwarded-host", "cf-connecting-ip", "x-sakalya-edge"];
+const STRIPPED_REQUEST_HEADERS = ["x-forwarded-host", "x-sakalya-host", "cf-connecting-ip", "x-sakalya-edge"];
 
 export async function proxyApi(request: Request, env: Env): Promise<Response> {
   if (!env.API_ORIGIN) {
@@ -35,6 +35,9 @@ export async function proxyApi(request: Request, env: Env): Promise<Response> {
   for (const name of STRIPPED_REQUEST_HEADERS) headers.delete(name);
   headers.set("host", origin.host);
   headers.set("x-forwarded-host", trustedHost);
+  // The same host again, for a proxy in front of the API that overwrites x-forwarded-host
+  // (Tailscale Funnel on a developer's machine); the API reads whichever it is configured to.
+  headers.set("x-sakalya-host", trustedHost);
   if (trustedClientIp) headers.set("cf-connecting-ip", trustedClientIp);
   headers.set("x-sakalya-edge", env.EDGE_SECRET);
 

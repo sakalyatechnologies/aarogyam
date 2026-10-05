@@ -18,6 +18,7 @@ aarogyam-dal.workspace = true
 aarogyam-domain = { path = "../aarogyam-domain" }
 aarogyam-notify = { path = "../aarogyam-notify" }
 anyhow.workspace = true
+axum.workspace = true
 clap.workspace = true
 sakalya-auth.workspace = true
 sakalya-config.workspace = true

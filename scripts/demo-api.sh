@@ -36,6 +36,8 @@ WORKERS="${CLOUDFLARE_WORKERS_SUBDOMAIN}.workers.dev"
 export SUPABASE_URL SUPABASE_SECRET_KEY ARO_DB__URL ARO_DB__OWNER_URL
 export ARO_HTTP__BIND="127.0.0.1:${DEMO_PORT:-8095}"
 export ARO_HTTP__EDGE_SECRET="$EDGE_SECRET"
+# Tailscale Funnel overwrites x-forwarded-host; the Worker also sends the host in x-sakalya-host.
+export ARO_HTTP__EDGE_HOST_HEADER=x-sakalya-host
 export ARO_AUTH__MODE=supabase
 export ARO_AUTH__DEV_TOKENS=false
 # One portal Worker per clinic (workers.dev has no wildcard subdomains); the landing page and

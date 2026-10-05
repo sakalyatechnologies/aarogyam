@@ -55,6 +55,8 @@ Onboarding is a signature experience. Target: a clinic is ready, self-served, in
 6. **Bring your patients** in, and switch on reminders.
 7. **Your clinic is ready.**
 
+Built as a short wizard at `/setup` (see `docs/handoff.md`): clinic, hours and doctors, look, services and fees, team and patients. Every step can be skipped and is saved as it ends; the specialty is fixed when the clinic is created, so the first question of the list above is answered already.
+
 ### Today
 A doctor at 9 AM sees today's work, not analytics: today's numbers, who is **Now** (waiting time, the reason, a Start consultation button), and who is **Up next**. Reception sees the queue and arrivals. Owners see the day's money and attention items underneath. Today's work beats dashboards.
 

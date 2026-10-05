@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.clinic_websites\n           set layout = $1, template = $2, palette = $3, fonts = $4, content = $5,\n               published = $6,\n               published_at = case when $6 then coalesce($7, now()) else $7 end,\n               custom_domain = $8, domain_status = $9, domain_token = $10, domain_checked_at = $11\n           where org_id = app.tenant_id()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Bool",
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "06c164f9d44ac151187d1a817345a1ff3ad28dfb5ba7196d1fb0e51da433b822"
+}

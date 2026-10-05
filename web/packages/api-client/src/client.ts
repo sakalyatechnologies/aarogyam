@@ -21,6 +21,11 @@ import type {
   AttachmentPage,
   Booked,
   BookingOptions,
+  SitePage,
+  SitePhoto,
+  PhotoChanges,
+  WebsiteChanges,
+  WebsiteSettings,
   Cancelled,
   CancelRequest,
   ClinicDetail,
@@ -485,4 +490,17 @@ export interface ApiClient {
   getAvailability(date: string, practitionerId: string, options?: RequestOptions): Promise<ApiResult<Availability>>;
   /** Clinic host, verified-email sign-in (no membership needed): requests or books a slot. */
   createOnlineBooking(input: NewBooking, options?: RequestOptions): Promise<ApiResult<Booked>>;
+
+  /** Clinic host: the website's settings, pictures and a preview of the page. Needs `settings.manage`. */
+  getWebsiteSettings(options?: RequestOptions): Promise<ApiResult<WebsiteSettings>>;
+  /** Clinic host: changes the website's design, content, published state or domain. Needs `settings.manage`. */
+  updateWebsite(changes: WebsiteChanges, options?: RequestOptions): Promise<ApiResult<WebsiteSettings>>;
+  /** Clinic host: uploads a website picture (form fields `file`, `kind`, `alt`). Needs `settings.manage`. */
+  uploadWebsitePhoto(form: FormData, options?: RequestOptions): Promise<ApiResult<SitePhoto>>;
+  /** Clinic host: changes a picture's description. Needs `settings.manage`. */
+  describeWebsitePhoto(id: string, changes: PhotoChanges, options?: RequestOptions): Promise<ApiResult<SitePhoto>>;
+  /** Clinic host: removes a picture. Needs `settings.manage`. */
+  deleteWebsitePhoto(id: string, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host, public: the published website; `404` while it is not published. */
+  getPublicSite(options?: RequestOptions): Promise<ApiResult<SitePage>>;
 }

@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.clinic_websites (org_id) values (app.tenant_id())\n           on conflict (org_id) do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "bb5ef1c419d5f6030c36bc80018f183cacd697cf1e4cc9b9c3ed4b2d4f607dde"
+}

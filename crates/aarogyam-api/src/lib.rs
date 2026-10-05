@@ -43,7 +43,7 @@ pub use extract::{ClinicRequest, PlatformRequest, Require, SignedIn};
 pub use failure::ApiFailure;
 #[doc(inline)]
 pub use openapi::openapi;
-pub use state::{AppState, Hosts, TokenCheck};
+pub use state::{AppState, Hosts, TokenCheck, WebsiteLinks};
 
 /// The per-IP request limits, applied before any token is checked. Sign-in itself is
 /// Supabase's, with its own limits. The public registration form gets a strict limit of its
@@ -61,7 +61,11 @@ pub fn standard_throttle() -> Result<sakalya_throttle::Throttle, sakalya_throttl
         // Public booking: reads (doctors, slots) are cheap but unauthenticated, so capped per IP;
         // bookings are capped per IP here and per verified person in the handler.
         RuleConfig::new("ip-public-booking-read", KeyKind::Ip, 60, 60)
-            .on_paths(&["/api/v1/public/"])
+            .on_paths(&["/api/v1/public/booking", "/api/v1/public/availability"])
+            .on_methods(&["GET"]),
+        // The clinic website and its pictures: one page view is the site plus its pictures.
+        RuleConfig::new("ip-public-site", KeyKind::Ip, 300, 60)
+            .on_paths(&["/api/v1/public/site"])
             .on_methods(&["GET"]),
         RuleConfig::new("ip-public-booking", KeyKind::Ip, 10, 60 * 60)
             .on_paths(&["/api/v1/public/bookings"])

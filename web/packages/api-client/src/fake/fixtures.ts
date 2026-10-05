@@ -588,6 +588,9 @@ export interface Fixtures {
   drugs: FakeDrug[];
   prescriptions: FakePrescription[];
   shareLinks: FakeShareLink[];
+  /** Clinic websites, made on first use. */
+  websites?: import("./website.js").FakeSite[];
+  websitePhotos?: import("./website.js").FakePhoto[];
   quality: C.QualityReport;
 }
 

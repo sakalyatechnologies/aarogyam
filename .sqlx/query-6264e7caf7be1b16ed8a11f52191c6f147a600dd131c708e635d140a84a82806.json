@@ -1,0 +1,146 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select layout, template, palette, fonts, content, published, published_at,\n                  custom_domain, domain_status, domain_token, domain_checked_at\n           from aarogyam.clinic_websites where org_id = app.tenant_id()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "layout",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_websites",
+            "name": "layout"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "template",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_websites",
+            "name": "template"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "palette",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_websites",
+            "name": "palette"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "fonts",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_websites",
+            "name": "fonts"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "content",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_websites",
+            "name": "content"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "published",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_websites",
+            "name": "published"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "published_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_websites",
+            "name": "published_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "custom_domain",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_websites",
+            "name": "custom_domain"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "domain_status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_websites",
+            "name": "domain_status"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "domain_token",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_websites",
+            "name": "domain_token"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "domain_checked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_websites",
+            "name": "domain_checked_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "6264e7caf7be1b16ed8a11f52191c6f147a600dd131c708e635d140a84a82806"
+}

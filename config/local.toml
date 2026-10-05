@@ -32,6 +32,11 @@ portal_host_template = "{slug}.localtest.me"
 console = "console.localtest.me"
 app = "app.localtest.me"
 
+[website]
+# Placeholders shown in Settings -> Website -> Domain until the product domain exists.
+sites_target = "sites.aarogyam.example"
+address_template = "{slug}-site.aarogyam.example"
+
 [email]
 # No Resend key locally: email from the outbox is recorded as delivered and logged by id.
 # Links in messages point at the portal's dev server.

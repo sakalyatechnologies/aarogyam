@@ -53,6 +53,7 @@ import {
   type Fixtures,
 } from "./fixtures.js";
 import { createMetrics } from "./metrics.js";
+import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photosOf, siteOf, wirePhoto, wireSettings, type FakePhoto } from "./website.js";
 import { createRandom, fakeUuid } from "./random.js";
 import { MAX_MOVEMENT, addDays, byUrgency, daysBetween, isExpired, isStockUnit, levelOf, pickFefo, wireItem } from "./stock.js";
 import { atLocalTime, localClock } from "./zoned-time.js";
@@ -3834,6 +3835,140 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             slot_minutes: bookingSettings(clinic).slot_minutes,
             slots: freeSlots(state, clinic, practitionerId, date, clock()),
           } satisfies C.Availability);
+        }),
+
+      getWebsiteSettings: (opts) =>
+        respond(S.websiteSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(wireSettings(state, caller.clinic, siteOf(state, caller.clinic.id), bookingSettings(caller.clinic).enabled) satisfies C.WebsiteSettings);
+        }),
+
+      updateWebsite: (changes, opts) =>
+        respond(S.websiteSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const clinic = caller.clinic;
+          const site = siteOf(state, clinic.id);
+          const doctors = state.practitioners.filter((p) => p.clinic_id === clinic.id).map((p) => p.id);
+          const portraits = photosOf(state, clinic.id).filter((p) => p.kind === "doctor").map((p) => p.id);
+          const problem = checkChanges(changes, site, doctors, portraits);
+          if (problem !== null) {
+            return invalid(problem[0], problem[1]);
+          }
+          if (changes.layout != null) site.layout = changes.layout === "multi" ? "multi" : "one";
+          if (changes.template != null && changes.template !== site.template) {
+            site.template = changes.template;
+            site.palette = wireSettings(state, clinic, site, true).templates.find((t) => t.id === changes.template)?.palettes[0] ?? site.palette;
+          }
+          if (changes.palette != null) site.palette = changes.palette;
+          if (changes.fonts != null) site.fonts = changes.fonts;
+          if (changes.content != null) site.content = cleanContent(changes.content);
+          if (changes.custom_domain != null) {
+            const domain = parseDomain(changes.custom_domain);
+            if (domain === null) {
+              site.custom_domain = null;
+              site.domain_status = "none";
+              site.domain_token = null;
+            } else if (domain !== site.custom_domain) {
+              site.custom_domain = domain;
+              site.domain_status = "pending";
+              site.domain_token = `aarogyam-verify-${fakeUuid(random, clock()).replaceAll("-", "").slice(0, 24)}`;
+            }
+          }
+          if (changes.published != null) {
+            if (changes.published && !site.published) {
+              site.published_at = clock().toISOString();
+            }
+            site.published = changes.published;
+          }
+          return reply(wireSettings(state, clinic, site, bookingSettings(clinic).enabled) satisfies C.WebsiteSettings);
+        }),
+
+      uploadWebsitePhoto: (form, opts) =>
+        respond(S.sitePhoto, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const file = form.get("file");
+          if (!(file instanceof File)) {
+            return invalid("file", "choose a picture");
+          }
+          if (file.size > 5 * 1024 * 1024) {
+            return refuse(413, "payload_too_large", "That picture is larger than 5 MB.");
+          }
+          if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+            return invalid("file", "must be a JPEG, PNG or WebP picture");
+          }
+          const rawKind = form.get("kind");
+          const kind = typeof rawKind === "string" && rawKind !== "" ? rawKind : "gallery";
+          if (!isPhotoKind(kind)) {
+            return invalid("kind", "unknown picture kind");
+          }
+          const alt = form.get("alt");
+          state.websitePhotos ??= [];
+          if (kind === "logo" || kind === "hero" || kind === "about") {
+            state.websitePhotos = state.websitePhotos.filter((p) => !(p.clinic_id === caller.clinic.id && p.kind === kind));
+          }
+          const id = fakeUuid(random, clock());
+          const photo: FakePhoto = {
+            id,
+            clinic_id: caller.clinic.id,
+            kind,
+            alt: typeof alt === "string" && alt.trim() !== "" ? alt.trim() : null,
+            url: typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : `blob:fake/${id}`,
+          };
+          state.websitePhotos.push(photo);
+          return reply(wirePhoto(photo) satisfies C.SitePhoto);
+        }),
+
+      describeWebsitePhoto: (id, changes, opts) =>
+        respond(S.sitePhoto, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const photo = photosOf(state, caller.clinic.id).find((p) => p.id === id);
+          if (photo === undefined) {
+            return notFound;
+          }
+          photo.alt = changes.alt.trim() === "" ? null : changes.alt.trim();
+          return reply(wirePhoto(photo) satisfies C.SitePhoto);
+        }),
+
+      deleteWebsitePhoto: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!photosOf(state, caller.clinic.id).some((p) => p.id === id)) {
+            return notFound;
+          }
+          state.websitePhotos = (state.websitePhotos ?? []).filter((p) => p.id !== id);
+          const site = siteOf(state, caller.clinic.id);
+          for (const doctor of site.content.doctors) {
+            if (doctor.photo_id === id) doctor.photo_id = null;
+          }
+          return { ok: true, body: undefined };
+        }),
+
+      getPublicSite: (opts) =>
+        respond(S.sitePage, opts?.signal, () => {
+          const clinic = state.clinics.find((c) => c.host === options.host);
+          if (clinic === undefined || clinic.status === "suspended" || clinic.status === "churned") {
+            return notFound;
+          }
+          const site = siteOf(state, clinic.id);
+          if (!site.published) {
+            return notFound;
+          }
+          return reply(buildPage(state, clinic, site, bookingSettings(clinic).enabled) satisfies C.SitePage);
         }),
 
       createOnlineBooking: (input, opts) =>

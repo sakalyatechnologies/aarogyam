@@ -41,5 +41,6 @@ pub mod tokens;
 pub mod treatment;
 pub mod visits;
 pub mod vitals;
+pub mod website;
 
 pub use error::AppError;

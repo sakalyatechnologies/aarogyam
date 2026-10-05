@@ -1327,6 +1327,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public, no sign-in: the clinic's published website. Holds the clinic's name, doctors,
+         *     services, hours and contact details, and nothing about patients.
+         */
+        get: operations["public_site"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/site/photos/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public, no sign-in: one of the clinic's website pictures. */
+        get: operations["public_photo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/queue": {
         parameters: {
             query?: never;
@@ -1567,6 +1604,65 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/website": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The owner's website settings, pictures and a preview of the page. */
+        get: operations["get_settings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Changes the website: design, content, published state or domain. Doctors in `content` must
+         *     belong to the clinic; links must start with `https://`.
+         */
+        patch: operations["update_settings"];
+        trace?: never;
+    };
+    "/api/v1/settings/website/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Uploads a website picture (`multipart/form-data`, field `file` up to 5 MB). A logo, hero or
+         *     about picture replaces the one before it.
+         */
+        post: operations["upload_photo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/website/photos/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Removes a picture. Doctors who used it as a portrait lose it. */
+        delete: operations["delete_photo"];
+        options?: never;
+        head?: never;
+        /** Changes a picture's description. */
+        patch: operations["describe_photo"];
         trace?: never;
     };
     "/api/v1/shared/{token}": {
@@ -4269,6 +4365,23 @@ export interface components {
             /** @description Patients who owe. */
             patients: number;
         };
+        /** @description A picture's new description. */
+        PhotoChanges: {
+            /** @description What it shows; empty removes it. */
+            alt: string;
+        };
+        /** @description The form a picture upload sends (`multipart/form-data`). */
+        PhotoForm: {
+            /** @description What it shows, for people who cannot see it. */
+            alt?: string | null;
+            /**
+             * Format: binary
+             * @description The picture: JPEG, PNG or WebP, up to 5 MB. Its type is read from its content.
+             */
+            file: string;
+            /** @description `logo`, `hero`, `about`, `doctor` or `gallery` (default). */
+            kind?: string | null;
+        };
         /** @description A treatment plan with its estimate. */
         Plan: {
             /** @description When the patient accepted it (RFC 3339). */
@@ -4926,6 +5039,346 @@ export interface components {
             /** @description `usable`, `expired` or `locked`. */
             state: string;
         };
+        /** @description About the clinic. */
+        SiteAbout: {
+            /**
+             * @description A few paragraphs, separated by blank lines.
+             * @default
+             */
+            body: string;
+            /**
+             * @description Up to six short points.
+             * @default []
+             */
+            highlights: string[];
+            /**
+             * @description Section title.
+             * @default
+             */
+            title: string;
+        };
+        /** @description The clinic's address. */
+        SiteAddress: {
+            /** @description City or town. */
+            city?: string | null;
+            /** @description House, building and street. */
+            line1?: string | null;
+            /** @description Area or landmark. */
+            line2?: string | null;
+            /** @description PIN code. */
+            pincode?: string | null;
+            /** @description State. */
+            state?: string | null;
+        };
+        /** @description A doctor or service the owner may show or hide. */
+        SiteChoice: {
+            /** @description Specialty (doctors) or category (services). */
+            detail?: string | null;
+            /**
+             * Format: int64
+             * @description Fee in paise (services).
+             */
+            fee_paise?: number | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description Name. */
+            name: string;
+        };
+        /** @description Who the clinic is and how to reach it. */
+        SiteClinic: {
+            /** @description Address. */
+            address: components["schemas"]["SiteAddress"];
+            /** @description The clinic's brand colour, `#RRGGBB`, if set. */
+            brand?: string | null;
+            /** @description Public email address. */
+            email?: string | null;
+            /** @description A map link. */
+            map_url?: string | null;
+            /** @description Display name. */
+            name: string;
+            /** @description Phone, `E.164`. */
+            phone?: string | null;
+            /** @description `WhatsApp` number, `E.164`. */
+            whatsapp?: string | null;
+        };
+        /** @description Contact details beyond the branch's phone and address. */
+        SiteContact: {
+            /**
+             * @description Public email address.
+             * @default
+             */
+            email: string;
+            /**
+             * @description A note under the opening hours.
+             * @default
+             */
+            hours_note: string;
+            /**
+             * @description A `https://` link to the clinic on a map.
+             * @default
+             */
+            map_url: string;
+            /**
+             * @description `WhatsApp` number; +91 is assumed without a country code.
+             * @default
+             */
+            whatsapp: string;
+        };
+        /** @description Opening hours of one weekday. */
+        SiteDay: {
+            /** @description Open spans: `[start, end]` as `HH:MM`. */
+            spans: string[][];
+            /**
+             * Format: int32
+             * @description 1 Monday to 7 Sunday.
+             */
+            weekday: number;
+        };
+        /** @description The design the clinic chose. */
+        SiteDesign: {
+            /** @description One of the font pairings. */
+            fonts: string;
+            /** @description `one` or `multi`. */
+            layout: string;
+            /** @description One of the template's palettes. */
+            palette: string;
+            /** @description `aurora`, `hearth`, `clinical` or `bold`. */
+            template: string;
+        };
+        /** @description A doctor on the website. */
+        SiteDoctor: {
+            /** @description Introduction. */
+            bio?: string | null;
+            /** @description The doctor. */
+            id: string;
+            /** @description Name. */
+            name: string;
+            photo?: components["schemas"]["SitePhoto"] | null;
+            /** @description Degrees and training. */
+            qualifications?: string | null;
+            /** @description What they practise. */
+            specialty?: string | null;
+        };
+        /** @description What the owner adds to a doctor the clinic already has. */
+        SiteDoctorProfile: {
+            /**
+             * @description A short introduction.
+             * @default
+             */
+            bio: string;
+            /**
+             * @description Leave the doctor off the website.
+             * @default false
+             */
+            hidden: boolean;
+            /**
+             * @description A doctor portrait uploaded to the website.
+             * @default null
+             */
+            photo_id: string | null;
+            /**
+             * @description The doctor.
+             * @default
+             */
+            practitioner_id: string;
+            /**
+             * @description Degrees and training.
+             * @default
+             */
+            qualifications: string;
+        };
+        /** @description Where the clinic's own domain verification stands, with what to show the owner. */
+        SiteDomain: {
+            /** @description When it was last checked (RFC 3339). */
+            checked_at?: string | null;
+            /** @description The clinic's own domain, if any. */
+            custom_domain?: string | null;
+            /** @description The free address the site is served on without a domain of the clinic's own. */
+            default_address: string;
+            /** @description What a `www` CNAME record points to. */
+            sites_target: string;
+            /** @description `none`, `pending`, `verified` or `failed`. */
+            status: string;
+            /** @description The value of the TXT record that proves ownership. */
+            verification_token?: string | null;
+        };
+        /** @description The top of the home page. */
+        SiteHero: {
+            /**
+             * @description The booking button's label.
+             * @default
+             */
+            cta_label: string;
+            /**
+             * @description The main line.
+             * @default
+             */
+            headline: string;
+            /**
+             * @description A line under it.
+             * @default
+             */
+            subheadline: string;
+        };
+        /** @description What a clinic website shows, and only that: no patient data, no registration numbers. */
+        SitePage: {
+            /** @description About the clinic. */
+            about: components["schemas"]["SiteAbout"];
+            /** @description Whether patients may book online. */
+            booking_enabled: boolean;
+            /** @description The clinic. */
+            clinic: components["schemas"]["SiteClinic"];
+            /** @description The design. */
+            design: components["schemas"]["SiteDesign"];
+            /** @description Doctors. */
+            doctors: components["schemas"]["SiteDoctor"][];
+            /** @description The top of the home page. */
+            hero: components["schemas"]["SiteHero"];
+            /** @description Opening hours; days without hours are left out. */
+            hours: components["schemas"]["SiteDay"][];
+            /** @description A note under the hours. */
+            hours_note?: string | null;
+            /** @description Pictures. */
+            photos: components["schemas"]["SitePhotos"];
+            /** @description Reviews the clinic chose to show. */
+            reviews: components["schemas"]["SiteReview"][];
+            /** @description Search engine text; empty parts are filled by the page. */
+            seo: components["schemas"]["SiteSeo"];
+            /** @description Services. */
+            services: components["schemas"]["SiteService"][];
+            /** @description A line above the services. */
+            services_intro?: string | null;
+            /** @description Profile links. */
+            social: components["schemas"]["SiteSocial"];
+        };
+        /** @description A website picture. */
+        SitePhoto: {
+            /** @description What it shows. */
+            alt?: string | null;
+            /** @description The picture. */
+            id: string;
+            /** @description `logo`, `hero`, `about`, `doctor` or `gallery`. */
+            kind: string;
+            /** @description Where to load it from, on the clinic's host. */
+            url: string;
+        };
+        /** @description Pictures by use. */
+        SitePhotos: {
+            about?: components["schemas"]["SitePhoto"] | null;
+            /** @description The gallery, in order. */
+            gallery: components["schemas"]["SitePhoto"][];
+            hero?: components["schemas"]["SitePhoto"] | null;
+            logo?: components["schemas"]["SitePhoto"] | null;
+        };
+        /** @description A review the clinic chose to show. */
+        SiteReview: {
+            /**
+             * @description Who wrote it.
+             * @default
+             */
+            name: string;
+            /**
+             * Format: int32
+             * @description 1 to 5.
+             * @default 0
+             */
+            rating: number;
+            /**
+             * @description What they said.
+             * @default
+             */
+            text: string;
+        };
+        /** @description What search engines show. */
+        SiteSeo: {
+            /**
+             * @description Description, up to 170 characters.
+             * @default
+             */
+            description: string;
+            /**
+             * @description Page title, up to 70 characters.
+             * @default
+             */
+            title: string;
+        };
+        /** @description A service on the website. */
+        SiteService: {
+            /** @description Category key, such as `restorative`. */
+            category?: string | null;
+            /** @description A sentence about it. */
+            description?: string | null;
+            /**
+             * Format: int64
+             * @description Fee in paise; absent when the clinic hides fees.
+             */
+            fee_paise?: number | null;
+            /** @description The price list entry. */
+            id: string;
+            /** @description Name. */
+            name: string;
+        };
+        /** @description A sentence about one service. */
+        SiteServiceNote: {
+            /**
+             * @description What the patient should know.
+             * @default
+             */
+            description: string;
+            /**
+             * @description The price list entry.
+             * @default
+             */
+            price_item_id: string;
+        };
+        /** @description Services and fees. */
+        SiteServices: {
+            /**
+             * @description Price list entries left off the website.
+             * @default []
+             */
+            hidden: string[];
+            /**
+             * @description A line above the list.
+             * @default
+             */
+            intro: string;
+            /**
+             * @description Sentences about services.
+             * @default []
+             */
+            notes: components["schemas"]["SiteServiceNote"][];
+            /**
+             * @description Whether fees are shown.
+             * @default true
+             */
+            show_fees: boolean;
+        };
+        /** @description Links to the clinic's profiles. */
+        SiteSocial: {
+            /**
+             * @description An `https://` link.
+             * @default
+             */
+            facebook: string;
+            /**
+             * @description An `https://` link.
+             * @default
+             */
+            instagram: string;
+            /**
+             * @description An `https://` link.
+             * @default
+             */
+            youtube: string;
+        };
+        /** @description A design the owner may choose. */
+        SiteTemplate: {
+            /** @description Identifier. */
+            id: string;
+            /** @description Its palettes; the first is the default. */
+            palettes: string[];
+        };
         /** @description The clinic's staff. */
         Staff: {
             /** @description Invitations neither accepted nor expired, newest first. */
@@ -5316,6 +5769,121 @@ export interface components {
             patient_id: string;
             /** @description The doctor, if known. */
             practitioner_id?: string | null;
+        };
+        /** @description Changes to the website; anything left out stays as it is. */
+        WebsiteChanges: {
+            content?: components["schemas"]["WebsiteContent"] | null;
+            /** @description The clinic's own domain; an empty string removes it. A new domain starts as `pending`. */
+            custom_domain?: string | null;
+            /** @description One of the font pairings. */
+            fonts?: string | null;
+            /** @description `one` or `multi`. */
+            layout?: string | null;
+            /** @description One of the design's palettes. */
+            palette?: string | null;
+            /** @description Publish or take the site down. */
+            published?: boolean | null;
+            /** @description The design. A new design starts with its first palette unless `palette` is given. */
+            template?: string | null;
+        };
+        /** @description Everything the owner writes. Every part is optional. */
+        WebsiteContent: {
+            /**
+             * @description About the clinic.
+             * @default {
+             *       "body": "",
+             *       "highlights": [],
+             *       "title": ""
+             *     }
+             */
+            about: components["schemas"]["SiteAbout"];
+            /**
+             * @description Contact details.
+             * @default {
+             *       "email": "",
+             *       "hours_note": "",
+             *       "map_url": "",
+             *       "whatsapp": ""
+             *     }
+             */
+            contact: components["schemas"]["SiteContact"];
+            /**
+             * @description Doctor introductions.
+             * @default []
+             */
+            doctors: components["schemas"]["SiteDoctorProfile"][];
+            /**
+             * @description The top of the home page.
+             * @default {
+             *       "cta_label": "",
+             *       "headline": "",
+             *       "subheadline": ""
+             *     }
+             */
+            hero: components["schemas"]["SiteHero"];
+            /**
+             * @description Reviews, up to 12.
+             * @default []
+             */
+            reviews: components["schemas"]["SiteReview"][];
+            /**
+             * @description Search engine text.
+             * @default {
+             *       "description": "",
+             *       "title": ""
+             *     }
+             */
+            seo: components["schemas"]["SiteSeo"];
+            /**
+             * @description Services and fees.
+             * @default {
+             *       "hidden": [],
+             *       "intro": "",
+             *       "notes": [],
+             *       "show_fees": true
+             *     }
+             */
+            services: components["schemas"]["SiteServices"];
+            /**
+             * @description Social links.
+             * @default {
+             *       "facebook": "",
+             *       "instagram": "",
+             *       "youtube": ""
+             *     }
+             */
+            social: components["schemas"]["SiteSocial"];
+        };
+        /** @description The owner's website settings and everything the editor needs. */
+        WebsiteSettings: {
+            /** @description The owner's text and choices. */
+            content: components["schemas"]["WebsiteContent"];
+            /** @description Doctors the owner may show or hide. */
+            doctors: components["schemas"]["SiteChoice"][];
+            /** @description The custom domain step. */
+            domain: components["schemas"]["SiteDomain"];
+            /** @description The font pairing. */
+            fonts: string;
+            /** @description The font pairings. */
+            fonts_available: string[];
+            /** @description `one` or `multi`. */
+            layout: string;
+            /** @description The palette. */
+            palette: string;
+            /** @description Every picture, including doctor portraits. */
+            photos: components["schemas"]["SitePhoto"][];
+            /** @description The site as it shows now, published or not. */
+            preview: components["schemas"]["SitePage"];
+            /** @description Whether the site is live. */
+            published: boolean;
+            /** @description When it last went live (RFC 3339). */
+            published_at?: string | null;
+            /** @description Services the owner may show or hide. */
+            services: components["schemas"]["SiteChoice"][];
+            /** @description The design. */
+            template: string;
+            /** @description The designs and their palettes. */
+            templates: components["schemas"]["SiteTemplate"][];
         };
         /** @description What is done and where. */
         WorkFields: {
@@ -10022,6 +10590,74 @@ export interface operations {
             };
         };
     };
+    public_site: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitePage"];
+                };
+            };
+            /** @description Not a clinic, or its website is not published */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests from this address */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    public_photo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The picture */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The picture, with its media type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a picture of this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests from this address */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_queue: {
         parameters: {
             query?: {
@@ -10836,6 +11472,244 @@ export interface operations {
             };
             /** @description The role lacks settings.manage */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebsiteSettings"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebsiteChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebsiteSettings"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    upload_photo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["PhotoForm"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitePhoto"];
+                };
+            };
+            /** @description Not a JPEG, PNG or WebP picture, a bad field, or too many pictures */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 5 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_photo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The picture */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such picture in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    describe_photo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The picture */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhotoChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitePhoto"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such picture in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

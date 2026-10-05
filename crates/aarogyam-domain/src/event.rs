@@ -78,6 +78,12 @@ pub enum Event {
     StockUsed,
     /// Stock was corrected or written off.
     StockAdjusted,
+    /// The website's design or content was changed.
+    WebsiteChanged,
+    /// The website was published or taken down.
+    WebsitePublished,
+    /// A website picture was uploaded or removed.
+    WebsitePhotoChanged,
 }
 
 impl Event {
@@ -122,6 +128,9 @@ impl Event {
             Self::StockReceived => "stock.received",
             Self::StockUsed => "stock.used",
             Self::StockAdjusted => "stock.adjusted",
+            Self::WebsiteChanged => "website.changed",
+            Self::WebsitePublished => "website.published",
+            Self::WebsitePhotoChanged => "website.photo_changed",
         }
     }
 }

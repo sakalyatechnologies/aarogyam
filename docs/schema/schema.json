@@ -7308,6 +7308,164 @@
    "offline": "server_only"
   },
   {
+   "name": "clinic_websites",
+   "domain": "web",
+   "purpose": "A clinic's public website settings: layout, template, palette, fonts, owner-written content, published flag, custom domain.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
+   "notes": "Primary key (org_id): one row per clinic. Public content only.",
+   "cols": [
+    {
+     "name": "layout",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "one, multi"
+    },
+    {
+     "name": "template",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "aurora, hearth, clinical, bold"
+    },
+    {
+     "name": "palette",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "per template"
+    },
+    {
+     "name": "fonts",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "font pairing"
+    },
+    {
+     "name": "content",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "section text, doctor profiles, hidden services, reviews"
+    },
+    {
+     "name": "published",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "published_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "custom_domain",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "claimed globally only once verified, in org_domains"
+    },
+    {
+     "name": "domain_status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "none, pending, verified, failed"
+    },
+    {
+     "name": "domain_token",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "TXT record value"
+    },
+    {
+     "name": "domain_checked_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "public",
+   "offline": "server_only"
+  },
+  {
+   "name": "website_photos",
+   "domain": "web",
+   "purpose": "Pictures on the website: logo, hero, about, doctors, gallery. Bytes are in file storage.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "",
+   "cols": [
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "logo, hero, about, doctor, gallery"
+    },
+    {
+     "name": "storage_key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "<org_id>/<id>"
+    },
+    {
+     "name": "mime_type",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "image/jpeg, image/png, image/webp"
+    },
+    {
+     "name": "size_bytes",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "sha256",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "alt",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "sort_order",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "public",
+   "offline": "server_only"
+  },
+  {
    "name": "site_versions",
    "domain": "web",
    "purpose": "Each publish of a site, so any version can be restored.",

@@ -339,14 +339,15 @@ impl Files {
         Self { storage, signer }
     }
 
+    /// Where the bytes are kept; website pictures use it too, under their own keys.
+    pub(crate) fn storage(&self) -> &Arc<dyn Storage> {
+        &self.storage
+    }
+
     /// The link signer.
     #[must_use]
     pub const fn signer(&self) -> &LinkSigner {
         &self.signer
-    }
-
-    pub(crate) fn storage(&self) -> &dyn Storage {
-        &*self.storage
     }
 }
 

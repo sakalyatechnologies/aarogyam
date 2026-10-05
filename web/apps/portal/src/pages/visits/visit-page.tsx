@@ -1,11 +1,12 @@
-import { Check, Lock, MessageSquarePlus, Plus } from "lucide-react";
-import { useState } from "react";
-import { useParams } from "react-router";
+import { Check, Lock, MessageSquarePlus, Mic, Plus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useParams, useSearchParams } from "react-router";
 
 import {
   apiErrorOf,
   patientId as parsePatientId,
   visitId as parseVisitId,
+  type Attachment,
   type Note,
   type NoteId,
   type Observation,
@@ -31,7 +32,12 @@ import {
 } from "../../queries.js";
 import { NotFoundPage } from "../not-found-page.js";
 import { TreatmentPlansCard } from "../treatment-plans/treatment-plans-card.js";
-import { useAddAddendum } from "./queries.js";
+import { DraftNoteEditor, type DraftHandle } from "./draft-note-editor.js";
+import { useAddAddendum, useUploadRecording } from "./queries.js";
+import { RecordingPlayer } from "./voice/recording-player.js";
+import type { FinishedRecording } from "./voice/use-voice-recorder.js";
+import { VoiceRecorder } from "./voice/voice-recorder.js";
+import { insertAt } from "./voice/dictation.js";
 
 const OBSERVATION_KINDS: readonly { value: ObservationKind; label: string; unit: string }[] = [
   { value: "bp_systolic", label: "BP systolic", unit: "mmHg" },
@@ -121,7 +127,14 @@ function VisitView({ patientId, detail }: { patientId: PatientId; detail: NonNul
         </p>
       )}
       <div className="flex flex-col gap-4">
-        <NotesCard visitId={visit.id} notes={detail.notes} canWrite={canWrite && isOpen} canAddend={canWrite} />
+        <NotesCard
+          patientId={patientId}
+          visitId={visit.id}
+          notes={detail.notes}
+          recordings={detail.attachments.filter((file) => file.kind === "audio")}
+          canWrite={canWrite && isOpen}
+          canAddend={canWrite}
+        />
         <VitalsCard visitId={visit.id} observations={detail.observations} canWrite={canWrite && isOpen} />
         <ProceduresCard visitId={visit.id} patientId={patientId} procedures={detail.procedures} canWrite={canWrite && isOpen} />
         {can("clinical.read") ? <TreatmentPlansCard patientId={patientId} visitId={visit.id} canWrite={canWrite} /> : null}
@@ -142,10 +155,47 @@ function VisitView({ patientId, detail }: { patientId: PatientId; detail: NonNul
   );
 }
 
-function NotesCard({ visitId, notes, canWrite, canAddend }: { visitId: VisitId; notes: readonly Note[]; canWrite: boolean; canAddend: boolean }) {
+function NotesCard({
+  patientId,
+  visitId,
+  notes,
+  recordings,
+  canWrite,
+  canAddend,
+}: {
+  patientId: PatientId;
+  visitId: VisitId;
+  notes: readonly Note[];
+  recordings: readonly Attachment[];
+  canWrite: boolean;
+  canAddend: boolean;
+}) {
   const createNote = useCreateNote(visitId);
   const [drafting, setDrafting] = useState(false);
   const toast = useToast();
+  const { session } = useClinic();
+  const location = useLocation();
+  const [params] = useSearchParams();
+  // The top bar's "Voice note" lands here with ?voice=1: record into the member's draft, starting one when
+  // there is none. Each visit to the address has its own key, so asking again reopens a closed recorder.
+  const voiceRequest = params.get("voice") === "1" ? location.key : undefined;
+  const myDraft = notes.find((n) => n.status === "draft" && n.author.id === session.membership.id);
+  const handled = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (voiceRequest === undefined || !canWrite || myDraft !== undefined || handled.current === voiceRequest) {
+      return;
+    }
+    handled.current = voiceRequest;
+    createNote.mutate(
+      { kind: "soap" },
+      {
+        onError: (thrown) => {
+          toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't start a note.", tone: "danger" });
+        },
+      },
+    );
+  }, [voiceRequest, canWrite, myDraft, createNote, toast]);
 
   return (
     <MkCard
@@ -182,7 +232,16 @@ function NotesCard({ visitId, notes, canWrite, canAddend }: { visitId: VisitId; 
       ) : (
         <div className="flex flex-col gap-4">
           {notes.map((note) => (
-            <NoteCard key={note.id} visitId={visitId} note={note} canAddend={canAddend} />
+            <NoteCard
+              key={note.id}
+              patientId={patientId}
+              visitId={visitId}
+              note={note}
+              recordings={recordings.filter((file) => file.note_id === note.id)}
+              canEdit={canWrite}
+              canAddend={canAddend}
+              openRecorder={myDraft?.id === note.id ? voiceRequest : undefined}
+            />
           ))}
         </div>
       )}
@@ -190,22 +249,51 @@ function NotesCard({ visitId, notes, canWrite, canAddend }: { visitId: VisitId; 
   );
 }
 
-function NoteCard({ visitId, note, canAddend }: { visitId: VisitId; note: Note; canAddend: boolean }) {
+function NoteCard({
+  patientId,
+  visitId,
+  note,
+  recordings,
+  canEdit,
+  canAddend,
+  openRecorder,
+}: {
+  patientId: PatientId;
+  visitId: VisitId;
+  note: Note;
+  recordings: readonly Attachment[];
+  canEdit: boolean;
+  canAddend: boolean;
+  /** Changes with each request to open the recorder, so asking again reopens it. */
+  openRecorder: string | undefined;
+}) {
   const sign = useSignNote(visitId);
+  const { session } = useClinic();
   const [addending, setAddending] = useState(false);
   const toast = useToast();
   const sections = note.sections;
   const isDraft = note.status === "draft";
+  const editing = isDraft && canEdit && note.author.id === session.membership.id;
+  const draft = useRef<DraftHandle>(null);
+  const noteRecordings = recordings.filter((file) => file.addendum_id == null);
 
   const onSign = (id: NoteId) => {
-    sign.mutate(id, {
-      onSuccess: () => {
-        toast.show({ title: "Note signed", tone: "success" });
+    // Typed or dictated text still on screen is saved first, so the signed note is what the doctor sees.
+    (draft.current?.save() ?? Promise.resolve()).then(
+      () => {
+        sign.mutate(id, {
+          onSuccess: () => {
+            toast.show({ title: "Note signed", tone: "success" });
+          },
+          onError: (thrown) => {
+            toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't sign that note.", tone: "danger" });
+          },
+        });
       },
-      onError: (thrown) => {
-        toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't sign that note.", tone: "danger" });
+      (thrown: unknown) => {
+        toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't save the draft before signing.", tone: "danger" });
       },
-    });
+    );
   };
 
   return (
@@ -214,12 +302,26 @@ function NoteCard({ visitId, note, canAddend }: { visitId: VisitId; note: Note; 
         <p className="text-sm font-bold text-text">{note.kind.toUpperCase()}</p>
         <Tag tone={statusTone(note.status === "signed" ? "success" : note.status === "draft" ? "neutral" : "danger")}>{note.status}</Tag>
       </div>
-      <dl className="grid gap-2 text-sm sm:grid-cols-2">
-        <NoteSection label="Subjective" value={sections.subjective} />
-        <NoteSection label="Objective" value={sections.objective} />
-        <NoteSection label="Assessment" value={sections.assessment} />
-        <NoteSection label="Plan" value={sections.plan} />
-      </dl>
+      {editing ? (
+        <DraftNoteEditor patientId={patientId} visitId={visitId} note={note} openRecorder={openRecorder} handle={draft} />
+      ) : (
+        <dl className="grid gap-2 text-sm sm:grid-cols-2">
+          <NoteSection label="Subjective" value={sections.subjective} />
+          <NoteSection label="Objective" value={sections.objective} />
+          <NoteSection label="Assessment" value={sections.assessment} />
+          <NoteSection label="Plan" value={sections.plan} />
+        </dl>
+      )}
+      {noteRecordings.length === 0 ? null : (
+        <div className="mt-3 border-t border-border pt-3">
+          <h4 className="text-xs font-semibold text-muted">Recordings</h4>
+          <ul aria-label="Recordings" className="mt-1 flex flex-col gap-2">
+            {noteRecordings.map((file) => (
+              <RecordingPlayer key={file.id} recording={file} />
+            ))}
+          </ul>
+        </div>
+      )}
       {note.addenda.length === 0 ? null : (
         <div className="mt-3 border-t border-border pt-3">
           <h4 className="text-xs font-semibold text-muted">Addenda</h4>
@@ -230,6 +332,13 @@ function NoteCard({ visitId, note, canAddend }: { visitId: VisitId; note: Note; 
                 <p className="text-xs text-muted">
                   {a.author.name} · {formatDateTime(a.created_at)}
                 </p>
+                <ul aria-label="Addendum recordings" className="mt-1 flex flex-col gap-2">
+                  {recordings
+                    .filter((file) => file.addendum_id === a.id)
+                    .map((file) => (
+                      <RecordingPlayer key={file.id} recording={file} />
+                    ))}
+                </ul>
               </li>
             ))}
           </ul>
@@ -250,6 +359,7 @@ function NoteCard({ visitId, note, canAddend }: { visitId: VisitId; note: Note; 
       ) : null}
       {addending ? (
         <AddendumDialog
+          patientId={patientId}
           visitId={visitId}
           noteId={note.id}
           onOpenChange={() => {
@@ -275,20 +385,73 @@ function NoteCard({ visitId, note, canAddend }: { visitId: VisitId; note: Note; 
   );
 }
 
-function AddendumDialog({ visitId, noteId, onOpenChange }: { visitId: VisitId; noteId: NoteId; onOpenChange: () => void }) {
+function AddendumDialog({
+  patientId,
+  visitId,
+  noteId,
+  onOpenChange,
+}: {
+  patientId: PatientId;
+  visitId: VisitId;
+  noteId: NoteId;
+  onOpenChange: () => void;
+}) {
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
+  const [recording, setRecording] = useState(false);
+  const [pending, setPending] = useState<FinishedRecording | undefined>(undefined);
   const add = useAddAddendum(visitId);
+  const upload = useUploadRecording(patientId, visitId);
   const toast = useToast();
+  const box = useRef<HTMLTextAreaElement | null>(null);
+  const latest = useRef("");
+  const cursor = useRef<{ start: number; end: number } | undefined>(undefined);
+
+  const change = (value: string) => {
+    latest.current = value;
+    setBody(value);
+  };
+  const remember = () => {
+    if (box.current !== null) {
+      cursor.current = { start: box.current.selectionStart, end: box.current.selectionEnd };
+    }
+  };
+  const insert = (text: string) => {
+    const at = cursor.current ?? { start: latest.current.length, end: latest.current.length };
+    const next = insertAt(latest.current, at.start, at.end, text);
+    cursor.current = { start: next.cursor, end: next.cursor };
+    change(next.value);
+  };
 
   const submit = () => {
     setError(undefined);
     add.mutate(
       { id: noteId, body: body.trim() },
       {
-        onSuccess: () => {
-          toast.show({ title: "Addendum added", tone: "success" });
-          onOpenChange();
+        onSuccess: (updated) => {
+          // A recording joins a signed note only through its addendum: the one just written is the newest.
+          const addendum = updated.addenda[updated.addenda.length - 1];
+          if (pending === undefined || addendum === undefined) {
+            toast.show({ title: "Addendum added", tone: "success" });
+            onOpenChange();
+            return;
+          }
+          upload.mutate(
+            { recording: pending, target: { noteId, visitId, addendumId: addendum.id } },
+            {
+              onSuccess: () => {
+                toast.show({ title: "Addendum and recording added", tone: "success" });
+                onOpenChange();
+              },
+              onError: (thrown) => {
+                toast.show({
+                  title: `Addendum added, but the recording wasn't saved: ${apiErrorOf(thrown)?.message ?? "please try again from the visit."}`,
+                  tone: "danger",
+                });
+                onOpenChange();
+              },
+            },
+          );
         },
         onError: (thrown) => {
           setError(apiErrorOf(thrown)?.message ?? "Couldn't add that addendum. Please try again.");
@@ -297,6 +460,7 @@ function AddendumDialog({ visitId, noteId, onOpenChange }: { visitId: VisitId; n
     );
   };
 
+  const busy = add.isPending || upload.isPending;
   return (
     <Dialog
       open
@@ -307,8 +471,8 @@ function AddendumDialog({ visitId, noteId, onOpenChange }: { visitId: VisitId; n
           <Button variant="secondary" onClick={onOpenChange}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={body.trim() === "" || add.isPending}>
-            {add.isPending ? "Saving…" : "Save"}
+          <Button onClick={submit} disabled={body.trim() === "" || busy}>
+            {busy ? "Saving…" : "Save"}
           </Button>
         </>
       }
@@ -316,12 +480,42 @@ function AddendumDialog({ visitId, noteId, onOpenChange }: { visitId: VisitId; n
       <div className="flex flex-col gap-4">
         <Field label="Addendum" required hint="A signed note never changes; this is added beneath it.">
           <TextArea
+            ref={box}
             value={body}
             onChange={(event) => {
-              setBody(event.target.value);
+              change(event.target.value);
+              remember();
             }}
+            onSelect={remember}
+            onBlur={remember}
           />
         </Field>
+        {pending === undefined ? null : <p className="text-sm text-muted">A {pending.seconds}-second recording will be saved with this addendum.</p>}
+        {recording ? (
+          <VoiceRecorder
+            onInsert={insert}
+            onKeep={(finished) => {
+              setPending(finished);
+              setRecording(false);
+              return Promise.resolve();
+            }}
+            onClose={() => {
+              setRecording(false);
+            }}
+          />
+        ) : (
+          <div>
+            <Button
+              variant="secondary"
+              icon={<Mic aria-hidden="true" className="size-4" />}
+              onClick={() => {
+                setRecording(true);
+              }}
+            >
+              Record voice
+            </Button>
+          </div>
+        )}
         {error === undefined ? null : (
           <p role="alert" className="text-sm font-medium text-danger-text">
             {error}

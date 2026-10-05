@@ -334,6 +334,10 @@ export interface FakeAttachment {
   tooth?: number | null;
   taken_at?: string | null;
   created_at: string;
+  note_id?: string | null;
+  addendum_id?: string | null;
+  duration_seconds?: number | null;
+  language?: string | null;
   /** Where the fake serves its bytes from: a blob URL, since there is no real server. */
   url: string;
 }

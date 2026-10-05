@@ -1607,6 +1607,36 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(wired satisfies C.Note);
         }),
 
+      editNote: (id, content, opts) =>
+        respond(S.note, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.notes.find((n) => n.id === id && n.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.author_membership_id !== caller.membership.id) {
+            return refuse(403, "forbidden", "Only the author may change this note.");
+          }
+          if (found.status !== "draft") {
+            return refuse(409, "conflict", "A signed note can't be changed; add an addendum.");
+          }
+          found.sections = {
+            subjective: content.sections?.subjective ?? null,
+            objective: content.sections?.objective ?? null,
+            assessment: content.sections?.assessment ?? null,
+            plan: content.sections?.plan ?? null,
+          };
+          found.updated_at = clock().toISOString();
+          const wired = wireNote(found, state);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply(wired satisfies C.Note);
+        }),
+
       signNote: (id, opts) =>
         respond(S.note, opts?.signal, async () => {
           const caller = await inClinic("clinical.write");
@@ -2025,13 +2055,40 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           const captionRaw = form.get("caption");
           const toothRaw = form.get("tooth");
           const visitRaw = form.get("visit_id");
+          const noteRaw = form.get("note_id");
+          const addendumRaw = form.get("addendum_id");
+          const durationRaw = form.get("duration_seconds");
+          const languageRaw = form.get("language");
+          const linkedNote =
+            typeof noteRaw === "string" && noteRaw !== "" ? state.notes.find((n) => n.id === noteRaw && n.clinic_id === caller.clinic.id) : undefined;
+          if (typeof noteRaw === "string" && noteRaw !== "") {
+            if (linkedNote === undefined) {
+              return notFound;
+            }
+            if (linkedNote.status === "draft" ? linkedNote.author_membership_id !== caller.membership.id : typeof addendumRaw !== "string" || addendumRaw === "") {
+              return invalid("note_id", "that note takes no recording from you");
+            }
+          }
+          if (kindParsed.data === "audio") {
+            const seconds = typeof durationRaw === "string" ? Number.parseInt(durationRaw, 10) : Number.NaN;
+            if (!(seconds >= 1 && seconds <= 600)) {
+              return invalid("duration_seconds", "must be 1 to 600");
+            }
+          }
+          if (linkedNote?.status === "draft") {
+            linkedNote.source = "voice";
+          }
           const toothParsed = typeof toothRaw === "string" && toothRaw !== "" ? Number.parseInt(toothRaw, 10) : undefined;
           const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : `blob:fake/${fakeUuid(random, clock())}`;
           const record: FakeAttachment = {
             id: fakeUuid(random, clock()),
             clinic_id: caller.clinic.id,
             patient_id: id,
-            visit_id: typeof visitRaw === "string" && visitRaw !== "" ? visitRaw : null,
+            visit_id: linkedNote?.visit_id ?? (typeof visitRaw === "string" && visitRaw !== "" ? visitRaw : null),
+            note_id: linkedNote?.id ?? null,
+            addendum_id: typeof addendumRaw === "string" && addendumRaw !== "" ? addendumRaw : null,
+            duration_seconds: typeof durationRaw === "string" && durationRaw !== "" ? Number.parseInt(durationRaw, 10) : null,
+            language: typeof languageRaw === "string" && languageRaw !== "" ? languageRaw : null,
             kind: kindParsed.data,
             mime_type: file.type || "application/octet-stream",
             size_bytes: file.size,
@@ -4423,6 +4480,10 @@ function wireAttachment(a: FakeAttachment): C.Attachment {
     taken_at: a.taken_at ?? null,
     visit_id: a.visit_id ?? null,
     created_at: a.created_at,
+    note_id: a.note_id ?? null,
+    addendum_id: a.addendum_id ?? null,
+    duration_seconds: a.duration_seconds ?? null,
+    language: a.language ?? null,
   };
 }
 

@@ -1027,6 +1027,31 @@ export type NewPlan = C.NewPlan;
 /** Body of `POST /api/v1/treatment-plans/{id}/accept`. */
 export type Acceptance = C.Acceptance;
 
+export const attachmentKind = z.enum(["photo", "xray", "report", "document", "audio", "consent"]) satisfies z.ZodType<C.AttachmentKind>;
+export type AttachmentKind = z.output<typeof attachmentKind>;
+
+export const attachment = z.object({
+  id: attachmentId,
+  kind: attachmentKind,
+  mime_type: z.string(),
+  size_bytes: count,
+  sha256: z.string(),
+  caption: optionalText,
+  tooth: count.nullable().exactOptional(),
+  taken_at: optionalTimestamp,
+  visit_id: visitId.nullable().exactOptional(),
+  created_at: timestamp,
+  /** A recording's note. */
+  note_id: noteId.nullable().exactOptional(),
+  /** The addendum a recording belongs to, when its note is signed. */
+  addendum_id: z.string().min(1).nullable().exactOptional(),
+  /** A recording's length in seconds. */
+  duration_seconds: count.nullable().exactOptional(),
+  /** `en-IN`, `hi-IN` or `mr-IN`. */
+  language: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.Attachment>;
+export type Attachment = z.output<typeof attachment>;
+
 export const visitDetail = z.object({
   visit,
   notes: z.array(note),
@@ -1046,20 +1071,7 @@ export const visitDetail = z.object({
       visit_id: visitId.nullable().exactOptional(),
     }),
   ),
-  attachments: z.array(
-    z.object({
-      id: z.string().min(1),
-      kind: z.string(),
-      mime_type: z.string(),
-      size_bytes: count,
-      sha256: z.string(),
-      caption: optionalText,
-      tooth: count.nullable().exactOptional(),
-      taken_at: optionalTimestamp,
-      visit_id: visitId.nullable().exactOptional(),
-      created_at: timestamp,
-    }),
-  ),
+  attachments: z.array(attachment),
 }) satisfies z.ZodType<C.VisitDetail>;
 export type VisitDetail = z.output<typeof visitDetail>;
 
@@ -1103,23 +1115,6 @@ export type DentalChart = z.output<typeof dentalChart>;
 export type NewChartEntries = C.NewChartEntries;
 
 // Patient files (M4) ------------------------------------------------------------------------------
-
-export const attachmentKind = z.enum(["photo", "xray", "report", "document", "audio", "consent"]) satisfies z.ZodType<C.AttachmentKind>;
-export type AttachmentKind = z.output<typeof attachmentKind>;
-
-export const attachment = z.object({
-  id: attachmentId,
-  kind: attachmentKind,
-  mime_type: z.string(),
-  size_bytes: count,
-  sha256: z.string(),
-  caption: optionalText,
-  tooth: count.nullable().exactOptional(),
-  taken_at: optionalTimestamp,
-  visit_id: visitId.nullable().exactOptional(),
-  created_at: timestamp,
-}) satisfies z.ZodType<C.Attachment>;
-export type Attachment = z.output<typeof attachment>;
 
 export const attachmentList = z.object({ items: z.array(attachment) }) satisfies z.ZodType<C.AttachmentList>;
 export type AttachmentPage = z.output<typeof attachmentList>;

@@ -62,6 +62,8 @@ pub struct Letterhead {
     pub accent: Option<String>,
     /// Which details the design prints.
     pub show: LetterheadShown,
+    /// The clinic name in another script, such as Hindi, for the bilingual design.
+    pub local_name: Option<String>,
     /// A line printed at the foot.
     pub footer: Option<String>,
     /// Clinic email printed on the letterhead.
@@ -94,6 +96,7 @@ impl From<DomainLetterhead> for Letterhead {
                 timings: s.timings,
                 gstin: s.gstin,
             },
+            local_name: letterhead.local_name,
             footer: letterhead.footer,
             email: letterhead.email,
             timings: letterhead.timings,
@@ -137,6 +140,8 @@ pub struct LetterheadChanges {
     pub accent: Option<String>,
     /// Which details the design prints.
     pub show: Option<LetterheadShownChanges>,
+    /// The clinic name in another script, up to 120 characters.
+    pub local_name: Option<String>,
     /// Footer line, up to 200 characters.
     pub footer: Option<String>,
     /// Clinic email, valid when given.
@@ -165,6 +170,7 @@ impl From<LetterheadChanges> for DomainChanges {
                 timings: s.timings,
                 gstin: s.gstin,
             }),
+            local_name: changes.local_name,
             footer: changes.footer,
             email: changes.email,
             timings: changes.timings,

@@ -95,7 +95,7 @@ async fn letterhead_settings_are_validated_and_merged() {
         &app,
         &owner,
         json!({ "letterhead": {
-            "template": "modern_band", "accent": "#0f766e", "footer": "Open Mon to Sat",
+            "template": "modern_band", "accent": "#0f766e", "footer": "Open Mon to Sat", "local_name": "आल्फा दंत चिकित्सालय",
             "email": "care@alpha.test", "show": { "gstin": true } } }),
     )
     .await;
@@ -103,6 +103,7 @@ async fn letterhead_settings_are_validated_and_merged() {
     let letterhead = &saved["letterhead"];
     assert_eq!(letterhead["template"], "modern_band");
     assert_eq!(letterhead["accent"], "#0F766E");
+    assert_eq!(letterhead["local_name"], "आल्फा दंत चिकित्सालय");
     assert_eq!(letterhead["show"]["gstin"], true);
     assert_eq!(letterhead["show"]["phone"], true, "unlisted flags stay");
     // Other branding survives, and so does the letterhead across a brand change.
@@ -116,6 +117,10 @@ async fn letterhead_settings_are_validated_and_merged() {
         (json!({ "template": "fancy" }), "letterhead.template"),
         (json!({ "accent": "teal" }), "letterhead.accent"),
         (json!({ "footer": "x".repeat(201) }), "letterhead.footer"),
+        (
+            json!({ "local_name": "x".repeat(121) }),
+            "letterhead.local_name",
+        ),
         (json!({ "email": "nobody" }), "letterhead.email"),
         (json!({ "timings": "x".repeat(201) }), "letterhead.timings"),
         (

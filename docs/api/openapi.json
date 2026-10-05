@@ -10179,6 +10179,13 @@
             "type": "boolean",
             "description": "Whether a logo is uploaded."
           },
+          "local_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic name in another script, such as Hindi, for the bilingual design."
+          },
           "mode": {
             "type": "string",
             "description": "`upload` (the clinic's own image) or `template` (a generated design)."
@@ -10234,6 +10241,13 @@
               "null"
             ],
             "description": "Footer line, up to 200 characters."
+          },
+          "local_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic name in another script, up to 120 characters."
           },
           "mode": {
             "type": [

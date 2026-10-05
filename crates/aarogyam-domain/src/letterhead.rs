@@ -25,6 +25,9 @@ pub enum LetterheadError {
     /// Not `#RRGGBB`.
     #[error("accent must be a colour like #0F766E")]
     Accent,
+    /// Clinic name in another language over 120 characters or with control characters.
+    #[error("local_name must be at most 120 characters")]
+    LocalName,
     /// Footer over 200 characters or with control characters.
     #[error("footer must be at most 200 characters")]
     Footer,
@@ -53,6 +56,7 @@ impl LetterheadError {
             Self::Mode | Self::MissingImage => "letterhead.mode",
             Self::Template => "letterhead.template",
             Self::Accent => "letterhead.accent",
+            Self::LocalName => "letterhead.local_name",
             Self::Footer => "letterhead.footer",
             Self::Email => "letterhead.email",
             Self::Timings => "letterhead.timings",
@@ -223,6 +227,8 @@ pub struct Letterhead {
     pub accent: Option<BrandColor>,
     /// Which details a design prints.
     pub shown: Shown,
+    /// The clinic's name in another script, such as Hindi, shown by the bilingual design.
+    pub local_name: Option<String>,
     /// One line printed at the foot, such as `Timings: Mon to Sat 9 to 6`.
     pub footer: Option<String>,
     /// Clinic email.
@@ -244,6 +250,7 @@ impl Default for Letterhead {
             template: TemplateId::Classic,
             accent: None,
             shown: Shown::default(),
+            local_name: None,
             footer: None,
             email: None,
             timings: None,
@@ -266,6 +273,8 @@ pub struct LetterheadChanges {
     pub accent: Option<String>,
     /// Details shown; each given flag replaces the stored one.
     pub shown: ShownChanges,
+    /// The clinic's name in another script.
+    pub local_name: Option<String>,
     /// Footer line.
     pub footer: Option<String>,
     /// Clinic email.
@@ -369,6 +378,9 @@ impl Letterhead {
                 *flag = given;
             }
         }
+        if let Some(name) = &changes.local_name {
+            self.local_name = one_line(name, 120, LetterheadError::LocalName)?;
+        }
         if let Some(footer) = &changes.footer {
             self.footer = one_line(footer, 200, LetterheadError::Footer)?;
         }
@@ -406,6 +418,9 @@ impl Letterhead {
             out.template = template;
         }
         out.accent = text("accent").and_then(|t| BrandColor::parse(t).ok());
+        out.local_name = text("local_name")
+            .filter(|t| !t.is_empty())
+            .map(str::to_owned);
         out.footer = text("footer").filter(|t| !t.is_empty()).map(str::to_owned);
         out.email = text("email").filter(|t| !t.is_empty()).map(str::to_owned);
         out.timings = text("timings").filter(|t| !t.is_empty()).map(str::to_owned);
@@ -459,6 +474,7 @@ impl Letterhead {
             }),
         );
         for (key, text) in [
+            ("local_name", &self.local_name),
             ("footer", &self.footer),
             ("email", &self.email),
             ("timings", &self.timings),
@@ -585,6 +601,13 @@ mod tests {
                     ..Default::default()
                 },
                 LetterheadError::Accent,
+            ),
+            (
+                LetterheadChanges {
+                    local_name: Some("x".repeat(121)),
+                    ..Default::default()
+                },
+                LetterheadError::LocalName,
             ),
             (
                 LetterheadChanges {

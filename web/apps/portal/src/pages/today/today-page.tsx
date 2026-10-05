@@ -9,6 +9,7 @@ import { EmptyState, Skeleton } from "@sakalya/ui";
 import { Bars, Donut, Empty, Kpi, MkAvatar, MkCard, Tag, type TagTone } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { usePatientPeek } from "../../layout/peek.js";
+import { FinishSetupCard } from "../setup/finish-card.js";
 import { scrollTopToCentre } from "../../lib/time-grid.js";
 import { patientPath } from "../../lib/patients.js";
 import { compactRupees } from "../../lib/money.js";
@@ -54,6 +55,15 @@ export function TodayPage() {
   const { session, can } = useClinic();
   useDocumentTitle("Today", session.clinic.name);
   const today = useToday();
+  return (
+    <>
+      <FinishSetupCard />
+      {todayContent(today, session.clinic.timezone, can("finance.view"))}
+    </>
+  );
+}
+
+function todayContent(today: ReturnType<typeof useToday>, timeZone: string, showMoney: boolean) {
   return today.isPending ? (
     <div className="mk-panel" role="status" aria-label="Loading today">
       <h1 className="mk-sr">Today</h1>
@@ -76,7 +86,7 @@ export function TodayPage() {
   ) : today.isError ? (
     <ApiErrorNotice title="Couldn't load today" error={today.error} onRetry={() => void today.refetch()} />
   ) : (
-    <TodayBody today={today.data} timeZone={session.clinic.timezone} showMoney={can("finance.view")} />
+    <TodayBody today={today.data} timeZone={timeZone} showMoney={showMoney} />
   );
 }
 

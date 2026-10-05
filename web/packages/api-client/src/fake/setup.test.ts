@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ApiClient, ApiResult } from "../index.js";
-import { createFakeBackend, createFixtures, fakeTokenFor } from "./index.js";
+import { createFakeBackend, createFixtures, fakeTokenFor, type Fixtures } from "./index.js";
 import { freshSetup } from "./setup.js";
 
 const NOW = new Date("2026-10-03T05:30:00Z");
@@ -10,11 +10,12 @@ const ASHA = "a1a1a1a1-0000-4000-8000-000000000001";
 const DEV = "a1a1a1a1-0000-4000-8000-000000000002";
 const FARAH = "a1a1a1a1-0000-4000-8000-000000000003";
 
-function world() {
+function world(prepare: (fixtures: Fixtures) => void = () => undefined) {
   const fixtures = createFixtures({ now: NOW });
   const clinic = fixtures.clinics.find((c) => c.host === SUNRISE);
   if (clinic === undefined) throw new Error("expected Sunrise");
   fixtures.setups = [freshSetup(`clinic:${clinic.id}`)];
+  prepare(fixtures);
   const backend = createFakeBackend(fixtures);
   const as = (who: string): ApiClient => backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: who }), now: () => NOW });
   return { as, fixtures };
@@ -67,9 +68,12 @@ describe("fake setup", () => {
   });
 
   it("makes a doctor record on first save for someone who can issue prescriptions", async () => {
-    const { as, fixtures } = world();
     // Asha is the owner; drop her record to start from a member with none.
-    fixtures.practitioners = fixtures.practitioners.filter((p) => !fixtures.memberships.some((m) => m.id === p.membership_id && m.user_id === ASHA));
+    const { as } = world((fixtures) => {
+      for (const mine of fixtures.practitioners.filter((p) => fixtures.memberships.some((m) => m.id === p.membership_id && m.user_id === ASHA))) {
+        fixtures.practitioners.splice(fixtures.practitioners.indexOf(mine), 1);
+      }
+    });
     const owner = as(ASHA);
     expect(errorOf(await owner.getMyPractitioner())?.status).toBe(404);
     const made = value(await owner.changeMyPractitioner({ qualifications: "BDS, MDS" }));

@@ -1,0 +1,122 @@
+/* Odontogram. Colours derive from the portal's --sk-* theme variables, so light and dark palettes both work. */
+.odo {
+  --odo-surface: var(--sk-surface, #fff);
+  --odo-text: var(--sk-text, #14231d);
+  --odo-muted: var(--sk-text-muted, #5d6b66);
+  --odo-line: color-mix(in srgb, var(--odo-text) 42%, var(--odo-surface));
+  --odo-root: color-mix(in srgb, var(--odo-text) 8%, var(--odo-surface));
+  --odo-border: var(--sk-border, #d8e0dc);
+  --odo-danger: var(--sk-danger, #b3261e);
+  --odo-warning: var(--sk-warning, #b26a00);
+  --odo-info: var(--sk-info, #2f5fb3);
+  --odo-primary: var(--sk-primary, #0f766e);
+  --odo-success: var(--sk-success, #1d7a46);
+  --odo-on-solid: #fff;
+  --odo-focus: var(--sk-primary, #0f766e);
+  color: var(--odo-text);
+  display: grid;
+  gap: 16px;
+}
+.odo-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* summary strip */
+.odo-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.odo-summary li { display: flex; align-items: baseline; gap: 6px; padding: 6px 12px; border: 1px solid var(--odo-border); border-radius: 999px; font-size: 12px; background: color-mix(in srgb, var(--odo-text) 3%, var(--odo-surface)); }
+.odo-summary b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.odo-summary span { color: var(--odo-muted); }
+
+/* toolbar */
+.odo-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.odo-seg { display: inline-flex; border: 1px solid var(--odo-border); border-radius: 10px; overflow: hidden; }
+.odo-seg button, .odo-zoom button { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border: 0; background: transparent; color: var(--odo-muted); cursor: pointer; transition: background-color .15s, color .15s; }
+.odo-seg button + button { border-left: 1px solid var(--odo-border); }
+.odo-seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--odo-primary) 16%, var(--odo-surface)); color: var(--odo-text); }
+.odo-seg button:hover, .odo-zoom button:hover:not(:disabled) { background: color-mix(in srgb, var(--odo-primary) 10%, var(--odo-surface)); }
+.odo-zoom { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--odo-border); border-radius: 10px; }
+.odo-zoom button:disabled { opacity: .4; cursor: default; }
+.odo-zoom output { min-width: 3.2em; text-align: center; font-size: 12px; color: var(--odo-muted); }
+.odo-arch-tabs { display: none; }
+
+/* stage */
+.odo-layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1100px) { .odo-layout { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; } }
+.odo-stage { overflow-x: auto; border: 1px solid var(--odo-border); border-radius: 14px; padding: 8px; background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--odo-primary) 6%, var(--odo-surface)), var(--odo-surface)); touch-action: pan-y pinch-zoom; }
+.odo-stage-inner { margin: 0 auto; }
+.odo-arch { display: block; width: 100%; height: auto; overflow: visible; animation: odo-fade .35s ease both; }
+.odo-arch + .odo-arch { margin-top: 4px; }
+.odo-midline { stroke: var(--odo-border); stroke-dasharray: 2 5; }
+.odo-side { font-size: 10px; fill: var(--odo-muted); letter-spacing: .08em; text-transform: uppercase; }
+
+/* teeth */
+.odo-tooth { cursor: pointer; outline: none; }
+.odo-body { transition: opacity .2s; }
+.odo-tooth .odo-root, .odo-tooth .odo-crown-outline { transition: stroke .2s, stroke-width .2s; }
+.odo-tooth { transform-box: fill-box; transform-origin: center; transition: transform .18s ease; }
+.odo-tooth:hover { transform: translateY(-1.5px); }
+.odo-zone { transition: filter .15s, stroke-width .15s; cursor: pointer; }
+.odo-zone:hover { filter: brightness(.93) saturate(1.2); stroke-width: 1.8; stroke: var(--odo-focus); }
+.odo-zone[data-selected="true"] { stroke: var(--odo-focus); stroke-width: 2.4; }
+.odo-zone[data-selected="true"] { filter: brightness(.96); }
+.odo-select-ring { stroke: var(--odo-focus); animation: odo-pulse 1.8s ease-in-out infinite; }
+.odo-planned-ring { animation: odo-march 1.4s linear infinite; }
+.odo-tooth:focus-visible .odo-crown-outline { stroke: var(--odo-focus); stroke-width: 3; }
+.odo-tooth:focus-visible .odo-number { fill: var(--odo-focus); font-weight: 800; }
+.odo-number { font-size: 11px; font-weight: 700; fill: var(--odo-muted); font-variant-numeric: tabular-nums; }
+.odo-tooth[data-selected="true"] .odo-number { fill: var(--odo-text); }
+.odo-zone-code { font-size: 7px; font-weight: 700; fill: var(--odo-text); opacity: .0; transition: opacity .15s; paint-order: stroke; stroke: var(--odo-surface); stroke-width: 2px; }
+.odo-tooth:hover .odo-zone-code, .odo-tooth:focus-visible .odo-zone-code, .odo-tooth[data-selected="true"] .odo-zone-code { opacity: .85; }
+.odo-status { animation: odo-pop .25s ease both; transform-box: fill-box; }
+
+/* legend */
+.odo-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
+.odo-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.odo-legend small { color: var(--odo-muted); }
+.odo-legend-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--odo-muted); margin: 0 0 6px; }
+.odo-swatch { flex: none; }
+
+/* side panel */
+.odo-panel { border: 1px solid var(--odo-border); border-radius: 14px; padding: 14px; display: grid; gap: 12px; background: var(--odo-surface); animation: odo-fade .25s ease both; }
+.odo-panel h3 { margin: 0; font-size: 16px; }
+.odo-panel p { margin: 0; }
+.odo-panel .odo-muted { color: var(--odo-muted); font-size: 13px; }
+.odo-surface-pick { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.odo-surface-pick button { font: inherit; font-size: 12px; font-weight: 700; padding: 6px 0; border: 1px solid var(--odo-border); border-radius: 8px; background: transparent; color: var(--odo-text); cursor: pointer; transition: background-color .15s, border-color .15s; }
+.odo-surface-pick button:hover { background: color-mix(in srgb, var(--odo-primary) 10%, var(--odo-surface)); }
+.odo-surface-pick button[aria-pressed="true"] { border-color: var(--odo-focus); background: color-mix(in srgb, var(--odo-primary) 18%, var(--odo-surface)); }
+.odo-history { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; max-height: 320px; overflow-y: auto; }
+.odo-history li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; font-size: 13px; }
+.odo-history .odo-superseded { opacity: .6; }
+.odo-history time { color: var(--odo-muted); font-size: 12px; }
+.odo-chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--odo-border); }
+.odo-chip[data-state="planned"] { border-style: dashed; border-color: var(--odo-warning); }
+.odo-chip[data-state="done"] { border-color: var(--odo-success); }
+.odo-hint { font-size: 12px; color: var(--odo-muted); margin: 0; }
+
+@keyframes odo-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes odo-pulse { 0%, 100% { stroke-opacity: 1; } 50% { stroke-opacity: .45; } }
+@keyframes odo-march { to { stroke-dashoffset: -14; } }
+@keyframes odo-pop { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .odo *, .odo *::before, .odo *::after { animation: none !important; transition: none !important; }
+  .odo-tooth:hover { transform: none; }
+}
+
+/* phone: one arch at a time */
+@media (max-width: 640px) {
+  .odo-arch-tabs { display: inline-flex; }
+  .odo-stage[data-active="upper"] .odo-arch[data-arch="lower"], .odo-stage[data-active="lower"] .odo-arch[data-arch="upper"] { display: none; }
+  .odo-stage-inner { min-width: 520px; }
+}
+
+/* print: both arches, no controls, no animation */
+@media print {
+  .odo { --odo-surface: #fff; --odo-text: #000; gap: 8px; }
+  .odo-toolbar, .odo-hint, .odo-arch-tabs, .odo-panel .odo-surface-pick, .odo-panel button { display: none !important; }
+  .odo-stage { overflow: visible; border: 0; background: none; }
+  .odo-stage .odo-arch { display: block !important; break-inside: avoid; }
+  .odo-stage-inner { min-width: 0 !important; width: 100% !important; }
+  .odo-planned-ring, .odo-select-ring { animation: none; }
+  .odo-layout { grid-template-columns: 1fr; }
+  .odo-history { max-height: none; }
+}

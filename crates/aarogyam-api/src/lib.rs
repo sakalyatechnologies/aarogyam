@@ -33,6 +33,7 @@ mod extract;
 mod failure;
 pub mod metrics;
 mod openapi;
+mod revalidate;
 mod state;
 mod v1;
 

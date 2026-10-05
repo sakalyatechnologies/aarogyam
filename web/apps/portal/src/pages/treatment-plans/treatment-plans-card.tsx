@@ -11,8 +11,8 @@ function planTone(status: string): "neutral" | "success" | "warning" | "danger" 
   return status === "completed" ? "success" : status === "declined" ? "danger" : status === "proposed" ? "neutral" : "warning";
 }
 
-/** A patient's treatment plans on the visit screen: propose, accept, and carry items out in this visit. */
-export function TreatmentPlansCard({ patientId, visitId, visitOpen, canWrite }: { patientId: PatientId; visitId: VisitId; visitOpen: boolean; canWrite: boolean }) {
+/** A patient's treatment plans on the visit screen: propose, accept and mark items done, with or without an open visit. */
+export function TreatmentPlansCard({ patientId, visitId, canWrite }: { patientId: PatientId; visitId: VisitId; canWrite: boolean }) {
   const plans = usePlans(patientId);
   const [creating, setCreating] = useState(false);
   return (
@@ -41,7 +41,7 @@ export function TreatmentPlansCard({ patientId, visitId, visitOpen, canWrite }: 
       ) : (
         <div className="flex flex-col gap-4">
           {plans.data.items.map((plan) => (
-            <PlanView key={plan.id} patientId={patientId} plan={plan} canCarryOut={canWrite && visitOpen} canWrite={canWrite} />
+            <PlanView key={plan.id} patientId={patientId} plan={plan} canWrite={canWrite} />
           ))}
         </div>
       )}
@@ -58,7 +58,7 @@ export function TreatmentPlansCard({ patientId, visitId, visitOpen, canWrite }: 
   );
 }
 
-function PlanView({ patientId, plan, canWrite, canCarryOut }: { patientId: PatientId; plan: Plan; canWrite: boolean; canCarryOut: boolean }) {
+function PlanView({ patientId, plan, canWrite }: { patientId: PatientId; plan: Plan; canWrite: boolean }) {
   const accept = useAcceptPlan(patientId);
   const finish = useSetPlanItemStatus(patientId);
   const toast = useToast();
@@ -102,7 +102,7 @@ function PlanView({ patientId, plan, canWrite, canCarryOut }: { patientId: Patie
               {item.status}
             </Pill>
             <span className="ms-auto tabular-nums text-text">{formatRupees(item.estimate_paise)}</span>
-            {canCarryOut && item.status === "accepted" ? (
+            {canWrite && item.status === "accepted" ? (
               <Button
                 variant="ghost"
                 icon={<Check aria-hidden="true" className="size-4" />}

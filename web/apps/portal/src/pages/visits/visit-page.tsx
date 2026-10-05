@@ -123,7 +123,7 @@ function VisitView({ patientId, detail }: { patientId: PatientId; detail: NonNul
         <NotesCard visitId={visit.id} notes={detail.notes} canWrite={canWrite && isOpen} canAddend={canWrite} />
         <VitalsCard visitId={visit.id} observations={detail.observations} canWrite={canWrite && isOpen} />
         <ProceduresCard visitId={visit.id} patientId={patientId} procedures={detail.procedures} canWrite={canWrite && isOpen} />
-        {can("clinical.read") ? <TreatmentPlansCard patientId={patientId} visitId={visit.id} visitOpen={isOpen} canWrite={canWrite} /> : null}
+        {can("clinical.read") ? <TreatmentPlansCard patientId={patientId} visitId={visit.id} canWrite={canWrite} /> : null}
         {detail.chart_entries.length === 0 ? null : (
           <Card title="Dental chart entries in this visit">
             <ul className="flex flex-col gap-1.5 text-sm">

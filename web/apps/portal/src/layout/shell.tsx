@@ -11,20 +11,27 @@ import {
   Search,
   Settings,
   Menu as MenuIcon,
+  PanelLeftClose,
+  PanelLeftOpen,
+  UserCog,
   UsersRound,
+  X,
   Wallet,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router";
+import { Link, Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
 
 import { useAuth } from "@aarogyam/auth";
 import { useToast } from "@sakalya/ui";
 
-import { MkAvatar, initials } from "../components/mk/index.js";
+import { initials } from "../components/mk/index.js";
 import { useClinic } from "../clinic.js";
-import { usePatients, useToday } from "../queries.js";
+import { useToday } from "../queries.js";
+import { ClinicMark } from "./clinic-mark.js";
+import { CommandPalette } from "./command-palette.js";
+import { useStoredFlag } from "./use-stored-flag.js";
 import { VoiceNoteButton } from "./voice-note-button.js";
-import { PeekProvider, usePatientPeek } from "./peek.js";
+import { PeekProvider } from "./peek.js";
 
 interface NavItem {
   id: string;
@@ -88,12 +95,13 @@ function NavGroup({
               <Link
                 to={item.href}
                 aria-current={item.id === activeId ? "page" : undefined}
+                title={item.label}
                 onClick={onNavigate}
               >
                 <span className="mk-ico" aria-hidden="true">
                   {item.icon}
                 </span>
-                {item.label}
+                <span className="mk-nav-t">{item.label}</span>
                 {item.badge === undefined || item.badge <= 0 ? null : (
                   <span className="mk-bdg">{item.badge}</span>
                 )}
@@ -155,112 +163,12 @@ function ClinicSwitch() {
   );
 }
 
-/** Top-bar search: finds a patient by name, number or phone (never put in a URL) and opens the quick look. */
-function TopSearch() {
-  const { can } = useClinic();
-  const peek = usePatientPeek();
-  const [text, setText] = useState("");
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listId = useId();
-  const ref = useDismiss(open, () => {
-    setOpen(false);
-  });
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setQuery(text.trim());
-    }, 250);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [text]);
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        inputRef.current?.focus();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-    };
-  }, []);
-  const search = usePatients(can("patients.read") ? query : "\u0000");
-  if (!can("patients.read")) {
-    return <div className="mk-cmdk" />;
-  }
-  const results =
-    query.length < 2 ? [] : (search.data?.items ?? []).slice(0, 6);
+/** The top bar's search: a compact button that opens the command palette (also ⌘K or Ctrl+K). */
+function SearchButton({ onOpen }: { onOpen: () => void }) {
   return (
-    <div className="mk-cmdk" ref={ref}>
-      <label>
-        <Search aria-hidden="true" />
-        <span className="mk-sr">Quick search</span>
-        <input
-          ref={inputRef}
-          type="search"
-          role="combobox"
-          aria-expanded={open && text.trim().length >= 2}
-          aria-controls={listId}
-          autoComplete="off"
-          placeholder="Search patients, bills, treatments…"
-          value={text}
-          onChange={(event) => {
-            setText(event.target.value);
-            setOpen(true);
-          }}
-          onFocus={() => {
-            setOpen(true);
-          }}
-        />
-        <kbd aria-hidden="true">⌘K</kbd>
-      </label>
-      {open && text.trim().length >= 2 ? (
-        <ul
-          className="mk-results"
-          id={listId}
-          role="listbox"
-          aria-label="Patients"
-        >
-          {search.isFetching || query !== text.trim() ? (
-            <li className="mk-none" role="presentation">
-              <span className="mk-none">Searching…</span>
-            </li>
-          ) : results.length === 0 ? (
-            <li role="presentation">
-              <span className="mk-none">No patients match.</span>
-            </li>
-          ) : (
-            results.map((patient) => (
-              <li key={patient.id} role="presentation">
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={false}
-                  onClick={() => {
-                    setOpen(false);
-                    setText("");
-                    peek({
-                      id: patient.id,
-                      name: patient.full_name,
-                      number: patient.number,
-                    });
-                  }}
-                >
-                  <MkAvatar name={patient.full_name} />
-                  <span>
-                    {patient.full_name}
-                    <small>{patient.number}</small>
-                  </span>
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      ) : null}
-    </div>
+    <button type="button" className="mk-iconbtn mk-searchbtn" aria-label="Search" aria-keyshortcuts="Control+K Meta+K" title="Search (⌘K)" onClick={onOpen}>
+      <Search aria-hidden="true" />
+    </button>
   );
 }
 
@@ -315,12 +223,15 @@ export function MockShell() {
 }
 
 function ShellFrame() {
-  const { can } = useClinic();
+  const { can, session } = useClinic();
   const location = useLocation();
   const navigate = useNavigate();
   const toast = useToast();
   const today = useToday();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [collapsed, setCollapsed] = useStoredFlag("aarogyam.portal.sidebar-collapsed");
+  const [searchParams] = useSearchParams();
   const sideRef = useRef<HTMLElement>(null);
   const mainId = useId();
   const mainRef = useRef<HTMLElement>(null);
@@ -390,6 +301,16 @@ function ShellFrame() {
     },
   ];
   const system: NavItem[] = [
+    ...(can("staff.manage")
+      ? [
+          {
+            id: "staff",
+            label: "Staff",
+            icon: <UserCog />,
+            href: "/settings?tab=staff",
+          },
+        ]
+      : []),
     {
       id: "settings",
       label: "Settings",
@@ -397,10 +318,26 @@ function ShellFrame() {
       href: "/settings",
     },
   ];
-  const activeId =
-    [...workspace, ...system].find((entry) =>
-      location.pathname.startsWith(entry.href),
-    )?.id ?? "";
+  const onStaffTab = location.pathname.startsWith("/settings") && searchParams.get("tab") === "staff";
+  const activeId = onStaffTab
+    ? "staff"
+    : ([...workspace, ...system].find((entry) =>
+        location.pathname.startsWith(entry.href.split("?")[0] ?? entry.href),
+      )?.id ?? "");
+  const palettePages = [...workspace, ...system].map((item) => ({ id: item.id, label: item.label, href: item.href, icon: item.icon }));
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen((value) => !value);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -418,7 +355,7 @@ function ShellFrame() {
   }, [menuOpen]);
 
   return (
-    <div className="mk-app">
+    <div className={`mk-app ${collapsed ? "mk-collapsed" : ""}`}>
       <a
         href={`#${mainId}`}
         className="mk-sr"
@@ -457,13 +394,33 @@ function ShellFrame() {
         aria-label="Sidebar"
       >
         <div className="mk-logo">
-          <div className="mk-logo-mark" aria-hidden="true">
-            आ
+          <ClinicMark name={session.clinic.name} />
+          <div className="mk-logo-t">
+            <b>{session.clinic.name}</b>
+            <small>Aarogyam Clinic OS</small>
           </div>
-          <div>
-            <b>Aarogyam</b>
-            <small>Clinic OS · v0.1</small>
-          </div>
+          <button
+            type="button"
+            className="mk-collapse"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-pressed={collapsed}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => {
+              setCollapsed(!collapsed);
+            }}
+          >
+            {collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
+          </button>
+          <button
+            type="button"
+            className="mk-closemenu"
+            aria-label="Close menu"
+            onClick={() => {
+              setMenuOpen(false);
+            }}
+          >
+            <X aria-hidden="true" />
+          </button>
         </div>
         <ClinicSwitch />
         <nav aria-label="Main" className="flex flex-col gap-1.5">
@@ -507,8 +464,12 @@ function ShellFrame() {
           >
             <MenuIcon aria-hidden="true" />
           </button>
-          <TopSearch />
           <div className="mk-top-actions">
+            <SearchButton
+              onOpen={() => {
+                setPaletteOpen(true);
+              }}
+            />
             <VoiceNoteButton />
             {can("appointments.write") ? (
               <button
@@ -538,6 +499,13 @@ function ShellFrame() {
             <Account />
           </div>
         </div>
+        <CommandPalette
+          open={paletteOpen}
+          pages={palettePages}
+          onClose={() => {
+            setPaletteOpen(false);
+          }}
+        />
         <main id={mainId} ref={mainRef} tabIndex={-1} className="outline-none">
           <Outlet />
         </main>

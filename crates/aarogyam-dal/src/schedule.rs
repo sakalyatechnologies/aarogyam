@@ -7,7 +7,7 @@ use time::{OffsetDateTime, Time};
 use uuid::Uuid;
 
 /// A chair, room or lab as stored.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct RoomRow {
     /// Identifier.
     pub id: Uuid,
@@ -168,7 +168,7 @@ pub async fn default_branch(conn: &mut PgConnection) -> Result<Option<Uuid>, DbE
 }
 
 /// A doctor as stored.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct PractitionerRow {
     /// Identifier.
     pub id: Uuid,
@@ -365,7 +365,7 @@ pub async fn future_bookings(
 }
 
 /// One shift as stored.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct ShiftRow {
     /// The doctor.
     pub practitioner_id: Uuid,
@@ -374,8 +374,10 @@ pub struct ShiftRow {
     /// 1 Monday to 7 Sunday.
     pub weekday: i16,
     /// Local start.
+    #[serde(with = "crate::json::time_of_day")]
     pub starts: Time,
     /// Local end.
+    #[serde(with = "crate::json::time_of_day")]
     pub ends: Time,
 }
 
@@ -439,15 +441,17 @@ pub async fn replace_shifts(
 }
 
 /// A leave block as stored.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct LeaveRow {
     /// Identifier.
     pub id: Uuid,
     /// The doctor.
     pub practitioner_id: Uuid,
     /// Start.
+    #[serde(with = "crate::json::timestamp")]
     pub starts_at: OffsetDateTime,
     /// End.
+    #[serde(with = "crate::json::timestamp")]
     pub ends_at: OffsetDateTime,
     /// Why.
     pub reason: Option<String>,

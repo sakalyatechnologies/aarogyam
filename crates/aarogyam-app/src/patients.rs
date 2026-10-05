@@ -10,7 +10,7 @@ use aarogyam_domain::patient::{
 };
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::search::PatientQuery;
-use sakalya_db::{Db, ScopedTx};
+use sakalya_db::Db;
 use sakalya_types::{CallingCode, PhoneE164};
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
@@ -330,33 +330,26 @@ fn view(row: patients::PatientRow, actor: &ClinicActor, today: Date) -> PatientV
     }
 }
 
-/// Adds the summaries (one query for all of `views`).
-async fn attach_summaries(
-    tx: &mut ScopedTx,
-    actor: &ClinicActor,
-    views: &mut [PatientView],
-    now: OffsetDateTime,
-    today: Date,
-) -> Result<(), AppError> {
-    let ids: Vec<Uuid> = views.iter().map(|view| view.id.uuid()).collect();
+/// The patient as the API shows it, with the summary read beside it. Money shows only with
+/// `billing.read`.
+fn listed(row: patients::ListedPatient, actor: &ClinicActor, today: Date) -> PatientView {
+    let (row, summary) = row.into_parts();
     let money = actor.permissions.allows(Permission::BillingRead);
-    let rows = patients::summaries(tx.conn(), &ids, now, today).await?;
-    for view in views {
-        if let Some(row) = rows.iter().find(|row| row.patient_id == view.id.uuid()) {
-            view.next_appointment = row.next_starts_at.zip(row.next_practitioner.clone()).map(
-                |(starts_at, practitioner)| NextAppointment {
-                    starts_at,
-                    practitioner,
-                },
-            );
-            view.recall_due = row.recall_due;
-            if money {
-                view.balance_paise = Some(row.balance_paise);
-                view.lifetime_paid_paise = Some(row.lifetime_paid_paise);
-            }
-        }
+    let mut view = view(row, actor, today);
+    view.next_appointment =
+        summary
+            .next_starts_at
+            .zip(summary.next_practitioner)
+            .map(|(starts_at, practitioner)| NextAppointment {
+                starts_at,
+                practitioner,
+            });
+    view.recall_due = summary.recall_due;
+    if money {
+        view.balance_paise = Some(summary.balance_paise);
+        view.lifetime_paid_paise = Some(summary.lifetime_paid_paise);
     }
-    Ok(())
+    view
 }
 
 /// Registers a patient: validates, issues the clinic's next number, saves.
@@ -468,58 +461,46 @@ pub async fn search(
         actor.require(Permission::BillingRead)?;
     }
     let limit = limit.clamp(1, MAX_RESULTS);
+    let today = clinic_today(&actor.timezone, now);
+    let at = patients::SummaryAt { now, today };
+    let created_since = filter
+        .new_this_month
+        .then(|| day_bounds(&actor.timezone, today.replace_day(1).unwrap_or(today)).0);
+    let list_filter = patients::ListFilter {
+        with_balance: filter.with_balance,
+        recalls_due: filter.recalls_due,
+        created_since,
+    };
     db.scoped(&scope(actor, request_id), async |tx| {
-        let profile = clinic::profile(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
-        let today = clinic_today(&profile.timezone, now);
-        let created_since = filter
-            .new_this_month
-            .then(|| day_bounds(&profile.timezone, today.replace_day(1).unwrap_or(today)).0);
-        let list_filter = patients::ListFilter {
-            with_balance: filter.with_balance,
-            recalls_due: filter.recalls_due,
-            created_since,
-        };
         let rows = match PatientQuery::classify(query, CallingCode::INDIA) {
-            None if filter.is_empty() => patients::recent(tx.conn(), limit).await?,
-            None => patients::recent_filtered(tx.conn(), &list_filter, today, limit).await?,
+            None if filter.is_empty() => patients::recent(tx.conn(), limit, at).await?,
+            None => patients::recent_filtered(tx.conn(), &list_filter, limit, at).await?,
             Some(PatientQuery::Number(number)) => {
-                patients::find_by_number(tx.conn(), number.as_str())
+                patients::find_by_number(tx.conn(), number.as_str(), at)
                     .await?
                     .into_iter()
                     .collect()
             }
             Some(PatientQuery::NumberDigits(digits)) => {
-                let number = format!("{}-{digits}", profile.number_prefix);
-                patients::find_by_number(tx.conn(), &number)
+                let number = format!("{}-{digits}", actor.number_prefix);
+                patients::find_by_number(tx.conn(), &number, at)
                     .await?
                     .into_iter()
                     .collect()
             }
             Some(PatientQuery::Phone(phone)) => {
-                patients::search_phone(tx.conn(), phone.as_e164(), limit).await?
+                patients::search_phone(tx.conn(), phone.as_e164(), limit, at).await?
             }
             Some(PatientQuery::NamePrefix(prefix)) => {
-                let mut rows = patients::search_name_prefix(tx.conn(), &prefix, limit).await?;
-                if rows.len() < 3 && prefix.chars().count() >= 3 {
-                    let fuzzy_limit = i32::try_from(limit).unwrap_or(20);
-                    let ids = patients::search_fuzzy(tx.conn(), &prefix, fuzzy_limit).await?;
-                    let more: Vec<Uuid> = ids
-                        .into_iter()
-                        .filter(|id| !rows.iter().any(|row| row.id == *id))
-                        .collect();
-                    rows.extend(patients::get_many(tx.conn(), &more).await?);
-                }
-                rows
+                let fuzzy = prefix.chars().count() >= 3;
+                patients::search_name(tx.conn(), &prefix, limit, fuzzy, at).await?
             }
         };
         let mut views: Vec<PatientView> = rows
             .into_iter()
             .filter(|row| created_since.is_none_or(|since| row.created_at >= since))
-            .map(|row| view(row, actor, today))
+            .map(|row| listed(row, actor, today))
             .collect();
-        attach_summaries(tx, actor, &mut views, now, today).await?;
         if !query.trim().is_empty() {
             views.retain(|view| {
                 (!filter.with_balance || view.balance_paise.is_some_and(|b| b > 0))
@@ -543,31 +524,26 @@ pub async fn open(
     now: OffsetDateTime,
 ) -> Result<PatientView, AppError> {
     actor.require(Permission::PatientsRead)?;
+    let today = clinic_today(&actor.timezone, now);
     db.scoped(&scope(actor, request_id), async |tx| {
-        let profile = clinic::profile(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
-        let row = patients::get(tx.conn(), patient_id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("patient"))?;
         let request_text = request_id.map(|id| id.to_string());
-        patients::record_access(
+        let row = patients::open(
             tx.conn(),
+            patient_id.uuid(),
             &patients::AccessEntry {
                 actor_user_id: actor.user_id.uuid(),
                 actor_kind: STAFF.as_str(),
-                patient_id: row.id,
+                patient_id: patient_id.uuid(),
                 resource: "chart",
                 action: "view",
                 purpose: actor.access_purpose(),
                 request_id: request_text.as_deref(),
             },
+            patients::SummaryAt { now, today },
         )
-        .await?;
-        let today = clinic_today(&profile.timezone, now);
-        let mut views = vec![view(row, actor, today)];
-        attach_summaries(tx, actor, &mut views, now, today).await?;
-        views.pop().ok_or(AppError::Internal("patient vanished"))
+        .await?
+        .ok_or(AppError::NotFound("patient"))?;
+        Ok(listed(row, actor, today))
     })
     .await
 }
@@ -591,12 +567,10 @@ pub async fn session(
     request_id: Option<Uuid>,
 ) -> Result<Session, AppError> {
     db.scoped(&scope(actor, request_id), async |tx| {
-        let clinic = clinic::profile(tx.conn())
+        let (clinic, display_name) = clinic::session(tx.conn(), actor.user_id.uuid())
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
-        let display_name = clinic::display_name(tx.conn(), actor.user_id.uuid())
-            .await?
-            .unwrap_or_default();
+        let display_name = display_name.unwrap_or_default();
         Ok(Session {
             clinic,
             display_name,

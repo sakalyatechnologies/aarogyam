@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,\n                  preferred_language, status, created_at, last_visit_at\n           from aarogyam.patients\n           where deleted_at is null\n           order by created_at desc\n           limit $1",
+  "query": "select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,\n                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,\n                  s.next_starts_at, s.next_practitioner, s.balance_paise as \"balance_paise!\",\n                  s.lifetime_paid_paise as \"lifetime_paid_paise!\", s.recall_due as \"recall_due!\"\n           from (select p.* from aarogyam.patients p\n                 where p.deleted_at is null\n                   and ($4::timestamptz is null or p.created_at >= $4)\n                   and (not $2 or exists (select 1 from aarogyam.recalls r\n                                          where r.patient_id = p.id and r.status in ('due', 'notified')\n                                            and r.due_on <= $3))\n                   and (not $1 or (select coalesce(sum(i.total_paise\n                                          - coalesce((select sum(a.amount_paise)\n                                                      from aarogyam.payment_allocations a\n                                                      join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id\n                                                      where a.invoice_id = i.id and a.org_id = i.org_id\n                                                        and m.status = 'received'), 0)), 0)\n                                   from aarogyam.invoices i\n                                   where i.patient_id = p.id and i.status = 'issued') > 0)\n                 order by p.created_at desc\n                 limit $5) p\n           cross join lateral app.patient_summary(p.id, $6, $3) s\n           order by p.created_at desc",
   "describe": {
     "columns": [
       {
@@ -134,11 +134,46 @@
             "name": "last_visit_at"
           }
         }
+      },
+      {
+        "ordinal": 12,
+        "name": "next_starts_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 13,
+        "name": "next_practitioner",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "balance_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 15,
+        "name": "lifetime_paid_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 16,
+        "name": "recall_due!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
-        "Int8"
+        "Bool",
+        "Bool",
+        "Date",
+        "Timestamptz",
+        "Int8",
+        "Timestamptz"
       ]
     },
     "nullable": [
@@ -153,8 +188,13 @@
       false,
       false,
       false,
-      true
+      true,
+      null,
+      null,
+      null,
+      null,
+      null
     ]
   },
-  "hash": "87c7783e8116d5bec8f3f114379d1e1199147b243882c065c1901d7aa15688ae"
+  "hash": "b86243fe25b9e04be0ab734e80162a5b1772740026c3c8258dc305c827130a73"
 }

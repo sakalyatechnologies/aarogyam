@@ -1278,7 +1278,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Read before the clinic is known, through app.resolve_host(); cached in memory for a short time.",
+   "notes": "Read before the clinic is known, through app.resolve_clinic_host(); cached in memory for a short time.",
    "cols": [
     {
      "name": "org_id",

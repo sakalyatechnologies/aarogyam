@@ -118,6 +118,8 @@ impl FromRequestParts<AppState> for ClinicRequest {
 pub struct ClinicHost {
     /// The clinic.
     pub clinic_id: aarogyam_domain::ids::ClinicId,
+    /// The clinic with its time zone and number prefix.
+    pub place: aarogyam_domain::access::ClinicPlace,
     /// The request ID, for the access record.
     pub request_id: Option<Uuid>,
 }
@@ -142,6 +144,7 @@ impl FromRequestParts<AppState> for ClinicHost {
         sakalya_telemetry::record_tenant(clinic.clinic_id.uuid());
         Ok(Self {
             clinic_id: clinic.clinic_id,
+            place: clinic.place(),
             request_id: request_id(parts),
         })
     }

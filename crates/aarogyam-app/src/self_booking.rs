@@ -6,7 +6,8 @@
 
 use aarogyam_dal::appointments::{self as dal, Booking};
 use aarogyam_dal::clinic::ClinicProfile;
-use aarogyam_dal::{clinic, patients, schedule, settings};
+use aarogyam_dal::{booking, clinic, patients, schedule, settings};
+use aarogyam_domain::access::ClinicPlace;
 use aarogyam_domain::booking::{
     Asked, BookingSettings, Commitments, MAX_OPEN_SELF_BOOKINGS, free_slots,
 };
@@ -104,32 +105,31 @@ pub struct BookingOptions {
 /// [`AppError::Db`] on database failures.
 pub async fn options(
     db: &Db,
-    clinic_id: ClinicId,
+    clinic: &ClinicPlace,
     request_id: Option<Uuid>,
     now: OffsetDateTime,
 ) -> Result<BookingOptions, AppError> {
-    db.scoped(&public_scope(clinic_id, request_id), async |tx| {
-        let profile = clinic::profile(tx.conn())
+    db.scoped(&public_scope(clinic.id, request_id), async |tx| {
+        let page = booking::page(tx.conn())
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
-        let settings = read_settings(&settings::booking(tx.conn()).await?);
-        let mut doctors = Vec::new();
-        if settings.enabled {
-            let shifts = schedule::shifts(tx.conn(), None, None).await?;
-            for row in schedule::practitioners(tx.conn()).await? {
-                if row.active && shifts.iter().any(|s| s.practitioner_id == row.id) {
-                    doctors.push(BookableDoctor {
-                        id: PractitionerId::from_uuid(row.id),
-                        name: row.display_name,
-                        specialty: row.specialty,
-                    });
-                }
-            }
-        }
+        let settings = read_settings(&page.booking);
+        let doctors = if settings.enabled {
+            page.doctors
+                .into_iter()
+                .map(|row| BookableDoctor {
+                    id: PractitionerId::from_uuid(row.id),
+                    name: row.display_name,
+                    specialty: row.specialty,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
         Ok(BookingOptions {
-            today: clinic_today(&profile.timezone, now),
-            clinic_name: profile.name,
-            timezone: profile.timezone,
+            today: clinic_today(&clinic.timezone, now),
+            clinic_name: page.clinic_name,
+            timezone: clinic.timezone.clone(),
             settings,
             doctors,
         })
@@ -149,14 +149,8 @@ async fn slots_on(
     let offset = clinic_offset(&profile.timezone);
     let shifts: Vec<Shift> = schedule::shifts(tx.conn(), Some(practitioner_id), None)
         .await?
-        .into_iter()
-        .filter_map(|row| {
-            Some(Shift {
-                weekday: u8::try_from(row.weekday).ok()?,
-                starts: row.starts,
-                ends: row.ends,
-            })
-        })
+        .iter()
+        .filter_map(shift_of)
         .collect();
     let (start, end) = day_bounds(&profile.timezone, day);
     // A day either side, so a buffer or an appointment across midnight is seen.
@@ -190,6 +184,15 @@ async fn bookable(
         .ok_or(AppError::invalid("practitioner_id", "no such doctor"))
 }
 
+/// A doctor's free slots on a local day.
+#[derive(Debug, Clone)]
+pub struct Availability {
+    /// The clinic's slot length.
+    pub slot_minutes: u16,
+    /// Slot starts, in the clinic's offset.
+    pub slots: Vec<OffsetDateTime>,
+}
+
 /// The free slots of a doctor on a local day, in the clinic's offset.
 ///
 /// # Errors
@@ -197,24 +200,63 @@ async fn bookable(
 /// doctor; [`AppError::Db`] on database failures.
 pub async fn availability(
     db: &Db,
-    clinic_id: ClinicId,
+    clinic: &ClinicPlace,
     request_id: Option<Uuid>,
     practitioner_id: PractitionerId,
     day: Date,
     now: OffsetDateTime,
-) -> Result<Vec<OffsetDateTime>, AppError> {
-    db.scoped(&public_scope(clinic_id, request_id), async |tx| {
-        let profile = clinic::profile(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
-        let settings = read_settings(&settings::booking(tx.conn()).await?);
-        if !settings.enabled {
-            return Err(AppError::NotFound("online booking"));
-        }
-        bookable(tx, practitioner_id).await?;
-        slots_on(tx, &profile, &settings, practitioner_id.uuid(), day, now).await
+) -> Result<Availability, AppError> {
+    let (start, end) = day_bounds(&clinic.timezone, day);
+    // A day either side, so a buffer or an appointment across midnight is seen.
+    let (from, to) = (start - Duration::DAY, end + Duration::DAY);
+    let found = db
+        .scoped(&public_scope(clinic.id, request_id), async |tx| {
+            Ok::<_, AppError>(
+                booking::doctor_day(tx.conn(), practitioner_id.uuid(), from, to).await?,
+            )
+        })
+        .await?;
+    let settings = read_settings(&found.booking);
+    if !settings.enabled {
+        return Err(AppError::NotFound("online booking"));
+    }
+    if found.doctor_active != Some(true) {
+        return Err(AppError::invalid("practitioner_id", "no such doctor"));
+    }
+    let shifts: Vec<Shift> = found.shifts.iter().filter_map(shift_of).collect();
+    let spans = |spans: Vec<booking::Span>| -> Vec<(OffsetDateTime, OffsetDateTime)> {
+        spans
+            .into_iter()
+            .map(|span| (span.starts_at, span.ends_at))
+            .collect()
+    };
+    let (busy, leave) = (spans(found.busy), spans(found.leave));
+    let slots = free_slots(
+        Asked {
+            day,
+            today: clinic_today(&clinic.timezone, now),
+            offset: clinic_offset(&clinic.timezone),
+            now,
+        },
+        Commitments {
+            shifts: &shifts,
+            busy: &busy,
+            leave: &leave,
+        },
+        &settings,
+    );
+    Ok(Availability {
+        slot_minutes: settings.slot_minutes,
+        slots,
     })
-    .await
+}
+
+fn shift_of(row: &schedule::ShiftRow) -> Option<Shift> {
+    Some(Shift {
+        weekday: u8::try_from(row.weekday).ok()?,
+        starts: row.starts,
+        ends: row.ends,
+    })
 }
 
 /// A booking asked for online, by a person whose email was verified.

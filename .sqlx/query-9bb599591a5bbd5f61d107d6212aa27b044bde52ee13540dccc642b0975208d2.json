@@ -1,0 +1,69 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             (select coalesce(json_agg(a order by a.starts_at, a.room_name, a.id), '[]'::json)\n              from (select a.id, a.branch_id, a.room_id, r.name as room_name, a.starts_at, a.ends_at,\n                           a.status, a.kind, a.reason, a.notes, a.source, a.cancel_reason,\n                           a.arrived_at, a.seated_at, a.completed_at,\n                           a.patient_id, p.number as patient_number, p.full_name as patient_name,\n                           p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,\n                           p.birth_date_estimated as patient_birth_date_estimated,\n                           a.practitioner_id, d.display_name as practitioner_name,\n                           d.calendar_color as practitioner_color, q.token_number\n                    from aarogyam.appointments a\n                    join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id\n                    join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id\n                    left join aarogyam.rooms r on r.org_id = a.org_id and r.id = a.room_id\n                    left join aarogyam.queue_tokens q on q.org_id = a.org_id and q.appointment_id = a.id\n                    where a.deleted_at is null and a.starts_at >= $1 and a.starts_at < $2) a\n             ) as \"appointments!: Json<Vec<AppointmentRow>>\",\n             (select coalesce(json_agg(q order by q.branch_id, q.token_number), '[]'::json)\n              from (select q.id, q.branch_id, q.day, q.token_number, q.status, q.issued_at,\n                           q.called_at, q.done_at, q.patient_id, p.number as patient_number,\n                           p.full_name as patient_name, p.sex as patient_sex,\n                           p.date_of_birth as patient_date_of_birth,\n                           p.birth_date_estimated as patient_birth_date_estimated,\n                           q.appointment_id, q.practitioner_id, d.display_name as practitioner_name\n                    from aarogyam.queue_tokens q\n                    join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id\n                    left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id\n                    where q.day = $3) q\n             ) as \"tokens!: Json<Vec<TokenRow>>\",\n             (select coalesce(json_agg(r order by r.sort_order, r.name), '[]'::json)\n              from (select id, branch_id, name, kind, active, sort_order\n                    from aarogyam.rooms where deleted_at is null) r\n             ) as \"rooms!: Json<Vec<RoomRow>>\",\n             (select coalesce(json_agg(h order by h.practitioner_id, h.weekday, h.starts), '[]'::json)\n              from (select practitioner_id, branch_id, weekday, starts, ends\n                    from aarogyam.working_hours where weekday = $4) h\n             ) as \"shifts!: Json<Vec<ShiftRow>>\",\n             (select coalesce(json_agg(l order by l.starts_at), '[]'::json)\n              from (select id, practitioner_id, starts_at, ends_at, reason\n                    from aarogyam.leave_blocks where starts_at < $2 and ends_at > $1) l\n             ) as \"leave!: Json<Vec<LeaveRow>>\",\n             (select coalesce(json_agg(d order by d.display_name), '[]'::json)\n              from (select id, membership_id, display_name, registration_number, qualifications,\n                           specialty, calendar_color, active\n                    from aarogyam.practitioners where deleted_at is null) d\n             ) as \"practitioners!: Json<Vec<PractitionerRow>>\",\n             (select coalesce(json_agg(s order by lower(s.name), s.id), '[]'::json)\n              from (select i.id, i.name, i.category, i.unit, i.reorder_level, i.active,\n                           coalesce(sum(b.quantity), 0)::bigint as on_hand,\n                           min(b.expiry) filter (where b.quantity > 0) as next_expiry\n                    from aarogyam.inventory_items i\n                    left join aarogyam.stock_batches b on b.org_id = i.org_id and b.item_id = i.id\n                    where i.deleted_at is null and $5\n                    group by i.org_id, i.id) s\n             ) as \"stock!: Json<Vec<StockRow>>\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "appointments!: Json<Vec<AppointmentRow>>",
+        "type_info": "Json",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "tokens!: Json<Vec<TokenRow>>",
+        "type_info": "Json",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "rooms!: Json<Vec<RoomRow>>",
+        "type_info": "Json",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "shifts!: Json<Vec<ShiftRow>>",
+        "type_info": "Json",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "leave!: Json<Vec<LeaveRow>>",
+        "type_info": "Json",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "practitioners!: Json<Vec<PractitionerRow>>",
+        "type_info": "Json",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "stock!: Json<Vec<StockRow>>",
+        "type_info": "Json",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz",
+        "Date",
+        "Int2",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "9bb599591a5bbd5f61d107d6212aa27b044bde52ee13540dccc642b0975208d2"
+}

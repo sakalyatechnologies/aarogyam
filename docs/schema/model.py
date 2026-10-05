@@ -158,7 +158,7 @@ TABLES = [
             "hostname text | unique, lower case: smilecatchers.aarogyam.example, smilecatchers.in",
             "kind domain_kind | portal, website", "is_primary bool",
             "cloudflare_hostname_id text?", "verified_at timestamptz? | only verified hosts resolve"],
-      notes="Read before the clinic is known, through app.resolve_host(); cached in memory for a short time."),
+      notes="Read before the clinic is known, through app.resolve_clinic_host(); cached in memory for a short time."),
     T(name="slug_history", domain="tenancy", rls="global",
       purpose="Old slugs, so renamed clinics, doctors and pages keep redirecting.",
       cols=["entity slug_entity | organization, practitioner, site_page", "entity_id uuid",

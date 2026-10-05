@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select o.name,\n                  coalesce((select s.booking from aarogyam.org_settings s where s.org_id = o.id),\n                           '{}'::jsonb) as \"booking!\",\n                  (select coalesce(json_agg(d order by d.display_name), '[]'::json)\n                   from (select p.id, p.display_name, p.specialty\n                         from aarogyam.practitioners p\n                         where p.deleted_at is null and p.active\n                           and exists (select 1 from aarogyam.working_hours h\n                                       where h.practitioner_id = p.id)) d\n                  ) as \"doctors!: Json<Vec<BookableDoctorRow>>\"\n           from aarogyam.organizations o\n           where o.id = app.tenant_id()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "booking!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "doctors!: Json<Vec<BookableDoctorRow>>",
+        "type_info": "Json",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "36a8dd74bd6f0b46a4a0a49af7680726cedf8bb16f92cf61e4e407a053efb7f0"
+}

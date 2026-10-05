@@ -129,12 +129,9 @@ pub async fn list(
         practitioner_id,
     } = query;
     let span = DateSpan::new(from, to).map_err(|error| AppError::invalid("to", error))?;
+    let today = clinic_today(&actor.timezone, now);
+    let (start, end) = days_bounds(&actor.timezone, span.from(), span.to());
     db.scoped(&scope(actor, request_id), async |tx| {
-        let profile = clinic::profile(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
-        let today = clinic_today(&profile.timezone, now);
-        let (start, end) = days_bounds(&profile.timezone, span.from(), span.to());
         let rows = dal::list(
             tx.conn(),
             start,

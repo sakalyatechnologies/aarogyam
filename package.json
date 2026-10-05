@@ -9,6 +9,7 @@
   "scripts": {
     "dev:portal": "pnpm --filter @aarogyam/portal dev",
     "dev:console": "pnpm --filter @aarogyam/console dev",
+    "dev:site": "pnpm --filter @aarogyam/site dev",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint web",
     "test": "vitest run",

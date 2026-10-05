@@ -15,6 +15,9 @@ import {
   attachment,
   availability,
   booked,
+  sitePage,
+  sitePhoto,
+  websiteSettings,
   bookingOptions,
   attachmentList,
   cancelled,
@@ -556,6 +559,17 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       }),
     createOnlineBooking: (input, opts) =>
       call({ method: "POST", path: "/api/v1/public/bookings", schema: booked, body: input, signal: opts?.signal }),
+
+    getWebsiteSettings: (opts) => call({ method: "GET", path: "/api/v1/settings/website", schema: websiteSettings, signal: opts?.signal }),
+    updateWebsite: (changes, opts) =>
+      call({ method: "PATCH", path: "/api/v1/settings/website", schema: websiteSettings, body: changes, signal: opts?.signal }),
+    uploadWebsitePhoto: (form, opts) =>
+      call({ method: "POST", path: "/api/v1/settings/website/photos", schema: sitePhoto, body: form, signal: opts?.signal }),
+    describeWebsitePhoto: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/settings/website/photos/${encodeURIComponent(id)}`, schema: sitePhoto, body: changes, signal: opts?.signal }),
+    deleteWebsitePhoto: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/settings/website/photos/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+    getPublicSite: (opts) => call({ method: "GET", path: "/api/v1/public/site", schema: sitePage, signal: opts?.signal }),
   };
 }
 

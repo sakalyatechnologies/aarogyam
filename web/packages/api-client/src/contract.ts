@@ -415,6 +415,34 @@ export type Availability = Schemas["Availability"];
 export type NewBooking = Schemas["NewBooking"];
 export type Booked = Schemas["Booked"];
 
+// Clinic website ----------------------------------------------------------------------------------
+
+export type SitePage = Schemas["SitePage"];
+export type SiteDesign = Schemas["SiteDesign"];
+export type SiteClinic = Schemas["SiteClinic"];
+export type SiteAddress = Schemas["SiteAddress"];
+export type SiteDay = Schemas["SiteDay"];
+export type SiteDoctor = Schemas["SiteDoctor"];
+export type SiteService = Schemas["SiteService"];
+export type SitePhoto = Schemas["SitePhoto"];
+export type SitePhotos = Schemas["SitePhotos"];
+export type SiteHero = Schemas["SiteHero"];
+export type SiteAbout = Schemas["SiteAbout"];
+export type SiteReview = Schemas["SiteReview"];
+export type SiteContact = Schemas["SiteContact"];
+export type SiteSocial = Schemas["SiteSocial"];
+export type SiteSeo = Schemas["SiteSeo"];
+export type SiteChoice = Schemas["SiteChoice"];
+export type SiteTemplate = Schemas["SiteTemplate"];
+export type SiteDomain = Schemas["SiteDomain"];
+export type SiteDoctorProfile = Schemas["SiteDoctorProfile"];
+export type SiteServiceNote = Schemas["SiteServiceNote"];
+export type SiteServices = Schemas["SiteServices"];
+export type WebsiteContent = Schemas["WebsiteContent"];
+export type WebsiteSettings = Schemas["WebsiteSettings"];
+export type WebsiteChanges = Schemas["WebsiteChanges"];
+export type PhotoChanges = Schemas["PhotoChanges"];
+
 // Quality dashboard -----------------------------------------------------------------------------
 
 /** `unit`, `db`, `web` or `e2e`. Kept open (not a literal union) since the recorder names its own

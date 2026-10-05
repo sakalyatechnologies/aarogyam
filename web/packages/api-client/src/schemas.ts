@@ -1743,3 +1743,190 @@ export const booked = z.object({
   clinic_name: z.string(),
 }) satisfies z.ZodType<C.Booked>;
 export type Booked = z.output<typeof booked>;
+
+// Clinic website ----------------------------------------------------------------------------------
+
+export const siteHero = z.object({ headline: z.string(), subheadline: z.string(), cta_label: z.string() }) satisfies z.ZodType<C.SiteHero>;
+export type SiteHero = z.output<typeof siteHero>;
+
+export const siteAbout = z.object({ title: z.string(), body: z.string(), highlights: z.array(z.string()) }) satisfies z.ZodType<C.SiteAbout>;
+export type SiteAbout = z.output<typeof siteAbout>;
+
+export const siteReview = z.object({ name: z.string(), rating: z.number().int(), text: z.string() }) satisfies z.ZodType<C.SiteReview>;
+export type SiteReview = z.output<typeof siteReview>;
+
+export const siteSocial = z.object({ instagram: z.string(), facebook: z.string(), youtube: z.string() }) satisfies z.ZodType<C.SiteSocial>;
+export type SiteSocial = z.output<typeof siteSocial>;
+
+export const siteSeo = z.object({ title: z.string(), description: z.string() }) satisfies z.ZodType<C.SiteSeo>;
+export type SiteSeo = z.output<typeof siteSeo>;
+
+export const siteContact = z.object({
+  whatsapp: z.string(),
+  email: z.string(),
+  map_url: z.string(),
+  hours_note: z.string(),
+}) satisfies z.ZodType<C.SiteContact>;
+export type SiteContact = z.output<typeof siteContact>;
+
+export const sitePhoto = z.object({
+  id: z.string().min(1),
+  kind: z.enum(["logo", "hero", "about", "doctor", "gallery"]),
+  url: z.string(),
+  alt: optionalText,
+}) satisfies z.ZodType<C.SitePhoto>;
+export type SitePhoto = z.output<typeof sitePhoto>;
+
+export const siteDoctorProfile = z.object({
+  practitioner_id: z.string().min(1),
+  qualifications: z.string(),
+  bio: z.string(),
+  photo_id: z.string().nullable(),
+  hidden: z.boolean(),
+}) satisfies z.ZodType<C.SiteDoctorProfile>;
+export type SiteDoctorProfile = z.output<typeof siteDoctorProfile>;
+
+export const siteServiceNote = z.object({ price_item_id: z.string().min(1), description: z.string() }) satisfies z.ZodType<C.SiteServiceNote>;
+export type SiteServiceNote = z.output<typeof siteServiceNote>;
+
+export const siteServices = z.object({
+  intro: z.string(),
+  show_fees: z.boolean(),
+  hidden: z.array(z.string()),
+  notes: z.array(siteServiceNote),
+}) satisfies z.ZodType<C.SiteServices>;
+export type SiteServices = z.output<typeof siteServices>;
+
+export const websiteContent = z.object({
+  hero: siteHero,
+  about: siteAbout,
+  doctors: z.array(siteDoctorProfile),
+  services: siteServices,
+  reviews: z.array(siteReview),
+  contact: siteContact,
+  social: siteSocial,
+  seo: siteSeo,
+}) satisfies z.ZodType<C.WebsiteContent>;
+export type WebsiteContent = z.output<typeof websiteContent>;
+
+export const siteDesign = z.object({
+  layout: z.enum(["one", "multi"]),
+  template: z.string(),
+  palette: z.string(),
+  fonts: z.string(),
+}) satisfies z.ZodType<C.SiteDesign>;
+export type SiteDesign = z.output<typeof siteDesign>;
+
+export const siteDay = z.object({ weekday: z.number().int(), spans: z.array(z.array(z.string())) }) satisfies z.ZodType<C.SiteDay>;
+export type SiteDay = z.output<typeof siteDay>;
+
+export const siteDoctor = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  specialty: optionalText,
+  qualifications: optionalText,
+  bio: optionalText,
+  photo: sitePhoto.nullable().exactOptional(),
+}) satisfies z.ZodType<C.SiteDoctor>;
+export type SiteDoctor = z.output<typeof siteDoctor>;
+
+export const siteService = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  category: optionalText,
+  fee_paise: z.number().int().nullable().exactOptional(),
+  description: optionalText,
+}) satisfies z.ZodType<C.SiteService>;
+export type SiteService = z.output<typeof siteService>;
+
+export const siteAddress = z.object({
+  line1: optionalText,
+  line2: optionalText,
+  city: optionalText,
+  state: optionalText,
+  pincode: optionalText,
+}) satisfies z.ZodType<C.SiteAddress>;
+export type SiteAddress = z.output<typeof siteAddress>;
+
+export const siteClinic = z.object({
+  name: z.string(),
+  brand: optionalText,
+  address: siteAddress,
+  phone: optionalText,
+  whatsapp: optionalText,
+  email: optionalText,
+  map_url: optionalText,
+}) satisfies z.ZodType<C.SiteClinic>;
+export type SiteClinic = z.output<typeof siteClinic>;
+
+export const sitePhotos = z.object({
+  logo: sitePhoto.nullable().exactOptional(),
+  hero: sitePhoto.nullable().exactOptional(),
+  about: sitePhoto.nullable().exactOptional(),
+  gallery: z.array(sitePhoto),
+}) satisfies z.ZodType<C.SitePhotos>;
+export type SitePhotos = z.output<typeof sitePhotos>;
+
+/** A clinic's website as the public sees it: the public page data and nothing else. */
+export const sitePage = z.object({
+  design: siteDesign,
+  clinic: siteClinic,
+  hours: z.array(siteDay),
+  hours_note: optionalText,
+  hero: siteHero,
+  about: siteAbout,
+  doctors: z.array(siteDoctor),
+  services_intro: optionalText,
+  services: z.array(siteService),
+  reviews: z.array(siteReview),
+  photos: sitePhotos,
+  social: siteSocial,
+  seo: siteSeo,
+  booking_enabled: z.boolean(),
+}) satisfies z.ZodType<C.SitePage>;
+export type SitePage = z.output<typeof sitePage>;
+
+export const siteChoice = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  detail: optionalText,
+  fee_paise: z.number().int().nullable().exactOptional(),
+}) satisfies z.ZodType<C.SiteChoice>;
+export type SiteChoice = z.output<typeof siteChoice>;
+
+export const siteTemplate = z.object({ id: z.string(), palettes: z.array(z.string()) }) satisfies z.ZodType<C.SiteTemplate>;
+export type SiteTemplate = z.output<typeof siteTemplate>;
+
+export const siteDomain = z.object({
+  custom_domain: optionalText,
+  status: z.enum(["none", "pending", "verified", "failed"]),
+  verification_token: optionalText,
+  checked_at: optionalTimestamp,
+  sites_target: z.string(),
+  default_address: z.string(),
+}) satisfies z.ZodType<C.SiteDomain>;
+export type SiteDomain = z.output<typeof siteDomain>;
+
+export const websiteSettings = z.object({
+  layout: z.enum(["one", "multi"]),
+  template: z.string(),
+  palette: z.string(),
+  fonts: z.string(),
+  content: websiteContent,
+  published: z.boolean(),
+  published_at: optionalTimestamp,
+  domain: siteDomain,
+  photos: z.array(sitePhoto),
+  preview: sitePage,
+  doctors: z.array(siteChoice),
+  services: z.array(siteChoice),
+  templates: z.array(siteTemplate),
+  fonts_available: z.array(z.string()),
+}) satisfies z.ZodType<C.WebsiteSettings>;
+export type WebsiteSettings = z.output<typeof websiteSettings>;
+
+/** Body of `PATCH /api/v1/settings/website`. Settings left out stay as they are. */
+export type WebsiteChanges = C.WebsiteChanges;
+
+/** Body of `PATCH /api/v1/settings/website/photos/{id}`. */
+export type PhotoChanges = C.PhotoChanges;

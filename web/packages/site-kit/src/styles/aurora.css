@@ -1,0 +1,42 @@
+/* Aurora: premium dark. Deep surfaces, a soft glow, thin lines and an arched portrait. */
+
+.cs-t-aurora .cs-header { background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(16px) saturate(1.2); border-bottom: 1px solid var(--line); }
+.cs-t-aurora .cs-brand { letter-spacing: .01em; }
+.cs-t-aurora .cs-mark { background: linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #000)); box-shadow: 0 0 24px -4px var(--accent); }
+.cs-t-aurora .cs-nav a { position: relative; }
+.cs-t-aurora .cs-nav a::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: 6px; height: 1px; background: var(--accent-text); transform: scaleX(0); transform-origin: left; transition: transform .25s ease; }
+.cs-t-aurora .cs-nav a:hover::after, .cs-t-aurora .cs-nav a[aria-current="page"]::after { transform: scaleX(1); }
+.cs-t-aurora .cs-btn-primary { box-shadow: 0 10px 30px -10px var(--accent); }
+.cs-t-aurora .cs-btn-primary:hover { box-shadow: 0 14px 36px -8px var(--accent); }
+
+.cs-t-aurora .cs-hero { padding-block: clamp(48px, 9cqw, 104px) clamp(24px, 4cqw, 48px); overflow: clip; }
+.cs-t-aurora .cs-glow { position: absolute; top: -18%; right: -12%; width: 72%; aspect-ratio: 1; pointer-events: none; background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 26%, transparent), transparent 72%); animation: cs-drift 16s ease-in-out infinite alternate; }
+@keyframes cs-drift { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(-4%, 6%, 0) scale(1.08); } }
+.cs-t-aurora .cs-h1 { font-weight: 600; letter-spacing: -.025em; font-size: clamp(2.4rem, 6.6cqw, 4.4rem); }
+.cs-t-aurora .cs-eyebrow::before { content: ""; display: inline-block; width: 28px; height: 1px; margin-right: 12px; vertical-align: middle; background: currentColor; }
+.cs-t-aurora .cs-hero-photo { aspect-ratio: 4 / 5; max-width: 420px; justify-self: end; width: 100%; border-radius: 999px 999px 28px 28px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: 0 40px 90px -40px #000, 0 0 0 8px color-mix(in srgb, var(--accent) 8%, transparent); }
+.cs-t-aurora .cs-art { background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent) 22%, var(--surface-2)), var(--surface)); }
+.cs-t-aurora .cs-facts { padding: 22px 28px; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; }
+.cs-t-aurora .cs-facts strong { color: var(--accent-text); font-weight: 600; }
+
+.cs-t-aurora .cs-section { position: relative; }
+.cs-t-aurora .cs-services { background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--surface) 60%, transparent) 40%, transparent); }
+.cs-t-aurora .cs-service { flex-direction: column; background: linear-gradient(160deg, var(--surface), color-mix(in srgb, var(--surface) 55%, var(--bg))); border-radius: 18px; position: relative; overflow: hidden; }
+.cs-t-aurora .cs-service::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: linear-gradient(90deg, var(--accent), transparent); transform: scaleX(0); transform-origin: left; transition: transform .35s ease; }
+.cs-t-aurora .cs-service:hover::before { transform: scaleX(1); }
+.cs-t-aurora .cs-service:hover { box-shadow: 0 24px 50px -30px var(--accent); }
+.cs-t-aurora .cs-fee { font-family: var(--font-head); font-size: 1.15rem; }
+.cs-t-aurora .cs-doctor { grid-template-columns: 1fr; border-radius: 22px; background: linear-gradient(170deg, var(--surface), var(--bg)); }
+.cs-t-aurora .cs-portrait { width: 112px; height: 112px; border: 1px solid var(--accent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 12%, transparent); }
+.cs-t-aurora .cs-about-photo { border-radius: 999px 999px 24px 24px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+.cs-t-aurora .cs-review { border-radius: 20px; }
+.cs-t-aurora .cs-review::before { content: "\201C"; font-family: var(--font-head); font-size: 3.4rem; line-height: .6; color: var(--accent-text); height: 1.2rem; }
+.cs-t-aurora .cs-book { background: linear-gradient(160deg, var(--surface), var(--bg)); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); box-shadow: 0 30px 80px -50px var(--accent); }
+.cs-t-aurora .cs-cta-box { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, var(--surface)), var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.cs-t-aurora .cs-footer { background: color-mix(in srgb, var(--bg) 70%, #000); }
+.cs-t-aurora .cs-link-btn { background: var(--surface); }
+
+@container site (max-width: 860px) {
+  .cs-t-aurora .cs-hero-photo { max-width: none; border-radius: 32px; aspect-ratio: 16 / 11; justify-self: stretch; }
+  .cs-t-aurora .cs-glow { width: 120%; right: -40%; }
+}

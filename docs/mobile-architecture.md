@@ -9,7 +9,7 @@ Status: decided 5 Oct 2026. Scope: the Aarogyam staff app (doctors, front desk, 
 - Sheets: Send prescription, Shareable report (expiring link).
 - Theme engine: presets Tulsi `#136650`, Haldi `#a86e0f`, Indigo `#4338ca`, Rose `#be123c`, Ocean `#0e7490`, Plum `#7c3aed`, a custom colour, and dark mode; the clinic's brand colour from `/session` picks the theme.
 - Type: Plus Jakarta Sans (headings, both platforms), Roboto on Android body text, SF on iOS body text.
-The web mock-up is `docs/mockups/web-dashboard.html`.
+The web mock-up is `docs/mockups/web-dashboard.html`. `docs/mockups/mobile-reference/` is the founder's starter code in the same theme (KMP + Compose + SwiftUI, dummy data): reuse its tooth chart, screen layouts and theme mix ratios (brand-dark = brand mixed 32% with black, brand-soft = 86% with white), adapted to this architecture (generated API client, state holders, sakalya-mobile design components). It is reference only; it is not built.
 
 ## Goals
 

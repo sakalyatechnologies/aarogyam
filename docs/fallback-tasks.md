@@ -55,3 +55,17 @@ Status: `open` · `in review` (branch exists) · `merged` · `redo`.
 - **Do:** tests for creating a bill, issuing it (number appears, lines frozen), recording a payment and voiding with a reason, against the fake client. Don't change non-test files; report bugs you find.
 - **Done when:** `pnpm check`.
 - **Conflicts:** none
+
+## FB-08 Vitest coverage for the Stock page — open
+- **Allowed:** `web/apps/portal/src/pages/stock/**/*.test.tsx` (new test files only)
+- **Read:** `web/apps/portal/src/pages/stock/`, an existing page test such as `src/pages/calendar/calendar-page.test.tsx`
+- **Do:** tests for the summary cards, the level meter and status, receiving stock into a new batch, recording use (earliest expiry first) and a count correction, against the fake client. Don't change non-test files; report bugs you find.
+- **Done when:** `pnpm check`.
+- **Conflicts:** none
+
+## FB-09 Vitest coverage for the website editor — open
+- **Allowed:** `web/apps/portal/src/pages/settings/website/**/*.test.tsx` (new test files only)
+- **Read:** `web/apps/portal/src/pages/settings/website/`, an existing settings test
+- **Do:** tests for choosing a template and palette, editing a section's text, the desktop/phone preview toggle, and the domain step (yes shows the records; no shows the site address), against the fake client. Don't change non-test files.
+- **Done when:** `pnpm check`.
+- **Conflicts:** none

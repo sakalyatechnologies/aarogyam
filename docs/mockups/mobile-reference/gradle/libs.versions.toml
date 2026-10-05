@@ -1,0 +1,15 @@
+[versions]
+kotlin = "2.1.20"
+agp = "8.7.3"
+composeBom = "2025.01.00"
+activityCompose = "1.10.1"
+lifecycle = "2.8.7"
+
+[plugins]
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+androidApplication = { id = "com.android.application", version.ref = "agp" }
+androidLibrary = { id = "com.android.library", version.ref = "agp" }
+kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+
+[libraries]
+compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }

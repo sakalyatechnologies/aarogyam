@@ -59,7 +59,7 @@ Crates split further by module (patients, appointments, billing) only when build
 
 ## Database connections
 
-- Through Supabase's pooler (Supavisor) in **session mode**: sqlx's prepared statements are safe there, and it works over IPv4, which Cloud Run uses. At most 5 connections per instance, and a cap on instances, keep within the free tier's pool.
+- Through Supabase's pooler (Supavisor) in **session mode**: sqlx's prepared statements are safe there, and it works over IPv4, which Cloud Run uses. At most 5 connections per instance, and a cap on instances, keep within the free tier's pool. Two stay open when idle (`ARO_DB__MIN_CONNECTIONS`), opened at startup, because a new connection costs several round trips (over 2 s across regions); idle ones are replaced after 5 minutes and every one after 30, in the background, so none goes stale behind the pooler or a NAT gateway. Each connection caches 512 prepared statements, more than the API's queries, so none is prepared twice. `.env.example` lists the `ARO_DB__*` pool settings.
 - TLS with certificate verification (`verify-full` with Supabase's CA) everywhere except local.
 - Timeouts on every transaction (statement and idle-in-transaction), so a request cut short on Cloud Run can't hold locks.
 - Migrations run in session mode as the owner, from the `aarogyam migrate` command.

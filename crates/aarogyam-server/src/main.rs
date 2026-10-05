@@ -133,8 +133,15 @@ async fn serve(config: Config) -> anyhow::Result<()> {
     let tokens = token_check(&config, local).await?;
     let accounts = accounts(&config)?;
     let notifier = notifier(&config, local)?;
-    let db = Db::connect_lazy(&DbConfig::new(config.db.url))
-        .context("db.url is not a valid Postgres URL")?;
+    let db = Db::connect_lazy(&config.db.api_config())
+        .context("db.url is not a valid Postgres URL or the pool settings are invalid")?;
+    // Open the warm connections now, so the first requests don't each wait for one.
+    let warming = db.clone();
+    tokio::spawn(async move {
+        if let Err(error) = warming.warm().await {
+            tracing::warn!(kind = %error.kind(), "could not open the warm database connections");
+        }
+    });
     let mut http = config.http.limits();
     match config.http.edge_secret {
         Some(secret) => {
@@ -246,8 +253,8 @@ fn notifier(config: &Config, local: bool) -> anyhow::Result<Notifier> {
 async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
     let local = config.environment == Environment::Local;
     let notifier = notifier(&config, local)?;
-    let db = Db::connect_lazy(&DbConfig::new(config.db.url.clone()))
-        .context("db.url is not a valid Postgres URL")?;
+    let db = Db::connect_lazy(&config.db.api_config())
+        .context("db.url is not a valid Postgres URL or the pool settings are invalid")?;
     let interval = every.map(|seconds| std::time::Duration::from_secs(seconds.max(1)));
     loop {
         match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {

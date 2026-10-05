@@ -142,3 +142,35 @@ fn supabase_issuer_and_keys_come_from_the_project_url() {
         Ok(())
     });
 }
+
+#[test]
+fn the_pool_keeps_two_warm_connections_unless_told_otherwise() {
+    Jail::expect_with(|jail| {
+        set_required(jail);
+        let pool = load(NO_FILE).db;
+        assert_eq!(
+            (
+                pool.max_connections,
+                pool.min_connections,
+                pool.idle_timeout_secs,
+                pool.max_lifetime_secs,
+                pool.ping_after_idle_secs,
+                pool.statement_cache_capacity,
+            ),
+            (5, 2, 300, 1800, 60, 512)
+        );
+        jail.set_env("ARO_DB__MIN_CONNECTIONS", "1");
+        jail.set_env("ARO_DB__MAX_CONNECTIONS", "3");
+        jail.set_env("ARO_DB__IDLE_TIMEOUT_SECS", "120");
+        let pool = load(NO_FILE).db;
+        assert_eq!(
+            (
+                pool.min_connections,
+                pool.max_connections,
+                pool.idle_timeout_secs
+            ),
+            (1, 3, 120)
+        );
+        Ok(())
+    });
+}

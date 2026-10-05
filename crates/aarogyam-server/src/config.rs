@@ -9,6 +9,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use sakalya_config::{ConfigError, Environment, Loader};
+use sakalya_db::DbConfig;
 use sakalya_http::HttpConfig;
 use sakalya_telemetry::TelemetryConfig;
 use secrecy::SecretString;
@@ -127,6 +128,68 @@ pub struct DbSettings {
     /// The schema owner (`ARO_DB__OWNER_URL`), used only by `aarogyam migrate`: a local
     /// superuser, or Supabase's `postgres` user in the cloud.
     pub owner_url: Option<SecretString>,
+    /// Most connections (`ARO_DB__MAX_CONNECTIONS`). Default 5.
+    #[serde(default = "default_max_connections")]
+    pub max_connections: u32,
+    /// Connections kept open when idle (`ARO_DB__MIN_CONNECTIONS`). Default 2.
+    #[serde(default = "default_min_connections")]
+    pub min_connections: u32,
+    /// Seconds before an idle connection is replaced (`ARO_DB__IDLE_TIMEOUT_SECS`); warm ones
+    /// are reopened in the background. Default 300.
+    #[serde(default = "default_idle_timeout_secs")]
+    pub idle_timeout_secs: u64,
+    /// Seconds before any connection is replaced (`ARO_DB__MAX_LIFETIME_SECS`). Default 1800.
+    #[serde(default = "default_max_lifetime_secs")]
+    pub max_lifetime_secs: u64,
+    /// Seconds idle after which a connection is pinged before use
+    /// (`ARO_DB__PING_AFTER_IDLE_SECS`). Default 60.
+    #[serde(default = "default_ping_after_idle_secs")]
+    pub ping_after_idle_secs: u64,
+    /// Prepared statements cached per connection (`ARO_DB__STATEMENT_CACHE_CAPACITY`), above
+    /// the number of distinct queries so none is prepared twice. Default 512.
+    #[serde(default = "default_statement_cache_capacity")]
+    pub statement_cache_capacity: usize,
+}
+
+impl DbSettings {
+    /// The API's pool settings: these limits on `db.url`. The defaults suit Supabase's session
+    /// pooler on the free plan: few connections per instance, a couple kept warm because a new
+    /// one costs several round trips, and none idle long enough for the pooler or a NAT gateway
+    /// to drop it unnoticed.
+    #[must_use]
+    pub fn api_config(&self) -> DbConfig {
+        DbConfig::new(self.url.clone())
+            .with_max_connections(self.max_connections)
+            .with_min_connections(self.min_connections)
+            .with_idle_timeout(Duration::from_secs(self.idle_timeout_secs))
+            .with_max_lifetime(Duration::from_secs(self.max_lifetime_secs))
+            .with_ping_after_idle(Duration::from_secs(self.ping_after_idle_secs))
+            .with_statement_cache_capacity(self.statement_cache_capacity)
+    }
+}
+
+const fn default_max_connections() -> u32 {
+    5
+}
+
+const fn default_min_connections() -> u32 {
+    2
+}
+
+const fn default_idle_timeout_secs() -> u64 {
+    300
+}
+
+const fn default_max_lifetime_secs() -> u64 {
+    1800
+}
+
+const fn default_ping_after_idle_secs() -> u64 {
+    60
+}
+
+const fn default_statement_cache_capacity() -> usize {
+    512
 }
 
 /// How sign-in tokens are checked.

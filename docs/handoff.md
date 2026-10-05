@@ -23,6 +23,8 @@ Where the work stands and exactly what to do next. Update this file at the end o
 
 **Merged on 4 Oct evening:** prescription link emailed on issue (no PIN or clinical data in the email; PIN shown to the doctor and printed); patient self-booking P1 (`/book` on each clinic host, `GET /public/availability`, `POST /public/bookings`, `requested` status with Confirm/Decline on the calendar, online-booking settings; migrations 0090–0091); Patients/Visits on the mock-up components, row click, Follow-up prefill. Design and the founder's decisions: `docs/patient-access.md` (next: P2 patient accounts and history). Self-booking gaps: Turnstile, patient cancellation, online booking defaults to on.
 
+**Merged on 4 Oct night:** calendar time grid (Day/Week/Month, overlaps side by side) and scrollable Today timeline; voice notes 1A (recording + browser dictation, migration 0120); letterhead (upload or 6 designs, doctor qualifications, migration 0100), standalone patient prescription page, 7 theme palettes; clinic website templates and editor (`web/packages/site-kit`, `web/apps/site`, migrations 0110–0111; publishing and domains need the product domain); console Service health line charts, richer Quality, Applications and Clinics; sign-in and registration redesign (`AuthShell`). Gates: 371 web and 245 Rust tests. Running: onboarding wizard (`feat/onboarding-wizard`), speed work (`perf/round-trips`).
+
 **Open:**
 | Work | Where | State |
 |---|---|---|

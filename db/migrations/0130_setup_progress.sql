@@ -1,7 +1,7 @@
 -- First-run setup ("Finish setting up"): where the clinic's owner and each member stand in the
 -- short onboarding wizard. `steps` maps a step key to `done` or `skipped`; a step with no entry
 -- is still to do. The API validates the keys and values, so a new step needs no migration.
--- Clinics that existed before the wizard are marked dismissed so nobody is nagged.
+-- Clinics and members that existed before the wizard are marked dismissed so nobody is nagged.
 set local lock_timeout = '5s';
 
 create table aarogyam.clinic_setup (
@@ -37,3 +37,6 @@ select app.protect_clinic_table('aarogyam.member_setup', 'mutable');
 
 insert into aarogyam.clinic_setup (org_id, dismissed_at)
 select id, now() from aarogyam.organizations;
+
+insert into aarogyam.member_setup (org_id, membership_id, dismissed_at)
+select org_id, id, now() from aarogyam.memberships;

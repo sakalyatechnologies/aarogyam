@@ -200,11 +200,11 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/roles", get(staff::roles))
         .route(
             "/settings/onboarding",
-            get(setup::get_clinic).patch(setup::update_clinic),
+            get(setup::get_clinic_setup).patch(setup::update_clinic_setup),
         )
         .route(
             "/me/onboarding",
-            get(setup::get_mine).patch(setup::update_mine),
+            get(setup::get_my_setup).patch(setup::update_my_setup),
         )
         .route(
             "/me/practitioner",

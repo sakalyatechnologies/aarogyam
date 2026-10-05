@@ -1990,3 +1990,21 @@ export type WebsiteChanges = C.WebsiteChanges;
 
 /** Body of `PATCH /api/v1/settings/website/photos/{id}`. */
 export type PhotoChanges = C.PhotoChanges;
+
+// First-run setup ---------------------------------------------------------------------------------
+
+export const setupStep = z.object({
+  key: z.string(),
+  status: z.enum(["todo", "done", "skipped"]),
+}) satisfies z.ZodType<C.SetupStep>;
+export type SetupStep = z.output<typeof setupStep>;
+
+export const setup = z.object({
+  standing: z.enum(["new", "in_progress", "complete", "dismissed"]),
+  practice: optionalText,
+  steps: z.array(setupStep),
+}) satisfies z.ZodType<C.Setup>;
+export type Setup = z.output<typeof setup>;
+
+/** Body of `PATCH /api/v1/settings/onboarding` and `/api/v1/me/onboarding`. */
+export type SetupUpdate = C.SetupUpdate;

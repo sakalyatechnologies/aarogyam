@@ -111,7 +111,7 @@ fn logged() {
         (status = 404, description = "Not a clinic, or not a member of it")
     )
 )]
-pub(crate) async fn get_clinic(
+pub(crate) async fn get_clinic_setup(
     State(state): State<AppState>,
     Require { request, .. }: Require<SettingsManage>,
 ) -> Result<Json<Setup>, ApiFailure> {
@@ -134,7 +134,7 @@ pub(crate) async fn get_clinic(
         (status = 404, description = "Not a clinic, or not a member of it")
     )
 )]
-pub(crate) async fn update_clinic(
+pub(crate) async fn update_clinic_setup(
     State(state): State<AppState>,
     Require { request, .. }: Require<SettingsManage>,
     ApiJson(body): ApiJson<SetupUpdate>,
@@ -162,7 +162,7 @@ pub(crate) async fn update_clinic(
         (status = 404, description = "Not a clinic, or not a member of it")
     )
 )]
-pub(crate) async fn get_mine(
+pub(crate) async fn get_my_setup(
     State(state): State<AppState>,
     request: ClinicRequest,
 ) -> Result<Json<Setup>, ApiFailure> {
@@ -184,7 +184,7 @@ pub(crate) async fn get_mine(
         (status = 404, description = "Not a clinic, or not a member of it")
     )
 )]
-pub(crate) async fn update_mine(
+pub(crate) async fn update_my_setup(
     State(state): State<AppState>,
     request: ClinicRequest,
     ApiJson(body): ApiJson<SetupUpdate>,

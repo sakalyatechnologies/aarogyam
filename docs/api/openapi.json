@@ -1739,7 +1739,7 @@
           "setup"
         ],
         "summary": "The signed-in member's own setup (a doctor's one screen).",
-        "operationId": "get_mine",
+        "operationId": "get_my_setup",
         "responses": {
           "200": {
             "content": {
@@ -1768,7 +1768,7 @@
           "setup"
         ],
         "summary": "Answers the member's own step or closes their card.",
-        "operationId": "update_mine",
+        "operationId": "update_my_setup",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5875,7 +5875,7 @@
           "setup"
         ],
         "summary": "The clinic's first-run setup. Nothing is stored until the owner answers a step.",
-        "operationId": "get_clinic",
+        "operationId": "get_clinic_setup",
         "responses": {
           "200": {
             "content": {
@@ -5907,7 +5907,7 @@
           "setup"
         ],
         "summary": "Answers a step of the clinic's setup, closes the card, or says how the clinic practises.",
-        "operationId": "update_clinic",
+        "operationId": "update_clinic_setup",
         "requestBody": {
           "content": {
             "application/json": {

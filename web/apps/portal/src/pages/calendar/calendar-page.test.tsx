@@ -178,3 +178,41 @@ describe("Calendar: online requests", () => {
     expect(after.value.items.find((a) => a.id === booked.id)?.status).toBe("cancelled");
   });
 });
+
+describe("Calendar: time grid", () => {
+  it("places every appointment at its own clinic-time position, not in one bucket", async () => {
+    renderPortal("/calendar?from=2026-09-28&to=2026-10-04", { as: PEOPLE.farah });
+    const grid = await screen.findByRole("group", { name: /Appointments from 2026-09-28/ });
+    await waitFor(() => {
+      expect(grid.querySelectorAll(".mk-tg-ev").length).toBeGreaterThan(1);
+    });
+    const hourLabels = [...grid.querySelectorAll(".mk-tg-hours span")].map((n) => n.textContent);
+    expect(hourLabels[0]).toBe("8 am");
+    const startHour = 8;
+    const endHour = startHour + hourLabels.length;
+    const tops = new Set<string>();
+    for (const el of grid.querySelectorAll<HTMLElement>(".mk-tg-ev")) {
+      const match = /at (\d{1,2}):(\d{2}) (am|pm)/.exec(el.getAttribute("aria-label") ?? "");
+      if (match === null) throw new Error("expected a time in the label");
+      const hour = (Number(match[1]) % 12) + (match[3] === "pm" ? 12 : 0);
+      const minutes = hour * 60 + Number(match[2]);
+      const expected = ((minutes - startHour * 60) / ((endHour - startHour) * 60)) * 100;
+      expect(Number.parseFloat(el.style.top)).toBeCloseTo(expected, 3);
+      tops.add(el.style.top);
+    }
+    expect(tops.size).toBeGreaterThan(1);
+  });
+
+  it("opens an appointment from the grid", async () => {
+    const user = userEvent.setup();
+    renderPortal("/calendar?from=2026-09-28&to=2026-10-04", { as: PEOPLE.farah });
+    const grid = await screen.findByRole("group", { name: /Appointments from 2026-09-28/ });
+    await waitFor(() => {
+      expect(grid.querySelector(".mk-tg-ev")).not.toBeNull();
+    });
+    const first = grid.querySelector<HTMLElement>(".mk-tg-ev");
+    if (first === null) throw new Error("expected an appointment");
+    await user.click(first);
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+});

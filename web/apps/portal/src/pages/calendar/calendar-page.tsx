@@ -4,30 +4,20 @@ import { useSearchParams } from "react-router";
 
 import { apiErrorOf, type AppointmentStatus } from "@aarogyam/api-client";
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
-import { EmptyState, Select, Skeleton, WeekGrid, type Tone, type WeekGridBlock, type WeekGridDay } from "@sakalya/ui";
+import { EmptyState, Select, Skeleton } from "@sakalya/ui";
 
 import { MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
-import { clockLabel, placementOf } from "../../lib/time-grid.js";
-import { addDays, localDateHour, mondayOf, todayIn } from "../../lib/time.js";
+import { gridHours, nowMinutes, placementOf } from "../../lib/time-grid.js";
+import { addDays, mondayOf, todayIn } from "../../lib/time.js";
 import { formatTime } from "@aarogyam/app-kit";
 import { useAppointments, usePractitioners, useRooms } from "../../queries.js";
 import { AppointmentDialog } from "./appointment-dialog.js";
+import { TimeGrid, type GridColumn, type GridEvent } from "./time-grid.js";
 import { BookingDialog } from "./booking-dialog.js";
 
 type View = "day" | "week";
 type Lane = "chair" | "doctor";
-
-const STATUS_TONE: Readonly<Record<AppointmentStatus, Tone>> = {
-  requested: "warning",
-  booked: "neutral",
-  confirmed: "info",
-  arrived: "warning",
-  in_chair: "primary",
-  completed: "success",
-  cancelled: "neutral",
-  no_show: "danger",
-};
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -43,6 +33,11 @@ const CHIP: Readonly<Record<AppointmentStatus, string>> = {
   no_show: "r",
 };
 
+/** The legend colour for an appointment: requested dashed, emergencies red, new consults indigo, else by status. */
+function toneOf(a: { status: AppointmentStatus; kind: string }): string {
+  return CHIP[a.status === "requested" ? "requested" : a.kind === "emergency" ? "no_show" : a.kind === "new" && a.status !== "completed" && a.status !== "arrived" ? "confirmed" : a.status];
+}
+
 /** `29 Sep`, or `5 Oct 2026` with the year. */
 function shortDate(iso: string, withYear = false): string {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(withYear ? { year: "numeric" } : {}), timeZone: "UTC" });
@@ -56,7 +51,8 @@ export function CalendarPage() {
   const today = todayIn(timeZone);
   const [searchParams, setSearchParams] = useSearchParams();
   const [anchor, setAnchor] = useState(() => searchParams.get("from") ?? today);
-  const [view, setView] = useState<View>("week");
+  // Phones start on the day view; a seven-column week does not fit there.
+  const [view, setView] = useState<View>(() => (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 640px)").matches ? "day" : "week"));
   const [lane, setLane] = useState<Lane>("chair");
   // `?patient=<id>` (Patient 360's Follow-up) prefills the booking form. The range sync below rewrites the URL, so keep it here.
   const [bookPatient, setBookPatient] = useState(() => searchParams.get("patient"));
@@ -68,6 +64,16 @@ export function CalendarPage() {
     setBookSeen(bookParam);
     if (bookParam) setBookingOpen(true);
   }
+  // The now-line follows the clock; a minute is fine-grained enough.
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setClock(new Date());
+    }, 60_000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
 
   const from = view === "week" ? mondayOf(anchor) : anchor;
@@ -82,44 +88,52 @@ export function CalendarPage() {
   const canWrite = can("appointments.write");
 
   const items = appointments.data?.items ?? [];
-  const weekItems = items.filter((a) => a.status !== "cancelled");
   const selected = items.find((a) => a.id === selectedId);
 
-  const days: WeekGridDay[] =
+  const columns: GridColumn[] =
     view === "week"
       ? Array.from({ length: 7 }, (_, index) => {
           const date = addDays(from, index);
-          return { id: date, label: WEEKDAY_LABELS[index] ?? "", dateLabel: date.slice(8, 10), current: date === today };
+          return { id: date, label: WEEKDAY_LABELS[index] ?? "", dateLabel: date.slice(8, 10), current: date === today, showNow: date === today };
         })
-      : lane === "chair"
-        ? (rooms.data?.items ?? []).map((room) => ({ id: room.id, label: room.name, dateLabel: "" }))
-        : (practitioners.data?.items ?? []).map((p) => ({ id: p.id, label: p.display_name, dateLabel: "" }));
+      : (lane === "chair"
+          ? (rooms.data?.items ?? []).map((room) => ({ id: room.id, label: room.name }))
+          : (practitioners.data?.items ?? []).map((p) => ({ id: p.id, label: p.display_name }))
+        ).map((c) => ({ ...c, showNow: anchor === today }));
 
-  const blocks: WeekGridBlock[] = items
+  const placed = items
     .filter((a) => a.status !== "cancelled")
-    .flatMap((a): WeekGridBlock[] => {
-      const start = localDateHour(a.starts_at, timeZone);
-      const durationHours = (Date.parse(a.ends_at) - Date.parse(a.starts_at)) / 3_600_000;
-      const dayId = view === "week" ? start.date : lane === "chair" ? (a.room_id ?? "") : a.practitioner.id;
-      if (view === "day" && dayId === "") {
+    .flatMap((a): { event: GridEvent; startMin: number; endMin: number }[] => {
+      const place = placementOf(a.starts_at, a.ends_at, timeZone);
+      const columnId = view === "week" ? place.date : lane === "chair" ? (a.room_id ?? "") : a.practitioner.id;
+      if (view === "day" && columnId === "") {
         return [];
       }
+      const time = formatTime(a.starts_at, timeZone);
+      const detail = a.status === "requested" ? "Requested online" : view === "week" ? `${a.practitioner.display_name}${a.room == null ? "" : ` · ${a.room}`}` : (a.room ?? a.practitioner.display_name);
       return [
         {
-          id: a.id,
-          dayId,
-          start: start.hour,
-          duration: durationHours,
-          label: a.patient.full_name,
-          subtitle: a.status === "requested" ? "Requested online" : view === "week" ? `${a.practitioner.display_name}${a.room == null ? "" : ` · ${a.room}`}` : a.room ?? a.practitioner.display_name,
-          tone: STATUS_TONE[a.status],
+          startMin: place.startMin,
+          endMin: place.endMin,
+          event: {
+            id: a.id,
+            columnId,
+            startMin: place.startMin,
+            endMin: place.endMin,
+            title: `${a.status === "requested" ? "? " : ""}${a.patient.full_name}`,
+            subtitle: `${time} · ${detail}`,
+            tone: toneOf(a),
+            label: `${a.status === "requested" ? "Requested: " : ""}${a.patient.full_name}, ${a.reason ?? "Consultation"} at ${time}, ${detail}`,
+          },
         },
       ];
     });
+  const events = placed.map((p) => p.event);
+  const hours = gridHours(placed);
+  const nowOnClinicClock = nowMinutes(clock, timeZone);
 
   const stepBy = view === "week" ? 7 : 1;
   const rangeLabel = view === "week" ? `${shortDate(from)} – ${shortDate(to, true)}` : shortDate(from, true);
-  const slots = Array.from({ length: 13 }, (_, index) => 8 + index);
 
   return (
     <div className="mk-panel">
@@ -174,6 +188,17 @@ export function CalendarPage() {
           </button>
         </span>
         {view === "day" ? (
+          <input
+            type="date"
+            className="mk-chipf"
+            aria-label="Pick a day"
+            value={anchor}
+            onChange={(event) => {
+              if (event.target.value !== "") setAnchor(event.target.value);
+            }}
+          />
+        ) : null}
+        {view === "day" ? (
           <Select
             options={[
               { value: "chair", label: "By chair" },
@@ -207,53 +232,21 @@ export function CalendarPage() {
           ) : (
             <ApiErrorNotice title="Couldn't load the schedule" error={appointments.error} onRetry={() => void appointments.refetch()} />
           )
-        ) : view === "week" ? (
-          <div className="mk-tablewrap">
-            <div className="mk-cal" role="group" aria-label={`Appointments from ${from} to ${to}`}>
-              <div />
-              {days.map((d) => (
-                <div key={d.id} className={`mk-dh ${d.current === true ? "today" : ""}`}>
-                  {d.label}
-                  <b>{d.dateLabel}</b>
-                </div>
-              ))}
-              {slots.flatMap((slot) => [
-                <div key={`s${String(slot)}`} className="mk-slot">
-                  {clockLabel(slot * 60)}
-                </div>,
-                ...days.map((d) => (
-                  <div key={`${String(slot)}-${d.id}`} className="mk-day">
-                    {weekItems
-                      .filter((a) => {
-                        const place = placementOf(a.starts_at, a.ends_at, timeZone);
-                        return place.date === d.id && Math.max(8, Math.min(20, Math.floor(place.startMin / 60))) === slot;
-                      })
-                      .map((a) => (
-                        <button
-                          key={a.id}
-                          type="button"
-                          className={`mk-evchip ${CHIP[a.status === "requested" ? "requested" : a.kind === "emergency" ? "no_show" : a.kind === "new" && a.status !== "completed" && a.status !== "arrived" ? "confirmed" : a.status]}`}
-                          aria-label={`${a.status === "requested" ? "Requested: " : ""}${a.patient.full_name}, ${a.reason ?? "Consultation"} at ${formatTime(a.starts_at, timeZone)}`}
-                          onClick={() => {
-                            setSelectedId(a.id);
-                          }}
-                        >
-                          {a.status === "requested" ? "? " : ""}
-                          {formatTime(a.starts_at, timeZone).replace(/ ?[ap]m$/i, "")} {a.reason ?? a.patient.full_name}
-                        </button>
-                      ))}
-                  </div>
-                )),
-              ])}
-            </div>
-          </div>
-        ) : days.length === 0 ? (
+        ) : columns.length === 0 ? (
           <EmptyState
             title={lane === "chair" ? "No chairs set up yet" : "No doctors set up yet"}
             description="Add them in Settings to see the schedule here."
           />
         ) : (
-          <WeekGrid days={days} startHour={8} endHour={20} blocks={blocks} summary={`Appointments from ${from} to ${to}`} onBlockSelect={setSelectedId} />
+          <TimeGrid
+            columns={columns}
+            events={events}
+            startHour={hours.start}
+            endHour={hours.end}
+            nowMinute={nowOnClinicClock.minutes}
+            summary={`Appointments from ${from} to ${to}`}
+            onSelect={setSelectedId}
+          />
         )}
       </MkCard>
 

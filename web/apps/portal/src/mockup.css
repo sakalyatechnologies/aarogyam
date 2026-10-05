@@ -334,3 +334,19 @@
   .mk-kpi .mk-num { font-size: 24px; }
 }
 @media print { .mk-side, .mk-topbar, .mk-drawer, .mk-scrim, .mk-toast { display: none !important; } .mk-app { display: block; } }
+
+/* Time grid (calendar day and week) */
+.mk-tg { max-height: min(72vh, 720px); overflow: auto; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); position: relative; }
+.mk-tg-head { display: grid; position: sticky; top: 0; z-index: 4; background: var(--surface); border-bottom: 1px solid var(--rule); min-width: min-content; }
+.mk-tg-body { display: grid; position: relative; min-width: min-content; }
+.mk-tg-hours { position: relative; }
+.mk-tg-hours span { position: absolute; right: 8px; transform: translateY(-50%); font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mk-tg-hours span:first-child { transform: none; }
+.mk-tg-col { position: relative; border-left: 1px solid var(--rule); background-image: linear-gradient(to bottom, var(--rule) 1px, transparent 1px), linear-gradient(to bottom, transparent 50%, var(--rule) 50%, var(--rule) calc(50% + 1px), transparent calc(50% + 1px)); background-repeat: repeat-y; }
+.mk-tg-ev { position: absolute; display: flex; flex-direction: column; gap: 1px; overflow: hidden; white-space: normal; padding: 3px 6px; z-index: 2; box-sizing: border-box; }
+.mk-tg-ev b { font-size: 11px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mk-tg-ev span { font-size: 10px; font-weight: 600; opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mk-tg-ev:hover { transform: none; z-index: 3; box-shadow: 0 2px 8px rgb(0 0 0 / .18); }
+.mk-tg-ev:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; z-index: 3; }
+.mk-tg-now { position: absolute; left: 0; right: 0; border-top: 2px solid var(--sk-danger); z-index: 3; pointer-events: none; }
+.mk-tg-now::before { content: ""; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--sk-danger); }

@@ -13793,7 +13793,7 @@
           },
           "verify_path": {
             "type": "string",
-            "description": "Path the QR code opens on the clinic's host."
+            "description": "Path the QR code opens on the clinic's host: the portal's public verify page,\n`/verify/prescriptions/{token}` (which reads `GET /api/v1/verify/prescriptions/{token}`)."
           }
         }
       },

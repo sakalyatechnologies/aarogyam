@@ -186,7 +186,8 @@ pub struct PrintData {
     pub footer: Option<String>,
     /// `Prescribed with Aarogyam`, printed beside the QR code.
     pub brand_line: String,
-    /// Path the QR code opens on the clinic's host.
+    /// Path the QR code opens on the clinic's host: the portal's public verify page,
+    /// `/verify/prescriptions/{token}` (which reads `GET /api/v1/verify/prescriptions/{token}`).
     pub verify_path: String,
 }
 
@@ -279,7 +280,8 @@ impl From<RxView> for Prescription {
                 patient: p.recipient,
                 footer: p.footer,
                 brand_line: p.brand_line.to_owned(),
-                verify_path: format!("/api/v1/verify/prescriptions/{}", p.verify_token),
+                // The portal's public page, which asks `GET /api/v1/verify/prescriptions/{token}`.
+                verify_path: format!("/verify/prescriptions/{}", p.verify_token),
             }),
         }
     }

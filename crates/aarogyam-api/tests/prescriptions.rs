@@ -137,7 +137,7 @@ async fn an_allergy_alert_needs_an_override_reason() {
         issued["print"]["verify_path"]
             .as_str()
             .unwrap()
-            .starts_with("/api/v1/verify/prescriptions/")
+            .starts_with("/verify/prescriptions/")
     );
 
     // Frozen: not through the API, nor in the database.
@@ -368,7 +368,10 @@ async fn the_qr_page_reveals_no_patient_data() {
     let items = json!([{ "drug_name": "Cetirizine", "dose": "1 tablet", "frequency": "0-0-1" }]);
     let rx = draft(&app, &owner, &patient, items).await;
     let (_, issued) = issue(&app, &owner, rx["id"].as_str().unwrap(), json!({})).await;
-    let path = issued["print"]["verify_path"].as_str().unwrap().to_owned();
+    // The QR code opens the portal's page, which asks the API with the same token.
+    let page = issued["print"]["verify_path"].as_str().unwrap();
+    let token = page.strip_prefix("/verify/prescriptions/").unwrap();
+    let path = format!("/api/v1/verify/prescriptions/{token}");
     let (status, check) = app.send(Method::GET, ALPHA, &path, None, None).await;
     assert_eq!(status, StatusCode::OK, "{check}");
     let keys: Vec<&String> = check.as_object().unwrap().keys().collect();

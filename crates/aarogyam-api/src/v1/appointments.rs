@@ -143,7 +143,7 @@ pub struct AppointmentList {
 pub struct AppointmentQuery {
     /// First local day, `YYYY-MM-DD`.
     pub from: String,
-    /// Last local day, `YYYY-MM-DD`; at most 31 days counting both.
+    /// Last local day, `YYYY-MM-DD`; at most 42 days counting both.
     pub to: String,
     /// Only this chair or room.
     pub room_id: Option<String>,
@@ -158,14 +158,14 @@ pub struct AppointmentQuery {
     tag = "appointments",
     params(
         ("from" = String, Query, description = "First local day, `YYYY-MM-DD`"),
-        ("to" = String, Query, description = "Last local day, `YYYY-MM-DD`; at most 31 days counting both"),
+        ("to" = String, Query, description = "Last local day, `YYYY-MM-DD`; at most 42 days counting both"),
         ("room_id" = Option<String>, Query, description = "Only this chair or room"),
         ("practitioner_id" = Option<String>, Query, description = "Only this doctor")
     ),
     security(("bearer" = [])),
     responses(
         (status = 200, body = AppointmentList),
-        (status = 400, description = "Bad dates, ids, or a range over 31 days"),
+        (status = 400, description = "Bad dates, ids, or a range over 42 days"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks appointments.read")
     )

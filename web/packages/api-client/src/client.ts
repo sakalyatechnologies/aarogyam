@@ -188,7 +188,7 @@ export interface PatientSearch extends PatientFilter {
 export interface DateRange {
   /** First local day, `YYYY-MM-DD`. */
   from: string;
-  /** Last local day, `YYYY-MM-DD`; at most 31 days counting both. */
+  /** Last local day, `YYYY-MM-DD`; at most 42 days counting both. */
   to: string;
 }
 

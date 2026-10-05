@@ -89,7 +89,7 @@ pub const MIN_APPOINTMENT: Duration = Duration::minutes(5);
 /// Longest appointment.
 pub const MAX_APPOINTMENT: Duration = Duration::hours(12);
 /// Most days a calendar read may span.
-pub const MAX_RANGE_DAYS: i64 = 31;
+pub const MAX_RANGE_DAYS: i64 = 42;
 /// Most shifts in a doctor's week.
 pub const MAX_SHIFTS: usize = 28;
 /// A booked patient not arrived this long after the start is late.
@@ -692,10 +692,12 @@ mod tests {
     }
 
     #[test]
-    fn spans_are_at_most_a_month() {
+    fn spans_are_at_most_a_six_week_month_grid() {
         assert!(DateSpan::new(date!(2026 - 10 - 01), date!(2026 - 10 - 31)).is_ok());
+        // Six Monday-first weeks, the most a month grid shows.
+        assert!(DateSpan::new(date!(2026 - 06 - 29), date!(2026 - 08 - 09)).is_ok());
         assert_eq!(
-            DateSpan::new(date!(2026 - 10 - 01), date!(2026 - 11 - 01)),
+            DateSpan::new(date!(2026 - 06 - 29), date!(2026 - 08 - 10)),
             Err(ScheduleError::Range)
         );
         assert_eq!(

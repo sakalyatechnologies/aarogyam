@@ -1,0 +1,88 @@
+/* Calendar, booking dialog and the shared date / time pickers (the pickers move to sakalya-web). */
+
+/* Status colours: one bar colour per tone. */
+.mk-tg-ev, .mk-month .mk-evchip, .mk-tip, .mk-legend-chip { --bar: var(--brand); }
+.mk-evchip.g, .mk-tip.g, .mk-legend-chip.g { --bar: var(--sk-success); }
+.mk-evchip.a, .mk-tip.a, .mk-legend-chip.a { --bar: var(--sk-warning); }
+.mk-evchip.b, .mk-tip.b, .mk-legend-chip.b { --bar: var(--brand); }
+.mk-evchip.i, .mk-tip.i, .mk-legend-chip.i { --bar: var(--sk-info); }
+.mk-evchip.n, .mk-tip.n, .mk-legend-chip.n { --bar: var(--muted); }
+.mk-evchip.r, .mk-tip.r, .mk-legend-chip.r { --bar: var(--sk-danger); }
+.mk-evchip.q, .mk-tip.q, .mk-legend-chip.q { --bar: var(--sk-warning); }
+
+/* Legend */
+.mk-legend { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.mk-legend-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--ink2); background: var(--bg); border: 1px solid var(--rule); border-radius: 999px; padding: 3px 10px 3px 8px; }
+.mk-legend-chip span { width: 8px; height: 8px; border-radius: 3px; background: var(--bar); }
+.mk-legend-chip.q span { background: transparent; border: 1.5px dashed var(--bar); }
+
+/* Time grid cards: a coloured status bar, the name always readable. */
+.mk-tg-ev { border-radius: 8px; min-height: 22px; padding: 2px 6px 2px 10px; justify-content: flex-start; box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
+.mk-tg-ev::before, .mk-month .mk-evchip::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--bar); }
+.mk-tg-ev b { font-size: 11.5px; }
+.mk-tg-ev.q::before, .mk-month .mk-evchip.q::before { background: repeating-linear-gradient(to bottom, var(--bar) 0 4px, transparent 4px 7px); }
+.mk-tg-col.current { background-color: color-mix(in srgb, var(--brand-soft) 45%, transparent); }
+.mk-tg-off { position: absolute; left: 0; right: 0; background: color-mix(in srgb, var(--muted) 9%, transparent); pointer-events: none; }
+.mk-tg-head .mk-dh.today { color: var(--brand2); }
+.mk-tg-head .mk-dh { padding: 8px 4px; font-size: 11px; font-weight: 800; text-align: center; color: var(--muted); }
+.mk-tg-head .mk-dh b { display: block; font-size: 16px; color: var(--ink); }
+.mk-tg-head .mk-dh.today b { background: var(--brand); color: var(--sk-on-primary); width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; margin: 2px auto; }
+
+/* Hover / focus details for short cards. */
+.mk-tip { position: absolute; display: none; z-index: 6; min-width: 160px; max-width: 240px; margin-top: 26px; padding: 8px 10px 8px 14px; border-radius: 10px; background: var(--surface); color: var(--ink); border: 1px solid var(--rule); box-shadow: 0 8px 24px rgb(0 0 0 / .18); font-size: 12px; pointer-events: none; }
+.mk-tip::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 10px 0 0 10px; background: var(--bar); }
+.mk-tip b, .mk-tip span { display: block; }
+.mk-tip span { color: var(--ink2); font-weight: 600; }
+.mk-tg-ev:hover + .mk-tip, .mk-tg-ev:focus-visible + .mk-tip { display: block; }
+
+/* Month cards */
+.mk-month .mk-evchip { position: relative; padding-left: 10px; border-radius: 8px; }
+.mk-mday.today .mk-mnum { color: var(--brand2); }
+.mk-mday.today .mk-mnum::first-line { font-weight: 900; }
+.mk-mday { transition: border-color .15s, box-shadow .15s; }
+.mk-mday:hover { box-shadow: 0 2px 10px rgb(0 0 0 / .08); }
+
+/* Date picker */
+.mk-dp { position: relative; }
+.mk-dp-trigger { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 2.75rem; padding: 0 12px; border: 1px solid var(--sk-border, var(--rule)); border-radius: 14px; background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
+.mk-dp-trigger:hover { border-color: var(--brand); }
+.mk-dp-trigger:focus-visible, .mk-dp-day:focus-visible, .mk-ts-slot:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.mk-dp-compact .mk-dp-trigger { min-height: 2.25rem; border-radius: 999px; font-size: 12.5px; width: auto; }
+.mk-dp-pop { position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; width: 280px; padding: 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--rule); box-shadow: 0 14px 40px rgb(0 0 0 / .22); }
+.mk-dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 13.5px; }
+.mk-dp-nav { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 10px; background: none; color: var(--ink); cursor: pointer; }
+.mk-dp-nav:hover { background: var(--hover); }
+.mk-dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.mk-dp-wd { text-align: center; font-size: 10.5px; font-weight: 800; color: var(--muted); padding: 4px 0; }
+.mk-dp-day { height: 34px; border: 0; border-radius: 10px; background: none; color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; }
+.mk-dp-day:hover:not(:disabled) { background: var(--hover); }
+.mk-dp-day.out { color: var(--muted); font-weight: 500; }
+.mk-dp-day.today { box-shadow: inset 0 0 0 1.5px var(--brand); color: var(--brand2); font-weight: 800; }
+.mk-dp-day.sel { background: var(--brand); color: var(--sk-on-primary); box-shadow: none; }
+.mk-dp-day:disabled { opacity: .35; cursor: not-allowed; text-decoration: line-through; }
+.mk-dp-foot { display: flex; justify-content: flex-end; margin-top: 6px; }
+.mk-dp-link { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 2px 4px; font-size: 12.5px; font-weight: 700; color: var(--brand2); cursor: pointer; }
+.mk-dp-link:hover:not(:disabled) { text-decoration: underline; }
+.mk-dp-link:disabled { color: var(--muted); opacity: .6; cursor: not-allowed; }
+
+/* Time slots */
+.mk-ts-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; padding: 2px; }
+.mk-ts-slot { border: 1px solid var(--rule); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 4px 11px; font-size: 12px; font-weight: 700; cursor: pointer; font-variant-numeric: tabular-nums; }
+.mk-ts-slot:hover { border-color: var(--brand); }
+.mk-ts-slot[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--sk-on-primary); }
+.mk-ts-note { margin: 0; font-size: 12.5px; color: var(--muted); }
+
+/* Booking dialog */
+.mk-bk { display: flex; flex-direction: column; gap: 18px; }
+.mk-bk-sec { display: flex; flex-direction: column; gap: 10px; }
+.mk-bk-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.mk-bk-h { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: .02em; color: var(--ink2); }
+.mk-bk-grid2 { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.mk-bk-grid3 { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+@media (max-width: 560px) { .mk-bk-grid2, .mk-bk-grid3 { grid-template-columns: 1fr; } }
+.mk-bk-chip { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 16px; border: 1px solid var(--brand); background: var(--brand-soft); }
+.mk-bk-new { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px dashed var(--rule); border-radius: 16px; background: var(--bg); }
+.mk-bk-more summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--brand2); list-style: none; }
+.mk-bk-more summary::-webkit-details-marker { display: none; }
+.mk-bk-more[open] summary svg { transform: rotate(180deg); }
+.mk-bk-moreBody { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }

@@ -438,11 +438,22 @@ async fn a_chair_takes_one_booking_at_a_time() {
         )
         .await;
     assert_eq!(filtered["items"].as_array().unwrap().len(), 1);
+    // A six-week month grid (42 days) is fine.
     let (code, _) = app
         .send(
             Method::GET,
             ALPHA,
-            "/api/v1/appointments?from=2030-01-01&to=2030-02-15",
+            "/api/v1/appointments?from=2029-12-31&to=2030-02-10",
+            Some(&desk),
+            None,
+        )
+        .await;
+    assert_eq!(code, StatusCode::OK);
+    let (code, _) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            "/api/v1/appointments?from=2029-12-31&to=2030-02-11",
             Some(&desk),
             None,
         )

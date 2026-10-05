@@ -579,7 +579,7 @@ pub struct LeaveList {
 pub struct LeaveQuery {
     /// First local day, `YYYY-MM-DD`.
     pub from: String,
-    /// Last local day, `YYYY-MM-DD`; at most 31 days counting both.
+    /// Last local day, `YYYY-MM-DD`; at most 42 days counting both.
     pub to: String,
     /// Only this doctor.
     pub practitioner_id: Option<String>,
@@ -592,13 +592,13 @@ pub struct LeaveQuery {
     tag = "schedule",
     params(
         ("from" = String, Query, description = "First local day, `YYYY-MM-DD`"),
-        ("to" = String, Query, description = "Last local day, `YYYY-MM-DD`; at most 31 days counting both"),
+        ("to" = String, Query, description = "Last local day, `YYYY-MM-DD`; at most 42 days counting both"),
         ("practitioner_id" = Option<String>, Query, description = "Only this doctor")
     ),
     security(("bearer" = [])),
     responses(
         (status = 200, body = LeaveList),
-        (status = 400, description = "Bad dates or a range over 31 days"),
+        (status = 400, description = "Bad dates or a range over 42 days"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks appointments.read")
     )

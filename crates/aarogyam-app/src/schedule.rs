@@ -612,7 +612,7 @@ pub async fn set_my_hours(
 /// Leave overlapping the local days `from` to `to`, optionally for one doctor.
 ///
 /// # Errors
-/// [`AppError::Invalid`] for a range over 31 days; [`AppError::Db`] on failures.
+/// [`AppError::Invalid`] for a range over 42 days; [`AppError::Db`] on failures.
 pub async fn leave(
     db: &Db,
     actor: &ClinicActor,

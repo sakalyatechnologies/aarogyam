@@ -6043,7 +6043,7 @@ export interface operations {
             query: {
                 /** @description First local day, `YYYY-MM-DD` */
                 from: string;
-                /** @description Last local day, `YYYY-MM-DD`; at most 31 days counting both */
+                /** @description Last local day, `YYYY-MM-DD`; at most 42 days counting both */
                 to: string;
                 /** @description Only this chair or room */
                 room_id?: string;
@@ -6064,7 +6064,7 @@ export interface operations {
                     "application/json": components["schemas"]["AppointmentList"];
                 };
             };
-            /** @description Bad dates, ids, or a range over 31 days */
+            /** @description Bad dates, ids, or a range over 42 days */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7457,7 +7457,7 @@ export interface operations {
             query: {
                 /** @description First local day, `YYYY-MM-DD` */
                 from: string;
-                /** @description Last local day, `YYYY-MM-DD`; at most 31 days counting both */
+                /** @description Last local day, `YYYY-MM-DD`; at most 42 days counting both */
                 to: string;
                 /** @description Only this doctor */
                 practitioner_id?: string;
@@ -7476,7 +7476,7 @@ export interface operations {
                     "application/json": components["schemas"]["LeaveList"];
                 };
             };
-            /** @description Bad dates or a range over 31 days */
+            /** @description Bad dates or a range over 42 days */
             400: {
                 headers: {
                     [name: string]: unknown;

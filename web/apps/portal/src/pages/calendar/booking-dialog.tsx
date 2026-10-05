@@ -1,13 +1,17 @@
-import { X } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 
-import { apiErrorOf, patientId as patientIdSchema, type Patient, type PractitionerPage, type RoomPage } from "@aarogyam/api-client";
-import { Avatar, Button, DateInput, Dialog, Field, Select, TextArea, TextInput, useToast } from "@sakalya/ui";
+import { apiErrorOf, patientId as patientIdSchema, practitionerId as practitionerIdSchema, type Patient, type PractitionerPage, type RoomPage } from "@aarogyam/api-client";
+import { Button, Dialog, Field, Select, TextArea, TextInput, useToast } from "@sakalya/ui";
 
-import { PatientPicker } from "../../components/patient-picker.js";
-import { ageSex } from "../../lib/patients.js";
-import { localInstant } from "../../lib/time.js";
-import { useBookAppointment, usePatient } from "../../queries.js";
+import { DatePicker } from "../../components/mk/date-picker.js";
+import { TimeSlotPicker } from "../../components/mk/time-slots.js";
+import { useClinic } from "../../clinic.js";
+import { freeSlots, parseHm, shiftsOn } from "../../lib/slots.js";
+import { localInstant, todayIn } from "../../lib/time.js";
+import { nowMinutes, placementOf } from "../../lib/time-grid.js";
+import { useAppointments, useBookAppointment, usePatient, useWorkingHours } from "../../queries.js";
+import { BookingPatient } from "./booking-patient.js";
 
 const DURATIONS = [15, 20, 30, 45, 60, 90] as const;
 const KINDS = [
@@ -23,13 +27,15 @@ export interface BookingDialogProps {
   timeZone: string;
   rooms: RoomPage["items"];
   practitioners: PractitionerPage["items"];
+  /** The date the calendar is showing; the form starts on it. */
   defaultDate: string;
   /** `?patient=<id>`: book for this patient without searching. */
   patientParam?: string | null;
 }
 
-/** The dialog that books a new appointment: find the patient, pick a doctor, chair and time. */
+/** The dialog that books a new appointment: patient, doctor and chair, then a day and a free time. */
 export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitioners, defaultDate, patientParam = null }: BookingDialogProps) {
+  const { can } = useClinic();
   const [picked, setPicked] = useState<Patient | undefined>(undefined);
   const [cleared, setCleared] = useState(false);
   const parsed = patientIdSchema.safeParse(patientParam);
@@ -41,7 +47,9 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
   };
   const [practitionerId, setPractitionerId] = useState("");
   const [roomId, setRoomId] = useState("");
-  const [date, setDate] = useState(defaultDate);
+  // Until the person picks a day, follow the calendar's.
+  const [chosenDate, setChosenDate] = useState<string | undefined>(undefined);
+  const date = chosenDate ?? defaultDate;
   const [startTime, setStartTime] = useState("09:00");
   const [duration, setDuration] = useState<number>(30);
   const [kind, setKind] = useState<(typeof KINDS)[number]["value"]>("follow_up");
@@ -50,13 +58,30 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
   const [error, setError] = useState<string | undefined>(undefined);
   const book = useBookAppointment();
   const toast = useToast();
+  const today = todayIn(timeZone);
+
+  // Free times: the doctor's hours that weekday, minus what the doctor or the chair already has.
+  const doctor = practitionerIdSchema.safeParse(practitionerId);
+  const hours = useWorkingHours(doctor.success ? doctor.data : undefined);
+  const day = useAppointments({ from: date, to: date });
+  const slots = (() => {
+    if (!doctor.success || !hours.isSuccess || !day.isSuccess) return [];
+    const busy = day.data.items
+      .filter((a) => a.status !== "cancelled" && (a.practitioner.id === practitionerId || (roomId !== "" && a.room_id === roomId)))
+      .map((a) => placementOf(a.starts_at, a.ends_at, timeZone))
+      .filter((p) => p.date === date)
+      .map((p) => ({ startMin: p.startMin, endMin: p.endMin }));
+    const notBefore = date === today ? nowMinutes(new Date(), timeZone).minutes : 0;
+    return freeSlots({ shifts: shiftsOn(hours.data.shifts, date), busy, duration, step: duration % 30 === 0 ? 30 : 15, notBefore });
+  })();
+  const loadingSlots = doctor.success && (hours.isPending || day.isPending);
 
   const reset = () => {
     setPicked(undefined);
     setCleared(false);
     setPractitionerId("");
     setRoomId("");
-    setDate(defaultDate);
+    setChosenDate(undefined);
     setStartTime("09:00");
     setDuration(30);
     setKind("follow_up");
@@ -70,8 +95,7 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
     reset();
   };
 
-  const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
-  const canSubmit = patient !== undefined && practitionerId !== "" && timePattern.test(startTime);
+  const canSubmit = patient !== undefined && practitionerId !== "" && !Number.isNaN(parseHm(startTime));
 
   const submit = () => {
     if (patient === undefined) {
@@ -83,7 +107,7 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
     book.mutate(
       {
         patient_id: patient.id,
-        practitioner_id: practitionerId,
+        practitioner_id: practitionerIdSchema.parse(practitionerId),
         ...(roomId === "" ? {} : { room_id: roomId }),
         starts_at: startsAt,
         ends_at: endsAt,
@@ -114,7 +138,7 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
         if (!next) close();
       }}
       title="New appointment"
-      description="Find the patient, then choose a doctor, chair and time."
+      description="Patient first, then who and when."
       dismissOnOutsidePress={false}
       size="lg"
       footer={
@@ -128,93 +152,82 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
         </>
       }
     >
-      <div className="flex flex-col gap-4">
-        {patient === undefined ? (
-          <PatientPicker onChoose={setPatient} />
-        ) : (
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface-muted px-4 py-3">
-            <span className="flex items-center gap-3">
-              <Avatar name={patient.full_name} size="sm" />
-              <span>
-                <span className="block text-sm font-bold text-text">{patient.full_name}</span>
-                <span className="block text-xs text-muted">
-                  {patient.number} · {ageSex(patient.age_years, patient.sex)}
-                </span>
-              </span>
-            </span>
-            <Button
-              variant="ghost"
-              icon={<X aria-hidden="true" className="size-4" />}
-              onClick={() => {
-                setPatient(undefined);
-              }}
-            >
-              Change
-            </Button>
+      <div className="mk-bk">
+        <BookingPatient patient={patient} onChange={setPatient} canRegister={can("patients.write")} />
+
+        <section className="mk-bk-sec" aria-label="Who">
+          <div className="mk-bk-grid2">
+            <Field label="Doctor" required>
+              <Select options={practitioners.map((p) => ({ value: p.id, label: p.display_name }))} value={practitionerId} onValueChange={setPractitionerId} placeholder="Choose a doctor" />
+            </Field>
+            <Field label="Chair">
+              <Select options={rooms.map((r) => ({ value: r.id, label: r.name }))} value={roomId} onValueChange={setRoomId} placeholder="Any chair" />
+            </Field>
           </div>
-        )}
+        </section>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Doctor" required>
-            <Select
-              options={practitioners.map((p) => ({ value: p.id, label: p.display_name }))}
-              value={practitionerId}
-              onValueChange={setPractitionerId}
-              placeholder="Choose a doctor"
-            />
-          </Field>
-          <Field label="Chair" hint="Optional">
-            <Select
-              options={rooms.map((r) => ({ value: r.id, label: r.name }))}
-              value={roomId}
-              onValueChange={setRoomId}
-              placeholder="No chair assigned"
-            />
-          </Field>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Date" required>
-            <DateInput value={date} onValueChange={setDate} />
-          </Field>
-          <Field label="Start time" hint="24-hour, HH:MM" required>
-            <TextInput
-              value={startTime}
-              onChange={(event) => {
-                setStartTime(event.target.value);
-              }}
-            />
-          </Field>
-          <Field label="Duration" required>
-            <Select
-              options={DURATIONS.map((d) => ({ value: String(d), label: `${String(d)} min` }))}
-              value={String(duration)}
-              onValueChange={(value) => {
-                setDuration(DURATIONS.find((d) => String(d) === value) ?? 30);
-              }}
-            />
-          </Field>
-        </div>
+        <section className="mk-bk-sec" aria-label="When">
+          <div className="mk-bk-grid3">
+            <Field label="Date" required id="bk-date">
+              <DatePicker id="bk-date" value={date} onChange={setChosenDate} min={today} today={today} />
+            </Field>
+            <Field label="Start time" required>
+              <TextInput
+                inputMode="numeric"
+                placeholder="HH:MM"
+                value={startTime}
+                aria-invalid={Number.isNaN(parseHm(startTime))}
+                onChange={(event) => {
+                  setStartTime(event.target.value);
+                }}
+              />
+            </Field>
+            <Field label="Duration" required>
+              <Select
+                options={DURATIONS.map((d) => ({ value: String(d), label: `${String(d)} min` }))}
+                value={String(duration)}
+                onValueChange={(value) => {
+                  setDuration(DURATIONS.find((d) => String(d) === value) ?? 30);
+                }}
+              />
+            </Field>
+          </div>
+          <TimeSlotPicker
+            value={startTime}
+            onChange={setStartTime}
+            slots={slots}
+            loading={loadingSlots}
+            emptyNote={doctor.success ? "No free times that day. Type a custom time above." : "Choose a doctor to see their free times, or type a time above."}
+          />
+        </section>
 
         <Field label="Kind">
           <Select options={KINDS} value={kind} onValueChange={setKind} />
         </Field>
-        <Field label="Reason" hint="Shown on the schedule">
-          <TextInput
-            value={reason}
-            onChange={(event) => {
-              setReason(event.target.value);
-            }}
-          />
-        </Field>
-        <Field label="Front-desk note">
-          <TextArea
-            value={notes}
-            onChange={(event) => {
-              setNotes(event.target.value);
-            }}
-          />
-        </Field>
+
+        <details className="mk-bk-more">
+          <summary>
+            <ChevronDown aria-hidden="true" className="size-4" /> Add details
+          </summary>
+          <div className="mk-bk-moreBody">
+            <Field label="Reason" hint="Shown on the schedule">
+              <TextInput
+                value={reason}
+                onChange={(event) => {
+                  setReason(event.target.value);
+                }}
+              />
+            </Field>
+            <Field label="Front-desk note">
+              <TextArea
+                value={notes}
+                onChange={(event) => {
+                  setNotes(event.target.value);
+                }}
+              />
+            </Field>
+          </div>
+        </details>
         {error === undefined ? null : (
           <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger-text">
             {error}

@@ -3,6 +3,7 @@ import { Fragment, useEffect, useRef } from "react";
 import "./calendar.css";
 
 import { clockLabel, offsetPercent, packColumns } from "../../lib/time-grid.js";
+import type { Span } from "../../lib/slots.js";
 
 export interface GridColumn {
   id: string;
@@ -12,6 +13,8 @@ export interface GridColumn {
   current?: boolean;
   /** Draws the now-line in this column. */
   showNow?: boolean;
+  /** Working spans for this column (minutes after midnight). Empty means off that day; undefined falls back to workingMinutes. */
+  working?: readonly Span[];
 }
 
 export interface GridEvent {
@@ -29,6 +32,7 @@ export interface GridEvent {
 
 /** Pixels per hour; half-hour lines sit at half of it. */
 export const HOUR_HEIGHT = 56;
+
 
 /**
  * The calendar's time grid: hour rows over the given hours, events absolutely placed by start and sized by
@@ -50,7 +54,7 @@ export function TimeGrid({
   endHour: number;
   /** Minutes after local midnight now, drawn in columns with `showNow`. */
   nowMinute?: number;
-  /** The clinic's usual working span (minutes after midnight); time outside it is shaded. */
+  /** The clinic's usual working span (minutes after midnight); time outside it is shaded. Ignored when a column has `working` spans. */
   workingMinutes?: { start: number; end: number };
   onSelect: (id: string) => void;
   summary: string;
@@ -75,6 +79,52 @@ export function TimeGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function renderShading(column: GridColumn) {
+    if (column.working !== undefined) {
+      if (column.working.length === 0) {
+        // Empty spans means the doctor is off: shade the whole column
+        return <div className="mk-tg-off" aria-hidden="true" style={{ top: 0, height: "100%" }} />;
+      }
+      // Shade before first span, between spans, and after last span
+      const shading: React.JSX.Element[] = [];
+      let prevEnd = startHour * 60;
+      for (const span of column.working) {
+        const spanStart = Math.max(span.startMin, startHour * 60);
+        const spanEnd = Math.min(span.endMin, endHour * 60);
+        if (spanStart > prevEnd) {
+          shading.push(
+            <div
+              key={`off-before-${span.startMin.toString()}`}
+              className="mk-tg-off"
+              aria-hidden="true"
+              style={{ top: `${String(offsetPercent(prevEnd, startHour, endHour))}%`, height: `${String(offsetPercent(spanStart, startHour, endHour) - offsetPercent(prevEnd, startHour, endHour))}%` }}
+            />,
+          );
+        }
+        prevEnd = Math.max(prevEnd, spanEnd);
+      }
+      if (prevEnd < endHour * 60) {
+        shading.push(
+          <div
+            key={`off-after-${prevEnd.toString()}`}
+            className="mk-tg-off"
+            aria-hidden="true"
+            style={{ bottom: 0, height: `${String(100 - offsetPercent(prevEnd, startHour, endHour))}%` }}
+          />,
+        );
+      }
+      return <Fragment key={`shading-${column.id}`}>{shading}</Fragment>;
+    }
+    // No spans defined: use the default workingMinutes
+    if (workingMinutes === undefined) return null;
+    return (
+      <>
+        <div className="mk-tg-off" aria-hidden="true" style={{ top: 0, height: `${String(offsetPercent(Math.min(Math.max(workingMinutes.start, startHour * 60), endHour * 60), startHour, endHour))}%` }} />
+        <div className="mk-tg-off" aria-hidden="true" style={{ bottom: 0, height: `${String(100 - offsetPercent(Math.min(Math.max(workingMinutes.end, startHour * 60), endHour * 60), startHour, endHour))}%` }} />
+      </>
+    );
+  }
+
   return (
     <div ref={scroller} className="mk-tg" role="group" aria-label={summary} tabIndex={-1}>
       <div className="mk-tg-head" style={{ gridTemplateColumns: template }}>
@@ -98,12 +148,7 @@ export function TimeGrid({
           const packed = packColumns(events.filter((e) => e.columnId === c.id));
           return (
             <div key={c.id} className={`mk-tg-col ${c.current === true ? "current" : ""}`} style={{ backgroundSize: `100% ${String(HOUR_HEIGHT)}px` }}>
-              {workingMinutes === undefined ? null : (
-                <>
-                  <div className="mk-tg-off" aria-hidden="true" style={{ top: 0, height: `${String(offsetPercent(Math.min(Math.max(workingMinutes.start, startHour * 60), endHour * 60), startHour, endHour))}%` }} />
-                  <div className="mk-tg-off" aria-hidden="true" style={{ bottom: 0, height: `${String(100 - offsetPercent(Math.min(Math.max(workingMinutes.end, startHour * 60), endHour * 60), startHour, endHour))}%` }} />
-                </>
-              )}
+              {renderShading(c)}
               {packed.map(({ item, column, columns: span }) => {
                 const top = `${String(offsetPercent(item.startMin, startHour, endHour))}%`;
                 const left = `calc(${String((column / span) * 100)}% + 2px)`;

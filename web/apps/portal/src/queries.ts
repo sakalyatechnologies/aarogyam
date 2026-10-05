@@ -1,4 +1,4 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   readBranding,
@@ -42,7 +42,7 @@ import {
   type WalkInBody,
   type WorkingHours,
 } from "@aarogyam/api-client";
-import { useClinic } from "./clinic.js";
+import { type ClinicContextValue, useClinic } from "./clinic.js";
 import { LETTERHEAD, REFERENCE, ROLES, SCHEDULE } from "./lib/cache-policy.js";
 import { splitRange } from "./lib/date-range.js";
 
@@ -318,12 +318,36 @@ export function useRemovePractitioner() {
   });
 }
 
+/** Shared query options for a practitioner's working hours. Used by useWorkingHours and useWorkingHoursMany. */
+export function workingHoursQueryOptions(
+  orgId: string,
+  practitionerId: PractitionerId,
+  api: ClinicContextValue['api'],
+) {
+  return {
+    ...REFERENCE,
+    queryKey: ["working-hours", orgId, practitionerId] as const,
+    queryFn: ({ signal }: { signal: AbortSignal }) => unwrap(api.getWorkingHours(practitionerId, { signal })),
+  } as const;
+}
+
 export function useWorkingHours(id: PractitionerId | undefined) {
   const { api, access } = useClinic();
   return useQuery({
-    queryKey: ["working-hours", access.org_id, id],
-    queryFn: ({ signal }) => (id === undefined ? Promise.reject(new Error("no practitioner")) : unwrap(api.getWorkingHours(id, { signal }))),
+    queryKey: ["working-hours", access.org_id, id] as const,
+    queryFn: ({ signal }) =>
+      id === undefined
+        ? Promise.reject(new Error("no practitioner"))
+        : workingHoursQueryOptions(access.org_id, id, api).queryFn({ signal }),
     enabled: id !== undefined,
+  });
+}
+
+/** Fetch working hours for many practitioners at once, sharing the same query-key shape as useWorkingHours. */
+export function useWorkingHoursMany(ids: PractitionerId[]) {
+  const { api, access } = useClinic();
+  return useQueries({
+    queries: ids.map((id) => ({ ...workingHoursQueryOptions(access.org_id, id, api), enabled: true })),
   });
 }
 
@@ -332,7 +356,7 @@ export function useSetWorkingHours() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, hours }: { id: PractitionerId; hours: WorkingHours }) => unwrap(api.setWorkingHours(id, hours)),
-    onSuccess: (_hours, { id }) => queryClient.invalidateQueries({ queryKey: ["working-hours", access.org_id, id] }),
+    onSuccess: (_hours, { id }) => queryClient.invalidateQueries({ queryKey: ["working-hours", access.org_id, id] as const }),
   });
 }
 

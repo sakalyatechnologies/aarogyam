@@ -2,6 +2,15 @@
 
 Status: decided 5 Oct 2026. Scope: the Aarogyam staff app (doctors, front desk, owners) on Android and iOS. The patient app follows the same architecture once the patient-accounts API (P2 in `patient-access.md`) exists.
 
+## UI reference
+
+`docs/mockups/mobile.html` (open it in a browser; everything is interactive) is the source of truth for the apps' look. iOS and Android are shown side by side with platform conventions: iOS large titles and sheets, Android Material top bars and bottom navigation.
+- Screens: Today (current patient hero, schedule), Patients (search, list), Patient 360 with Chart / Visits / Rx / Bills tabs and a tappable dental chart with per-tooth detail, Calendar.
+- Sheets: Send prescription, Shareable report (expiring link).
+- Theme engine: presets Tulsi `#136650`, Haldi `#a86e0f`, Indigo `#4338ca`, Rose `#be123c`, Ocean `#0e7490`, Plum `#7c3aed`, a custom colour, and dark mode; the clinic's brand colour from `/session` picks the theme.
+- Type: Plus Jakarta Sans (headings, both platforms), Roboto on Android body text, SF on iOS body text.
+The web mock-up is `docs/mockups/web-dashboard.html`.
+
 ## Goals
 
 1. One place for logic: everything that isn't drawing pixels lives in Kotlin Multiplatform and is tested once.

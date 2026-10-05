@@ -173,7 +173,7 @@ pub(crate) async fn create_clinic(
 /// Which window of service metrics to show.
 #[derive(Debug, Deserialize)]
 pub struct MetricsParams {
-    /// `1h` (default), `24h` or `7d`.
+    /// `1h` (default), `6h`, `24h` or `7d`.
     pub range: Option<String>,
 }
 
@@ -182,7 +182,7 @@ pub struct MetricsParams {
 pub struct ServiceMetrics {
     /// When this was produced (RFC 3339).
     pub generated_at: String,
-    /// The window: `1h`, `24h` or `7d`.
+    /// The window: `1h`, `6h`, `24h` or `7d`.
     pub range: String,
     /// This instance's API requests, error rates and latency.
     #[schema(value_type = Option<Object>)]
@@ -200,7 +200,7 @@ pub struct ServiceMetrics {
     get,
     path = "/api/v1/console/metrics",
     tag = "console",
-    params(("range" = Option<String>, Query, description = "1h (default), 24h or 7d")),
+    params(("range" = Option<String>, Query, description = "1h (default), 6h, 24h or 7d")),
     security(("bearer" = [])),
     responses((status = 200, body = ServiceMetrics), (status = 403, description = "Not Sakalya staff"))
 )]
@@ -214,7 +214,9 @@ pub(crate) async fn metrics(
         .as_deref()
         .unwrap_or("1h")
         .parse()
-        .map_err(|_| ApiError::bad_request("invalid_request", "range: must be 1h, 24h or 7d"))?;
+        .map_err(|_| {
+            ApiError::bad_request("invalid_request", "range: must be 1h, 6h, 24h or 7d")
+        })?;
     let db = aarogyam_dal::console::db_health(state.db().pool()).await?;
     let api = serde_json::to_value(state.metrics().snapshot(range, SystemTime::now()))
         .map_err(ApiError::internal)?;

@@ -10,8 +10,17 @@ const MINUTE = 60_000;
 
 const BUCKETS: Readonly<Record<C.MetricsRange, { points: number; minutes: number }>> = {
   "1h": { points: 12, minutes: 5 },
+  "6h": { points: 12, minutes: 30 },
   "24h": { points: 24, minutes: 60 },
   "7d": { points: 28, minutes: 360 },
+};
+
+/** The timeline's resolution per range, matching the API: minutes per point and point count. */
+const TIMELINE: Readonly<Record<C.MetricsRange, { points: number; minutes: number }>> = {
+  "1h": { points: 60, minutes: 1 },
+  "6h": { points: 360, minutes: 1 },
+  "24h": { points: 288, minutes: 5 },
+  "7d": { points: 168, minutes: 60 },
 };
 
 const ROUTES: readonly { method: string; route: string; share: number; p95: number; errors: number }[] = [
@@ -49,6 +58,27 @@ export function createMetrics(range: C.MetricsRange, now: Date): C.ServiceMetric
     return { at: at.toISOString(), requests, errors, p95_ms: Math.round(spike ? 880 + random.int(0, 200) : 165 + random.int(0, 70)) };
   });
 
+  const timelineShape = TIMELINE[range];
+  const spikeStart = Math.floor(timelineShape.points * 0.7);
+  const timeline = Array.from({ length: timelineShape.points }, (_, index): C.ApiTimelinePoint => {
+    const at = new Date(now.getTime() - (timelineShape.points - index) * timelineShape.minutes * MINUTE);
+    const requests = Math.round(requestsPerMinute(at) * timelineShape.minutes * (0.85 + random.next() * 0.3));
+    const spike = range !== "1h" && index >= spikeStart && index < spikeStart + Math.max(2, Math.round(timelineShape.points / 40));
+    const share = (rate: number) => Math.round(requests * rate * (spike ? 9 : 0.6 + random.next() * 0.8));
+    const p50 = 34 + random.int(0, 14);
+    const p95 = spike ? 640 + random.int(0, 260) : 150 + random.int(0, 90);
+    return {
+      at: at.toISOString(),
+      requests,
+      errors_4xx: share(0.004),
+      errors_429: spike ? share(0.002) : random.chance(0.05) ? 1 : 0,
+      errors_5xx: share(0.0012),
+      p50_ms: p50,
+      p95_ms: p95,
+      p99_ms: Math.round(p95 * (1.9 + random.next() * 0.8)),
+    };
+  });
+
   const requests = series.reduce((sum, point) => sum + point.requests, 0);
   const errors = series.reduce((sum, point) => sum + point.errors, 0);
   const rate = (part: number) => (requests === 0 ? 0 : part / requests);
@@ -79,6 +109,8 @@ export function createMetrics(range: C.MetricsRange, now: Date): C.ServiceMetric
       p95_ms: 190 + random.int(0, 40),
       p99_ms: 610 + random.int(0, 160),
       series,
+      timeline_interval_seconds: timelineShape.minutes * 60,
+      timeline,
       routes,
     },
     db: {

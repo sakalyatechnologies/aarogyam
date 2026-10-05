@@ -9,7 +9,7 @@ import { createDevAuth } from "@aarogyam/auth";
 
 import { Providers } from "../../app.js";
 import { routes } from "../../routes.js";
-import { bucketSeries } from "./metrics-view.js";
+import { timeFormatter, timelineView } from "./metrics-view.js";
 
 function renderConsole(path: string, signedIn: boolean, edgeConnected = true) {
   const backend = createFakeBackend(createFixtures({ now: new Date("2026-10-03T05:30:00Z") }));
@@ -49,11 +49,24 @@ describe("console", () => {
 
   it("shows service health tiles, routes and the database", async () => {
     renderConsole("/health?range=24h", true);
-    expect(await screen.findByText("Requests per minute")).toBeTruthy();
-    expect(screen.getByText("Success rate")).toBeTruthy();
+    expect(await screen.findByText("Success rate")).toBeTruthy();
+    expect(screen.getAllByText("Requests per minute").length).toBeGreaterThan(0);
     expect(screen.getAllByText("/api/v1/today").length).toBeGreaterThan(0);
     expect(screen.getByText("Cache hit ratio")).toBeTruthy();
     expect(screen.getByText("Core Web Vitals")).toBeTruthy();
+  });
+
+  it("draws the five line charts with a latency budget and a 1h/6h/24h toggle", async () => {
+    renderConsole("/health", true);
+    await screen.findByText("Success rate");
+    for (const title of ["Requests per minute", "Errors per minute", "Error rate", "Errors by class", "Latency"]) {
+      expect(screen.getAllByRole("heading", { name: title }).length).toBeGreaterThan(0);
+    }
+    expect(screen.getAllByText("p95 budget 300 ms").length).toBeGreaterThan(0);
+    expect(screen.getByRole("table", { name: /split into 4xx client errors, 5xx server errors and 429/ })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "1 hour" })).toHaveProperty("checked", true);
+    expect(screen.getByRole("radio", { name: "6 hours" })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "7 days" })).toBeNull();
   });
 
   it("says edge analytics are not connected when the API has none", async () => {
@@ -62,17 +75,47 @@ describe("console", () => {
   });
 });
 
-describe("bucketSeries", () => {
-  it("merges 24 hourly points into 12 two-hour columns, keeping the worst p95", () => {
-    const series = Array.from({ length: 24 }, (_, i) => ({
-      at: new Date(Date.UTC(2026, 9, 2, i)).toISOString(),
-      requests: 10,
-      errors: 1,
-      p95_ms: i === 5 ? 900 : 200,
-    }));
-    const buckets = bucketSeries(series, "24h", "Asia/Kolkata");
-    expect(buckets).toHaveLength(12);
-    expect(buckets[0]).toEqual({ label: "05:30", requests: 20, errors: 2, p95: 200 });
-    expect(buckets[2]?.p95).toBe(900);
+describe("timelineView", () => {
+  const point = (minute: number, over: Partial<{ requests: number; errors_4xx: number; errors_429: number; errors_5xx: number }> = {}) => ({
+    at: new Date(Date.UTC(2026, 9, 3, 5, minute)).toISOString(),
+    requests: 100,
+    errors_4xx: 0,
+    errors_429: 0,
+    errors_5xx: 0,
+    p50_ms: 20,
+    p95_ms: 90,
+    p99_ms: 200,
+    ...over,
+  });
+  const api = (timeline: ReturnType<typeof point>[], seconds: number): Parameters<typeof timelineView>[0] => ({
+    requests: 0,
+    success_rate: 1,
+    rate_4xx: 0,
+    rate_5xx: 0,
+    p50_ms: 0,
+    p95_ms: 0,
+    p99_ms: 0,
+    series: [],
+    routes: [],
+    timeline,
+    timeline_interval_seconds: seconds,
+  });
+
+  it("turns counts into per-minute rates and the failure percentage", () => {
+    const view = timelineView(api([point(0), point(5, { requests: 500, errors_5xx: 10, errors_429: 5, errors_4xx: 20 })], 300));
+    expect(view.requests).toEqual([20, 100]);
+    expect(view.errors).toEqual([0, 3]);
+    expect(view.errors4xx).toEqual([0, 4]);
+    expect(view.errorRate[1]).toBeCloseTo(3);
+    expect(view.total).toBe(600);
+    expect(view.minutes).toBe(5);
+  });
+
+  it("gives a zero rate for an interval with no requests", () => {
+    expect(timelineView(api([point(0, { requests: 0 })], 60)).errorRate).toEqual([0]);
+  });
+
+  it("labels the axis in the clinic's time zone", () => {
+    expect(timeFormatter("1h", "Asia/Kolkata")(Date.UTC(2026, 9, 3, 5, 0))).toBe("10:30");
   });
 });

@@ -58,13 +58,26 @@ export type MySessions = Schemas["MySessions"];
 export type Session = Schemas["Session"];
 export type SessionClinic = Schemas["SessionClinic"];
 
-export type MetricsRange = "1h" | "24h" | "7d";
+export type MetricsRange = "1h" | "6h" | "24h" | "7d";
 
 export interface ApiMetricsPoint {
   at: string;
   requests: number;
   errors: number;
   p95_ms: number;
+}
+
+/** One interval of the timeline: errors split by class, 429 apart from the other 4xx. */
+export interface ApiTimelinePoint {
+  at: string;
+  requests: number;
+  /** 4xx other than 429. */
+  errors_4xx: number;
+  errors_429: number;
+  errors_5xx: number;
+  p50_ms: number;
+  p95_ms: number;
+  p99_ms: number;
 }
 
 /** Traffic for one route template, such as `GET /api/v1/patients/{id}`. Never a raw URL. */
@@ -89,6 +102,10 @@ export interface ApiMetrics {
   p95_ms: number;
   p99_ms: number;
   series: ApiMetricsPoint[];
+  /** Seconds between timeline points: 60 (1h, 6h), 300 (24h) or 3600 (7d). */
+  timeline_interval_seconds: number;
+  /** Oldest first. Absent from servers older than this field. */
+  timeline: ApiTimelinePoint[];
   routes: RouteMetrics[];
 }
 

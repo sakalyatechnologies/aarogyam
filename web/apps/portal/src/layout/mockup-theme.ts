@@ -1,9 +1,10 @@
-import { createTheme, ensureContrast, hex, lighten, type HexColor, type Theme, type ThemeMode } from "@sakalya/tokens";
+import { contrastRatio, createTheme, ensureContrast, hex, lighten, mix, readableOn, type HexColor, type Theme, type ThemeMode } from "@sakalya/tokens";
 
 /** The mock-up's own green: the look a clinic gets until it sets a brand colour. */
 export const MOCKUP_BRAND = hex("#136650");
 
 const AA = 4.5;
+const WHITE = hex("#ffffff");
 
 /**
  * The mock-up's palette (aarogyam-dashboard-full.html) applied over the generated theme in light
@@ -35,6 +36,10 @@ export function mockupTheme(brand: HexColor, mode: ThemeMode): Theme {
       textMuted: ensureContrast(hex("#71837a"), bg, AA),
       primarySoft: lighten(base.colors.primary, 0.89),
       primaryText: ensureContrast(base.colors.primary, lighten(base.colors.primary, 0.89), AA),
+      onWarning: readableOn(amber.solid),
+      onDanger: readableOn(red.solid),
+      onSuccess: readableOn(green.solid),
+      onInfo: readableOn(indigo.solid),
       warning: amber.solid,
       warningSoft: amber.soft,
       warningText: amber.text,
@@ -49,4 +54,21 @@ export function mockupTheme(brand: HexColor, mode: ThemeMode): Theme {
       infoText: indigo.text,
     },
   };
+}
+
+/**
+ * The second stop of the brand gradients (hero, drawer header, active menu, primary button).
+ * It moves away from the label colour, so the label reads on both stops: darker under white
+ * labels, lighter under ink labels.
+ */
+export function brandGradientEnd(theme: Theme): HexColor {
+  const { primary, onPrimary } = theme.colors;
+  const lightLabel = contrastRatio(onPrimary, WHITE) < 1.5;
+  const end = mix(primary, lightLabel ? hex("#000000") : WHITE, 0.78);
+  return ensureContrast(end, onPrimary, AA);
+}
+
+/** Custom properties the mock-up stylesheet reads, on top of the theme's `--sk-*` ones. */
+export function mockupVars(theme: Theme): Record<"--mk-brand2", string> {
+  return { "--mk-brand2": brandGradientEnd(theme) };
 }

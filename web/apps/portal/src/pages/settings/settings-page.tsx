@@ -1,6 +1,6 @@
 import { Mail, MoreVertical, UserPlus } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { apiErrorOf, type ClinicSettings, type MemberChanges, type MembershipId, type OnlineBookingChanges, type Role } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, useDocumentTitle } from "@aarogyam/app-kit";
@@ -44,6 +44,9 @@ import { WebsitePanel } from "./website/website-panel.js";
 export function SettingsPage() {
   const { session, can } = useClinic();
   useDocumentTitle("Settings", session.clinic.name);
+  // The sidebar's Staff link opens this tab: /settings?tab=staff.
+  const [params] = useSearchParams();
+  const requested = params.get("tab");
   const items: TabItem[] = [
     ...(can("settings.manage") ? [{ value: "chairs-doctors", label: "Chairs and doctors", content: <ChairsDoctorsPanel /> }] : []),
     ...(can("settings.manage") ? [{ value: "website", label: "Website", content: <WebsitePanel /> }] : []),
@@ -101,7 +104,7 @@ export function SettingsPage() {
       </div>
       {can("settings.manage") ? <LetterheadThemePanel /> : null}
       <MkCard title="Clinic administration" hint="Chairs, doctors, prices, staff and your signed-in devices">
-        <Tabs label="Settings" items={items} />
+        <Tabs key={requested ?? ""} label="Settings" items={items} {...(items.some((item) => item.value === requested) && requested !== null ? { defaultValue: requested } : {})} />
       </MkCard>
     </div>
   );

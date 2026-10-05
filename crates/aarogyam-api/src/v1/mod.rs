@@ -42,7 +42,10 @@ use time::format_description::well_known::Rfc3339;
 use time::{Date, OffsetDateTime, Time};
 use uuid::Uuid;
 
+use axum::middleware::from_fn;
+
 use crate::AppState;
+use crate::revalidate::revalidate;
 
 /// The version 1 routes. `local_dev` adds the development sign-in and the outbox drain, which
 /// deployed servers don't have until Cloud Scheduler's signed calls are checked.
@@ -164,7 +167,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
                 .post(files::upload)
                 .layer(DefaultBodyLimit::max(files::MAX_UPLOAD_BODY)),
         )
-        .route("/letterhead", get(letterhead::document))
+        .route(
+            "/letterhead",
+            get(letterhead::document).layer(from_fn(revalidate)),
+        )
         .route(
             "/settings/letterhead/images/{slot}",
             axum::routing::put(letterhead::upload_image)
@@ -197,7 +203,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/staff", get(staff::list))
         .route("/staff/invitations", post(staff::invite))
         .route("/staff/{membership_id}", patch(staff::change))
-        .route("/roles", get(staff::roles))
+        .route("/roles", get(staff::roles).layer(from_fn(revalidate)))
         .route(
             "/settings/onboarding",
             get(setup::get_clinic_setup).patch(setup::update_clinic_setup),
@@ -216,7 +222,9 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route(
             "/settings/clinic",
-            get(settings::get_clinic).patch(settings::update_clinic),
+            get(settings::get_clinic)
+                .layer(from_fn(revalidate))
+                .patch(settings::update_clinic),
         )
         .route(
             "/console/clinics",
@@ -251,7 +259,9 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/public/site/photos/{id}", get(website::public_photo))
         .route(
             "/price-items",
-            get(billing::price_items).post(billing::create_price_item),
+            get(billing::price_items)
+                .layer(from_fn(revalidate))
+                .post(billing::create_price_item),
         )
         .route("/price-items/{id}", patch(billing::update_price_item))
         .route(

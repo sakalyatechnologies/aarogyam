@@ -43,17 +43,20 @@ import {
   type WorkingHours,
 } from "@aarogyam/api-client";
 import { useClinic } from "./clinic.js";
+import { LETTERHEAD, REFERENCE, ROLES, SCHEDULE } from "./lib/cache-policy.js";
+import { splitRange } from "./lib/date-range.js";
 
 /**
  * Recent patients while the box is empty, otherwise a search. The term travels in a POST body,
  * never a URL. Results live only in memory, keyed by clinic host so clinics never mix.
  */
-export function usePatients(q: string) {
+export function usePatients(q: string, enabled = true) {
   const { api, access } = useClinic();
   return useQuery({
     queryKey: ["patients", access.org_id, q],
     queryFn: ({ signal }) => unwrap(q === "" ? api.listPatients({ signal }) : api.searchPatients({ q, limit: 50 }, { signal })),
     placeholderData: keepPreviousData,
+    enabled,
   });
 }
 
@@ -80,6 +83,7 @@ export function useToday() {
   return useQuery({
     queryKey: ["today", access.org_id],
     queryFn: ({ signal }) => unwrap(api.getToday({ signal })),
+    ...SCHEDULE,
     refetchInterval: 60_000,
   });
 }
@@ -101,6 +105,7 @@ export function useClinicSettings() {
   return useQuery({
     queryKey: ["clinic-settings", access.org_id],
     queryFn: ({ signal }) => unwrap(api.getClinicSettings({ signal })),
+    ...REFERENCE,
   });
 }
 
@@ -112,6 +117,7 @@ export function useUpdateClinicSettings() {
     onSuccess: (settings) => {
       queryClient.setQueryData(["clinic-settings", access.org_id], settings);
       void queryClient.invalidateQueries({ queryKey: ["letterhead", access.org_id] });
+      void queryClient.invalidateQueries({ queryKey: ["session"] });
     },
   });
 }
@@ -144,12 +150,13 @@ export function useApplyBranding() {
 }
 
 /** What a clinic document prints: letterhead, details, doctors and signed image links. Links last an hour. */
-export function useLetterhead() {
+export function useLetterhead(enabled = true) {
   const { api, access } = useClinic();
   return useQuery({
     queryKey: ["letterhead", access.org_id],
     queryFn: ({ signal }) => unwrap(api.getLetterhead({ signal })),
-    staleTime: 10 * 60_000,
+    enabled,
+    ...LETTERHEAD,
   });
 }
 
@@ -183,11 +190,13 @@ export function useRemoveLetterheadImage() {
   });
 }
 
-export function useStaff() {
+export function useStaff(enabled = true) {
   const { api, access } = useClinic();
   return useQuery({
     queryKey: ["staff", access.org_id],
     queryFn: ({ signal }) => unwrap(api.listStaff({ signal })),
+    enabled,
+    ...REFERENCE,
   });
 }
 
@@ -196,7 +205,7 @@ export function useRoles() {
   return useQuery({
     queryKey: ["roles", access.org_id],
     queryFn: ({ signal }) => unwrap(api.listRoles({ signal })),
-    staleTime: Infinity,
+    ...ROLES,
   });
 }
 
@@ -242,6 +251,7 @@ export function useRooms() {
   return useQuery({
     queryKey: ["rooms", access.org_id],
     queryFn: ({ signal }) => unwrap(api.listRooms({ signal })),
+    ...REFERENCE,
   });
 }
 
@@ -277,6 +287,7 @@ export function usePractitioners() {
   return useQuery({
     queryKey: ["practitioners", access.org_id],
     queryFn: ({ signal }) => unwrap(api.listPractitioners({ signal })),
+    ...REFERENCE,
   });
 }
 
@@ -329,7 +340,11 @@ export function useLeave(range: DateRange) {
   const { api, access } = useClinic();
   return useQuery({
     queryKey: ["leave", access.org_id, range.from, range.to],
-    queryFn: ({ signal }) => unwrap(api.listLeave(range, { signal })),
+    // The API takes at most 31 days per request, so a long window is fetched in pieces.
+    queryFn: async ({ signal }) => {
+      const pages = await Promise.all(splitRange(range).map((piece) => unwrap(api.listLeave(piece, { signal }))));
+      return { items: pages.flatMap((page) => page.items) };
+    },
   });
 }
 
@@ -358,6 +373,7 @@ export function useAppointments(filter: AppointmentFilter) {
   return useQuery({
     queryKey: ["appointments", access.org_id, filter.from, filter.to, filter.roomId, filter.practitionerId],
     queryFn: ({ signal }) => unwrap(api.listAppointments(filter, { signal })),
+    ...SCHEDULE,
     placeholderData: keepPreviousData,
   });
 }
@@ -402,6 +418,7 @@ export function useQueue(date?: string) {
   return useQuery({
     queryKey: ["queue", access.org_id, date],
     queryFn: ({ signal }) => unwrap(api.listQueue(date, { signal })),
+    ...SCHEDULE,
     refetchInterval: 30_000,
   });
 }

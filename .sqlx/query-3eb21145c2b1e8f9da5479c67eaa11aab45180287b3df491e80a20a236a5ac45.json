@@ -1,0 +1,57 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select 'c'::text as \"kind!\", (m.received_at at time zone $3)::date as \"day?\",\n                  m.method as \"key?\", sum(m.amount_paise)::bigint as \"amount!\",\n                  count(*)::bigint as \"count!\"\n           from aarogyam.payments m\n           where m.status = 'received' and m.received_at >= $1 and m.received_at < $2\n           group by 2, 3\n           union all\n           select 'i', null, null, coalesce(sum(i.total_paise), 0)::bigint, count(*)\n           from aarogyam.invoices i\n           where i.status = 'issued' and i.issued_at >= $4 and i.issued_at < $5\n           union all\n           select 'm', null, coalesce(l.category, 'other'), sum(l.total_paise)::bigint, count(*)\n           from aarogyam.invoice_items l\n           join aarogyam.invoices i on i.org_id = l.org_id and i.id = l.invoice_id\n           where i.status = 'issued' and i.issued_at >= $6 and i.issued_at < $7\n           group by 3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "day?",
+        "type_info": "Date",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "key?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "amount!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "3eb21145c2b1e8f9da5479c67eaa11aab45180287b3df491e80a20a236a5ac45"
+}

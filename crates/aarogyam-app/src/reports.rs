@@ -163,13 +163,6 @@ fn mix(rows: Vec<dal::MixRow>) -> Vec<MixTotal> {
         .collect()
 }
 
-async fn timezone(tx: &mut ScopedTx) -> Result<String, AppError> {
-    Ok(dal::supplier(tx.conn())
-        .await?
-        .ok_or(AppError::NotFound("clinic"))?
-        .timezone)
-}
-
 /// Collections and revenue mix for clinic days `from` to `to`; the last seven days by default.
 ///
 /// # Errors
@@ -185,8 +178,8 @@ pub async fn collections(
 ) -> Result<Collections, AppError> {
     actor.require(Permission::FinanceView)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let timezone = timezone(tx).await?;
-        let today = clinic_today(&timezone, now);
+        let timezone = actor.timezone.as_str();
+        let today = clinic_today(timezone, now);
         let to = to.unwrap_or(today);
         let from = from.unwrap_or(to - Duration::days(6));
         let days = (to - from).whole_days();
@@ -199,11 +192,21 @@ pub async fn collections(
                 "the range can be at most 366 days",
             ));
         }
-        let (start, end) = day_range(&timezone, from, to);
-        let rows = dal::collections(tx.conn(), start, end, &timezone).await?;
+        let (start, end) = day_range(timezone, from, to);
+        let overview = dal::money_overview(
+            tx.conn(),
+            dal::MoneyRanges {
+                payments: (start, end),
+                bills: (start, end),
+                mix: (start, end),
+            },
+            timezone,
+        )
+        .await?;
+        let rows = overview.collections;
         let (by_day, by_week, by_method) = summarise(from, to, &rows);
-        let revenue_mix = mix(dal::revenue_mix(tx.conn(), start, end).await?);
-        let (bill_count, billed) = dal::invoiced(tx.conn(), start, end).await?;
+        let revenue_mix = mix(overview.mix);
+        let (bill_count, billed) = overview.invoiced;
         let pending = pending_rows(tx).await?;
         Ok(Collections {
             from,
@@ -333,9 +336,8 @@ pub async fn pending(
 ) -> Result<Pending, AppError> {
     actor.require(Permission::FinanceView)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let timezone = timezone(tx).await?;
         let rows = pending_rows(tx).await?;
-        Ok(pending_report(rows, &timezone, now))
+        Ok(pending_report(rows, &actor.timezone, now))
     })
     .await
 }
@@ -379,12 +381,22 @@ pub async fn today(
 ) -> Result<TodayMoney, AppError> {
     actor.require(Permission::FinanceView)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let timezone = timezone(tx).await?;
-        let today = clinic_today(&timezone, now);
+        let timezone = actor.timezone.as_str();
+        let today = clinic_today(timezone, now);
         let month_start = today.replace_day(1).unwrap_or(today);
-        let (day_start, day_end) = day_range(&timezone, today, today);
-        let (month_from, _) = day_range(&timezone, month_start, today);
-        let rows = dal::collections(tx.conn(), month_from, day_end, &timezone).await?;
+        let (day_start, day_end) = day_range(timezone, today, today);
+        let (month_from, _) = day_range(timezone, month_start, today);
+        let overview = dal::money_overview(
+            tx.conn(),
+            dal::MoneyRanges {
+                payments: (month_from, day_end),
+                bills: (day_start, day_end),
+                mix: (month_from, day_end),
+            },
+            timezone,
+        )
+        .await?;
+        let rows = overview.collections;
         let todays: Vec<&dal::CollectionRow> = rows.iter().filter(|row| row.day == today).collect();
         let month_total: i64 = rows.iter().map(|row| row.amount_paise).sum();
         let upi: i64 = rows
@@ -392,9 +404,9 @@ pub async fn today(
             .filter(|row| row.method == PaymentMethod::Upi.as_str())
             .map(|row| row.amount_paise)
             .sum();
-        let (bills_today, billed_today) = dal::invoiced(tx.conn(), day_start, day_end).await?;
-        let revenue_mix = mix(dal::revenue_mix(tx.conn(), month_from, day_end).await?);
-        let pending = pending_report(pending_rows(tx).await?, &timezone, now);
+        let (bills_today, billed_today) = overview.invoiced;
+        let revenue_mix = mix(overview.mix);
+        let pending = pending_report(pending_rows(tx).await?, timezone, now);
         let mut top_pending = pending.bills.clone();
         top_pending.sort_by_key(|bill| std::cmp::Reverse(bill.balance));
         top_pending.truncate(5);

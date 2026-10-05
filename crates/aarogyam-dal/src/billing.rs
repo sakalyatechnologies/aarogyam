@@ -922,34 +922,6 @@ pub struct CollectionRow {
     pub payments: i64,
 }
 
-/// Payments that aren't void, received in `[from, to)`, by clinic day (in `timezone`) and
-/// method.
-///
-/// # Errors
-/// [`DbError`] on a database failure.
-pub async fn collections(
-    conn: &mut PgConnection,
-    from: OffsetDateTime,
-    to: OffsetDateTime,
-    timezone: &str,
-) -> Result<Vec<CollectionRow>, DbError> {
-    let rows = sqlx::query_as!(
-        CollectionRow,
-        r#"select (m.received_at at time zone $3)::date as "day!", m.method,
-                  sum(m.amount_paise)::bigint as "amount_paise!", count(*) as "payments!"
-           from aarogyam.payments m
-           where m.status = 'received' and m.received_at >= $1 and m.received_at < $2
-           group by 1, 2
-           order by 1, 2"#,
-        from,
-        to,
-        timezone
-    )
-    .fetch_all(conn)
-    .await?;
-    Ok(rows)
-}
-
 /// Revenue in one category.
 #[derive(Debug, Clone)]
 pub struct MixRow {
@@ -959,49 +931,91 @@ pub struct MixRow {
     pub amount_paise: i64,
 }
 
-/// Lines of bills issued in `[from, to)` and not void, by category.
+/// The money figures a dashboard shows, read in one round trip: payments by day and method
+/// over `payments`, bills issued over `bills` (count and total), and revenue by category over
+/// `mix`. Each range is `[from, to)`; days are clinic days in `timezone`.
+#[derive(Debug, Clone, Default)]
+pub struct MoneyOverview {
+    /// Payments that aren't void, by clinic day and method, ordered by day then method.
+    pub collections: Vec<CollectionRow>,
+    /// Bills issued and not void: how many, and their total in paise.
+    pub invoiced: (i64, i64),
+    /// Lines of bills issued and not void, by category, largest first.
+    pub mix: Vec<MixRow>,
+}
+
+/// Date ranges for [`money_overview`].
+#[derive(Debug, Clone, Copy)]
+pub struct MoneyRanges {
+    /// Payments received in `[from, to)`.
+    pub payments: (OffsetDateTime, OffsetDateTime),
+    /// Bills issued in `[from, to)`.
+    pub bills: (OffsetDateTime, OffsetDateTime),
+    /// Bill lines issued in `[from, to)`, for the revenue mix.
+    pub mix: (OffsetDateTime, OffsetDateTime),
+}
+
+/// Payments, bills issued and the revenue mix in one statement, so a dashboard costs one round
+/// trip instead of three.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
-pub async fn revenue_mix(
+pub async fn money_overview(
     conn: &mut PgConnection,
-    from: OffsetDateTime,
-    to: OffsetDateTime,
-) -> Result<Vec<MixRow>, DbError> {
-    let rows = sqlx::query_as!(
-        MixRow,
-        r#"select coalesce(l.category, 'other') as "category!",
-                  sum(l.total_paise)::bigint as "amount_paise!"
+    ranges: MoneyRanges,
+    timezone: &str,
+) -> Result<MoneyOverview, DbError> {
+    let rows = sqlx::query!(
+        r#"select 'c'::text as "kind!", (m.received_at at time zone $3)::date as "day?",
+                  m.method as "key?", sum(m.amount_paise)::bigint as "amount!",
+                  count(*)::bigint as "count!"
+           from aarogyam.payments m
+           where m.status = 'received' and m.received_at >= $1 and m.received_at < $2
+           group by 2, 3
+           union all
+           select 'i', null, null, coalesce(sum(i.total_paise), 0)::bigint, count(*)
+           from aarogyam.invoices i
+           where i.status = 'issued' and i.issued_at >= $4 and i.issued_at < $5
+           union all
+           select 'm', null, coalesce(l.category, 'other'), sum(l.total_paise)::bigint, count(*)
            from aarogyam.invoice_items l
            join aarogyam.invoices i on i.org_id = l.org_id and i.id = l.invoice_id
-           where i.status = 'issued' and i.issued_at >= $1 and i.issued_at < $2
-           group by 1
-           order by 2 desc, 1"#,
-        from,
-        to
+           where i.status = 'issued' and i.issued_at >= $6 and i.issued_at < $7
+           group by 3"#,
+        ranges.payments.0,
+        ranges.payments.1,
+        timezone,
+        ranges.bills.0,
+        ranges.bills.1,
+        ranges.mix.0,
+        ranges.mix.1,
     )
     .fetch_all(conn)
     .await?;
-    Ok(rows)
-}
-
-/// Bills issued in `[from, to)` and not void: how many, and their total.
-///
-/// # Errors
-/// [`DbError`] on a database failure.
-pub async fn invoiced(
-    conn: &mut PgConnection,
-    from: OffsetDateTime,
-    to: OffsetDateTime,
-) -> Result<(i64, i64), DbError> {
-    let row = sqlx::query!(
-        r#"select count(*) as "count!", coalesce(sum(total_paise), 0)::bigint as "total!"
-           from aarogyam.invoices
-           where status = 'issued' and issued_at >= $1 and issued_at < $2"#,
-        from,
-        to
-    )
-    .fetch_one(conn)
-    .await?;
-    Ok((row.count, row.total))
+    let mut overview = MoneyOverview::default();
+    for row in rows {
+        match (row.kind.as_str(), row.day, row.key) {
+            ("c", Some(day), Some(method)) => overview.collections.push(CollectionRow {
+                day,
+                method,
+                amount_paise: row.amount,
+                payments: row.count,
+            }),
+            ("i", _, _) => overview.invoiced = (row.count, row.amount),
+            ("m", _, Some(category)) => overview.mix.push(MixRow {
+                category,
+                amount_paise: row.amount,
+            }),
+            _ => {}
+        }
+    }
+    overview
+        .collections
+        .sort_by(|a, b| (a.day, &a.method).cmp(&(b.day, &b.method)));
+    overview.mix.sort_by(|a, b| {
+        b.amount_paise
+            .cmp(&a.amount_paise)
+            .then_with(|| a.category.cmp(&b.category))
+    });
+    Ok(overview)
 }

@@ -1,0 +1,50 @@
+# Every dependency and plugin version lives here (sakalya-mobile AGENTS.md rule 4).
+# Kotlin, AGP, Ktor, serialization and coroutines match the pinned sakalya-mobile release.
+[versions]
+kotlin = "2.4.20"
+agp = "9.4.1"
+ktor = "3.6.0"
+serialization = "1.11.0"
+coroutines = "1.11.0"
+datetime = "0.7.1"
+compose-bom = "2026.09.00"
+activity-compose = "1.13.0"
+lifecycle = "2.11.0"
+navigation = "2.10.2"
+spotless = "8.9.0"
+ktlint = "1.8.0"
+android-compileSdk = "37"
+android-targetSdk = "37"
+android-minSdk = "26"
+
+[libraries]
+sakalya-core = { module = "com.sakalya.mobile:core" }
+sakalya-http = { module = "com.sakalya.mobile:http" }
+sakalya-auth = { module = "com.sakalya.mobile:auth" }
+sakalya-secure-storage = { module = "com.sakalya.mobile:secure-storage" }
+sakalya-design = { module = "com.sakalya.mobile:design" }
+sakalya-design-compose = { module = "com.sakalya.mobile:design-compose" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "datetime" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
+junit = { module = "junit:junit", version = "4.13.2" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+android-lint = { id = "com.android.lint", version.ref = "agp" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

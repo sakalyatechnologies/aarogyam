@@ -21,6 +21,8 @@ import {
   clinicDetail,
   clinicInvited,
   clinicSettings,
+  letterhead,
+  letterheadDocument,
   clinicalFlags,
   collections,
   condition,
@@ -103,7 +105,7 @@ export interface HttpClientOptions {
 type Query = Readonly<Record<string, string | number | undefined>>;
 
 interface Call<T> {
-  method: "GET" | "POST" | "PATCH" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   schema: z.ZodType<T>;
   query?: Query;
@@ -369,6 +371,12 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     updateClinicSettings: (changes, opts) =>
       call({ method: "PATCH", path: "/api/v1/settings/clinic", schema: clinicSettings, body: changes, signal: opts?.signal }),
 
+    getLetterhead: (opts) => call({ method: "GET", path: "/api/v1/letterhead", schema: letterheadDocument, signal: opts?.signal }),
+    uploadLetterheadImage: (slot, form, opts) =>
+      call({ method: "PUT", path: `/api/v1/settings/letterhead/images/${slot}`, schema: letterhead, body: form, signal: opts?.signal }),
+    removeLetterheadImage: (slot, opts) =>
+      call({ method: "DELETE", path: `/api/v1/settings/letterhead/images/${slot}`, schema: letterhead, signal: opts?.signal }),
+
     listMySessions: (opts) => call({ method: "GET", path: "/api/v1/me/sessions", schema: mySessionsResponse, signal: opts?.signal }),
     revokeMySession: (id, opts) =>
       call({ method: "POST", path: `/api/v1/me/sessions/${encodeURIComponent(id)}/revoke`, schema: voidResponse, signal: opts?.signal }),
@@ -540,6 +548,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     getSharedPreview: (token, opts) =>
       call({ method: "GET", path: `/api/v1/shared/${encodeURIComponent(token)}`, schema: sharedPreview, signal: opts?.signal }),
+    getSharedLetterhead: (token, opts) =>
+      call({ method: "GET", path: `/api/v1/shared/${encodeURIComponent(token)}/letterhead`, schema: letterheadDocument, signal: opts?.signal }),
     openShared: (token, pin, opts) =>
       call({ method: "POST", path: `/api/v1/shared/${encodeURIComponent(token)}/open`, schema: prescription, body: { pin }, signal: opts?.signal }),
     verifyPrescription: (token, opts) =>

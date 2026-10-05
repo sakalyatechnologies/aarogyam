@@ -28,6 +28,9 @@ import type {
   ClinicInvited,
   ClinicSettings,
   ClinicSettingsChanges,
+  Letterhead,
+  LetterheadDocument,
+  LetterheadSlot,
   ClinicalFlags,
   Collections,
   ConditionFields,
@@ -275,6 +278,13 @@ export interface ApiClient {
   /** Clinic host: changes the clinic's settings. Needs `settings.manage`. */
   updateClinicSettings(changes: ClinicSettingsChanges, options?: RequestOptions): Promise<ApiResult<ClinicSettings>>;
 
+  /** Clinic host: what a document prints for the clinic: letterhead, details, doctors, image links. Needs `patients.read`. */
+  getLetterhead(options?: RequestOptions): Promise<ApiResult<LetterheadDocument>>;
+  /** Clinic host: uploads the letterhead image or the logo (PNG or JPEG, up to 2 MB; form field `file`). Needs `settings.manage`. */
+  uploadLetterheadImage(slot: LetterheadSlot, form: FormData, options?: RequestOptions): Promise<ApiResult<Letterhead>>;
+  /** Clinic host: removes the letterhead image or the logo. Needs `settings.manage`. */
+  removeLetterheadImage(slot: LetterheadSlot, options?: RequestOptions): Promise<ApiResult<Letterhead>>;
+
   /** Any host: where the signed-in person is signed in. */
   listMySessions(options?: RequestOptions): Promise<ApiResult<MySessions>>;
   /** Any host: signs one of the person's own sessions out. */
@@ -460,6 +470,8 @@ export interface ApiClient {
 
   /** Any host, public: whether a share link exists and which clinic sent it. */
   getSharedPreview(token: string, options?: RequestOptions): Promise<ApiResult<SharedPreview>>;
+  /** Clinic host, public: the clinic's letterhead for a share link's page (no patient data). */
+  getSharedLetterhead(token: string, options?: RequestOptions): Promise<ApiResult<LetterheadDocument>>;
   /** Any host, public: opens a shared prescription with its PIN. */
   openShared(token: string, pin: string, options?: RequestOptions): Promise<ApiResult<Prescription>>;
   /** Any host, public: the QR code's check that a prescription is genuine. */

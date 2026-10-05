@@ -49,6 +49,13 @@ export type ClinicSettings = Schemas["ClinicSettings"];
 export type OnlineBooking = Schemas["OnlineBooking"];
 export type OnlineBookingChanges = Schemas["OnlineBookingChanges"];
 export type ClinicSettingsChanges = Schemas["ClinicSettingsChanges"];
+export type Letterhead = Schemas["Letterhead"];
+export type LetterheadChanges = Schemas["LetterheadChanges"];
+export type LetterheadShown = Schemas["LetterheadShown"];
+export type LetterheadShownChanges = Schemas["LetterheadShownChanges"];
+export type LetterheadDocument = Schemas["LetterheadDocument"];
+export type LetterheadDoctor = Schemas["LetterheadDoctor"];
+export type LetterheadClinic = Schemas["LetterheadClinic"];
 
 export type MySession = Schemas["MySession"];
 export type MySessions = Schemas["MySessions"];

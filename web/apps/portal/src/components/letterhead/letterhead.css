@@ -1,0 +1,316 @@
+/* The clinic letterhead: a paper sheet whose type scales with its own width (container units), so
+   the same design reads on A4, on a phone and as a small thumbnail in the picker. */
+.lh-sheet {
+  --lh-accent: #136650;
+  --lh-on-accent: #fff;
+  container-type: inline-size;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 210mm;
+  margin-inline: auto;
+  background: #fff;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.18),
+    0 8px 24px rgba(0, 0, 0, 0.08);
+}
+.lh-sheet *,
+.lh-sheet *::before,
+.lh-sheet *::after {
+  box-sizing: border-box;
+}
+.lh-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  color: #1a1a1a;
+  font-family:
+    "Noto Sans", "Noto Sans Devanagari", "Segoe UI", system-ui, sans-serif;
+  font-size: max(1.85cqw, 13px);
+  line-height: 1.45;
+}
+@container (min-width: 600px) {
+  .lh-page {
+    min-height: 297mm;
+  }
+}
+.lh-body {
+  flex: 1;
+  padding: 1.4em 2.4em;
+}
+.lh-thumb {
+  pointer-events: none;
+  box-shadow: none;
+  border: 1px solid #d8dedb;
+}
+.lh-thumb .lh-page {
+  min-height: 0;
+  font-size: 1.85cqw;
+}
+
+.lh-head {
+  padding: 1.3em 2.4em 0;
+}
+.lh-name {
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  font-size: 1.9em;
+  color: var(--lh-accent);
+  overflow-wrap: anywhere;
+}
+.lh-local {
+  margin: 0.1em 0 0;
+  font-weight: 700;
+  font-size: 1.25em;
+  color: var(--lh-accent);
+}
+.lh-muted {
+  color: #555;
+}
+.lh-small {
+  font-size: 0.86em;
+}
+.lh-line {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.lh-doc {
+  margin: 0 0 0.5em;
+}
+.lh-doc b {
+  display: block;
+  font-size: 1.05em;
+}
+.lh-doc span {
+  display: block;
+  font-size: 0.86em;
+  color: #555;
+}
+.lh-logo {
+  display: block;
+  max-height: 4.6em;
+  max-width: 9em;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+.lh-mono {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.4em;
+  height: 3.4em;
+  border-radius: 50%;
+  background: var(--lh-accent);
+  color: var(--lh-on-accent);
+  font-weight: 800;
+  font-size: 1.2em;
+}
+.lh-upload {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* 1. Logo left, doctors right */
+.lh-logo-left {
+  display: flex;
+  gap: 1.2em;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  border-bottom: 0.18em solid var(--lh-accent);
+  padding-bottom: 0.9em;
+}
+.lh-logo-left .lh-id {
+  display: flex;
+  gap: 1em;
+  align-items: center;
+  flex: 1 1 14em;
+  min-width: 0;
+}
+.lh-logo-left .lh-docs {
+  text-align: right;
+  flex: 0 1 16em;
+  margin-left: auto;
+}
+/* 2. Centred classic */
+.lh-classic {
+  text-align: center;
+  border-bottom: 0.2em double var(--lh-accent);
+  padding-bottom: 0.9em;
+  font-family: "Noto Serif", Georgia, "Times New Roman", serif;
+}
+.lh-classic .lh-name {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.lh-classic .lh-logo {
+  margin: 0 auto 0.5em;
+}
+.lh-classic .lh-mono {
+  margin: 0 auto 0.5em;
+}
+.lh-classic .lh-docs {
+  margin: 0.6em 0;
+  display: flex;
+  justify-content: center;
+  gap: 0.4em 2em;
+  flex-wrap: wrap;
+}
+/* 3. Modern band */
+.lh-band-wrap {
+  padding: 0;
+}
+.lh-band {
+  background: var(--lh-accent);
+  color: var(--lh-on-accent);
+  padding: 1.2em 2.4em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+.lh-band .lh-name {
+  color: var(--lh-on-accent);
+}
+.lh-band .lh-local,
+.lh-band .lh-muted {
+  color: var(--lh-on-accent);
+  opacity: 0.9;
+}
+.lh-band .lh-id {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  min-width: 0;
+}
+.lh-band .lh-mono {
+  background: var(--lh-on-accent);
+  color: var(--lh-accent);
+}
+.lh-band .lh-contact {
+  text-align: right;
+  margin-left: auto;
+}
+.lh-band-docs {
+  display: flex;
+  gap: 0.3em 2.2em;
+  flex-wrap: wrap;
+  padding: 0.8em 2.4em 0;
+}
+/* 4. Minimal line */
+.lh-minimal {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1em;
+  flex-wrap: wrap;
+  border-bottom: 0.08em solid var(--lh-accent);
+  padding-bottom: 0.6em;
+}
+.lh-minimal .lh-name {
+  font-size: 1.4em;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.lh-minimal .lh-contact {
+  text-align: right;
+  margin-left: auto;
+}
+.lh-minimal .lh-docs {
+  flex-basis: 100%;
+  display: flex;
+  gap: 0.2em 1.6em;
+  flex-wrap: wrap;
+}
+.lh-minimal .lh-doc {
+  margin: 0;
+}
+.lh-minimal .lh-doc b {
+  display: inline;
+  font-weight: 600;
+}
+.lh-minimal .lh-doc span {
+  display: inline;
+  margin-left: 0.4em;
+}
+/* 5. Two doctors */
+.lh-two {
+  border-bottom: 0.18em solid var(--lh-accent);
+  padding-bottom: 0.8em;
+}
+.lh-two .lh-top {
+  text-align: center;
+  margin-bottom: 0.7em;
+}
+.lh-two .lh-top .lh-logo {
+  margin: 0 auto 0.4em;
+}
+.lh-two .lh-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1em;
+  border-top: 0.06em solid #cfd6d2;
+  padding-top: 0.6em;
+}
+.lh-two .lh-pair .lh-doc:nth-child(even) {
+  text-align: right;
+}
+.lh-two .lh-contact {
+  text-align: center;
+  margin-top: 0.5em;
+}
+/* 6. Bilingual */
+.lh-bi {
+  text-align: center;
+  border-bottom: 0.18em solid var(--lh-accent);
+  padding-bottom: 0.8em;
+}
+.lh-bi .lh-id {
+  display: flex;
+  gap: 1em;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.lh-bi .lh-docs {
+  margin-top: 0.6em;
+  display: flex;
+  justify-content: center;
+  gap: 0.3em 2em;
+  flex-wrap: wrap;
+}
+
+.lh-foot {
+  border-top: 0.08em solid var(--lh-accent);
+  margin: 0 2.4em;
+  padding: 0.7em 0 1.1em;
+  text-align: center;
+  font-size: 0.86em;
+  color: #555;
+}
+.lh-foot-empty {
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+@media print {
+  .lh-sheet {
+    box-shadow: none;
+    max-width: none;
+    width: 100%;
+  }
+  .lh-page {
+    min-height: 0;
+    font-size: 11pt;
+  }
+  .lh-sheet {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

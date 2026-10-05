@@ -589,6 +589,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             active: input.active ?? true,
             membership_id: input.membership_id ?? null,
             registration_number: input.registration_number ?? null,
+            qualifications: input.qualifications ?? null,
             specialty: input.specialty ?? null,
           };
           state.practitioners.push(record);
@@ -623,6 +624,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (changes.registration_number !== undefined) {
             found.registration_number = changes.registration_number === "" ? null : changes.registration_number;
           }
+          if (changes.qualifications !== undefined) found.qualifications = changes.qualifications === "" ? null : changes.qualifications;
           if (changes.specialty !== undefined) found.specialty = changes.specialty === "" ? null : changes.specialty;
           return reply(wirePractitioner(found) satisfies C.Practitioner);
         }),
@@ -2182,6 +2184,13 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return problem;
           }
           const clinic = caller.clinic;
+          if (changes.letterhead != null) {
+            const letterheadProblem = validateLetterheadChanges(changes.letterhead, clinic, state.practitioners);
+            if (letterheadProblem !== null) {
+              return letterheadProblem;
+            }
+            applyLetterheadChanges(clinic, changes.letterhead);
+          }
           if (changes.name != null) clinic.name = changes.name;
           if (changes.legal_name !== undefined) clinic.legal_name = changes.legal_name === "" ? null : changes.legal_name;
           if (changes.gstin !== undefined) clinic.gstin = changes.gstin === "" ? null : changes.gstin;
@@ -2209,6 +2218,50 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             };
           }
           return reply(wireClinicSettings(clinic) satisfies C.ClinicSettings);
+        }),
+
+      getLetterhead: (opts) =>
+        respond(S.letterheadDocument, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(wireLetterheadDocument(caller.clinic, state.practitioners) satisfies C.LetterheadDocument);
+        }),
+
+      uploadLetterheadImage: (slot, form, opts) =>
+        respond(S.letterhead, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const file = form.get("file");
+          if (!(file instanceof File) || file.size === 0) {
+            return invalid("image", "image must be a PNG or JPEG of at most 2 MB");
+          }
+          if (file.size > 2 * 1024 * 1024) {
+            return refuse(413, "payload_too_large", "image: must be at most 2 MB");
+          }
+          if (file.type !== "image/png" && file.type !== "image/jpeg") {
+            return invalid("image", "image must be a PNG or JPEG of at most 2 MB");
+          }
+          const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : `blob:fake/${fakeUuid(random, clock())}`;
+          caller.clinic.letterhead_images = { ...caller.clinic.letterhead_images, [slot]: url };
+          return reply(wireLetterhead(caller.clinic) satisfies C.Letterhead);
+        }),
+
+      removeLetterheadImage: (slot, opts) =>
+        respond(S.letterhead, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const images = caller.clinic.letterhead_images ?? {};
+          caller.clinic.letterhead_images = {
+            ...(slot !== "letterhead" && images.letterhead !== undefined ? { letterhead: images.letterhead } : {}),
+            ...(slot !== "logo" && images.logo !== undefined ? { logo: images.logo } : {}),
+          };
+          return reply(wireLetterhead(caller.clinic) satisfies C.Letterhead);
         }),
 
       listMySessions: (opts) =>
@@ -3645,6 +3698,13 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           } satisfies C.SharedPreview);
         }),
 
+      getSharedLetterhead: (token, opts) =>
+        respond(S.letterheadDocument, opts?.signal, () => {
+          const link = state.shareLinks.find((l) => l.token === token);
+          const clinic = link === undefined ? undefined : state.clinics.find((c) => c.id === link.clinic_id);
+          return clinic === undefined ? notFound : reply(wireLetterheadDocument(clinic, state.practitioners) satisfies C.LetterheadDocument);
+        }),
+
       openShared: (token, pin, opts) =>
         respond(S.prescription, opts?.signal, () => {
           const link = state.shareLinks.find((l) => l.token === token);
@@ -4021,6 +4081,129 @@ function wireClinicSettings(clinic: FakeClinic): C.ClinicSettings {
     },
     branding: { brand: clinic.branding.brand, mode: clinic.branding.mode },
     online_booking: bookingSettings(clinic),
+    letterhead: wireLetterhead(clinic),
+  };
+}
+
+const LETTERHEAD_TEMPLATES = ["logo_left", "classic", "modern_band", "minimal_line", "two_doctor", "bilingual"] as const;
+const LETTERHEAD_DEFAULTS: Omit<C.Letterhead, "has_image" | "has_logo"> = {
+  mode: "template",
+  template: "classic",
+  accent: null,
+  show: { logo: true, doctors: true, registration: true, address: true, phone: true, email: true, timings: true, gstin: false },
+  local_name: null,
+  footer: null,
+  email: null,
+  timings: null,
+  doctor_ids: [],
+};
+
+/** The stored settings over the defaults; upload mode without an image is template mode, as in the API. */
+function effectiveLetterhead(clinic: FakeClinic): Omit<C.Letterhead, "has_image" | "has_logo"> {
+  const stored = clinic.letterhead ?? {};
+  const hasImage = clinic.letterhead_images?.letterhead !== undefined;
+  const mode = stored.mode === "upload" && !hasImage ? "template" : (stored.mode ?? LETTERHEAD_DEFAULTS.mode);
+  return { ...LETTERHEAD_DEFAULTS, ...stored, mode, show: { ...LETTERHEAD_DEFAULTS.show, ...stored.show } };
+}
+
+function wireLetterhead(clinic: FakeClinic): C.Letterhead {
+  const images = clinic.letterhead_images ?? {};
+  return { ...effectiveLetterhead(clinic), has_image: images.letterhead !== undefined, has_logo: images.logo !== undefined };
+}
+
+const LETTERHEAD_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@.]+$/;
+
+/** Mirrors the API's letterhead rules, naming the same fields. */
+function validateLetterheadChanges(changes: C.LetterheadChanges, clinic: FakeClinic, practitioners: readonly FakePractitioner[]): Outcome | null {
+  const next = wireLetterhead(clinic);
+  if (changes.mode != null && changes.mode !== "upload" && changes.mode !== "template") {
+    return invalid("letterhead.mode", "mode must be upload or template");
+  }
+  if ((changes.mode ?? next.mode) === "upload" && !next.has_image) {
+    return invalid("letterhead.mode", "upload a letterhead image before choosing upload mode");
+  }
+  if (changes.template != null && !LETTERHEAD_TEMPLATES.some((t) => t === changes.template)) {
+    return invalid("letterhead.template", "template must be one of the listed designs");
+  }
+  if (changes.accent != null && changes.accent !== "" && !HEX_COLOR.test(changes.accent)) {
+    return invalid("letterhead.accent", "accent must be a colour like #0F766E");
+  }
+  if (changes.local_name != null && changes.local_name.length > 120) {
+    return invalid("letterhead.local_name", "local_name must be at most 120 characters");
+  }
+  if (changes.footer != null && changes.footer.length > 200) {
+    return invalid("letterhead.footer", "footer must be at most 200 characters");
+  }
+  if (changes.email != null && changes.email !== "" && !LETTERHEAD_EMAIL.test(changes.email)) {
+    return invalid("letterhead.email", "email must be a valid email address");
+  }
+  if (changes.timings != null && changes.timings.length > 200) {
+    return invalid("letterhead.timings", "timings must be at most 200 characters");
+  }
+  if (changes.doctor_ids != null) {
+    const ids = changes.doctor_ids;
+    const mine = (id: string) => practitioners.some((p) => p.id === id && p.clinic_id === clinic.id);
+    if (ids.length > 4 || new Set(ids).size !== ids.length || !ids.every(mine)) {
+      return invalid("letterhead.doctor_ids", "doctor_ids must list at most 4 different doctors of this clinic");
+    }
+  }
+  return null;
+}
+
+function applyLetterheadChanges(clinic: FakeClinic, changes: C.LetterheadChanges): void {
+  const rest = effectiveLetterhead(clinic);
+  const show = { ...rest.show };
+  for (const [key, value] of Object.entries(changes.show ?? {})) {
+    if (typeof value === "boolean" && key in show) {
+      Object.assign(show, { [key]: value });
+    }
+  }
+  const text = (given: string | null | undefined, kept: string | null | undefined): string | null =>
+    given == null ? (kept ?? null) : given.trim() === "" ? null : given.trim();
+  clinic.letterhead = {
+    ...rest,
+    mode: changes.mode === "upload" || changes.mode === "template" ? changes.mode : rest.mode,
+    template: LETTERHEAD_TEMPLATES.find((t) => t === changes.template) ?? rest.template,
+    accent: changes.accent == null ? (rest.accent ?? null) : changes.accent === "" ? null : changes.accent.toUpperCase(),
+    show,
+    local_name: text(changes.local_name, rest.local_name),
+    footer: text(changes.footer, rest.footer),
+    email: text(changes.email, rest.email)?.toLowerCase() ?? null,
+    timings: text(changes.timings, rest.timings),
+    doctor_ids: changes.doctor_ids ?? rest.doctor_ids,
+  };
+}
+
+function wireLetterheadDocument(clinic: FakeClinic, practitioners: readonly FakePractitioner[]): C.LetterheadDocument {
+  const letterhead = wireLetterhead(clinic);
+  const active = practitioners.filter((p) => p.clinic_id === clinic.id && p.active).sort((a, b) => a.display_name.localeCompare(b.display_name));
+  const chosen = letterhead.doctor_ids.length === 0 ? active.slice(0, 4) : letterhead.doctor_ids.flatMap((id) => active.filter((p) => p.id === id));
+  const images = clinic.letterhead_images ?? {};
+  return {
+    clinic: {
+      name: clinic.name,
+      legal_name: clinic.legal_name ?? null,
+      gstin: clinic.gstin ?? null,
+      address: {
+        line1: clinic.address?.line1 ?? null,
+        line2: clinic.address?.line2 ?? null,
+        city: clinic.address?.city ?? null,
+        state: clinic.address?.state ?? null,
+        pincode: clinic.address?.pincode ?? null,
+      },
+      phone: clinic.phone ?? null,
+    },
+    brand: clinic.branding.brand,
+    letterhead,
+    doctors: chosen.map((p) => ({
+      name: p.display_name,
+      qualifications: p.qualifications ?? null,
+      registration_number: p.registration_number ?? null,
+      specialty: p.specialty ?? null,
+    })),
+    image_url: letterhead.mode === "upload" ? (images.letterhead ?? null) : null,
+    logo_url: images.logo ?? null,
+    expires_at: new Date(Date.now() + 3_600_000).toISOString(),
   };
 }
 
@@ -4126,6 +4309,7 @@ function wirePractitioner(p: FakePractitioner): C.Practitioner {
     active: p.active,
     membership_id: p.membership_id ?? null,
     registration_number: p.registration_number ?? null,
+    qualifications: p.qualifications ?? null,
     specialty: p.specialty ?? null,
   };
 }

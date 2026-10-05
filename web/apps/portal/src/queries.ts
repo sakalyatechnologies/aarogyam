@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  readBranding,
   unwrap,
   type AllergyFields,
   type AppointmentChanges,
@@ -11,6 +12,7 @@ import {
   type ConditionFields,
   type DateRange,
   type LeaveId,
+  type LetterheadSlot,
   type MemberChanges,
   type MembershipId,
   type NewAppointmentBody,
@@ -28,6 +30,7 @@ import {
   type PatientImport,
   type PractitionerFields,
   type PractitionerId,
+  type Session,
   type ProcedureId,
   type QueueTokenId,
   type RoomFields,
@@ -108,7 +111,75 @@ export function useUpdateClinicSettings() {
     mutationFn: (changes: ClinicSettingsChanges) => unwrap(api.updateClinicSettings(changes)),
     onSuccess: (settings) => {
       queryClient.setQueryData(["clinic-settings", access.org_id], settings);
+      void queryClient.invalidateQueries({ queryKey: ["letterhead", access.org_id] });
     },
+  });
+}
+
+/**
+ * Applies a brand colour and mode to the portal at once, before the save returns: the layout reads
+ * its theme from the session's branding. The returned function puts the old look back.
+ */
+export function useApplyBranding() {
+  const { access } = useClinic();
+  const queryClient = useQueryClient();
+  const patch = (branding: { brand: string; mode: string } | undefined) => {
+    queryClient.setQueriesData<Session>({ queryKey: ["session"] }, (session) =>
+      session === undefined || branding === undefined || session.clinic.id !== access.org_id
+        ? session
+        : { ...session, clinic: { ...session.clinic, branding: { ...session.clinic.branding, ...branding } } },
+    );
+  };
+  return {
+    apply: (branding: { brand: string; mode: string }) => {
+      const previous = queryClient.getQueriesData<Session>({ queryKey: ["session"] }).find(([, session]) => session?.clinic.id === access.org_id)?.[1]?.clinic
+        .branding;
+      patch(branding);
+      return () => {
+        const old = previous === undefined ? {} : readBranding(previous);
+        patch(old.brand === undefined ? undefined : { brand: old.brand, mode: old.mode ?? "light" });
+      };
+    },
+  };
+}
+
+/** What a clinic document prints: letterhead, details, doctors and signed image links. Links last an hour. */
+export function useLetterhead() {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["letterhead", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.getLetterhead({ signal })),
+    staleTime: 10 * 60_000,
+  });
+}
+
+export function useUploadLetterheadImage() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ slot, file }: { slot: LetterheadSlot; file: File }) => {
+      const form = new FormData();
+      form.set("file", file);
+      return unwrap(api.uploadLetterheadImage(slot, form));
+    },
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["letterhead", access.org_id] }),
+        queryClient.invalidateQueries({ queryKey: ["clinic-settings", access.org_id] }),
+      ]),
+  });
+}
+
+export function useRemoveLetterheadImage() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (slot: LetterheadSlot) => unwrap(api.removeLetterheadImage(slot)),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["letterhead", access.org_id] }),
+        queryClient.invalidateQueries({ queryKey: ["clinic-settings", access.org_id] }),
+      ]),
   });
 }
 

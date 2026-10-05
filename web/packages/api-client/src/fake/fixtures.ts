@@ -71,6 +71,10 @@ export interface FakeClinic {
   prescription_footer?: string | null;
   /** Online booking settings; anything left out uses the API's default. */
   online_booking?: Partial<C.OnlineBooking>;
+  /** The letterhead settings; anything left out uses the API's default. */
+  letterhead?: Partial<Omit<C.Letterhead, "has_image" | "has_logo">>;
+  /** Object URLs of the uploaded letterhead image and logo. */
+  letterhead_images?: { letterhead?: string; logo?: string };
 }
 
 /** A device or browser where a person is signed in, for `GET /me/sessions`. */
@@ -121,6 +125,7 @@ export interface FakePractitioner {
   active: boolean;
   membership_id?: string | null;
   registration_number?: string | null;
+  qualifications?: string | null;
   specialty?: string | null;
 }
 

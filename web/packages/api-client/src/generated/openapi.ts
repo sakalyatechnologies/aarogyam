@@ -485,6 +485,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/letterhead": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a document prints for the signed-in member's clinic: the letterhead, clinic details,
+         *     doctors, and signed image links.
+         */
+        get: operations["document"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/letterhead/images/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Streams a letterhead image through its signed link. The link is the proof of access (an
+         *     `<img>` can use it) and works on the clinic's own host for an hour.
+         */
+        get: operations["image_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -1501,6 +1541,31 @@ export interface paths {
         patch: operations["update_clinic"];
         trace?: never;
     };
+    "/api/v1/settings/letterhead/images/{slot}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Uploads the letterhead image (`slot` `letterhead`) or the logo (`slot` `logo`) as
+         *     `multipart/form-data` field `file`: PNG or JPEG, up to 2 MB, checked by content. Replaces the
+         *     previous one. Returns the letterhead settings.
+         */
+        put: operations["upload_image"];
+        post?: never;
+        /**
+         * Removes the letterhead image or the logo. Without an image, upload mode falls back to the
+         *     generated design.
+         */
+        delete: operations["remove_image"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shared/{token}": {
         parameters: {
             query?: never;
@@ -1510,6 +1575,26 @@ export interface paths {
         };
         /** Public, no sign-in: whether a link exists and which clinic sent it. */
         get: operations["shared_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/{token}/letterhead": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public, no sign-in: the letterhead for a share link's page, so the page prints the clinic's
+         *     header even before the PIN. Needs a link that exists; holds no patient data.
+         */
+        get: operations["shared_document"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2540,6 +2625,8 @@ export interface components {
             gstin?: string | null;
             /** @description Registered legal name, for bills. */
             legal_name?: string | null;
+            /** @description The letterhead printed on the clinic's documents. */
+            letterhead: components["schemas"]["Letterhead"];
             /** @description Display name. */
             name: string;
             /** @description Online booking. */
@@ -2565,6 +2652,7 @@ export interface components {
             gstin?: string | null;
             /** @description Registered legal name. */
             legal_name?: string | null;
+            letterhead?: components["schemas"]["LetterheadChanges"] | null;
             /** @description Display name, 1 to 200 characters. */
             name?: string | null;
             online_booking?: components["schemas"]["OnlineBookingChanges"] | null;
@@ -2909,6 +2997,14 @@ export interface components {
              */
             hour: number;
         };
+        /** @description The image form: one file. */
+        ImageForm: {
+            /**
+             * Format: binary
+             * @description A PNG or JPEG of at most 2 MB.
+             */
+            file: string;
+        };
         /** @description An import's result. */
         ImportResult: {
             /** @description The recorded import, on commit. */
@@ -3244,6 +3340,133 @@ export interface components {
         LeaveList: {
             /** @description By start. */
             items: components["schemas"]["Leave"][];
+        };
+        /** @description The letterhead printed on prescriptions, bills and receipts. */
+        Letterhead: {
+            /** @description Accent colour of the design, `#RRGGBB`; the brand colour when none. */
+            accent?: string | null;
+            /** @description The doctors printed, in order; empty means the first active doctors by name. */
+            doctor_ids: string[];
+            /** @description Clinic email printed on the letterhead. */
+            email?: string | null;
+            /** @description A line printed at the foot. */
+            footer?: string | null;
+            /** @description Whether a letterhead image is uploaded. */
+            has_image: boolean;
+            /** @description Whether a logo is uploaded. */
+            has_logo: boolean;
+            /** @description The clinic name in another script, such as Hindi, for the bilingual design. */
+            local_name?: string | null;
+            /** @description `upload` (the clinic's own image) or `template` (a generated design). */
+            mode: string;
+            /** @description Which details the design prints. */
+            show: components["schemas"]["LetterheadShown"];
+            /** @description `logo_left`, `classic`, `modern_band`, `minimal_line`, `two_doctor` or `bilingual`. */
+            template: string;
+            /** @description Opening hours printed on the letterhead. */
+            timings?: string | null;
+        };
+        /**
+         * @description Changes to the letterhead; settings left out stay as they are, and an empty string clears
+         *     `accent`, `footer`, `email` or `timings`. Images are uploaded separately.
+         */
+        LetterheadChanges: {
+            /** @description Accent colour, `#RRGGBB`. */
+            accent?: string | null;
+            /** @description Up to four of the clinic's doctors, in print order. */
+            doctor_ids?: string[] | null;
+            /** @description Clinic email, valid when given. */
+            email?: string | null;
+            /** @description Footer line, up to 200 characters. */
+            footer?: string | null;
+            /** @description The clinic name in another script, up to 120 characters. */
+            local_name?: string | null;
+            /** @description `upload` (needs an uploaded image) or `template`. */
+            mode?: string | null;
+            show?: components["schemas"]["LetterheadShownChanges"] | null;
+            /** @description A design id. */
+            template?: string | null;
+            /** @description Opening hours, up to 200 characters. */
+            timings?: string | null;
+        };
+        /** @description The clinic's details as printed. */
+        LetterheadClinic: {
+            /** @description The main branch's address. */
+            address: components["schemas"]["Address"];
+            /** @description GSTIN. */
+            gstin?: string | null;
+            /** @description Registered legal name. */
+            legal_name?: string | null;
+            /** @description Display name. */
+            name: string;
+            /** @description The main branch's phone. */
+            phone?: string | null;
+        };
+        /** @description A doctor as printed on the letterhead. */
+        LetterheadDoctor: {
+            /** @description Name. */
+            name: string;
+            /** @description Degrees, such as `BDS, MDS`. */
+            qualifications?: string | null;
+            /** @description Council registration number. */
+            registration_number?: string | null;
+            /** @description Specialty. */
+            specialty?: string | null;
+        };
+        /** @description Everything a document needs to print the clinic's header and footer. No patient data. */
+        LetterheadDocument: {
+            /** @description The portal's brand colour, for designs without their own accent. */
+            brand?: string | null;
+            /** @description The clinic. */
+            clinic: components["schemas"]["LetterheadClinic"];
+            /** @description The doctors to print, in order. */
+            doctors: components["schemas"]["LetterheadDoctor"][];
+            /** @description When the image links stop working (RFC 3339). */
+            expires_at: string;
+            /** @description The uploaded letterhead image in upload mode: a signed path on the same host. */
+            image_url?: string | null;
+            /** @description The letterhead settings. */
+            letterhead: components["schemas"]["Letterhead"];
+            /** @description The logo: a signed path on the same host. */
+            logo_url?: string | null;
+        };
+        /** @description Which clinic details a generated letterhead prints. */
+        LetterheadShown: {
+            /** @description The address. */
+            address: boolean;
+            /** @description The doctors, with qualifications. */
+            doctors: boolean;
+            /** @description The email address. */
+            email: boolean;
+            /** @description The GSTIN. */
+            gstin: boolean;
+            /** @description The logo image. */
+            logo: boolean;
+            /** @description The phone number. */
+            phone: boolean;
+            /** @description Their registration numbers. */
+            registration: boolean;
+            /** @description The opening hours. */
+            timings: boolean;
+        };
+        /** @description Changes to which details a design prints; flags left out stay as they are. */
+        LetterheadShownChanges: {
+            /** @description The address. */
+            address?: boolean | null;
+            /** @description The doctors. */
+            doctors?: boolean | null;
+            /** @description The email address. */
+            email?: boolean | null;
+            /** @description The GSTIN. */
+            gstin?: boolean | null;
+            /** @description The logo image. */
+            logo?: boolean | null;
+            /** @description The phone number. */
+            phone?: boolean | null;
+            /** @description Registration numbers. */
+            registration?: boolean | null;
+            /** @description The opening hours. */
+            timings?: boolean | null;
         };
         /** @description An item at or below its reorder level, for the front desk's attention list. */
         LowStockAlert: {
@@ -4101,6 +4324,8 @@ export interface components {
             id: string;
             /** @description Their membership, if they sign in. */
             membership_id?: string | null;
+            /** @description Qualifications printed on the letterhead, such as `BDS, MDS`. */
+            qualifications?: string | null;
             /** @description Council registration number. */
             registration_number?: string | null;
             /** @description Specialty, such as `Orthodontics`. */
@@ -4117,7 +4342,7 @@ export interface components {
         };
         /**
          * @description A doctor to add, or changes to one. Fields left out stay as they are; an empty
-         *     `membership_id`, `registration_number` or `specialty` clears it.
+         *     `membership_id`, `registration_number`, `qualifications` or `specialty` clears it.
          */
         PractitionerFields: {
             /** @description Whether they can be booked (default true). */
@@ -4128,6 +4353,8 @@ export interface components {
             display_name?: string | null;
             /** @description The member who is this doctor. */
             membership_id?: string | null;
+            /** @description Qualifications, up to 160 characters. */
+            qualifications?: string | null;
             /** @description Council registration number. */
             registration_number?: string | null;
             /** @description Specialty. */
@@ -6648,6 +6875,84 @@ export interface operations {
                 content?: never;
             };
             /** @description No such leave in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    document: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LetterheadDocument"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    image_content: {
+        parameters: {
+            query: {
+                /** @description The signed token from the letterhead document */
+                token: string;
+            };
+            header?: never;
+            path: {
+                /** @description The image */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The image, with its media type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link has expired; load the page again */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a valid link for an image of this clinic */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -10405,6 +10710,103 @@ export interface operations {
             };
         };
     };
+    upload_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description `letterhead` or `logo` */
+                slot: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImageForm"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Letterhead"];
+                };
+            };
+            /** @description Not a PNG or JPEG, empty, or a bad slot */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 2 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    remove_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description `letterhead` or `logo` */
+                slot: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Letterhead"];
+                };
+            };
+            /** @description A bad slot */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     shared_preview: {
         parameters: {
             query?: never;
@@ -10423,6 +10825,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SharedPreview"];
+                };
+            };
+            /** @description No such link */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    shared_document: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link's token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LetterheadDocument"];
                 };
             };
             /** @description No such link */

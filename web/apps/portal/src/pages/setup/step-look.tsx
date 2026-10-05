@@ -30,7 +30,7 @@ export function LookStep({ props }: { props: StepProps }) {
             });
           }}
         >
-          Skip for now
+          Skip this step
         </button>
         <button
           type="button"

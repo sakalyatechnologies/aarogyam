@@ -9,6 +9,7 @@ import { Avatar, Button, Card, EmptyState, Skeleton, ThemeScope } from "@sakalya
 
 import { ClinicProvider, useClinicChoice, useMe, useServices, useSession, type ClinicContextValue } from "../clinic.js";
 import { MOCKUP_BRAND, mockupTheme, mockupVars } from "./mockup-theme.js";
+import { SetupGate } from "../pages/setup/setup-gate.js";
 import { MockShell } from "./shell.js";
 
 function Loading({ label }: { label: string }) {
@@ -46,10 +47,7 @@ export function ClinicGate() {
   const api = host === undefined ? undefined : services.clinic(host);
   const session = useSession(api, host);
   const branding = session.data === undefined ? {} : readBranding(session.data.clinic.branding);
-  const theme = useMemo(
-    () => mockupTheme(parseHexColor(branding.brand ?? "") ?? MOCKUP_BRAND, branding.mode ?? "light"),
-    [branding.brand, branding.mode],
-  );
+  const theme = useMemo(() => mockupTheme(parseHexColor(branding.brand ?? "") ?? MOCKUP_BRAND, branding.mode ?? "light"), [branding.brand, branding.mode]);
 
   if (me.isPending) {
     return <Loading label="Loading your clinics" />;
@@ -101,7 +99,9 @@ export function ClinicGate() {
     <ClinicProvider value={value}>
       <div style={{ display: "contents", ...mockupVars(theme) }}>
         <ThemeScope theme={theme} className="min-h-full">
-          <MockShell />
+          <SetupGate>
+            <MockShell />
+          </SetupGate>
         </ThemeScope>
       </div>
     </ClinicProvider>

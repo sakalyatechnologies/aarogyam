@@ -1,6 +1,6 @@
 import { Mail, MoreVertical, UserPlus } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 
 import { apiErrorOf, type ClinicSettings, type MemberChanges, type MembershipId, type OnlineBookingChanges, type Role } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, useDocumentTitle } from "@aarogyam/app-kit";
@@ -60,9 +60,6 @@ export function SettingsPage() {
       <div className="mk-grid mk-g2">
         {can("settings.manage") ? (
           <MkCard title="Clinic profile" hint="Shown on website, bills & prescriptions">
-            <p className="mk-hint" style={{ marginTop: -8 }}>
-              New here? <Link to="/setup">Open the setup guide</Link> for a short walk through hours, doctors, fees and your look.
-            </p>
             <ProfilePanel />
           </MkCard>
         ) : (

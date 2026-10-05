@@ -18,7 +18,11 @@ function freshClinic(fixtures: Fixtures) {
 }
 
 function client(backend: ReturnType<typeof fakeApi>, as: string) {
-  return backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: as }), now: () => NOW });
+  return backend.client({
+    host: SUNRISE,
+    getToken: () => fakeTokenFor({ id: as }),
+    now: () => NOW,
+  });
 }
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { message: string } }): T {
@@ -29,6 +33,12 @@ function value<T>(result: { ok: true; value: T } | { ok: false; error: { message
 function input(element: HTMLElement | undefined): string {
   if (!(element instanceof HTMLInputElement)) throw new Error("expected an input");
   return element.value;
+}
+
+function doctorRow(display: string): HTMLElement {
+  const row = screen.getAllByRole("listitem").find((li) => within(li).queryByDisplayValue(display) !== null);
+  if (row === undefined) throw new Error(`expected a row for ${display}`);
+  return row;
 }
 
 function first(elements: HTMLElement[]): HTMLElement {
@@ -50,7 +60,11 @@ async function wizard(path = "/today") {
 }
 
 async function continueTo(user: ReturnType<typeof userEvent.setup>, label: string | RegExp) {
-  await user.click(screen.getByRole("button", { name: /Save and continue|^Continue$|Add to price list|Send invitations/ }));
+  await user.click(
+    screen.getByRole("button", {
+      name: /Save and continue|^Continue$|Add to price list|Send invitations/,
+    }),
+  );
   await screen.findByRole("heading", { name: label });
 }
 
@@ -108,15 +122,24 @@ describe("Setup wizard", () => {
     await user.type(qualifications, "BDS, MDS");
     await user.type(first(screen.getAllByLabelText("Registration number")), "MH-2041");
     // Monday becomes a split day: morning 9 to 1, evening 5 to 8.
-    fireEvent.change(screen.getByLabelText("Monday end"), { target: { value: "13:00" } });
+    fireEvent.change(screen.getByLabelText("Monday end"), {
+      target: { value: "13:00" },
+    });
     await user.click(screen.getByRole("button", { name: /Add Monday.s evening shift/ }));
-    fireEvent.change(screen.getByLabelText("Monday second shift start"), { target: { value: "17:00" } });
-    fireEvent.change(screen.getByLabelText("Monday second shift end"), { target: { value: "20:00" } });
-    await continueTo(user, "Your look");
+    fireEvent.change(screen.getByLabelText("Monday second shift start"), {
+      target: { value: "17:00" },
+    });
+    fireEvent.change(screen.getByLabelText("Monday second shift end"), {
+      target: { value: "20:00" },
+    });
+    await continueTo(user, "Services and fees");
     const owner = client(backend, PEOPLE.asha);
     const doctors = value(await owner.listPractitioners()).items.filter((d) => d.display_name === "Asha Kulkarni");
     expect(doctors).toHaveLength(1);
-    expect(doctors[0]).toMatchObject({ qualifications: "BDS, MDS", registration_number: "MH-2041" });
+    expect(doctors[0]).toMatchObject({
+      qualifications: "BDS, MDS",
+      registration_number: "MH-2041",
+    });
     const doctor = doctors[0];
     if (doctor === undefined) throw new Error("expected Asha's record");
     const hours = value(await owner.getWorkingHours(doctor.id));
@@ -129,7 +152,9 @@ describe("Setup wizard", () => {
   it("step 2 refuses overlapping shifts before saving", async () => {
     const { user } = await wizard("/setup?step=hours");
     await user.click(await screen.findByRole("button", { name: /Add Monday.s evening shift/ }));
-    fireEvent.change(screen.getByLabelText("Monday second shift start"), { target: { value: "12:00" } });
+    fireEvent.change(screen.getByLabelText("Monday second shift start"), {
+      target: { value: "12:00" },
+    });
     await user.click(screen.getByRole("button", { name: "Save and continue" }));
     expect((await screen.findByRole("alert")).textContent).toBe("Monday: the two shifts overlap.");
   });
@@ -139,8 +164,8 @@ describe("Setup wizard", () => {
     expect(await screen.findByRole("radiogroup", { name: "Letterhead source" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: /My own letterhead/ })).toBeTruthy();
     expect(screen.getByRole("radiogroup", { name: "Palette" })).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Skip for now" }));
-    await screen.findByRole("heading", { name: "Services and fees" });
+    await user.click(screen.getByRole("button", { name: "Skip this step" }));
+    await screen.findByRole("heading", { name: /Good (morning|afternoon|evening)/ }).catch(() => undefined);
     const setup = value(await client(backend, PEOPLE.asha).getSetup());
     expect(setup.steps.find((s) => s.key === "look")?.status).toBe("skipped");
   });
@@ -171,52 +196,48 @@ describe("Setup wizard", () => {
     await user.selectOptions(screen.getByLabelText("Role of person 1"), "front_desk");
     expect(screen.getByRole("link", { name: "Open the importer" }).getAttribute("href")).toBe("/patients/import");
     await user.click(screen.getByRole("button", { name: "Send invitations" }));
-    await screen.findByRole("heading", { name: "Your clinic is ready" });
+    await screen.findByRole("heading", { name: "Your look" });
     const staff = value(await client(backend, PEOPLE.asha).listStaff());
     expect(JSON.stringify(staff)).toContain("new.desk@example.com");
   });
 
-  it("ends on a ready screen with the three next actions", async () => {
+  it("shows only the setup while it is unfinished, then the dashboard after the last step", async () => {
     const { user } = await wizard();
+    // No sidebar, no dashboard, no nagging card.
+    expect(screen.queryByRole("navigation", { name: /Main|Primary/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Billing/ })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Finish setting up" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Finish later" })).toBeNull();
     for (let step = 1; step <= 5; step += 1) {
       await screen.findByText(new RegExp(`Step ${String(step)} of 5`));
-      await user.click(await screen.findByRole("button", { name: "Skip for now" }));
+      if (step === 5) {
+        expect(screen.getByRole("heading", { name: "Your look" })).toBeTruthy();
+      }
+      await user.click(await screen.findByRole("button", { name: "Skip this step" }));
     }
-    await screen.findByRole("heading", { name: "Your clinic is ready" });
-    expect(screen.getByRole("link", { name: /Open the calendar/ }).getAttribute("href")).toBe("/calendar");
-    expect(screen.getByRole("link", { name: /Go to Settings/ }).getAttribute("href")).toBe("/settings");
-    expect(screen.getByText(/\/book$/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Copy link/ })).toBeTruthy();
+    await screen.findByRole("link", { name: /Billing/ }, { timeout: 5000 });
+    expect(screen.queryByRole("heading", { name: "Set up your clinic" })).toBeNull();
   });
 
-  it("resumes at the first unanswered step, and Finish later leaves a card on Today", async () => {
-    const user = userEvent.setup();
+  it("keeps the owner in the setup from any address, and resumes at the first unanswered step", async () => {
     const backend = fakeApi(freshClinic);
     const owner = client(backend, PEOPLE.asha);
     await owner.updateSetup({ step: "clinic", status: "done" });
     await owner.updateSetup({ step: "hours", status: "skipped" });
-    renderPortal("/setup", { as: PEOPLE.asha, backend });
-    await screen.findByRole("heading", { name: "Your look" });
+    renderPortal("/billing", { as: PEOPLE.asha, backend });
+    await screen.findByRole("heading", { name: "Services and fees" }, { timeout: 5000 });
     expect(screen.getByText(/Step 3 of 5/)).toBeTruthy();
     expect(screen.getByRole("button", { name: /Hours and doctors/ }).textContent).toContain("Skipped");
-    await user.click(screen.getByRole("button", { name: "Finish later" }));
-    const region = await screen.findByRole("region", { name: "Finish setting up" });
-    expect(within(region).getByText(/2 of 5 steps answered/)).toBeTruthy();
-    await user.click(within(region).getByRole("link", { name: "Continue setup" }));
-    await screen.findByRole("heading", { name: "Your look" });
+    expect(screen.queryByRole("link", { name: /Billing/ })).toBeNull();
   });
 
-  it("the card can be dismissed, and then stays away", async () => {
-    const user = userEvent.setup();
+  it("an owner who finished setup, or dismissed it earlier, goes straight to the dashboard", async () => {
     const backend = fakeApi(freshClinic);
-    await client(backend, PEOPLE.asha).updateSetup({ step: "clinic", status: "done" });
-    renderPortal("/today", { as: PEOPLE.asha, backend });
-    const region = await screen.findByRole("region", { name: "Finish setting up" });
-    await user.click(within(region).getByRole("button", { name: "Dismiss setup guide" }));
-    await waitFor(() => {
-      expect(screen.queryByRole("region", { name: "Finish setting up" })).toBeNull();
-    });
-    expect(value(await client(backend, PEOPLE.asha).getSetup()).standing).toBe("dismissed");
+    const owner = client(backend, PEOPLE.asha);
+    await owner.updateSetup({ dismissed: true });
+    renderPortal("/billing", { as: PEOPLE.asha, backend });
+    await screen.findByRole("link", { name: /Billing/ }, { timeout: 5000 });
+    expect(screen.queryByRole("heading", { name: "Set up your clinic" })).toBeNull();
   });
 
   it("clinics set up before the wizard are not sent to it", async () => {
@@ -224,6 +245,54 @@ describe("Setup wizard", () => {
     await screen.findByRole("heading", { name: /Good (morning|afternoon|evening)/ }).catch(() => undefined);
     expect(screen.queryByRole("heading", { name: "Set up your clinic" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Finish setting up" })).toBeNull();
+  });
+
+  it("step 2 adds a doctor with an invitation email, and removes one with no appointments", async () => {
+    const { user, backend } = await wizard("/setup?step=hours");
+    await screen.findByRole("heading", { name: "Hours and doctors" });
+    await user.click(await screen.findByRole("button", { name: /Add doctor/ }));
+    const names = screen.getAllByLabelText("Name");
+    const added = names[names.length - 1];
+    if (added === undefined) throw new Error("expected a new row");
+    await user.type(added, "Dr Meera Joshi");
+    const quals = screen.getAllByLabelText("Qualifications");
+    await user.type(quals[quals.length - 1] ?? added, "BDS");
+    await user.type(screen.getByLabelText("Email to invite (optional)"), "meera.joshi@example.com");
+    await continueTo(user, "Services and fees");
+    const owner = client(backend, PEOPLE.asha);
+    const meera = value(await owner.listPractitioners()).items.find((d) => d.display_name === "Dr Meera Joshi");
+    expect(meera).toMatchObject({ qualifications: "BDS" });
+    expect(JSON.stringify(value(await owner.listStaff()))).toContain("meera.joshi@example.com");
+    // Back on the step, she can be removed; the owner's own row has no Remove.
+    await user.click(screen.getByRole("button", { name: /Hours and doctors/ }));
+    await screen.findByDisplayValue("Dr Meera Joshi");
+    const you = screen.getAllByRole("listitem").find((li) => li.textContent.startsWith("You"));
+    if (you === undefined) throw new Error("expected the owner's row");
+    expect(within(you).queryByRole("button", { name: "Remove" })).toBeNull();
+    await user.click(within(doctorRow("Dr Meera Joshi")).getByRole("button", { name: "Remove" }));
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue("Dr Meera Joshi")).toBeNull();
+    });
+    expect(value(await owner.listPractitioners()).items.some((d) => d.display_name === "Dr Meera Joshi")).toBe(false);
+  });
+
+  it("step 2 refuses to remove a doctor who has appointments, and offers to deactivate", async () => {
+    const { user, backend } = await wizard("/setup?step=hours");
+    const owner = client(backend, PEOPLE.asha);
+    const doctors = value(await owner.listPractitioners()).items;
+    const booked = doctors.find((d) => d.membership_id !== null && d.display_name.includes("Dev"));
+    if (booked === undefined) throw new Error("expected Dev");
+    await screen.findByRole("heading", { name: "Hours and doctors" });
+    await screen.findAllByRole("listitem");
+    await user.click(within(doctorRow(booked.display_name)).getByRole("button", { name: "Remove" }));
+    const alert = await screen.findByText(/has appointments, so can.t be removed/);
+    expect(alert).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Deactivate instead" }));
+    await waitFor(() => {
+      expect(screen.queryByText(/has appointments/)).toBeNull();
+    });
+    const after = value(await owner.listPractitioners()).items.find((d) => d.id === booked.id);
+    expect(after?.active).toBe(false);
   });
 });
 
@@ -241,7 +310,10 @@ describe("Invited doctor's setup", () => {
     await user.click(screen.getByRole("button", { name: "Save and continue" }));
     await screen.findByRole("heading", { name: /Good (morning|afternoon|evening)/ }).catch(() => undefined);
     const dev = client(backend, PEOPLE.dev);
-    expect(value(await dev.getMyPractitioner())).toMatchObject({ qualifications: "BDS", registration_number: "MH-777" });
+    expect(value(await dev.getMyPractitioner())).toMatchObject({
+      qualifications: "BDS",
+      registration_number: "MH-777",
+    });
     expect(value(await dev.getMyWorkingHours()).shifts.some((s) => s.weekday === 6)).toBe(false);
     expect(value(await dev.getMySetup()).standing).toBe("complete");
   });

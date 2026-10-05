@@ -98,3 +98,16 @@
 }
 
 .sw-card-wrap { margin-bottom: 14px; }
+
+/* The owner's setup on its own, before the clinic's dashboard exists. */
+.sw-only {
+  min-height: 100%;
+  padding: 16px;
+}
+.sw-only-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 880px;
+  margin: 0 auto 12px;
+}

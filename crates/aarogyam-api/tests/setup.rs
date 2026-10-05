@@ -53,9 +53,9 @@ async fn the_owner_answers_steps_and_resumes_where_they_left() {
         [
             "clinic:todo",
             "hours:todo",
-            "look:todo",
             "services:todo",
-            "team:todo"
+            "team:todo",
+            "look:todo"
         ]
     );
 
@@ -87,7 +87,7 @@ async fn the_owner_answers_steps_and_resumes_where_they_left() {
     assert_eq!(again["practice"], "team");
     assert_eq!(statuses(&again)[0], ("clinic".into(), "done".into()));
     assert_eq!(statuses(&again)[1], ("hours".into(), "skipped".into()));
-    assert_eq!(statuses(&again)[2], ("look".into(), "todo".into()));
+    assert_eq!(statuses(&again)[4], ("look".into(), "todo".into()));
 
     // Dismissing hides the card but keeps the answers; reopening brings it back.
     let (_, setup) = app

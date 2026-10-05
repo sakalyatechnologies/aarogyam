@@ -2,7 +2,7 @@
 
 import type * as C from "../contract.js";
 
-export const CLINIC_STEPS = ["clinic", "hours", "look", "services", "team"] as const;
+export const CLINIC_STEPS = ["clinic", "hours", "services", "team", "look"] as const;
 export const MEMBER_STEPS = ["profile"] as const;
 
 export interface FakeSetup {

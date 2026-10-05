@@ -7,29 +7,23 @@ import { useToast } from "@sakalya/ui";
 import { MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { wantsLater } from "./later.js";
-import { useClinicSetup, useMySetup, useUpdateClinicSetup, useUpdateMySetup } from "./queries.js";
+import { useMySetup, useUpdateMySetup } from "./queries.js";
 import "./setup.css";
 
 /**
- * Today's "Finish setting up" card, until every step is answered or the card is dismissed. The first
- * time an owner (or an invited doctor) opens Today with nothing answered, it opens the setup instead,
- * unless they chose "Finish later" in this tab.
+ * An invited doctor's one-screen profile: the first time they open Today with nothing answered it
+ * opens the setup once, and after that a dismissible card remains. Owners never see it.
  */
 export function FinishSetupCard() {
   const { can } = useClinic();
   if (can("settings.manage")) {
-    return <OwnerCard />;
+    // Owners finish setup before they ever see Today (see SetupGate), so there is nothing to nag about.
+    return null;
   }
   if (can("prescriptions.issue")) {
     return <MemberCard />;
   }
   return null;
-}
-
-function OwnerCard() {
-  const setup = useClinicSetup();
-  const update = useUpdateClinicSetup();
-  return <Card standing={setup.data?.standing} steps={setup.data?.steps} dismiss={() => update.mutateAsync({ dismissed: true })} busy={update.isPending} />;
 }
 
 function MemberCard() {
@@ -87,10 +81,16 @@ function Card({
             onClick={() => {
               dismiss().then(
                 () => {
-                  toast.show({ title: "Setup guide hidden. Everything is still in Settings.", tone: "success" });
+                  toast.show({
+                    title: "Setup guide hidden. Everything is still in Settings.",
+                    tone: "success",
+                  });
                 },
                 () => {
-                  toast.show({ title: "Couldn't hide that. Please try again.", tone: "danger" });
+                  toast.show({
+                    title: "Couldn't hide that. Please try again.",
+                    tone: "danger",
+                  });
                 },
               );
             }}

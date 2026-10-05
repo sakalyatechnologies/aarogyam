@@ -58,7 +58,7 @@ export function StepFrame({
             void props.skip();
           }}
         >
-          Skip for now
+          Skip this step
         </button>
         <button type="button" className="mk-btn mk-btn-primary" disabled={busy || !canContinue} onClick={onContinue}>
           {busy ? "Saving…" : continueLabel}

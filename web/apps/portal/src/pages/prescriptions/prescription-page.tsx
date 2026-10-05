@@ -6,6 +6,7 @@ import {
   apiErrorOf,
   prescriptionId as prescriptionIdSchema,
   type Alert,
+  type PatientMessage,
   type Prescription,
   type RxItem,
 } from "@aarogyam/api-client";
@@ -75,6 +76,7 @@ function PrescriptionBody({ rx }: { rx: Prescription }) {
   const canIssue = can("prescriptions.issue");
   const [shareOpen, setShareOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [sent, setSent] = useState<PatientMessage>();
 
   return (
     <>
@@ -89,7 +91,7 @@ function PrescriptionBody({ rx }: { rx: Prescription }) {
                   variant="secondary"
                   icon={<Printer aria-hidden="true" className="size-4" />}
                   onClick={() => {
-                    void navigate(`/prescriptions/${rx.id}/print`);
+                    void navigate(`/prescriptions/${rx.id}/print`, { state: { pin: sent?.pin ?? null } });
                   }}
                 >
                   Print
@@ -121,13 +123,14 @@ function PrescriptionBody({ rx }: { rx: Prescription }) {
         }
       />
       <div className="flex flex-col gap-4">
+        {rx.status === "issued" && sent !== undefined ? <SentNotice message={sent} /> : null}
         <Card>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <StatusPill tone={rx.status === "issued" ? "success" : rx.status === "cancelled" ? "danger" : "neutral"}>{rx.status}</StatusPill>
             {rx.issued_at == null ? null : <span className="text-xs text-muted">Issued {formatDateTime(rx.issued_at)}</span>}
             {rx.supersedes_id == null ? null : <span className="text-xs text-muted">Reissue of an earlier prescription</span>}
           </div>
-          {rx.status === "draft" && canIssue ? <DraftEditor rx={rx} /> : <ReadOnlyView rx={rx} />}
+          {rx.status === "draft" && canIssue ? <DraftEditor rx={rx} onIssued={setSent} /> : <ReadOnlyView rx={rx} />}
         </Card>
       </div>
       <ShareDialog
@@ -204,7 +207,36 @@ function ReadOnlyView({ rx }: { rx: Prescription }) {
   );
 }
 
-function DraftEditor({ rx }: { rx: Prescription }) {
+const NOT_SENT_REASONS: Record<string, string> = {
+  no_email: "No email on file; give the printed copy.",
+  declined: "Not emailed, as you chose; give the printed copy.",
+  no_portal: "The clinic has no portal address yet, so no link could be sent; give the printed copy.",
+};
+
+/** Shown once after issuing: whether the patient was emailed, and the PIN to tell them. */
+function SentNotice({ message }: { message: PatientMessage }) {
+  const sent = message.status === "sent";
+  return (
+    <Card>
+      <div role="status" className="flex flex-col gap-1">
+        <p className="text-sm font-semibold text-text">{sent ? "Sent to patient by email" : "Not sent to the patient"}</p>
+        {sent ? (
+          <>
+            <p className="text-sm text-muted">Tell the patient this PIN, or write it on their copy. It isn't in the email and is shown only now.</p>
+            <p className="font-mono text-2xl tracking-widest" aria-label="Patient PIN">
+              {message.pin}
+            </p>
+            {message.expires_at == null ? null : <p className="text-xs text-muted">The link works until {formatDateTime(message.expires_at)}.</p>}
+          </>
+        ) : (
+          <p className="text-sm text-muted">{NOT_SENT_REASONS[message.reason ?? ""] ?? "Give the printed copy."}</p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function DraftEditor({ rx, onIssued }: { rx: Prescription; onIssued: (message: PatientMessage) => void }) {
   const toast = useToast();
   const edit = useEditPrescription(rx.id, rx.patient.id);
   const issue = useIssuePrescription(rx.id, rx.patient.id);
@@ -259,7 +291,8 @@ function DraftEditor({ rx }: { rx: Prescription }) {
     setError(undefined);
     try {
       await save();
-      await issue.mutateAsync(withOverride === undefined ? {} : { override_reason: withOverride });
+      const issued = await issue.mutateAsync(withOverride === undefined ? {} : { override_reason: withOverride });
+      onIssued(issued.patient_message);
       setBlockedAlerts(undefined);
       toast.show({ title: "Prescription issued", tone: "success" });
     } catch (thrown) {

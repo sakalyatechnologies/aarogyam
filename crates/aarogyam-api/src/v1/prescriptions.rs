@@ -1,7 +1,7 @@
 //! Prescriptions, the medicine list, patient links and the QR verification page.
 
 use aarogyam_app::prescriptions::{
-    self as app, AlertView, DrugView, IssueOutcome, RxInput, RxItemInput, RxView,
+    self as app, AlertView, DrugView, IssueOutcome, RxInput, RxItemInput, RxView, Sharing,
 };
 use aarogyam_app::share::{self, OpenOutcome};
 use aarogyam_domain::event::Event;
@@ -510,6 +510,50 @@ pub(crate) async fn get(
 pub struct IssueRequest {
     /// Why to go ahead despite the allergy alerts; needed only when there are alerts.
     pub override_reason: Option<String>,
+    /// Email the patient a link to the prescription (default true). Send `false` to skip.
+    pub notify_patient: Option<bool>,
+}
+
+/// What happened to the patient's copy.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PatientMessage {
+    /// `sent` or `not_sent`.
+    pub status: String,
+    /// Why nothing was sent: `declined`, `no_email` (give the printed copy) or `no_portal`.
+    pub reason: Option<String>,
+    /// The six-digit PIN to tell the patient; shown once, never in the email. Only when sent.
+    pub pin: Option<String>,
+    /// When the emailed link stops working. Only when sent.
+    pub expires_at: Option<String>,
+}
+
+impl From<Sharing> for PatientMessage {
+    fn from(sharing: Sharing) -> Self {
+        match sharing {
+            Sharing::Sent { pin, expires_at } => Self {
+                status: "sent".into(),
+                reason: None,
+                pin: Some(pin),
+                expires_at: Some(rfc3339(expires_at)),
+            },
+            Sharing::NotSent(why) => Self {
+                status: "not_sent".into(),
+                reason: Some(why.as_str().into()),
+                pin: None,
+                expires_at: None,
+            },
+        }
+    }
+}
+
+/// An issued prescription and what happened to the patient's copy.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct IssuedPrescription {
+    /// The prescription.
+    #[serde(flatten)]
+    pub prescription: Prescription,
+    /// Whether the patient was emailed.
+    pub patient_message: PatientMessage,
 }
 
 /// The alerts that stopped an issue.
@@ -531,7 +575,7 @@ pub struct IssueBlocked {
     request_body = IssueRequest,
     security(("bearer" = [])),
     responses(
-        (status = 200, body = Prescription),
+        (status = 200, body = IssuedPrescription),
         (status = 400, description = "No medicines, or a bad reason"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks prescriptions.issue"),
@@ -550,18 +594,25 @@ pub(crate) async fn issue(
         &request.actor,
         request.request_id,
         PrescriptionId::from_uuid(id),
-        body.override_reason.as_deref(),
+        app::IssueChoices {
+            override_reason: body.override_reason.as_deref(),
+            notify_patient: body.notify_patient.unwrap_or(true),
+        },
         state.allergies(),
         OffsetDateTime::now_utc(),
     )
     .await?;
     Ok(match outcome {
-        IssueOutcome::Issued(view) => {
+        IssueOutcome::Issued(view, sharing) => {
             if !view.alerts.is_empty() {
                 tracing::info!(event = Event::PrescriptionAlertOverridden.as_str(), prescription_id = %id, "allergy alert overridden");
             }
             tracing::info!(event = Event::PrescriptionIssued.as_str(), prescription_id = %id, "prescription issued");
-            Json(Prescription::from(*view)).into_response()
+            Json(IssuedPrescription {
+                prescription: Prescription::from(*view),
+                patient_message: sharing.into(),
+            })
+            .into_response()
         }
         IssueOutcome::NeedsOverride(alerts) => (
             StatusCode::CONFLICT,

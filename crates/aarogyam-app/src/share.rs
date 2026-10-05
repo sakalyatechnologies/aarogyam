@@ -10,7 +10,7 @@ use aarogyam_domain::permission::Permission;
 use aarogyam_domain::prescription::RxStatus;
 use aarogyam_domain::share::{LINK_LIFETIME, LinkState, MAX_PIN_ATTEMPTS, Pin};
 use aws_lc_rs::rand;
-use sakalya_db::Db;
+use sakalya_db::{Db, ScopedTx};
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
@@ -73,46 +73,58 @@ pub async fn create(
                 "only an issued prescription can be shared",
             ));
         }
-        let (token, token_hash) = new_token()?;
-        let pin = new_pin()?;
-        let id = ShareLinkId::new_v7();
-        let expires_at = now + LINK_LIFETIME;
-        dal::insert_share_link(
-            tx.conn(),
-            &dal::NewShareLink {
-                id: id.uuid(),
-                token_hash: &token_hash,
-                pin_hash: &pin_hash(&token, &pin),
-                prescription_id: prescription_id.uuid(),
-                patient_id,
-                expires_at,
-            },
-        )
-        .await?;
-        let request_text = request_id.map(|id| id.to_string());
-        access::record(
-            tx.conn(),
-            &access::DocumentAccess {
-                actor_user_id: Some(actor.user_id.uuid()),
-                actor_kind: STAFF.as_str(),
-                patient_id,
-                share_link_id: Some(id.uuid()),
-                resource: "prescription",
-                resource_id: prescription_id.uuid(),
-                action: "share",
-                purpose: actor.access_purpose(),
-                request_id: request_text.as_deref(),
-            },
-        )
-        .await?;
-        Ok(NewLink {
-            id,
-            token,
-            pin,
-            expires_at,
-        })
+        create_in(tx, actor, request_id, prescription_id, patient_id, now).await
     })
     .await
+}
+
+/// Makes the link inside the caller's transaction, for an issued prescription of `patient_id`.
+pub(crate) async fn create_in(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    prescription_id: PrescriptionId,
+    patient_id: Uuid,
+    now: OffsetDateTime,
+) -> Result<NewLink, AppError> {
+    let (token, token_hash) = new_token()?;
+    let pin = new_pin()?;
+    let id = ShareLinkId::new_v7();
+    let expires_at = now + LINK_LIFETIME;
+    dal::insert_share_link(
+        tx.conn(),
+        &dal::NewShareLink {
+            id: id.uuid(),
+            token_hash: &token_hash,
+            pin_hash: &pin_hash(&token, &pin),
+            prescription_id: prescription_id.uuid(),
+            patient_id,
+            expires_at,
+        },
+    )
+    .await?;
+    let request_text = request_id.map(|id| id.to_string());
+    access::record(
+        tx.conn(),
+        &access::DocumentAccess {
+            actor_user_id: Some(actor.user_id.uuid()),
+            actor_kind: STAFF.as_str(),
+            patient_id,
+            share_link_id: Some(id.uuid()),
+            resource: "prescription",
+            resource_id: prescription_id.uuid(),
+            action: "share",
+            purpose: actor.access_purpose(),
+            request_id: request_text.as_deref(),
+        },
+    )
+    .await?;
+    Ok(NewLink {
+        id,
+        token,
+        pin,
+        expires_at,
+    })
 }
 
 /// What anyone holding the link may learn before the PIN: that a document exists and whose

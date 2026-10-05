@@ -86,6 +86,7 @@ import type {
   PractitionerFields,
   PractitionerId,
   PractitionerPage,
+  IssuedPrescription,
   Prescription,
   PrescriptionId,
   PrescriptionPage,
@@ -447,7 +448,7 @@ export interface ApiClient {
   /** Clinic host: edits a draft. Needs `prescriptions.issue`. */
   editPrescription(id: PrescriptionId, input: RxValues, options?: RequestOptions): Promise<ApiResult<Prescription>>;
   /** Clinic host: issues a draft; `409` with alerts when an override reason is needed. Needs `prescriptions.issue`. */
-  issuePrescription(id: PrescriptionId, input: IssueRequest, options?: RequestOptions): Promise<ApiResult<Prescription>>;
+  issuePrescription(id: PrescriptionId, input: IssueRequest, options?: RequestOptions): Promise<ApiResult<IssuedPrescription>>;
   /** Clinic host: cancels an issued prescription, starting a corrected draft by default. Needs `prescriptions.issue`. */
   cancelPrescription(id: PrescriptionId, input: CancelRequest, options?: RequestOptions): Promise<ApiResult<Cancelled>>;
   /** Clinic host: makes a seven-day link with a PIN for the patient to open the prescription. Needs `prescriptions.issue`. */

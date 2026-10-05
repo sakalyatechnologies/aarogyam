@@ -36,6 +36,34 @@ describe("Prescriptions", () => {
     expect(await screen.findByText("issued")).toBeTruthy();
   });
 
+  it.each([
+    ["rahul@example.com", "Sent to patient by email", /PIN/],
+    [null, "Not sent to the patient", /No email on file/],
+  ])("shows what happened to the patient's copy after issuing (email %s)", async (email, heading, detail) => {
+    const user = userEvent.setup();
+    let patientPath = "";
+    const backend = fakeApi((fixtures) => {
+      const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
+      const patient = fixtures.patients.find((p) => p.clinic_id === sunrise?.id && !fixtures.allergies.some((a) => a.patient_id === p.id));
+      if (patient !== undefined) {
+        patient.email = email;
+        patientPath = `/patients/${patient.id}/prescriptions`;
+      }
+    });
+    renderPortal(patientPath, { as: PEOPLE.asha, backend });
+
+    await user.click(await screen.findByRole("button", { name: "New prescription" }));
+    await user.click(await screen.findByRole("button", { name: "Add free-text medicine" }));
+    await user.type(screen.getByPlaceholderText("Medicine name"), "Paracetamol");
+    await user.click(screen.getByRole("button", { name: "Issue prescription" }));
+
+    expect(await screen.findByText(heading)).toBeTruthy();
+    expect(screen.getByText(detail)).toBeTruthy();
+    if (email !== null) {
+      expect(screen.getByLabelText("Patient PIN").textContent).toMatch(/^\d{6}$/);
+    }
+  });
+
   it("starts Quick Rx from the last issued prescription", async () => {
     const user = userEvent.setup();
     let patientPath = "";

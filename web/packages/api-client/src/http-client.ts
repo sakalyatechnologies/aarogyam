@@ -48,6 +48,7 @@ import {
   pendingReport,
   practitioner,
   practitionerList,
+  issuedPrescription,
   prescription,
   prescriptionList,
   priceItem,
@@ -528,7 +529,7 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     editPrescription: (id, input, opts) =>
       call({ method: "PATCH", path: `/api/v1/prescriptions/${encodeURIComponent(id)}`, schema: prescription, body: input, signal: opts?.signal }),
     issuePrescription: (id, input, opts) =>
-      call({ method: "POST", path: `/api/v1/prescriptions/${encodeURIComponent(id)}/issue`, schema: prescription, body: input, signal: opts?.signal }),
+      call({ method: "POST", path: `/api/v1/prescriptions/${encodeURIComponent(id)}/issue`, schema: issuedPrescription, body: input, signal: opts?.signal }),
     cancelPrescription: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/prescriptions/${encodeURIComponent(id)}/cancel`, schema: cancelled, body: input, signal: opts?.signal }),
     createShareLink: (id, opts) =>

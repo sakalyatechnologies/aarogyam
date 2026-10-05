@@ -1513,6 +1513,18 @@ export const prescription = z.object({
 }) satisfies z.ZodType<C.Prescription>;
 export type Prescription = z.output<typeof prescription>;
 
+export const patientMessage = z.object({
+  status: z.string(),
+  reason: optionalText,
+  pin: optionalText,
+  expires_at: optionalTimestamp,
+}) satisfies z.ZodType<C.PatientMessage>;
+export type PatientMessage = z.output<typeof patientMessage>;
+
+/** What issuing returns: the prescription and what happened to the patient's copy. */
+export const issuedPrescription = prescription.extend({ patient_message: patientMessage }) satisfies z.ZodType<C.IssuedPrescription>;
+export type IssuedPrescription = z.output<typeof issuedPrescription>;
+
 export const prescriptionList = z.object({ items: z.array(prescription) }) satisfies z.ZodType<C.PrescriptionList>;
 export type PrescriptionPage = z.output<typeof prescriptionList>;
 

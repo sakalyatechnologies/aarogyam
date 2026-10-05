@@ -25,6 +25,21 @@ pub struct StaffEmail<'a> {
     pub secret: Option<&'a str>,
 }
 
+/// An email to a patient at the address on their record. The payload carries ids and
+/// non-patient values only: never the patient's name, medicines or diagnosis.
+pub type PatientEmail<'a> = StaffEmail<'a>;
+
+/// Queues an email to a patient in the caller's clinic transaction.
+///
+/// # Errors
+/// [`AppError::Db`] on database failures.
+pub async fn enqueue_patient_email(
+    tx: &mut ScopedTx,
+    email: &PatientEmail<'_>,
+) -> Result<MessageId, AppError> {
+    enqueue_staff_email(tx, email).await
+}
+
 /// Queues an email in the caller's clinic transaction.
 ///
 /// # Errors

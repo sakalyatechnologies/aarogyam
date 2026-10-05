@@ -3048,8 +3048,15 @@ export interface components {
         };
         /** @description Issuing a prescription. */
         IssueRequest: {
+            /** @description Email the patient a link to the prescription (default true). Send `false` to skip. */
+            notify_patient?: boolean | null;
             /** @description Why to go ahead despite the allergy alerts; needed only when there are alerts. */
             override_reason?: string | null;
+        };
+        /** @description An issued prescription and what happened to the patient's copy. */
+        IssuedPrescription: components["schemas"]["Prescription"] & {
+            /** @description Whether the patient was emailed. */
+            patient_message: components["schemas"]["PatientMessage"];
         };
         /** @description An item with its deliveries and latest changes. */
         ItemDetailResponse: {
@@ -3709,6 +3716,17 @@ export interface components {
         PatientList: {
             /** @description Matching patients, best first. */
             items: components["schemas"]["Patient"][];
+        };
+        /** @description What happened to the patient's copy. */
+        PatientMessage: {
+            /** @description When the emailed link stops working. Only when sent. */
+            expires_at?: string | null;
+            /** @description The six-digit PIN to tell the patient; shown once, never in the email. Only when sent. */
+            pin?: string | null;
+            /** @description Why nothing was sent: `declined`, `no_email` (give the printed copy) or `no_portal`. */
+            reason?: string | null;
+            /** @description `sent` or `not_sent`. */
+            status: string;
         };
         /** @description A patient as a bill or payment names them. */
         PatientRef: {
@@ -8974,7 +8992,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Prescription"];
+                    "application/json": components["schemas"]["IssuedPrescription"];
                 };
             };
             /** @description No medicines, or a bad reason */

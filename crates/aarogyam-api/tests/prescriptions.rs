@@ -584,3 +584,126 @@ async fn the_allergy_check_reads_the_recorded_allergies() {
     assert_eq!(status, StatusCode::CONFLICT);
     app.finish().await;
 }
+
+async fn patient_with(app: &TestApp, token: &str, extra: Value) -> String {
+    let mut body = json!({ "full_name": "Rahul Verma", "sex": "male", "age_years": 40 });
+    body.as_object_mut()
+        .unwrap()
+        .extend(extra.as_object().unwrap().clone());
+    let (status, body) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/patients",
+            Some(token),
+            Some(body),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    body["id"].as_str().unwrap().to_owned()
+}
+
+async fn rx_draft(app: &TestApp, token: &str, patient: &str) -> String {
+    let items = json!([{ "drug_name": "Ibuprofen", "dose": "1 tablet", "frequency": "1-1-1" }]);
+    draft(app, token, patient, items).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+async fn queued(app: &TestApp) -> Vec<(String, Value, Option<String>)> {
+    sqlx::query_as(
+        "select recipient, payload, secret from aarogyam.outbox_events
+         where event_key = 'prescription.shared' order by created_at",
+    )
+    .fetch_all(&app.owner)
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn issuing_emails_the_patient_a_link_without_the_pin_or_medicines() {
+    let app = start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = patient_with(&app, &owner, json!({ "email": "rahul@example.in" })).await;
+    let id = rx_draft(&app, &owner, &patient).await;
+    let (status, issued) = issue(&app, &owner, &id, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{issued}");
+    let message = &issued["patient_message"];
+    assert_eq!(message["status"], "sent");
+    let pin = message["pin"].as_str().unwrap().to_owned();
+    assert_eq!(pin.len(), 6);
+
+    let rows = queued(&app).await;
+    assert_eq!(rows.len(), 1);
+    let (recipient, payload, token) = &rows[0];
+    assert_eq!(recipient, "rahul@example.in");
+    let stored = payload.to_string();
+    for secret in [pin.as_str(), "Ibuprofen", "Pericoronitis", "Rahul", "Verma"] {
+        assert!(!stored.contains(secret), "payload leaks {secret}");
+    }
+    assert_eq!(payload["portal_host"], ALPHA);
+    let token = token.clone().unwrap();
+
+    // The queued link opens the prescription with the PIN.
+    let (status, opened) = shared(&app, &token, &pin).await;
+    assert_eq!(status, StatusCode::OK, "{opened}");
+
+    // The queued message is delivered.
+    let (_, report) = app
+        .send(
+            Method::POST,
+            "localhost",
+            "/api/v1/internal/outbox/drain",
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(report["sent"], 1);
+
+    // Cancel and reissue sends a second, fresh link.
+    let cancel = format!("/api/v1/prescriptions/{id}/cancel");
+    let (_, cancelled) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &cancel,
+            Some(&owner),
+            Some(json!({ "reason": "Wrong dose" })),
+        )
+        .await;
+    let again = cancelled["draft"]["id"].as_str().unwrap();
+    let (status, issued) = issue(&app, &owner, again, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{issued}");
+    assert_eq!(issued["patient_message"]["status"], "sent");
+    assert_eq!(queued(&app).await.len(), 2);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn nothing_is_sent_without_an_email_or_when_the_doctor_declines() {
+    let app = start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let none = patient(&app, ALPHA, &owner).await;
+    let id = rx_draft(&app, &owner, &none).await;
+    let (status, issued) = issue(&app, &owner, &id, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{issued}");
+    assert_eq!(issued["patient_message"]["status"], "not_sent");
+    assert_eq!(issued["patient_message"]["reason"], "no_email");
+    assert!(issued["patient_message"]["pin"].is_null());
+
+    let with = patient_with(&app, &owner, json!({ "email": "rahul@example.in" })).await;
+    let id = rx_draft(&app, &owner, &with).await;
+    let (status, issued) = issue(&app, &owner, &id, json!({ "notify_patient": false })).await;
+    assert_eq!(status, StatusCode::OK, "{issued}");
+    assert_eq!(issued["patient_message"]["reason"], "declined");
+    assert_eq!(queued(&app).await.len(), 0);
+    let (links,): (i64,) = sqlx::query_as("select count(*) from aarogyam.share_links")
+        .fetch_one(&app.owner)
+        .await
+        .unwrap();
+    assert_eq!(links, 0);
+    app.finish().await;
+}

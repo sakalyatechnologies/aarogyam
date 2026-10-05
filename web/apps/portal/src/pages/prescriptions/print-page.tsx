@@ -1,6 +1,6 @@
 import { Printer } from "lucide-react";
 import { useEffect } from "react";
-import { useParams } from "react-router";
+import { useLocation, useParams } from "react-router";
 
 import { prescriptionId as prescriptionIdSchema } from "@aarogyam/api-client";
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
@@ -36,6 +36,10 @@ const TIMING_LABEL: Readonly<Record<string, string>> = {
 /** The printed prescription: letterhead, doctor, items, footer and a QR code that verifies it. */
 export function PrescriptionPrintPage() {
   const params = useParams();
+  const location = useLocation();
+  // The PIN exists only at issue time, so the issuing screen hands it over for the paper copy.
+  const statePin: unknown = isRecord(location.state) ? location.state.pin : undefined;
+  const pin = typeof statePin === "string" && statePin !== "" ? statePin : undefined;
   const parsed = prescriptionIdSchema.safeParse(params.id);
   const id = parsed.success ? parsed.data : undefined;
   const rx = usePrescription(id);
@@ -155,6 +159,7 @@ export function PrescriptionPrintPage() {
         <div>
           {print.footer == null ? null : <p className="max-w-sm text-xs text-muted">{print.footer}</p>}
           <p className="mt-1 text-xs text-muted">{print.brand_line}</p>
+          {pin === undefined ? null : <p className="mt-2 text-sm">PIN to open your copy online: <span className="font-mono tracking-widest">{pin}</span></p>}
         </div>
         <div className="flex flex-col items-center gap-1">
           <QrCode value={verifyUrl} size={88} label="Scan to verify this prescription" />

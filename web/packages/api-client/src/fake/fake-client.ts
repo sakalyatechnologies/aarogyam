@@ -3486,7 +3486,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
         }),
 
       issuePrescription: (id, input, opts) =>
-        respond(S.prescription, opts?.signal, async () => {
+        respond(S.issuedPrescription, opts?.signal, async () => {
           const caller = await inClinic("prescriptions.issue");
           if (!isCaller(caller)) {
             return caller;
@@ -3516,7 +3516,28 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             found.alerts = detected.map((a) => ({ ...a, action: "overridden", override_reason: overrideReason ?? null }));
             found.override_reason = overrideReason ?? null;
           }
-          return reply(wirePrescription(found, state) satisfies C.Prescription);
+          const patient = state.patients.find((p) => p.id === found.patient_id);
+          let patientMessage: C.PatientMessage;
+          if (input.notify_patient === false) {
+            patientMessage = { status: "not_sent", reason: "declined" };
+          } else if (patient?.email == null || patient.email === "") {
+            patientMessage = { status: "not_sent", reason: "no_email" };
+          } else {
+            const link: FakeShareLink = {
+              id: fakeUuid(random, now),
+              clinic_id: caller.clinic.id,
+              prescription_id: found.id,
+              token: random.hex(32),
+              pin: String(random.int(100_000, 999_999)),
+              created_at: now.toISOString(),
+              expires_at: new Date(now.getTime() + 7 * 86_400_000).toISOString(),
+              failed_attempts: 0,
+              locked: false,
+            };
+            state.shareLinks.push(link);
+            patientMessage = { status: "sent", pin: link.pin, expires_at: link.expires_at };
+          }
+          return reply({ ...wirePrescription(found, state), patient_message: patientMessage } satisfies C.IssuedPrescription);
         }),
 
       cancelPrescription: (id, input, opts) =>

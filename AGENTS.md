@@ -52,6 +52,8 @@ Settings come from `config/local.toml` (local defaults, not secret) and `ARO_*` 
 
 13. **Generic code moves to the shared repositories.** A piece with no clinic concept in it (email sending, auth plumbing, metrics, UI flows) built here moves to `sakalya-backend` or `sakalya-web` within a week, or as soon as a second product needs it. Until then, keep it free of product types so the move is mechanical.
 
+14. **This file wins over generic agent plugins.** Style plugins (such as ponytail's "simplest solution") are welcome for keeping code small, but never reduce what "Done means" requires: the tests, permissions, cross-clinic checks, docs and gates here are not optional.
+
 ## Logging
 
 Follow the log budget in `docs/guidelines/observability.md`. Business events use the `Event` enum (`appointment.booked`, `invoice.paid`) in the `event` field. Log IDs only.

@@ -242,6 +242,7 @@
 .mk-table .mk-pname { background: none; border: 0; padding: 0; cursor: pointer; color: inherit; font-weight: inherit; text-align: left; }
 .mk-table td:first-child { font-weight: 600; color: var(--ink); }
 .mk-table tr:hover td { background: var(--hover); }
+.mk-table tr.mk-rowlink { cursor: pointer; }
 .mk-table .mk-r { text-align: right; }
 .mk-table a { color: inherit; text-decoration: none; } .mk-table a:hover { text-decoration: underline; }
 .mk-mono { font-family: ui-monospace, monospace; font-size: 12px; }

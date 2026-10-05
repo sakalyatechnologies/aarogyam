@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router";
 import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
 import { Skeleton } from "@sakalya/ui";
 
-import { Empty, MkAvatar, MkCard, Tag } from "../../components/mk/index.js";
+import { Empty, MkAvatar, MkCard, Tag, rowLink } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { patientPath } from "../../lib/patients.js";
 import { usePatientList } from "./queries.js";
@@ -146,7 +146,7 @@ export function PatientsPage() {
                 </thead>
                 <tbody>
                   {rows.slice(0, shown).map((row) => (
-                    <tr key={row.id}>
+                    <tr key={row.id} {...rowLink(() => void navigate(patientPath(row)))}>
                       <th scope="row">
                         <span className="mk-pname">
                           <MkAvatar name={row.full_name} />

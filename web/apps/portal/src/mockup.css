@@ -294,10 +294,10 @@
 .mk-drawer-h .mk-x { background: rgba(255,255,255,.18); border: 0; color: #fff; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; float: right; display: grid; place-items: center; }
 .mk-drawer-h .mk-x:focus-visible { outline-color: #fff; }
 .mk-drawer-h small { display: block; font-size: 11px; letter-spacing: .1em; opacity: .85; }
-.mk-drawer-h h2 { margin: 6px 0 2px; font-size: 22px; } .mk-drawer-h div { font-size: 13px; opacity: .9; }
+.mk-drawer-h h1, .mk-drawer-h h2 { margin: 6px 0 2px; font-size: 22px; font-weight: 800; } .mk-drawer-h div { font-size: 13px; opacity: .9; }
 .mk-drawer-b { padding: 20px 24px; overflow: auto; flex: 1; }
 .mk-kv { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 9px 0; border-bottom: 1px dashed var(--rule); }
-.mk-kv b { color: var(--ink); text-align: right; } .mk-kv span { color: var(--muted); }
+.mk-kv b, .mk-kv dd { color: var(--ink); text-align: right; font-weight: 700; margin: 0; } .mk-kv span, .mk-kv dt { color: var(--muted); }
 .mk-drawer h3 { font-size: 13px; margin: 18px 0 8px; }
 
 /* toast */

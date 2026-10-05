@@ -4,7 +4,8 @@ import { useNavigate } from "react-router";
 
 import { apiErrorOf, type PatientId, type TimelineEventKind } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDateTime } from "@aarogyam/app-kit";
-import { Button, Card, EmptyState, Pill, Skeleton, useToast } from "@sakalya/ui";
+import { Button, Skeleton, useToast } from "@sakalya/ui";
+import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { useStartVisit, useTimeline, useVisits } from "../../queries.js";
@@ -58,9 +59,9 @@ export function VisitsPanel({ patientId }: { patientId: PatientId }) {
       ) : timeline.isError ? (
         <ApiErrorNotice title="Couldn't load the timeline" error={timeline.error} onRetry={() => void timeline.refetch()} />
       ) : timeline.data.items.length === 0 ? (
-        <EmptyState title="No visits yet" description="Each visit, note and procedure will appear here in order." />
+        <Empty title="No visits yet">Each visit, note and procedure will appear here in order.</Empty>
       ) : (
-        <Card>
+        <MkCard>
           <ol className="flex flex-col divide-y divide-border">
             {timeline.data.items.map((event) => (
               <li key={event.id} className="flex items-start gap-3 py-3">
@@ -84,11 +85,11 @@ export function VisitsPanel({ patientId }: { patientId: PatientId }) {
                     {event.by == null ? "" : ` · ${event.by.name}`}
                   </p>
                 </div>
-                {event.status == null ? null : <Pill tone="neutral">{event.status}</Pill>}
+                {event.status == null ? null : <Tag tone={statusTone("neutral")}>{event.status}</Tag>}
               </li>
             ))}
           </ol>
-        </Card>
+        </MkCard>
       )}
     </div>
   );

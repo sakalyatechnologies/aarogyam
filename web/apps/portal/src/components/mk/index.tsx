@@ -25,6 +25,11 @@ export function Tag({ tone = "neutral", children }: { tone?: TagTone; children: 
   return <span className={`mk-tag ${tone === "neutral" ? "" : tone}`}>{children}</span>;
 }
 
+/** Maps the shared library's status tones onto the mock-up's tag colours. */
+export function statusTone(tone: "neutral" | "success" | "warning" | "danger" | "info"): TagTone {
+  return tone === "success" ? "done" : tone === "warning" ? "wait" : tone === "danger" ? "down" : tone === "info" ? "info" : "neutral";
+}
+
 export function MkPill({ tone, children }: { tone?: MkTone | undefined; children: ReactNode }) {
   return <span className={`mk-pill ${tone ?? ""}`}>{children}</span>;
 }

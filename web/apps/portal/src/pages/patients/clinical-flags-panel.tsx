@@ -3,7 +3,8 @@ import { useState } from "react";
 
 import { apiErrorOf, type Allergy, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate } from "@aarogyam/app-kit";
-import { Button, Card, Dialog, EmptyState, Field, Pill, Select, Skeleton, TextArea, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, Select, Skeleton, TextArea, TextInput, useToast } from "@sakalya/ui";
+import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { useAddAllergy, useAddCondition, useClinicalFlags } from "../../queries.js";
@@ -36,13 +37,13 @@ export function ClinicalFlagsPanel({ patientId }: { patientId: PatientId }) {
   return (
     <div className="flex flex-col gap-4">
       {!hasFlags ? (
-        <EmptyState title="No clinical flags recorded yet" description="Allergies and conditions show here, prominently." />
+        <Empty title="No clinical flags recorded yet">Allergies and conditions show here, prominently.</Empty>
       ) : (
-        <Card>
+        <MkCard>
           <div className="mb-3 flex items-center gap-2">
             <AlertTriangle aria-hidden="true" className={data.severe_allergy ? "size-5 text-danger" : "size-5 text-warning"} />
             <h3 className="text-base font-bold text-text">Clinical flags</h3>
-            {data.severe_allergy ? <Pill tone="danger">Severe allergy</Pill> : null}
+            {data.severe_allergy ? <Tag tone={statusTone("danger")}>Severe allergy</Tag> : null}
           </div>
           {data.details_hidden ? (
             <p className="text-sm text-muted">
@@ -53,7 +54,7 @@ export function ClinicalFlagsPanel({ patientId }: { patientId: PatientId }) {
             <ul className="flex flex-col gap-2">
               {data.allergies.map((a) => (
                 <li key={a.id} className="flex items-center gap-2 text-sm">
-                  <Pill tone={a.severity === "severe" ? "danger" : a.severity === "moderate" ? "warning" : "neutral"}>Allergy</Pill>
+                  <Tag tone={statusTone(a.severity === "severe" ? "danger" : a.severity === "moderate" ? "warning" : "neutral")}>Allergy</Tag>
                   <span className="font-semibold text-text">{a.substance}</span>
                   {a.reaction == null ? null : <span className="text-muted">— {a.reaction}</span>}
                   {canWrite ? (
@@ -73,14 +74,14 @@ export function ClinicalFlagsPanel({ patientId }: { patientId: PatientId }) {
               ))}
               {data.conditions.map((c) => (
                 <li key={c.id} className="flex items-center gap-2 text-sm">
-                  <Pill tone="info">Condition</Pill>
+                  <Tag tone={statusTone("info")}>Condition</Tag>
                   <span className="font-semibold text-text">{c.display_text}</span>
                   {c.onset == null ? null : <span className="text-muted">since {formatDate(`${c.onset}T00:00:00Z`, "UTC")}</span>}
                 </li>
               ))}
             </ul>
           )}
-        </Card>
+        </MkCard>
       )}
       {canWrite ? (
         <div className="flex flex-wrap gap-2">

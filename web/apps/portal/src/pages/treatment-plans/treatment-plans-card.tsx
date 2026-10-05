@@ -3,7 +3,8 @@ import { useState } from "react";
 
 import { apiErrorOf, type PatientId, type Plan, type VisitId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatRupees } from "@aarogyam/app-kit";
-import { Button, Card, Dialog, EmptyState, Field, Pill, Skeleton, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, Skeleton, TextInput, useToast } from "@sakalya/ui";
+import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
 import { useAcceptPlan, useCreatePlan, usePlans, useSetPlanItemStatus } from "./queries.js";
 
@@ -16,7 +17,7 @@ export function TreatmentPlansCard({ patientId, visitId, canWrite }: { patientId
   const plans = usePlans(patientId);
   const [creating, setCreating] = useState(false);
   return (
-    <Card
+    <MkCard
       title="Treatment plans"
       action={
         canWrite ? (
@@ -37,7 +38,7 @@ export function TreatmentPlansCard({ patientId, visitId, canWrite }: { patientId
       ) : plans.isError ? (
         <ApiErrorNotice title="Couldn't load treatment plans" error={plans.error} onRetry={() => void plans.refetch()} />
       ) : plans.data.items.length === 0 ? (
-        <EmptyState title="No treatment plans yet" icon={null} />
+        <Empty title="No treatment plans yet" />
       ) : (
         <div className="flex flex-col gap-4">
           {plans.data.items.map((plan) => (
@@ -54,7 +55,7 @@ export function TreatmentPlansCard({ patientId, visitId, canWrite }: { patientId
           }}
         />
       ) : null}
-    </Card>
+    </MkCard>
   );
 }
 
@@ -66,7 +67,7 @@ function PlanView({ patientId, plan, canWrite }: { patientId: PatientId; plan: P
     <div className="rounded-2xl border border-border p-4">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-bold text-text">{plan.title}</h3>
-        <Pill tone={planTone(plan.status)}>{plan.status.replace("_", " ")}</Pill>
+        <Tag tone={statusTone(planTone(plan.status))}>{plan.status.replace("_", " ")}</Tag>
         <span className="ms-auto text-sm font-semibold tabular-nums text-text">{formatRupees(plan.estimate_paise)}</span>
         {canWrite && plan.status === "proposed" ? (
           <Button
@@ -98,9 +99,9 @@ function PlanView({ patientId, plan, canWrite }: { patientId: PatientId; plan: P
               {item.tooth == null ? "" : ` · Tooth ${String(item.tooth)}`}
             </span>
             <span className="text-xs text-muted">Phase {item.phase}</span>
-            <Pill tone={item.status === "done" ? "success" : item.status === "cancelled" ? "danger" : item.status === "accepted" ? "warning" : "neutral"}>
+            <Tag tone={statusTone(item.status === "done" ? "success" : item.status === "cancelled" ? "danger" : item.status === "accepted" ? "warning" : "neutral")}>
               {item.status}
-            </Pill>
+            </Tag>
             <span className="ms-auto tabular-nums text-text">{formatRupees(item.estimate_paise)}</span>
             {canWrite && item.status === "accepted" ? (
               <Button

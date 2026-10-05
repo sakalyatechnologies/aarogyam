@@ -3,7 +3,8 @@ import { useRef, useState } from "react";
 
 import { apiErrorOf, type AttachmentId, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatBytes, formatDateTime } from "@aarogyam/app-kit";
-import { Button, Card, Dialog, EmptyState, Field, Select, Skeleton, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, Select, Skeleton, TextInput, useToast } from "@sakalya/ui";
+import { MkCard, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { useAttachments, useDownloadLink, useUploadAttachment } from "../../queries.js";
@@ -55,9 +56,9 @@ export function FilesPanel({ patientId }: { patientId: PatientId }) {
       ) : attachments.isError ? (
         <ApiErrorNotice title="Couldn't load files" error={attachments.error} onRetry={() => void attachments.refetch()} />
       ) : attachments.data.items.length === 0 ? (
-        <EmptyState title="No files yet" description="Photos, x-rays, reports and consents will show here." />
+        <Empty title="No files yet">Photos, x-rays, reports and consents will show here.</Empty>
       ) : (
-        <Card>
+        <MkCard>
           <ul className="divide-y divide-border">
             {attachments.data.items.map((file) => (
               <li key={file.id} className="flex items-center justify-between gap-3 py-3">
@@ -81,7 +82,7 @@ export function FilesPanel({ patientId }: { patientId: PatientId }) {
               </li>
             ))}
           </ul>
-        </Card>
+        </MkCard>
       )}
       {uploading ? (
         <UploadDialog

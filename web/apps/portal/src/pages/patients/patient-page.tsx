@@ -4,8 +4,9 @@ import { useNavigate, useParams } from "react-router";
 
 import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, Card, Skeleton, Tabs } from "@sakalya/ui";
+import { Skeleton, Tabs } from "@sakalya/ui";
 
+import { MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { ageSex, formatPhone, languageLabel, maskEmail, maskPhone, patientPath } from "../../lib/patients.js";
 import { usePatient } from "../../queries.js";
@@ -25,36 +26,29 @@ function parseId(param: string | undefined): PatientId | undefined {
 /** Shows a contact detail masked until asked; at a busy front desk, screens are seen by others. */
 function Contact({ icon, label, value, masked, revealable }: { icon: ReactNode; label: string; value: string; masked: string; revealable: boolean }) {
   const [shown, setShown] = useState(false);
-  if (!revealable) {
-    return (
-      <div className="flex items-center gap-2 text-sm">
-        <span aria-hidden="true" className="text-muted [&>svg]:size-4">
+  return (
+    <div className="mk-kv" style={{ alignItems: "center" }}>
+      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span aria-hidden="true" style={{ display: "inline-flex" }}>
           {icon}
         </span>
-        <span className="sr-only">{label}:</span>
-        <span className="font-semibold text-text tabular-nums">{value}</span>
-        <span className="text-xs text-muted">Hidden for your role</span>
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      <span aria-hidden="true" className="text-muted [&>svg]:size-4">
-        {icon}
+        <span className="mk-sr">{label}:</span>
+        <b style={{ fontVariantNumeric: "tabular-nums" }}>{revealable && !shown ? masked : value}</b>
       </span>
-      <span className="sr-only">{label}:</span>
-      <span className="font-semibold text-text tabular-nums">{shown ? value : masked}</span>
-      <Button
-        variant="ghost"
-        className="px-2 py-1"
-        aria-pressed={shown}
-        icon={shown ? <EyeOff aria-hidden="true" className="size-4" /> : <Eye aria-hidden="true" className="size-4" />}
-        onClick={() => {
-          setShown(!shown);
-        }}
-      >
-        {shown ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
-      </Button>
+      {revealable ? (
+        <button
+          type="button"
+          className="mk-link"
+          aria-pressed={shown}
+          onClick={() => {
+            setShown(!shown);
+          }}
+        >
+          {shown ? <EyeOff aria-hidden="true" size={14} /> : <Eye aria-hidden="true" size={14} />} {shown ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+        </button>
+      ) : (
+        <span style={{ fontSize: 12 }}>Hidden for your role</span>
+      )}
     </div>
   );
 }
@@ -91,33 +85,34 @@ function PatientView({ patient }: { patient: Patient }) {
   const revealable = can("patients.contact");
   const age = patient.age_years ?? null;
   return (
-    <div className="flex flex-col gap-4">
-      <Card className="overflow-hidden !p-0">
-        <div className="bg-gradient-to-br from-primary-hover to-primary p-6 text-on-primary">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] tracking-[0.1em] opacity-80">PATIENT 360</p>
-              <h1 className="mb-0.5 mt-1.5 text-[22px] font-bold">{patient.full_name}</h1>
-              <p className="text-[13px] opacity-85">
+    <div className="mk-panel">
+      <section className="mk-card" style={{ padding: 0, overflow: "hidden", marginBottom: 16 }}>
+        <div className="mk-drawer-h">
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <small>PATIENT 360</small>
+              <h1>{patient.full_name}</h1>
+              <div>
                 {patient.number} · {ageSex(age, patient.sex, patient.birth_date_estimated)}
                 {patient.status === "active" ? "" : ` · ${patient.status === "inactive" ? "Inactive" : patient.status}`}
-              </p>
+              </div>
             </div>
             {can("patients.write") ? (
-              <Button
-                variant="secondary"
-                icon={<Pencil aria-hidden="true" className="size-4" />}
+              <button
+                type="button"
+                className="mk-btn mk-btn-ghost"
+                style={{ background: "rgba(255,255,255,.14)", borderColor: "rgba(255,255,255,.3)", color: "#fff" }}
                 onClick={() => {
                   void navigate(`${patientPath(patient)}/edit`);
                 }}
               >
-                Edit
-              </Button>
+                <Pencil aria-hidden="true" /> Edit
+              </button>
             ) : null}
           </div>
         </div>
-        <div className="px-6 py-5">
-          <dl className="text-[13px]">
+        <div style={{ padding: "8px 24px 22px" }}>
+          <dl style={{ margin: 0 }}>
             <Kv label="Last visit" value={patient.last_visit_at == null ? "—" : formatDate(patient.last_visit_at)} />
             <Kv
               label="Next appointment"
@@ -127,33 +122,35 @@ function PatientView({ patient }: { patient: Patient }) {
             <Kv label="Lifetime value" value={patient.lifetime_paid_paise == null ? "—" : formatRupees(patient.lifetime_paid_paise)} />
             <Kv label="Outstanding" value={patient.balance_paise == null ? "—" : formatRupees(patient.balance_paise)} />
           </dl>
-          <div className="mt-3 flex flex-col gap-1">
+          <div>
             {patient.phone == null ? (
-              <p className="text-sm text-muted">No phone recorded</p>
+              <p className="mk-hint">No phone recorded</p>
             ) : (
-              <Contact icon={<Phone />} label="Phone" value={formatPhone(patient.phone)} masked={maskPhone(patient.phone)} revealable={revealable} />
+              <Contact icon={<Phone size={15} />} label="Phone" value={formatPhone(patient.phone)} masked={maskPhone(patient.phone)} revealable={revealable} />
             )}
             {patient.email == null ? null : (
-              <Contact icon={<Mail />} label="Email" value={patient.email} masked={maskEmail(patient.email)} revealable={revealable} />
+              <Contact icon={<Mail size={15} />} label="Email" value={patient.email} masked={maskEmail(patient.email)} revealable={revealable} />
             )}
           </div>
-          <div className="mt-4 flex gap-2">
-            <Button
-              className="flex-1 justify-center"
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button
+              type="button"
+              className="mk-btn mk-btn-primary"
+              style={{ flex: 1 }}
               onClick={() => {
                 void navigate(`/calendar?book=1&patient=${patient.id}`);
               }}
             >
               + Follow-up
-            </Button>
+            </button>
             {/* Messaging isn't built yet: disabled, not a button that pretends. */}
-            <Button variant="secondary" className="flex-1 justify-center" disabled title="Coming soon">
+            <button type="button" className="mk-btn mk-btn-ghost" style={{ flex: 1 }} disabled title="Coming soon">
               ✉ Message
-            </Button>
+            </button>
           </div>
         </div>
-      </Card>
-      <Card>
+      </section>
+      <MkCard>
         <Tabs
           label="Patient record"
           defaultValue="overview"
@@ -195,16 +192,16 @@ function PatientView({ patient }: { patient: Patient }) {
             },
           ]}
         />
-      </Card>
+      </MkCard>
     </div>
   );
 }
 
 function Kv({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between border-b border-dashed border-border py-[9px] last:border-0">
-      <dt className="text-muted">{label}</dt>
-      <dd className="font-bold text-text">{value}</dd>
+    <div className="mk-kv">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }
@@ -212,8 +209,10 @@ function Kv({ label, value }: { label: string; value: string }) {
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold text-muted">{label}</dt>
-      <dd className="text-sm font-semibold text-text">{value}</dd>
+      <dt className="mk-flabel" style={{ margin: 0 }}>
+        {label}
+      </dt>
+      <dd style={{ margin: "2px 0 0", fontSize: 14, fontWeight: 600 }}>{value}</dd>
     </div>
   );
 }

@@ -15,7 +15,8 @@ import {
   type VisitId,
 } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDateTime, useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, Card, Dialog, EmptyState, Field, PageHeader, Pill, Select, Skeleton, TextArea, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, PageHeader, Select, Skeleton, TextArea, TextInput, useToast } from "@sakalya/ui";
+import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { patientPath } from "../../lib/patients.js";
@@ -87,7 +88,7 @@ function VisitView({ patientId, detail }: { patientId: PatientId; detail: NonNul
         subtitle={`${formatDateTime(visit.started_at)} · ${visit.clinician.name}`}
         end={
           <div className="flex items-center gap-2">
-            <Pill tone={isOpen ? "warning" : "success"}>{isOpen ? "Open" : "Closed"}</Pill>
+            <Tag tone={statusTone(isOpen ? "warning" : "success")}>{isOpen ? "Open" : "Closed"}</Tag>
             {canWrite && isOpen ? (
               <Button
                 variant="secondary"
@@ -125,7 +126,7 @@ function VisitView({ patientId, detail }: { patientId: PatientId; detail: NonNul
         <ProceduresCard visitId={visit.id} patientId={patientId} procedures={detail.procedures} canWrite={canWrite && isOpen} />
         {can("clinical.read") ? <TreatmentPlansCard patientId={patientId} visitId={visit.id} canWrite={canWrite} /> : null}
         {detail.chart_entries.length === 0 ? null : (
-          <Card title="Dental chart entries in this visit">
+          <MkCard title="Dental chart entries in this visit">
             <ul className="flex flex-col gap-1.5 text-sm">
               {detail.chart_entries.map((entry) => (
                 <li key={entry.id}>
@@ -134,7 +135,7 @@ function VisitView({ patientId, detail }: { patientId: PatientId; detail: NonNul
                 </li>
               ))}
             </ul>
-          </Card>
+          </MkCard>
         )}
       </div>
     </>
@@ -147,7 +148,7 @@ function NotesCard({ visitId, notes, canWrite, canAddend }: { visitId: VisitId; 
   const toast = useToast();
 
   return (
-    <Card
+    <MkCard
       title="Notes"
       action={
         canWrite ? (
@@ -177,7 +178,7 @@ function NotesCard({ visitId, notes, canWrite, canAddend }: { visitId: VisitId; 
       }
     >
       {notes.length === 0 ? (
-        <EmptyState title="No notes yet" icon={null} />
+        <Empty title="No notes yet" />
       ) : (
         <div className="flex flex-col gap-4">
           {notes.map((note) => (
@@ -185,7 +186,7 @@ function NotesCard({ visitId, notes, canWrite, canAddend }: { visitId: VisitId; 
           ))}
         </div>
       )}
-    </Card>
+    </MkCard>
   );
 }
 
@@ -211,7 +212,7 @@ function NoteCard({ visitId, note, canAddend }: { visitId: VisitId; note: Note; 
     <div className="rounded-2xl border border-border p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-sm font-bold text-text">{note.kind.toUpperCase()}</p>
-        <Pill tone={note.status === "signed" ? "success" : note.status === "draft" ? "neutral" : "danger"}>{note.status}</Pill>
+        <Tag tone={statusTone(note.status === "signed" ? "success" : note.status === "draft" ? "neutral" : "danger")}>{note.status}</Tag>
       </div>
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
         <NoteSection label="Subjective" value={sections.subjective} />
@@ -374,7 +375,7 @@ function VitalsCard({
   };
 
   return (
-    <Card title="Vitals">
+    <MkCard title="Vitals">
       {canWrite ? (
         <div className="mb-4 flex flex-wrap items-end gap-3">
           <Field label="Reading" hideLabel className="w-40">
@@ -402,17 +403,17 @@ function VitalsCard({
         </div>
       ) : null}
       {observations.length === 0 ? (
-        <EmptyState title="No vitals recorded yet" icon={null} />
+        <Empty title="No vitals recorded yet" />
       ) : (
         <ul className="flex flex-wrap gap-2">
           {observations.map((o) => (
-            <Pill key={o.id} tone="neutral">
+            <Tag key={o.id}>
               {OBSERVATION_KINDS.find((k) => k.value === o.kind)?.label ?? o.kind}: {o.value} {o.unit}
-            </Pill>
+            </Tag>
           ))}
         </ul>
       )}
-    </Card>
+    </MkCard>
   );
 }
 
@@ -450,7 +451,7 @@ function ProceduresCard({
   };
 
   return (
-    <Card title="Procedures">
+    <MkCard title="Procedures">
       {canWrite ? (
         <div className="mb-4 flex flex-wrap items-end gap-3">
           <Field label="Procedure" hideLabel className="w-56">
@@ -478,7 +479,7 @@ function ProceduresCard({
         </div>
       ) : null}
       {procedures.length === 0 ? (
-        <EmptyState title="No procedures yet" icon={null} />
+        <Empty title="No procedures yet" />
       ) : (
         <ul className="divide-y divide-border">
           {procedures.map((p) => (
@@ -488,7 +489,7 @@ function ProceduresCard({
                 {p.tooth == null ? "" : ` · Tooth ${String(p.tooth)}`}
               </span>
               <span className="flex items-center gap-2">
-                <Pill tone={p.status === "done" ? "success" : p.status === "planned" ? "warning" : "neutral"}>{p.status}</Pill>
+                <Tag tone={statusTone(p.status === "done" ? "success" : p.status === "planned" ? "warning" : "neutral")}>{p.status}</Tag>
                 {canWrite && p.status === "planned" ? (
                   <Button
                     variant="ghost"
@@ -510,6 +511,6 @@ function ProceduresCard({
           ))}
         </ul>
       )}
-    </Card>
+    </MkCard>
   );
 }

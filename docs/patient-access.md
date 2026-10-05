@@ -1,6 +1,6 @@
 # Patient access: self-booking, prescriptions to patients, patient accounts
 
-Status: design, 4 Oct 2026. Decisions marked **D1–D5** need the founder.
+Status: design, 4 Oct 2026. D1–D4 decided by the founder on 4 Oct (below); D5 open. Prescription links by email on issue are built.
 
 ## What exists
 
@@ -57,7 +57,11 @@ A link is created when the patient proves the contact the clinic has on file (on
 | P3 | Patient app (KMP, Android first) on the P2 API | P2, D4 |
 | P4 | SMS and WhatsApp channels for reminders and prescription links | D2, provider accounts |
 
-## Decisions for the founder
+## Decisions
+
+Decided 4 Oct 2026: **D1** front desk confirms by default (clinic setting can auto-confirm); **D2** email now, WhatsApp next; **D3** prescriptions, invoices and appointments, plus doctor-approved visit summaries; **D4** one Aarogyam patient app. **D5** open.
+
+Original questions:
 
 - **D1** Self-bookings auto-confirm, or wait for the front desk? (Recommendation: a clinic setting, default "front desk confirms".)
 - **D2** Email only for now (free), or add SMS/WhatsApp (paid per message, DLT registration)? (Recommendation: email now, WhatsApp next.)

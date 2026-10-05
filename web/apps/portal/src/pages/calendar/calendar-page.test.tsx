@@ -216,3 +216,18 @@ describe("Calendar: time grid", () => {
     expect(await screen.findByRole("dialog")).toBeTruthy();
   });
 });
+
+describe("Calendar: month view", () => {
+  it("shows the month with counts and opens a day in the Day view", async () => {
+    const user = userEvent.setup();
+    renderPortal("/calendar?from=2026-10-01&to=2026-10-01", { as: PEOPLE.farah });
+    await user.click(await screen.findByRole("button", { name: "Month" }));
+    const month = await screen.findByRole("group", { name: "Appointments in 2026-10" });
+    expect(screen.getByText("October 2026")).toBeTruthy();
+    const day = await within(month).findByRole("button", { name: /^2026-10-03, \d+ appointments?\. Open day/ });
+    expect(day.textContent).toMatch(/\d+$/);
+    await user.click(day);
+    expect(screen.getByRole("button", { name: "Day" }).getAttribute("aria-pressed")).toBe("true");
+    expect(await screen.findByRole("group", { name: "Appointments from 2026-10-03 to 2026-10-03" })).toBeTruthy();
+  });
+});

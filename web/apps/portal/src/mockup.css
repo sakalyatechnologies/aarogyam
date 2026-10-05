@@ -350,3 +350,14 @@
 .mk-tg-ev:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; z-index: 3; }
 .mk-tg-now { position: absolute; left: 0; right: 0; border-top: 2px solid var(--sk-danger); z-index: 3; pointer-events: none; }
 .mk-tg-now::before { content: ""; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--sk-danger); }
+
+/* Month view */
+.mk-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; min-width: 640px; }
+.mk-mday { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; min-height: 104px; padding: 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mk-mday.out { opacity: .5; }
+.mk-mday.today { border-color: var(--brand); }
+.mk-mnum { display: flex; justify-content: space-between; align-items: center; border: 0; background: none; padding: 2px 4px; font-size: 12px; font-weight: 800; color: var(--ink); cursor: pointer; border-radius: 8px; }
+.mk-mnum:hover { background: var(--hover); }
+.mk-mcount { font-size: 10px; font-weight: 700; background: var(--brand-soft); color: var(--brand2); border-radius: 999px; padding: 1px 7px; }
+.mk-more { border: 0; background: none; text-align: left; font-size: 10.5px; font-weight: 700; color: var(--muted); cursor: pointer; padding: 2px 4px; }
+.mk-more:hover { text-decoration: underline; }

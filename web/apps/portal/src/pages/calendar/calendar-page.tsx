@@ -9,14 +9,15 @@ import { EmptyState, Select, Skeleton } from "@sakalya/ui";
 import { MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { gridHours, nowMinutes, placementOf } from "../../lib/time-grid.js";
-import { addDays, mondayOf, todayIn } from "../../lib/time.js";
+import { addDays, addMonths, mondayOf, monthStartOf, monthWeeks, todayIn } from "../../lib/time.js";
 import { formatTime } from "@aarogyam/app-kit";
 import { useAppointments, usePractitioners, useRooms } from "../../queries.js";
 import { AppointmentDialog } from "./appointment-dialog.js";
+import { MonthView, type MonthItem } from "./month-view.js";
 import { TimeGrid, type GridColumn, type GridEvent } from "./time-grid.js";
 import { BookingDialog } from "./booking-dialog.js";
 
-type View = "day" | "week";
+type View = "day" | "week" | "month";
 type Lane = "chair" | "doctor";
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -76,8 +77,9 @@ export function CalendarPage() {
   }, []);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
 
-  const from = view === "week" ? mondayOf(anchor) : anchor;
-  const to = view === "week" ? addDays(from, 6) : anchor;
+  const monthDays = view === "month" ? monthWeeks(anchor).flat() : [];
+  const from = view === "week" ? mondayOf(anchor) : view === "month" ? (monthDays[0] ?? anchor) : anchor;
+  const to = view === "week" ? addDays(from, 6) : view === "month" ? (monthDays.at(-1) ?? anchor) : anchor;
   // The range rides in the URL (ISO dates only, never patient data) so the view can be shared or reloaded.
   useEffect(() => {
     setSearchParams({ from, to }, { replace: true });
@@ -128,12 +130,18 @@ export function CalendarPage() {
         },
       ];
     });
+  const monthItems: MonthItem[] = items
+    .filter((a) => a.status !== "cancelled")
+    .map((a) => {
+      const place = placementOf(a.starts_at, a.ends_at, timeZone);
+      return { id: a.id, date: place.date, startMin: place.startMin, tone: toneOf(a), label: `${a.status === "requested" ? "? " : ""}${formatTime(a.starts_at, timeZone).replace(/ ?[ap]m$/i, "")} ${a.patient.full_name}` };
+    });
   const events = placed.map((p) => p.event);
   const hours = gridHours(placed);
   const nowOnClinicClock = nowMinutes(clock, timeZone);
 
   const stepBy = view === "week" ? 7 : 1;
-  const rangeLabel = view === "week" ? `${shortDate(from)} – ${shortDate(to, true)}` : shortDate(from, true);
+  const rangeLabel = view === "month" ? new Date(`${monthStartOf(anchor)}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }) : view === "week" ? `${shortDate(from)} – ${shortDate(to, true)}` : shortDate(from, true);
 
   return (
     <div className="mk-panel">
@@ -144,7 +152,7 @@ export function CalendarPage() {
           className="mk-btn mk-btn-ghost"
           aria-label="Previous"
           onClick={() => {
-            setAnchor((prev) => addDays(prev, -stepBy));
+            setAnchor((prev) => (view === "month" ? addMonths(prev, -1) : addDays(prev, -stepBy)));
           }}
         >
           ‹
@@ -155,7 +163,7 @@ export function CalendarPage() {
           className="mk-btn mk-btn-ghost"
           aria-label="Next"
           onClick={() => {
-            setAnchor((prev) => addDays(prev, stepBy));
+            setAnchor((prev) => (view === "month" ? addMonths(prev, 1) : addDays(prev, stepBy)));
           }}
         >
           ›
@@ -170,7 +178,7 @@ export function CalendarPage() {
           Today
         </button>
         <span role="group" aria-label="View" style={{ display: "inline-flex", gap: 6, marginLeft: 8 }}>
-          {(["day", "week"] as const).map((v) => (
+          {(["day", "week", "month"] as const).map((v) => (
             <button
               key={v}
               type="button"
@@ -180,12 +188,9 @@ export function CalendarPage() {
                 setView(v);
               }}
             >
-              {v === "day" ? "Day" : "Week"}
+              {v === "day" ? "Day" : v === "week" ? "Week" : "Month"}
             </button>
           ))}
-          <button type="button" className="mk-chipf" disabled title="Month view is not available yet" style={{ opacity: 0.55, cursor: "not-allowed" }}>
-            Month
-          </button>
         </span>
         {view === "day" ? (
           <input
@@ -223,7 +228,7 @@ export function CalendarPage() {
           </button>
         ) : null}
       </div>
-      <MkCard title={view === "week" ? "Week view" : "Day view"} hint="Colour: completed · waiting · booked · new consult · dashed: awaiting your confirmation">
+      <MkCard title={view === "week" ? "Week view" : view === "month" ? "Month view" : "Day view"} hint="Colour: completed · waiting · booked · new consult · dashed: awaiting your confirmation">
         {appointments.isPending ? (
           <Skeleton shape="block" />
         ) : appointments.isError ? (
@@ -232,6 +237,19 @@ export function CalendarPage() {
           ) : (
             <ApiErrorNotice title="Couldn't load the schedule" error={appointments.error} onRetry={() => void appointments.refetch()} />
           )
+        ) : view === "month" ? (
+          <div className="mk-tablewrap">
+            <MonthView
+              month={anchor}
+              today={today}
+              items={monthItems}
+              onSelect={setSelectedId}
+              onOpenDay={(date) => {
+                setAnchor(date);
+                setView("day");
+              }}
+            />
+          </div>
         ) : columns.length === 0 ? (
           <EmptyState
             title={lane === "chair" ? "No chairs set up yet" : "No doctors set up yet"}

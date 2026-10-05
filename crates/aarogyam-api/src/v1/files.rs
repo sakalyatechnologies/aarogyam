@@ -16,7 +16,7 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use super::rfc3339;
+use super::{client_id, rfc3339};
 use crate::AppState;
 use crate::extract::{ClinicHost, Require};
 use crate::failure::{ApiFailure, not_found};
@@ -99,6 +99,8 @@ pub struct AttachmentList {
     reason = "documents the multipart form; fields are read from the stream"
 )]
 pub struct UploadForm {
+    /// A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out.
+    id: Option<String>,
     /// The file: JPEG, PNG, PDF, DICOM or a `WebM`, `MP4` or `Ogg` recording, up to 10 MB. Its type is
     /// read from its content.
     #[schema(value_type = String, format = Binary)]
@@ -160,6 +162,11 @@ async fn read_form(mut form: Multipart) -> Result<Upload, ApiFailure> {
             continue;
         }
         match name.as_str() {
+            "id" => {
+                upload.id = Some(client_id("id", text).map_err(|_| {
+                    bad_form("id: must be a version 7 UUID, such as 0192f1c4-7b3a-7c2e-8f10-3a5d9e1b2c4d")
+                })?);
+            }
             "kind" => upload.kind = Some(text.to_owned()),
             "caption" => upload.caption = Some(text.to_owned()),
             "visit_id" => {
@@ -214,7 +221,7 @@ async fn read_form(mut form: Multipart) -> Result<Upload, ApiFailure> {
     responses(
         (status = 201, body = Attachment),
         (status = 400, description = "Not an accepted file, a bad field, a visit of another patient, or a signed note without an addendum"),
-        (status = 409, description = "The note is not the uploader's draft, or is entered in error"),
+        (status = 409, description = "The note is not the uploader's draft, or is entered in error, or `id_conflict`: the id belongs to a different file"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
         (status = 404, description = "No such patient in this clinic"),

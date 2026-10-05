@@ -104,6 +104,22 @@ pub async fn insert_encounter(
     Ok(row)
 }
 
+/// Serialises requests that carry the same client-chosen id until the transaction ends, so a
+/// retry that arrives while the first attempt is still running waits for it and then finds its
+/// record, instead of racing it to insert.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn lock_client_id(conn: &mut PgConnection, id: Uuid) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"select pg_advisory_xact_lock(hashtextextended($1::text, 0)) as "locked!: bool""#,
+        format!("client-id:{id}")
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(())
+}
+
 /// The visit with `id` in this clinic; `lock` holds it until the transaction ends.
 ///
 /// # Errors
@@ -451,6 +467,24 @@ pub async fn insert_addendum(
         body
     )
     .fetch_one(conn)
+    .await?;
+    Ok(row)
+}
+
+/// The addendum with `id` in this clinic.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn get_addendum(
+    conn: &mut PgConnection,
+    id: Uuid,
+) -> Result<Option<AddendumRow>, DbError> {
+    let row = sqlx::query_as!(
+        AddendumRow,
+        r#"select id, note_id, author_id, body, created_at from aarogyam.note_addenda where id = $1"#,
+        id
+    )
+    .fetch_optional(conn)
     .await?;
     Ok(row)
 }

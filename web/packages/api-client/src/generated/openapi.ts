@@ -1067,7 +1067,10 @@ export interface paths {
         /** A patient's visits, newest first. */
         get: operations["listVisits"];
         put?: never;
-        /** Starts a visit, with the caller as the clinician responsible. */
+        /**
+         * Starts a visit, with the caller as the clinician responsible. A walk-in has no appointment.
+         *     Send an `id` so a retry after a lost answer returns this visit instead of starting another.
+         */
         post: operations["startVisit"];
         delete?: never;
         options?: never;
@@ -2155,7 +2158,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Starts a draft note in an open visit, written by the caller. */
+        /**
+         * Starts a draft note in an open visit, written by the caller. Send an `id` so a retry after a
+         *     lost answer returns this note instead of starting another.
+         */
         post: operations["createNote"];
         delete?: never;
         options?: never;
@@ -2172,7 +2178,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Records vital signs in a visit. A closed visit takes corrections only. */
+        /**
+         * Records vital signs in a visit. A closed visit takes corrections only. Send an `id` on each
+         *     reading (and `recorded_at`) so a retry after a lost answer returns the readings instead of
+         *     recording them again.
+         */
         post: operations["recordObservations"];
         delete?: never;
         options?: never;
@@ -3804,6 +3814,8 @@ export interface components {
         NewAddendum: {
             /** @description 1 to 10,000 characters. */
             body: string;
+            /** @description A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out. */
+            id?: string | null;
         };
         /** @description An appointment to book. */
         NewAppointmentBody: {
@@ -3920,6 +3932,15 @@ export interface components {
             /** @description Start (RFC 3339). */
             starts_at: string;
         };
+        /** @description A draft note to start. */
+        NewNote: {
+            /** @description A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out. */
+            id?: string | null;
+            /** @description `soap` (default), `progress`, `procedure`, `intake` or `front_desk`. */
+            kind?: string | null;
+            /** @description The sections, each up to 10,000 characters. */
+            sections?: components["schemas"]["NoteSections"];
+        };
         /** @description A patient to register. */
         NewPatient: {
             /**
@@ -3997,6 +4018,8 @@ export interface components {
         };
         /** @description One reading. */
         NewReading: {
+            /** @description A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out. */
+            id?: string | null;
             /** @description `bp_systolic`, `bp_diastolic`, `pulse`, `temperature`, `spo2`, `weight`, `height` or `blood_sugar`. */
             kind: string;
             /** @description An earlier reading of the same patient and kind that this one corrects. */
@@ -4050,6 +4073,8 @@ export interface components {
             appointment_id?: string | null;
             /** @description Why the patient came, up to 1,000 characters. */
             chief_complaint?: string | null;
+            /** @description A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out. */
+            id?: string | null;
         };
         /** @description A patient's next booking. */
         NextAppointment: {
@@ -5795,6 +5820,8 @@ export interface components {
              *     read from its content.
              */
             file: string;
+            /** @description A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out. */
+            id?: string | null;
             /** @description `photo`, `xray`, `report`, `document` (default), `audio` or `consent`. */
             kind?: string | null;
             /** @description A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`. */
@@ -8101,7 +8128,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The note isn't signed */
+            /** @description The note isn't signed, or `id_conflict`: the id belongs to a different addendum */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8762,7 +8789,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The note is not the uploader's draft, or is entered in error */
+            /** @description The note is not the uploader's draft, or is entered in error, or `id_conflict`: the id belongs to a different file */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -9720,7 +9747,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The appointment already has a visit */
+            /** @description The appointment already has a visit, or `id_conflict`: the id belongs to a different visit */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -13289,7 +13316,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["NoteContent"];
+                "application/json": components["schemas"]["NewNote"];
             };
         };
         responses: {
@@ -13329,7 +13356,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The visit is closed */
+            /** @description The visit is closed, or `id_conflict`: the id belongs to a different note */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -13390,7 +13417,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The corrected reading isn't final, or the visit is closed */
+            /** @description The corrected reading isn't final, the visit is closed, or `id_conflict`: an id belongs to a different reading */
             409: {
                 headers: {
                     [name: string]: unknown;

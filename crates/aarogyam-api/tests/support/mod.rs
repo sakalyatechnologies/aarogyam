@@ -366,6 +366,49 @@ impl TestApp {
         send_with_headers(&self.router, method, host, path, token, body, headers).await
     }
 
+    /// Uploads `bytes` as the `file` field of a multipart form to a patient's attachments, with
+    /// the other form fields given.
+    pub async fn upload(
+        &self,
+        host: &str,
+        token: &str,
+        patient: &str,
+        bytes: &[u8],
+        fields: &[(&str, &str)],
+    ) -> (StatusCode, Value) {
+        const BOUNDARY: &str = "aarogyam-test-boundary";
+        let mut body = Vec::new();
+        for (name, value) in fields {
+            body.extend_from_slice(
+                format!(
+                    "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"
+                )
+                .as_bytes(),
+            );
+        }
+        body.extend_from_slice(
+            format!("--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"x.bin\"\r\nContent-Type: application/octet-stream\r\n\r\n").as_bytes(),
+        );
+        body.extend_from_slice(bytes);
+        body.extend_from_slice(format!("\r\n--{BOUNDARY}--\r\n").as_bytes());
+        let request = Request::post(format!("/api/v1/patients/{patient}/attachments"))
+            .header("host", host)
+            .header("authorization", format!("Bearer {token}"))
+            .header(
+                "content-type",
+                format!("multipart/form-data; boundary={BOUNDARY}"),
+            )
+            .body(Body::from(body))
+            .unwrap();
+        let response = self.router.clone().oneshot(request).await.unwrap();
+        let status = response.status();
+        let bytes = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
+    }
+
     /// Drops the database. Called at the end of each test; a failed test leaves it for inspection.
     pub async fn finish(self) {
         let _ = std::fs::remove_dir_all(&self.files_dir);

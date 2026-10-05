@@ -3210,6 +3210,7 @@
     }
    ],
    "referenced_by": [
+    "attachments.note_id",
     "clinical_notes.conflicts_with_id",
     "note_addenda.note_id",
     "voice_notes.draft_note_id"
@@ -3250,7 +3251,9 @@
      "note": ""
     }
    ],
-   "referenced_by": [],
+   "referenced_by": [
+    "attachments.addendum_id"
+   ],
    "sensitivity": "health",
    "offline": "read_write"
   },
@@ -4185,7 +4188,7 @@
    "partitioned": false,
    "lifecycle": "soft_delete",
    "schema": "aarogyam",
-   "notes": "Served only through short-lived signed links (HMAC, 5 minutes) issued after a permission check; each download writes access_log. Local disk in development, object storage later, behind one Storage trait.",
+   "notes": "A trigger refuses a recording on a signed note unless it carries an addendum. Served only through short-lived signed links (HMAC, 5 minutes) issued after a permission check; each download writes access_log. Local disk in development, object storage later, behind one Storage trait.",
    "cols": [
     {
      "name": "patient_id",
@@ -4220,7 +4223,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "from the content: JPEG, PNG, PDF, DICOM"
+     "note": "from the content: JPEG, PNG, PDF, DICOM, or WebM, MP4, Ogg audio"
     },
     {
      "name": "size_bytes",
@@ -4263,6 +4266,34 @@
      "nullable": false,
      "ref": null,
      "note": "clinician, assistant, patient, import, device, ai_draft, abdm"
+    },
+    {
+     "name": "note_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "clinical_notes",
+     "note": "a voice recording's note, in the same visit"
+    },
+    {
+     "name": "addendum_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "note_addenda",
+     "note": "how a recording joins a signed note"
+    },
+    {
+     "name": "duration_seconds",
+     "type": "int",
+     "nullable": true,
+     "ref": null,
+     "note": "a recording, 1 to 600"
+    },
+    {
+     "name": "language",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "a recording: en-IN, hi-IN, mr-IN"
     }
    ],
    "referenced_by": [

@@ -5,7 +5,6 @@ import {
   ListOrdered,
   LogOut,
   MessageSquare,
-  Mic,
   Package,
   Pill,
   Plus,
@@ -24,6 +23,7 @@ import { useToast } from "@sakalya/ui";
 import { MkAvatar, initials } from "../components/mk/index.js";
 import { useClinic } from "../clinic.js";
 import { usePatients, useToday } from "../queries.js";
+import { VoiceNoteButton } from "./voice-note-button.js";
 import { PeekProvider, usePatientPeek } from "./peek.js";
 
 interface NavItem {
@@ -487,8 +487,8 @@ function ShellFrame() {
         <div className="mk-side-foot">
           <b>✦ AI Scribe</b>
           <br />
-          Voice-to-note drafting is planned for a later release. Nothing is
-          recorded yet.
+          Dictate into a draft note with Voice note. AI drafting from the
+          recording comes later and will never enter the record unsigned.
           <button type="button" disabled>
             Review notes
           </button>
@@ -509,14 +509,7 @@ function ShellFrame() {
           </button>
           <TopSearch />
           <div className="mk-top-actions">
-            <button
-              type="button"
-              className="mk-btn mk-btn-ghost mk-hide-sm"
-              disabled
-              title="Voice notes arrive in a later release"
-            >
-              <Mic aria-hidden="true" /> Voice note
-            </button>
+            <VoiceNoteButton />
             {can("appointments.write") ? (
               <button
                 type="button"

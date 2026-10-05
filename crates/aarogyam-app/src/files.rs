@@ -14,10 +14,15 @@ use std::sync::Arc;
 
 use aarogyam_dal::attachments::{self, AttachmentRow, NewAttachment};
 use aarogyam_domain::access::ClinicActor;
-use aarogyam_domain::clinical::{AttachmentKind, RecordSource, optional_text};
+use aarogyam_domain::clinical::{
+    AttachmentKind, NoteState, NoteStatus, RecordSource, optional_text,
+};
 use aarogyam_domain::dental::Tooth;
-use aarogyam_domain::files::{FileType, MAX_BYTES};
-use aarogyam_domain::ids::{AttachmentId, ClinicId, EncounterId, PatientId, UserId};
+use aarogyam_domain::files::{FileType, MAX_BYTES, MAX_VOICE_SECONDS, VoiceLanguage};
+use aarogyam_domain::ids::{
+    AttachmentId, ClinicId, ClinicalNoteId, EncounterId, MembershipId, NoteAddendumId, PatientId,
+    UserId,
+};
 use aarogyam_domain::permission::Permission;
 use aws_lc_rs::{digest, hmac, rand};
 use base64::Engine as _;
@@ -28,7 +33,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::scope::{STAFF, staff_scope as scope};
-use crate::visits::{invalid, require_patient};
+use crate::visits::{invalid, refused, require_patient};
 
 /// How long a download link works.
 pub const LINK_LIFETIME: Duration = Duration::minutes(5);
@@ -308,6 +313,14 @@ pub struct AttachmentView {
     pub taken_at: Option<OffsetDateTime>,
     /// When it was uploaded.
     pub created_at: OffsetDateTime,
+    /// The note a recording belongs to.
+    pub note_id: Option<ClinicalNoteId>,
+    /// The addendum a recording belongs to, when its note is signed.
+    pub addendum_id: Option<NoteAddendumId>,
+    /// A recording's length in seconds.
+    pub duration_seconds: Option<i32>,
+    /// The language a recording is spoken in.
+    pub language: Option<VoiceLanguage>,
 }
 
 fn view(row: AttachmentRow) -> Result<AttachmentView, AppError> {
@@ -323,6 +336,10 @@ fn view(row: AttachmentRow) -> Result<AttachmentView, AppError> {
         tooth: row.tooth.and_then(|n| Tooth::new(i64::from(n)).ok()),
         taken_at: row.taken_at,
         created_at: row.created_at,
+        note_id: row.note_id.map(ClinicalNoteId::from_uuid),
+        addendum_id: row.addendum_id.map(NoteAddendumId::from_uuid),
+        duration_seconds: row.duration_seconds,
+        language: row.language.as_deref().and_then(VoiceLanguage::parse),
     })
 }
 
@@ -351,6 +368,14 @@ pub struct Upload {
     pub caption: Option<String>,
     /// The tooth it shows.
     pub tooth: Option<i64>,
+    /// The note a recording belongs to; its visit is the recording's visit.
+    pub note_id: Option<Uuid>,
+    /// The addendum a recording belongs to; required for a signed note.
+    pub addendum_id: Option<Uuid>,
+    /// A recording's length in seconds (1 to 600); required for audio.
+    pub duration_seconds: Option<i32>,
+    /// `en-IN`, `hi-IN` or `mr-IN`.
+    pub language: Option<String>,
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -364,7 +389,50 @@ fn sha256_hex(bytes: &[u8]) -> String {
     )
 }
 
-/// Stores a patient file. Its type comes from its content: JPEG, PNG, PDF or DICOM.
+/// The kind and spoken language a file's fields say, which must agree with its content.
+fn check_kind_and_recording(
+    input: &Upload,
+    file_type: FileType,
+) -> Result<(AttachmentKind, Option<VoiceLanguage>), AppError> {
+    let kind = match input.kind.as_deref() {
+        Some(text) => AttachmentKind::parse(text.trim()).map_err(invalid("kind"))?,
+        None if file_type.is_audio() => AttachmentKind::Audio,
+        None => AttachmentKind::Document,
+    };
+    if file_type.is_audio() != (kind == AttachmentKind::Audio) {
+        return Err(AppError::invalid(
+            "kind",
+            "audio files are kind audio, and only they",
+        ));
+    }
+    let language = input
+        .language
+        .as_deref()
+        .map(|text| {
+            VoiceLanguage::parse(text.trim())
+                .ok_or_else(|| AppError::invalid("language", "must be en-IN, hi-IN or mr-IN"))
+        })
+        .transpose()?;
+    if file_type.is_audio() {
+        match input.duration_seconds {
+            Some(1..=MAX_VOICE_SECONDS) => {}
+            _ => return Err(AppError::invalid("duration_seconds", "must be 1 to 600")),
+        }
+    } else if input.duration_seconds.is_some() || language.is_some() {
+        return Err(AppError::invalid(
+            "duration_seconds",
+            "only a recording has a length and language",
+        ));
+    }
+    if input.note_id.is_none() && input.addendum_id.is_some() {
+        return Err(AppError::invalid("addendum_id", "needs a note_id"));
+    }
+    Ok((kind, language))
+}
+
+/// Stores a patient file. Its type comes from its content: JPEG, PNG, PDF, DICOM or a `WebM`,
+/// `MP4` or `Ogg` recording. A recording may be linked to a note of the same visit: a draft only by its
+/// author, a signed note only through one of the uploader's own addenda.
 ///
 /// # Errors
 /// [`AppError::Invalid`] for an empty, too large or unrecognised file, or a visit of another
@@ -381,12 +449,10 @@ pub async fn upload(
     if input.bytes.is_empty() || input.bytes.len() > MAX_BYTES {
         return Err(AppError::invalid("file", "must be 1 byte to 10 MB"));
     }
-    let file_type = FileType::sniff(&input.bytes)
-        .ok_or_else(|| AppError::invalid("file", "must be a JPEG, PNG, PDF or DICOM file"))?;
-    let kind = match input.kind.as_deref() {
-        Some(text) => AttachmentKind::parse(text.trim()).map_err(invalid("kind"))?,
-        None => AttachmentKind::Document,
-    };
+    let file_type = FileType::sniff(&input.bytes).ok_or_else(|| {
+        AppError::invalid("file", "must be a JPEG, PNG, PDF, DICOM or audio recording")
+    })?;
+    let (kind, language) = check_kind_and_recording(&input, file_type)?;
     let caption = optional_text(input.caption.as_deref(), 300).map_err(invalid("caption"))?;
     let tooth = input
         .tooth
@@ -399,6 +465,20 @@ pub async fn upload(
     let stored = db
         .scoped(&scope(actor, request_id), async |tx| {
             let patient = require_patient(tx, patient_id).await?;
+            let mut encounter_id = input.visit_id;
+            if let Some(note_id) = input.note_id {
+                encounter_id = Some(
+                    check_note_link(
+                        tx,
+                        actor,
+                        patient.id,
+                        note_id,
+                        input.addendum_id,
+                        input.visit_id,
+                    )
+                    .await?,
+                );
+            }
             files
                 .storage
                 .put(key, &input.bytes)
@@ -409,7 +489,7 @@ pub async fn upload(
                 &NewAttachment {
                     id: id.uuid(),
                     patient_id: patient.id,
-                    encounter_id: input.visit_id,
+                    encounter_id,
                     kind: kind.as_str(),
                     storage_key: &key.to_string(),
                     mime_type: file_type.mime_type(),
@@ -418,6 +498,10 @@ pub async fn upload(
                     caption: caption.as_deref(),
                     tooth: tooth.map(|t| i16::from(t.number())),
                     source: RecordSource::Clinician.as_str(),
+                    note_id: input.note_id,
+                    addendum_id: input.addendum_id,
+                    duration_seconds: input.duration_seconds,
+                    language: language.map(VoiceLanguage::as_str),
                 },
             )
             .await
@@ -427,6 +511,9 @@ pub async fn upload(
                 }
                 _ => AppError::Db(error),
             })?;
+            if let Some(note_id) = input.note_id.filter(|_| input.addendum_id.is_none()) {
+                aarogyam_dal::visits::mark_note_voice(tx.conn(), note_id).await?;
+            }
             view(row)
         })
         .await;
@@ -435,6 +522,54 @@ pub async fn upload(
         let _ = files.storage.delete(key).await;
     }
     stored
+}
+
+/// Checks that `actor` may link a recording to the note, and returns the note's visit.
+async fn check_note_link(
+    tx: &mut sakalya_db::ScopedTx,
+    actor: &ClinicActor,
+    patient: Uuid,
+    note_id: Uuid,
+    addendum_id: Option<Uuid>,
+    visit_id: Option<Uuid>,
+) -> Result<Uuid, AppError> {
+    let note = aarogyam_dal::visits::get_note_for_update(tx.conn(), note_id)
+        .await?
+        .filter(|note| note.patient_id == patient)
+        .ok_or(AppError::NotFound("note"))?;
+    if visit_id.is_some_and(|visit| visit != note.encounter_id) {
+        return Err(AppError::invalid("visit_id", "not the visit of that note"));
+    }
+    let state = NoteState {
+        status: NoteStatus::parse(&note.status).map_err(invalid("status"))?,
+        author: MembershipId::from_uuid(note.author_id),
+    };
+    if state.status == NoteStatus::Draft {
+        if addendum_id.is_some() {
+            return Err(AppError::invalid("addendum_id", "a draft has no addenda"));
+        }
+        state.check_edit(actor.membership_id).map_err(refused)?;
+    } else {
+        // A signed note is frozen: the recording joins it as part of an addendum of the member's own.
+        state.check_addendum().map_err(refused)?;
+        let addendum_id = addendum_id.ok_or_else(|| {
+            AppError::invalid(
+                "addendum_id",
+                "a signed note takes a recording only with an addendum",
+            )
+        })?;
+        let own = aarogyam_dal::visits::list_addenda(tx.conn(), &[note.id])
+            .await?
+            .into_iter()
+            .any(|a| a.id == addendum_id && a.author_id == actor.membership_id.uuid());
+        if !own {
+            return Err(AppError::invalid(
+                "addendum_id",
+                "not your addendum to this note",
+            ));
+        }
+    }
+    Ok(note.encounter_id)
 }
 
 /// A patient's files, newest first.

@@ -1035,6 +1035,8 @@ erDiagram
   encounters |o--o{ treatment_plans : "encounter_id"
   treatment_plans ||--o{ treatment_plan_items : "plan_id"
   encounters |o--o{ attachments : "encounter_id"
+  clinical_notes |o--o{ attachments : "note_id"
+  note_addenda |o--o{ attachments : "addendum_id"
   attachments ||--o{ voice_notes : "attachment_id"
   encounters ||--o{ voice_notes : "encounter_id"
   clinical_notes |o--o{ voice_notes : "draft_note_id"
@@ -1122,7 +1124,7 @@ Doctor and intake notes. Signed notes never change.
 
 Drafts are edited by their author only. Signing freezes the note: app.freeze_when() lets a signed or conflict note only move to entered_in_error (with a reason) and nothing else on it change. Never merged automatically: if a change synced from a device collides with a note already signed on the server, it is kept as a separate note with status conflict, linked by conflicts_with_id, and its author resolves it by marking one version entered_in_error. Corrections go in note_addenda.
 
-Referenced by: `clinical_notes.conflicts_with_id`, `note_addenda.note_id`, `voice_notes.draft_note_id`
+Referenced by: `attachments.note_id`, `clinical_notes.conflicts_with_id`, `note_addenda.note_id`, `voice_notes.draft_note_id`
 
 ### `note_addenda` (★ foundation)
 
@@ -1135,6 +1137,8 @@ Corrections and additions to a signed note, with their own author and time.
 | `note_id` | `uuid` | → `clinical_notes` |
 | `author_id` | `uuid` | → `memberships` |
 | `body` | `text` |  |
+
+Referenced by: `attachments.addendum_id`
 
 ### `observations` (★ foundation)
 
@@ -1361,15 +1365,19 @@ Patient files: photos, X-rays, reports, documents, audio, signed consent.
 | `encounter_id` | `uuid?` | → `encounters` |
 | `kind` | `attachment_kind` | photo, xray, report, document, audio, consent |
 | `storage_key` | `text` | <org_id>/<id>, never from a file name |
-| `mime_type` | `text` | from the content: JPEG, PNG, PDF, DICOM |
+| `mime_type` | `text` | from the content: JPEG, PNG, PDF, DICOM, or WebM, MP4, Ogg audio |
 | `size_bytes` | `bigint` | at most 10 MB |
 | `sha256` | `text` |  |
 | `caption` | `text?` |  |
 | `tooth` | `smallint?` | FDI: 11-48 permanent, 51-85 primary |
 | `taken_at` | `timestamptz?` |  |
 | `source` | `record_source` | clinician, assistant, patient, import, device, ai_draft, abdm |
+| `note_id` | `uuid?` | → `clinical_notes`. a voice recording's note, in the same visit |
+| `addendum_id` | `uuid?` | → `note_addenda`. how a recording joins a signed note |
+| `duration_seconds` | `int?` | a recording, 1 to 600 |
+| `language` | `text?` | a recording: en-IN, hi-IN, mr-IN |
 
-Served only through short-lived signed links (HMAC, 5 minutes) issued after a permission check; each download writes access_log. Local disk in development, object storage later, behind one Storage trait.
+A trigger refuses a recording on a signed note unless it carries an addendum. Served only through short-lived signed links (HMAC, 5 minutes) issued after a permission check; each download writes access_log. Local disk in development, object storage later, behind one Storage trait.
 
 Referenced by: `consent_forms.pdf_attachment_id`, `consent_forms.signature_attachment_id`, `document_extractions.attachment_id`, `voice_notes.attachment_id`
 

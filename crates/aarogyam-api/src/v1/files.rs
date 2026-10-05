@@ -35,7 +35,8 @@ pub struct Attachment {
     pub visit_id: Option<Uuid>,
     /// `photo`, `xray`, `report`, `document`, `audio` or `consent`.
     pub kind: String,
-    /// `image/jpeg`, `image/png`, `application/pdf` or `application/dicom`, from the content.
+    /// `image/jpeg`, `image/png`, `application/pdf`, `application/dicom`, `audio/webm`,
+    /// `audio/mp4` or `audio/ogg`, from the content.
     pub mime_type: String,
     /// Size in bytes.
     pub size_bytes: i64,
@@ -49,6 +50,16 @@ pub struct Attachment {
     pub taken_at: Option<String>,
     /// When it was uploaded (RFC 3339).
     pub created_at: String,
+    /// The note a recording belongs to.
+    #[schema(value_type = Option<String>)]
+    pub note_id: Option<Uuid>,
+    /// The addendum a recording belongs to, when its note is signed.
+    #[schema(value_type = Option<String>)]
+    pub addendum_id: Option<Uuid>,
+    /// A recording's length in seconds.
+    pub duration_seconds: Option<i32>,
+    /// A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`.
+    pub language: Option<String>,
 }
 
 impl From<AttachmentView> for Attachment {
@@ -64,6 +75,12 @@ impl From<AttachmentView> for Attachment {
             tooth: view.tooth.map(aarogyam_domain::dental::Tooth::number),
             taken_at: view.taken_at.map(rfc3339),
             created_at: rfc3339(view.created_at),
+            note_id: view.note_id.map(aarogyam_domain::ids::ClinicalNoteId::uuid),
+            addendum_id: view
+                .addendum_id
+                .map(aarogyam_domain::ids::NoteAddendumId::uuid),
+            duration_seconds: view.duration_seconds,
+            language: view.language.map(|l| l.as_str().to_owned()),
         }
     }
 }
@@ -82,7 +99,8 @@ pub struct AttachmentList {
     reason = "documents the multipart form; fields are read from the stream"
 )]
 pub struct UploadForm {
-    /// The file: JPEG, PNG, PDF or DICOM, up to 10 MB. Its type is read from its content.
+    /// The file: JPEG, PNG, PDF, DICOM or a `WebM`, `MP4` or `Ogg` recording, up to 10 MB. Its type is
+    /// read from its content.
     #[schema(value_type = String, format = Binary)]
     file: Vec<u8>,
     /// `photo`, `xray`, `report`, `document` (default), `audio` or `consent`.
@@ -93,6 +111,14 @@ pub struct UploadForm {
     caption: Option<String>,
     /// FDI number of the tooth it shows.
     tooth: Option<i64>,
+    /// A recording's note (a draft of the uploader, or a signed note together with `addendum_id`).
+    note_id: Option<String>,
+    /// The uploader's addendum to a signed note, which the recording belongs to.
+    addendum_id: Option<String>,
+    /// A recording's length in seconds, 1 to 600; required for audio.
+    duration_seconds: Option<i32>,
+    /// A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`.
+    language: Option<String>,
 }
 
 fn bad_form(message: &'static str) -> ApiFailure {
@@ -140,6 +166,22 @@ async fn read_form(mut form: Multipart) -> Result<Upload, ApiFailure> {
                 upload.visit_id =
                     Some(Uuid::try_parse(text).map_err(|_| bad_form("visit_id: must be a UUID"))?);
             }
+            "note_id" => {
+                upload.note_id =
+                    Some(Uuid::try_parse(text).map_err(|_| bad_form("note_id: must be a UUID"))?);
+            }
+            "addendum_id" => {
+                upload.addendum_id = Some(
+                    Uuid::try_parse(text).map_err(|_| bad_form("addendum_id: must be a UUID"))?,
+                );
+            }
+            "duration_seconds" => {
+                upload.duration_seconds = Some(
+                    text.parse()
+                        .map_err(|_| bad_form("duration_seconds: must be a number"))?,
+                );
+            }
+            "language" => upload.language = Some(text.to_owned()),
             "tooth" => {
                 upload.tooth = Some(
                     text.parse()
@@ -157,7 +199,10 @@ async fn read_form(mut form: Multipart) -> Result<Upload, ApiFailure> {
 }
 
 /// Uploads a patient file (`multipart/form-data`, field `file` up to 10 MB). Its type is read
-/// from its content; anything but JPEG, PNG, PDF or DICOM is refused.
+/// from its content; anything but JPEG, PNG, PDF, DICOM or a `WebM`, `MP4` or `Ogg` recording is
+/// refused. A recording (kind `audio`, with `duration_seconds` and optionally `language`) may be
+/// linked to a note with `note_id`; a signed note takes it only together with the uploader's own
+/// `addendum_id`.
 #[utoipa::path(
     post,
     path = "/api/v1/patients/{id}/attachments",
@@ -167,7 +212,8 @@ async fn read_form(mut form: Multipart) -> Result<Upload, ApiFailure> {
     security(("bearer" = [])),
     responses(
         (status = 201, body = Attachment),
-        (status = 400, description = "Not a JPEG, PNG, PDF or DICOM file, a bad field, or a visit of another patient"),
+        (status = 400, description = "Not an accepted file, a bad field, a visit of another patient, or a signed note without an addendum"),
+        (status = 409, description = "The note is not the uploader's draft, or is entered in error"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
         (status = 404, description = "No such patient in this clinic"),

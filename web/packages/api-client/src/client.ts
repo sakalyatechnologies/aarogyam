@@ -315,6 +315,8 @@ export interface ApiClient {
 
   /** Clinic host: writes a draft clinical note. Needs `clinical.write`. */
   createNote(visitId: VisitId, content: NoteContent, options?: RequestOptions): Promise<ApiResult<Note>>;
+  /** Clinic host: replaces a draft's sections (and kind); only its author may. Needs `clinical.write`. */
+  editNote(id: NoteId, content: NoteContent, options?: RequestOptions): Promise<ApiResult<Note>>;
   /** Clinic host: signs a note; it can no longer change except by addendum. Needs `clinical.write`. */
   signNote(id: NoteId, options?: RequestOptions): Promise<ApiResult<Note>>;
 
@@ -347,7 +349,7 @@ export interface ApiClient {
 
   /** Clinic host: a patient's files, newest first. Needs `clinical.read`. */
   listAttachments(id: PatientId, options?: RequestOptions): Promise<ApiResult<AttachmentPage>>;
-  /** Clinic host: uploads a file (JPEG, PNG, PDF or DICOM, up to 10 MB). Needs `clinical.write`. */
+  /** Clinic host: uploads a file (JPEG, PNG, PDF, DICOM or a voice recording, up to 10 MB; a recording carries `note_id`, `duration_seconds`, `language`, and for a signed note `addendum_id`). Needs `clinical.write`. */
   uploadAttachment(id: PatientId, form: FormData, options?: RequestOptions): Promise<ApiResult<Attachment>>;
   /** Clinic host: a short-lived link to download a file. Needs `clinical.read`. */
   getDownloadLink(id: AttachmentId, options?: RequestOptions): Promise<ApiResult<DownloadLink>>;

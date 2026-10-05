@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,\n                  taken_at, created_at\n           from aarogyam.attachments where id = $1 and deleted_at is null",
+  "query": "insert into aarogyam.attachments\n             (id, patient_id, encounter_id, kind, storage_key, mime_type, size_bytes, sha256, caption,\n              tooth, source, note_id, addendum_id, duration_seconds, language)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)\n           returning id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,\n                     taken_at, created_at, note_id, addendum_id, duration_seconds, language",
   "describe": {
     "columns": [
       {
@@ -123,11 +123,69 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 11,
+        "name": "note_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "note_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "addendum_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "addendum_id"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "duration_seconds",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "duration_seconds"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "language",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "language"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Text",
+        "Text",
+        "Int2",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Text"
       ]
     },
     "nullable": [
@@ -141,8 +199,12 @@
       true,
       true,
       true,
-      false
+      false,
+      true,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "9df120765ee2dc8b8bc24c3f5e3b4982ce80bf8d2cbae09c93d384b93d5299bd"
+  "hash": "fd9447db8fcb9fcc61c3bcded780278fa1617c519be00d60944713bd54186db2"
 }

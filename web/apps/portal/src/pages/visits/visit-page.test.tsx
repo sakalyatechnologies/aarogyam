@@ -38,7 +38,8 @@ describe("Visit screen", () => {
     await user.click(await screen.findByRole("button", { name: "New note" }));
     await screen.findByText("SOAP");
 
-    expect((await screen.findAllByText("—", { selector: "dd" })).length).toBeGreaterThan(0);
+    // The author's own draft is editable in place.
+    expect(await screen.findByLabelText("Subjective")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sign" })).toBeTruthy();
   });
 

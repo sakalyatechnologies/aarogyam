@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,\n                  taken_at, created_at\n           from aarogyam.attachments where encounter_id = $1 and deleted_at is null\n           order by created_at, id",
+  "query": "select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,\n                  taken_at, created_at, note_id, addendum_id, duration_seconds, language\n           from aarogyam.attachments where id = $1 and deleted_at is null",
   "describe": {
     "columns": [
       {
@@ -123,6 +123,50 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 11,
+        "name": "note_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "note_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "addendum_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "addendum_id"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "duration_seconds",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "duration_seconds"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "language",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "language"
+          }
+        }
       }
     ],
     "parameters": {
@@ -141,8 +185,12 @@
       true,
       true,
       true,
-      false
+      false,
+      true,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "d62957c74da3757baf4cfcfae16641cd686a65bf3c35d7593cf3289d501ea96c"
+  "hash": "26976a425d7edbfb0175c51dbffcb7241a106b54323f7cf30d0f9019329ac1d1"
 }

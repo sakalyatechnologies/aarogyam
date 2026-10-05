@@ -303,6 +303,20 @@ pub async fn get_note_for_update(
     Ok(row)
 }
 
+/// Marks a draft as written by voice, once a recording is kept with it.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn mark_note_voice(conn: &mut PgConnection, id: Uuid) -> Result<(), DbError> {
+    sqlx::query!(
+        "update aarogyam.clinical_notes set source = 'voice' where id = $1 and status = 'draft'",
+        id
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
 /// A visit's notes, oldest first.
 ///
 /// # Errors

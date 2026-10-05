@@ -730,7 +730,10 @@ export interface paths {
         put?: never;
         /**
          * Uploads a patient file (`multipart/form-data`, field `file` up to 10 MB). Its type is read
-         *     from its content; anything but JPEG, PNG, PDF or DICOM is refused.
+         *     from its content; anything but JPEG, PNG, PDF, DICOM or a `WebM`, `MP4` or `Ogg` recording is
+         *     refused. A recording (kind `audio`, with `duration_seconds` and optionally `language`) may be
+         *     linked to a note with `note_id`; a signed note takes it only together with the uploader's own
+         *     `addendum_id`.
          */
         post: operations["upload"];
         delete?: never;
@@ -2239,16 +2242,30 @@ export interface components {
         };
         /** @description A patient file's details. The bytes come from its download link. */
         Attachment: {
+            /** @description The addendum a recording belongs to, when its note is signed. */
+            addendum_id?: string | null;
             /** @description A caption. */
             caption?: string | null;
             /** @description When it was uploaded (RFC 3339). */
             created_at: string;
+            /**
+             * Format: int32
+             * @description A recording's length in seconds.
+             */
+            duration_seconds?: number | null;
             /** @description Identifier. */
             id: string;
             /** @description `photo`, `xray`, `report`, `document`, `audio` or `consent`. */
             kind: string;
-            /** @description `image/jpeg`, `image/png`, `application/pdf` or `application/dicom`, from the content. */
+            /** @description A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`. */
+            language?: string | null;
+            /**
+             * @description `image/jpeg`, `image/png`, `application/pdf`, `application/dicom`, `audio/webm`,
+             *     `audio/mp4` or `audio/ogg`, from the content.
+             */
             mime_type: string;
+            /** @description The note a recording belongs to. */
+            note_id?: string | null;
             /** @description SHA-256 of the content, hex. */
             sha256: string;
             /**
@@ -4971,15 +4988,27 @@ export interface components {
         };
         /** @description The form an upload sends (`multipart/form-data`). */
         UploadForm: {
+            /** @description The uploader's addendum to a signed note, which the recording belongs to. */
+            addendum_id?: string | null;
             /** @description A caption, up to 300 characters. */
             caption?: string | null;
             /**
+             * Format: int32
+             * @description A recording's length in seconds, 1 to 600; required for audio.
+             */
+            duration_seconds?: number | null;
+            /**
              * Format: binary
-             * @description The file: JPEG, PNG, PDF or DICOM, up to 10 MB. Its type is read from its content.
+             * @description The file: JPEG, PNG, PDF, DICOM or a `WebM`, `MP4` or `Ogg` recording, up to 10 MB. Its type is
+             *     read from its content.
              */
             file: string;
             /** @description `photo`, `xray`, `report`, `document` (default), `audio` or `consent`. */
             kind?: string | null;
+            /** @description A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`. */
+            language?: string | null;
+            /** @description A recording's note (a draft of the uploader, or a signed note together with `addendum_id`). */
+            note_id?: string | null;
             /**
              * Format: int64
              * @description FDI number of the tooth it shows.
@@ -7489,7 +7518,7 @@ export interface operations {
                     "application/json": components["schemas"]["Attachment"];
                 };
             };
-            /** @description Not a JPEG, PNG, PDF or DICOM file, a bad field, or a visit of another patient */
+            /** @description Not an accepted file, a bad field, a visit of another patient, or a signed note without an addendum */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7512,6 +7541,13 @@ export interface operations {
             };
             /** @description No such patient in this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The note is not the uploader's draft, or is entered in error */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -2481,7 +2481,7 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Uploads a patient file (`multipart/form-data`, field `file` up to 10 MB). Its type is read\nfrom its content; anything but JPEG, PNG, PDF or DICOM is refused.",
+        "summary": "Uploads a patient file (`multipart/form-data`, field `file` up to 10 MB). Its type is read\nfrom its content; anything but JPEG, PNG, PDF, DICOM or a `WebM`, `MP4` or `Ogg` recording is\nrefused. A recording (kind `audio`, with `duration_seconds` and optionally `language`) may be\nlinked to a note with `note_id`; a signed note takes it only together with the uploader's own\n`addendum_id`.",
         "operationId": "upload",
         "parameters": [
           {
@@ -2515,7 +2515,7 @@
             }
           },
           "400": {
-            "description": "Not a JPEG, PNG, PDF or DICOM file, a bad field, or a visit of another patient"
+            "description": "Not an accepted file, a bad field, a visit of another patient, or a signed note without an addendum"
           },
           "401": {
             "description": "Not signed in"
@@ -2525,6 +2525,9 @@
           },
           "404": {
             "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "The note is not the uploader's draft, or is entered in error"
           },
           "413": {
             "description": "Larger than 10 MB"
@@ -7411,6 +7414,13 @@
           "created_at"
         ],
         "properties": {
+          "addendum_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The addendum a recording belongs to, when its note is signed."
+          },
           "caption": {
             "type": [
               "string",
@@ -7422,6 +7432,14 @@
             "type": "string",
             "description": "When it was uploaded (RFC 3339)."
           },
+          "duration_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "A recording's length in seconds."
+          },
           "id": {
             "type": "string",
             "description": "Identifier."
@@ -7430,9 +7448,23 @@
             "type": "string",
             "description": "`photo`, `xray`, `report`, `document`, `audio` or `consent`."
           },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`."
+          },
           "mime_type": {
             "type": "string",
-            "description": "`image/jpeg`, `image/png`, `application/pdf` or `application/dicom`, from the content."
+            "description": "`image/jpeg`, `image/png`, `application/pdf`, `application/dicom`, `audio/webm`,\n`audio/mp4` or `audio/ogg`, from the content."
+          },
+          "note_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The note a recording belongs to."
           },
           "sha256": {
             "type": "string",
@@ -14323,6 +14355,13 @@
           "file"
         ],
         "properties": {
+          "addendum_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The uploader's addendum to a signed note, which the recording belongs to."
+          },
           "caption": {
             "type": [
               "string",
@@ -14330,10 +14369,18 @@
             ],
             "description": "A caption, up to 300 characters."
           },
+          "duration_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "A recording's length in seconds, 1 to 600; required for audio."
+          },
           "file": {
             "type": "string",
             "format": "binary",
-            "description": "The file: JPEG, PNG, PDF or DICOM, up to 10 MB. Its type is read from its content."
+            "description": "The file: JPEG, PNG, PDF, DICOM or a `WebM`, `MP4` or `Ogg` recording, up to 10 MB. Its type is\nread from its content."
           },
           "kind": {
             "type": [
@@ -14341,6 +14388,20 @@
               "null"
             ],
             "description": "`photo`, `xray`, `report`, `document` (default), `audio` or `consent`."
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`."
+          },
+          "note_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A recording's note (a draft of the uploader, or a signed note together with `addendum_id`)."
           },
           "tooth": {
             "type": [

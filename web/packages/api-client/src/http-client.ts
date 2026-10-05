@@ -298,6 +298,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     createNote: (visitId, content, opts) =>
       call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(visitId)}/notes`, schema: note, body: content, signal: opts?.signal }),
+    editNote: (id, content, opts) =>
+      call({ method: "PATCH", path: `/api/v1/notes/${encodeURIComponent(id)}`, schema: note, body: content, signal: opts?.signal }),
     signNote: (id, opts) => call({ method: "POST", path: `/api/v1/notes/${encodeURIComponent(id)}/sign`, schema: note, signal: opts?.signal }),
 
     addAddendum: (id, input, opts) =>

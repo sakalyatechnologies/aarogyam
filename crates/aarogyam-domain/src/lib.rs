@@ -10,7 +10,7 @@
 //! ([`import`]), business event names ([`event`]), the clinical record: visits and notes
 //! ([`clinical`]), vital signs ([`vitals`]), the dental chart ([`dental`]) and patient files
 //! ([`files`]), money ([`billing`]), prescriptions ([`prescription`]) and patient links
-//! ([`share`]).
+//! ([`share`]) and the clinic's public website ([`website`]).
 
 /// A stored text value that is not one of the enum's values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -81,3 +81,4 @@ pub mod search;
 pub mod share;
 pub mod staff;
 pub mod vitals;
+pub mod website;

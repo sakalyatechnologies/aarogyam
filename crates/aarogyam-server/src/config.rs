@@ -41,6 +41,9 @@ pub struct Config {
     /// Patient files (`ARO_FILES__*`).
     #[serde(default)]
     pub files: FileSettings,
+    /// Where clinic websites are served (`ARO_WEBSITE__*`).
+    #[serde(default)]
+    pub website: WebsiteSettings,
     /// The Supabase project (`ARO_SUPABASE__*`, or the `SUPABASE_*` names in `.env.supabase`).
     #[serde(default)]
     pub supabase: SupabaseSettings,
@@ -262,6 +265,27 @@ impl Default for FileSettings {
         Self {
             dir: "var/attachments".into(),
             signing_key: None,
+        }
+    }
+}
+
+/// Where clinic websites are served; shown to owners in Settings -> Website -> Domain.
+#[derive(Debug, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct WebsiteSettings {
+    /// What a clinic's `www` CNAME record points to (`ARO_WEBSITE__SITES_TARGET`). A
+    /// placeholder until the product domain exists.
+    pub sites_target: String,
+    /// The free address, with `{slug}` replaced by the clinic's slug
+    /// (`ARO_WEBSITE__ADDRESS_TEMPLATE`), such as `{slug}-site.aarogyam.example`.
+    pub address_template: String,
+}
+
+impl Default for WebsiteSettings {
+    fn default() -> Self {
+        Self {
+            sites_target: "sites.aarogyam.example".into(),
+            address_template: "{slug}-site.aarogyam.example".into(),
         }
     }
 }

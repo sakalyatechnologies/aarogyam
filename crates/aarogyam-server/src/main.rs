@@ -176,7 +176,11 @@ async fn serve(config: Config) -> anyhow::Result<()> {
     let state = state
         .with_throttle(throttle)
         .with_notifier(notifier)
-        .with_files(files);
+        .with_files(files)
+        .with_website(aarogyam_api::WebsiteLinks {
+            sites_target: config.website.sites_target,
+            address_template: config.website.address_template,
+        });
     sakalya_http::serve(aarogyam_api::router(state), config.http.bind)
         .await
         .context("the server stopped with an error")

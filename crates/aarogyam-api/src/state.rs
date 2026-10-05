@@ -43,6 +43,34 @@ pub struct Hosts {
     pub app: String,
 }
 
+/// Where clinic websites are served, for the domain step in Settings. Placeholders until the
+/// product domain exists.
+#[derive(Debug, Clone)]
+pub struct WebsiteLinks {
+    /// What a clinic's `www` CNAME record points to, such as `sites.aarogyam.example`.
+    pub sites_target: String,
+    /// Builds the free address from a slug: `{slug}` is replaced, such as
+    /// `{slug}-site.aarogyam.example`.
+    pub address_template: String,
+}
+
+impl Default for WebsiteLinks {
+    fn default() -> Self {
+        Self {
+            sites_target: "sites.aarogyam.example".to_owned(),
+            address_template: "{slug}-site.aarogyam.example".to_owned(),
+        }
+    }
+}
+
+impl WebsiteLinks {
+    /// The free address of a clinic's website.
+    #[must_use]
+    pub fn address_for(&self, slug: &str) -> String {
+        self.address_template.replace("{slug}", slug)
+    }
+}
+
 /// How sign-in tokens are checked.
 #[derive(Debug)]
 pub enum TokenCheck {
@@ -113,6 +141,7 @@ struct Inner {
     notifier: Notifier,
     allergies: Arc<dyn AllergySource>,
     files: Option<Files>,
+    website: WebsiteLinks,
     accounts: Option<Arc<dyn SignInAccounts>>,
     quality_dir: PathBuf,
 }
@@ -140,6 +169,7 @@ impl AppState {
                 notifier: Notifier::log(PortalLinks::default()),
                 allergies: Arc::new(RecordedAllergies),
                 files: None,
+                website: WebsiteLinks::default(),
                 accounts: None,
                 quality_dir: PathBuf::from("var/quality"),
             }),
@@ -172,6 +202,16 @@ impl AppState {
     pub fn with_allergy_source(mut self, source: Arc<dyn AllergySource>) -> Self {
         if let Some(inner) = Arc::get_mut(&mut self.inner) {
             inner.allergies = source;
+        }
+        self
+    }
+
+    /// Sets where clinic websites are served, for the domain step in Settings. Call before
+    /// the state is shared (cloned).
+    #[must_use]
+    pub fn with_website(mut self, website: WebsiteLinks) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.website = website;
         }
         self
     }
@@ -217,6 +257,10 @@ impl AppState {
 
     pub(crate) fn allergies(&self) -> &dyn AllergySource {
         self.inner.allergies.as_ref()
+    }
+
+    pub(crate) fn website(&self) -> &WebsiteLinks {
+        &self.inner.website
     }
 
     pub(crate) fn files(&self) -> Result<&Files, ApiFailure> {

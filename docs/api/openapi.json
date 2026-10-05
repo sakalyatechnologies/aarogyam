@@ -4719,6 +4719,63 @@
         ]
       }
     },
+    "/api/v1/public/site": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: the clinic's published website. Holds the clinic's name, doctors,\nservices, hours and contact details, and nothing about patients.",
+        "operationId": "public_site",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SitePage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a clinic, or its website is not published"
+          },
+          "429": {
+            "description": "Too many requests from this address"
+          }
+        }
+      }
+    },
+    "/api/v1/public/site/photos/{id}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: one of the clinic's website pictures.",
+        "operationId": "public_photo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The picture",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The picture, with its media type"
+          },
+          "404": {
+            "description": "Not a picture of this clinic"
+          },
+          "429": {
+            "description": "Too many requests from this address"
+          }
+        }
+      }
+    },
     "/api/v1/queue": {
       "get": {
         "tags": [
@@ -5406,6 +5463,227 @@
           },
           "404": {
             "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings/website": {
+      "get": {
+        "tags": [
+          "website"
+        ],
+        "summary": "The owner's website settings, pictures and a preview of the page.",
+        "operationId": "get_settings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebsiteSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "website"
+        ],
+        "summary": "Changes the website: design, content, published state or domain. Doctors in `content` must\nbelong to the clinic; links must start with `https://`.",
+        "operationId": "update_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebsiteChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebsiteSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings/website/photos": {
+      "post": {
+        "tags": [
+          "website"
+        ],
+        "summary": "Uploads a website picture (`multipart/form-data`, field `file` up to 5 MB). A logo, hero or\nabout picture replaces the one before it.",
+        "operationId": "upload_photo",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SitePhoto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a JPEG, PNG or WebP picture, a bad field, or too many pictures"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "413": {
+            "description": "Larger than 5 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings/website/photos/{id}": {
+      "delete": {
+        "tags": [
+          "website"
+        ],
+        "summary": "Removes a picture. Doctors who used it as a portrait lose it.",
+        "operationId": "delete_photo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The picture",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such picture in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "website"
+        ],
+        "summary": "Changes a picture's description.",
+        "operationId": "describe_photo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The picture",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SitePhoto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such picture in this clinic"
           }
         },
         "security": [
@@ -11832,6 +12110,47 @@
           }
         }
       },
+      "PhotoChanges": {
+        "type": "object",
+        "description": "A picture's new description.",
+        "required": [
+          "alt"
+        ],
+        "properties": {
+          "alt": {
+            "type": "string",
+            "description": "What it shows; empty removes it."
+          }
+        }
+      },
+      "PhotoForm": {
+        "type": "object",
+        "description": "The form a picture upload sends (`multipart/form-data`).",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "alt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What it shows, for people who cannot see it."
+          },
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "The picture: JPEG, PNG or WebP, up to 5 MB. Its type is read from its content."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`logo`, `hero`, `about`, `doctor` or `gallery` (default)."
+          }
+        }
+      },
       "Plan": {
         "type": "object",
         "description": "A treatment plan with its estimate.",
@@ -13587,6 +13906,727 @@
           }
         }
       },
+      "SiteAbout": {
+        "type": "object",
+        "description": "About the clinic.",
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "A few paragraphs, separated by blank lines.",
+            "default": ""
+          },
+          "highlights": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Up to six short points.",
+            "default": []
+          },
+          "title": {
+            "type": "string",
+            "description": "Section title.",
+            "default": ""
+          }
+        }
+      },
+      "SiteAddress": {
+        "type": "object",
+        "description": "The clinic's address.",
+        "properties": {
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "City or town."
+          },
+          "line1": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "House, building and street."
+          },
+          "line2": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Area or landmark."
+          },
+          "pincode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "PIN code."
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "State."
+          }
+        }
+      },
+      "SiteChoice": {
+        "type": "object",
+        "description": "A doctor or service the owner may show or hide.",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Specialty (doctors) or category (services)."
+          },
+          "fee_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Fee in paise (services)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name."
+          }
+        }
+      },
+      "SiteClinic": {
+        "type": "object",
+        "description": "Who the clinic is and how to reach it.",
+        "required": [
+          "name",
+          "address"
+        ],
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/SiteAddress",
+            "description": "Address."
+          },
+          "brand": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic's brand colour, `#RRGGBB`, if set."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Public email address."
+          },
+          "map_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A map link."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Phone, `E.164`."
+          },
+          "whatsapp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`WhatsApp` number, `E.164`."
+          }
+        }
+      },
+      "SiteContact": {
+        "type": "object",
+        "description": "Contact details beyond the branch's phone and address.",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Public email address.",
+            "default": ""
+          },
+          "hours_note": {
+            "type": "string",
+            "description": "A note under the opening hours.",
+            "default": ""
+          },
+          "map_url": {
+            "type": "string",
+            "description": "A `https://` link to the clinic on a map.",
+            "default": ""
+          },
+          "whatsapp": {
+            "type": "string",
+            "description": "`WhatsApp` number; +91 is assumed without a country code.",
+            "default": ""
+          }
+        }
+      },
+      "SiteDay": {
+        "type": "object",
+        "description": "Opening hours of one weekday.",
+        "required": [
+          "weekday",
+          "spans"
+        ],
+        "properties": {
+          "spans": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "Open spans: `[start, end]` as `HH:MM`."
+          },
+          "weekday": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1 Monday to 7 Sunday."
+          }
+        }
+      },
+      "SiteDesign": {
+        "type": "object",
+        "description": "The design the clinic chose.",
+        "required": [
+          "layout",
+          "template",
+          "palette",
+          "fonts"
+        ],
+        "properties": {
+          "fonts": {
+            "type": "string",
+            "description": "One of the font pairings."
+          },
+          "layout": {
+            "type": "string",
+            "description": "`one` or `multi`."
+          },
+          "palette": {
+            "type": "string",
+            "description": "One of the template's palettes."
+          },
+          "template": {
+            "type": "string",
+            "description": "`aurora`, `hearth`, `clinical` or `bold`."
+          }
+        }
+      },
+      "SiteDoctor": {
+        "type": "object",
+        "description": "A doctor on the website.",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "bio": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Introduction."
+          },
+          "id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name."
+          },
+          "photo": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SitePhoto",
+                "description": "Portrait."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "qualifications": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Degrees and training."
+          },
+          "specialty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What they practise."
+          }
+        }
+      },
+      "SiteDoctorProfile": {
+        "type": "object",
+        "description": "What the owner adds to a doctor the clinic already has.",
+        "properties": {
+          "bio": {
+            "type": "string",
+            "description": "A short introduction.",
+            "default": ""
+          },
+          "hidden": {
+            "type": "boolean",
+            "description": "Leave the doctor off the website.",
+            "default": false
+          },
+          "photo_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A doctor portrait uploaded to the website.",
+            "default": null
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor.",
+            "default": ""
+          },
+          "qualifications": {
+            "type": "string",
+            "description": "Degrees and training.",
+            "default": ""
+          }
+        }
+      },
+      "SiteDomain": {
+        "type": "object",
+        "description": "Where the clinic's own domain verification stands, with what to show the owner.",
+        "required": [
+          "status",
+          "sites_target",
+          "default_address"
+        ],
+        "properties": {
+          "checked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was last checked (RFC 3339)."
+          },
+          "custom_domain": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic's own domain, if any."
+          },
+          "default_address": {
+            "type": "string",
+            "description": "The free address the site is served on without a domain of the clinic's own."
+          },
+          "sites_target": {
+            "type": "string",
+            "description": "What a `www` CNAME record points to."
+          },
+          "status": {
+            "type": "string",
+            "description": "`none`, `pending`, `verified` or `failed`."
+          },
+          "verification_token": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The value of the TXT record that proves ownership."
+          }
+        }
+      },
+      "SiteHero": {
+        "type": "object",
+        "description": "The top of the home page.",
+        "properties": {
+          "cta_label": {
+            "type": "string",
+            "description": "The booking button's label.",
+            "default": ""
+          },
+          "headline": {
+            "type": "string",
+            "description": "The main line.",
+            "default": ""
+          },
+          "subheadline": {
+            "type": "string",
+            "description": "A line under it.",
+            "default": ""
+          }
+        }
+      },
+      "SitePage": {
+        "type": "object",
+        "description": "What a clinic website shows, and only that: no patient data, no registration numbers.",
+        "required": [
+          "design",
+          "clinic",
+          "hours",
+          "hero",
+          "about",
+          "doctors",
+          "services",
+          "reviews",
+          "photos",
+          "social",
+          "seo",
+          "booking_enabled"
+        ],
+        "properties": {
+          "about": {
+            "$ref": "#/components/schemas/SiteAbout",
+            "description": "About the clinic."
+          },
+          "booking_enabled": {
+            "type": "boolean",
+            "description": "Whether patients may book online."
+          },
+          "clinic": {
+            "$ref": "#/components/schemas/SiteClinic",
+            "description": "The clinic."
+          },
+          "design": {
+            "$ref": "#/components/schemas/SiteDesign",
+            "description": "The design."
+          },
+          "doctors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteDoctor"
+            },
+            "description": "Doctors."
+          },
+          "hero": {
+            "$ref": "#/components/schemas/SiteHero",
+            "description": "The top of the home page."
+          },
+          "hours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteDay"
+            },
+            "description": "Opening hours; days without hours are left out."
+          },
+          "hours_note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A note under the hours."
+          },
+          "photos": {
+            "$ref": "#/components/schemas/SitePhotos",
+            "description": "Pictures."
+          },
+          "reviews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteReview"
+            },
+            "description": "Reviews the clinic chose to show."
+          },
+          "seo": {
+            "$ref": "#/components/schemas/SiteSeo",
+            "description": "Search engine text; empty parts are filled by the page."
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteService"
+            },
+            "description": "Services."
+          },
+          "services_intro": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A line above the services."
+          },
+          "social": {
+            "$ref": "#/components/schemas/SiteSocial",
+            "description": "Profile links."
+          }
+        }
+      },
+      "SitePhoto": {
+        "type": "object",
+        "description": "A website picture.",
+        "required": [
+          "id",
+          "kind",
+          "url"
+        ],
+        "properties": {
+          "alt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What it shows."
+          },
+          "id": {
+            "type": "string",
+            "description": "The picture."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`logo`, `hero`, `about`, `doctor` or `gallery`."
+          },
+          "url": {
+            "type": "string",
+            "description": "Where to load it from, on the clinic's host."
+          }
+        }
+      },
+      "SitePhotos": {
+        "type": "object",
+        "description": "Pictures by use.",
+        "required": [
+          "gallery"
+        ],
+        "properties": {
+          "about": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SitePhoto",
+                "description": "The about picture."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gallery": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SitePhoto"
+            },
+            "description": "The gallery, in order."
+          },
+          "hero": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SitePhoto",
+                "description": "The top picture."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "logo": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SitePhoto",
+                "description": "The logo."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "SiteReview": {
+        "type": "object",
+        "description": "A review the clinic chose to show.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Who wrote it.",
+            "default": ""
+          },
+          "rating": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1 to 5.",
+            "default": 0,
+            "minimum": 0
+          },
+          "text": {
+            "type": "string",
+            "description": "What they said.",
+            "default": ""
+          }
+        }
+      },
+      "SiteSeo": {
+        "type": "object",
+        "description": "What search engines show.",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description, up to 170 characters.",
+            "default": ""
+          },
+          "title": {
+            "type": "string",
+            "description": "Page title, up to 70 characters.",
+            "default": ""
+          }
+        }
+      },
+      "SiteService": {
+        "type": "object",
+        "description": "A service on the website.",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Category key, such as `restorative`."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A sentence about it."
+          },
+          "fee_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Fee in paise; absent when the clinic hides fees."
+          },
+          "id": {
+            "type": "string",
+            "description": "The price list entry."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name."
+          }
+        }
+      },
+      "SiteServiceNote": {
+        "type": "object",
+        "description": "A sentence about one service.",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "What the patient should know.",
+            "default": ""
+          },
+          "price_item_id": {
+            "type": "string",
+            "description": "The price list entry.",
+            "default": ""
+          }
+        }
+      },
+      "SiteServices": {
+        "type": "object",
+        "description": "Services and fees.",
+        "properties": {
+          "hidden": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Price list entries left off the website.",
+            "default": []
+          },
+          "intro": {
+            "type": "string",
+            "description": "A line above the list.",
+            "default": ""
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteServiceNote"
+            },
+            "description": "Sentences about services.",
+            "default": []
+          },
+          "show_fees": {
+            "type": "boolean",
+            "description": "Whether fees are shown.",
+            "default": true
+          }
+        }
+      },
+      "SiteSocial": {
+        "type": "object",
+        "description": "Links to the clinic's profiles.",
+        "properties": {
+          "facebook": {
+            "type": "string",
+            "description": "An `https://` link.",
+            "default": ""
+          },
+          "instagram": {
+            "type": "string",
+            "description": "An `https://` link.",
+            "default": ""
+          },
+          "youtube": {
+            "type": "string",
+            "description": "An `https://` link.",
+            "default": ""
+          }
+        }
+      },
+      "SiteTemplate": {
+        "type": "object",
+        "description": "A design the owner may choose.",
+        "required": [
+          "id",
+          "palettes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "palettes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Its palettes; the first is the default."
+          }
+        }
+      },
       "Staff": {
         "type": "object",
         "description": "The clinic's staff.",
@@ -14572,6 +15612,237 @@
           }
         }
       },
+      "WebsiteChanges": {
+        "type": "object",
+        "description": "Changes to the website; anything left out stays as it is.",
+        "properties": {
+          "content": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/WebsiteContent",
+                "description": "All the content; replaces what is stored."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "custom_domain": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic's own domain; an empty string removes it. A new domain starts as `pending`."
+          },
+          "fonts": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "One of the font pairings."
+          },
+          "layout": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`one` or `multi`."
+          },
+          "palette": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "One of the design's palettes."
+          },
+          "published": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Publish or take the site down."
+          },
+          "template": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The design. A new design starts with its first palette unless `palette` is given."
+          }
+        }
+      },
+      "WebsiteContent": {
+        "type": "object",
+        "description": "Everything the owner writes. Every part is optional.",
+        "properties": {
+          "about": {
+            "$ref": "#/components/schemas/SiteAbout",
+            "description": "About the clinic.",
+            "default": {
+              "body": "",
+              "highlights": [],
+              "title": ""
+            }
+          },
+          "contact": {
+            "$ref": "#/components/schemas/SiteContact",
+            "description": "Contact details.",
+            "default": {
+              "email": "",
+              "hours_note": "",
+              "map_url": "",
+              "whatsapp": ""
+            }
+          },
+          "doctors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteDoctorProfile"
+            },
+            "description": "Doctor introductions.",
+            "default": []
+          },
+          "hero": {
+            "$ref": "#/components/schemas/SiteHero",
+            "description": "The top of the home page.",
+            "default": {
+              "cta_label": "",
+              "headline": "",
+              "subheadline": ""
+            }
+          },
+          "reviews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteReview"
+            },
+            "description": "Reviews, up to 12.",
+            "default": []
+          },
+          "seo": {
+            "$ref": "#/components/schemas/SiteSeo",
+            "description": "Search engine text.",
+            "default": {
+              "description": "",
+              "title": ""
+            }
+          },
+          "services": {
+            "$ref": "#/components/schemas/SiteServices",
+            "description": "Services and fees.",
+            "default": {
+              "hidden": [],
+              "intro": "",
+              "notes": [],
+              "show_fees": true
+            }
+          },
+          "social": {
+            "$ref": "#/components/schemas/SiteSocial",
+            "description": "Social links.",
+            "default": {
+              "facebook": "",
+              "instagram": "",
+              "youtube": ""
+            }
+          }
+        }
+      },
+      "WebsiteSettings": {
+        "type": "object",
+        "description": "The owner's website settings and everything the editor needs.",
+        "required": [
+          "layout",
+          "template",
+          "palette",
+          "fonts",
+          "content",
+          "published",
+          "domain",
+          "photos",
+          "preview",
+          "doctors",
+          "services",
+          "templates",
+          "fonts_available"
+        ],
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/WebsiteContent",
+            "description": "The owner's text and choices."
+          },
+          "doctors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteChoice"
+            },
+            "description": "Doctors the owner may show or hide."
+          },
+          "domain": {
+            "$ref": "#/components/schemas/SiteDomain",
+            "description": "The custom domain step."
+          },
+          "fonts": {
+            "type": "string",
+            "description": "The font pairing."
+          },
+          "fonts_available": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The font pairings."
+          },
+          "layout": {
+            "type": "string",
+            "description": "`one` or `multi`."
+          },
+          "palette": {
+            "type": "string",
+            "description": "The palette."
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SitePhoto"
+            },
+            "description": "Every picture, including doctor portraits."
+          },
+          "preview": {
+            "$ref": "#/components/schemas/SitePage",
+            "description": "The site as it shows now, published or not."
+          },
+          "published": {
+            "type": "boolean",
+            "description": "Whether the site is live."
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it last went live (RFC 3339)."
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteChoice"
+            },
+            "description": "Services the owner may show or hide."
+          },
+          "template": {
+            "type": "string",
+            "description": "The design."
+          },
+          "templates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteTemplate"
+            },
+            "description": "The designs and their palettes."
+          }
+        }
+      },
       "WorkFields": {
         "type": "object",
         "description": "What is done and where.",
@@ -14706,6 +15977,10 @@
       "description": "A clinic's own settings; clinic host only"
     },
     {
+      "name": "website",
+      "description": "The clinic's website: design, content, pictures, publishing and domain; clinic host only"
+    },
+    {
       "name": "registration",
       "description": "Clinics applying to join; public, throttled per IP"
     },
@@ -14727,7 +16002,7 @@
     },
     {
       "name": "public",
-      "description": "Patient links, QR verification and self-booking on the clinic's host; reads need no sign-in"
+      "description": "Patient links, QR verification and self-booking and the published website on the clinic's host; reads need no sign-in"
     },
     {
       "name": "console",

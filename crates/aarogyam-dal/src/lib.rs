@@ -35,6 +35,7 @@ pub mod timeline;
 pub mod treatment;
 pub mod visits;
 pub mod vitals;
+pub mod website;
 use sqlx::{Executor as _, PgPool};
 
 /// The migrations in `db/migrations/`, embedded at compile time.

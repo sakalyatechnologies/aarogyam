@@ -479,6 +479,9 @@ async fn every_route_requires_sign_in_and_a_permission() {
             // patient data, throttled per IP); booking is covered by `signed_in_only` below.
             "/api/v1/public/booking",
             "/api/v1/public/availability",
+            // The published website and its pictures: public, no patient data (tests/website.rs).
+            "/api/v1/public/site",
+            "/api/v1/public/site/photos/{id}",
         ];
         if !path.starts_with("/api/v1/")
             || path.starts_with("/api/v1/dev/")

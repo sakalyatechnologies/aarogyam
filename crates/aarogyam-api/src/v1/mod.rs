@@ -30,6 +30,7 @@ pub(crate) mod today;
 pub(crate) mod treatment;
 pub(crate) mod visits;
 pub(crate) mod vitals;
+pub(crate) mod website;
 
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
@@ -163,6 +164,18 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/attachments/{id}/download", get(files::link))
         .route("/attachments/{id}/content", get(files::content))
+        .route(
+            "/settings/website",
+            get(website::get_settings).patch(website::update_settings),
+        )
+        .route(
+            "/settings/website/photos",
+            post(website::upload_photo).layer(DefaultBodyLimit::max(website::MAX_UPLOAD_BODY)),
+        )
+        .route(
+            "/settings/website/photos/{id}",
+            patch(website::describe_photo).delete(website::delete_photo),
+        )
         .route("/staff", get(staff::list))
         .route("/staff/invitations", post(staff::invite))
         .route("/staff/{membership_id}", patch(staff::change))
@@ -199,6 +212,9 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/public/booking", get(public_booking::booking_options))
         .route("/public/availability", get(public_booking::free_slots))
         .route("/public/bookings", post(public_booking::book_online))
+        // Public, on the clinic's host: the published website and its pictures.
+        .route("/public/site", get(website::public_site))
+        .route("/public/site/photos/{id}", get(website::public_photo))
         .route(
             "/price-items",
             get(billing::price_items).post(billing::create_price_item),

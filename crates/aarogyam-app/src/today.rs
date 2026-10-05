@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 
 use aarogyam_dal::schedule::{PractitionerRow, RoomRow, ShiftRow};
-use aarogyam_dal::{appointments, clinic, queue, schedule};
+use aarogyam_dal::today as dal_today;
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::{
@@ -274,29 +274,27 @@ pub async fn today(
     now: OffsetDateTime,
 ) -> Result<Today, AppError> {
     actor.require(Permission::AppointmentsRead)?;
+    let date = clinic_today(&actor.timezone, now);
+    let (start, end) = day_bounds(&actor.timezone, date);
+    let weekday = i16::from(date.weekday().number_from_monday());
+    let with_stock = actor.permissions.allows(Permission::InventoryRead);
     db.scoped(&scope(actor, request_id), async |tx| {
-        let profile = clinic::profile(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
-        let date = clinic_today(&profile.timezone, now);
-        let (start, end) = day_bounds(&profile.timezone, date);
-        let appointments: Vec<AppointmentView> =
-            appointments::list(tx.conn(), start, end, None, None)
-                .await?
-                .into_iter()
-                .map(|row| AppointmentView::new(row, date))
-                .collect();
-        let tokens: Vec<TokenView> = queue::list(tx.conn(), date, None)
-            .await?
+        let rows = dal_today::today(tx.conn(), start, end, date, weekday, with_stock).await?;
+        let appointments: Vec<AppointmentView> = rows
+            .appointments
+            .into_iter()
+            .map(|row| AppointmentView::new(row, date))
+            .collect();
+        let tokens: Vec<TokenView> = rows
+            .tokens
             .into_iter()
             .map(|row| TokenView::new(row, now, date))
             .collect();
-        let rooms = schedule::rooms(tx.conn()).await?;
-        let weekday = i16::from(date.weekday().number_from_monday());
-        let shifts = schedule::shifts(tx.conn(), None, Some(weekday)).await?;
-        let leave = schedule::leave(tx.conn(), None, start, end).await?;
-        let team = schedule::practitioners(tx.conn())
-            .await?
+        let rooms = rows.rooms;
+        let shifts = rows.shifts;
+        let leave = rows.leave;
+        let team = rows
+            .practitioners
             .into_iter()
             .filter(|practitioner| practitioner.active)
             .filter_map(|practitioner| {
@@ -327,17 +325,13 @@ pub async fn today(
         let mut recent: Vec<TokenView> = tokens.clone();
         recent.sort_by_key(|token| std::cmp::Reverse(token.row.issued_at));
         recent.truncate(RECENT_PATIENTS);
-        let low_stock = if actor.permissions.allows(Permission::InventoryRead) {
-            Some(inventory::low_stock_in(tx, date).await?)
-        } else {
-            None
-        };
+        let low_stock = rows.stock.map(|stock| inventory::low_stock_of(stock, date));
         Ok(Today {
             low_stock,
             date,
             as_of: now,
             counts: counts(&appointments, &tokens),
-            by_hour: by_hour(&appointments, &profile.timezone),
+            by_hour: by_hour(&appointments, &actor.timezone),
             chairs: chairs(rooms, &appointments),
             attention: attention(&appointments, &tokens, now),
             recent_patients: recent,

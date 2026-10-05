@@ -8,7 +8,7 @@ use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
 /// An appointment with the names the calendar shows.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct AppointmentRow {
     /// Identifier.
     pub id: Uuid,
@@ -19,8 +19,10 @@ pub struct AppointmentRow {
     /// Room name.
     pub room_name: Option<String>,
     /// Start (UTC).
+    #[serde(with = "crate::json::timestamp")]
     pub starts_at: OffsetDateTime,
     /// End (UTC).
+    #[serde(with = "crate::json::timestamp")]
     pub ends_at: OffsetDateTime,
     /// Status.
     pub status: String,
@@ -35,10 +37,13 @@ pub struct AppointmentRow {
     /// Why it was cancelled.
     pub cancel_reason: Option<String>,
     /// When the patient arrived.
+    #[serde(with = "crate::json::timestamp::option")]
     pub arrived_at: Option<OffsetDateTime>,
     /// When they sat in the chair.
+    #[serde(with = "crate::json::timestamp::option")]
     pub seated_at: Option<OffsetDateTime>,
     /// When the visit ended.
+    #[serde(with = "crate::json::timestamp::option")]
     pub completed_at: Option<OffsetDateTime>,
     /// The patient.
     pub patient_id: Uuid,
@@ -49,6 +54,7 @@ pub struct AppointmentRow {
     /// Their sex.
     pub patient_sex: String,
     /// Their date of birth.
+    #[serde(with = "crate::json::date::option")]
     pub patient_date_of_birth: Option<Date>,
     /// Whether it was estimated.
     pub patient_birth_date_estimated: bool,

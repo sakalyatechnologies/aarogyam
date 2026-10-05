@@ -71,7 +71,8 @@ describe("Patient summary", () => {
     const { path, backend } = billedPatient();
     const { router } = renderPortal(path, { as: PEOPLE.asha, backend });
     await user.click(await screen.findByRole("button", { name: /Follow-up/ }));
-    expect(router.state.location.pathname).toBe("/calendar");
+    // The page's code loads on first visit, so the navigation lands a moment later.
+    await waitFor(() => { expect(router.state.location.pathname).toBe("/calendar"); });
     const dialog = await screen.findByRole("dialog", { name: "New appointment" });
     // The patient is already chosen: no search box, and their file number shows.
     expect(await within(dialog).findByText(/^SD-\d+ ·/)).toBeTruthy();

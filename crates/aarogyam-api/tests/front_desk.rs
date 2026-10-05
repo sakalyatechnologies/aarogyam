@@ -119,6 +119,8 @@ async fn owner_actor(app: &TestApp) -> ClinicActor {
     .unwrap();
     ClinicActor {
         clinic_id: ClinicId::from_uuid(clinic),
+        timezone: "Asia/Kolkata".into(),
+        number_prefix: "AD".into(),
         user_id: UserId::from_uuid(user),
         membership_id: MembershipId::from_uuid(membership),
         role_key: "owner".into(),

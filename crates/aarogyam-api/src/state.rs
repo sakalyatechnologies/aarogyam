@@ -343,6 +343,16 @@ impl AppState {
             });
     }
 
+    /// Forgets the cached host lookups of a clinic, so a change to its time zone applies to
+    /// the next request. Per instance, like [`Self::forget_session`].
+    pub(crate) fn forget_clinic(&self, clinic_id: ClinicId) {
+        self.inner.host_cache.remove_where(|_, found| {
+            found
+                .as_ref()
+                .is_some_and(|clinic| clinic.clinic_id == clinic_id)
+        });
+    }
+
     /// The clinic a host belongs to, cached briefly.
     pub(crate) async fn clinic_for_host(
         &self,
@@ -356,6 +366,45 @@ impl AppState {
         // reachable at once. Floods of unknown hosts are the throttle's job.
         if found.is_some() {
             self.inner.host_cache.insert(host.into(), found.clone());
+        }
+        Ok(found)
+    }
+
+    /// The cached clinic of a host, without asking the database.
+    pub(crate) fn cached_host(&self, host: &str) -> Option<HostClinic> {
+        self.inner.host_cache.get(&Box::from(host)).flatten()
+    }
+
+    /// The clinic of a host and what the token's subject may do there, in one round trip, for
+    /// a request with neither cached. Caches what grants something, like
+    /// [`Self::clinic_for_host`] and [`Self::authorization`].
+    pub(crate) async fn host_and_authorization(
+        &self,
+        host: &str,
+        claims: &Claims,
+    ) -> Result<Option<(HostClinic, Option<Authorization>)>, ApiFailure> {
+        let session = claims.session_id().ok_or_else(ApiError::unauthenticated)?;
+        let subject = claims.subject().uuid();
+        let expires_at = OffsetDateTime::from_unix_timestamp(claims.expires_at())
+            .map_err(|_| ApiError::unauthenticated())?;
+        let found = lookups::resolve_and_authorize(
+            self.inner.db.pool(),
+            host,
+            subject,
+            session,
+            expires_at,
+        )
+        .await?;
+        if let Some((clinic, authorization)) = &found {
+            self.inner
+                .host_cache
+                .insert(host.into(), Some(clinic.clone()));
+            if authorization.is_some() {
+                self.inner.grant_cache.insert(
+                    (clinic.clinic_id.uuid(), subject, session),
+                    authorization.clone(),
+                );
+            }
         }
         Ok(found)
     }

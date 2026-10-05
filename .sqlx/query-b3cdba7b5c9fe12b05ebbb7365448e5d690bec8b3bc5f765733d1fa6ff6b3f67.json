@@ -1,0 +1,111 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select h.org_id as \"org_id!\", h.slug as \"slug!\", h.org_status as \"org_status!\",\n                  h.timezone as \"timezone!\", h.number_prefix as \"number_prefix!\",\n                  a.user_id as \"user_id?\", a.user_status as \"user_status?\",\n                  a.membership_id as \"membership_id?\", a.membership_status as \"membership_status?\",\n                  a.role_key as \"role_key?\", a.permissions as \"permissions?\", a.scopes as \"scopes?\",\n                  a.session_revoked as \"session_revoked?\"\n           from app.resolve_clinic_host($1) h\n           left join lateral (\n             select * from app.authorize(h.org_id, $2, $3, $4) where h.org_status = any($5)\n             offset 0\n           ) a on true",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "org_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "slug!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "org_status!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "timezone!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "number_prefix!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "user_id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "user_status?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "membership_id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "membership_status?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "role_key?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "permissions?",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 11,
+        "name": "scopes?",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 12,
+        "name": "session_revoked?",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "b3cdba7b5c9fe12b05ebbb7365448e5d690bec8b3bc5f765733d1fa6ff6b3f67"
+}

@@ -7,23 +7,27 @@ use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
 /// A token with the names the queue screen shows.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct TokenRow {
     /// Identifier.
     pub id: Uuid,
     /// Branch.
     pub branch_id: Uuid,
     /// The clinic day.
+    #[serde(with = "crate::json::date")]
     pub day: Date,
     /// Number shown on the screen.
     pub token_number: i32,
     /// `waiting`, `in_chair`, `done` or `left`.
     pub status: String,
     /// When it was issued.
+    #[serde(with = "crate::json::timestamp")]
     pub issued_at: OffsetDateTime,
     /// When the patient was called into the chair.
+    #[serde(with = "crate::json::timestamp::option")]
     pub called_at: Option<OffsetDateTime>,
     /// When they were done or left.
+    #[serde(with = "crate::json::timestamp::option")]
     pub done_at: Option<OffsetDateTime>,
     /// The patient.
     pub patient_id: Uuid,
@@ -34,6 +38,7 @@ pub struct TokenRow {
     /// Their sex.
     pub patient_sex: String,
     /// Their date of birth.
+    #[serde(with = "crate::json::date::option")]
     pub patient_date_of_birth: Option<Date>,
     /// Whether it was estimated.
     pub patient_birth_date_estimated: bool,

@@ -1,0 +1,90 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select o.id, o.slug, o.name, o.number_prefix, o.timezone,\n                  coalesce(s.branding, '{}'::jsonb) as \"branding!\",\n                  (select u.display_name from aarogyam.users u where u.id = $1) as display_name\n           from aarogyam.organizations o\n           left join aarogyam.org_settings s on s.org_id = o.id\n           where o.id = app.tenant_id()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.organizations",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "slug",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.organizations",
+            "name": "slug"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "number_prefix",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.organizations",
+            "name": "number_prefix"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "timezone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.organizations",
+            "name": "timezone"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "branding!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "display_name",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "8a0215ec739be940f4d9761824509eb15ac5fa33d872c193e32f11e5238da79d"
+}

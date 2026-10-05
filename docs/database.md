@@ -532,7 +532,7 @@ Host names that resolve to a clinic: its portal and its website.
 | `cloudflare_hostname_id` | `text?` |  |
 | `verified_at` | `timestamptz?` | only verified hosts resolve |
 
-Read before the clinic is known, through app.resolve_host(); cached in memory for a short time.
+Read before the clinic is known, through app.resolve_clinic_host(); cached in memory for a short time.
 
 ### `slug_history`
 

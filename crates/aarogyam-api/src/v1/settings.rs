@@ -396,6 +396,8 @@ pub(crate) async fn update_clinic(
         letterhead: body.letterhead.map(Into::into),
     };
     let settings = app::update(state.db(), &request.actor, request.request_id, changes).await?;
+    // The host lookup carries the time zone; a change applies to this instance's next request.
+    state.forget_clinic(request.actor.clinic_id);
     tracing::info!(
         event = Event::SettingsChanged.as_str(),
         "clinic settings changed"

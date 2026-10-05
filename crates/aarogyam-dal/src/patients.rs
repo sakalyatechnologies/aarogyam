@@ -194,119 +194,6 @@ pub async fn update(
     Ok(row)
 }
 
-/// The patient with this readable number in the current clinic, unless deleted.
-///
-/// # Errors
-/// [`DbError`] on a database failure.
-pub async fn find_by_number(
-    conn: &mut PgConnection,
-    number: &str,
-) -> Result<Option<PatientRow>, DbError> {
-    let row = sqlx::query_as!(
-        PatientRow,
-        r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
-                  preferred_language, status, created_at, last_visit_at
-           from aarogyam.patients
-           where number = $1 and deleted_at is null"#,
-        number
-    )
-    .fetch_optional(conn)
-    .await?;
-    Ok(row)
-}
-
-/// Patients whose main or alternate phone is exactly `phone_e164`. Families share numbers,
-/// so this can return several.
-///
-/// # Errors
-/// [`DbError`] on a database failure.
-pub async fn search_phone(
-    conn: &mut PgConnection,
-    phone_e164: &str,
-    limit: i64,
-) -> Result<Vec<PatientRow>, DbError> {
-    let rows = sqlx::query_as!(
-        PatientRow,
-        r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
-                  preferred_language, status, created_at, last_visit_at
-           from aarogyam.patients
-           where (phone_e164 = $1 or alt_phone_e164 = $1) and deleted_at is null
-           order by full_name
-           limit $2"#,
-        phone_e164,
-        limit
-    )
-    .fetch_all(conn)
-    .await?;
-    Ok(rows)
-}
-
-/// Patients whose normalised name starts with `prefix` (already normalised like
-/// `search_name`), using the `C`-collation index.
-///
-/// # Errors
-/// [`DbError`] on a database failure.
-pub async fn search_name_prefix(
-    conn: &mut PgConnection,
-    prefix: &str,
-    limit: i64,
-) -> Result<Vec<PatientRow>, DbError> {
-    let rows = sqlx::query_as!(
-        PatientRow,
-        r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
-                  preferred_language, status, created_at, last_visit_at
-           from aarogyam.patients
-           where (search_name collate "C") ^@ $1 and deleted_at is null
-           order by search_name collate "C"
-           limit $2"#,
-        prefix,
-        limit
-    )
-    .fetch_all(conn)
-    .await?;
-    Ok(rows)
-}
-
-/// Patients whose name is similar to `query` (typos, missing letters), best first, through
-/// `app.search_patients`.
-///
-/// # Errors
-/// [`DbError`] on a database failure.
-pub async fn search_fuzzy(
-    conn: &mut PgConnection,
-    query: &str,
-    limit: i32,
-) -> Result<Vec<Uuid>, DbError> {
-    let ids = sqlx::query_scalar!(
-        r#"select id as "id!" from app.search_patients($1, $2)"#,
-        query,
-        limit
-    )
-    .fetch_all(conn)
-    .await?;
-    Ok(ids)
-}
-
-/// Loads several patients by id, keeping the given order.
-///
-/// # Errors
-/// [`DbError`] on a database failure.
-pub async fn get_many(conn: &mut PgConnection, ids: &[Uuid]) -> Result<Vec<PatientRow>, DbError> {
-    let rows = sqlx::query_as!(
-        PatientRow,
-        r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated, p.phone_e164,
-                  p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at
-           from unnest($1::uuid[]) with ordinality as wanted(id, position)
-           join aarogyam.patients p on p.id = wanted.id
-           where p.deleted_at is null
-           order by wanted.position"#,
-        ids
-    )
-    .fetch_all(conn)
-    .await?;
-    Ok(rows)
-}
-
 /// One row of the access record: someone opened a patient's record.
 #[derive(Debug, Clone)]
 pub struct AccessEntry<'a> {
@@ -350,32 +237,21 @@ pub async fn record_access(
     Ok(())
 }
 
-/// The most recently registered patients in the current clinic, newest first.
-///
-/// # Errors
-/// [`DbError`] on a database failure.
-pub async fn recent(conn: &mut PgConnection, limit: i64) -> Result<Vec<PatientRow>, DbError> {
-    let rows = sqlx::query_as!(
-        PatientRow,
-        r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
-                  preferred_language, status, created_at, last_visit_at
-           from aarogyam.patients
-           where deleted_at is null
-           order by created_at desc
-           limit $1"#,
-        limit
-    )
-    .fetch_all(conn)
-    .await?;
-    Ok(rows)
+/// Which registered patients the list shows.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ListFilter {
+    /// Only patients with something left to pay.
+    pub with_balance: bool,
+    /// Only patients with an open recall due.
+    pub recalls_due: bool,
+    /// Only patients registered at or after this instant.
+    pub created_since: Option<OffsetDateTime>,
 }
 
 /// What the list and the record header show about a patient beyond the registration: the
-/// next booking, money and recalls. Computed in one query for a set of patients.
+/// next booking, money and recalls (`app.patient_summary`).
 #[derive(Debug, Clone)]
 pub struct SummaryRow {
-    /// The patient.
-    pub patient_id: Uuid,
     /// When the next booked or confirmed appointment starts.
     pub next_starts_at: Option<OffsetDateTime>,
     /// The practitioner of that appointment.
@@ -388,105 +264,314 @@ pub struct SummaryRow {
     pub recall_due: bool,
 }
 
-/// Summaries for `ids`, in no particular order.
+/// A patient with their summary, read in the same statement.
+#[derive(Debug, Clone)]
+pub struct ListedPatient {
+    /// Identifier.
+    pub id: Uuid,
+    /// Clinic number.
+    pub number: String,
+    /// Full name.
+    pub full_name: String,
+    /// Sex as stored.
+    pub sex: String,
+    /// Date of birth, exact or estimated.
+    pub date_of_birth: Option<Date>,
+    /// Whether the date of birth was estimated from an age.
+    pub birth_date_estimated: bool,
+    /// Phone, E.164.
+    pub phone_e164: Option<String>,
+    /// Email.
+    pub email: Option<String>,
+    /// Preferred language tag.
+    pub preferred_language: String,
+    /// Status as stored.
+    pub status: String,
+    /// When registered.
+    pub created_at: OffsetDateTime,
+    /// When last seen.
+    pub last_visit_at: Option<OffsetDateTime>,
+    /// See [`SummaryRow::next_starts_at`].
+    pub next_starts_at: Option<OffsetDateTime>,
+    /// See [`SummaryRow::next_practitioner`].
+    pub next_practitioner: Option<String>,
+    /// See [`SummaryRow::balance_paise`].
+    pub balance_paise: i64,
+    /// See [`SummaryRow::lifetime_paid_paise`].
+    pub lifetime_paid_paise: i64,
+    /// See [`SummaryRow::recall_due`].
+    pub recall_due: bool,
+}
+
+impl ListedPatient {
+    /// The patient and their summary.
+    #[must_use]
+    pub fn into_parts(self) -> (PatientRow, SummaryRow) {
+        (
+            PatientRow {
+                id: self.id,
+                number: self.number,
+                full_name: self.full_name,
+                sex: self.sex,
+                date_of_birth: self.date_of_birth,
+                birth_date_estimated: self.birth_date_estimated,
+                phone_e164: self.phone_e164,
+                email: self.email,
+                preferred_language: self.preferred_language,
+                status: self.status,
+                created_at: self.created_at,
+                last_visit_at: self.last_visit_at,
+            },
+            SummaryRow {
+                next_starts_at: self.next_starts_at,
+                next_practitioner: self.next_practitioner,
+                balance_paise: self.balance_paise,
+                lifetime_paid_paise: self.lifetime_paid_paise,
+                recall_due: self.recall_due,
+            },
+        )
+    }
+}
+
+/// The instant and clinic day summaries are computed for: upcoming appointments start at or
+/// after `now`, and recalls are due on or before `today`.
+#[derive(Debug, Clone, Copy)]
+pub struct SummaryAt {
+    /// Now.
+    pub now: OffsetDateTime,
+    /// The clinic's today.
+    pub today: Date,
+}
+
+/// The most recently registered patients, with summaries.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
-pub async fn summaries(
+pub async fn recent(
     conn: &mut PgConnection,
-    ids: &[Uuid],
-    now: OffsetDateTime,
-    today: Date,
-) -> Result<Vec<SummaryRow>, DbError> {
+    limit: i64,
+    at: SummaryAt,
+) -> Result<Vec<ListedPatient>, DbError> {
     let rows = sqlx::query_as!(
-        SummaryRow,
-        r#"select p.id as "patient_id!",
-                  nx.starts_at as next_starts_at,
-                  nx.display_name as next_practitioner,
-                  (coalesce((select sum(i.total_paise) from aarogyam.invoices i
-                             where i.patient_id = p.id and i.status = 'issued'), 0)
-                   - coalesce((select sum(a.amount_paise)
-                               from aarogyam.invoices i
-                               join aarogyam.payment_allocations a
-                                 on a.org_id = i.org_id and a.invoice_id = i.id and a.patient_id = i.patient_id
-                               join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id
-                               where i.patient_id = p.id and i.status = 'issued' and m.status = 'received'), 0)
-                  )::bigint as "balance_paise!",
-                  coalesce((select sum(m.amount_paise) from aarogyam.payments m
-                            where m.patient_id = p.id and m.status = 'received'), 0)::bigint as "lifetime_paid_paise!",
-                  exists (select 1 from aarogyam.recalls r
-                          where r.patient_id = p.id and r.status in ('due', 'notified')
-                            and r.due_on <= $3) as "recall_due!"
-           from aarogyam.patients p
-           left join lateral (
-             select a.starts_at, pr.display_name
-             from aarogyam.appointments a
-             join aarogyam.practitioners pr on pr.org_id = a.org_id and pr.id = a.practitioner_id
-             where a.patient_id = p.id and a.deleted_at is null
-               and a.status in ('booked', 'confirmed') and a.starts_at >= $2
-             order by a.starts_at
-             limit 1
-           ) nx on true
-           where p.id = any($1)"#,
-        ids,
-        now,
-        today
+        ListedPatient,
+        r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,
+                  s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+           from (select * from aarogyam.patients
+                 where deleted_at is null
+                 order by created_at desc
+                 limit $1) p
+           cross join lateral app.patient_summary(p.id, $2, $3) s
+           order by p.created_at desc"#,
+        limit,
+        at.now,
+        at.today
     )
     .fetch_all(conn)
     .await?;
     Ok(rows)
 }
 
-/// Which registered patients the list shows.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct ListFilter {
-    /// Only patients with something left to pay.
-    pub with_balance: bool,
-    /// Only patients with an open recall due.
-    pub recalls_due: bool,
-    /// Only patients registered at or after this instant.
-    pub created_since: Option<OffsetDateTime>,
-}
-
-/// The most recently registered patients matching `filter`, newest first.
+/// The most recently registered patients that pass `filter`, with summaries.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
 pub async fn recent_filtered(
     conn: &mut PgConnection,
     filter: &ListFilter,
-    today: Date,
     limit: i64,
-) -> Result<Vec<PatientRow>, DbError> {
+    at: SummaryAt,
+) -> Result<Vec<ListedPatient>, DbError> {
     let rows = sqlx::query_as!(
-        PatientRow,
-        r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated, p.phone_e164,
-                  p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at
-           from aarogyam.patients p
-           where p.deleted_at is null
-             and ($4::timestamptz is null or p.created_at >= $4)
-             and (not $2 or exists (select 1 from aarogyam.recalls r
-                                    where r.patient_id = p.id and r.status in ('due', 'notified')
-                                      and r.due_on <= $3))
-             and (not $1 or (select coalesce(sum(i.total_paise
-                                    - coalesce((select sum(a.amount_paise)
-                                                from aarogyam.payment_allocations a
-                                                join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id
-                                                where a.invoice_id = i.id and a.org_id = i.org_id
-                                                  and m.status = 'received'), 0)), 0)
-                             from aarogyam.invoices i
-                             where i.patient_id = p.id and i.status = 'issued') > 0)
-           order by p.created_at desc
-           limit $5"#,
+        ListedPatient,
+        r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,
+                  s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+           from (select p.* from aarogyam.patients p
+                 where p.deleted_at is null
+                   and ($4::timestamptz is null or p.created_at >= $4)
+                   and (not $2 or exists (select 1 from aarogyam.recalls r
+                                          where r.patient_id = p.id and r.status in ('due', 'notified')
+                                            and r.due_on <= $3))
+                   and (not $1 or (select coalesce(sum(i.total_paise
+                                          - coalesce((select sum(a.amount_paise)
+                                                      from aarogyam.payment_allocations a
+                                                      join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id
+                                                      where a.invoice_id = i.id and a.org_id = i.org_id
+                                                        and m.status = 'received'), 0)), 0)
+                                   from aarogyam.invoices i
+                                   where i.patient_id = p.id and i.status = 'issued') > 0)
+                 order by p.created_at desc
+                 limit $5) p
+           cross join lateral app.patient_summary(p.id, $6, $3) s
+           order by p.created_at desc"#,
         filter.with_balance,
         filter.recalls_due,
-        today,
+        at.today,
         filter.created_since,
-        limit
+        limit,
+        at.now
     )
     .fetch_all(conn)
     .await?;
     Ok(rows)
+}
+
+/// The patient with this clinic number, with their summary.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn find_by_number(
+    conn: &mut PgConnection,
+    number: &str,
+    at: SummaryAt,
+) -> Result<Option<ListedPatient>, DbError> {
+    let row = sqlx::query_as!(
+        ListedPatient,
+        r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,
+                  s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+           from aarogyam.patients p
+           cross join lateral app.patient_summary(p.id, $2, $3) s
+           where p.number = $1 and p.deleted_at is null"#,
+        number,
+        at.now,
+        at.today
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// Patients with this phone number (main or alternate), by name, with summaries.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn search_phone(
+    conn: &mut PgConnection,
+    phone_e164: &str,
+    limit: i64,
+    at: SummaryAt,
+) -> Result<Vec<ListedPatient>, DbError> {
+    let rows = sqlx::query_as!(
+        ListedPatient,
+        r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,
+                  s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+           from (select * from aarogyam.patients
+                 where (phone_e164 = $1 or alt_phone_e164 = $1) and deleted_at is null
+                 order by full_name
+                 limit $2) p
+           cross join lateral app.patient_summary(p.id, $3, $4) s
+           order by p.full_name"#,
+        phone_e164,
+        limit,
+        at.now,
+        at.today
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// Patients whose name starts with `prefix` (lowercased, as stored in `search_name`), by
+/// name. When `fuzzy` and fewer than three match, close spellings follow
+/// (`app.search_patients`, best match first, at most `limit` more). With summaries.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn search_name(
+    conn: &mut PgConnection,
+    prefix: &str,
+    limit: i64,
+    fuzzy: bool,
+    at: SummaryAt,
+) -> Result<Vec<ListedPatient>, DbError> {
+    let fuzzy_limit = i32::try_from(limit).unwrap_or(20);
+    let rows = sqlx::query_as!(
+        ListedPatient,
+        r#"with by_prefix as (
+             select id, row_number() over (order by search_name collate "C") as position
+             from aarogyam.patients
+             where (search_name collate "C") ^@ $1 and deleted_at is null
+             order by search_name collate "C"
+             limit $2
+           ), close as (
+             select f.id, f.position
+             from app.search_patients($1, $3) with ordinality
+                  as f(id, number, full_name, sex, date_of_birth, birth_date_estimated,
+                       phone_e164, last_visit_at, similarity, position)
+             where $4 and (select count(*) from by_prefix) < 3
+               and f.id not in (select id from by_prefix)
+           ), picked as (
+             select id, 0 as source, position from by_prefix
+             union all
+             select id, 1, position from close
+           )
+           select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,
+                  s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+           from picked
+           join aarogyam.patients p on p.id = picked.id
+           cross join lateral app.patient_summary(p.id, $5, $6) s
+           where p.deleted_at is null
+           order by picked.source, picked.position"#,
+        prefix,
+        limit,
+        fuzzy_limit,
+        fuzzy,
+        at.now,
+        at.today
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// Opens a patient's record: the patient with their summary, and the access record written
+/// in the same statement. `None`, and nothing recorded, when there is no such patient.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn open(
+    conn: &mut PgConnection,
+    id: Uuid,
+    access: &AccessEntry<'_>,
+    at: SummaryAt,
+) -> Result<Option<ListedPatient>, DbError> {
+    let row = sqlx::query_as!(
+        ListedPatient,
+        r#"with found as (
+             select * from aarogyam.patients where id = $1 and deleted_at is null
+           ), recorded as (
+             insert into audit.access_log
+               (actor_user_id, actor_kind, patient_id, resource, action, purpose, request_id)
+             select $2, $3, found.id, $4, $5, $6, $7 from found
+           )
+           select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,
+                  s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+           from found p
+           cross join lateral app.patient_summary(p.id, $8, $9) s"#,
+        id,
+        access.actor_user_id,
+        access.actor_kind,
+        access.resource,
+        access.action,
+        access.purpose,
+        access.request_id,
+        at.now,
+        at.today
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
 }
 
 /// The oldest active patient of the current clinic with this email, if any. Callers pass an

@@ -28,7 +28,7 @@
 | Role | Logs in | Used by | What it can do |
 |---|---|---|---|
 | `postgres` (Supabase) or the local superuser | yes | migrations only | owns every table and function |
-| `aarogyam_api` | yes, `NOINHERIT` | the API | nothing on its own: inside a clinic transaction it switches to `app_user`; before the clinic is known it may call only the lookup functions (`app.resolve_host`, `app.authorize`, `app.my_clinics`) |
+| `aarogyam_api` | yes, `NOINHERIT` | the API | nothing on its own: inside a clinic transaction it switches to `app_user`; before the clinic is known it may call only the lookup functions (`app.resolve_clinic_host`, `app.authorize`, `app.my_clinics`) |
 | `app_user` | no | clinic transactions | read and write its own clinic's rows, under row-level security |
 
 A query the API runs outside a clinic transaction fails with "permission denied" instead of seeing every clinic. Lookup functions are `SECURITY DEFINER` with an empty `search_path`, executable only by `aarogyam_api`, and tested. The worker and console get their own login roles when they're built.

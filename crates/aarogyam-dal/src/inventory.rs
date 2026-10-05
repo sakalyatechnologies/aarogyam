@@ -251,7 +251,7 @@ pub async fn delete_item(conn: &mut PgConnection, id: Uuid) -> Result<bool, DbEr
 }
 
 /// An item with what is on its shelf.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct StockRow {
     /// Identifier.
     pub id: Uuid,
@@ -268,6 +268,7 @@ pub struct StockRow {
     /// Units on hand, all batches (expired ones included until written off).
     pub on_hand: i64,
     /// Earliest expiry among batches with stock left.
+    #[serde(with = "crate::json::date::option")]
     pub next_expiry: Option<Date>,
 }
 

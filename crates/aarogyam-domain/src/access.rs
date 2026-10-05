@@ -63,6 +63,30 @@ impl ClinicStatus {
     pub const fn is_open(self) -> bool {
         matches!(self, Self::Trial | Self::Active)
     }
+
+    /// Every state, in lifecycle order.
+    pub const ALL: [Self; 4] = [Self::Trial, Self::Active, Self::Suspended, Self::Churned];
+
+    /// The stored value.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Trial => "trial",
+            Self::Active => "active",
+            Self::Suspended => "suspended",
+            Self::Churned => "churned",
+        }
+    }
+
+    /// The stored values of the states members may use, for a query to filter on.
+    #[must_use]
+    pub fn open_values() -> Vec<&'static str> {
+        Self::ALL
+            .into_iter()
+            .filter(|status| status.is_open())
+            .map(Self::as_str)
+            .collect()
+    }
 }
 
 /// A membership's state.
@@ -150,11 +174,27 @@ pub struct Authorization {
     pub session_revoked: bool,
 }
 
+/// The clinic a request is for, as the host lookup found it: enough to know the clinic's local
+/// day and number its patients without reading the clinic first.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClinicPlace {
+    /// The clinic.
+    pub id: ClinicId,
+    /// Its IANA time zone, such as `Asia/Kolkata`.
+    pub timezone: String,
+    /// Its patient-number prefix, such as `SD`.
+    pub number_prefix: String,
+}
+
 /// A member acting in a clinic: the result of every check, carried by each clinic request.
 #[derive(Debug, Clone)]
 pub struct ClinicActor {
     /// The clinic, from the host name.
     pub clinic_id: ClinicId,
+    /// The clinic's IANA time zone, as the host lookup found it (cached briefly).
+    pub timezone: String,
+    /// The clinic's patient-number prefix, as the host lookup found it.
+    pub number_prefix: String,
     /// The person.
     pub user_id: UserId,
     /// Their membership.
@@ -166,11 +206,11 @@ pub struct ClinicActor {
 }
 
 impl ClinicActor {
-    /// Decides whether `authorization` lets the person act in `clinic_id`.
+    /// Decides whether `authorization` lets the person act in `clinic`.
     ///
     /// # Errors
     /// The first [`Denied`] reason that applies.
-    pub fn admit(clinic_id: ClinicId, authorization: Authorization) -> Result<Self, Denied> {
+    pub fn admit(clinic: ClinicPlace, authorization: Authorization) -> Result<Self, Denied> {
         if authorization.session_revoked {
             return Err(Denied::SessionRevoked);
         }
@@ -181,7 +221,9 @@ impl ClinicActor {
             return Err(Denied::NotAMember);
         }
         Ok(Self {
-            clinic_id,
+            clinic_id: clinic.id,
+            timezone: clinic.timezone,
+            number_prefix: clinic.number_prefix,
             user_id: authorization.user_id,
             membership_id: authorization.membership_id,
             role_key: authorization.role_key,
@@ -262,6 +304,14 @@ mod tests {
     use super::*;
     use crate::permission::Scope;
 
+    fn place() -> ClinicPlace {
+        ClinicPlace {
+            id: ClinicId::new_v7(),
+            timezone: "Asia/Kolkata".into(),
+            number_prefix: "SD".into(),
+        }
+    }
+
     fn authorization() -> Authorization {
         Authorization {
             user_id: UserId::new_v7(),
@@ -276,7 +326,8 @@ mod tests {
 
     #[test]
     fn active_members_are_admitted() {
-        let actor = ClinicActor::admit(ClinicId::new_v7(), authorization()).unwrap();
+        let actor = ClinicActor::admit(place(), authorization()).unwrap();
+        assert_eq!(actor.timezone, "Asia/Kolkata");
         assert!(actor.require(Permission::PatientsRead).is_ok());
         assert_eq!(
             actor.require(Permission::FinanceView),
@@ -287,13 +338,13 @@ mod tests {
 
     #[test]
     fn revoked_disabled_and_inactive_are_refused() {
-        let clinic = ClinicId::new_v7();
+        let clinic = place();
         let revoked = Authorization {
             session_revoked: true,
             ..authorization()
         };
         assert_eq!(
-            ClinicActor::admit(clinic, revoked).unwrap_err(),
+            ClinicActor::admit(clinic.clone(), revoked).unwrap_err(),
             Denied::SessionRevoked
         );
         let disabled = Authorization {
@@ -301,7 +352,7 @@ mod tests {
             ..authorization()
         };
         assert_eq!(
-            ClinicActor::admit(clinic, disabled).unwrap_err(),
+            ClinicActor::admit(clinic.clone(), disabled).unwrap_err(),
             Denied::UserDisabled
         );
         for status in [
@@ -315,10 +366,18 @@ mod tests {
                 ..authorization()
             };
             assert_eq!(
-                ClinicActor::admit(clinic, inactive).unwrap_err(),
+                ClinicActor::admit(clinic.clone(), inactive).unwrap_err(),
                 Denied::NotAMember
             );
         }
+    }
+
+    #[test]
+    fn stored_clinic_states_read_back() {
+        for status in ClinicStatus::ALL {
+            assert_eq!(ClinicStatus::parse(status.as_str()), Some(status));
+        }
+        assert_eq!(ClinicStatus::open_values(), ["trial", "active"]);
     }
 
     #[test]

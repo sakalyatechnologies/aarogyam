@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,\n                  preferred_language, status, created_at, last_visit_at\n           from aarogyam.patients\n           where (phone_e164 = $1 or alt_phone_e164 = $1) and deleted_at is null\n           order by full_name\n           limit $2",
+  "query": "select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,\n                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,\n                  s.next_starts_at, s.next_practitioner, s.balance_paise as \"balance_paise!\",\n                  s.lifetime_paid_paise as \"lifetime_paid_paise!\", s.recall_due as \"recall_due!\"\n           from aarogyam.patients p\n           cross join lateral app.patient_summary(p.id, $2, $3) s\n           where p.number = $1 and p.deleted_at is null",
   "describe": {
     "columns": [
       {
@@ -134,12 +134,43 @@
             "name": "last_visit_at"
           }
         }
+      },
+      {
+        "ordinal": 12,
+        "name": "next_starts_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 13,
+        "name": "next_practitioner",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "balance_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 15,
+        "name": "lifetime_paid_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 16,
+        "name": "recall_due!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
         "Text",
-        "Int8"
+        "Timestamptz",
+        "Date"
       ]
     },
     "nullable": [
@@ -154,8 +185,13 @@
       false,
       false,
       false,
-      true
+      true,
+      null,
+      null,
+      null,
+      null,
+      null
     ]
   },
-  "hash": "956d9c238e6870d17b273acecdcc6a00c00fa58d51b144b990734a5e1e2c7126"
+  "hash": "892190d2c28b458f3ff7d415bd8e3e6895f1daf5584b6798df0a18f977216adb"
 }

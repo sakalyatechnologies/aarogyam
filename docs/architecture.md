@@ -40,11 +40,11 @@ Crates split further by module (patients, appointments, billing) only when build
 
 1. Cloudflare receives `https://smilecatchers.aarogyam.example/api/v1/patients/…`. A small Worker forwards it to Cloud Run with the original host in `X-Forwarded-Host`, the client IP in `cf-connecting-ip`, and a secret edge header.
 2. `sakalya-http` rejects requests without the edge secret (except `/healthz`), assigns a request ID, and opens the request span. Locally there is no edge: the real `Host` header is used.
-3. `app.resolve_host` turns `smilecatchers.aarogyam.example` into a clinic (cached briefly). Unknown or unverified hosts get `404`.
+3. `app.resolve_clinic_host` turns `smilecatchers.aarogyam.example` into a clinic, with its time zone and patient-number prefix, so use cases know the clinic's local day without reading the clinic (cached about 30 seconds; a settings change drops it on that instance). Unknown or unverified hosts get `404`.
 4. `sakalya-auth` verifies the Supabase JWT (ES256 against cached keys) and rejects anonymous sessions.
-5. `app.authorize` returns, in one round trip, the user, their membership and role in this clinic, the role's permissions, and whether the session was revoked (cached about 30 seconds). Not a member or suspended: `404`; a revoked session: `401`; a disabled account: `403`. Changing a membership or revoking a session drops the cached answers for it on the instance that made the change, so it applies to the next request there; other instances may answer from their cache until it expires. Routes without a clinic (`/me`, invitations, the console) check revocation with `app.session_revoked`.
+5. `app.authorize` returns, in one round trip (together with step 3 when neither is cached), the user, their membership and role in this clinic, the role's permissions, and whether the session was revoked (cached about 30 seconds). Not a member or suspended: `404`; a revoked session: `401`; a disabled account: `403`. Changing a membership or revoking a session drops the cached answers for it on the instance that made the change, so it applies to the next request there; other instances may answer from their cache until it expires. Routes without a clinic (`/me`, invitations, the console) check revocation with `app.session_revoked`.
 6. The route's permission extractor (`Require<PatientsRead>`) checks the permission, then the plan and feature flags.
-7. The handler calls a use case in `aarogyam-app`, which opens a `ClinicTx`: one statement starts the transaction, switches to `app_user` and sets the clinic, user and request ID, so row-level security limits every query to this clinic.
+7. The handler calls a use case in `aarogyam-app`, which opens a `ClinicTx`: one statement starts the transaction, switches to `app_user` and sets the clinic, user and request ID, so row-level security limits every query to this clinic. A read screen then runs one statement (lists come back as JSON arrays where it needs several, as on Today) and commits: three round trips, which `tests/round_trips.rs` holds the hot paths to.
 8. Reading a patient's record writes an access record row. Changes write the change history through triggers.
 9. Errors become `ApiError` responses: a code, a message without patient data, and the request ID header.
 
@@ -59,7 +59,7 @@ Crates split further by module (patients, appointments, billing) only when build
 
 ## Database connections
 
-- Through Supabase's pooler (Supavisor) in **session mode**: sqlx's prepared statements are safe there, and it works over IPv4, which Cloud Run uses. At most 5 connections per instance, and a cap on instances, keep within the free tier's pool.
+- Through Supabase's pooler (Supavisor) in **session mode**: sqlx's prepared statements are safe there, and it works over IPv4, which Cloud Run uses. At most 5 connections per instance, and a cap on instances, keep within the free tier's pool. Two stay open when idle (`ARO_DB__MIN_CONNECTIONS`), opened at startup, because a new connection costs several round trips (over 2 s across regions); idle ones are replaced after 5 minutes and every one after 30, in the background, so none goes stale behind the pooler or a NAT gateway. Each connection caches 512 prepared statements, more than the API's queries, so none is prepared twice. `.env.example` lists the `ARO_DB__*` pool settings.
 - TLS with certificate verification (`verify-full` with Supabase's CA) everywhere except local.
 - Timeouts on every transaction (statement and idle-in-transaction), so a request cut short on Cloud Run can't hold locks.
 - Migrations run in session mode as the owner, from the `aarogyam migrate` command.

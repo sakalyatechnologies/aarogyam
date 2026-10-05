@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             coalesce((select booking from aarogyam.org_settings where org_id = app.tenant_id()),\n                      '{}'::jsonb) as \"booking!\",\n             (select active from aarogyam.practitioners where id = $1 and deleted_at is null)\n               as doctor_active,\n             (select coalesce(json_agg(h order by h.weekday, h.starts), '[]'::json)\n              from (select practitioner_id, branch_id, weekday, starts, ends\n                    from aarogyam.working_hours where practitioner_id = $1) h\n             ) as \"shifts!: Json<Vec<ShiftRow>>\",\n             (select coalesce(json_agg(a order by a.starts_at), '[]'::json)\n              from (select starts_at, ends_at from aarogyam.appointments\n                    where practitioner_id = $1 and deleted_at is null\n                      and status not in ('cancelled', 'no_show')\n                      and starts_at < $3 and ends_at > $2) a\n             ) as \"busy!: Json<Vec<Span>>\",\n             (select coalesce(json_agg(l order by l.starts_at), '[]'::json)\n              from (select starts_at, ends_at from aarogyam.leave_blocks\n                    where practitioner_id = $1 and starts_at < $3 and ends_at > $2) l\n             ) as \"leave!: Json<Vec<Span>>\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "booking!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "doctor_active",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "shifts!: Json<Vec<ShiftRow>>",
+        "type_info": "Json",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "busy!: Json<Vec<Span>>",
+        "type_info": "Json",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "leave!: Json<Vec<Span>>",
+        "type_info": "Json",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "b5aa74f3d90a120c524faa50ee333fa8533c73141c34ed5fd4d0106f39806cf7"
+}

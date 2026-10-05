@@ -71,7 +71,7 @@ pub(crate) async fn booking_options(
 ) -> Result<Json<BookingOptions>, ApiFailure> {
     let found = app::options(
         state.db(),
-        public.clinic_id,
+        &public.place,
         public.request_id,
         OffsetDateTime::now_utc(),
     )
@@ -144,9 +144,9 @@ pub(crate) async fn free_slots(
     let day = parse_day("date", &query.date)?;
     let doctor = parse_id("practitioner_id", &query.practitioner_id)?;
     let now = OffsetDateTime::now_utc();
-    let slots = app::availability(
+    let found = app::availability(
         state.db(),
-        public.clinic_id,
+        &public.place,
         public.request_id,
         PractitionerId::from_uuid(doctor),
         day,
@@ -155,15 +155,11 @@ pub(crate) async fn free_slots(
     .await?;
     // The slot length is the clinic's setting; the options call already tells the page, but a
     // caller of this one alone shouldn't have to guess.
-    let slot_minutes = app::options(state.db(), public.clinic_id, public.request_id, now)
-        .await?
-        .settings
-        .slot_minutes;
     Ok(Json(Availability {
         date: day.to_string(),
         practitioner_id: doctor,
-        slot_minutes,
-        slots: slots.into_iter().map(rfc3339).collect(),
+        slot_minutes: found.slot_minutes,
+        slots: found.slots.into_iter().map(rfc3339).collect(),
     }))
 }
 

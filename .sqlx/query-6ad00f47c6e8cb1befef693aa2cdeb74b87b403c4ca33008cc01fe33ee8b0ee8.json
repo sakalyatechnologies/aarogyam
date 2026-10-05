@@ -1,0 +1,51 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select org_id as \"org_id!\", slug as \"slug!\", org_status as \"org_status!\",\n                  timezone as \"timezone!\", number_prefix as \"number_prefix!\"\n           from app.resolve_clinic_host($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "org_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "slug!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "org_status!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "timezone!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "number_prefix!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "6ad00f47c6e8cb1befef693aa2cdeb74b87b403c4ca33008cc01fe33ee8b0ee8"
+}

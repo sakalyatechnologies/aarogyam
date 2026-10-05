@@ -1008,14 +1008,18 @@ fn rank(status: StockStatus) -> u8 {
 /// # Errors
 /// [`AppError::Db`] on failures.
 pub async fn stock_levels_in(tx: &mut ScopedTx, today: Date) -> Result<Vec<StockItem>, AppError> {
-    let mut items: Vec<StockItem> = dal::stock(tx.conn())
-        .await?
+    Ok(stock_levels_of(dal::stock(tx.conn()).await?, today))
+}
+
+/// Stock levels from rows already read ([`dal::stock`]), worst first.
+fn stock_levels_of(rows: Vec<StockRow>, today: Date) -> Vec<StockItem> {
+    let mut items: Vec<StockItem> = rows
         .into_iter()
         .map(|row| StockItem::new(row, today))
         .collect();
     // Stable: the query's name order holds within each status.
     items.sort_by_key(|item| rank(item.status));
-    Ok(items)
+    items
 }
 
 /// The counts for the summary cards.
@@ -1056,7 +1060,13 @@ pub async fn low_stock(
 /// # Errors
 /// [`AppError::Db`] on failures.
 pub async fn low_stock_in(tx: &mut ScopedTx, today: Date) -> Result<Vec<StockItem>, AppError> {
-    let mut items = stock_levels_in(tx, today).await?;
+    Ok(low_stock_of(dal::stock(tx.conn()).await?, today))
+}
+
+/// [`low_stock`] from stock rows already read ([`dal::stock`]).
+#[must_use]
+pub fn low_stock_of(rows: Vec<StockRow>, today: Date) -> Vec<StockItem> {
+    let mut items = stock_levels_of(rows, today);
     items.retain(|item| {
         item.item.active && matches!(item.status, StockStatus::Critical | StockStatus::Low)
     });
@@ -1066,7 +1076,7 @@ pub async fn low_stock_in(tx: &mut ScopedTx, today: Date) -> Result<Vec<StockIte
             item.on_hand * 100 / item.item.reorder_level.max(1),
         )
     });
-    Ok(items)
+    items
 }
 
 /// A batch about to expire, or already expired, with stock left.

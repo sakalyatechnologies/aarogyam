@@ -15,3 +15,4 @@ export {
 export { createQueryClient, type QueryClientOptions } from "./query-client.js";
 export { RouterLinks, renderRouterLink } from "./router-links.js";
 export { useDebouncedValue } from "./use-debounced-value.js";
+export { lazyPage, reloadOnceForNewVersion } from "./lazy-page.js";

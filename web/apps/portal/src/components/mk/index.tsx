@@ -6,7 +6,7 @@ export type MkTone = "up" | "down" | "warn" | "info";
 export type TagTone = "wait" | "done" | "next" | "info" | "down" | "neutral";
 
 /** The mock-up's avatar colours, picked by a stable hash so a person keeps their colour. */
-const AVATAR_COLOURS = ["#1b734a", "#a86e0f", "#4338ca", "#136650", "#be123c", "#0ea5e9", "#7c3aed"] as const;
+const AVATAR_COLOURS = ["#1b734a", "#96610c", "#4338ca", "#136650", "#be123c", "#0369a1", "#7c3aed"] as const;
 
 export function avatarColour(seed: string): string {
   let hash = 0;

@@ -8,7 +8,7 @@ import { parseHexColor } from "@sakalya/tokens";
 import { Avatar, Button, Card, EmptyState, Skeleton, ThemeScope } from "@sakalya/ui";
 
 import { ClinicProvider, useClinicChoice, useMe, useServices, useSession, type ClinicContextValue } from "../clinic.js";
-import { MOCKUP_BRAND, mockupTheme } from "./mockup-theme.js";
+import { MOCKUP_BRAND, mockupTheme, mockupVars } from "./mockup-theme.js";
 import { MockShell } from "./shell.js";
 
 function Loading({ label }: { label: string }) {
@@ -99,9 +99,11 @@ export function ClinicGate() {
   };
   return (
     <ClinicProvider value={value}>
-      <ThemeScope theme={theme} className="min-h-full">
-        <MockShell />
-      </ThemeScope>
+      <div style={{ display: "contents", ...mockupVars(theme) }}>
+        <ThemeScope theme={theme} className="min-h-full">
+          <MockShell />
+        </ThemeScope>
+      </div>
     </ClinicProvider>
   );
 }

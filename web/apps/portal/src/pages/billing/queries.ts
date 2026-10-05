@@ -16,10 +16,11 @@ import {
 } from "@aarogyam/api-client";
 
 import { useClinic } from "../../clinic.js";
+import { REFERENCE } from "../../lib/cache-policy.js";
 
 export function usePriceItems() {
   const { api, access } = useClinic();
-  return useQuery({ queryKey: ["price-items", access.org_id], queryFn: ({ signal }) => unwrap(api.listPriceItems({ signal })) });
+  return useQuery({ queryKey: ["price-items", access.org_id], queryFn: ({ signal }) => unwrap(api.listPriceItems({ signal })), ...REFERENCE });
 }
 
 export function useAddPriceItem() {
@@ -45,11 +46,12 @@ interface InvoiceFilter {
   patientId?: PatientId | undefined;
 }
 
-export function useInvoices(filter: InvoiceFilter = {}) {
+export function useInvoices(filter: InvoiceFilter = {}, enabled = true) {
   const { api, access } = useClinic();
   return useQuery({
     queryKey: ["invoices", access.org_id, filter.status, filter.patientId],
     queryFn: ({ signal }) => unwrap(api.listInvoices(filter, { signal })),
+    enabled,
   });
 }
 

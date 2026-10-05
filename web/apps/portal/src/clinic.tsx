@@ -8,6 +8,8 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 
 import { hasPermission, unwrap, type ApiClient, type ClinicAccess, type Me, type Permission, type Session } from "@aarogyam/api-client";
 
+import { REFERENCE } from "./lib/cache-policy.js";
+
 /** The clinic chosen in this tab, when one page serves every clinic (fake data). */
 export const CLINIC_STORAGE_KEY = "aarogyam.portal.clinic";
 const STORAGE_KEY = CLINIC_STORAGE_KEY;
@@ -109,6 +111,7 @@ export function useSession(api: ApiClient | undefined, host: string | undefined)
     queryKey: ["session", host],
     queryFn: ({ signal }) => (api === undefined ? Promise.reject(new Error("no clinic")) : unwrap(api.getSession({ signal }))),
     enabled: api !== undefined,
+    ...REFERENCE,
   });
 }
 

@@ -23,6 +23,8 @@ export function createQueryClient(options: QueryClientOptions = {}): QueryClient
     defaultOptions: {
       queries: {
         staleTime: 30_000,
+        gcTime: 5 * 60_000,
+        refetchOnWindowFocus: true,
         retry: (failureCount, error) => {
           const apiError = apiErrorOf(error);
           if (apiError !== undefined && ((apiError.status >= 400 && apiError.status < 500) || apiError.code === "aborted")) {

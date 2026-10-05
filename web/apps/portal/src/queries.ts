@@ -319,61 +319,38 @@ export function useRemovePractitioner() {
 }
 
 
-/** Query options for a single practitioner's working hours. */
-function workingHoursQueryConfig({ api, access }: Pick<ClinicContextValue, 'api' | 'access'>) {
-  return (practitionerId: PractitionerId) => ({
-    queryKey: ["working-hours", access.org_id, practitionerId] as const,
-    queryFn: ({ signal }: { signal?: AbortSignal }) => unwrap(api.getWorkingHours(practitionerId, { signal })),
+/** Shared query options for a practitioner's working hours. Used by useWorkingHours and useWorkingHoursMany. */
+export function workingHoursQueryOptions(
+  orgId: string,
+  practitionerId: PractitionerId,
+  api: ClinicContextValue['api'],
+) {
+  return {
+    queryKey: ["working-hours", orgId, practitionerId] as const,
+    queryFn: ({ signal }: { signal: AbortSignal }) => unwrap(api.getWorkingHours(practitionerId, { signal })),
+  } as const;
+}
+
+export function useWorkingHours(id: PractitionerId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["working-hours", access.org_id, id] as const,
+    queryFn: ({ signal }) =>
+      id === undefined
+        ? Promise.reject(new Error("no practitioner"))
+        : workingHoursQueryOptions(access.org_id, id, api).queryFn({ signal }),
+    enabled: id !== undefined,
   });
 }
 
-export function getWorkingHoursQueryOptions(
-  practitionerIds: PractitionerId[],
-  clinic: Pick<ClinicContextValue, 'api' | 'access'>,
-) {
-  const config = workingHoursQueryConfig(clinic);
-  return practitionerIds.map((id) => ({ ...config(id), enabled: true }));
+/** Fetch working hours for many practitioners at once, sharing the same query-key shape as useWorkingHours. */
+export function useWorkingHoursMany(ids: PractitionerId[]) {
+  const { api, access } = useClinic();
+  return useQueries({
+    queries: ids.map((id) => ({ ...workingHoursQueryOptions(access.org_id, id, api), enabled: true })),
+  });
 }
 
-/** Working spans for a date (minutes after midnight), derived from working hours shifts. */
-export function workingSpansOn(hours: WorkingHours | undefined, date: string): { startMin: number; endMin: number }[] {
-  if (hours === undefined || hours.shifts.length === 0) {
-    return [{ startMin: 9 * 60, endMin: 18 * 60 }];
-  }
-  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
-  const isoWeekday = weekday === 0 ? 7 : weekday;
-  const spans = hours.shifts
-    .filter((s) => s.weekday === isoWeekday)
-    .map((s) => {
-      const match = /^([01]\d|2[0-3]):([0-5]\d)(?::\d\d)?$/.exec(s.starts.trim());
-      const endMatch = /^([01]\d|2[0-3]):([0-5]\d)(?::\d\d)?$/.exec(s.ends.trim());
-      if (match === null || endMatch === null) return undefined;
-      const startMin = Number(match[1]) * 60 + Number(match[2]);
-      const endMin = Number(endMatch[1]) * 60 + Number(endMatch[2]);
-      return endMin > startMin ? { startMin, endMin } : undefined;
-    })
-    .filter((s): s is { startMin: number; endMin: number } => s !== undefined);
-  return spans;
-}
-
-export function useWorkingHoursForDates(practitionerIds: PractitionerId[], date: string) {
-  const { api, access } = useClinic();
-  const options = getWorkingHoursQueryOptions(practitionerIds, { api, access }).map((opt) => ({
-    ...opt,
-    queryKey: [...opt.queryKey, date] as const,
-  }));
-  return useQueries({ queries: options });
-}
-export function useWorkingHours(id: PractitionerId | undefined) {
-  const { api, access } = useClinic();
-  const config = workingHoursQueryConfig({ api, access });
-  return useQuery(
-    id === undefined
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      ? { queryKey: ["working-hours", access.org_id, "dummy" as PractitionerId] as const, queryFn: () => Promise.reject(new Error("no practitioner")), enabled: false }
-      : { ...config(id), enabled: true }
-  );
-}
 
 export function useSetWorkingHours() {
   const { api, access } = useClinic();

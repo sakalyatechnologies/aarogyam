@@ -82,11 +82,10 @@ describe("TimeGrid working spans", () => {
   it("shades outside per-column working spans", () => {
     const { container } = render(
       <TimeGrid
-        columns={[{ id: "d", label: "Mon" }]}
+        columns={[{ id: "d", label: "Mon", working: [{ startMin: 600, endMin: 660 }, { startMin: 720, endMin: 780 }] }]}
         events={[event("A", 600, 660)]}
         startHour={8}
         endHour={18}
-        workingSpans={[[{ startMin: 600, endMin: 660 }, { startMin: 720, endMin: 780 }]]}
         onSelect={() => undefined}
         summary="Grid"
       />,
@@ -98,11 +97,10 @@ describe("TimeGrid working spans", () => {
   it("shades the whole column when working spans are empty", () => {
     const { container } = render(
       <TimeGrid
-        columns={[{ id: "d", label: "Mon" }]}
+        columns={[{ id: "d", label: "Mon", working: [] }]}
         events={[]}
         startHour={8}
         endHour={18}
-        workingSpans={[[]]}
         onSelect={() => undefined}
         summary="Grid"
       />,

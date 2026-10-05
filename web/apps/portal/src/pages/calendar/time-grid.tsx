@@ -3,6 +3,7 @@ import { Fragment, useEffect, useRef } from "react";
 import "./calendar.css";
 
 import { clockLabel, offsetPercent, packColumns } from "../../lib/time-grid.js";
+import type { Span } from "../../lib/slots.js";
 
 export interface GridColumn {
   id: string;
@@ -12,6 +13,8 @@ export interface GridColumn {
   current?: boolean;
   /** Draws the now-line in this column. */
   showNow?: boolean;
+  /** Working spans for this column (minutes after midnight). Empty means off that day; undefined falls back to workingMinutes. */
+  working?: readonly Span[];
 }
 
 export interface GridEvent {
@@ -30,11 +33,6 @@ export interface GridEvent {
 /** Pixels per hour; half-hour lines sit at half of it. */
 export const HOUR_HEIGHT = 56;
 
-/**
- * Working spans for a column (minutes after midnight). If empty, the whole column is shaded.
- * If undefined, use the default `workingMinutes` prop for a single range.
- */
-export type ColumnWorkingSpans = { startMin: number; endMin: number }[] | undefined;
 
 /**
  * The calendar's time grid: hour rows over the given hours, events absolutely placed by start and sized by
@@ -47,7 +45,6 @@ export function TimeGrid({
   endHour,
   nowMinute,
   workingMinutes,
-  workingSpans,
   onSelect,
   summary,
 }: {
@@ -57,10 +54,8 @@ export function TimeGrid({
   endHour: number;
   /** Minutes after local midnight now, drawn in columns with `showNow`. */
   nowMinute?: number;
-  /** The clinic's usual working span (minutes after midnight); time outside it is shaded. Ignored if `workingSpans` is provided. */
+  /** The clinic's usual working span (minutes after midnight); time outside it is shaded. Ignored when a column has `working` spans. */
   workingMinutes?: { start: number; end: number };
-  /** Per-column working spans (minutes after midnight). A column with spans is shaded outside them; no spans means use `workingMinutes`. */
-  workingSpans?: readonly ColumnWorkingSpans[] | undefined;
   onSelect: (id: string) => void;
   summary: string;
 }) {
@@ -84,17 +79,16 @@ export function TimeGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function renderShading(columnIndex: number, columnSpans: ColumnWorkingSpans) {
-    // If spans are explicitly defined for this column, use them
-    if (columnSpans !== undefined) {
-      if (columnSpans.length === 0) {
+  function renderShading(column: GridColumn) {
+    if (column.working !== undefined) {
+      if (column.working.length === 0) {
         // Empty spans means the doctor is off: shade the whole column
         return <div className="mk-tg-off" aria-hidden="true" style={{ top: 0, height: "100%" }} />;
       }
       // Shade before first span, between spans, and after last span
       const shading: React.JSX.Element[] = [];
       let prevEnd = startHour * 60;
-      for (const span of columnSpans) {
+      for (const span of column.working) {
         const spanStart = Math.max(span.startMin, startHour * 60);
         const spanEnd = Math.min(span.endMin, endHour * 60);
         if (spanStart > prevEnd) {
@@ -119,7 +113,7 @@ export function TimeGrid({
           />,
         );
       }
-      return <Fragment key={`shading-${columnIndex.toString()}`}>{shading}</Fragment>;
+      return <Fragment key={`shading-${column.id}`}>{shading}</Fragment>;
     }
     // No spans defined: use the default workingMinutes
     if (workingMinutes === undefined) return null;
@@ -150,12 +144,11 @@ export function TimeGrid({
             </span>
           ))}
         </div>
-        {columns.map((c, i) => {
+        {columns.map((c) => {
           const packed = packColumns(events.filter((e) => e.columnId === c.id));
-          const columnSpans = workingSpans !== undefined ? workingSpans[i] : undefined;
           return (
             <div key={c.id} className={`mk-tg-col ${c.current === true ? "current" : ""}`} style={{ backgroundSize: `100% ${String(HOUR_HEIGHT)}px` }}>
-              {renderShading(i, columnSpans)}
+              {renderShading(c)}
               {packed.map(({ item, column, columns: span }) => {
                 const top = `${String(offsetPercent(item.startMin, startHour, endHour))}%`;
                 const left = `calc(${String((column / span) * 100)}% + 2px)`;

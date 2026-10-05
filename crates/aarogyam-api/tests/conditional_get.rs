@@ -36,7 +36,7 @@ async fn rarely_changing_reads_support_etag_and_304() {
         assert_eq!(first.status(), StatusCode::OK, "{path}");
         assert_eq!(
             first.headers()["cache-control"],
-            "private, max-age=30",
+            "private, no-cache",
             "{path}"
         );
         let etag = first.headers()["etag"].to_str().unwrap().to_owned();

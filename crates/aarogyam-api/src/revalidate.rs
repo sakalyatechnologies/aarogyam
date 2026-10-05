@@ -1,5 +1,5 @@
 //! Conditional GET for answers that rarely change (clinic settings, letterhead, price list,
-//! roles): a strong `ETag` over the body, `Cache-Control: private, max-age`, and a bodiless
+//! roles): a strong `ETag` over the body, `Cache-Control: private, no-cache`, and a bodiless
 //! `304 Not Modified` when `If-None-Match` matches. The handler still runs, so permissions are
 //! always checked; what is saved is the transfer and the browser's repeat requests.
 
@@ -9,9 +9,9 @@ use axum::http::{HeaderValue, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::Response;
 
-/// How long a browser may reuse the answer without asking. Short, because a save by the same
-/// person must show up quickly.
-const MAX_AGE: &str = "private, max-age=30";
+/// The browser keeps the answer but asks every time (a 304 costs no body), so a save shows up
+/// at once instead of after a max-age.
+const ALWAYS_REVALIDATE: &str = "private, no-cache";
 /// Largest body hashed; bigger answers pass through untouched.
 const MAX_BODY: usize = 2 * 1024 * 1024;
 
@@ -56,9 +56,10 @@ pub(crate) async fn revalidate(request: Request, next: Next) -> Response {
     if let Ok(value) = HeaderValue::from_str(&etag) {
         parts.headers.insert(header::ETAG, value);
     }
-    parts
-        .headers
-        .insert(header::CACHE_CONTROL, HeaderValue::from_static(MAX_AGE));
+    parts.headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static(ALWAYS_REVALIDATE),
+    );
     parts
         .headers
         .append(header::VARY, HeaderValue::from_static("Authorization"));
@@ -103,12 +104,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn answers_carry_an_etag_and_a_private_max_age() {
+    async fn answers_carry_an_etag_and_always_revalidate() {
         let response = get_with("/doc", None).await;
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
             response.headers()[header::CACHE_CONTROL],
-            "private, max-age=30"
+            "private, no-cache"
         );
         assert!(
             response.headers()[header::ETAG]

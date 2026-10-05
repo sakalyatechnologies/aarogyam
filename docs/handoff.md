@@ -12,12 +12,22 @@ Where the work stands and exactly what to do next. Update this file at the end o
 - Workers: `aarogyam-portal` (landing, sign-in, register; the API's app host), `aarogyam-console`, and one portal Worker per clinic, `<slug>-aarogyam.spring-snow-130f.workers.dev`, deployed with `scripts/deploy-workers.sh <api-origin> <slug>-aarogyam` from a clean worktree (`../wt-release`).
 - The founder signs in by email code; platform owner and Sunrise owner.
 
-**Paused, to resume when Claude has budget:**
+**Merged on 4 Oct afternoon (all gates green: Rust incl. database tests, 166 web tests):**
+- Portal matches the founder's mock-up: shell, theme (`components/mk/`, `mockup.css`, brand colour still applies), Today, Calendar, Billing, Messages, Settings, Patients list and Patient 360 header.
+- Clinical screens: allergies edit, note addenda, treatment plans (item status via `PATCH /treatment-plan-items/{id}`), record from the dental chart, Patient 360 bills and prescriptions.
+- Patient summary fields (next appointment, balance, lifetime paid, recall due) and list filters (with balance, recalls due, new this month).
+- Inventory M6 (migrations 0060–0061, `/suppliers`, `/inventory-items`, `/stock/*`, Stock tab). Low stock is a separate `low_stock` block on `/today`.
+- Quality: `GET /console/quality`, console Quality page, `scripts/quality-run.sh local`, Playwright golden journey (`pnpm e2e`); 3 of 5 journeys pass, flaky ones vary by run.
+- **Security fix:** sqlx could return a pooled connection mid-transaction as `app_user` with another request's tenant after a cancelled `begin_scoped`. `sakalya-db` v0.2.1 checks every released connection and closes dirty ones; Aarogyam pins v0.2.1. **Push the `v0.2.1` tag of sakalya-backend before anyone else builds.**
+- `Member` schema clash fixed (`MemberRef`); a test fails on duplicate schema names.
+
+**Open:**
 | Work | Where | State |
 |---|---|---|
-| Quality dashboard + Playwright golden journey | `../wt-quality`, `feat/quality` | endpoint committed; E2E and console page unfinished |
-| Move generic code to `sakalya-backend` v0.3 | `../wt-refactor`, `../wt-sb-refactor` (if created) | just started; see delivery-plan "Queued" |
-| Inventory (M6, migrations 0060–0069) | `../wt-inventory`, `feat/m6-inventory` | nothing written yet |
+| Patients/Visits on mock-up components, row click, Follow-up prefill, Mark done without visit, `randomUUID` fallback | `../wt-polish`, `feat/portal-polish` | agent running at 17:00 |
+| Move generic code to `sakalya-backend` v0.3 / `sakalya-web` | `../wt-refactor` | barely started; restart fresh |
+| Playwright flakiness (2 of 5 journeys) | `web/e2e` | investigate |
+| Mock-up elements without backend: ratings, sparklines, AI brief/scribe, messages KPIs/templates/campaigns, payouts, notification/website settings, month calendar, chair utilisation, purchase orders | — | product decisions |
 
 **Decision waiting on the founder:** a product domain on Cloudflare (wildcard `*.<domain>` → one portal Worker) so approved clinics work instantly, replacing the per-clinic Worker deploy.
 

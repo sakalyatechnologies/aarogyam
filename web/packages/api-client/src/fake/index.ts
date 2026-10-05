@@ -11,3 +11,4 @@ export {
   type FixtureOptions,
   type Fixtures,
 } from "./fixtures.js";
+export { freshSetup } from "./setup.js";

@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select null::text as \"practice?\", steps, dismissed_at, completed_at\n           from aarogyam.member_setup\n           where org_id = app.tenant_id() and membership_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "practice?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "steps",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_setup",
+            "name": "steps"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "dismissed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_setup",
+            "name": "dismissed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "completed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_setup",
+            "name": "completed_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "6ab91afeb08c79ce27658be6ef8885ee427f39e1030a09483a4ea046fa494869"
+}

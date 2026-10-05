@@ -79,6 +79,7 @@ pub mod permission;
 pub mod prescription;
 pub mod schedule;
 pub mod search;
+pub mod setup;
 pub mod share;
 pub mod staff;
 pub mod vitals;

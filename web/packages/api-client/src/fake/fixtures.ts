@@ -591,6 +591,8 @@ export interface Fixtures {
   /** Clinic websites, made on first use. */
   websites?: import("./website.js").FakeSite[];
   websitePhotos?: import("./website.js").FakePhoto[];
+  /** First-run setup per clinic and member; with no entry, a person counts as set up already (dismissed). */
+  setups?: import("./setup.js").FakeSetup[];
   quality: C.QualityReport;
 }
 

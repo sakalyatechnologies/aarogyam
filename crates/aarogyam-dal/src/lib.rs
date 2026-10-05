@@ -30,6 +30,7 @@ pub mod recalls;
 pub mod schedule;
 pub mod sessions;
 pub mod settings;
+pub mod setup;
 pub mod staff;
 pub mod timeline;
 pub mod treatment;

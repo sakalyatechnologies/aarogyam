@@ -34,6 +34,7 @@ mod scope;
 pub mod self_booking;
 pub mod sessions;
 pub mod settings;
+pub mod setup;
 pub mod share;
 pub mod staff;
 pub mod today;

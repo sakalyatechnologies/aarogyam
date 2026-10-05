@@ -24,6 +24,8 @@ use crate::self_booking::{read_settings, settings_value};
 pub struct ClinicSettings {
     /// Display name.
     pub name: String,
+    /// The clinic's specialty: `dental` or `general`.
+    pub specialty: String,
     /// Registered legal name.
     pub legal_name: Option<String>,
     /// GST identification number.
@@ -149,6 +151,7 @@ fn view(row: &SettingsRow) -> ClinicSettings {
     let address = row.address.clone().unwrap_or(Value::Null);
     ClinicSettings {
         name: row.name.clone(),
+        specialty: row.specialty.clone(),
         legal_name: row.legal_name.clone(),
         gstin: row.gstin.clone(),
         timezone: row.timezone.clone(),
@@ -364,6 +367,7 @@ mod tests {
     fn stored() -> SettingsRow {
         SettingsRow {
             name: "Alpha Dental".into(),
+            specialty: "dental".into(),
             legal_name: None,
             gstin: None,
             timezone: "Asia/Kolkata".into(),

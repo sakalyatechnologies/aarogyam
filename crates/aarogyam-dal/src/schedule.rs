@@ -244,6 +244,26 @@ pub async fn practitioner(
     Ok(row)
 }
 
+/// The doctor linked to a membership, unless deleted.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn practitioner_of(
+    conn: &mut PgConnection,
+    membership_id: Uuid,
+) -> Result<Option<PractitionerRow>, DbError> {
+    let row = sqlx::query_as!(
+        PractitionerRow,
+        r#"select id, membership_id, display_name, registration_number, qualifications, specialty, calendar_color, active
+           from aarogyam.practitioners
+           where membership_id = $1 and deleted_at is null"#,
+        membership_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
 /// Whether the clinic has a membership with this id.
 ///
 /// # Errors

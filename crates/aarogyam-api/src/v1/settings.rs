@@ -233,6 +233,8 @@ pub struct OnlineBookingChanges {
 pub struct ClinicSettings {
     /// Display name.
     pub name: String,
+    /// `dental` or `general`; fixed when the clinic is created.
+    pub specialty: String,
     /// Registered legal name, for bills.
     pub legal_name: Option<String>,
     /// GST identification number.
@@ -259,6 +261,7 @@ impl From<app::ClinicSettings> for ClinicSettings {
     fn from(settings: app::ClinicSettings) -> Self {
         Self {
             name: settings.name,
+            specialty: settings.specialty,
             legal_name: settings.legal_name,
             gstin: settings.gstin,
             timezone: settings.timezone,

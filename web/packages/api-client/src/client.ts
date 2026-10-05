@@ -24,6 +24,8 @@ import type {
   SitePage,
   SitePhoto,
   PhotoChanges,
+  SetupUpdate,
+  Setup,
   WebsiteChanges,
   WebsiteSettings,
   Cancelled,
@@ -495,6 +497,22 @@ export interface ApiClient {
   getWebsiteSettings(options?: RequestOptions): Promise<ApiResult<WebsiteSettings>>;
   /** Clinic host: changes the website's design, content, published state or domain. Needs `settings.manage`. */
   updateWebsite(changes: WebsiteChanges, options?: RequestOptions): Promise<ApiResult<WebsiteSettings>>;
+  /** Clinic host: the clinic's first-run setup (step statuses). Needs `settings.manage`. */
+  getSetup(options?: RequestOptions): Promise<ApiResult<Setup>>;
+  /** Clinic host: answers a setup step, closes the "Finish setting up" card or says how the clinic practises. Needs `settings.manage`. */
+  updateSetup(update: SetupUpdate, options?: RequestOptions): Promise<ApiResult<Setup>>;
+  /** Clinic host: the signed-in member's own setup (a doctor's one screen). */
+  getMySetup(options?: RequestOptions): Promise<ApiResult<Setup>>;
+  /** Clinic host: answers the member's own step. */
+  updateMySetup(update: SetupUpdate, options?: RequestOptions): Promise<ApiResult<Setup>>;
+  /** Clinic host: the doctor record linked to the signed-in member; `404` when they are not a doctor. */
+  getMyPractitioner(options?: RequestOptions): Promise<ApiResult<Practitioner>>;
+  /** Clinic host: a doctor's own name, qualifications, registration number and specialty. */
+  changeMyPractitioner(changes: PractitionerFields, options?: RequestOptions): Promise<ApiResult<Practitioner>>;
+  /** Clinic host: the signed-in doctor's weekly hours. */
+  getMyWorkingHours(options?: RequestOptions): Promise<ApiResult<WorkingHours>>;
+  /** Clinic host: replaces the signed-in doctor's weekly hours. */
+  setMyWorkingHours(hours: WorkingHours, options?: RequestOptions): Promise<ApiResult<WorkingHours>>;
   /** Clinic host: uploads a website picture (form fields `file`, `kind`, `alt`). Needs `settings.manage`. */
   uploadWebsitePhoto(form: FormData, options?: RequestOptions): Promise<ApiResult<SitePhoto>>;
   /** Clinic host: changes a picture's description. Needs `settings.manage`. */

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.member_setup\n           set steps = $2, dismissed_at = $3, completed_at = $4, updated_at = now()\n           where org_id = app.tenant_id() and membership_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d30a5077747426d2e60d0fb190b6c1d4abc99fc1d8788e6ecbe255eb7a9f49c9"
+}

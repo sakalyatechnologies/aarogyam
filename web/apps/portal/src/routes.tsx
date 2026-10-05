@@ -30,6 +30,7 @@ import { VerifyPrescriptionPage } from "./pages/public/verify-page.js";
 import { QueuePage } from "./pages/queue/queue-page.js";
 import { RegisterPage } from "./pages/register-page.js";
 import { SettingsPage } from "./pages/settings/settings-page.js";
+import { SetupPage } from "./pages/setup/setup-page.js";
 import { StockPage } from "./pages/stock/stock-page.js";
 import { VisitPage } from "./pages/visits/visit-page.js";
 import { SignInPage } from "./pages/sign-in-page.js";
@@ -60,6 +61,7 @@ export const routes: RouteObject[] = [
             element: <ClinicGate />,
             children: [
               { path: "today", element: <TodayPage /> },
+              { path: "setup", element: <SetupPage /> },
               { path: "patients", element: <PatientsPage /> },
               { path: "patients/new", element: <NewPatientPage /> },
               { path: "patients/import", element: <ImportPage /> },

@@ -55,6 +55,7 @@ import {
 import { createMetrics } from "./metrics.js";
 import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photosOf, siteOf, wirePhoto, wireSettings, type FakePhoto } from "./website.js";
 import { createRandom, fakeUuid } from "./random.js";
+import { CLINIC_STEPS, MEMBER_STEPS, applySetup, setupOf, wireSetup } from "./setup.js";
 import { MAX_MOVEMENT, addDays, byUrgency, daysBetween, isExpired, isStockUnit, levelOf, pickFefo, wireItem } from "./stock.js";
 import { atLocalTime, localClock } from "./zoned-time.js";
 
@@ -675,28 +676,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (found === undefined) {
             return notFound;
           }
-          for (const shift of hours.shifts) {
-            if (!Number.isInteger(shift.weekday) || shift.weekday < 1 || shift.weekday > 7) {
-              return invalid("shifts", "weekday must be 1 to 7");
-            }
-            if (shift.starts >= shift.ends) {
-              return invalid("shifts", "end must be after the start");
-            }
-          }
-          state.workingShifts = state.workingShifts.filter((s) => s.practitioner_id !== id);
-          const now = clock();
-          for (const shift of hours.shifts) {
-            state.workingShifts.push({
-              id: fakeUuid(random, now),
-              clinic_id: caller.clinic.id,
-              practitioner_id: id,
-              branch_id: shift.branch_id ?? caller.clinic.id,
-              weekday: shift.weekday,
-              starts: shift.starts,
-              ends: shift.ends,
-            });
-          }
-          return reply({ shifts: wireShifts(state, id) } satisfies C.WorkingHours);
+          return replaceShifts(state, caller.clinic, id, hours, () => fakeUuid(random, clock()));
         }),
 
       listLeave: (range, opts) =>
@@ -3958,6 +3938,121 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return { ok: true, body: undefined };
         }),
 
+      getSetup: (opts) =>
+        respond(S.setup, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(wireSetup(setupOf(state, `clinic:${caller.clinic.id}`), CLINIC_STEPS));
+        }),
+
+      updateSetup: (update, opts) =>
+        respond(S.setup, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const result = applySetup(state, `clinic:${caller.clinic.id}`, CLINIC_STEPS, update, true);
+          return typeof result === "string" ? invalid(result.split(": ")[0] ?? "step", result.split(": ")[1] ?? result) : reply(result);
+        }),
+
+      getMySetup: (opts) =>
+        respond(S.setup, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(wireSetup(setupOf(state, `member:${caller.membership.id}`), MEMBER_STEPS));
+        }),
+
+      updateMySetup: (update, opts) =>
+        respond(S.setup, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const result = applySetup(state, `member:${caller.membership.id}`, MEMBER_STEPS, update, false);
+          return typeof result === "string" ? invalid(result.split(": ")[0] ?? "step", result.split(": ")[1] ?? result) : reply(result);
+        }),
+
+      getMyPractitioner: (opts) =>
+        respond(S.practitioner, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.practitioners.find((p) => p.clinic_id === caller.clinic.id && p.membership_id === caller.membership.id);
+          return found === undefined ? notFound : reply(wirePractitioner(found));
+        }),
+
+      changeMyPractitioner: (changes, opts) =>
+        respond(S.practitioner, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          let found = state.practitioners.find((p) => p.clinic_id === caller.clinic.id && p.membership_id === caller.membership.id);
+          if (found === undefined) {
+            // Only someone who can issue prescriptions gets a doctor record, made on first save.
+            if (!hasPermission(caller.membership.role.permissions, "prescriptions.issue")) {
+              return notFound;
+            }
+            found = {
+              id: fakeUuid(random, clock()),
+              clinic_id: caller.clinic.id,
+              display_name: caller.user.display_name,
+              calendar_color: "#64748b",
+              active: true,
+              membership_id: caller.membership.id,
+              registration_number: null,
+              qualifications: null,
+              specialty: null,
+            };
+            state.practitioners.push(found);
+          }
+          if (changes.display_name != null) {
+            const name = changes.display_name.trim();
+            if (name.length < 1 || name.length > 120) {
+              return invalid("display_name", "must be 1 to 120 characters");
+            }
+            found.display_name = name;
+          }
+          for (const [field, max] of [["registration_number", 40], ["qualifications", 160], ["specialty", 80]] as const) {
+            const given = changes[field];
+            if (given != null) {
+              if (given.trim().length > max) {
+                return invalid(field, `must be at most ${String(max)} characters`);
+              }
+              found[field] = given.trim() === "" ? null : given.trim();
+            }
+          }
+          return reply(wirePractitioner(found));
+        }),
+
+      getMyWorkingHours: (opts) =>
+        respond(S.workingHours, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.practitioners.find((p) => p.clinic_id === caller.clinic.id && p.membership_id === caller.membership.id);
+          return found === undefined ? notFound : reply({ shifts: wireShifts(state, found.id) } satisfies C.WorkingHours);
+        }),
+
+      setMyWorkingHours: (hours, opts) =>
+        respond(S.workingHours, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.practitioners.find((p) => p.clinic_id === caller.clinic.id && p.membership_id === caller.membership.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          return replaceShifts(state, caller.clinic, found.id, hours, () => fakeUuid(random, clock()));
+        }),
+
       getPublicSite: (opts) =>
         respond(S.sitePage, opts?.signal, () => {
           const clinic = state.clinics.find((c) => c.host === options.host);
@@ -4258,6 +4353,7 @@ function wireMember(membership: FakeMembership, state: Fixtures): C.Member {
 function wireClinicSettings(clinic: FakeClinic): C.ClinicSettings {
   return {
     name: clinic.name,
+    specialty: clinic.specialty,
     legal_name: clinic.legal_name ?? null,
     gstin: clinic.gstin ?? null,
     timezone: clinic.timezone,
@@ -4512,6 +4608,38 @@ function wirePractitionerBrief(p: FakePractitioner): C.PractitionerBrief {
 
 function wireLeave(l: FakeLeave): C.Leave {
   return { id: l.id, practitioner_id: l.practitioner_id, starts_at: l.starts_at, ends_at: l.ends_at, reason: l.reason ?? null };
+}
+
+/** Replaces a doctor's weekly hours after the API's checks (weekday 1 to 7, end after start, no overlap). */
+function replaceShifts(state: Fixtures, clinic: FakeClinic, practitionerId: string, hours: C.WorkingHours, newId: () => string): Outcome {
+  for (const shift of hours.shifts) {
+    if (!Number.isInteger(shift.weekday) || shift.weekday < 1 || shift.weekday > 7) {
+      return invalid("shifts", "weekday must be 1 to 7");
+    }
+    if (shift.starts >= shift.ends) {
+      return invalid("shifts", "end must be after the start");
+    }
+  }
+  const sorted = [...hours.shifts].sort((a, b) => a.weekday - b.weekday || a.starts.localeCompare(b.starts));
+  for (let i = 1; i < sorted.length; i += 1) {
+    const [before, after] = [sorted[i - 1], sorted[i]];
+    if (before !== undefined && after !== undefined && before.weekday === after.weekday && after.starts < before.ends) {
+      return invalid("shifts", "shifts on one day must not overlap");
+    }
+  }
+  state.workingShifts = state.workingShifts.filter((s) => s.practitioner_id !== practitionerId);
+  for (const shift of hours.shifts) {
+    state.workingShifts.push({
+      id: newId(),
+      clinic_id: clinic.id,
+      practitioner_id: practitionerId,
+      branch_id: shift.branch_id ?? clinic.id,
+      weekday: shift.weekday,
+      starts: shift.starts,
+      ends: shift.ends,
+    });
+  }
+  return reply({ shifts: wireShifts(state, practitionerId) } satisfies C.WorkingHours);
 }
 
 function wireShifts(state: Fixtures, practitionerId: string): C.WorkingShift[] {

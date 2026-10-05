@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import {
   apiErrorOf,
@@ -32,8 +32,21 @@ import {
   useUploadLetterheadImage,
 } from "../../queries.js";
 
-/** Settings, "Letterhead & theme": the portal's palette and the header printed on every clinic document. */
-export function LetterheadThemePanel() {
+function Shell({ bare, children }: { bare: boolean; children: ReactNode }) {
+  return bare ? (
+    <>{children}</>
+  ) : (
+    <MkCard title="Letterhead & theme" hint="How your portal looks, and what patients see at the top of their papers">
+      {children}
+    </MkCard>
+  );
+}
+
+/**
+ * Settings, "Letterhead & theme": the portal's palette and the header printed on every clinic document.
+ * `bare` leaves out the card, for the setup wizard, which supplies its own.
+ */
+export function LetterheadThemePanel({ bare = false }: { bare?: boolean }) {
   const settings = useClinicSettings();
   const document = useLetterhead();
   const practitioners = usePractitioners();
@@ -46,26 +59,20 @@ export function LetterheadThemePanel() {
         : undefined;
   if (failed !== undefined) {
     return (
-      <MkCard
-        title="Letterhead & theme"
-        hint="How your portal looks, and what patients see at the top of their papers"
-      >
+      <Shell bare={bare}>
         <ApiErrorNotice
           title="Couldn't load the letterhead"
           error={failed.error}
           onRetry={() => void failed.refetch()}
         />
-      </MkCard>
+      </Shell>
     );
   }
   if (settings.data === undefined || document.data === undefined || practitioners.data === undefined) {
     return (
-      <MkCard
-        title="Letterhead & theme"
-        hint="How your portal looks, and what patients see at the top of their papers"
-      >
+      <Shell bare={bare}>
         <Skeleton shape="block" />
-      </MkCard>
+      </Shell>
     );
   }
   const choices: DoctorChoice[] = practitioners.data.items
@@ -78,10 +85,7 @@ export function LetterheadThemePanel() {
       specialty: p.specialty,
     }));
   return (
-    <MkCard
-      title="Letterhead & theme"
-      hint="How your portal looks, and what patients see at the top of their papers"
-    >
+    <Shell bare={bare}>
       <ThemeSection settings={settings.data} />
       <h3 className="mk-flabel" style={{ marginTop: 22 }}>
         Letterhead
@@ -95,7 +99,7 @@ export function LetterheadThemePanel() {
         document={document.data}
         choices={choices}
       />
-    </MkCard>
+    </Shell>
   );
 }
 

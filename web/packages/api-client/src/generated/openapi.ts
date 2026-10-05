@@ -542,6 +542,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in member's own setup (a doctor's one screen). */
+        get: operations["get_my_setup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Answers the member's own step or closes their card. */
+        patch: operations["update_my_setup"];
+        trace?: never;
+    };
+    "/api/v1/me/practitioner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The doctor record linked to the signed-in member. */
+        get: operations["my_practitioner"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Changes the member's own doctor details: name, qualifications, registration number and
+         *     specialty. Colour, availability and the link to the member are ignored. A member who can
+         *     issue prescriptions and has no doctor record yet gets one, named after their account unless
+         *     a name is given.
+         */
+        patch: operations["update_my_practitioner"];
+        trace?: never;
+    };
     "/api/v1/me/sessions": {
         parameters: {
             query?: never;
@@ -570,6 +611,24 @@ export interface paths {
         put?: never;
         /** Signs one of the person's own sessions out. Its next request gets `401`, on every host. */
         post: operations["revoke_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/working-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in doctor's weekly hours. */
+        get: operations["my_hours"];
+        /** Replaces the signed-in doctor's weekly hours. An empty list clears them. */
+        put: operations["set_my_hours"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1604,6 +1663,24 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's first-run setup. Nothing is stored until the owner answers a step. */
+        get: operations["get_clinic_setup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Answers a step of the clinic's setup, closes the card, or says how the clinic practises. */
+        patch: operations["update_clinic_setup"];
         trace?: never;
     };
     "/api/v1/settings/website": {
@@ -2748,6 +2825,8 @@ export interface components {
             phone?: string | null;
             /** @description Footer printed on prescriptions. */
             prescription_footer?: string | null;
+            /** @description `dental` or `general`; fixed when the clinic is created. */
+            specialty: string;
             /** @description IANA time zone; `Asia/Kolkata` is the only one supported. */
             timezone: string;
             /** @description UPI ID shown on bills, such as `clinic@okicici`. */
@@ -5016,6 +5095,39 @@ export interface components {
             display_name: string;
             /** @description The user. */
             id: string;
+        };
+        /** @description Where a first-run setup stands. */
+        Setup: {
+            /** @description `solo`, `team` or `multi`, once the owner said (the clinic's setup only). */
+            practice?: string | null;
+            /**
+             * @description `new` (show the wizard), `in_progress` (show "Finish setting up"), `complete` or
+             *     `dismissed`.
+             */
+            standing: string;
+            /** @description Every step in order. */
+            steps: components["schemas"]["SetupStep"][];
+        };
+        /** @description One step of a setup. */
+        SetupStep: {
+            /**
+             * @description The step key: `clinic`, `hours`, `look`, `services` or `team` (the owner's), `profile`
+             *     (a doctor's own).
+             */
+            key: string;
+            /** @description `done`, `skipped`, or `todo` while the person hasn't answered. */
+            status: string;
+        };
+        /** @description An answer to one step, and other changes. Anything left out stays as it is. */
+        SetupUpdate: {
+            /** @description Close (`true`) or reopen (`false`) the "Finish setting up" card. */
+            dismissed?: boolean | null;
+            /** @description `solo`, `team` or `multi` (the clinic's setup only). */
+            practice?: string | null;
+            /** @description `done`, `skipped` or `todo` (reopens it). Needed with `step`. */
+            status?: string | null;
+            /** @description The step to change. */
+            step?: string | null;
         };
         /** @description A new patient link. The token and PIN are shown once. */
         ShareLink: {
@@ -7584,6 +7696,160 @@ export interface operations {
             };
         };
     };
+    get_my_setup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Setup"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_my_setup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetupUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Setup"];
+                };
+            };
+            /** @description Unknown step or status */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    my_practitioner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Practitioner"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, a member of it, or not a doctor here */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_my_practitioner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PractitionerFields"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Practitioner"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, a member of it, or not a doctor here and unable to be one */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     sessions: {
         parameters: {
             query?: never;
@@ -7637,6 +7903,83 @@ export interface operations {
                 content?: never;
             };
             /** @description Not one of the person's sessions */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    my_hours: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkingHours"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, a member of it, or not a doctor here */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_my_hours: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkingHours"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkingHours"];
+                };
+            };
+            /** @description Bad or overlapping shifts */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, a member of it, or not a doctor here */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -11472,6 +11815,97 @@ export interface operations {
             };
             /** @description The role lacks settings.manage */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_clinic_setup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Setup"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_clinic_setup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetupUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Setup"];
+                };
+            };
+            /** @description Unknown step, status or practice */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

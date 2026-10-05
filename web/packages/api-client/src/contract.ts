@@ -467,6 +467,11 @@ export type WebsiteSettings = Schemas["WebsiteSettings"];
 export type WebsiteChanges = Schemas["WebsiteChanges"];
 export type PhotoChanges = Schemas["PhotoChanges"];
 
+// First-run setup ---------------------------------------------------------------------------------
+export type Setup = Schemas["Setup"];
+export type SetupStep = Schemas["SetupStep"];
+export type SetupUpdate = Schemas["SetupUpdate"];
+
 // Quality dashboard -----------------------------------------------------------------------------
 
 /** `unit`, `db`, `web` or `e2e`. Kept open (not a literal union) since the recorder names its own

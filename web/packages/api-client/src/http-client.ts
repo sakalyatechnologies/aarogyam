@@ -17,6 +17,7 @@ import {
   booked,
   sitePage,
   sitePhoto,
+  setup,
   websiteSettings,
   bookingOptions,
   attachmentList,
@@ -236,7 +237,7 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "GET", path: `/api/v1/practitioners/${encodeURIComponent(id)}/working-hours`, schema: workingHours, signal: opts?.signal }),
     setWorkingHours: (id, hours, opts) =>
       call({
-        method: "PATCH",
+        method: "PUT",
         path: `/api/v1/practitioners/${encodeURIComponent(id)}/working-hours`,
         schema: workingHours,
         body: hours,
@@ -581,6 +582,18 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "PATCH", path: `/api/v1/settings/website/photos/${encodeURIComponent(id)}`, schema: sitePhoto, body: changes, signal: opts?.signal }),
     deleteWebsitePhoto: (id, opts) =>
       call({ method: "DELETE", path: `/api/v1/settings/website/photos/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+    getSetup: (opts) => call({ method: "GET", path: "/api/v1/settings/onboarding", schema: setup, signal: opts?.signal }),
+    updateSetup: (update, opts) =>
+      call({ method: "PATCH", path: "/api/v1/settings/onboarding", schema: setup, body: update, signal: opts?.signal }),
+    getMySetup: (opts) => call({ method: "GET", path: "/api/v1/me/onboarding", schema: setup, signal: opts?.signal }),
+    updateMySetup: (update, opts) =>
+      call({ method: "PATCH", path: "/api/v1/me/onboarding", schema: setup, body: update, signal: opts?.signal }),
+    getMyPractitioner: (opts) => call({ method: "GET", path: "/api/v1/me/practitioner", schema: practitioner, signal: opts?.signal }),
+    changeMyPractitioner: (changes, opts) =>
+      call({ method: "PATCH", path: "/api/v1/me/practitioner", schema: practitioner, body: changes, signal: opts?.signal }),
+    getMyWorkingHours: (opts) => call({ method: "GET", path: "/api/v1/me/working-hours", schema: workingHours, signal: opts?.signal }),
+    setMyWorkingHours: (hours, opts) =>
+      call({ method: "PUT", path: "/api/v1/me/working-hours", schema: workingHours, body: hours, signal: opts?.signal }),
     getPublicSite: (opts) => call({ method: "GET", path: "/api/v1/public/site", schema: sitePage, signal: opts?.signal }),
   };
 }

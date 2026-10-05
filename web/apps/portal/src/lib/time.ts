@@ -73,3 +73,27 @@ export function addDays(date: string, days: number): string {
 export function todayIn(timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
+
+/** The first day of the month containing `date`. */
+export function monthStartOf(date: string): string {
+  return `${date.slice(0, 7)}-01`;
+}
+
+/** `date` moved by `months` whole months, landing on the 1st (the month grid only needs the month). */
+export function addMonths(date: string, months: number): string {
+  const [year = 1970, month = 1] = date.split("-").map((part) => Number.parseInt(part, 10));
+  const instant = new Date(Date.UTC(year, month - 1 + months, 1));
+  return instant.toISOString().slice(0, 10);
+}
+
+/** The Monday-first weeks (7 dates each) that cover the month containing `date`, padded with neighbouring days. */
+export function monthWeeks(date: string): string[][] {
+  const first = monthStartOf(date);
+  const last = addDays(addMonths(first, 1), -1);
+  const start = mondayOf(first);
+  const weeks: string[][] = [];
+  for (let cursor = start; cursor <= last; cursor = addDays(cursor, 7)) {
+    weeks.push(Array.from({ length: 7 }, (_, index) => addDays(cursor, index)));
+  }
+  return weeks;
+}

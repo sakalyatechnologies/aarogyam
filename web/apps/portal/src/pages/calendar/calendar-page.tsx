@@ -8,6 +8,7 @@ import { EmptyState, Select, Skeleton, WeekGrid, type Tone, type WeekGridBlock, 
 
 import { MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
+import { clockLabel, placementOf } from "../../lib/time-grid.js";
 import { addDays, localDateHour, mondayOf, todayIn } from "../../lib/time.js";
 import { formatTime } from "@aarogyam/app-kit";
 import { useAppointments, usePractitioners, useRooms } from "../../queries.js";
@@ -118,8 +119,7 @@ export function CalendarPage() {
 
   const stepBy = view === "week" ? 7 : 1;
   const rangeLabel = view === "week" ? `${shortDate(from)} – ${shortDate(to, true)}` : shortDate(from, true);
-  const slots = [8, 10, 12, 14, 16, 18] as const;
-  const slotLabel = (hour: number) => `${String(hour > 12 ? hour - 12 : hour)}${hour >= 12 ? "p" : "a"}`;
+  const slots = Array.from({ length: 13 }, (_, index) => 8 + index);
 
   return (
     <div className="mk-panel">
@@ -219,14 +219,14 @@ export function CalendarPage() {
               ))}
               {slots.flatMap((slot) => [
                 <div key={`s${String(slot)}`} className="mk-slot">
-                  {slotLabel(slot)}
+                  {clockLabel(slot * 60)}
                 </div>,
                 ...days.map((d) => (
                   <div key={`${String(slot)}-${d.id}`} className="mk-day">
                     {weekItems
                       .filter((a) => {
-                        const start = localDateHour(a.starts_at, timeZone);
-                        return start.date === d.id && Math.max(8, Math.min(18, Math.floor(start.hour / 2) * 2)) === slot;
+                        const place = placementOf(a.starts_at, a.ends_at, timeZone);
+                        return place.date === d.id && Math.max(8, Math.min(20, Math.floor(place.startMin / 60))) === slot;
                       })
                       .map((a) => (
                         <button

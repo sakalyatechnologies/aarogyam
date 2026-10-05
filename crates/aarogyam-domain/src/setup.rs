@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 /// The owner's steps, in order: the clinic, hours and doctors, look, services and fees, team
 /// and patients.
-pub const CLINIC_STEPS: [&str; 5] = ["clinic", "hours", "look", "services", "team"];
+pub const CLINIC_STEPS: [&str; 5] = ["clinic", "hours", "services", "team", "look"];
 
 /// An invited doctor's single step.
 pub const MEMBER_STEPS: [&str; 1] = ["profile"];

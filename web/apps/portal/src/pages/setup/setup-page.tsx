@@ -37,5 +37,9 @@ function OwnerSetup() {
   if (setup.isError) {
     return <ApiErrorNotice title="Couldn't load the setup guide" error={setup.error} onRetry={() => void setup.refetch()} />;
   }
+  if (setup.data.standing === "complete" || setup.data.standing === "dismissed") {
+    // Already set up: the dashboard is where owners land.
+    return <Navigate to="/today" replace />;
+  }
   return <OwnerWizard setup={setup.data} />;
 }

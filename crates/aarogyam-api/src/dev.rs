@@ -129,6 +129,7 @@ pub struct DevTokenResponse {
 #[utoipa::path(
     post,
     path = "/api/v1/dev/token",
+    operation_id = "createDevToken",
     tag = "development",
     request_body = DevTokenRequest,
     responses((status = 200, description = "A token for that person", body = DevTokenResponse))

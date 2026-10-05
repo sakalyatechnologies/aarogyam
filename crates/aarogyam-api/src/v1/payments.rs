@@ -119,6 +119,7 @@ pub struct NewPayment {
 #[utoipa::path(
     post,
     path = "/api/v1/payments",
+    operation_id = "recordPayment",
     tag = "billing",
     request_body = NewPayment,
     params(("Idempotency-Key" = String, Header, description = "Unique per payment; a retry sends the same key")),
@@ -180,6 +181,7 @@ pub(crate) async fn record(
 #[utoipa::path(
     post,
     path = "/api/v1/payments/{id}/void",
+    operation_id = "voidPayment",
     tag = "billing",
     params(("id" = String, Path, description = "The payment")),
     request_body = Reason,
@@ -216,6 +218,7 @@ pub(crate) async fn void(
 #[utoipa::path(
     get,
     path = "/api/v1/payments/{id}",
+    operation_id = "getPayment",
     tag = "billing",
     params(("id" = String, Path, description = "The payment")),
     security(("bearer" = [])),
@@ -256,6 +259,7 @@ pub struct PaymentParams {
 #[utoipa::path(
     get,
     path = "/api/v1/payments",
+    operation_id = "listPayments",
     tag = "billing",
     params(
         ("from" = Option<String>, Query, description = "First clinic day, YYYY-MM-DD"),

@@ -1,5 +1,5 @@
-//! The committed OpenAPI document matches the one the route annotations generate, and no two
-//! Rust types share a schema name in it.
+//! The committed OpenAPI document matches the one the route annotations generate, no two Rust
+//! types share a schema name in it, and every operation has its own explicit `operationId`.
 #![expect(
     clippy::unwrap_used,
     reason = "test helpers fail loudly instead of returning errors"
@@ -125,4 +125,69 @@ fn schema_names_reads_derives_and_overrides() {
         pub(crate) enum Other { A }
     ";
     assert_eq!(schema_names(source), ["Member", "StaffMember"]);
+}
+
+/// Generated clients name their methods after `operationId`, so two operations sharing one make
+/// the client fail to compile (or silently shadow a method). Every id is also lowerCamelCase.
+#[test]
+fn operation_ids_are_unique_and_lower_camel_case() {
+    let document = serde_json::to_value(aarogyam_api::openapi()).unwrap();
+    let mut seen = std::collections::BTreeMap::<String, String>::new();
+    let mut problems = Vec::new();
+    for (path, operations) in document["paths"].as_object().unwrap() {
+        for (method, operation) in operations.as_object().unwrap() {
+            let at = format!("{} {path}", method.to_uppercase());
+            let Some(id) = operation["operationId"].as_str() else {
+                problems.push(format!("{at}: no operationId"));
+                continue;
+            };
+            let mut chars = id.chars();
+            let camel = chars.next().is_some_and(|c| c.is_ascii_lowercase())
+                && chars.all(|c| c.is_ascii_alphanumeric());
+            if !camel {
+                problems.push(format!("{at}: `{id}` is not lowerCamelCase"));
+            }
+            if let Some(first) = seen.insert(id.to_owned(), at.clone()) {
+                problems.push(format!("`{id}` names both {first} and {at}"));
+            }
+        }
+    }
+    assert!(seen.len() > 100, "found only {} operations", seen.len());
+    assert!(
+        problems.is_empty(),
+        "operationIds must be unique, descriptive and lowerCamelCase (verbNoun, such as \
+         `listPatients`):\n{}",
+        problems.join("\n")
+    );
+}
+
+/// Without `operation_id = "…"`, utoipa uses the handler's function name, so renaming a function
+/// would silently rename the client's method, and `list` or `get` would collide again.
+#[test]
+fn every_route_annotation_names_its_operation() {
+    let mut files = Vec::new();
+    rust_files(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+        &mut files,
+    );
+    let mut unnamed = Vec::new();
+    let mut annotations = 0;
+    for file in files {
+        let source = std::fs::read_to_string(&file).unwrap();
+        for (start, _) in source.match_indices("#[utoipa::path(") {
+            annotations += 1;
+            let attribute = &source[start..];
+            let end = attribute.find("\n)]").unwrap_or(attribute.len());
+            if !attribute[..end].contains("operation_id = \"") {
+                let line = source[..start].lines().count() + 1;
+                unnamed.push(format!("{}:{line}", file.display()));
+            }
+        }
+    }
+    assert!(annotations > 100, "found only {annotations} annotations");
+    assert!(
+        unnamed.is_empty(),
+        "these #[utoipa::path] annotations have no explicit operation_id:\n{}",
+        unnamed.join("\n")
+    );
 }

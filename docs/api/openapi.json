@@ -12,7 +12,7 @@
           "appointments"
         ],
         "summary": "Appointments starting on the clinic's local days `from` to `to`, cancelled ones included.",
-        "operationId": "list",
+        "operationId": "listAppointments",
         "parameters": [
           {
             "name": "from",
@@ -82,7 +82,7 @@
           "appointments"
         ],
         "summary": "Books an appointment. Two active bookings can't overlap in one chair (`409`); a doctor\nbooked in another chair at the same time, on leave, or outside their hours is allowed, with\n`warnings`.",
-        "operationId": "book",
+        "operationId": "bookAppointment",
         "requestBody": {
           "content": {
             "application/json": {
@@ -132,7 +132,7 @@
           "appointments"
         ],
         "summary": "Moves, reassigns or edits an appointment that isn't completed, cancelled or a no-show.",
-        "operationId": "change",
+        "operationId": "updateAppointment",
         "parameters": [
           {
             "name": "id",
@@ -193,7 +193,7 @@
           "appointments"
         ],
         "summary": "Moves an appointment along: booked → confirmed → arrived → in the chair → completed, or\ncancelled (with a reason) or no-show before arrival. Arriving issues the branch's next queue\ntoken for the clinic day.",
-        "operationId": "set_status",
+        "operationId": "setAppointmentStatus",
         "parameters": [
           {
             "name": "id",
@@ -251,7 +251,7 @@
           "clinical"
         ],
         "summary": "Streams a file through a signed link from `GET /attachments/{id}/download`. The link is the\nproof of access, so no sign-in header is needed (an `<img>` can use it); it works on the\nclinic's own host for five minutes, and every use is written to the access record.",
-        "operationId": "content",
+        "operationId": "getAttachmentContent",
         "parameters": [
           {
             "name": "id",
@@ -291,7 +291,7 @@
           "clinical"
         ],
         "summary": "Issues a five-minute download link for a file. Opening the link writes the access record.",
-        "operationId": "link",
+        "operationId": "getAttachmentDownloadLink",
         "parameters": [
           {
             "name": "id",
@@ -336,7 +336,7 @@
           "console"
         ],
         "summary": "Lists clinic applications.",
-        "operationId": "applications",
+        "operationId": "listApplications",
         "parameters": [
           {
             "name": "status",
@@ -378,7 +378,7 @@
           "console"
         ],
         "summary": "Approves an application: creates the clinic, the owner's sign-in account and invitation,\nand emails the invitation.",
-        "operationId": "approve",
+        "operationId": "approveApplication",
         "parameters": [
           {
             "name": "id",
@@ -439,7 +439,7 @@
           "console"
         ],
         "summary": "Rejects an application.",
-        "operationId": "reject",
+        "operationId": "rejectApplication",
         "parameters": [
           {
             "name": "id",
@@ -485,7 +485,7 @@
           "console"
         ],
         "summary": "Lists every clinic with member and patient counts.",
-        "operationId": "clinics",
+        "operationId": "listClinics",
         "responses": {
           "200": {
             "content": {
@@ -514,7 +514,7 @@
           "console"
         ],
         "summary": "Creates a clinic and invites its owner. Owner and onboarding staff only.",
-        "operationId": "create_clinic",
+        "operationId": "createClinic",
         "requestBody": {
           "content": {
             "application/json": {
@@ -558,7 +558,7 @@
           "console"
         ],
         "summary": "One clinic, with its staff. Counts only, never patient data.",
-        "operationId": "clinic",
+        "operationId": "getClinic",
         "parameters": [
           {
             "name": "id",
@@ -600,7 +600,7 @@
           "console"
         ],
         "summary": "Invites a doctor or other staff to a clinic: creates their sign-in account and invitation,\nand emails it.",
-        "operationId": "invite",
+        "operationId": "inviteClinicStaff",
         "parameters": [
           {
             "name": "id",
@@ -658,7 +658,7 @@
           "console"
         ],
         "summary": "Service health: API, database and edge.",
-        "operationId": "metrics",
+        "operationId": "getConsoleMetrics",
         "parameters": [
           {
             "name": "range",
@@ -697,7 +697,7 @@
           "console"
         ],
         "summary": "Recent quality runs, each suite's pass-rate trend, and the currently failing tests.",
-        "operationId": "quality",
+        "operationId": "getConsoleQuality",
         "parameters": [
           {
             "name": "limit",
@@ -741,7 +741,7 @@
           "development"
         ],
         "summary": "Signs in as a seeded person (local development only).",
-        "operationId": "token",
+        "operationId": "createDevToken",
         "requestBody": {
           "content": {
             "application/json": {
@@ -772,7 +772,7 @@
           "prescriptions"
         ],
         "summary": "Finds medicines in the shared list.",
-        "operationId": "search_drugs",
+        "operationId": "searchDrugs",
         "requestBody": {
           "content": {
             "application/json": {
@@ -813,7 +813,7 @@
           "patients"
         ],
         "summary": "Imports patients from CSV. Preview checks every row like a registration; commit registers\nthe valid rows in one transaction with numbers from the clinic's sequence, keeps\n`file_number` and `legacy_id` as identifiers, and records the import and each row's result.",
-        "operationId": "import_patients",
+        "operationId": "importPatients",
         "requestBody": {
           "content": {
             "application/json": {
@@ -860,7 +860,7 @@
           "internal"
         ],
         "summary": "Delivers due outbox messages across clinics (local development only; later Cloud\nScheduler with a Google-signed token).",
-        "operationId": "drain_outbox",
+        "operationId": "drainOutbox",
         "responses": {
           "200": {
             "content": {
@@ -880,7 +880,7 @@
           "inventory"
         ],
         "summary": "The clinic's stock items, by name, each with its level.",
-        "operationId": "items",
+        "operationId": "listInventoryItems",
         "responses": {
           "200": {
             "content": {
@@ -912,7 +912,7 @@
           "inventory"
         ],
         "summary": "Adds a stock item.",
-        "operationId": "create_item",
+        "operationId": "createInventoryItem",
         "requestBody": {
           "content": {
             "application/json": {
@@ -959,7 +959,7 @@
           "inventory"
         ],
         "summary": "One item with its deliveries and latest changes.",
-        "operationId": "item",
+        "operationId": "getInventoryItem",
         "parameters": [
           {
             "name": "id",
@@ -1002,7 +1002,7 @@
           "inventory"
         ],
         "summary": "Removes an item from the lists. Only an item with nothing on the shelf can go.",
-        "operationId": "delete_item",
+        "operationId": "deleteInventoryItem",
         "parameters": [
           {
             "name": "id",
@@ -1042,7 +1042,7 @@
           "inventory"
         ],
         "summary": "Changes a stock item.",
-        "operationId": "update_item",
+        "operationId": "updateInventoryItem",
         "parameters": [
           {
             "name": "id",
@@ -1103,7 +1103,7 @@
           "session"
         ],
         "summary": "Accepts an invitation. The person must have signed in with the email address it was sent\nto; each invitation works once and expires after seven days.",
-        "operationId": "accept",
+        "operationId": "acceptInvitation",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1147,7 +1147,7 @@
           "billing"
         ],
         "summary": "Bills, newest first, without lines.",
-        "operationId": "list_invoices",
+        "operationId": "listInvoices",
         "parameters": [
           {
             "name": "status",
@@ -1227,7 +1227,7 @@
           "billing"
         ],
         "summary": "Starts a draft bill for a patient.",
-        "operationId": "create_invoice",
+        "operationId": "createInvoice",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1274,7 +1274,7 @@
           "billing"
         ],
         "summary": "Opens a bill with its lines. Writes the access record.",
-        "operationId": "get_invoice",
+        "operationId": "getInvoice",
         "parameters": [
           {
             "name": "id",
@@ -1317,7 +1317,7 @@
           "billing"
         ],
         "summary": "Edits a draft bill. Issued and void bills never change.",
-        "operationId": "edit_invoice",
+        "operationId": "updateInvoice",
         "parameters": [
           {
             "name": "id",
@@ -1378,7 +1378,7 @@
           "billing"
         ],
         "summary": "Issues a draft: GST per line (CGST and SGST, or IGST across states), round-off to the\nrupee, a number in the clinic's financial year, and the printed facts captured. Final.",
-        "operationId": "issue_invoice",
+        "operationId": "issueInvoice",
         "parameters": [
           {
             "name": "id",
@@ -1429,7 +1429,7 @@
           "billing"
         ],
         "summary": "Voids a bill with a reason. It is kept with its number; bill again to correct it.",
-        "operationId": "void_invoice",
+        "operationId": "voidInvoice",
         "parameters": [
           {
             "name": "id",
@@ -1490,7 +1490,7 @@
           "schedule"
         ],
         "summary": "Leave overlapping the local days `from` to `to`.",
-        "operationId": "leave",
+        "operationId": "listLeaveBlocks",
         "parameters": [
           {
             "name": "from",
@@ -1551,7 +1551,7 @@
           "schedule"
         ],
         "summary": "Records a doctor's leave. Bookings already made stay; new ones get a warning.",
-        "operationId": "add_leave",
+        "operationId": "addLeaveBlock",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1598,7 +1598,7 @@
           "schedule"
         ],
         "summary": "Removes leave.",
-        "operationId": "remove_leave",
+        "operationId": "removeLeaveBlock",
         "parameters": [
           {
             "name": "id",
@@ -1637,7 +1637,7 @@
           "settings"
         ],
         "summary": "What a document prints for the signed-in member's clinic: the letterhead, clinic details,\ndoctors, and signed image links.",
-        "operationId": "document",
+        "operationId": "getLetterhead",
         "responses": {
           "200": {
             "content": {
@@ -1671,7 +1671,7 @@
           "public"
         ],
         "summary": "Streams a letterhead image through its signed link. The link is the proof of access (an\n`<img>` can use it) and works on the clinic's own host for an hour.",
-        "operationId": "image_content",
+        "operationId": "getLetterheadImageContent",
         "parameters": [
           {
             "name": "id",
@@ -1711,7 +1711,7 @@
           "session"
         ],
         "summary": "The signed-in person's clinics, for the clinic switcher.",
-        "operationId": "me",
+        "operationId": "getMe",
         "responses": {
           "200": {
             "content": {
@@ -1739,7 +1739,7 @@
           "setup"
         ],
         "summary": "The signed-in member's own setup (a doctor's one screen).",
-        "operationId": "get_my_setup",
+        "operationId": "getMySetup",
         "responses": {
           "200": {
             "content": {
@@ -1768,7 +1768,7 @@
           "setup"
         ],
         "summary": "Answers the member's own step or closes their card.",
-        "operationId": "update_my_setup",
+        "operationId": "updateMySetup",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1812,7 +1812,7 @@
           "setup"
         ],
         "summary": "The doctor record linked to the signed-in member.",
-        "operationId": "my_practitioner",
+        "operationId": "getMyPractitioner",
         "responses": {
           "200": {
             "content": {
@@ -1841,7 +1841,7 @@
           "setup"
         ],
         "summary": "Changes the member's own doctor details: name, qualifications, registration number and\nspecialty. Colour, availability and the link to the member are ignored. A member who can\nissue prescriptions and has no doctor record yet gets one, named after their account unless\na name is given.",
-        "operationId": "update_my_practitioner",
+        "operationId": "updateMyPractitioner",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1885,7 +1885,7 @@
           "session"
         ],
         "summary": "Where the signed-in person is signed in: their sessions that are neither revoked nor expired.",
-        "operationId": "sessions",
+        "operationId": "listMySessions",
         "responses": {
           "200": {
             "content": {
@@ -1913,7 +1913,7 @@
           "session"
         ],
         "summary": "Signs one of the person's own sessions out. Its next request gets `401`, on every host.",
-        "operationId": "revoke_session",
+        "operationId": "revokeMySession",
         "parameters": [
           {
             "name": "id",
@@ -1949,7 +1949,7 @@
           "setup"
         ],
         "summary": "The signed-in doctor's weekly hours.",
-        "operationId": "my_hours",
+        "operationId": "getMyHours",
         "responses": {
           "200": {
             "content": {
@@ -1978,7 +1978,7 @@
           "setup"
         ],
         "summary": "Replaces the signed-in doctor's weekly hours. An empty list clears them.",
-        "operationId": "set_my_hours",
+        "operationId": "setMyHours",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2022,7 +2022,7 @@
           "clinical"
         ],
         "summary": "Replaces a draft's sections. Only the author may, and only while it is a draft.",
-        "operationId": "edit_note",
+        "operationId": "updateNote",
         "parameters": [
           {
             "name": "id",
@@ -2083,7 +2083,7 @@
           "clinical"
         ],
         "summary": "Adds an addendum to a signed note. Addenda are never edited or removed.",
-        "operationId": "add_addendum",
+        "operationId": "addNoteAddendum",
         "parameters": [
           {
             "name": "id",
@@ -2128,7 +2128,7 @@
             "description": "No such note in this clinic"
           },
           "409": {
-            "description": "The note isn't signed"
+            "description": "The note isn't signed, or `id_conflict`: the id belongs to a different addendum"
           }
         },
         "security": [
@@ -2144,7 +2144,7 @@
           "clinical"
         ],
         "summary": "Marks a note entered in error with a reason. It stays in the record, marked; nothing is\ndeleted. A draft can be withdrawn only by its author.",
-        "operationId": "note_in_error",
+        "operationId": "markNoteEnteredInError",
         "parameters": [
           {
             "name": "id",
@@ -2205,7 +2205,7 @@
           "clinical"
         ],
         "summary": "Signs a draft. Only its author may; the note never changes afterwards.",
-        "operationId": "sign_note",
+        "operationId": "signNote",
         "parameters": [
           {
             "name": "id",
@@ -2253,7 +2253,7 @@
           "clinical"
         ],
         "summary": "Marks a reading entered in error with a reason. It stays in the record, marked.",
-        "operationId": "in_error",
+        "operationId": "markObservationEnteredInError",
         "parameters": [
           {
             "name": "id",
@@ -2314,7 +2314,7 @@
           "patients"
         ],
         "summary": "The most recently registered patients.",
-        "operationId": "recent",
+        "operationId": "listPatients",
         "parameters": [
           {
             "name": "with_balance",
@@ -2375,7 +2375,7 @@
           "patients"
         ],
         "summary": "Registers a patient and issues the clinic's next number.",
-        "operationId": "register",
+        "operationId": "registerPatient",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2419,7 +2419,7 @@
           "patients"
         ],
         "summary": "Finds patients by number, phone or name. A POST so names and phone numbers stay out of\nURLs, which proxies, browsers and logs keep.",
-        "operationId": "search",
+        "operationId": "searchPatients",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2463,7 +2463,7 @@
           "patients"
         ],
         "summary": "Opens a patient's record. Every open is written to the access record.",
-        "operationId": "open",
+        "operationId": "getPatient",
         "parameters": [
           {
             "name": "id",
@@ -2506,7 +2506,7 @@
           "patients"
         ],
         "summary": "Edits a patient's details with the same rules as registration. Changing the phone or email\nalso needs `patients.contact`. The change history records each change.",
-        "operationId": "edit",
+        "operationId": "updatePatient",
         "parameters": [
           {
             "name": "id",
@@ -2564,7 +2564,7 @@
           "clinical"
         ],
         "summary": "A patient's allergies, active and severe first.",
-        "operationId": "allergies",
+        "operationId": "listAllergies",
         "parameters": [
           {
             "name": "id",
@@ -2607,7 +2607,7 @@
           "clinical"
         ],
         "summary": "Records an allergy.",
-        "operationId": "add_allergy",
+        "operationId": "addAllergy",
         "parameters": [
           {
             "name": "id",
@@ -2665,7 +2665,7 @@
           "clinical"
         ],
         "summary": "Edits an allergy: resolve it, change its severity, or mark it entered in error.",
-        "operationId": "edit_allergy",
+        "operationId": "updateAllergy",
         "parameters": [
           {
             "name": "id",
@@ -2732,7 +2732,7 @@
           "clinical"
         ],
         "summary": "A patient's files, newest first.",
-        "operationId": "list",
+        "operationId": "listAttachments",
         "parameters": [
           {
             "name": "id",
@@ -2775,7 +2775,7 @@
           "clinical"
         ],
         "summary": "Uploads a patient file (`multipart/form-data`, field `file` up to 10 MB). Its type is read\nfrom its content; anything but JPEG, PNG, PDF, DICOM or a `WebM`, `MP4` or `Ogg` recording is\nrefused. A recording (kind `audio`, with `duration_seconds` and optionally `language`) may be\nlinked to a note with `note_id`; a signed note takes it only together with the uploader's own\n`addendum_id`.",
-        "operationId": "upload",
+        "operationId": "uploadAttachment",
         "parameters": [
           {
             "name": "id",
@@ -2820,7 +2820,7 @@
             "description": "No such patient in this clinic"
           },
           "409": {
-            "description": "The note is not the uploader's draft, or is entered in error"
+            "description": "The note is not the uploader's draft, or is entered in error, or `id_conflict`: the id belongs to a different file"
           },
           "413": {
             "description": "Larger than 10 MB"
@@ -2839,7 +2839,7 @@
           "clinical"
         ],
         "summary": "The patient's clinical flags: active allergies and flagged active conditions.",
-        "operationId": "flags",
+        "operationId": "getClinicalFlags",
         "parameters": [
           {
             "name": "id",
@@ -2884,7 +2884,7 @@
           "clinical"
         ],
         "summary": "A patient's conditions, active first.",
-        "operationId": "conditions",
+        "operationId": "listConditions",
         "parameters": [
           {
             "name": "id",
@@ -2927,7 +2927,7 @@
           "clinical"
         ],
         "summary": "Adds a condition to a patient's problem list.",
-        "operationId": "add_condition",
+        "operationId": "addCondition",
         "parameters": [
           {
             "name": "id",
@@ -2985,7 +2985,7 @@
           "clinical"
         ],
         "summary": "Edits a condition: resolve it, flag it, correct it, or mark it entered in error.",
-        "operationId": "edit_condition",
+        "operationId": "updateCondition",
         "parameters": [
           {
             "name": "id",
@@ -3052,7 +3052,7 @@
           "clinical"
         ],
         "summary": "A patient's dental chart, with one tooth's history when `tooth` is given.",
-        "operationId": "get",
+        "operationId": "getDentalChart",
         "parameters": [
           {
             "name": "id",
@@ -3108,7 +3108,7 @@
           "clinical"
         ],
         "summary": "Records findings. Each supersedes the current entry for its tooth and surface (a crown,\nimplant or missing tooth also supersedes the tooth's surface entries); the history keeps\neverything. Returns the updated chart.",
-        "operationId": "record",
+        "operationId": "recordDentalChart",
         "parameters": [
           {
             "name": "id",
@@ -3169,7 +3169,7 @@
           "patients"
         ],
         "summary": "A patient's other numbers: file number, legacy ID, smart card, ABHA.",
-        "operationId": "identifiers",
+        "operationId": "listPatientIdentifiers",
         "parameters": [
           {
             "name": "id",
@@ -3212,7 +3212,7 @@
           "patients"
         ],
         "summary": "Adds a number to a patient. Each number belongs to one patient per clinic and kind.",
-        "operationId": "add_identifier",
+        "operationId": "addPatientIdentifier",
         "parameters": [
           {
             "name": "id",
@@ -3273,7 +3273,7 @@
           "patients"
         ],
         "summary": "Removes a number from a patient.",
-        "operationId": "remove_identifier",
+        "operationId": "removePatientIdentifier",
         "parameters": [
           {
             "name": "id",
@@ -3321,7 +3321,7 @@
           "prescriptions"
         ],
         "summary": "A patient's prescriptions, newest first.",
-        "operationId": "for_patient",
+        "operationId": "listPatientPrescriptions",
         "parameters": [
           {
             "name": "id",
@@ -3364,7 +3364,7 @@
           "prescriptions"
         ],
         "summary": "Starts a draft prescription for a patient.",
-        "operationId": "create",
+        "operationId": "createPrescription",
         "parameters": [
           {
             "name": "id",
@@ -3422,7 +3422,7 @@
           "prescriptions"
         ],
         "summary": "The patient's last issued prescription, for Quick Rx (repeat it as a new draft).",
-        "operationId": "last",
+        "operationId": "getLastPrescription",
         "parameters": [
           {
             "name": "id",
@@ -3467,7 +3467,7 @@
           "clinical"
         ],
         "summary": "A patient's procedures, newest first.",
-        "operationId": "procedures",
+        "operationId": "listProcedures",
         "parameters": [
           {
             "name": "id",
@@ -3512,7 +3512,7 @@
           "patients"
         ],
         "summary": "Plans a follow-up for a patient.",
-        "operationId": "create",
+        "operationId": "createRecall",
         "parameters": [
           {
             "name": "id",
@@ -3570,7 +3570,7 @@
           "clinical"
         ],
         "summary": "A patient's clinical timeline, newest first: visits, signed notes, procedures and files.\nPrescriptions and bills join it when they exist. Reading it writes the access record.",
-        "operationId": "timeline",
+        "operationId": "getPatientTimeline",
         "parameters": [
           {
             "name": "id",
@@ -3637,7 +3637,7 @@
           "clinical"
         ],
         "summary": "A patient's treatment plans, newest first.",
-        "operationId": "plans",
+        "operationId": "listTreatmentPlans",
         "parameters": [
           {
             "name": "id",
@@ -3680,7 +3680,7 @@
           "clinical"
         ],
         "summary": "Proposes a treatment plan with an estimate per item.",
-        "operationId": "create_plan",
+        "operationId": "createTreatmentPlan",
         "parameters": [
           {
             "name": "id",
@@ -3738,7 +3738,7 @@
           "clinical"
         ],
         "summary": "A patient's visits, newest first.",
-        "operationId": "list",
+        "operationId": "listVisits",
         "parameters": [
           {
             "name": "id",
@@ -3780,8 +3780,8 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Starts a visit, with the caller as the clinician responsible.",
-        "operationId": "start",
+        "summary": "Starts a visit, with the caller as the clinician responsible. A walk-in has no appointment.\nSend an `id` so a retry after a lost answer returns this visit instead of starting another.",
+        "operationId": "startVisit",
         "parameters": [
           {
             "name": "id",
@@ -3826,7 +3826,7 @@
             "description": "No such patient in this clinic"
           },
           "409": {
-            "description": "The appointment already has a visit"
+            "description": "The appointment already has a visit, or `id_conflict`: the id belongs to a different visit"
           }
         },
         "security": [
@@ -3842,7 +3842,7 @@
           "billing"
         ],
         "summary": "Payments received, newest first.",
-        "operationId": "list",
+        "operationId": "listPayments",
         "parameters": [
           {
             "name": "from",
@@ -3904,7 +3904,7 @@
           "billing"
         ],
         "summary": "Records a payment against issued bills and issues a receipt number. Needs an\n`Idempotency-Key` header.",
-        "operationId": "record",
+        "operationId": "recordPayment",
         "parameters": [
           {
             "name": "Idempotency-Key",
@@ -3976,7 +3976,7 @@
           "billing"
         ],
         "summary": "One payment, for its receipt.",
-        "operationId": "get",
+        "operationId": "getPayment",
         "parameters": [
           {
             "name": "id",
@@ -4021,7 +4021,7 @@
           "billing"
         ],
         "summary": "Voids a payment with a reason. The bills it paid show their balance again.",
-        "operationId": "void",
+        "operationId": "voidPayment",
         "parameters": [
           {
             "name": "id",
@@ -4082,7 +4082,7 @@
           "schedule"
         ],
         "summary": "The clinic's doctors, by name.",
-        "operationId": "practitioners",
+        "operationId": "listPractitioners",
         "responses": {
           "200": {
             "content": {
@@ -4114,7 +4114,7 @@
           "schedule"
         ],
         "summary": "Adds a doctor.",
-        "operationId": "add_practitioner",
+        "operationId": "addPractitioner",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4161,7 +4161,7 @@
           "schedule"
         ],
         "summary": "Removes a doctor with no upcoming appointments, and their weekly hours.",
-        "operationId": "remove_practitioner",
+        "operationId": "removePractitioner",
         "parameters": [
           {
             "name": "id",
@@ -4201,7 +4201,7 @@
           "schedule"
         ],
         "summary": "Changes a doctor's details.",
-        "operationId": "change_practitioner",
+        "operationId": "updatePractitioner",
         "parameters": [
           {
             "name": "id",
@@ -4262,7 +4262,7 @@
           "schedule"
         ],
         "summary": "A doctor's weekly hours.",
-        "operationId": "hours",
+        "operationId": "getPractitionerHours",
         "parameters": [
           {
             "name": "id",
@@ -4305,7 +4305,7 @@
           "schedule"
         ],
         "summary": "Replaces a doctor's weekly hours. An empty list clears them.",
-        "operationId": "set_hours",
+        "operationId": "setPractitionerHours",
         "parameters": [
           {
             "name": "id",
@@ -4363,7 +4363,7 @@
           "prescriptions"
         ],
         "summary": "Opens a prescription with its print data. Writes the access record.",
-        "operationId": "get",
+        "operationId": "getPrescription",
         "parameters": [
           {
             "name": "id",
@@ -4406,7 +4406,7 @@
           "prescriptions"
         ],
         "summary": "Edits a draft. Issued prescriptions never change.",
-        "operationId": "edit",
+        "operationId": "updatePrescription",
         "parameters": [
           {
             "name": "id",
@@ -4467,7 +4467,7 @@
           "prescriptions"
         ],
         "summary": "Cancels an issued prescription with a reason and, by default, starts a corrected draft\ncopied from it.",
-        "operationId": "cancel",
+        "operationId": "cancelPrescription",
         "parameters": [
           {
             "name": "id",
@@ -4528,7 +4528,7 @@
           "prescriptions"
         ],
         "summary": "Issues a draft: allergy check, number, print data, frozen. With alerts and no\n`override_reason`, answers `409` with the alerts and changes nothing.",
-        "operationId": "issue",
+        "operationId": "issuePrescription",
         "parameters": [
           {
             "name": "id",
@@ -4596,7 +4596,7 @@
           "prescriptions"
         ],
         "summary": "Makes a seven-day link for the patient to open the prescription with a PIN.",
-        "operationId": "create_share",
+        "operationId": "createPrescriptionShare",
         "parameters": [
           {
             "name": "id",
@@ -4644,7 +4644,7 @@
           "billing"
         ],
         "summary": "The clinic's price list.",
-        "operationId": "price_items",
+        "operationId": "listPriceItems",
         "responses": {
           "200": {
             "content": {
@@ -4676,7 +4676,7 @@
           "billing"
         ],
         "summary": "Adds a price list entry.",
-        "operationId": "create_price_item",
+        "operationId": "createPriceItem",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4723,7 +4723,7 @@
           "billing"
         ],
         "summary": "Changes a price list entry. Issued bills keep what they printed.",
-        "operationId": "update_price_item",
+        "operationId": "updatePriceItem",
         "parameters": [
           {
             "name": "id",
@@ -4784,7 +4784,7 @@
           "clinical"
         ],
         "summary": "Marks a planned procedure done; its plan item, if any, is done too.",
-        "operationId": "complete",
+        "operationId": "completeProcedure",
         "parameters": [
           {
             "name": "id",
@@ -4832,7 +4832,7 @@
           "clinical"
         ],
         "summary": "Marks a procedure entered in error with a reason; its plan item is open again.",
-        "operationId": "procedure_in_error",
+        "operationId": "markProcedureEnteredInError",
         "parameters": [
           {
             "name": "id",
@@ -4893,7 +4893,7 @@
           "public"
         ],
         "summary": "Public, no sign-in: a doctor's free slots on a local day, from working hours minus leave\nminus active appointments, in the clinic's time zone. No patient data.",
-        "operationId": "free_slots",
+        "operationId": "listFreeSlots",
         "parameters": [
           {
             "name": "date",
@@ -4942,7 +4942,7 @@
           "public"
         ],
         "summary": "Public, no sign-in: the clinic's name, booking settings and bookable doctors.",
-        "operationId": "booking_options",
+        "operationId": "getBookingOptions",
         "responses": {
           "200": {
             "content": {
@@ -4968,7 +4968,7 @@
           "public"
         ],
         "summary": "Books a slot. The caller is signed in with a verified email (a one-time code from\nSupabase) and need not belong to the clinic. The appointment is `requested`, or `confirmed`\nwhen the clinic auto-confirms. Never says whether a patient record already existed.",
-        "operationId": "book_online",
+        "operationId": "bookOnline",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5021,7 +5021,7 @@
           "public"
         ],
         "summary": "Public, no sign-in: the clinic's published website. Holds the clinic's name, doctors,\nservices, hours and contact details, and nothing about patients.",
-        "operationId": "public_site",
+        "operationId": "getPublicSite",
         "responses": {
           "200": {
             "content": {
@@ -5047,7 +5047,7 @@
           "public"
         ],
         "summary": "Public, no sign-in: one of the clinic's website pictures.",
-        "operationId": "public_photo",
+        "operationId": "getPublicSitePhoto",
         "parameters": [
           {
             "name": "id",
@@ -5078,7 +5078,7 @@
           "queue"
         ],
         "summary": "The queue of a clinic day, with each token's wait.",
-        "operationId": "list",
+        "operationId": "listQueue",
         "parameters": [
           {
             "name": "date",
@@ -5130,7 +5130,7 @@
           "queue"
         ],
         "summary": "Issues a token to a patient without an appointment.",
-        "operationId": "walk_in",
+        "operationId": "addWalkIn",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5177,7 +5177,7 @@
           "queue"
         ],
         "summary": "Moves a token along. A token with an appointment moves the appointment too.",
-        "operationId": "set_status",
+        "operationId": "setQueueTokenStatus",
         "parameters": [
           {
             "name": "id",
@@ -5235,7 +5235,7 @@
           "patients"
         ],
         "summary": "Open follow-ups, soonest first.",
-        "operationId": "due",
+        "operationId": "listRecallsDue",
         "parameters": [
           {
             "name": "due_before",
@@ -5280,7 +5280,7 @@
           "patients"
         ],
         "summary": "Marks a follow-up done.",
-        "operationId": "done",
+        "operationId": "markRecallDone",
         "parameters": [
           {
             "name": "id",
@@ -5328,7 +5328,7 @@
           "registration"
         ],
         "summary": "Applies to join Aarogyam (public, throttled per IP).",
-        "operationId": "register",
+        "operationId": "submitRegistration",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5365,7 +5365,7 @@
           "reports"
         ],
         "summary": "Collections by day, week and method, and the revenue mix. The last seven days by default;\nat most 366 days.",
-        "operationId": "collections",
+        "operationId": "getCollectionsReport",
         "parameters": [
           {
             "name": "from",
@@ -5419,7 +5419,7 @@
           "reports"
         ],
         "summary": "Issued bills with a balance, oldest first, with aging buckets.",
-        "operationId": "pending",
+        "operationId": "getPendingReport",
         "responses": {
           "200": {
             "content": {
@@ -5450,7 +5450,7 @@
           "staff"
         ],
         "summary": "The clinic's roles and the permissions each holds, for choosing a role.",
-        "operationId": "roles",
+        "operationId": "listRoles",
         "responses": {
           "200": {
             "content": {
@@ -5484,7 +5484,7 @@
           "schedule"
         ],
         "summary": "The clinic's chairs and rooms, in list order.",
-        "operationId": "rooms",
+        "operationId": "listRooms",
         "responses": {
           "200": {
             "content": {
@@ -5516,7 +5516,7 @@
           "schedule"
         ],
         "summary": "Adds a chair or room.",
-        "operationId": "add_room",
+        "operationId": "addRoom",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5563,7 +5563,7 @@
           "schedule"
         ],
         "summary": "Removes a chair or room with no upcoming appointments.",
-        "operationId": "remove_room",
+        "operationId": "removeRoom",
         "parameters": [
           {
             "name": "id",
@@ -5603,7 +5603,7 @@
           "schedule"
         ],
         "summary": "Renames, moves, retires or reorders a chair or room.",
-        "operationId": "change_room",
+        "operationId": "updateRoom",
         "parameters": [
           {
             "name": "id",
@@ -5664,7 +5664,7 @@
           "session"
         ],
         "summary": "The clinic, member and permissions for this host. The portal hides what the role can't\ndo; the API still enforces it.",
-        "operationId": "session",
+        "operationId": "getSession",
         "responses": {
           "200": {
             "content": {
@@ -5695,7 +5695,7 @@
           "settings"
         ],
         "summary": "The clinic's settings: profile, GSTIN, time zone, branding, prescription footer, address,\nphone and UPI ID.",
-        "operationId": "get_clinic",
+        "operationId": "getClinicSettings",
         "responses": {
           "200": {
             "content": {
@@ -5727,7 +5727,7 @@
           "settings"
         ],
         "summary": "Changes the clinic's settings. The change history records each change.",
-        "operationId": "update_clinic",
+        "operationId": "updateClinicSettings",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5774,7 +5774,7 @@
           "settings"
         ],
         "summary": "Uploads the letterhead image (`slot` `letterhead`) or the logo (`slot` `logo`) as\n`multipart/form-data` field `file`: PNG or JPEG, up to 2 MB, checked by content. Replaces the\nprevious one. Returns the letterhead settings.",
-        "operationId": "upload_image",
+        "operationId": "uploadLetterheadImage",
         "parameters": [
           {
             "name": "slot",
@@ -5830,7 +5830,7 @@
           "settings"
         ],
         "summary": "Removes the letterhead image or the logo. Without an image, upload mode falls back to the\ngenerated design.",
-        "operationId": "remove_image",
+        "operationId": "removeLetterheadImage",
         "parameters": [
           {
             "name": "slot",
@@ -5875,7 +5875,7 @@
           "setup"
         ],
         "summary": "The clinic's first-run setup. Nothing is stored until the owner answers a step.",
-        "operationId": "get_clinic_setup",
+        "operationId": "getClinicSetup",
         "responses": {
           "200": {
             "content": {
@@ -5907,7 +5907,7 @@
           "setup"
         ],
         "summary": "Answers a step of the clinic's setup, closes the card, or says how the clinic practises.",
-        "operationId": "update_clinic_setup",
+        "operationId": "updateClinicSetup",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5954,7 +5954,7 @@
           "website"
         ],
         "summary": "The owner's website settings, pictures and a preview of the page.",
-        "operationId": "get_settings",
+        "operationId": "getWebsiteSettings",
         "responses": {
           "200": {
             "content": {
@@ -5986,7 +5986,7 @@
           "website"
         ],
         "summary": "Changes the website: design, content, published state or domain. Doctors in `content` must\nbelong to the clinic; links must start with `https://`.",
-        "operationId": "update_settings",
+        "operationId": "updateWebsiteSettings",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6033,7 +6033,7 @@
           "website"
         ],
         "summary": "Uploads a website picture (`multipart/form-data`, field `file` up to 5 MB). A logo, hero or\nabout picture replaces the one before it.",
-        "operationId": "upload_photo",
+        "operationId": "uploadWebsitePhoto",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -6080,7 +6080,7 @@
           "website"
         ],
         "summary": "Removes a picture. Doctors who used it as a portrait lose it.",
-        "operationId": "delete_photo",
+        "operationId": "deleteWebsitePhoto",
         "parameters": [
           {
             "name": "id",
@@ -6117,7 +6117,7 @@
           "website"
         ],
         "summary": "Changes a picture's description.",
-        "operationId": "describe_photo",
+        "operationId": "describeWebsitePhoto",
         "parameters": [
           {
             "name": "id",
@@ -6175,7 +6175,7 @@
           "public"
         ],
         "summary": "Public, no sign-in: whether a link exists and which clinic sent it.",
-        "operationId": "shared_preview",
+        "operationId": "previewSharedPrescription",
         "parameters": [
           {
             "name": "token",
@@ -6209,7 +6209,7 @@
           "public"
         ],
         "summary": "Public, no sign-in: the letterhead for a share link's page, so the page prints the clinic's\nheader even before the PIN. Needs a link that exists; holds no patient data.",
-        "operationId": "shared_document",
+        "operationId": "getSharedLetterhead",
         "parameters": [
           {
             "name": "token",
@@ -6243,7 +6243,7 @@
           "public"
         ],
         "summary": "Public, no sign-in: opens the prescription with the PIN. Five wrong PINs lock the link.\nEvery open is written to the access record.",
-        "operationId": "shared_open",
+        "operationId": "openSharedPrescription",
         "parameters": [
           {
             "name": "token",
@@ -6296,7 +6296,7 @@
           "staff"
         ],
         "summary": "The clinic's members, with their roles, status and branches, and pending invitations.",
-        "operationId": "list",
+        "operationId": "listStaff",
         "responses": {
           "200": {
             "content": {
@@ -6330,7 +6330,7 @@
           "staff"
         ],
         "summary": "Invites someone to the staff and emails them the link (through the outbox). Only owners\nmay invite owners.",
-        "operationId": "invite",
+        "operationId": "inviteStaff",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6377,7 +6377,7 @@
           "staff"
         ],
         "summary": "Changes a member's role or status. Takes effect on the member's next request. Nobody\nchanges their own role, only owners make or change owners, and the last active owner\ncan't be suspended, removed or demoted.",
-        "operationId": "change",
+        "operationId": "updateStaffMember",
         "parameters": [
           {
             "name": "membership_id",
@@ -6438,7 +6438,7 @@
           "inventory"
         ],
         "summary": "Stock levels: units on hand, reorder level and status for every item, with counts for the\nsummary cards.",
-        "operationId": "summary",
+        "operationId": "getStockSummary",
         "responses": {
           "200": {
             "content": {
@@ -6472,7 +6472,7 @@
           "inventory"
         ],
         "summary": "Corrects stock after a count.",
-        "operationId": "adjust",
+        "operationId": "adjustStock",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6522,7 +6522,7 @@
           "inventory"
         ],
         "summary": "Writes off what is left of a batch that has expired.",
-        "operationId": "expire_batch",
+        "operationId": "expireStockBatch",
         "parameters": [
           {
             "name": "id",
@@ -6580,7 +6580,7 @@
           "inventory"
         ],
         "summary": "Batches with stock left that expire within `days` days or already have.",
-        "operationId": "expiring",
+        "operationId": "listExpiringStock",
         "parameters": [
           {
             "name": "days",
@@ -6629,7 +6629,7 @@
           "inventory"
         ],
         "summary": "Active items at or below their reorder level, worst first.",
-        "operationId": "low",
+        "operationId": "listLowStock",
         "responses": {
           "200": {
             "content": {
@@ -6663,7 +6663,7 @@
           "inventory"
         ],
         "summary": "Adds a delivery to stock: a new batch and a `receive` movement.",
-        "operationId": "receive",
+        "operationId": "receiveStock",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6710,7 +6710,7 @@
           "inventory"
         ],
         "summary": "Uses stock: takes from the batches that expire first and skips expired ones. When the usable\nstock is short, nothing is taken.",
-        "operationId": "use_stock",
+        "operationId": "useStock",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6760,7 +6760,7 @@
           "inventory"
         ],
         "summary": "The clinic's suppliers.",
-        "operationId": "suppliers",
+        "operationId": "listSuppliers",
         "responses": {
           "200": {
             "content": {
@@ -6792,7 +6792,7 @@
           "inventory"
         ],
         "summary": "Adds a supplier.",
-        "operationId": "create_supplier",
+        "operationId": "createSupplier",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6839,7 +6839,7 @@
           "inventory"
         ],
         "summary": "Removes a supplier from the list. Deliveries already received keep their supplier.",
-        "operationId": "delete_supplier",
+        "operationId": "deleteSupplier",
         "parameters": [
           {
             "name": "id",
@@ -6876,7 +6876,7 @@
           "inventory"
         ],
         "summary": "Changes a supplier.",
-        "operationId": "update_supplier",
+        "operationId": "updateSupplier",
         "parameters": [
           {
             "name": "id",
@@ -6937,7 +6937,7 @@
           "appointments"
         ],
         "summary": "Today's schedule, chairs, counts, appointments by hour, recent patients, the team on duty\nand the attention list, in the clinic's time zone.",
-        "operationId": "today",
+        "operationId": "getToday",
         "responses": {
           "200": {
             "content": {
@@ -6971,7 +6971,7 @@
           "reports"
         ],
         "summary": "Money for the Today screen: today's collections, pending dues, this month's revenue mix\nand the largest unpaid balances.",
-        "operationId": "today_money",
+        "operationId": "getTodayMoney",
         "responses": {
           "200": {
             "content": {
@@ -7002,7 +7002,7 @@
           "clinical"
         ],
         "summary": "Marks an accepted plan item done or cancelled; the plan follows (in progress, then completed).",
-        "operationId": "set_item_status",
+        "operationId": "setTreatmentPlanItemStatus",
         "parameters": [
           {
             "name": "id",
@@ -7063,7 +7063,7 @@
           "clinical"
         ],
         "summary": "Records the patient's acceptance of a proposed plan.",
-        "operationId": "accept_plan",
+        "operationId": "acceptTreatmentPlan",
         "parameters": [
           {
             "name": "id",
@@ -7124,7 +7124,7 @@
           "public"
         ],
         "summary": "Public, no sign-in: the QR code's check that a prescription is genuine.",
-        "operationId": "verify",
+        "operationId": "verifyPrescription",
         "parameters": [
           {
             "name": "verify_token",
@@ -7158,7 +7158,7 @@
           "clinical"
         ],
         "summary": "Opens a visit with everything recorded in it. Every open is written to the access record.",
-        "operationId": "open",
+        "operationId": "getVisit",
         "parameters": [
           {
             "name": "id",
@@ -7203,7 +7203,7 @@
           "clinical"
         ],
         "summary": "Closes a visit. Addenda and corrections still work afterwards; new notes, vitals and\nprocedures don't.",
-        "operationId": "close",
+        "operationId": "closeVisit",
         "parameters": [
           {
             "name": "id",
@@ -7250,8 +7250,8 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Starts a draft note in an open visit, written by the caller.",
-        "operationId": "create_note",
+        "summary": "Starts a draft note in an open visit, written by the caller. Send an `id` so a retry after a\nlost answer returns this note instead of starting another.",
+        "operationId": "createNote",
         "parameters": [
           {
             "name": "id",
@@ -7267,7 +7267,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NoteContent"
+                "$ref": "#/components/schemas/NewNote"
               }
             }
           },
@@ -7296,7 +7296,7 @@
             "description": "No such visit in this clinic"
           },
           "409": {
-            "description": "The visit is closed"
+            "description": "The visit is closed, or `id_conflict`: the id belongs to a different note"
           }
         },
         "security": [
@@ -7311,8 +7311,8 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Records vital signs in a visit. A closed visit takes corrections only.",
-        "operationId": "record",
+        "summary": "Records vital signs in a visit. A closed visit takes corrections only. Send an `id` on each\nreading (and `recorded_at`) so a retry after a lost answer returns the readings instead of\nrecording them again.",
+        "operationId": "recordObservations",
         "parameters": [
           {
             "name": "id",
@@ -7357,7 +7357,7 @@
             "description": "No such visit in this clinic"
           },
           "409": {
-            "description": "The corrected reading isn't final, or the visit is closed"
+            "description": "The corrected reading isn't final, the visit is closed, or `id_conflict`: an id belongs to a different reading"
           }
         },
         "security": [
@@ -7373,7 +7373,7 @@
           "clinical"
         ],
         "summary": "Records a procedure in an open visit.",
-        "operationId": "record_procedure",
+        "operationId": "recordProcedure",
         "parameters": [
           {
             "name": "id",
@@ -7435,7 +7435,7 @@
         ],
         "summary": "Liveness check.",
         "description": "Answers `ok` while the process is serving; a database outage does not fail it.",
-        "operationId": "healthz",
+        "operationId": "getHealth",
         "responses": {
           "200": {
             "description": "The process is serving",
@@ -11456,6 +11456,13 @@
           "body": {
             "type": "string",
             "description": "1 to 10,000 characters."
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out."
           }
         }
       },
@@ -11784,6 +11791,30 @@
           }
         }
       },
+      "NewNote": {
+        "type": "object",
+        "description": "A draft note to start.",
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`soap` (default), `progress`, `procedure`, `intake` or `front_desk`."
+          },
+          "sections": {
+            "$ref": "#/components/schemas/NoteSections",
+            "description": "The sections, each up to 10,000 characters."
+          }
+        }
+      },
       "NewPatient": {
         "type": "object",
         "description": "A patient to register.",
@@ -11988,6 +12019,13 @@
           "value"
         ],
         "properties": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out."
+          },
           "kind": {
             "type": "string",
             "description": "`bp_systolic`, `bp_diastolic`, `pulse`, `temperature`, `spo2`, `weight`, `height` or `blood_sugar`."
@@ -12134,6 +12172,13 @@
               "null"
             ],
             "description": "Why the patient came, up to 1,000 characters."
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out."
           }
         }
       },
@@ -16444,6 +16489,13 @@
             "type": "string",
             "format": "binary",
             "description": "The file: JPEG, PNG, PDF, DICOM or a `WebM`, `MP4` or `Ogg` recording, up to 10 MB. Its type is\nread from its content."
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out."
           },
           "kind": {
             "type": [

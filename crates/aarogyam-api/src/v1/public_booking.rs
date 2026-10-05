@@ -58,6 +58,7 @@ pub struct BookingOptions {
 #[utoipa::path(
     get,
     path = "/api/v1/public/booking",
+    operation_id = "getBookingOptions",
     tag = "public",
     responses(
         (status = 200, body = BookingOptions),
@@ -124,6 +125,7 @@ pub struct Availability {
 #[utoipa::path(
     get,
     path = "/api/v1/public/availability",
+    operation_id = "listFreeSlots",
     tag = "public",
     params(
         ("date" = String, Query, description = "The local day, `YYYY-MM-DD`"),
@@ -202,6 +204,7 @@ pub struct Booked {
 #[utoipa::path(
     post,
     path = "/api/v1/public/bookings",
+    operation_id = "bookOnline",
     tag = "public",
     request_body = NewBooking,
     security(("bearer" = [])),

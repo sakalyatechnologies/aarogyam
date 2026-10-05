@@ -142,6 +142,7 @@ pub struct ListQuery {
 #[utoipa::path(
     post,
     path = "/api/v1/patients/search",
+    operation_id = "searchPatients",
     tag = "patients",
     request_body = SearchRequest,
     security(("bearer" = [])),
@@ -180,6 +181,7 @@ pub(crate) async fn search(
 #[utoipa::path(
     get,
     path = "/api/v1/patients",
+    operation_id = "listPatients",
     tag = "patients",
     params(
         ("with_balance" = Option<bool>, Query, description = "Only patients with a balance (needs billing.read)"),
@@ -247,6 +249,7 @@ fn parse_date(text: &str) -> Result<Date, ApiError> {
 #[utoipa::path(
     post,
     path = "/api/v1/patients",
+    operation_id = "registerPatient",
     tag = "patients",
     request_body = NewPatient,
     security(("bearer" = [])),
@@ -287,6 +290,7 @@ pub(crate) async fn register(
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}",
+    operation_id = "getPatient",
     tag = "patients",
     params(("id" = String, Path, description = "The patient")),
     security(("bearer" = [])),
@@ -338,6 +342,7 @@ pub struct PatientChanges {
 #[utoipa::path(
     patch,
     path = "/api/v1/patients/{id}",
+    operation_id = "updatePatient",
     tag = "patients",
     params(("id" = String, Path, description = "The patient")),
     request_body = PatientChanges,

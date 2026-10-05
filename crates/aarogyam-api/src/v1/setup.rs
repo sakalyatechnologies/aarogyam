@@ -102,6 +102,7 @@ fn logged() {
 #[utoipa::path(
     get,
     path = "/api/v1/settings/onboarding",
+    operation_id = "getClinicSetup",
     tag = "setup",
     security(("bearer" = [])),
     responses(
@@ -123,6 +124,7 @@ pub(crate) async fn get_clinic_setup(
 #[utoipa::path(
     patch,
     path = "/api/v1/settings/onboarding",
+    operation_id = "updateClinicSetup",
     tag = "setup",
     request_body = SetupUpdate,
     security(("bearer" = [])),
@@ -154,6 +156,7 @@ pub(crate) async fn update_clinic_setup(
 #[utoipa::path(
     get,
     path = "/api/v1/me/onboarding",
+    operation_id = "getMySetup",
     tag = "setup",
     security(("bearer" = [])),
     responses(
@@ -174,6 +177,7 @@ pub(crate) async fn get_my_setup(
 #[utoipa::path(
     patch,
     path = "/api/v1/me/onboarding",
+    operation_id = "updateMySetup",
     tag = "setup",
     request_body = SetupUpdate,
     security(("bearer" = [])),
@@ -204,6 +208,7 @@ pub(crate) async fn update_my_setup(
 #[utoipa::path(
     get,
     path = "/api/v1/me/practitioner",
+    operation_id = "getMyPractitioner",
     tag = "setup",
     security(("bearer" = [])),
     responses(
@@ -229,6 +234,7 @@ pub(crate) async fn my_practitioner(
 #[utoipa::path(
     patch,
     path = "/api/v1/me/practitioner",
+    operation_id = "updateMyPractitioner",
     tag = "setup",
     request_body = PractitionerFields,
     security(("bearer" = [])),
@@ -259,6 +265,7 @@ pub(crate) async fn update_my_practitioner(
 #[utoipa::path(
     get,
     path = "/api/v1/me/working-hours",
+    operation_id = "getMyHours",
     tag = "setup",
     security(("bearer" = [])),
     responses(
@@ -281,6 +288,7 @@ pub(crate) async fn my_hours(
 #[utoipa::path(
     put,
     path = "/api/v1/me/working-hours",
+    operation_id = "setMyHours",
     tag = "setup",
     request_body = WorkingHours,
     security(("bearer" = [])),

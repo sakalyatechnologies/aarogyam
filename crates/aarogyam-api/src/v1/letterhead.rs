@@ -120,6 +120,7 @@ fn view(document: Document, now: OffsetDateTime) -> LetterheadDocument {
 #[utoipa::path(
     get,
     path = "/api/v1/letterhead",
+    operation_id = "getLetterhead",
     tag = "settings",
     security(("bearer" = [])),
     responses(
@@ -150,6 +151,7 @@ pub(crate) async fn document(
 #[utoipa::path(
     get,
     path = "/api/v1/shared/{token}/letterhead",
+    operation_id = "getSharedLetterhead",
     tag = "public",
     params(("token" = String, Path, description = "The link's token")),
     responses(
@@ -200,6 +202,7 @@ async fn read_image(mut form: Multipart) -> Result<Vec<u8>, ApiFailure> {
 #[utoipa::path(
     put,
     path = "/api/v1/settings/letterhead/images/{slot}",
+    operation_id = "uploadLetterheadImage",
     tag = "settings",
     params(("slot" = String, Path, description = "`letterhead` or `logo`")),
     request_body(content = ImageForm, content_type = "multipart/form-data"),
@@ -238,6 +241,7 @@ pub(crate) async fn upload_image(
 #[utoipa::path(
     delete,
     path = "/api/v1/settings/letterhead/images/{slot}",
+    operation_id = "removeLetterheadImage",
     tag = "settings",
     params(("slot" = String, Path, description = "`letterhead` or `logo`")),
     security(("bearer" = [])),
@@ -276,6 +280,7 @@ pub struct ImageQuery {
 #[utoipa::path(
     get,
     path = "/api/v1/letterhead/images/{id}/content",
+    operation_id = "getLetterheadImageContent",
     tag = "public",
     params(
         ("id" = String, Path, description = "The image"),

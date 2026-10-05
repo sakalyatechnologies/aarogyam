@@ -38,6 +38,7 @@ use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::routing::{delete, get, patch, post};
 use sakalya_http::ApiError;
+use sakalya_types::{Entity, Id};
 use time::format_description::well_known::Rfc3339;
 use time::{Date, OffsetDateTime, Time};
 use uuid::Uuid;
@@ -393,4 +394,11 @@ pub(crate) fn clock(at: Time) -> String {
 /// An identifier sent in a body.
 pub(crate) fn parse_id(field: &str, text: &str) -> Result<Uuid, ApiError> {
     Uuid::parse_str(text.trim()).map_err(|_| bad(field, "must be an id"))
+}
+
+/// An identifier the client chose for a record it creates: a version 7 UUID, so records made
+/// offline can refer to each other and a retry can't create a second copy.
+pub(crate) fn client_id<T: Entity>(field: &str, text: &str) -> Result<Id<T>, ApiError> {
+    aarogyam_domain::client_id::client_id(parse_id(field, text)?)
+        .map_err(|error| bad(field, &error.to_string()))
 }

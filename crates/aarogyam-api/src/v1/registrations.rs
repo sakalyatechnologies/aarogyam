@@ -45,6 +45,7 @@ pub struct RegistrationReceived {
 #[utoipa::path(
     post,
     path = "/api/v1/registrations",
+    operation_id = "submitRegistration",
     tag = "registration",
     request_body = NewRegistration,
     responses(

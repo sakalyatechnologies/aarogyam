@@ -15,6 +15,7 @@ use time::format_description::well_known::Rfc3339;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use super::client_id;
 use super::rfc3339;
 use super::visits::EnteredInError;
 use crate::AppState;
@@ -80,6 +81,8 @@ pub struct ObservationList {
 /// One reading.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct NewReading {
+    /// A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out.
+    pub id: Option<String>,
     /// `bp_systolic`, `bp_diastolic`, `pulse`, `temperature`, `spo2`, `weight`, `height` or `blood_sugar`.
     pub kind: String,
     /// The value; checked against a plausible range for the kind and unit.
@@ -102,10 +105,13 @@ pub struct NewReadings {
     pub source: Option<String>,
 }
 
-/// Records vital signs in a visit. A closed visit takes corrections only.
+/// Records vital signs in a visit. A closed visit takes corrections only. Send an `id` on each
+/// reading (and `recorded_at`) so a retry after a lost answer returns the readings instead of
+/// recording them again.
 #[utoipa::path(
     post,
     path = "/api/v1/visits/{id}/observations",
+    operation_id = "recordObservations",
     tag = "clinical",
     params(("id" = String, Path, description = "The visit")),
     request_body = NewReadings,
@@ -116,7 +122,7 @@ pub struct NewReadings {
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
         (status = 404, description = "No such visit in this clinic"),
-        (status = 409, description = "The corrected reading isn't final, or the visit is closed")
+        (status = 409, description = "The corrected reading isn't final, the visit is closed, or `id_conflict`: an id belongs to a different reading")
     )
 )]
 pub(crate) async fn record(
@@ -135,13 +141,20 @@ pub(crate) async fn record(
         readings: body
             .readings
             .into_iter()
-            .map(|reading| ReadingInput {
-                kind: reading.kind,
-                value: reading.value,
-                unit: reading.unit,
-                supersedes_id: reading.supersedes_id,
+            .map(|reading| {
+                Ok(ReadingInput {
+                    id: reading
+                        .id
+                        .as_deref()
+                        .map(|text| client_id("readings.id", text))
+                        .transpose()?,
+                    kind: reading.kind,
+                    value: reading.value,
+                    unit: reading.unit,
+                    supersedes_id: reading.supersedes_id,
+                })
             })
-            .collect(),
+            .collect::<Result<Vec<_>, ApiError>>()?,
         recorded_at,
         source: body.source,
     };
@@ -166,6 +179,7 @@ pub(crate) async fn record(
 #[utoipa::path(
     post,
     path = "/api/v1/observations/{id}/entered-in-error",
+    operation_id = "markObservationEnteredInError",
     tag = "clinical",
     params(("id" = String, Path, description = "The reading")),
     request_body = EnteredInError,

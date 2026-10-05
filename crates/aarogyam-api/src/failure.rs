@@ -63,6 +63,10 @@ impl From<AppError> for ApiFailure {
                 format!("{field}: {message}"),
             )),
             AppError::Conflict(message) => Self(ApiError::conflict("conflict", message)),
+            AppError::IdConflict => Self(ApiError::conflict(
+                "id_conflict",
+                "That id is already used by a different record.",
+            )),
             AppError::Forbidden(message) => Self(ApiError::forbidden("forbidden", message)),
             AppError::Db(error) => error.into(),
             AppError::Internal(what) => Self(ApiError::internal(what)),

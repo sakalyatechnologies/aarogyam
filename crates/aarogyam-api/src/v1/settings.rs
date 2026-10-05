@@ -326,6 +326,7 @@ pub struct ClinicSettingsChanges {
 #[utoipa::path(
     get,
     path = "/api/v1/settings/clinic",
+    operation_id = "getClinicSettings",
     tag = "settings",
     security(("bearer" = [])),
     responses(
@@ -347,6 +348,7 @@ pub(crate) async fn get_clinic(
 #[utoipa::path(
     patch,
     path = "/api/v1/settings/clinic",
+    operation_id = "updateClinicSettings",
     tag = "settings",
     request_body = ClinicSettingsChanges,
     security(("bearer" = [])),

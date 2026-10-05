@@ -262,17 +262,22 @@ pub(crate) async fn notes_of(
 /// Input for starting a visit.
 #[derive(Debug, Clone, Default)]
 pub struct StartVisit {
+    /// An identifier the client made (version 7), so a retry returns this visit instead of
+    /// starting another; the server makes one when absent.
+    pub id: Option<EncounterId>,
     /// The appointment the patient came for, if any.
     pub appointment_id: Option<Uuid>,
     /// Why the patient came.
     pub chief_complaint: Option<String>,
 }
 
-/// Starts a visit for a patient, with the member as the clinician responsible.
+/// Starts a visit for a patient, with the member as the clinician responsible. A retry with the
+/// same client-chosen id and the same content returns the visit that exists.
 ///
 /// # Errors
 /// [`AppError::NotFound`] when the patient isn't in this clinic; [`AppError::Conflict`] when
-/// the appointment already has a visit; [`AppError::Invalid`] for bad input.
+/// the appointment already has a visit; [`AppError::IdConflict`] when the id belongs to a
+/// different visit; [`AppError::Invalid`] for bad input.
 pub async fn start(
     db: &Db,
     actor: &ClinicActor,
@@ -286,6 +291,20 @@ pub async fn start(
         .map_err(invalid("chief_complaint"))?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let patient = require_patient(tx, patient_id).await?;
+        if let Some(id) = input.id {
+            visits::lock_client_id(tx.conn(), id.uuid()).await?;
+            if let Some(row) = visits::get_encounter(tx.conn(), id.uuid(), false).await? {
+                let same = row.patient_id == patient.id
+                    && row.clinician_id == actor.membership_id.uuid()
+                    && row.appointment_id == input.appointment_id
+                    && row.chief_complaint == chief_complaint;
+                if !same {
+                    return Err(AppError::IdConflict);
+                }
+                let names = Names::load(tx, [row.clinician_id]).await?;
+                return visit_view(row, &names);
+            }
+        }
         let branch_id = visits::default_branch(tx.conn())
             .await?
             .ok_or(AppError::NotFound("branch"))?;
@@ -294,7 +313,7 @@ pub async fn start(
         let row = visits::insert_encounter(
             tx.conn(),
             &visits::NewEncounter {
-                id: EncounterId::new_v7().uuid(),
+                id: input.id.unwrap_or_else(EncounterId::new_v7).uuid(),
                 number: &number,
                 patient_id: patient.id,
                 clinician_id: actor.membership_id.uuid(),
@@ -449,16 +468,20 @@ async fn one_note(tx: &mut ScopedTx, row: visits::NoteRow) -> Result<NoteView, A
     note_view(row, addenda, &names)
 }
 
-/// Starts a draft note in an open visit, written by the member.
+/// Starts a draft note in an open visit, written by the member. A retry with the same
+/// client-chosen `id` and the same content returns the note that exists, even if its visit has
+/// closed since.
 ///
 /// # Errors
 /// [`AppError::NotFound`] when the visit isn't in this clinic; [`AppError::Conflict`] when it
-/// is closed; [`AppError::Invalid`] for bad input.
+/// is closed; [`AppError::IdConflict`] when the id belongs to a different note;
+/// [`AppError::Invalid`] for bad input.
 pub async fn create_note(
     db: &Db,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     visit_id: EncounterId,
+    id: Option<ClinicalNoteId>,
     input: NoteInput,
 ) -> Result<NoteView, AppError> {
     actor.require(Permission::ClinicalWrite)?;
@@ -468,11 +491,25 @@ pub async fn create_note(
     };
     let body = body_json(&input.body()?)?;
     db.scoped(&scope(actor, request_id), async |tx| {
+        if let Some(id) = id {
+            visits::lock_client_id(tx.conn(), id.uuid()).await?;
+            if let Some(row) = visits::get_note_for_update(tx.conn(), id.uuid()).await? {
+                let same = row.encounter_id == visit_id.uuid()
+                    && row.author_id == actor.membership_id.uuid()
+                    && row.kind == kind.as_str()
+                    && row.body == body;
+                return if same {
+                    one_note(tx, row).await
+                } else {
+                    Err(AppError::IdConflict)
+                };
+            }
+        }
         let visit = require_open_visit(tx, visit_id).await?;
         let row = visits::insert_note(
             tx.conn(),
             &visits::NewNote {
-                id: ClinicalNoteId::new_v7().uuid(),
+                id: id.unwrap_or_else(ClinicalNoteId::new_v7).uuid(),
                 encounter_id: visit.id,
                 patient_id: visit.patient_id,
                 author_id: actor.membership_id.uuid(),
@@ -557,26 +594,42 @@ pub async fn sign_note(
     .await
 }
 
-/// Adds an addendum to a signed note. Addenda are never edited or removed.
+/// Adds an addendum to a signed note. Addenda are never edited or removed. A retry with the same
+/// client-chosen `id` and text returns the note as it is.
 ///
 /// # Errors
 /// [`AppError::NotFound`] when the note isn't in this clinic; [`AppError::Conflict`] unless
-/// it is signed; [`AppError::Invalid`] for an empty or too long text.
+/// it is signed; [`AppError::IdConflict`] when the id belongs to a different addendum;
+/// [`AppError::Invalid`] for an empty or too long text.
 pub async fn add_addendum(
     db: &Db,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     note_id: ClinicalNoteId,
+    id: Option<NoteAddendumId>,
     body: &str,
 ) -> Result<NoteView, AppError> {
     actor.require(Permission::ClinicalWrite)?;
     let body = clinical_text(body, 1, 10_000).map_err(invalid("body"))?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let (row, state) = note_for_change(tx, note_id).await?;
+        if let Some(id) = id {
+            visits::lock_client_id(tx.conn(), id.uuid()).await?;
+            if let Some(existing) = visits::get_addendum(tx.conn(), id.uuid()).await? {
+                let same = existing.note_id == row.id
+                    && existing.author_id == actor.membership_id.uuid()
+                    && existing.body == body;
+                return if same {
+                    one_note(tx, row).await
+                } else {
+                    Err(AppError::IdConflict)
+                };
+            }
+        }
         state.check_addendum().map_err(refused)?;
         visits::insert_addendum(
             tx.conn(),
-            NoteAddendumId::new_v7().uuid(),
+            id.unwrap_or_else(NoteAddendumId::new_v7).uuid(),
             row.id,
             actor.membership_id.uuid(),
             &body,

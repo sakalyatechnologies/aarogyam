@@ -85,6 +85,7 @@ pub struct DrugSearch {
 #[utoipa::path(
     post,
     path = "/api/v1/drugs/search",
+    operation_id = "searchDrugs",
     tag = "prescriptions",
     request_body = DrugSearch,
     security(("bearer" = [])),
@@ -347,6 +348,7 @@ fn rx_input(body: RxValues) -> Result<RxInput, ApiError> {
 #[utoipa::path(
     post,
     path = "/api/v1/patients/{id}/prescriptions",
+    operation_id = "createPrescription",
     tag = "prescriptions",
     params(("id" = String, Path, description = "The patient")),
     request_body = RxValues,
@@ -380,6 +382,7 @@ pub(crate) async fn create(
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/prescriptions",
+    operation_id = "listPatientPrescriptions",
     tag = "prescriptions",
     params(("id" = String, Path, description = "The patient")),
     security(("bearer" = [])),
@@ -412,6 +415,7 @@ pub(crate) async fn for_patient(
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/prescriptions/last",
+    operation_id = "getLastPrescription",
     tag = "prescriptions",
     params(("id" = String, Path, description = "The patient")),
     security(("bearer" = [])),
@@ -446,6 +450,7 @@ pub(crate) async fn last(
 #[utoipa::path(
     patch,
     path = "/api/v1/prescriptions/{id}",
+    operation_id = "updatePrescription",
     tag = "prescriptions",
     params(("id" = String, Path, description = "The prescription")),
     request_body = RxValues,
@@ -480,6 +485,7 @@ pub(crate) async fn edit(
 #[utoipa::path(
     get,
     path = "/api/v1/prescriptions/{id}",
+    operation_id = "getPrescription",
     tag = "prescriptions",
     params(("id" = String, Path, description = "The prescription")),
     security(("bearer" = [])),
@@ -570,6 +576,7 @@ pub struct IssueBlocked {
 #[utoipa::path(
     post,
     path = "/api/v1/prescriptions/{id}/issue",
+    operation_id = "issuePrescription",
     tag = "prescriptions",
     params(("id" = String, Path, description = "The prescription")),
     request_body = IssueRequest,
@@ -648,6 +655,7 @@ pub struct Cancelled {
 #[utoipa::path(
     post,
     path = "/api/v1/prescriptions/{id}/cancel",
+    operation_id = "cancelPrescription",
     tag = "prescriptions",
     params(("id" = String, Path, description = "The prescription")),
     request_body = CancelRequest,
@@ -702,6 +710,7 @@ pub struct ShareLink {
 #[utoipa::path(
     post,
     path = "/api/v1/prescriptions/{id}/share",
+    operation_id = "createPrescriptionShare",
     tag = "prescriptions",
     params(("id" = String, Path, description = "The prescription")),
     security(("bearer" = [])),
@@ -763,6 +772,7 @@ pub struct SharedPreview {
 #[utoipa::path(
     get,
     path = "/api/v1/shared/{token}",
+    operation_id = "previewSharedPrescription",
     tag = "public",
     params(("token" = String, Path, description = "The link's token")),
     responses(
@@ -803,6 +813,7 @@ pub struct OpenRequest {
 #[utoipa::path(
     post,
     path = "/api/v1/shared/{token}/open",
+    operation_id = "openSharedPrescription",
     tag = "public",
     params(("token" = String, Path, description = "The link's token")),
     request_body = OpenRequest,
@@ -879,6 +890,7 @@ pub struct Verification {
 #[utoipa::path(
     get,
     path = "/api/v1/verify/prescriptions/{verify_token}",
+    operation_id = "verifyPrescription",
     tag = "public",
     params(("verify_token" = String, Path, description = "The token in the QR code")),
     responses(

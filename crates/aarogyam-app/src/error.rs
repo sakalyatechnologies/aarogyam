@@ -25,6 +25,10 @@ pub enum AppError {
     /// The request conflicts with existing data (for example a taken subdomain).
     #[error("{0}")]
     Conflict(&'static str),
+    /// The client-chosen id already belongs to a record with different content. The same id with
+    /// the same content is a retry and succeeds; this is for anything else.
+    #[error("that id is already used by a different record")]
+    IdConflict,
     /// A rule beyond the permission forbids it (only owners may make owners).
     #[error("forbidden: {0}")]
     Forbidden(&'static str),

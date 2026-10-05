@@ -419,6 +419,9 @@ pub(crate) async fn of_visit(
 /// A file as received.
 #[derive(Debug, Clone, Default)]
 pub struct Upload {
+    /// An identifier the client made (version 7), so a retry returns this file's record instead
+    /// of storing another; the server makes one when absent.
+    pub id: Option<AttachmentId>,
     /// The bytes.
     pub bytes: Vec<u8>,
     /// `photo`, `xray`, `report`, `document` (default), `audio` or `consent`.
@@ -491,13 +494,69 @@ fn check_kind_and_recording(
     Ok((kind, language))
 }
 
+/// What an upload says once its fields are checked, to compare with a stored file when the
+/// client retries.
+struct Described<'a> {
+    patient_id: Uuid,
+    input: &'a Upload,
+    kind: AttachmentKind,
+    file_type: FileType,
+    size: i64,
+    sha256: &'a str,
+    caption: Option<&'a str>,
+    tooth: Option<i16>,
+    language: Option<VoiceLanguage>,
+}
+
+impl Described<'_> {
+    fn matches(&self, row: &AttachmentRow) -> bool {
+        let input = self.input;
+        row.patient_id == self.patient_id
+            && row.kind == self.kind.as_str()
+            && row.mime_type == self.file_type.mime_type()
+            && row.size_bytes == self.size
+            && row.sha256 == self.sha256
+            && row.caption.as_deref() == self.caption
+            && row.tooth == self.tooth
+            && row.note_id == input.note_id
+            && row.addendum_id == input.addendum_id
+            && row.duration_seconds == input.duration_seconds
+            && row.language.as_deref() == self.language.map(VoiceLanguage::as_str)
+            // A recording's visit is its note's; any other file's is the one named, if any.
+            && if input.note_id.is_some() {
+                input.visit_id.is_none_or(|visit| row.encounter_id == Some(visit))
+            } else {
+                row.encounter_id == input.visit_id
+            }
+    }
+}
+
+/// The stored file a retry refers to, when the client-chosen `id` already has one.
+async fn replayed(
+    tx: &mut sakalya_db::ScopedTx,
+    id: AttachmentId,
+    described: &Described<'_>,
+) -> Result<Option<AttachmentView>, AppError> {
+    aarogyam_dal::visits::lock_client_id(tx.conn(), id.uuid()).await?;
+    let Some(row) = attachments::get(tx.conn(), id.uuid()).await? else {
+        return Ok(None);
+    };
+    if described.matches(&row) {
+        view(row).map(Some)
+    } else {
+        Err(AppError::IdConflict)
+    }
+}
+
 /// Stores a patient file. Its type comes from its content: JPEG, PNG, PDF, DICOM or a `WebM`,
 /// `MP4` or `Ogg` recording. A recording may be linked to a note of the same visit: a draft only by its
-/// author, a signed note only through one of the uploader's own addenda.
+/// author, a signed note only through one of the uploader's own addenda. A retry with the same
+/// client-chosen `id` and the same content returns the stored file's record and keeps its bytes.
 ///
 /// # Errors
 /// [`AppError::Invalid`] for an empty, too large or unrecognised file, or a visit of another
-/// patient; [`AppError::NotFound`] when the patient isn't in this clinic.
+/// patient; [`AppError::NotFound`] when the patient isn't in this clinic;
+/// [`AppError::IdConflict`] when the id belongs to a different file.
 pub async fn upload(
     db: &Db,
     files: &Files,
@@ -521,11 +580,31 @@ pub async fn upload(
         .transpose()
         .map_err(|error| AppError::invalid("tooth", error))?;
     let size = i64::try_from(input.bytes.len()).map_err(|_| AppError::Internal("file size"))?;
-    let id = AttachmentId::new_v7();
+    let sha256 = sha256_hex(&input.bytes);
+    let described = Described {
+        patient_id: patient_id.uuid(),
+        input: &input,
+        kind,
+        file_type,
+        size,
+        sha256: &sha256,
+        caption: caption.as_deref(),
+        tooth: tooth.map(|t| i16::from(t.number())),
+        language,
+    };
+    let id = input.id.unwrap_or_else(AttachmentId::new_v7);
     let key = StorageKey::new(actor.clinic_id, id);
+    // Set once this attempt has stored the bytes, so a failure removes only what it wrote: with a
+    // client-chosen id the key may already hold an earlier upload's file.
+    let mut wrote = false;
     let stored = db
         .scoped(&scope(actor, request_id), async |tx| {
             let patient = require_patient(tx, patient_id).await?;
+            if input.id.is_some()
+                && let Some(existing) = replayed(tx, id, &described).await?
+            {
+                return Ok(existing);
+            }
             let mut encounter_id = input.visit_id;
             if let Some(note_id) = input.note_id {
                 encounter_id = Some(
@@ -545,6 +624,7 @@ pub async fn upload(
                 .put(key, &input.bytes)
                 .await
                 .map_err(|_| AppError::Internal("could not store the file"))?;
+            wrote = true;
             let row = attachments::insert(
                 tx.conn(),
                 &NewAttachment {
@@ -555,7 +635,7 @@ pub async fn upload(
                     storage_key: &key.to_string(),
                     mime_type: file_type.mime_type(),
                     size_bytes: size,
-                    sha256: &sha256_hex(&input.bytes),
+                    sha256: &sha256,
                     caption: caption.as_deref(),
                     tooth: tooth.map(|t| i16::from(t.number())),
                     source: RecordSource::Clinician.as_str(),
@@ -578,7 +658,7 @@ pub async fn upload(
             view(row)
         })
         .await;
-    if stored.is_err() {
+    if stored.is_err() && wrote {
         // Nothing points at the bytes; a failed clean-up only leaves an orphan file.
         let _ = files.storage.delete(key).await;
     }

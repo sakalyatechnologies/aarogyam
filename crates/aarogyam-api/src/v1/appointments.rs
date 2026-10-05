@@ -155,6 +155,7 @@ pub struct AppointmentQuery {
 #[utoipa::path(
     get,
     path = "/api/v1/appointments",
+    operation_id = "listAppointments",
     tag = "appointments",
     params(
         ("from" = String, Query, description = "First local day, `YYYY-MM-DD`"),
@@ -271,6 +272,7 @@ fn optional_id(field: &str, text: Option<&str>) -> Result<Option<Uuid>, ApiFailu
 #[utoipa::path(
     post,
     path = "/api/v1/appointments",
+    operation_id = "bookAppointment",
     tag = "appointments",
     request_body = NewAppointmentBody,
     security(("bearer" = [])),
@@ -344,6 +346,7 @@ pub struct AppointmentChanges {
 #[utoipa::path(
     patch,
     path = "/api/v1/appointments/{id}",
+    operation_id = "updateAppointment",
     tag = "appointments",
     params(("id" = String, Path, description = "The appointment")),
     request_body = AppointmentChanges,
@@ -429,6 +432,7 @@ pub struct StatusChanged {
 #[utoipa::path(
     post,
     path = "/api/v1/appointments/{id}/status",
+    operation_id = "setAppointmentStatus",
     tag = "appointments",
     params(("id" = String, Path, description = "The appointment")),
     request_body = StatusChange,

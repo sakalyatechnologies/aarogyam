@@ -255,6 +255,7 @@ fn chair_appointment(appointment: &Appointment) -> ChairAppointment {
 #[utoipa::path(
     get,
     path = "/api/v1/today",
+    operation_id = "getToday",
     tag = "appointments",
     security(("bearer" = [])),
     responses(

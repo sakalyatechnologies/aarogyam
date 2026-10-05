@@ -75,6 +75,7 @@ pub struct NewRecall {
 #[utoipa::path(
     post,
     path = "/api/v1/patients/{id}/recalls",
+    operation_id = "createRecall",
     tag = "patients",
     params(("id" = String, Path, description = "The patient")),
     request_body = NewRecall,
@@ -119,6 +120,7 @@ pub struct DueParams {
 #[utoipa::path(
     get,
     path = "/api/v1/recalls",
+    operation_id = "listRecallsDue",
     tag = "patients",
     params(("due_before" = Option<String>, Query, description = "Only those due before this day, YYYY-MM-DD")),
     security(("bearer" = [])),
@@ -149,6 +151,7 @@ pub(crate) async fn due(
 #[utoipa::path(
     post,
     path = "/api/v1/recalls/{id}/done",
+    operation_id = "markRecallDone",
     tag = "patients",
     params(("id" = String, Path, description = "The follow-up")),
     security(("bearer" = [])),

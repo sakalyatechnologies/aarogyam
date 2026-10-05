@@ -93,6 +93,7 @@ pub struct ChartQuery {
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/dental-chart",
+    operation_id = "getDentalChart",
     tag = "clinical",
     params(
         ("id" = String, Path, description = "The patient"),
@@ -153,6 +154,7 @@ pub struct NewChartEntries {
 #[utoipa::path(
     post,
     path = "/api/v1/patients/{id}/dental-chart",
+    operation_id = "recordDentalChart",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     request_body = NewChartEntries,

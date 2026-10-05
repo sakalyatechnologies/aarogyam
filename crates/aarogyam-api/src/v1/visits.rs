@@ -19,6 +19,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::chart::ChartEntry;
+use super::client_id;
 use super::files::Attachment;
 use super::rfc3339;
 use super::treatment::Procedure;
@@ -236,6 +237,8 @@ impl From<DetailView> for VisitDetail {
 /// A visit to start.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct NewVisit {
+    /// A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out.
+    pub id: Option<String>,
     /// The appointment the patient came for; a walk-in has none. One visit per appointment.
     #[schema(value_type = Option<String>)]
     pub appointment_id: Option<Uuid>,
@@ -243,10 +246,12 @@ pub struct NewVisit {
     pub chief_complaint: Option<String>,
 }
 
-/// Starts a visit, with the caller as the clinician responsible.
+/// Starts a visit, with the caller as the clinician responsible. A walk-in has no appointment.
+/// Send an `id` so a retry after a lost answer returns this visit instead of starting another.
 #[utoipa::path(
     post,
     path = "/api/v1/patients/{id}/visits",
+    operation_id = "startVisit",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     request_body = NewVisit,
@@ -257,7 +262,7 @@ pub struct NewVisit {
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
         (status = 404, description = "No such patient in this clinic"),
-        (status = 409, description = "The appointment already has a visit")
+        (status = 409, description = "The appointment already has a visit, or `id_conflict`: the id belongs to a different visit")
     )
 )]
 pub(crate) async fn start(
@@ -272,6 +277,11 @@ pub(crate) async fn start(
         request.request_id,
         PatientId::from_uuid(id),
         StartVisit {
+            id: body
+                .id
+                .as_deref()
+                .map(|text| client_id("id", text))
+                .transpose()?,
             appointment_id: body.appointment_id,
             chief_complaint: body.chief_complaint,
         },
@@ -286,6 +296,7 @@ pub(crate) async fn start(
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/visits",
+    operation_id = "listVisits",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     security(("bearer" = [])),
@@ -317,6 +328,7 @@ pub(crate) async fn list(
 #[utoipa::path(
     get,
     path = "/api/v1/visits/{id}",
+    operation_id = "getVisit",
     tag = "clinical",
     params(("id" = String, Path, description = "The visit")),
     security(("bearer" = [])),
@@ -347,6 +359,7 @@ pub(crate) async fn open(
 #[utoipa::path(
     post,
     path = "/api/v1/visits/{id}/close",
+    operation_id = "closeVisit",
     tag = "clinical",
     params(("id" = String, Path, description = "The visit")),
     security(("bearer" = [])),
@@ -397,13 +410,27 @@ impl From<NoteContent> for NoteInput {
     }
 }
 
-/// Starts a draft note in an open visit, written by the caller.
+/// A draft note to start.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct NewNote {
+    /// A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out.
+    pub id: Option<String>,
+    /// `soap` (default), `progress`, `procedure`, `intake` or `front_desk`.
+    pub kind: Option<String>,
+    /// The sections, each up to 10,000 characters.
+    #[serde(default)]
+    pub sections: NoteSections,
+}
+
+/// Starts a draft note in an open visit, written by the caller. Send an `id` so a retry after a
+/// lost answer returns this note instead of starting another.
 #[utoipa::path(
     post,
     path = "/api/v1/visits/{id}/notes",
+    operation_id = "createNote",
     tag = "clinical",
     params(("id" = String, Path, description = "The visit")),
-    request_body = NoteContent,
+    request_body = NewNote,
     security(("bearer" = [])),
     responses(
         (status = 201, body = Note),
@@ -411,21 +438,33 @@ impl From<NoteContent> for NoteInput {
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
         (status = 404, description = "No such visit in this clinic"),
-        (status = 409, description = "The visit is closed")
+        (status = 409, description = "The visit is closed, or `id_conflict`: the id belongs to a different note")
     )
 )]
 pub(crate) async fn create_note(
     State(state): State<AppState>,
     Require { request, .. }: Require<ClinicalWrite>,
     ApiPath(id): ApiPath<Uuid>,
-    ApiJson(body): ApiJson<NoteContent>,
+    ApiJson(body): ApiJson<NewNote>,
 ) -> Result<(StatusCode, Json<Note>), ApiFailure> {
+    let note_id = body
+        .id
+        .as_deref()
+        .map(|text| client_id("id", text))
+        .transpose()?;
     let view = app::create_note(
         state.db(),
         &request.actor,
         request.request_id,
         EncounterId::from_uuid(id),
-        body.into(),
+        note_id,
+        NoteInput {
+            kind: body.kind,
+            subjective: body.sections.subjective,
+            objective: body.sections.objective,
+            assessment: body.sections.assessment,
+            plan: body.sections.plan,
+        },
     )
     .await?;
     Ok((StatusCode::CREATED, Json(view.into())))
@@ -435,6 +474,7 @@ pub(crate) async fn create_note(
 #[utoipa::path(
     patch,
     path = "/api/v1/notes/{id}",
+    operation_id = "updateNote",
     tag = "clinical",
     params(("id" = String, Path, description = "The note")),
     request_body = NoteContent,
@@ -469,6 +509,7 @@ pub(crate) async fn edit_note(
 #[utoipa::path(
     post,
     path = "/api/v1/notes/{id}/sign",
+    operation_id = "signNote",
     tag = "clinical",
     params(("id" = String, Path, description = "The note")),
     security(("bearer" = [])),
@@ -500,6 +541,8 @@ pub(crate) async fn sign_note(
 /// An addendum's text.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct NewAddendum {
+    /// A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out.
+    pub id: Option<String>,
     /// 1 to 10,000 characters.
     pub body: String,
 }
@@ -508,6 +551,7 @@ pub struct NewAddendum {
 #[utoipa::path(
     post,
     path = "/api/v1/notes/{id}/addenda",
+    operation_id = "addNoteAddendum",
     tag = "clinical",
     params(("id" = String, Path, description = "The note")),
     request_body = NewAddendum,
@@ -518,7 +562,7 @@ pub struct NewAddendum {
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
         (status = 404, description = "No such note in this clinic"),
-        (status = 409, description = "The note isn't signed")
+        (status = 409, description = "The note isn't signed, or `id_conflict`: the id belongs to a different addendum")
     )
 )]
 pub(crate) async fn add_addendum(
@@ -527,11 +571,17 @@ pub(crate) async fn add_addendum(
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<NewAddendum>,
 ) -> Result<(StatusCode, Json<Note>), ApiFailure> {
+    let addendum_id = body
+        .id
+        .as_deref()
+        .map(|text| client_id("id", text))
+        .transpose()?;
     let view = app::add_addendum(
         state.db(),
         &request.actor,
         request.request_id,
         ClinicalNoteId::from_uuid(id),
+        addendum_id,
         &body.body,
     )
     .await?;
@@ -551,6 +601,7 @@ pub struct EnteredInError {
 #[utoipa::path(
     post,
     path = "/api/v1/notes/{id}/entered-in-error",
+    operation_id = "markNoteEnteredInError",
     tag = "clinical",
     params(("id" = String, Path, description = "The note")),
     request_body = EnteredInError,
@@ -629,6 +680,7 @@ pub struct TimelineQuery {
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/timeline",
+    operation_id = "getPatientTimeline",
     tag = "clinical",
     params(
         ("id" = String, Path, description = "The patient"),

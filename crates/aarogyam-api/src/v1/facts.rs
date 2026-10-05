@@ -155,6 +155,7 @@ impl ConditionFields {
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/conditions",
+    operation_id = "listConditions",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     security(("bearer" = [])),
@@ -186,6 +187,7 @@ pub(crate) async fn conditions(
 #[utoipa::path(
     post,
     path = "/api/v1/patients/{id}/conditions",
+    operation_id = "addCondition",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     request_body = ConditionFields,
@@ -220,6 +222,7 @@ pub(crate) async fn add_condition(
 #[utoipa::path(
     patch,
     path = "/api/v1/patients/{id}/conditions/{condition_id}",
+    operation_id = "updateCondition",
     tag = "clinical",
     params(
         ("id" = String, Path, description = "The patient"),
@@ -339,6 +342,7 @@ impl From<AllergyFields> for AllergyInput {
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/allergies",
+    operation_id = "listAllergies",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     security(("bearer" = [])),
@@ -370,6 +374,7 @@ pub(crate) async fn allergies(
 #[utoipa::path(
     post,
     path = "/api/v1/patients/{id}/allergies",
+    operation_id = "addAllergy",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     request_body = AllergyFields,
@@ -403,6 +408,7 @@ pub(crate) async fn add_allergy(
 #[utoipa::path(
     patch,
     path = "/api/v1/patients/{id}/allergies/{allergy_id}",
+    operation_id = "updateAllergy",
     tag = "clinical",
     params(
         ("id" = String, Path, description = "The patient"),
@@ -471,6 +477,7 @@ impl From<FlagsView> for ClinicalFlags {
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/clinical-flags",
+    operation_id = "getClinicalFlags",
     tag = "clinical",
     params(("id" = String, Path, description = "The patient")),
     security(("bearer" = [])),

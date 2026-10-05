@@ -4,7 +4,7 @@
 //! no I/O, no async and no database or HTTP types, so every rule is unit tested here without a
 //! database. Value types such as `Id<T>`, `Paise` and `PhoneE164` come from `sakalya-types`;
 //! this crate adds the clinic's concepts on top: who may act ([`access`]), the permission
-//! catalogue ([`permission`]), typed identifiers ([`ids`]), patients ([`patient`]), patient
+//! catalogue ([`permission`]), typed identifiers ([`ids`]) and the ones a client chooses ([`client_id`]), patients ([`patient`]), patient
 //! search ([`search`]), the clinic's own settings ([`clinic`]), staff ([`staff`]), queued
 //! messages ([`outbox`]), appointments, chairs and the queue ([`schedule`]), patient imports
 //! ([`import`]), business event names ([`event`]), the clinical record: visits and notes
@@ -63,6 +63,7 @@ macro_rules! text_value {
 pub mod access;
 pub mod billing;
 pub mod booking;
+pub mod client_id;
 pub mod clinic;
 pub mod clinical;
 pub mod dental;

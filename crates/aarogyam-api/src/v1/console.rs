@@ -53,6 +53,7 @@ pub struct ConsoleClinics {
 #[utoipa::path(
     get,
     path = "/api/v1/console/clinics",
+    operation_id = "listClinics",
     tag = "console",
     security(("bearer" = [])),
     responses(
@@ -120,6 +121,7 @@ pub struct CreatedClinic {
 #[utoipa::path(
     post,
     path = "/api/v1/console/clinics",
+    operation_id = "createClinic",
     tag = "console",
     request_body = NewClinic,
     security(("bearer" = [])),
@@ -199,6 +201,7 @@ pub struct ServiceMetrics {
 #[utoipa::path(
     get,
     path = "/api/v1/console/metrics",
+    operation_id = "getConsoleMetrics",
     tag = "console",
     params(("range" = Option<String>, Query, description = "1h (default), 6h, 24h or 7d")),
     security(("bearer" = [])),

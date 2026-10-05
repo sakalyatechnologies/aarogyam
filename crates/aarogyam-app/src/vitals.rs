@@ -76,6 +76,9 @@ pub(crate) async fn of_visit(
 /// One reading as received.
 #[derive(Debug, Clone)]
 pub struct ReadingInput {
+    /// An identifier the client made (version 7), so a retry returns this reading instead of
+    /// recording another; the server makes one when absent.
+    pub id: Option<ObservationId>,
     /// `bp_systolic`, `bp_diastolic`, `pulse`, `temperature`, `spo2`, `weight`, `height` or
     /// `blood_sugar`.
     pub kind: String,
@@ -105,7 +108,14 @@ fn readings_invalid(message: String) -> AppError {
     }
 }
 
-fn validate(input: &RecordVitals) -> Result<Vec<(Reading, Option<Uuid>)>, AppError> {
+/// A reading that passed the checks, with the ids it carries.
+struct Checked {
+    reading: Reading,
+    supersedes_id: Option<Uuid>,
+    id: Option<ObservationId>,
+}
+
+fn validate(input: &RecordVitals) -> Result<Vec<Checked>, AppError> {
     if input.readings.is_empty() || input.readings.len() > MAX_READINGS {
         return Err(readings_invalid(format!(
             "give 1 to {MAX_READINGS} readings"
@@ -122,9 +132,13 @@ fn validate(input: &RecordVitals) -> Result<Vec<(Reading, Option<Uuid>)>, AppErr
             .map_err(invalid("readings.unit"))?;
         let reading = Reading::new(kind, item.value, unit)
             .map_err(|error| readings_invalid(format!("{kind}: {error}")))?;
-        readings.push((reading, item.supersedes_id));
+        readings.push(Checked {
+            reading,
+            supersedes_id: item.supersedes_id,
+            id: item.id,
+        });
     }
-    let plain: Vec<Reading> = readings.iter().map(|(reading, _)| *reading).collect();
+    let plain: Vec<Reading> = readings.iter().map(|item| item.reading).collect();
     check_together(&plain).map_err(|error| readings_invalid(error.to_string()))?;
     Ok(readings)
 }
@@ -145,14 +159,37 @@ pub(crate) fn staff_source(text: Option<&str>) -> Result<RecordSource, AppError>
     }
 }
 
+/// Whether a stored reading is the one `item` describes: a retry of the request that made it.
+fn is_same_reading(
+    row: &vitals::ObservationRow,
+    visit: &aarogyam_dal::visits::EncounterRow,
+    actor: &ClinicActor,
+    item: &Checked,
+    source: RecordSource,
+    recorded_at: Option<OffsetDateTime>,
+) -> bool {
+    row.encounter_id == Some(visit.id)
+        && row.patient_id == visit.patient_id
+        && row.kind == item.reading.kind().as_str()
+        && row.unit == item.reading.unit().as_str()
+        && (row.value - item.reading.value()).abs() < 0.005
+        && row.supersedes_id == item.supersedes_id
+        && row.source == source.as_str()
+        && row.verified_by == Some(actor.membership_id.uuid())
+        // The database keeps microseconds; a time the client left out is the server's to choose.
+        && recorded_at.is_none_or(|at| (row.recorded_at - at).abs() < Duration::microseconds(1))
+}
+
 /// Records readings in a visit. A reading with `supersedes_id` corrects an earlier one of the
 /// same patient and kind, which stays visible as `corrected`. A closed visit takes corrections
-/// only.
+/// only. A reading whose client-chosen `id` already exists with the same content is a retry: the
+/// stored reading comes back and nothing is written, even if the visit has closed since.
 ///
 /// # Errors
 /// [`AppError::Invalid`] for implausible values or units; [`AppError::NotFound`] when the
 /// visit isn't in this clinic; [`AppError::Conflict`] when correcting a value that is no
-/// longer final, or adding new values to a closed visit.
+/// longer final, or adding new values to a closed visit; [`AppError::IdConflict`] when an id
+/// belongs to a different reading.
 pub async fn record(
     db: &Db,
     actor: &ClinicActor,
@@ -172,12 +209,37 @@ pub async fn record(
         let visit = aarogyam_dal::visits::get_encounter(tx.conn(), visit_id.uuid(), true)
             .await?
             .ok_or(AppError::NotFound("visit"))?;
-        let corrections_only = readings.iter().all(|(_, supersedes)| supersedes.is_some());
+        let mut known = Vec::with_capacity(readings.len());
+        for item in &readings {
+            let existing = match item.id {
+                Some(id) => {
+                    aarogyam_dal::visits::lock_client_id(tx.conn(), id.uuid()).await?;
+                    vitals::get_for_update(tx.conn(), id.uuid()).await?
+                }
+                None => None,
+            };
+            if let Some(row) = &existing
+                && !is_same_reading(row, &visit, actor, item, source, input.recorded_at)
+            {
+                return Err(AppError::IdConflict);
+            }
+            known.push(existing);
+        }
+        let corrections_only = readings
+            .iter()
+            .zip(&known)
+            .filter(|(_, existing)| existing.is_none())
+            .all(|(item, _)| item.supersedes_id.is_some());
         if visit.status != EncounterStatus::Open.as_str() && !corrections_only {
             return Err(AppError::Conflict(NoteRefusal::VisitClosed.message()));
         }
         let mut saved = Vec::with_capacity(readings.len());
-        for (reading, supersedes_id) in &readings {
+        for (item, existing) in readings.iter().zip(known) {
+            if let Some(row) = existing {
+                saved.push(view(row)?);
+                continue;
+            }
+            let (reading, supersedes_id) = (&item.reading, &item.supersedes_id);
             if let Some(old_id) = supersedes_id {
                 let old = vitals::get_for_update(tx.conn(), *old_id)
                     .await?
@@ -201,7 +263,7 @@ pub async fn record(
             let row = vitals::insert(
                 tx.conn(),
                 &vitals::NewObservation {
-                    id: ObservationId::new_v7().uuid(),
+                    id: item.id.unwrap_or_else(ObservationId::new_v7).uuid(),
                     patient_id: visit.patient_id,
                     encounter_id: Some(visit.id),
                     kind: reading.kind().as_str(),

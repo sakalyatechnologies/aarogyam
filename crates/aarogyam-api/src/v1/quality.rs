@@ -171,6 +171,7 @@ pub struct QualityParams {
 #[utoipa::path(
     get,
     path = "/api/v1/console/quality",
+    operation_id = "getConsoleQuality",
     tag = "console",
     params(("limit" = Option<u32>, Query, description = "Most recent runs to return (default 30, at most 200)")),
     security(("bearer" = [])),

@@ -1226,6 +1226,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public, no sign-in: a doctor's free slots on a local day, from working hours minus leave
+         *     minus active appointments, in the clinic's time zone. No patient data.
+         */
+        get: operations["free_slots"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/booking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public, no sign-in: the clinic's name, booking settings and bookable doctors. */
+        get: operations["booking_options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Books a slot. The caller is signed in with a verified email (a one-time code from
+         *     Supabase) and need not belong to the clinic. The appointment is `requested`, or `confirmed`
+         *     when the clinic auto-confirms. Never says whether a patient record already existed.
+         */
+        post: operations["book_online"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/queue": {
         parameters: {
             query?: never;
@@ -2243,6 +2301,69 @@ export interface components {
             /** @description Readable number. */
             number: string;
         };
+        /** @description Free slots. */
+        Availability: {
+            /** @description The local day, `YYYY-MM-DD`. */
+            date: string;
+            /** @description The doctor. */
+            practitioner_id: string;
+            /**
+             * Format: int32
+             * @description Slot length in minutes.
+             */
+            slot_minutes: number;
+            /** @description Start of each free slot, RFC 3339 in the clinic's time zone. */
+            slots: string[];
+        };
+        /** @description A doctor patients may pick. */
+        BookableDoctor: {
+            /** @description The doctor. */
+            id: string;
+            /** @description Name shown to patients. */
+            name: string;
+            /** @description What they practise. */
+            specialty?: string | null;
+        };
+        /** @description The same answer whether or not the clinic knew the person. */
+        Booked: {
+            /** @description The clinic's name. */
+            clinic_name: string;
+            /** @description The doctor's name. */
+            doctor_name: string;
+            /** @description End, RFC 3339 in the clinic's time zone. */
+            ends_at: string;
+            /** @description The appointment. */
+            id: string;
+            /** @description Start, RFC 3339 in the clinic's time zone. */
+            starts_at: string;
+            /** @description `requested` (the front desk will confirm) or `confirmed`. */
+            status: string;
+        };
+        /** @description What the booking page needs to start. */
+        BookingOptions: {
+            /** @description Whether a booking is confirmed at once; otherwise the front desk confirms. */
+            auto_confirm: boolean;
+            /** @description The clinic's name. */
+            clinic_name: string;
+            /** @description Doctors with working hours. */
+            doctors: components["schemas"]["BookableDoctor"][];
+            /** @description Whether online booking is on; when off there are no doctors. */
+            enabled: boolean;
+            /**
+             * Format: int32
+             * @description How many days ahead patients may book, counting today.
+             */
+            horizon_days: number;
+            /**
+             * Format: int32
+             * @description Slot length in minutes.
+             */
+            slot_minutes: number;
+            /** @description The clinic's time zone. */
+            timezone: string;
+            /** @description Today in the clinic, `YYYY-MM-DD`. */
+            today: string;
+        };
         /** @description Something worth knowing that didn't stop the booking. */
         BookingWarning: {
             /** @description `practitioner_busy`, `practitioner_on_leave` or `outside_working_hours`. */
@@ -2421,6 +2542,8 @@ export interface components {
             legal_name?: string | null;
             /** @description Display name. */
             name: string;
+            /** @description Online booking. */
+            online_booking: components["schemas"]["OnlineBooking"];
             /** @description The main branch's phone. */
             phone?: string | null;
             /** @description Footer printed on prescriptions. */
@@ -2444,6 +2567,7 @@ export interface components {
             legal_name?: string | null;
             /** @description Display name, 1 to 200 characters. */
             name?: string | null;
+            online_booking?: components["schemas"]["OnlineBookingChanges"] | null;
             /** @description The main branch's phone; +91 is assumed without a country code. */
             phone?: string | null;
             /** @description Footer printed on prescriptions, up to 500 characters. */
@@ -3289,6 +3413,19 @@ export interface components {
             /** @description Start (RFC 3339). */
             starts_at: string;
         };
+        /** @description A booking. */
+        NewBooking: {
+            /** @description The patient's full name. */
+            full_name: string;
+            /** @description The patient's phone; +91 is assumed without a country code. */
+            phone: string;
+            /** @description The doctor. */
+            practitioner_id: string;
+            /** @description Why they are coming, in a few words. */
+            reason?: string | null;
+            /** @description The slot's start, exactly as offered (RFC 3339). */
+            starts_at: string;
+        };
         /** @description Findings recorded together. */
         NewChartEntries: {
             /** @description 1 to 64 entries, applied in order. */
@@ -3591,6 +3728,60 @@ export interface components {
         ObservationList: {
             /** @description The new readings. */
             items: components["schemas"]["Observation"][];
+        };
+        /** @description Online booking: what patients may book on the clinic's public page. */
+        OnlineBooking: {
+            /** @description Whether a booking is confirmed at once; otherwise the front desk confirms. */
+            auto_confirm: boolean;
+            /**
+             * Format: int32
+             * @description Gap kept free around other appointments, in minutes (0 to 120).
+             */
+            buffer_minutes: number;
+            /** @description Whether the public booking page works. */
+            enabled: boolean;
+            /**
+             * Format: int32
+             * @description How many days ahead patients may book (1 to 180).
+             */
+            horizon_days: number;
+            /**
+             * Format: int32
+             * @description How soon before a slot it stops being offered, in minutes (0 to 10080).
+             */
+            min_notice_minutes: number;
+            /**
+             * Format: int32
+             * @description Slot length in minutes (5 to 240, steps of 5).
+             */
+            slot_minutes: number;
+        };
+        /** @description Changes to online booking; settings left out stay as they are. */
+        OnlineBookingChanges: {
+            /** @description Whether a booking is confirmed at once. */
+            auto_confirm?: boolean | null;
+            /**
+             * Format: int32
+             * @description Buffer in minutes.
+             */
+            buffer_minutes?: number | null;
+            /** @description Whether the public booking page works. */
+            enabled?: boolean | null;
+            /**
+             * Format: int32
+             * @description Days ahead.
+             */
+            horizon_days?: number | null;
+            /**
+             * Format: int32
+             * @description Minimum notice in minutes.
+             */
+            min_notice_minutes?: number | null;
+            /**
+             * Format: int32
+             * @description Slot length in minutes.
+             */
+            slot_minutes?: number | null;
         };
         /** @description The PIN. */
         OpenRequest: {
@@ -9340,6 +9531,149 @@ export interface operations {
             };
             /** @description Already marked */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    free_slots: {
+        parameters: {
+            query: {
+                /** @description The local day, `YYYY-MM-DD` */
+                date: string;
+                /** @description The doctor */
+                practitioner_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Availability"];
+                };
+            };
+            /** @description Bad date, or no such doctor */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or online booking is off */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests from this address */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    booking_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOptions"];
+                };
+            };
+            /** @description Not a clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests from this address */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    book_online: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewBooking"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Booked"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The sign-in has no verified email address */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or online booking is off */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The slot is gone, or the person has too many open bookings */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

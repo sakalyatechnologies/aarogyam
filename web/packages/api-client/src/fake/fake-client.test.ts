@@ -368,3 +368,70 @@ describe("fake client: cancellation", () => {
     expect(errorOf(await as(PEOPLE.farah, SUNRISE).listPatients({ signal: controller.signal }))?.code).toBe("aborted");
   });
 });
+
+describe("fake client: patient self-booking", () => {
+  const person = (id: string, email?: string) => ({ id, ...(email === undefined ? {} : { email }) });
+  const clientFor = (backend: ReturnType<typeof setup>["backend"], who: { id: string; email?: string } | null, host = SUNRISE): ApiClient =>
+    backend.client({ host, getToken: () => (who === null ? null : fakeTokenFor(who)), now: () => NOW });
+  const details = { full_name: "Priya Nair", phone: "9876543210" };
+
+  it("offers free slots to anyone, per clinic, without patient data", async () => {
+    const { backend } = setup();
+    const open = clientFor(backend, null);
+    const options = value(await open.getBookingOptions());
+    expect(options.clinic_name).toBe("Sunrise Dental");
+    const doctor = options.doctors[0]?.id ?? "";
+    const slots = value(await open.getAvailability("2026-10-05", doctor));
+    expect(slots.slots[0]).toBe("2026-10-05T09:00:00+05:30");
+    expect(slots.slots).toHaveLength(36);
+    expect(JSON.stringify(slots)).not.toContain("full_name");
+    // Another clinic doesn't know this doctor.
+    expect(errorOf(await clientFor(backend, null, LOTUS).getAvailability("2026-10-05", doctor))?.status).toBe(400);
+    expect(value(await clientFor(backend, null, LOTUS).getBookingOptions()).doctors.map((d) => d.id)).not.toContain(doctor);
+    // Past days and days beyond the window are empty.
+    expect(value(await open.getAvailability("2026-10-02", doctor)).slots).toEqual([]);
+    expect(value(await open.getAvailability("2026-12-25", doctor)).slots).toEqual([]);
+  });
+
+  it("books a verified person into one slot, once, and caps open requests", async () => {
+    const { backend } = setup();
+    const priya = clientFor(backend, person("d0d0d0d0-0000-4000-8000-000000000001", "priya@example.test"));
+    const doctor = value(await priya.getBookingOptions()).doctors[0]?.id ?? "";
+    const slots = value(await priya.getAvailability("2026-10-05", doctor)).slots;
+    const book = (client: ApiClient, at: string | undefined) => client.createOnlineBooking({ starts_at: at ?? "", practitioner_id: doctor, ...details });
+
+    expect(errorOf(await book(clientFor(backend, null), slots[0]))?.status).toBe(401);
+    expect(errorOf(await book(clientFor(backend, person("d0d0d0d0-0000-4000-8000-000000000002")), slots[0]))?.status).toBe(403);
+    expect(errorOf(await book(priya, "2026-10-05T09:07:00+05:30"))?.status).toBe(409);
+
+    const first = value(await book(priya, slots[0]));
+    expect(first.status).toBe("requested");
+    expect(value(await priya.getAvailability("2026-10-05", doctor)).slots).not.toContain(slots[0]);
+    // The same slot again, from someone else: taken.
+    const other = clientFor(backend, person("d0d0d0d0-0000-4000-8000-000000000003", "meera@example.test"));
+    expect(errorOf(await book(other, slots[0]))?.status).toBe(409);
+
+    expect(value(await book(priya, slots[1])).status).toBe("requested");
+    expect(errorOf(await book(priya, slots[2]))?.status).toBe(409);
+    expect(value(await book(other, slots[2])).status).toBe("requested");
+  });
+
+  it("matches only on the verified email and confirms at once when the clinic says so", async () => {
+    const { backend, as } = setup();
+    const owner = as(PEOPLE.asha, SUNRISE);
+    const existing = value(await owner.listPatients()).items.find((p) => p.email != null);
+    const before = value(await owner.listPatients()).items.length;
+    const settings = value(await owner.updateClinicSettings({ online_booking: { auto_confirm: true } }));
+    expect(settings.online_booking.auto_confirm).toBe(true);
+    expect(errorOf(await owner.updateClinicSettings({ online_booking: { slot_minutes: 7 } }))?.status).toBe(400);
+
+    const known = clientFor(backend, person("d0d0d0d0-0000-4000-8000-000000000004", existing?.email ?? "x@example.test"));
+    const doctor = value(await known.getBookingOptions()).doctors[0]?.id ?? "";
+    const slots = value(await known.getAvailability("2026-10-06", doctor)).slots;
+    const booked = value(await known.createOnlineBooking({ starts_at: slots[0] ?? "", practitioner_id: doctor, ...details }));
+    expect(booked.status).toBe("confirmed");
+    const after = value(await owner.listPatients()).items;
+    // An existing record is reused; otherwise one new record appears.
+    expect(after.length).toBe(existing === undefined ? before + 1 : before);
+  });
+});

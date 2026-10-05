@@ -10,11 +10,13 @@ const CODE_LENGTH = 6;
 
 export interface SignInPanelProps {
   auth: AuthClient;
+  /** What the email field is called; "Work email" for staff, "Your email" for patients. */
+  emailLabel?: string;
 }
 
 /** The sign-in form for whichever `AuthClient` the app started with. */
-export function SignInPanel({ auth }: SignInPanelProps) {
-  return auth.kind === "dev" ? <DevSignIn auth={auth} /> : <EmailCodeSignIn auth={auth} />;
+export function SignInPanel({ auth, emailLabel }: SignInPanelProps) {
+  return auth.kind === "dev" ? <DevSignIn auth={auth} /> : <EmailCodeSignIn auth={auth} {...(emailLabel === undefined ? {} : { emailLabel })} />;
 }
 
 export interface DevSignInProps {
@@ -103,13 +105,15 @@ export interface EmailCodeSignInProps {
   auth: EmailCodeAuthClient;
   /** Seconds before another code may be requested. */
   cooldownSeconds?: number;
+  /** What the email field is called. Defaults to "Work email". */
+  emailLabel?: string;
 }
 
 /**
  * Email, then a six-digit code. Whatever happens, the form never reveals whether an email is
  * registered: an unknown address gets the same "if this email is registered" answer.
  */
-export function EmailCodeSignIn({ auth, cooldownSeconds = 60 }: EmailCodeSignInProps) {
+export function EmailCodeSignIn({ auth, cooldownSeconds = 60, emailLabel = "Work email" }: EmailCodeSignInProps) {
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -187,7 +191,7 @@ export function EmailCodeSignIn({ auth, cooldownSeconds = 60 }: EmailCodeSignInP
   if (step === "email") {
     return (
       <form noValidate onSubmit={onEmailSubmit} className="flex flex-col gap-4">
-        <Field label="Work email" error={fieldError} required>
+        <Field label={emailLabel} error={fieldError} required>
           <TextInput
             type="email"
             name="email"

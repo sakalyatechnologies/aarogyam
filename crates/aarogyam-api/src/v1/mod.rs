@@ -196,9 +196,9 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/registrations", post(registrations::register))
         // Public, on the clinic's host: patients booking for themselves. Reads need no
         // sign-in; booking needs a verified-email sign-in with no clinic membership.
-        .route("/public/booking", get(public_booking::options))
-        .route("/public/availability", get(public_booking::availability))
-        .route("/public/bookings", post(public_booking::create))
+        .route("/public/booking", get(public_booking::booking_options))
+        .route("/public/availability", get(public_booking::free_slots))
+        .route("/public/bookings", post(public_booking::book_online))
         .route(
             "/price-items",
             get(billing::price_items).post(billing::create_price_item),

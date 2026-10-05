@@ -259,6 +259,16 @@ const clinicBranding = z.object({
   mode: themeMode.nullable().exactOptional(),
 }) satisfies z.ZodType<C.Branding>;
 
+export const onlineBooking = z.object({
+  enabled: z.boolean(),
+  slot_minutes: z.number().int(),
+  buffer_minutes: z.number().int(),
+  auto_confirm: z.boolean(),
+  horizon_days: z.number().int(),
+  min_notice_minutes: z.number().int(),
+}) satisfies z.ZodType<C.OnlineBooking>;
+export type OnlineBooking = z.output<typeof onlineBooking>;
+
 export const clinicSettings = z.object({
   name: z.string(),
   legal_name: optionalText,
@@ -269,8 +279,12 @@ export const clinicSettings = z.object({
   prescription_footer: optionalText,
   address,
   branding: clinicBranding,
+  online_booking: onlineBooking,
 }) satisfies z.ZodType<C.ClinicSettings>;
 export type ClinicSettings = z.output<typeof clinicSettings>;
+
+/** The `online_booking` part of `PATCH /api/v1/settings/clinic`. */
+export type OnlineBookingChanges = C.OnlineBookingChanges;
 
 /** Body of `PATCH /api/v1/settings/clinic`. Settings left out stay as they are. */
 export type ClinicSettingsChanges = C.ClinicSettingsChanges;
@@ -294,6 +308,7 @@ export type MySessions = z.output<typeof mySessionsResponse>;
 export type PatientChanges = C.PatientChanges;
 
 export const appointmentStatus = z.enum([
+  "requested",
   "booked",
   "confirmed",
   "arrived",
@@ -1686,3 +1701,45 @@ export type ReceiveStock = C.ReceiveStock;
 export type UseStock = C.UseStock;
 export type AdjustStock = C.AdjustStock;
 export type ExpireBatch = C.ExpireBatch;
+
+// Patient self-booking -------------------------------------------------------------------------------
+
+export const bookableDoctor = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  specialty: optionalText,
+}) satisfies z.ZodType<C.BookableDoctor>;
+export type BookableDoctor = z.output<typeof bookableDoctor>;
+
+export const bookingOptions = z.object({
+  clinic_name: z.string(),
+  timezone: z.string(),
+  today: z.string(),
+  enabled: z.boolean(),
+  slot_minutes: z.number().int(),
+  auto_confirm: z.boolean(),
+  horizon_days: z.number().int(),
+  doctors: z.array(bookableDoctor),
+}) satisfies z.ZodType<C.BookingOptions>;
+export type BookingOptions = z.output<typeof bookingOptions>;
+
+export const availability = z.object({
+  date: z.string(),
+  practitioner_id: z.string().min(1),
+  slot_minutes: z.number().int(),
+  slots: z.array(timestamp),
+}) satisfies z.ZodType<C.Availability>;
+export type Availability = z.output<typeof availability>;
+
+/** Body of `POST /api/v1/public/bookings`. */
+export type NewBooking = C.NewBooking;
+
+export const booked = z.object({
+  id: z.string().min(1),
+  status: z.enum(["requested", "confirmed"]),
+  starts_at: timestamp,
+  ends_at: timestamp,
+  doctor_name: z.string(),
+  clinic_name: z.string(),
+}) satisfies z.ZodType<C.Booked>;
+export type Booked = z.output<typeof booked>;

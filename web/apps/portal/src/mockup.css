@@ -280,6 +280,8 @@
 .mk-evchip.g { background: var(--green-soft); color: var(--green); } .mk-evchip.a { background: var(--amber-soft); color: var(--amber); }
 .mk-evchip.b { background: var(--brand-soft); color: var(--brand2); } .mk-evchip.i { background: var(--indigo-soft); color: var(--indigo); }
 .mk-evchip.n { background: var(--bg); color: var(--ink2); } .mk-evchip.r { background: var(--red-soft); color: var(--red); }
+/* A patient's online request, waiting for the front desk: dashed, so it reads as not yet confirmed. */
+.mk-evchip.q { background: transparent; color: var(--amber); border: 1.5px dashed var(--amber); }
 
 /* stock meter */
 .mk-meter { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--muted) 18%, var(--surface)); overflow: hidden; margin-top: 8px; }

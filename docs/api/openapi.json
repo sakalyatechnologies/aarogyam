@@ -4597,7 +4597,7 @@
           "public"
         ],
         "summary": "Public, no sign-in: a doctor's free slots on a local day, from working hours minus leave\nminus active appointments, in the clinic's time zone. No patient data.",
-        "operationId": "availability",
+        "operationId": "free_slots",
         "parameters": [
           {
             "name": "date",
@@ -4646,7 +4646,7 @@
           "public"
         ],
         "summary": "Public, no sign-in: the clinic's name, booking settings and bookable doctors.",
-        "operationId": "options",
+        "operationId": "booking_options",
         "responses": {
           "200": {
             "content": {
@@ -4672,7 +4672,7 @@
           "public"
         ],
         "summary": "Books a slot. The caller is signed in with a verified email (a one-time code from\nSupabase) and need not belong to the clinic. The appointment is `requested`, or `confirmed`\nwhen the clinic auto-confirms. Never says whether a patient record already existed.",
-        "operationId": "create",
+        "operationId": "book_online",
         "requestBody": {
           "content": {
             "application/json": {

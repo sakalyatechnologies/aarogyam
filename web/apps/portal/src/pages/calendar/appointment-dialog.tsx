@@ -9,6 +9,7 @@ import { localDateHour, localInstant } from "../../lib/time.js";
 import { useChangeAppointment, useSetAppointmentStatus } from "../../queries.js";
 
 const STATUS_TONE: Readonly<Record<AppointmentStatus, Tone>> = {
+  requested: "warning",
   booked: "neutral",
   confirmed: "info",
   arrived: "warning",
@@ -19,6 +20,7 @@ const STATUS_TONE: Readonly<Record<AppointmentStatus, Tone>> = {
 };
 
 const STATUS_LABEL: Readonly<Record<AppointmentStatus, string>> = {
+  requested: "Requested",
   booked: "Booked",
   confirmed: "Confirmed",
   arrived: "Arrived",
@@ -85,7 +87,10 @@ function AppointmentDetail({
       { id: appointment.id, change: { status, ...(reason === undefined ? {} : { reason }) } },
       {
         onSuccess: () => {
-          toast.show({ title: `Marked ${STATUS_LABEL[status].toLowerCase()}`, tone: "success" });
+          toast.show({
+            title: appointment.status === "requested" && status === "cancelled" ? "Request declined" : `Marked ${STATUS_LABEL[status].toLowerCase()}`,
+            tone: "success",
+          });
           onClose();
         },
         onError: (thrown) => {
@@ -155,6 +160,11 @@ function AppointmentDetail({
           <dd className="font-semibold text-text">{appointment.reason ?? "Consultation"}</dd>
         </div>
       </dl>
+      {appointment.status === "requested" ? (
+        <p className="rounded-xl bg-warning-soft px-4 py-3 text-sm font-medium text-warning-text">
+          The patient asked for this time online. Confirm it, or decline with a reason; they are emailed either way.
+        </p>
+      ) : null}
       {appointment.cancel_reason == null ? null : (
         <p className="text-sm text-muted">Cancelled: {appointment.cancel_reason}</p>
       )}
@@ -191,7 +201,7 @@ function AppointmentDetail({
 
       {cancelling ? (
         <div className="rounded-2xl border border-danger-soft bg-danger-soft/40 p-4">
-          <Field label="Reason for cancelling" required>
+          <Field label={appointment.status === "requested" ? "Reason for declining" : "Reason for cancelling"} required>
             <TextArea
               value={cancelReason}
               onChange={(event) => {
@@ -210,7 +220,7 @@ function AppointmentDetail({
               Back
             </Button>
             <Button disabled={cancelReason.trim() === "" || setStatus.isPending} onClick={() => { moveTo("cancelled", cancelReason.trim()); }}>
-              Confirm cancellation
+              {appointment.status === "requested" ? "Decline request" : "Confirm cancellation"}
             </Button>
           </div>
         </div>
@@ -224,8 +234,8 @@ function AppointmentDetail({
 
       {canWrite && !cancelling ? (
         <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-          {appointment.status === "booked" ? (
-            <Button variant="secondary" disabled={setStatus.isPending} onClick={() => { moveTo("confirmed"); }}>
+          {appointment.status === "booked" || appointment.status === "requested" ? (
+            <Button variant={appointment.status === "requested" ? "primary" : "secondary"} disabled={setStatus.isPending} onClick={() => { moveTo("confirmed"); }}>
               Confirm
             </Button>
           ) : null}
@@ -257,7 +267,7 @@ function AppointmentDetail({
                 setCancelling(true);
               }}
             >
-              Cancel
+              {appointment.status === "requested" ? "Decline" : "Cancel"}
             </Button>
           ) : null}
         </div>

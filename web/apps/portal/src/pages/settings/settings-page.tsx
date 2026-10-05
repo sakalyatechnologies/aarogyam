@@ -1,7 +1,7 @@
 import { Mail, MoreVertical, UserPlus } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 
-import { apiErrorOf, type ClinicSettings, type MemberChanges, type MembershipId, type Role } from "@aarogyam/api-client";
+import { apiErrorOf, type ClinicSettings, type MemberChanges, type MembershipId, type OnlineBookingChanges, type Role } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, useDocumentTitle } from "@aarogyam/app-kit";
 import {
   Avatar,
@@ -83,24 +83,91 @@ export function SettingsPage() {
               These switches connect when Messages and Stock ship.
             </p>
           </MkCard>
-          <MkCard title="Website" hint="Clinic websites ship in Phase 2">
-            <div className="mk-setrow">
-              <div>
-                <b>Online booking</b>
-                <p>Accept appointments from website</p>
-              </div>
-              <Toggle checked={false} disabled label="Online booking (not available yet)" />
-            </div>
-            <button type="button" className="mk-btn mk-btn-ghost" style={{ width: "100%" }} disabled>
-              ↗ Preview website
-            </button>
-          </MkCard>
+          {can("settings.manage") ? (
+            <OnlineBookingCard />
+          ) : (
+            <MkCard title="Online booking" hint="Patients book from your clinic's /book page">
+              <p className="mk-hint">Only the clinic owner can change online booking.</p>
+            </MkCard>
+          )}
         </div>
       </div>
       <MkCard title="Clinic administration" hint="Chairs, doctors, prices, staff and your signed-in devices">
         <Tabs label="Settings" items={items} />
       </MkCard>
     </div>
+  );
+}
+
+/** Online booking: on or off, who confirms, and how long a visit slot is. The page itself is `/book`. */
+function OnlineBookingCard() {
+  const settings = useClinicSettings();
+  const update = useUpdateClinicSettings();
+  const toast = useToast();
+  const booking = settings.data?.online_booking;
+  const save = (changes: OnlineBookingChanges) => {
+    update.mutate(
+      { online_booking: changes },
+      {
+        onSuccess: () => {
+          toast.show({ title: "Online booking updated", tone: "success" });
+        },
+        onError: (thrown) => {
+          toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't save that. Please try again.", tone: "danger" });
+        },
+      },
+    );
+  };
+  return (
+    <MkCard title="Online booking" hint="Patients book from your clinic's /book page">
+      {booking === undefined ? (
+        settings.isError ? (
+          <ApiErrorNotice title="Couldn't load online booking" error={settings.error} onRetry={() => void settings.refetch()} />
+        ) : (
+          <Skeleton shape="block" />
+        )
+      ) : (
+        <>
+          <div className="mk-setrow">
+            <div>
+              <b>Accept online bookings</b>
+              <p>Patients pick a free time and verify their email</p>
+            </div>
+            <Toggle
+              checked={booking.enabled}
+              disabled={update.isPending}
+              label="Accept online bookings"
+              onChange={(next) => {
+                save({ enabled: next });
+              }}
+            />
+          </div>
+          <div className="mk-setrow">
+            <div>
+              <b>Confirm bookings automatically</b>
+              <p>{booking.auto_confirm ? "Bookings are confirmed at once" : "The front desk confirms each request"}</p>
+            </div>
+            <Toggle
+              checked={booking.auto_confirm}
+              disabled={update.isPending}
+              label="Confirm bookings automatically"
+              onChange={(next) => {
+                save({ auto_confirm: next });
+              }}
+            />
+          </div>
+          <Field label="Visit length">
+            <Select
+              options={[10, 15, 20, 30, 45, 60].map((minutes) => ({ value: String(minutes), label: `${String(minutes)} minutes` }))}
+              value={String(booking.slot_minutes)}
+              onValueChange={(value) => {
+                save({ slot_minutes: Number(value) });
+              }}
+            />
+          </Field>
+        </>
+      )}
+    </MkCard>
   );
 }
 

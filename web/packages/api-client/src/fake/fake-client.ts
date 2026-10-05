@@ -925,6 +925,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (target === "cancelled" && (change.reason ?? "").trim() === "") {
             return invalid("reason", "a reason is required to cancel");
           }
+          if (found.status === "requested" && target !== "confirmed" && target !== "cancelled") {
+            return invalid("status", "a requested appointment can only be confirmed or declined");
+          }
           if (target === "no_show" && found.status !== "booked" && found.status !== "confirmed") {
             return refuse(409, "conflict", "Only a booked appointment can be marked no-show.");
           }
@@ -2189,6 +2192,15 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (changes.upi_id !== undefined) clinic.upi_id = changes.upi_id === "" ? null : changes.upi_id;
           if (changes.prescription_footer !== undefined) clinic.prescription_footer = changes.prescription_footer === "" ? null : changes.prescription_footer;
           if (changes.address !== undefined) clinic.address = changes.address ?? {};
+          if (changes.online_booking != null) {
+            const next = { ...bookingSettings(clinic) };
+            for (const [key, value] of Object.entries(changes.online_booking)) {
+              if (value != null) {
+                Object.assign(next, { [key]: value });
+              }
+            }
+            clinic.online_booking = next;
+          }
           if (changes.branding !== undefined) {
             const rawMode = changes.branding?.mode ?? undefined;
             clinic.branding = {
@@ -3663,6 +3675,147 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(wirePrescription(rx, state) satisfies C.Prescription);
         }),
 
+      getBookingOptions: (opts) =>
+        respond(S.bookingOptions, opts?.signal, () => {
+          const clinic = state.clinics.find((c) => c.host === options.host);
+          if (clinic === undefined || clinic.status === "suspended" || clinic.status === "churned") {
+            return notFound;
+          }
+          const settings = bookingSettings(clinic);
+          const doctors = settings.enabled
+            ? state.practitioners
+                .filter((p) => p.clinic_id === clinic.id && p.active && state.workingShifts.some((s) => s.practitioner_id === p.id))
+                .map((p): C.BookableDoctor => ({ id: p.id, name: p.display_name, specialty: p.specialty ?? null }))
+            : [];
+          return reply({
+            clinic_name: clinic.name,
+            timezone: clinic.timezone,
+            today: clinicToday(clinic),
+            enabled: settings.enabled,
+            slot_minutes: settings.slot_minutes,
+            auto_confirm: settings.auto_confirm,
+            horizon_days: settings.horizon_days,
+            doctors,
+          } satisfies C.BookingOptions);
+        }),
+
+      getAvailability: (date, practitionerId, opts) =>
+        respond(S.availability, opts?.signal, () => {
+          const clinic = state.clinics.find((c) => c.host === options.host);
+          if (clinic === undefined || !bookingSettings(clinic).enabled) {
+            return notFound;
+          }
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            return invalid("date", "must be YYYY-MM-DD");
+          }
+          if (!state.practitioners.some((p) => p.id === practitionerId && p.clinic_id === clinic.id && p.active)) {
+            return invalid("practitioner_id", "no such doctor");
+          }
+          return reply({
+            date,
+            practitioner_id: practitionerId,
+            slot_minutes: bookingSettings(clinic).slot_minutes,
+            slots: freeSlots(state, clinic, practitionerId, date, clock()),
+          } satisfies C.Availability);
+        }),
+
+      createOnlineBooking: (input, opts) =>
+        respond(S.booked, opts?.signal, async () => {
+          const who = await claims();
+          if (who === undefined) {
+            return signedOut;
+          }
+          const clinic = state.clinics.find((c) => c.host === options.host);
+          if (clinic === undefined || !bookingSettings(clinic).enabled) {
+            return notFound;
+          }
+          if (who.email === undefined) {
+            return refuse(403, "email_required", "Verify your email address to book.");
+          }
+          const email = who.email.trim().toLowerCase();
+          const doctor = state.practitioners.find((p) => p.id === input.practitioner_id && p.clinic_id === clinic.id && p.active);
+          if (doctor === undefined) {
+            return invalid("practitioner_id", "no such doctor");
+          }
+          if (input.full_name.trim() === "") {
+            return invalid("full_name", "must be 1 to 200 characters");
+          }
+          const phone = normalizeClinicPhone(input.phone.replace(/\s+/g, ""));
+          if (!INDIAN_MOBILE.test(phone) && !E164.test(phone)) {
+            return invalid("phone", "invalid phone number");
+          }
+          const now = clock();
+          const open = state.appointments.filter(
+            (a) =>
+              a.clinic_id === clinic.id &&
+              a.booked_by_account === who.id &&
+              (a.status === "requested" || a.status === "booked" || a.status === "confirmed") &&
+              Date.parse(a.ends_at) > now.getTime(),
+          ).length;
+          if (open >= MAX_OPEN_SELF_BOOKINGS) {
+            return refuse(409, "conflict", "you already have the most upcoming booking requests this clinic allows; wait for one to be answered");
+          }
+          const start = new Date(input.starts_at);
+          const day = localClock(start, clinic.timezone).date;
+          if (!freeSlots(state, clinic, doctor.id, day, now).some((slot) => Date.parse(slot) === start.getTime())) {
+            return refuse(409, "conflict", "that time is no longer available; choose another");
+          }
+          const settings = bookingSettings(clinic);
+          let patient = state.patients.find((p) => p.clinic_id === clinic.id && p.email?.toLowerCase() === email && p.status === "active");
+          const isNew = patient === undefined;
+          if (patient === undefined) {
+            const numbers = state.patients.filter((p) => p.clinic_id === clinic.id).map((p) => Number(p.number.split("-")[1] ?? 0));
+            patient = {
+              clinic_id: clinic.id,
+              id: fakeUuid(random, now),
+              number: `${clinic.number_prefix}-${String(1 + Math.max(0, ...numbers))}`,
+              full_name: input.full_name.trim().replace(/\s+/g, " "),
+              sex: "unknown",
+              date_of_birth: null,
+              birth_date_estimated: false,
+              phone,
+              email,
+              preferred_language: "en-IN",
+              status: "active",
+              created_at: now.toISOString(),
+              last_visit_at: null,
+            } satisfies FakePatient;
+            state.patients.push(patient);
+          }
+          const record: FakeAppointment = {
+            id: fakeUuid(random, now),
+            clinic_id: clinic.id,
+            branch_id: clinic.id,
+            patient_id: patient.id,
+            practitioner_id: doctor.id,
+            room_id: null,
+            starts_at: start.toISOString(),
+            ends_at: new Date(start.getTime() + settings.slot_minutes * 60_000).toISOString(),
+            status: settings.auto_confirm ? "confirmed" : "requested",
+            kind: isNew ? "new" : "follow_up",
+            source: "website",
+            reason: input.reason ?? null,
+            notes: null,
+            cancel_reason: null,
+            arrived_at: null,
+            seated_at: null,
+            completed_at: null,
+            token_number: null,
+            booked_by_account: who.id,
+          };
+          state.appointments.push(record);
+          const offsetStart = localIso(day, localClock(start, clinic.timezone).minutes, clinic.timezone);
+          const endLocal = localClock(new Date(record.ends_at), clinic.timezone);
+          return reply({
+            id: record.id,
+            status: record.status === "confirmed" ? "confirmed" : "requested",
+            starts_at: offsetStart,
+            ends_at: localIso(endLocal.date, endLocal.minutes, clinic.timezone),
+            doctor_name: doctor.display_name,
+            clinic_name: clinic.name,
+          } satisfies C.Booked);
+        }),
+
       verifyPrescription: (token, opts) =>
         respond(S.verification, opts?.signal, () => {
           const rx = state.prescriptions.find((r) => r.verify_token === token);
@@ -3867,7 +4020,23 @@ function wireClinicSettings(clinic: FakeClinic): C.ClinicSettings {
       pincode: clinic.address?.pincode ?? null,
     },
     branding: { brand: clinic.branding.brand, mode: clinic.branding.mode },
+    online_booking: bookingSettings(clinic),
   };
+}
+
+const BOOKING_DEFAULTS: C.OnlineBooking = {
+  enabled: true,
+  slot_minutes: 15,
+  buffer_minutes: 0,
+  auto_confirm: false,
+  horizon_days: 30,
+  min_notice_minutes: 60,
+};
+/** Most open self-bookings one verified person may hold in a clinic. */
+const MAX_OPEN_SELF_BOOKINGS = 2;
+
+function bookingSettings(clinic: FakeClinic): C.OnlineBooking {
+  return { ...BOOKING_DEFAULTS, ...clinic.online_booking };
 }
 
 /** `9876543210` or `+919876543210` both become `+919876543210`: +91 is assumed without a country code. */
@@ -3878,7 +4047,30 @@ function normalizeClinicPhone(raw: string): string {
 const UPI_ID = /^[\w.-]{2,256}@[a-zA-Z]{2,64}$/;
 const GSTIN = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
+function validateOnlineBooking(changes: C.OnlineBookingChanges): Outcome | null {
+  const { slot_minutes: slot, buffer_minutes: buffer, horizon_days: horizon, min_notice_minutes: notice } = changes;
+  if (slot != null && (slot < 5 || slot > 240 || slot % 5 !== 0)) {
+    return invalid("booking.slot_minutes", "must be 5 to 240 minutes, in steps of 5");
+  }
+  if (buffer != null && (buffer < 0 || buffer > 120)) {
+    return invalid("booking.buffer_minutes", "must be 0 to 120 minutes");
+  }
+  if (horizon != null && (horizon < 1 || horizon > 180)) {
+    return invalid("booking.horizon_days", "must be 1 to 180 days");
+  }
+  if (notice != null && (notice < 0 || notice > 10_080)) {
+    return invalid("booking.min_notice_minutes", "must be 0 to 10080 minutes");
+  }
+  return null;
+}
+
 function validateClinicSettingsChanges(changes: C.ClinicSettingsChanges): Outcome | null {
+  if (changes.online_booking != null) {
+    const problem = validateOnlineBooking(changes.online_booking);
+    if (problem !== null) {
+      return problem;
+    }
+  }
   if (changes.name != null && (changes.name.length < 1 || changes.name.length > 200)) {
     return invalid("name", "must be 1 to 200 characters");
   }
@@ -3920,7 +4112,7 @@ function validateNewClinic(input: C.NewClinic, slug: string, clinics: readonly F
 }
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
-const APPOINTMENT_ORDER: readonly C.AppointmentStatus[] = ["booked", "confirmed", "arrived", "in_chair", "completed"];
+const APPOINTMENT_ORDER: readonly C.AppointmentStatus[] = ["requested", "booked", "confirmed", "arrived", "in_chair", "completed"];
 
 function wireRoom(r: FakeRoom): C.Room {
   return { id: r.id, branch_id: r.branch_id, name: r.name, kind: r.kind, active: r.active, sort_order: r.sort_order };
@@ -4283,6 +4475,49 @@ function withinWorkingHours(state: Fixtures, clinic: FakeClinic, practitionerId:
   return state.workingShifts
     .filter((s) => s.clinic_id === clinic.id && s.practitioner_id === practitionerId && s.weekday === weekday)
     .some((s) => toMinutes(s.starts) <= start.minutes && end.minutes <= toMinutes(s.ends));
+}
+
+/** `2026-10-05T09:00:00+05:30`: a local time with the zone's offset, as the API sends slots. */
+function localIso(date: string, minutes: number, timezone: string): string {
+  const [year = 1970, month = 1, day = 1] = date.split("-").map((part) => Number.parseInt(part, 10));
+  const offset = Math.round((Date.UTC(year, month - 1, day, 0, minutes) - atLocalTime(date, minutes, timezone).getTime()) / 60_000);
+  const sign = offset < 0 ? "-" : "+";
+  const abs = Math.abs(offset);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${date}T${two(Math.floor(minutes / 60))}:${two(minutes % 60)}:00${sign}${two(Math.floor(abs / 60))}:${two(abs % 60)}`;
+}
+
+/** The slots a patient may take: working hours minus leave minus active appointments (widened by the buffer). */
+function freeSlots(state: Fixtures, clinic: FakeClinic, practitionerId: string, date: string, now: Date): string[] {
+  const settings = bookingSettings(clinic);
+  const ahead = daysBetween(localClock(now, clinic.timezone).date, date);
+  if (ahead < 0 || ahead >= settings.horizon_days) {
+    return [];
+  }
+  const weekday = isoWeekday(date);
+  const earliest = now.getTime() + settings.min_notice_minutes * 60_000;
+  const buffer = settings.buffer_minutes * 60_000;
+  const slots: string[] = [];
+  for (const shift of state.workingShifts.filter((s) => s.clinic_id === clinic.id && s.practitioner_id === practitionerId && s.weekday === weekday)) {
+    for (let at = toMinutes(shift.starts); at + settings.slot_minutes <= toMinutes(shift.ends); at += settings.slot_minutes) {
+      const start = atLocalTime(date, at, clinic.timezone).getTime();
+      const end = start + settings.slot_minutes * 60_000;
+      const taken =
+        state.appointments.some(
+          (a) =>
+            a.clinic_id === clinic.id &&
+            a.practitioner_id === practitionerId &&
+            a.status !== "cancelled" &&
+            a.status !== "no_show" &&
+            Date.parse(a.starts_at) < end + buffer &&
+            start - buffer < Date.parse(a.ends_at),
+        ) || state.leave.some((l) => l.clinic_id === clinic.id && l.practitioner_id === practitionerId && Date.parse(l.starts_at) < end && start < Date.parse(l.ends_at));
+      if (start >= earliest && !taken) {
+        slots.push(localIso(date, at, clinic.timezone));
+      }
+    }
+  }
+  return slots.sort();
 }
 
 /** Warnings for booking or moving an appointment: busy elsewhere, on leave, or outside hours. Never blocks. */

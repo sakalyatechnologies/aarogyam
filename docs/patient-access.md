@@ -52,7 +52,7 @@ A link is created when the patient proves the contact the clinic has on file (on
 
 | | Scope | Depends on |
 |---|---|---|
-| P1 | Availability endpoint, public booking page, requested/confirmed on the calendar, confirmation email | D1 |
+| P1 | Availability endpoint, public booking page, requested/confirmed on the calendar, confirmation email | D1 (**built** on `feat/self-booking`: Turnstile and patient cancellation are still to do) |
 | P2 | Patient accounts, verified links, consent, patient API (appointments, prescriptions, invoices), access log | D3 |
 | P3 | Patient app (KMP, Android first) on the P2 API | P2, D4 |
 | P4 | SMS and WhatsApp channels for reminders and prescription links | D2, provider accounts |

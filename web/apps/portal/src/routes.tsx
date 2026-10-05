@@ -24,6 +24,7 @@ import { PatientPrescriptionsPage } from "./pages/prescriptions/patient-prescrip
 import { PrescriptionPage } from "./pages/prescriptions/prescription-page.js";
 import { PrescriptionsPage } from "./pages/prescriptions/prescriptions-page.js";
 import { PrescriptionPrintPage } from "./pages/prescriptions/print-page.js";
+import { BookPage } from "./pages/public/book-page.js";
 import { SharedPage } from "./pages/public/shared-page.js";
 import { VerifyPrescriptionPage } from "./pages/public/verify-page.js";
 import { QueuePage } from "./pages/queue/queue-page.js";
@@ -49,6 +50,7 @@ export const routes: RouteObject[] = [
       { path: "auth/callback", element: <AuthCallbackPage /> },
       { path: "register", element: <RegisterPage /> },
       { path: "invite", element: <InvitePage /> },
+      { path: "book", element: <BookPage /> },
       { path: "shared/:token", element: <SharedPage /> },
       { path: "verify/prescriptions/:token", element: <VerifyPrescriptionPage /> },
       {

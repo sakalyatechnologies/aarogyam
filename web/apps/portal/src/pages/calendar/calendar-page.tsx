@@ -18,6 +18,7 @@ type View = "day" | "week";
 type Lane = "chair" | "doctor";
 
 const STATUS_TONE: Readonly<Record<AppointmentStatus, Tone>> = {
+  requested: "warning",
   booked: "neutral",
   confirmed: "info",
   arrived: "warning",
@@ -31,6 +32,7 @@ const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** Mock-up chip colours by status: completed green, waiting amber, booked brand, new consult indigo. */
 const CHIP: Readonly<Record<AppointmentStatus, string>> = {
+  requested: "q",
   booked: "b",
   confirmed: "i",
   arrived: "a",
@@ -108,7 +110,7 @@ export function CalendarPage() {
           start: start.hour,
           duration: durationHours,
           label: a.patient.full_name,
-          subtitle: view === "week" ? `${a.practitioner.display_name}${a.room == null ? "" : ` · ${a.room}`}` : a.room ?? a.practitioner.display_name,
+          subtitle: a.status === "requested" ? "Requested online" : view === "week" ? `${a.practitioner.display_name}${a.room == null ? "" : ` · ${a.room}`}` : a.room ?? a.practitioner.display_name,
           tone: STATUS_TONE[a.status],
         },
       ];
@@ -196,7 +198,7 @@ export function CalendarPage() {
           </button>
         ) : null}
       </div>
-      <MkCard title={view === "week" ? "Week view" : "Day view"} hint="Colour: completed · waiting · booked · new consult">
+      <MkCard title={view === "week" ? "Week view" : "Day view"} hint="Colour: completed · waiting · booked · new consult · dashed: awaiting your confirmation">
         {appointments.isPending ? (
           <Skeleton shape="block" />
         ) : appointments.isError ? (
@@ -230,12 +232,13 @@ export function CalendarPage() {
                         <button
                           key={a.id}
                           type="button"
-                          className={`mk-evchip ${CHIP[a.kind === "emergency" ? "no_show" : a.kind === "new" && a.status !== "completed" && a.status !== "arrived" ? "confirmed" : a.status]}`}
-                          aria-label={`${a.patient.full_name}, ${a.reason ?? "Consultation"} at ${formatTime(a.starts_at, timeZone)}`}
+                          className={`mk-evchip ${CHIP[a.status === "requested" ? "requested" : a.kind === "emergency" ? "no_show" : a.kind === "new" && a.status !== "completed" && a.status !== "arrived" ? "confirmed" : a.status]}`}
+                          aria-label={`${a.status === "requested" ? "Requested: " : ""}${a.patient.full_name}, ${a.reason ?? "Consultation"} at ${formatTime(a.starts_at, timeZone)}`}
                           onClick={() => {
                             setSelectedId(a.id);
                           }}
                         >
+                          {a.status === "requested" ? "? " : ""}
                           {formatTime(a.starts_at, timeZone).replace(/ ?[ap]m$/i, "")} {a.reason ?? a.patient.full_name}
                         </button>
                       ))}

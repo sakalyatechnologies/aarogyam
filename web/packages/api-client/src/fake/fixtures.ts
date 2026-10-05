@@ -69,6 +69,8 @@ export interface FakeClinic {
   legal_name?: string | null;
   gstin?: string | null;
   prescription_footer?: string | null;
+  /** Online booking settings; anything left out uses the API's default. */
+  online_booking?: Partial<C.OnlineBooking>;
 }
 
 /** A device or browser where a person is signed in, for `GET /me/sessions`. */
@@ -163,6 +165,8 @@ export interface FakeAppointment {
   seated_at?: string | null;
   completed_at?: string | null;
   token_number?: number | null;
+  /** The verified person who booked it online, when they did. */
+  booked_by_account?: string | null;
 }
 
 /** A waiting-room token, issued when a patient (booked or walk-in) arrives. */

@@ -114,3 +114,67 @@ describe("Calendar: status actions", () => {
     expect(await screen.findByText("Marked cancelled")).toBeTruthy();
   });
 });
+
+describe("Calendar: online requests", () => {
+  async function requestOnline(backend: ReturnType<typeof fakeApi>) {
+    const patient = backend.client({
+      host: SUNRISE,
+      getToken: () => fakeTokenFor({ id: "d0d0d0d0-0000-4000-8000-000000000001", email: "priya@example.test" }),
+      now: () => NOW,
+    });
+    const options = await patient.getBookingOptions();
+    if (!options.ok) throw new Error("expected options");
+    const doctor = options.value.doctors[0]?.id ?? "";
+    const slots = await patient.getAvailability("2026-10-05", doctor);
+    if (!slots.ok) throw new Error("expected slots");
+    const booked = await patient.createOnlineBooking({
+      starts_at: slots.value.slots[0] ?? "",
+      practitioner_id: doctor,
+      full_name: "Priya Nair",
+      phone: "9876543210",
+    });
+    if (!booked.ok) throw new Error("expected a booking");
+    return booked.value;
+  }
+
+  it("shows a requested booking distinctly and lets the front desk confirm it", async () => {
+    const user = userEvent.setup();
+    const backend = fakeApi();
+    const booked = await requestOnline(backend);
+    renderPortal("/calendar?from=2026-10-05&to=2026-10-05", { as: PEOPLE.farah, backend });
+
+    const chip = await screen.findByRole("button", { name: /Requested: Priya Nair/ });
+    expect(chip.className).toContain(" q");
+    await user.click(chip);
+    const dialog = await screen.findByRole("dialog", { name: "Appointment" });
+    expect(within(dialog).getByText("Requested")).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Decline" })).toBeTruthy();
+    expect(within(dialog).queryByRole("button", { name: "Mark arrived" })).toBeNull();
+    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    expect(await screen.findByText("Marked confirmed")).toBeTruthy();
+
+    const after = await backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: PEOPLE.farah }), now: () => NOW }).listAppointments({ from: "2026-10-05", to: "2026-10-05" });
+    if (!after.ok) throw new Error("expected the calendar");
+    expect(after.value.items.find((a) => a.id === booked.id)?.status).toBe("confirmed");
+  });
+
+  it("declines a request only with a reason", async () => {
+    const user = userEvent.setup();
+    const backend = fakeApi();
+    const booked = await requestOnline(backend);
+    renderPortal("/calendar?from=2026-10-05&to=2026-10-05", { as: PEOPLE.farah, backend });
+
+    await user.click(await screen.findByRole("button", { name: /Requested: Priya Nair/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Appointment" });
+    await user.click(within(dialog).getByRole("button", { name: "Decline" }));
+    const send = within(dialog).getByRole("button", { name: "Decline request" });
+    expect(send.hasAttribute("disabled")).toBe(true);
+    await user.type(within(dialog).getByLabelText(/reason for declining/i), "Doctor unavailable");
+    await user.click(send);
+    expect(await screen.findByText("Request declined")).toBeTruthy();
+
+    const after = await backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: PEOPLE.farah }), now: () => NOW }).listAppointments({ from: "2026-10-05", to: "2026-10-05" });
+    if (!after.ok) throw new Error("expected the calendar");
+    expect(after.value.items.find((a) => a.id === booked.id)?.status).toBe("cancelled");
+  });
+});

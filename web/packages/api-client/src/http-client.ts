@@ -13,6 +13,9 @@ import {
   appointmentList,
   approvedApplication,
   attachment,
+  availability,
+  booked,
+  bookingOptions,
   attachmentList,
   cancelled,
   clinicDetail,
@@ -541,6 +544,18 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/shared/${encodeURIComponent(token)}/open`, schema: prescription, body: { pin }, signal: opts?.signal }),
     verifyPrescription: (token, opts) =>
       call({ method: "GET", path: `/api/v1/verify/prescriptions/${encodeURIComponent(token)}`, schema: verification, signal: opts?.signal }),
+
+    getBookingOptions: (opts) => call({ method: "GET", path: "/api/v1/public/booking", schema: bookingOptions, signal: opts?.signal }),
+    getAvailability: (date, practitionerId, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/public/availability",
+        query: { date, practitioner_id: practitionerId },
+        schema: availability,
+        signal: opts?.signal,
+      }),
+    createOnlineBooking: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/public/bookings", schema: booked, body: input, signal: opts?.signal }),
   };
 }
 

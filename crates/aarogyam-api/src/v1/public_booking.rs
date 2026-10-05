@@ -65,7 +65,7 @@ pub struct BookingOptions {
         (status = 429, description = "Too many requests from this address")
     )
 )]
-pub(crate) async fn options(
+pub(crate) async fn booking_options(
     State(state): State<AppState>,
     public: ClinicHost,
 ) -> Result<Json<BookingOptions>, ApiFailure> {
@@ -136,7 +136,7 @@ pub struct Availability {
         (status = 429, description = "Too many requests from this address")
     )
 )]
-pub(crate) async fn availability(
+pub(crate) async fn free_slots(
     State(state): State<AppState>,
     public: ClinicHost,
     ApiQuery(query): ApiQuery<AvailabilityQuery>,
@@ -219,7 +219,7 @@ pub struct Booked {
         (status = 429, description = "Too many requests")
     )
 )]
-pub(crate) async fn create(
+pub(crate) async fn book_online(
     State(state): State<AppState>,
     public: ClinicHost,
     signed_in: SignedIn,

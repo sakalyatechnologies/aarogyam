@@ -26,6 +26,7 @@ function waitingMinutes(appointment: TodayAppointment, asOf: string): number {
 }
 
 const TAGS: Readonly<Record<AppointmentStatus, { label: string; tone: TagTone }>> = {
+  requested: { label: "REQUESTED", tone: "wait" },
   booked: { label: "BOOKED", tone: "next" },
   confirmed: { label: "CONFIRMED", tone: "info" },
   arrived: { label: "WAITING", tone: "wait" },
@@ -83,7 +84,7 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
   const peek = usePatientPeek();
   const booked = today.appointments.filter((a) => a.status !== "cancelled");
   const waiting = booked.filter((a) => a.status === "arrived").sort((a, b) => (a.arrived_at ?? "").localeCompare(b.arrived_at ?? ""));
-  const upcoming = booked.filter((a) => a.status === "booked" || a.status === "confirmed");
+  const upcoming = booked.filter((a) => a.status === "requested" || a.status === "booked" || a.status === "confirmed");
   const now = booked.find((a) => a.status === "in_chair") ?? waiting[0];
   const nextUp = now === undefined ? upcoming[0] : [...waiting.filter((a) => a !== now), ...upcoming][0];
   const target = nextUp ?? now;

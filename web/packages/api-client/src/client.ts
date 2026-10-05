@@ -10,6 +10,7 @@ import type {
   ApplicationId,
   ApplicationStatus,
   Applications,
+  Availability,
   AppointmentChanges,
   AppointmentId,
   AppointmentPage,
@@ -18,6 +19,8 @@ import type {
   Attachment,
   AttachmentId,
   AttachmentPage,
+  Booked,
+  BookingOptions,
   Cancelled,
   CancelRequest,
   ClinicDetail,
@@ -53,6 +56,7 @@ import type {
   MetricsRange,
   MySessions,
   NewAppointmentBody,
+  NewBooking,
   NewAddendum,
   NewChartEntries,
   NewPlan,
@@ -460,4 +464,11 @@ export interface ApiClient {
   openShared(token: string, pin: string, options?: RequestOptions): Promise<ApiResult<Prescription>>;
   /** Any host, public: the QR code's check that a prescription is genuine. */
   verifyPrescription(token: string, options?: RequestOptions): Promise<ApiResult<Verification>>;
+
+  /** Clinic host, public: the clinic's name, booking settings and the doctors patients may pick. */
+  getBookingOptions(options?: RequestOptions): Promise<ApiResult<BookingOptions>>;
+  /** Clinic host, public: a doctor's free slots on a local day (`YYYY-MM-DD`). */
+  getAvailability(date: string, practitionerId: string, options?: RequestOptions): Promise<ApiResult<Availability>>;
+  /** Clinic host, verified-email sign-in (no membership needed): requests or books a slot. */
+  createOnlineBooking(input: NewBooking, options?: RequestOptions): Promise<ApiResult<Booked>>;
 }

@@ -46,6 +46,8 @@ export type Roles = Schemas["Roles"];
 export type Address = Schemas["Address"];
 export type Branding = Schemas["Branding"];
 export type ClinicSettings = Schemas["ClinicSettings"];
+export type OnlineBooking = Schemas["OnlineBooking"];
+export type OnlineBookingChanges = Schemas["OnlineBookingChanges"];
 export type ClinicSettingsChanges = Schemas["ClinicSettingsChanges"];
 
 export type MySession = Schemas["MySession"];
@@ -180,7 +182,7 @@ export type StatusChange = Schemas["StatusChange"];
 export type StatusChanged = Schemas["StatusChanged"];
 
 /** These replace the web draft's `scheduled`/`in_progress`/`teleconsult` (`docs/decisions.md`, 4 Oct). */
-export type AppointmentStatus = "booked" | "confirmed" | "arrived" | "in_chair" | "completed" | "cancelled" | "no_show";
+export type AppointmentStatus = "requested" | "booked" | "confirmed" | "arrived" | "in_chair" | "completed" | "cancelled" | "no_show";
 export type AppointmentKind = "new" | "follow_up" | "procedure" | "emergency";
 export type AppointmentSource = "front_desk" | "phone" | "website" | "app" | "whatsapp";
 export type BookingWarningCode = "practitioner_busy" | "practitioner_on_leave" | "outside_working_hours";
@@ -404,6 +406,14 @@ export type ShareLink = Schemas["ShareLink"];
 export type SharedPreview = Schemas["SharedPreview"];
 export type OpenRequest = Schemas["OpenRequest"];
 export type Verification = Schemas["Verification"];
+
+// Patient self-booking (public, on the clinic host) -----------------------------------------------
+
+export type BookableDoctor = Schemas["BookableDoctor"];
+export type BookingOptions = Schemas["BookingOptions"];
+export type Availability = Schemas["Availability"];
+export type NewBooking = Schemas["NewBooking"];
+export type Booked = Schemas["Booked"];
 
 // Quality dashboard -----------------------------------------------------------------------------
 

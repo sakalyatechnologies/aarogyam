@@ -6,6 +6,8 @@ Patient health data lives here. Every rule below exists to protect it.
 
 ## Read before writing code
 
+Queue workers (`scripts/agents/`, see `docs/agent-workflow.md`) skip this list: read only the files your task names, then the code you change.
+
 0. `docs/handoff.md`: where the work stands and what to do next. Then `docs/product.md`: what Aarogyam is, who uses it, features and phases.
 1. `docs/guidelines/principles.md`, then the rest of `docs/guidelines/` and `docs/vendor/`: the shared Sakalya rules, copied from `sakalya-backend` by `scripts/sync-guidelines.sh`. Edit them there.
 2. `docs/architecture.md`: layers, crates, tenancy, and how a request flows.

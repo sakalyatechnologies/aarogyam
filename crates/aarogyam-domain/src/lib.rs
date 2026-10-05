@@ -62,6 +62,7 @@ macro_rules! text_value {
 
 pub mod access;
 pub mod billing;
+pub mod booking;
 pub mod clinic;
 pub mod clinical;
 pub mod dental;

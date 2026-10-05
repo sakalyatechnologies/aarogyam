@@ -30,6 +30,7 @@ pub mod record;
 pub mod reports;
 pub mod schedule;
 mod scope;
+pub mod self_booking;
 pub mod sessions;
 pub mod settings;
 pub mod share;

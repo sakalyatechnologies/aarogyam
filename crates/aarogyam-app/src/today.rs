@@ -156,7 +156,9 @@ fn counts(appointments: &[AppointmentView], tokens: &[TokenView]) -> Counts {
             counts.total += 1;
         }
         match status {
-            AppointmentStatus::Booked | AppointmentStatus::Confirmed => counts.booked += 1,
+            AppointmentStatus::Requested
+            | AppointmentStatus::Booked
+            | AppointmentStatus::Confirmed => counts.booked += 1,
             AppointmentStatus::Arrived => counts.arrived += 1,
             AppointmentStatus::InChair => counts.in_chair += 1,
             AppointmentStatus::Completed => counts.done += 1,

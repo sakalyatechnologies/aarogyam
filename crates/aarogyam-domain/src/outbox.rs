@@ -37,6 +37,12 @@ pub enum MessageKind {
     StaffInvited,
     /// A prescription link was sent to its patient.
     PrescriptionShared,
+    /// A patient asked for an appointment online and waits for the front desk.
+    BookingRequested,
+    /// An appointment booked online is confirmed.
+    BookingConfirmed,
+    /// An appointment requested online was declined.
+    BookingDeclined,
 }
 
 impl MessageKind {
@@ -46,6 +52,9 @@ impl MessageKind {
         match self {
             Self::StaffInvited => "staff.invited",
             Self::PrescriptionShared => "prescription.shared",
+            Self::BookingRequested => "booking.requested",
+            Self::BookingConfirmed => "booking.confirmed",
+            Self::BookingDeclined => "booking.declined",
         }
     }
 
@@ -55,6 +64,9 @@ impl MessageKind {
         match text {
             "staff.invited" => Some(Self::StaffInvited),
             "prescription.shared" => Some(Self::PrescriptionShared),
+            "booking.requested" => Some(Self::BookingRequested),
+            "booking.confirmed" => Some(Self::BookingConfirmed),
+            "booking.declined" => Some(Self::BookingDeclined),
             _ => None,
         }
     }

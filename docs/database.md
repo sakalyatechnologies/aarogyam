@@ -586,6 +586,7 @@ One row per clinic: branding, bill and prescription settings, defaults.
 | `billing` | `jsonb` | GST, bill footer |
 | `prescription` | `jsonb` | letterhead layout |
 | `notifications` | `jsonb` | quiet hours, sender |
+| `booking` | `jsonb` | online booking: enabled, slot_minutes, buffer_minutes, auto_confirm, horizon_days, min_notice_minutes |
 
 Primary key (org_id): exactly one row per clinic.
 
@@ -942,7 +943,7 @@ A booked slot with a doctor, optionally in a room or chair.
 | `room_id` | `uuid?` | → `rooms` |
 | `starts_at` | `timestamptz` |  |
 | `ends_at` | `timestamptz` |  |
-| `status` | `appointment_status` | booked, confirmed, arrived, in_chair, completed, cancelled, no_show |
+| `status` | `appointment_status` | requested, booked, confirmed, arrived, in_chair, completed, cancelled, no_show |
 | `kind` | `appointment_kind` | new, follow_up, procedure, emergency |
 | `reason` | `text?` |  |
 | `notes` | `text?` | front-desk note |
@@ -951,8 +952,9 @@ A booked slot with a doctor, optionally in a room or chair.
 | `arrived_at` | `timestamptz?` |  |
 | `seated_at` | `timestamptz?` |  |
 | `completed_at` | `timestamptz?` |  |
+| `booked_by_account` | `uuid?` | Supabase auth id of the patient who booked online; null for staff bookings |
 
-An exclusion constraint on (org_id, room_id, time range) for active rows (not cancelled, not no-show, not deleted) stops two bookings in one chair; a doctor in two chairs at once is a warning, not an error. Status changes follow the transition table in aarogyam_domain::schedule. Visits point at appointments, not the other way round.
+Online self-bookings start as requested (or confirmed when the clinic auto-confirms); a unique index on (doctor, start) for active self-bookings backs the per-doctor check. An exclusion constraint on (org_id, room_id, time range) for active rows (not cancelled, not no-show, not deleted) stops two bookings in one chair; a doctor in two chairs at once is a warning, not an error. Status changes follow the transition table in aarogyam_domain::schedule. Visits point at appointments, not the other way round.
 
 Referenced by: `appointment_events.appointment_id`, `booking_requests.appointment_id`, `encounters.appointment_id`, `queue_tokens.appointment_id`, `teleconsult_sessions.appointment_id`
 

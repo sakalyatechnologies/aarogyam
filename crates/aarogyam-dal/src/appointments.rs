@@ -352,3 +352,127 @@ pub async fn on_leave(
     .await?;
     Ok(away)
 }
+
+/// Books an appointment a patient asked for online, with the status the clinic's setting says
+/// (`requested` or `confirmed`) and the verified account that made it.
+///
+/// # Errors
+/// [`DbError`] on a database failure; a conflict (constraint `appointments_self_booking_slot`)
+/// when another self-booking has the same doctor and start.
+pub async fn insert_self_booked(
+    conn: &mut PgConnection,
+    id: Uuid,
+    patient_id: Uuid,
+    account: Uuid,
+    status: &str,
+    booking: &Booking<'_>,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"insert into aarogyam.appointments
+             (id, patient_id, practitioner_id, branch_id, room_id, starts_at, ends_at, kind, reason,
+              notes, source, status, booked_by_account)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'website', $11, $12)"#,
+        id,
+        patient_id,
+        booking.practitioner_id,
+        booking.branch_id,
+        booking.room_id,
+        booking.starts_at,
+        booking.ends_at,
+        booking.kind,
+        booking.reason,
+        booking.notes,
+        status,
+        account
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
+/// Serialises self-bookings for one doctor until the transaction ends, so the check that a slot
+/// is free and the insert that takes it can't interleave with another booking.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn lock_doctor_bookings(
+    conn: &mut PgConnection,
+    practitioner_id: Uuid,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"select pg_advisory_xact_lock(hashtextextended($1::text, 0)) as "locked!: bool""#,
+        practitioner_id.to_string()
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(())
+}
+
+/// A person's future self-bookings that are still open (requested, booked or confirmed).
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn open_self_bookings(
+    conn: &mut PgConnection,
+    account: Uuid,
+    now: OffsetDateTime,
+) -> Result<i64, DbError> {
+    let count = sqlx::query_scalar!(
+        r#"select count(*) as "count!" from aarogyam.appointments
+           where booked_by_account = $1 and deleted_at is null and ends_at > $2
+             and status in ('requested', 'booked', 'confirmed')"#,
+        account,
+        now
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(count)
+}
+
+/// Start and end of the doctor's active appointments overlapping `[from, to)`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn busy_spans(
+    conn: &mut PgConnection,
+    practitioner_id: Uuid,
+    from: OffsetDateTime,
+    to: OffsetDateTime,
+) -> Result<Vec<(OffsetDateTime, OffsetDateTime)>, DbError> {
+    let rows = sqlx::query!(
+        r#"select starts_at, ends_at from aarogyam.appointments
+           where practitioner_id = $1 and deleted_at is null
+             and status not in ('cancelled', 'no_show')
+             and starts_at < $3 and ends_at > $2
+           order by starts_at"#,
+        practitioner_id,
+        from,
+        to
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows.into_iter().map(|r| (r.starts_at, r.ends_at)).collect())
+}
+
+/// Start and end of the doctor's leave overlapping `[from, to)`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn leave_spans(
+    conn: &mut PgConnection,
+    practitioner_id: Uuid,
+    from: OffsetDateTime,
+    to: OffsetDateTime,
+) -> Result<Vec<(OffsetDateTime, OffsetDateTime)>, DbError> {
+    let rows = sqlx::query!(
+        r#"select starts_at, ends_at from aarogyam.leave_blocks
+           where practitioner_id = $1 and starts_at < $3 and ends_at > $2
+           order by starts_at"#,
+        practitioner_id,
+        from,
+        to
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows.into_iter().map(|r| (r.starts_at, r.ends_at)).collect())
+}

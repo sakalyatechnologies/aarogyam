@@ -475,6 +475,10 @@ async fn every_route_requires_sign_in_and_a_permission() {
             "/api/v1/shared/{token}",
             "/api/v1/shared/{token}/open",
             "/api/v1/verify/prescriptions/{verify_token}",
+            // Patients booking for themselves: the doctors and free slots are public (no
+            // patient data, throttled per IP); booking is covered by `signed_in_only` below.
+            "/api/v1/public/booking",
+            "/api/v1/public/availability",
         ];
         if !path.starts_with("/api/v1/")
             || path.starts_with("/api/v1/dev/")
@@ -511,6 +515,8 @@ async fn every_route_requires_sign_in_and_a_permission() {
                 "/api/v1/me/sessions/{id}/revoke",
                 "/api/v1/session",
                 "/api/v1/invitations/accept",
+                // A verified-email sign-in with no clinic membership: tests/self_booking.rs.
+                "/api/v1/public/bookings",
             ];
             let clinic_route = host == ALPHA && !signed_in_only.contains(&path.as_str());
             if clinic_route {

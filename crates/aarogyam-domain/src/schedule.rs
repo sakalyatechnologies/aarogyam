@@ -134,6 +134,8 @@ macro_rules! text_enum {
 text_enum!(
     /// Where an appointment stands.
     AppointmentStatus {
+        /// Asked for by the patient online; the front desk has not confirmed or declined it.
+        Requested => "requested",
         /// Booked, not yet confirmed.
         Booked => "booked",
         /// The patient confirmed they are coming.
@@ -175,16 +177,20 @@ impl AppointmentStatus {
     pub const fn can_become(self, to: Self) -> bool {
         matches!(
             (self, to),
-            (
-                Self::Booked,
-                Self::Confirmed | Self::Arrived | Self::Cancelled | Self::NoShow
-            ) | (
-                Self::Confirmed,
-                Self::Arrived | Self::Cancelled | Self::NoShow
-            ) | (
-                Self::Arrived,
-                Self::InChair | Self::Completed | Self::Cancelled
-            ) | (Self::InChair, Self::Completed)
+            (Self::Requested, Self::Confirmed | Self::Cancelled)
+                | (
+                    Self::Booked,
+                    Self::Confirmed | Self::Arrived | Self::Cancelled | Self::NoShow
+                )
+                | (
+                    Self::Confirmed,
+                    Self::Arrived | Self::Cancelled | Self::NoShow
+                )
+                | (
+                    Self::Arrived,
+                    Self::InChair | Self::Completed | Self::Cancelled
+                )
+                | (Self::InChair, Self::Completed)
         )
     }
 }
@@ -302,7 +308,9 @@ impl QueueStatus {
             AppointmentStatus::InChair => Some(Self::InChair),
             AppointmentStatus::Completed => Some(Self::Done),
             AppointmentStatus::Cancelled | AppointmentStatus::NoShow => Some(Self::Left),
-            AppointmentStatus::Booked | AppointmentStatus::Confirmed => None,
+            AppointmentStatus::Requested
+            | AppointmentStatus::Booked
+            | AppointmentStatus::Confirmed => None,
         }
     }
 
@@ -598,6 +606,8 @@ mod tests {
     fn the_transition_table_moves_forward_only() {
         use AppointmentStatus::*;
         let allowed = [
+            (Requested, Confirmed),
+            (Requested, Cancelled),
             (Booked, Confirmed),
             (Booked, Arrived),
             (Booked, Cancelled),

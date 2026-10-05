@@ -3,6 +3,7 @@
 
 use aarogyam_dal::settings::{self as dal, SettingsRow};
 use aarogyam_domain::access::ClinicActor;
+use aarogyam_domain::booking::{BookingError, BookingSettings};
 use aarogyam_domain::clinic::{
     Address, BrandColor, ClinicName, ClinicTimezone, Gstin, SettingsError, ThemeMode, UpiId,
     legal_name, prescription_footer,
@@ -15,6 +16,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::scope::staff_scope;
+use crate::self_booking::{read_settings, settings_value};
 
 /// The clinic's settings as the API shows them.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,6 +41,8 @@ pub struct ClinicSettings {
     pub phone: Option<String>,
     /// UPI ID for payments, such as `clinic@okicici`.
     pub upi_id: Option<String>,
+    /// Online booking settings.
+    pub booking: BookingSettings,
 }
 
 /// Address parts as received; each replaces the stored part, and empty clears it.
@@ -80,6 +84,25 @@ pub struct SettingsChanges {
     pub phone: Option<String>,
     /// UPI ID for payments.
     pub upi_id: Option<String>,
+    /// Online booking changes.
+    pub booking: BookingChanges,
+}
+
+/// Changes to the online booking settings; `None` leaves a value as it is.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct BookingChanges {
+    /// Whether the public booking page works.
+    pub enabled: Option<bool>,
+    /// Slot length in minutes.
+    pub slot_minutes: Option<u16>,
+    /// Buffer around other appointments in minutes.
+    pub buffer_minutes: Option<u16>,
+    /// Whether bookings are confirmed at once.
+    pub auto_confirm: Option<bool>,
+    /// How many days ahead patients may book.
+    pub horizon_days: Option<u16>,
+    /// Minimum notice in minutes.
+    pub min_notice_minutes: Option<u16>,
 }
 
 fn text(object: &Value, key: &str) -> Option<String> {
@@ -126,6 +149,7 @@ fn view(row: &SettingsRow) -> ClinicSettings {
         },
         phone: row.phone_e164.clone(),
         upi_id: text(&row.billing, "upi_id"),
+        booking: read_settings(&row.booking),
     }
 }
 
@@ -185,6 +209,25 @@ fn apply(mut row: SettingsRow, changes: &SettingsChanges) -> Result<SettingsRow,
             upi_id.as_ref().map(UpiId::as_str),
         );
     }
+    let booking = &changes.booking;
+    let mut settings = read_settings(&row.booking);
+    settings.enabled = booking.enabled.unwrap_or(settings.enabled);
+    settings.slot_minutes = booking.slot_minutes.unwrap_or(settings.slot_minutes);
+    settings.buffer_minutes = booking.buffer_minutes.unwrap_or(settings.buffer_minutes);
+    settings.auto_confirm = booking.auto_confirm.unwrap_or(settings.auto_confirm);
+    settings.horizon_days = booking.horizon_days.unwrap_or(settings.horizon_days);
+    settings.min_notice_minutes = booking
+        .min_notice_minutes
+        .unwrap_or(settings.min_notice_minutes);
+    row.booking = settings_value(&settings.validate().map_err(|error| {
+        let field = match error {
+            BookingError::SlotMinutes => "booking.slot_minutes",
+            BookingError::BufferMinutes => "booking.buffer_minutes",
+            BookingError::HorizonDays => "booking.horizon_days",
+            BookingError::MinNotice => "booking.min_notice_minutes",
+        };
+        AppError::invalid(field, error)
+    })?);
     if changes.address.is_some() || changes.phone.is_some() {
         if row.branch_id.is_none() {
             return Err(AppError::Conflict("the clinic has no main branch"));
@@ -277,6 +320,7 @@ mod tests {
             branding: json!({ "logo": "kept" }),
             billing: json!({}),
             prescription: json!({ "footer": "Old footer" }),
+            booking: json!({}),
             branch_id: Some(Uuid::nil()),
             address: Some(json!({})),
             phone_e164: None,

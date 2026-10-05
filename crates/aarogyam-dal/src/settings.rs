@@ -23,6 +23,8 @@ pub struct SettingsRow {
     pub billing: Value,
     /// Prescription settings (`footer`, …).
     pub prescription: Value,
+    /// Online booking settings (`slot_minutes`, `auto_confirm`, …); missing keys use defaults.
+    pub booking: Value,
     /// The default branch, if the clinic has one.
     pub branch_id: Option<Uuid>,
     /// The default branch's address (`line1`, `line2`, `city`, `state`, `pincode`).
@@ -38,7 +40,7 @@ pub struct SettingsRow {
 pub async fn get(conn: &mut PgConnection) -> Result<Option<SettingsRow>, DbError> {
     let row = sqlx::query_as!(
         SettingsRow,
-        r#"select o.name, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription,
+        r#"select o.name, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription, s.booking,
                   b.id as "branch_id?", b.address as "address?", b.phone_e164
            from aarogyam.organizations o
            join aarogyam.org_settings s on s.org_id = o.id
@@ -58,7 +60,7 @@ pub async fn get(conn: &mut PgConnection) -> Result<Option<SettingsRow>, DbError
 pub async fn get_for_update(conn: &mut PgConnection) -> Result<Option<SettingsRow>, DbError> {
     let row = sqlx::query_as!(
         SettingsRow,
-        r#"select o.name, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription,
+        r#"select o.name, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription, s.booking,
                   b.id as "branch_id?", b.address as "address?", b.phone_e164
            from aarogyam.organizations o
            join aarogyam.org_settings s on s.org_id = o.id
@@ -89,10 +91,11 @@ pub async fn save(conn: &mut PgConnection, row: &SettingsRow) -> Result<(), DbEr
     .await?;
     sqlx::query!(
         r#"update aarogyam.org_settings
-           set branding = $1, billing = $2, prescription = $3"#,
+           set branding = $1, billing = $2, prescription = $3, booking = $4"#,
         row.branding,
         row.billing,
-        row.prescription
+        row.prescription,
+        row.booking
     )
     .execute(&mut *conn)
     .await?;
@@ -111,4 +114,17 @@ pub async fn save(conn: &mut PgConnection, row: &SettingsRow) -> Result<(), DbEr
         .await?;
     }
     Ok(())
+}
+
+/// The current clinic's online booking settings object, as stored.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn booking(conn: &mut PgConnection) -> Result<Value, DbError> {
+    let value = sqlx::query_scalar!(
+        r#"select booking as "booking!" from aarogyam.org_settings where org_id = app.tenant_id()"#
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(value.unwrap_or_else(|| Value::Object(serde_json::Map::new())))
 }

@@ -1,6 +1,6 @@
 //! The clinic's own settings.
 
-use aarogyam_app::settings::{self as app, AddressInput, SettingsChanges};
+use aarogyam_app::settings::{self as app, AddressInput, BookingChanges, SettingsChanges};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::permission::require::SettingsManage;
 use axum::Json;
@@ -37,6 +37,40 @@ pub struct Address {
     pub pincode: Option<String>,
 }
 
+/// Online booking: what patients may book on the clinic's public page.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct OnlineBooking {
+    /// Whether the public booking page works.
+    pub enabled: bool,
+    /// Slot length in minutes (5 to 240, steps of 5).
+    pub slot_minutes: u16,
+    /// Gap kept free around other appointments, in minutes (0 to 120).
+    pub buffer_minutes: u16,
+    /// Whether a booking is confirmed at once; otherwise the front desk confirms.
+    pub auto_confirm: bool,
+    /// How many days ahead patients may book (1 to 180).
+    pub horizon_days: u16,
+    /// How soon before a slot it stops being offered, in minutes (0 to 10080).
+    pub min_notice_minutes: u16,
+}
+
+/// Changes to online booking; settings left out stay as they are.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct OnlineBookingChanges {
+    /// Whether the public booking page works.
+    pub enabled: Option<bool>,
+    /// Slot length in minutes.
+    pub slot_minutes: Option<u16>,
+    /// Buffer in minutes.
+    pub buffer_minutes: Option<u16>,
+    /// Whether a booking is confirmed at once.
+    pub auto_confirm: Option<bool>,
+    /// Days ahead.
+    pub horizon_days: Option<u16>,
+    /// Minimum notice in minutes.
+    pub min_notice_minutes: Option<u16>,
+}
+
 /// The clinic's settings.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ClinicSettings {
@@ -58,6 +92,8 @@ pub struct ClinicSettings {
     pub phone: Option<String>,
     /// UPI ID shown on bills, such as `clinic@okicici`.
     pub upi_id: Option<String>,
+    /// Online booking.
+    pub online_booking: OnlineBooking,
 }
 
 impl From<app::ClinicSettings> for ClinicSettings {
@@ -81,6 +117,14 @@ impl From<app::ClinicSettings> for ClinicSettings {
             },
             phone: settings.phone,
             upi_id: settings.upi_id,
+            online_booking: OnlineBooking {
+                enabled: settings.booking.enabled,
+                slot_minutes: settings.booking.slot_minutes,
+                buffer_minutes: settings.booking.buffer_minutes,
+                auto_confirm: settings.booking.auto_confirm,
+                horizon_days: settings.booking.horizon_days,
+                min_notice_minutes: settings.booking.min_notice_minutes,
+            },
         }
     }
 }
@@ -108,6 +152,8 @@ pub struct ClinicSettingsChanges {
     pub phone: Option<String>,
     /// UPI ID, like `name@bank`.
     pub upi_id: Option<String>,
+    /// Online booking: slot length, buffer, auto-confirm, window and notice.
+    pub online_booking: Option<OnlineBookingChanges>,
 }
 
 /// The clinic's settings: profile, GSTIN, time zone, branding, prescription footer, address,
@@ -172,6 +218,16 @@ pub(crate) async fn update_clinic(
         }),
         phone: body.phone,
         upi_id: body.upi_id,
+        booking: body
+            .online_booking
+            .map_or_else(BookingChanges::default, |b| BookingChanges {
+                enabled: b.enabled,
+                slot_minutes: b.slot_minutes,
+                buffer_minutes: b.buffer_minutes,
+                auto_confirm: b.auto_confirm,
+                horizon_days: b.horizon_days,
+                min_notice_minutes: b.min_notice_minutes,
+            }),
     };
     let settings = app::update(state.db(), &request.actor, request.request_id, changes).await?;
     tracing::info!(

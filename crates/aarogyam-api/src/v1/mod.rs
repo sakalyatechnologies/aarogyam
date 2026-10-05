@@ -17,6 +17,7 @@ pub(crate) mod onboarding;
 pub(crate) mod patients;
 pub(crate) mod payments;
 pub(crate) mod prescriptions;
+pub(crate) mod public_booking;
 pub(crate) mod quality;
 pub(crate) mod queue;
 pub(crate) mod recalls;
@@ -193,6 +194,11 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         // Public: the landing page's registration form. Throttled per IP (see
         // `crate::throttle_rules`) and answers the same whatever happened.
         .route("/registrations", post(registrations::register))
+        // Public, on the clinic's host: patients booking for themselves. Reads need no
+        // sign-in; booking needs a verified-email sign-in with no clinic membership.
+        .route("/public/booking", get(public_booking::options))
+        .route("/public/availability", get(public_booking::availability))
+        .route("/public/bookings", post(public_booking::create))
         .route(
             "/price-items",
             get(billing::price_items).post(billing::create_price_item),

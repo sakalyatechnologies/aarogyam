@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) as \"count!\" from aarogyam.appointments\n           where booked_by_account = $1 and deleted_at is null and ends_at > $2\n             and status in ('requested', 'booked', 'confirmed')",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "41368771216cbc04f9c107f46936cbeb8f504000d34afd5e311474c26311d8fa"
+}

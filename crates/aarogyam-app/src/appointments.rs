@@ -176,7 +176,7 @@ pub struct NewAppointment {
     pub source: Option<String>,
 }
 
-fn parse_reason(text: Option<&str>) -> Result<Option<String>, AppError> {
+pub(crate) fn parse_reason(text: Option<&str>) -> Result<Option<String>, AppError> {
     text.filter(|text| !text.trim().is_empty())
         .map(|text| {
             Reason::parse(text)
@@ -672,6 +672,11 @@ pub async fn set_status(
             .ok_or(AppError::NotFound("clinic"))?;
         let current = locked(tx, appointment_id).await?;
         let token_id = apply_status(tx, &profile.timezone, &current, to, reason, now).await?;
+        if current.source == BookingSource::Website.as_str()
+            && current.status == AppointmentStatus::Requested.as_str()
+        {
+            crate::self_booking::notify_decision(tx, &profile, &current, to).await?;
+        }
         Ok(StatusChanged {
             appointment: reload(tx, current.id, clinic_today(&profile.timezone, now)).await?,
             token_id,

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select o.name, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription,\n                  b.id as \"branch_id?\", b.address as \"address?\", b.phone_e164\n           from aarogyam.organizations o\n           join aarogyam.org_settings s on s.org_id = o.id\n           left join aarogyam.branches b on b.org_id = o.id and b.is_default and b.deleted_at is null\n           where o.id = app.tenant_id()",
+  "query": "select o.name, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription, s.booking,\n                  b.id as \"branch_id?\", b.address as \"address?\", b.phone_e164\n           from aarogyam.organizations o\n           join aarogyam.org_settings s on s.org_id = o.id\n           left join aarogyam.branches b on b.org_id = o.id and b.is_default and b.deleted_at is null\n           where o.id = app.tenant_id()",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,17 @@
       },
       {
         "ordinal": 7,
+        "name": "booking",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_settings",
+            "name": "booking"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "branch_id?",
         "type_info": "Uuid",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "address?",
         "type_info": "Jsonb",
         "origin": {
@@ -103,7 +114,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "phone_e164",
         "type_info": "Text",
         "origin": {
@@ -125,10 +136,11 @@
       false,
       false,
       false,
+      false,
       true,
       true,
       true
     ]
   },
-  "hash": "71ac7ef652d312dbf5ff7f02553c5c7d75470922ebe585c2ed8911067ffa01ce"
+  "hash": "3596e0b71212433c79bf55a1095ae81bc4ced1aee47fb8826ede2e71df94e51e"
 }

@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select booking as \"booking!\" from aarogyam.org_settings where org_id = app.tenant_id()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "booking!",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_settings",
+            "name": "booking"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b6ce2555fa4e5c7964e987fac0efc979ae8cc898f637e9fa86d1055ed32ddb66"
+}

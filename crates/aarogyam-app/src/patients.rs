@@ -125,7 +125,7 @@ fn parse_birth_date(
 }
 
 /// A phone in any common Indian format; empty means none.
-fn parse_phone(text: &str) -> Result<Option<PhoneE164>, AppError> {
+pub(crate) fn parse_phone(text: &str) -> Result<Option<PhoneE164>, AppError> {
     let text = text.trim();
     if text.is_empty() {
         return Ok(None);

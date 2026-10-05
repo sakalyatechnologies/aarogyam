@@ -4591,6 +4591,134 @@
         ]
       }
     },
+    "/api/v1/public/availability": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: a doctor's free slots on a local day, from working hours minus leave\nminus active appointments, in the clinic's time zone. No patient data.",
+        "operationId": "availability",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The local day, `YYYY-MM-DD`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "practitioner_id",
+            "in": "query",
+            "description": "The doctor",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Availability"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad date, or no such doctor"
+          },
+          "404": {
+            "description": "Not a clinic, or online booking is off"
+          },
+          "429": {
+            "description": "Too many requests from this address"
+          }
+        }
+      }
+    },
+    "/api/v1/public/booking": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: the clinic's name, booking settings and bookable doctors.",
+        "operationId": "options",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingOptions"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a clinic"
+          },
+          "429": {
+            "description": "Too many requests from this address"
+          }
+        }
+      }
+    },
+    "/api/v1/public/bookings": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Books a slot. The caller is signed in with a verified email (a one-time code from\nSupabase) and need not belong to the clinic. The appointment is `requested`, or `confirmed`\nwhen the clinic auto-confirms. Never says whether a patient record already existed.",
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewBooking"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booked"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The sign-in has no verified email address"
+          },
+          "404": {
+            "description": "Not a clinic, or online booking is off"
+          },
+          "409": {
+            "description": "The slot is gone, or the person has too many open bookings"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/queue": {
       "get": {
         "tags": [
@@ -7422,6 +7550,157 @@
           }
         }
       },
+      "Availability": {
+        "type": "object",
+        "description": "Free slots.",
+        "required": [
+          "date",
+          "practitioner_id",
+          "slot_minutes",
+          "slots"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The local day, `YYYY-MM-DD`."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "slot_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Slot length in minutes.",
+            "minimum": 0
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Start of each free slot, RFC 3339 in the clinic's time zone."
+          }
+        }
+      },
+      "BookableDoctor": {
+        "type": "object",
+        "description": "A doctor patients may pick.",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name shown to patients."
+          },
+          "specialty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What they practise."
+          }
+        }
+      },
+      "Booked": {
+        "type": "object",
+        "description": "The same answer whether or not the clinic knew the person.",
+        "required": [
+          "id",
+          "status",
+          "starts_at",
+          "ends_at",
+          "doctor_name",
+          "clinic_name"
+        ],
+        "properties": {
+          "clinic_name": {
+            "type": "string",
+            "description": "The clinic's name."
+          },
+          "doctor_name": {
+            "type": "string",
+            "description": "The doctor's name."
+          },
+          "ends_at": {
+            "type": "string",
+            "description": "End, RFC 3339 in the clinic's time zone."
+          },
+          "id": {
+            "type": "string",
+            "description": "The appointment."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start, RFC 3339 in the clinic's time zone."
+          },
+          "status": {
+            "type": "string",
+            "description": "`requested` (the front desk will confirm) or `confirmed`."
+          }
+        }
+      },
+      "BookingOptions": {
+        "type": "object",
+        "description": "What the booking page needs to start.",
+        "required": [
+          "clinic_name",
+          "timezone",
+          "today",
+          "enabled",
+          "slot_minutes",
+          "auto_confirm",
+          "horizon_days",
+          "doctors"
+        ],
+        "properties": {
+          "auto_confirm": {
+            "type": "boolean",
+            "description": "Whether a booking is confirmed at once; otherwise the front desk confirms."
+          },
+          "clinic_name": {
+            "type": "string",
+            "description": "The clinic's name."
+          },
+          "doctors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookableDoctor"
+            },
+            "description": "Doctors with working hours."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether online booking is on; when off there are no doctors."
+          },
+          "horizon_days": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How many days ahead patients may book, counting today.",
+            "minimum": 0
+          },
+          "slot_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Slot length in minutes.",
+            "minimum": 0
+          },
+          "timezone": {
+            "type": "string",
+            "description": "The clinic's time zone."
+          },
+          "today": {
+            "type": "string",
+            "description": "Today in the clinic, `YYYY-MM-DD`."
+          }
+        }
+      },
       "BookingWarning": {
         "type": "object",
         "description": "Something worth knowing that didn't stop the booking.",
@@ -7879,7 +8158,8 @@
           "name",
           "timezone",
           "branding",
-          "address"
+          "address",
+          "online_booking"
         ],
         "properties": {
           "address": {
@@ -7907,6 +8187,10 @@
           "name": {
             "type": "string",
             "description": "Display name."
+          },
+          "online_booking": {
+            "$ref": "#/components/schemas/OnlineBooking",
+            "description": "Online booking."
           },
           "phone": {
             "type": [
@@ -7981,6 +8265,17 @@
               "null"
             ],
             "description": "Display name, 1 to 200 characters."
+          },
+          "online_booking": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/OnlineBookingChanges",
+                "description": "Online booking: slot length, buffer, auto-confirm, window and notice."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "phone": {
             "type": [
@@ -9995,6 +10290,41 @@
           }
         }
       },
+      "NewBooking": {
+        "type": "object",
+        "description": "A booking.",
+        "required": [
+          "starts_at",
+          "practitioner_id",
+          "full_name",
+          "phone"
+        ],
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "description": "The patient's full name."
+          },
+          "phone": {
+            "type": "string",
+            "description": "The patient's phone; +91 is assumed without a country code."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why they are coming, in a few words."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "The slot's start, exactly as offered (RFC 3339)."
+          }
+        }
+      },
       "NewChartEntries": {
         "type": "object",
         "description": "Findings recorded together.",
@@ -10804,6 +11134,108 @@
               "$ref": "#/components/schemas/Observation"
             },
             "description": "The new readings."
+          }
+        }
+      },
+      "OnlineBooking": {
+        "type": "object",
+        "description": "Online booking: what patients may book on the clinic's public page.",
+        "required": [
+          "enabled",
+          "slot_minutes",
+          "buffer_minutes",
+          "auto_confirm",
+          "horizon_days",
+          "min_notice_minutes"
+        ],
+        "properties": {
+          "auto_confirm": {
+            "type": "boolean",
+            "description": "Whether a booking is confirmed at once; otherwise the front desk confirms."
+          },
+          "buffer_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gap kept free around other appointments, in minutes (0 to 120).",
+            "minimum": 0
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the public booking page works."
+          },
+          "horizon_days": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How many days ahead patients may book (1 to 180).",
+            "minimum": 0
+          },
+          "min_notice_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How soon before a slot it stops being offered, in minutes (0 to 10080).",
+            "minimum": 0
+          },
+          "slot_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Slot length in minutes (5 to 240, steps of 5).",
+            "minimum": 0
+          }
+        }
+      },
+      "OnlineBookingChanges": {
+        "type": "object",
+        "description": "Changes to online booking; settings left out stay as they are.",
+        "properties": {
+          "auto_confirm": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether a booking is confirmed at once."
+          },
+          "buffer_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Buffer in minutes.",
+            "minimum": 0
+          },
+          "enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether the public booking page works."
+          },
+          "horizon_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Days ahead.",
+            "minimum": 0
+          },
+          "min_notice_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Minimum notice in minutes.",
+            "minimum": 0
+          },
+          "slot_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Slot length in minutes.",
+            "minimum": 0
           }
         }
       },
@@ -14295,7 +14727,7 @@
     },
     {
       "name": "public",
-      "description": "No sign-in: patient links and QR verification on the clinic's host"
+      "description": "Patient links, QR verification and self-booking on the clinic's host; reads need no sign-in"
     },
     {
       "name": "console",

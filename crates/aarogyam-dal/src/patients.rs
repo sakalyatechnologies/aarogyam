@@ -488,3 +488,56 @@ pub async fn recent_filtered(
     .await?;
     Ok(rows)
 }
+
+/// The oldest active patient of the current clinic with this email, if any. Callers pass an
+/// address that was verified; the clinic's records are never matched on an unverified one.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn find_by_email(
+    conn: &mut PgConnection,
+    email: &str,
+) -> Result<Option<PatientRow>, DbError> {
+    let row = sqlx::query_as!(
+        PatientRow,
+        r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
+                  preferred_language, status, created_at, last_visit_at
+           from aarogyam.patients
+           where email = $1 and status = 'active' and deleted_at is null
+           order by created_at, id
+           limit 1"#,
+        email
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// Inserts a patient who registered themselves through online booking, tagged
+/// `self_registered` so the front desk can tell.
+///
+/// # Errors
+/// [`DbError`] on a database failure, including a duplicate number (a conflict).
+pub async fn insert_self_registered(
+    conn: &mut PgConnection,
+    new: &NewPatientRow<'_>,
+) -> Result<PatientRow, DbError> {
+    let row = sqlx::query_as!(
+        PatientRow,
+        r#"insert into aarogyam.patients
+             (id, number, full_name, sex, phone_e164, email, preferred_language, tags)
+           values ($1, $2, $3, $4, $5, $6, $7, array['self_registered'])
+           returning id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
+                     preferred_language, status, created_at, last_visit_at"#,
+        new.id,
+        new.number,
+        new.full_name,
+        new.sex,
+        new.phone_e164,
+        new.email,
+        new.preferred_language
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(row)
+}

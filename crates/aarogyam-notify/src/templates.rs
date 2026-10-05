@@ -40,6 +40,12 @@ impl PortalLinks {
         format!("{}/invite#{token}", self.pattern.replace("{host}", host))
     }
 
+    /// The clinic's public booking page.
+    #[must_use]
+    pub fn book(&self, host: &str) -> String {
+        format!("{}/book", self.pattern.replace("{host}", host))
+    }
+
     /// The page where a patient opens a shared prescription with its PIN.
     #[must_use]
     pub fn shared(&self, host: &str, token: &str) -> String {
@@ -96,6 +102,58 @@ fn escape(text: &str) -> String {
         }
     }
     escaped
+}
+
+/// The email about a booking made on the clinic's public page: the clinic, doctor and time,
+/// never the reason for the visit.
+fn render_booking(
+    kind: MessageKind,
+    to: String,
+    payload: &Value,
+    links: &PortalLinks,
+) -> Result<Email, Failure> {
+    let clinic = field(payload, "clinic_name")?;
+    let doctor = field(payload, "doctor_name")?;
+    let when = field(payload, "when")?;
+    let host = field(payload, "portal_host")?;
+    let doctor = if doctor.starts_with("Dr") {
+        doctor.to_owned()
+    } else {
+        format!("Dr {doctor}")
+    };
+    let (subject, line) = match kind {
+        MessageKind::BookingRequested => (
+            format!("Your appointment request at {clinic}"),
+            format!(
+                "We have your request for {when} with {doctor}. \
+                     The clinic will confirm it soon; we will email you again."
+            ),
+        ),
+        MessageKind::BookingConfirmed => (
+            format!("Your appointment at {clinic} is confirmed"),
+            format!("Your appointment on {when} with {doctor} is confirmed."),
+        ),
+        _ => (
+            format!("Your appointment request at {clinic}"),
+            format!(
+                "The clinic could not take your request for {when} with {doctor}. \
+                     You can choose another time at {}.",
+                links.book(host)
+            ),
+        ),
+    };
+    let text = format!("{clinic}\n\n{line}");
+    let html = format!(
+        "<p><strong>{clinic}</strong></p><p>{line}</p>",
+        clinic = escape(clinic),
+        line = escape(&line),
+    );
+    Ok(Email {
+        to,
+        subject,
+        text,
+        html,
+    })
 }
 
 /// Renders a claimed email message.
@@ -180,6 +238,11 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
                 html,
             })
         }
+        Some(
+            kind @ (MessageKind::BookingRequested
+            | MessageKind::BookingConfirmed
+            | MessageKind::BookingDeclined),
+        ) => render_booking(kind, to, &message.payload, links),
         None => Err(Failure::permanent("unknown message kind")),
     }
 }
@@ -248,6 +311,31 @@ mod tests {
         );
         assert!(email.text.contains("PIN printed on your prescription"));
         assert!(email.html.contains("10 October 2026"));
+    }
+
+    #[test]
+    fn booking_emails_carry_no_reason_and_no_links_with_secrets() {
+        let mut message = invitation(json!({
+            "clinic_name": "Sunrise",
+            "doctor_name": "Ravi Rao",
+            "portal_host": "sunrise.localtest.me",
+            "when": "5 October 2026, 10:30",
+        }));
+        message.secret = None;
+        message.event_key = "booking.requested".into();
+        let email = render(&message, &PortalLinks::default()).unwrap();
+        assert_eq!(email.subject, "Your appointment request at Sunrise");
+        assert!(
+            email
+                .text
+                .contains("5 October 2026, 10:30 with Dr Ravi Rao")
+        );
+        message.event_key = "booking.confirmed".into();
+        let email = render(&message, &PortalLinks::default()).unwrap();
+        assert!(email.subject.ends_with("is confirmed"));
+        message.event_key = "booking.declined".into();
+        let email = render(&message, &PortalLinks::default()).unwrap();
+        assert!(email.text.contains("https://sunrise.localtest.me/book"));
     }
 
     #[test]

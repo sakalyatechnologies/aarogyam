@@ -58,6 +58,15 @@ pub fn standard_throttle() -> Result<sakalya_throttle::Throttle, sakalya_throttl
         RuleConfig::new("ip-dev-sign-in", KeyKind::Ip, 30, 15 * 60).on_paths(&["/api/v1/dev/"]),
         RuleConfig::new("ip-registration", KeyKind::Ip, 5, 60 * 60)
             .on_paths(&["/api/v1/registrations"]),
+        // Public booking: reads (doctors, slots) are cheap but unauthenticated, so capped per IP;
+        // bookings are capped per IP here and per verified person in the handler.
+        RuleConfig::new("ip-public-booking-read", KeyKind::Ip, 60, 60)
+            .on_paths(&["/api/v1/public/"])
+            .on_methods(&["GET"]),
+        RuleConfig::new("ip-public-booking", KeyKind::Ip, 10, 60 * 60)
+            .on_paths(&["/api/v1/public/bookings"])
+            .on_methods(&["POST"]),
+        RuleConfig::new("public-booking-identity", KeyKind::Custom, 6, 60 * 60),
     ]))
 }
 

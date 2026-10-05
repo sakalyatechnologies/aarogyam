@@ -138,6 +138,9 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::prescriptions::shared_preview,
         crate::v1::prescriptions::shared_open,
         crate::v1::prescriptions::verify,
+        crate::v1::public_booking::options,
+        crate::v1::public_booking::availability,
+        crate::v1::public_booking::create,
         crate::v1::inventory::suppliers,
         crate::v1::inventory::create_supplier,
         crate::v1::inventory::update_supplier,
@@ -173,7 +176,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         (name = "billing", description = "Price list, bills, payments and receipts; clinic host only"),
         (name = "reports", description = "Money reports for owners and finance; clinic host only"),
         (name = "prescriptions", description = "Prescriptions, the medicine list and patient links; clinic host only"),
-        (name = "public", description = "No sign-in: patient links and QR verification on the clinic's host"),
+        (name = "public", description = "Patient links, QR verification and self-booking on the clinic's host; reads need no sign-in"),
         (name = "console", description = "Sakalya's console; console host only, staff only"),
         (name = "development", description = "Local development only; absent in deployed servers"),
         (name = "internal", description = "Scheduled jobs; local only until Cloud Scheduler's signed calls are checked")

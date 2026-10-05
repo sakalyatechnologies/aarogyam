@@ -1499,6 +1499,13 @@
      "nullable": false,
      "ref": null,
      "note": "quiet hours, sender"
+    },
+    {
+     "name": "booking",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "online booking: enabled, slot_minutes, buffer_minutes, auto_confirm, horizon_days, min_notice_minutes"
     }
    ],
    "referenced_by": [],
@@ -2596,7 +2603,7 @@
    "partitioned": false,
    "lifecycle": "soft_delete",
    "schema": "aarogyam",
-   "notes": "An exclusion constraint on (org_id, room_id, time range) for active rows (not cancelled, not no-show, not deleted) stops two bookings in one chair; a doctor in two chairs at once is a warning, not an error. Status changes follow the transition table in aarogyam_domain::schedule. Visits point at appointments, not the other way round.",
+   "notes": "Online self-bookings start as requested (or confirmed when the clinic auto-confirms); a unique index on (doctor, start) for active self-bookings backs the per-doctor check. An exclusion constraint on (org_id, room_id, time range) for active rows (not cancelled, not no-show, not deleted) stops two bookings in one chair; a doctor in two chairs at once is a warning, not an error. Status changes follow the transition table in aarogyam_domain::schedule. Visits point at appointments, not the other way round.",
    "cols": [
     {
      "name": "patient_id",
@@ -2645,7 +2652,7 @@
      "type": "appointment_status",
      "nullable": false,
      "ref": null,
-     "note": "booked, confirmed, arrived, in_chair, completed, cancelled, no_show"
+     "note": "requested, booked, confirmed, arrived, in_chair, completed, cancelled, no_show"
     },
     {
      "name": "kind",
@@ -2702,6 +2709,13 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "booked_by_account",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "Supabase auth id of the patient who booked online; null for staff bookings"
     }
    ],
    "referenced_by": [

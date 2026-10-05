@@ -21,6 +21,8 @@ Where the work stands and exactly what to do next. Update this file at the end o
 - **Security fix:** sqlx could return a pooled connection mid-transaction as `app_user` with another request's tenant after a cancelled `begin_scoped`. `sakalya-db` v0.2.1 checks every released connection and closes dirty ones; Aarogyam pins v0.2.1. **Push the `v0.2.1` tag of sakalya-backend before anyone else builds.**
 - `Member` schema clash fixed (`MemberRef`); a test fails on duplicate schema names.
 
+**Merged on 4 Oct evening:** prescription link emailed on issue (no PIN or clinical data in the email; PIN shown to the doctor and printed); patient self-booking P1 (`/book` on each clinic host, `GET /public/availability`, `POST /public/bookings`, `requested` status with Confirm/Decline on the calendar, online-booking settings; migrations 0090–0091); Patients/Visits on the mock-up components, row click, Follow-up prefill. Design and the founder's decisions: `docs/patient-access.md` (next: P2 patient accounts and history). Self-booking gaps: Turnstile, patient cancellation, online booking defaults to on.
+
 **Open:**
 | Work | Where | State |
 |---|---|---|

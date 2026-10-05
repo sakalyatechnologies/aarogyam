@@ -18,6 +18,7 @@ pub mod identifiers;
 pub mod imports;
 pub mod inventory;
 pub mod invitations;
+pub mod letterhead;
 pub mod onboarding;
 pub mod outbox;
 pub mod patients;

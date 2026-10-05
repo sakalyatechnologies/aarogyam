@@ -2,12 +2,16 @@
 
 use aarogyam_app::settings::{self as app, AddressInput, BookingChanges, SettingsChanges};
 use aarogyam_domain::event::Event;
+use aarogyam_domain::letterhead::{
+    Letterhead as DomainLetterhead, LetterheadChanges as DomainChanges, ShownChanges,
+};
 use aarogyam_domain::permission::require::SettingsManage;
 use axum::Json;
 use axum::extract::State;
 use sakalya_http::ApiJson;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 use crate::AppState;
 use crate::extract::Require;
@@ -20,6 +24,153 @@ pub struct Branding {
     pub brand: Option<String>,
     /// `light` or `dark`.
     pub mode: Option<String>,
+}
+
+/// Which clinic details a generated letterhead prints.
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "one switch per printed detail"
+)]
+pub struct LetterheadShown {
+    /// The logo image.
+    pub logo: bool,
+    /// The doctors, with qualifications.
+    pub doctors: bool,
+    /// Their registration numbers.
+    pub registration: bool,
+    /// The address.
+    pub address: bool,
+    /// The phone number.
+    pub phone: bool,
+    /// The email address.
+    pub email: bool,
+    /// The opening hours.
+    pub timings: bool,
+    /// The GSTIN.
+    pub gstin: bool,
+}
+
+/// The letterhead printed on prescriptions, bills and receipts.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct Letterhead {
+    /// `upload` (the clinic's own image) or `template` (a generated design).
+    pub mode: String,
+    /// `logo_left`, `classic`, `modern_band`, `minimal_line`, `two_doctor` or `bilingual`.
+    pub template: String,
+    /// Accent colour of the design, `#RRGGBB`; the brand colour when none.
+    pub accent: Option<String>,
+    /// Which details the design prints.
+    pub show: LetterheadShown,
+    /// A line printed at the foot.
+    pub footer: Option<String>,
+    /// Clinic email printed on the letterhead.
+    pub email: Option<String>,
+    /// Opening hours printed on the letterhead.
+    pub timings: Option<String>,
+    /// The doctors printed, in order; empty means the first active doctors by name.
+    #[schema(value_type = Vec<String>)]
+    pub doctor_ids: Vec<Uuid>,
+    /// Whether a letterhead image is uploaded.
+    pub has_image: bool,
+    /// Whether a logo is uploaded.
+    pub has_logo: bool,
+}
+
+impl From<DomainLetterhead> for Letterhead {
+    fn from(letterhead: DomainLetterhead) -> Self {
+        let s = letterhead.shown;
+        Self {
+            mode: letterhead.mode.as_str().to_owned(),
+            template: letterhead.template.as_str().to_owned(),
+            accent: letterhead.accent.map(|accent| accent.as_str().to_owned()),
+            show: LetterheadShown {
+                logo: s.logo,
+                doctors: s.doctors,
+                registration: s.registration,
+                address: s.address,
+                phone: s.phone,
+                email: s.email,
+                timings: s.timings,
+                gstin: s.gstin,
+            },
+            footer: letterhead.footer,
+            email: letterhead.email,
+            timings: letterhead.timings,
+            doctor_ids: letterhead.doctor_ids,
+            has_image: letterhead.image.is_some(),
+            has_logo: letterhead.logo.is_some(),
+        }
+    }
+}
+
+/// Changes to which details a design prints; flags left out stay as they are.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct LetterheadShownChanges {
+    /// The logo image.
+    pub logo: Option<bool>,
+    /// The doctors.
+    pub doctors: Option<bool>,
+    /// Registration numbers.
+    pub registration: Option<bool>,
+    /// The address.
+    pub address: Option<bool>,
+    /// The phone number.
+    pub phone: Option<bool>,
+    /// The email address.
+    pub email: Option<bool>,
+    /// The opening hours.
+    pub timings: Option<bool>,
+    /// The GSTIN.
+    pub gstin: Option<bool>,
+}
+
+/// Changes to the letterhead; settings left out stay as they are, and an empty string clears
+/// `accent`, `footer`, `email` or `timings`. Images are uploaded separately.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct LetterheadChanges {
+    /// `upload` (needs an uploaded image) or `template`.
+    pub mode: Option<String>,
+    /// A design id.
+    pub template: Option<String>,
+    /// Accent colour, `#RRGGBB`.
+    pub accent: Option<String>,
+    /// Which details the design prints.
+    pub show: Option<LetterheadShownChanges>,
+    /// Footer line, up to 200 characters.
+    pub footer: Option<String>,
+    /// Clinic email, valid when given.
+    pub email: Option<String>,
+    /// Opening hours, up to 200 characters.
+    pub timings: Option<String>,
+    /// Up to four of the clinic's doctors, in print order.
+    #[schema(value_type = Option<Vec<String>>)]
+    pub doctor_ids: Option<Vec<Uuid>>,
+}
+
+impl From<LetterheadChanges> for DomainChanges {
+    fn from(changes: LetterheadChanges) -> Self {
+        let s = changes.show;
+        Self {
+            mode: changes.mode,
+            template: changes.template,
+            accent: changes.accent,
+            shown: s.map_or_else(ShownChanges::default, |s| ShownChanges {
+                logo: s.logo,
+                doctors: s.doctors,
+                registration: s.registration,
+                address: s.address,
+                phone: s.phone,
+                email: s.email,
+                timings: s.timings,
+                gstin: s.gstin,
+            }),
+            footer: changes.footer,
+            email: changes.email,
+            timings: changes.timings,
+            doctor_ids: changes.doctor_ids,
+        }
+    }
 }
 
 /// A postal address. Every part is optional.
@@ -94,6 +245,8 @@ pub struct ClinicSettings {
     pub upi_id: Option<String>,
     /// Online booking.
     pub online_booking: OnlineBooking,
+    /// The letterhead printed on the clinic's documents.
+    pub letterhead: Letterhead,
 }
 
 impl From<app::ClinicSettings> for ClinicSettings {
@@ -125,6 +278,7 @@ impl From<app::ClinicSettings> for ClinicSettings {
                 horizon_days: settings.booking.horizon_days,
                 min_notice_minutes: settings.booking.min_notice_minutes,
             },
+            letterhead: settings.letterhead.into(),
         }
     }
 }
@@ -154,6 +308,8 @@ pub struct ClinicSettingsChanges {
     pub upi_id: Option<String>,
     /// Online booking: slot length, buffer, auto-confirm, window and notice.
     pub online_booking: Option<OnlineBookingChanges>,
+    /// The letterhead: design, accent, details shown, footer and doctors.
+    pub letterhead: Option<LetterheadChanges>,
 }
 
 /// The clinic's settings: profile, GSTIN, time zone, branding, prescription footer, address,
@@ -228,6 +384,7 @@ pub(crate) async fn update_clinic(
                 horizon_days: b.horizon_days,
                 min_notice_minutes: b.min_notice_minutes,
             }),
+        letterhead: body.letterhead.map(Into::into),
     };
     let settings = app::update(state.db(), &request.actor, request.request_id, changes).await?;
     tracing::info!(

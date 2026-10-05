@@ -1631,6 +1631,80 @@
         ]
       }
     },
+    "/api/v1/letterhead": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "What a document prints for the signed-in member's clinic: the letterhead, clinic details,\ndoctors, and signed image links.",
+        "operationId": "document",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LetterheadDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/letterhead/images/{id}/content": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Streams a letterhead image through its signed link. The link is the proof of access (an\n`<img>` can use it) and works on the clinic's own host for an hour.",
+        "operationId": "image_content",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The image",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "description": "The signed token from the letterhead document",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image, with its media type"
+          },
+          "403": {
+            "description": "The link has expired; load the page again"
+          },
+          "404": {
+            "description": "Not a valid link for an image of this clinic"
+          }
+        }
+      }
+    },
     "/api/v1/me": {
       "get": {
         "tags": [
@@ -5415,6 +5489,107 @@
         ]
       }
     },
+    "/api/v1/settings/letterhead/images/{slot}": {
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Uploads the letterhead image (`slot` `letterhead`) or the logo (`slot` `logo`) as\n`multipart/form-data` field `file`: PNG or JPEG, up to 2 MB, checked by content. Replaces the\nprevious one. Returns the letterhead settings.",
+        "operationId": "upload_image",
+        "parameters": [
+          {
+            "name": "slot",
+            "in": "path",
+            "description": "`letterhead` or `logo`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Letterhead"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a PNG or JPEG, empty, or a bad slot"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "413": {
+            "description": "Larger than 2 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Removes the letterhead image or the logo. Without an image, upload mode falls back to the\ngenerated design.",
+        "operationId": "remove_image",
+        "parameters": [
+          {
+            "name": "slot",
+            "in": "path",
+            "description": "`letterhead` or `logo`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Letterhead"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad slot"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/shared/{token}": {
       "get": {
         "tags": [
@@ -5439,6 +5614,40 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SharedPreview"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such link"
+          }
+        }
+      }
+    },
+    "/api/v1/shared/{token}/letterhead": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: the letterhead for a share link's page, so the page prints the clinic's\nheader even before the PIN. Needs a link that exists; holds no patient data.",
+        "operationId": "shared_document",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The link's token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LetterheadDocument"
                 }
               }
             }
@@ -8159,7 +8368,8 @@
           "timezone",
           "branding",
           "address",
-          "online_booking"
+          "online_booking",
+          "letterhead"
         ],
         "properties": {
           "address": {
@@ -8183,6 +8393,10 @@
               "null"
             ],
             "description": "Registered legal name, for bills."
+          },
+          "letterhead": {
+            "$ref": "#/components/schemas/Letterhead",
+            "description": "The letterhead printed on the clinic's documents."
           },
           "name": {
             "type": "string",
@@ -8258,6 +8472,17 @@
               "null"
             ],
             "description": "Registered legal name."
+          },
+          "letterhead": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LetterheadChanges",
+                "description": "The letterhead: design, accent, details shown, footer and doctors."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "name": {
             "type": [
@@ -9123,6 +9348,20 @@
           }
         }
       },
+      "ImageForm": {
+        "type": "object",
+        "description": "The image form: one file.",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "A PNG or JPEG of at most 2 MB."
+          }
+        }
+      },
       "ImportResult": {
         "type": "object",
         "description": "An import's result.",
@@ -9889,6 +10128,379 @@
               "$ref": "#/components/schemas/Leave"
             },
             "description": "By start."
+          }
+        }
+      },
+      "Letterhead": {
+        "type": "object",
+        "description": "The letterhead printed on prescriptions, bills and receipts.",
+        "required": [
+          "mode",
+          "template",
+          "show",
+          "doctor_ids",
+          "has_image",
+          "has_logo"
+        ],
+        "properties": {
+          "accent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Accent colour of the design, `#RRGGBB`; the brand colour when none."
+          },
+          "doctor_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The doctors printed, in order; empty means the first active doctors by name."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Clinic email printed on the letterhead."
+          },
+          "footer": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A line printed at the foot."
+          },
+          "has_image": {
+            "type": "boolean",
+            "description": "Whether a letterhead image is uploaded."
+          },
+          "has_logo": {
+            "type": "boolean",
+            "description": "Whether a logo is uploaded."
+          },
+          "mode": {
+            "type": "string",
+            "description": "`upload` (the clinic's own image) or `template` (a generated design)."
+          },
+          "show": {
+            "$ref": "#/components/schemas/LetterheadShown",
+            "description": "Which details the design prints."
+          },
+          "template": {
+            "type": "string",
+            "description": "`logo_left`, `classic`, `modern_band`, `minimal_line`, `two_doctor` or `bilingual`."
+          },
+          "timings": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Opening hours printed on the letterhead."
+          }
+        }
+      },
+      "LetterheadChanges": {
+        "type": "object",
+        "description": "Changes to the letterhead; settings left out stay as they are, and an empty string clears\n`accent`, `footer`, `email` or `timings`. Images are uploaded separately.",
+        "properties": {
+          "accent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Accent colour, `#RRGGBB`."
+          },
+          "doctor_ids": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Up to four of the clinic's doctors, in print order."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Clinic email, valid when given."
+          },
+          "footer": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Footer line, up to 200 characters."
+          },
+          "mode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`upload` (needs an uploaded image) or `template`."
+          },
+          "show": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LetterheadShownChanges",
+                "description": "Which details the design prints."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A design id."
+          },
+          "timings": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Opening hours, up to 200 characters."
+          }
+        }
+      },
+      "LetterheadClinic": {
+        "type": "object",
+        "description": "The clinic's details as printed.",
+        "required": [
+          "name",
+          "address"
+        ],
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Address",
+            "description": "The main branch's address."
+          },
+          "gstin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "GSTIN."
+          },
+          "legal_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Registered legal name."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The main branch's phone."
+          }
+        }
+      },
+      "LetterheadDoctor": {
+        "type": "object",
+        "description": "A doctor as printed on the letterhead.",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name."
+          },
+          "qualifications": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Degrees, such as `BDS, MDS`."
+          },
+          "registration_number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Council registration number."
+          },
+          "specialty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Specialty."
+          }
+        }
+      },
+      "LetterheadDocument": {
+        "type": "object",
+        "description": "Everything a document needs to print the clinic's header and footer. No patient data.",
+        "required": [
+          "clinic",
+          "letterhead",
+          "doctors",
+          "expires_at"
+        ],
+        "properties": {
+          "brand": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The portal's brand colour, for designs without their own accent."
+          },
+          "clinic": {
+            "$ref": "#/components/schemas/LetterheadClinic",
+            "description": "The clinic."
+          },
+          "doctors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LetterheadDoctor"
+            },
+            "description": "The doctors to print, in order."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When the image links stop working (RFC 3339)."
+          },
+          "image_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The uploaded letterhead image in upload mode: a signed path on the same host."
+          },
+          "letterhead": {
+            "$ref": "#/components/schemas/Letterhead",
+            "description": "The letterhead settings."
+          },
+          "logo_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The logo: a signed path on the same host."
+          }
+        }
+      },
+      "LetterheadShown": {
+        "type": "object",
+        "description": "Which clinic details a generated letterhead prints.",
+        "required": [
+          "logo",
+          "doctors",
+          "registration",
+          "address",
+          "phone",
+          "email",
+          "timings",
+          "gstin"
+        ],
+        "properties": {
+          "address": {
+            "type": "boolean",
+            "description": "The address."
+          },
+          "doctors": {
+            "type": "boolean",
+            "description": "The doctors, with qualifications."
+          },
+          "email": {
+            "type": "boolean",
+            "description": "The email address."
+          },
+          "gstin": {
+            "type": "boolean",
+            "description": "The GSTIN."
+          },
+          "logo": {
+            "type": "boolean",
+            "description": "The logo image."
+          },
+          "phone": {
+            "type": "boolean",
+            "description": "The phone number."
+          },
+          "registration": {
+            "type": "boolean",
+            "description": "Their registration numbers."
+          },
+          "timings": {
+            "type": "boolean",
+            "description": "The opening hours."
+          }
+        }
+      },
+      "LetterheadShownChanges": {
+        "type": "object",
+        "description": "Changes to which details a design prints; flags left out stay as they are.",
+        "properties": {
+          "address": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The address."
+          },
+          "doctors": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The doctors."
+          },
+          "email": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The email address."
+          },
+          "gstin": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The GSTIN."
+          },
+          "logo": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The logo image."
+          },
+          "phone": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The phone number."
+          },
+          "registration": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Registration numbers."
+          },
+          "timings": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The opening hours."
           }
         }
       },

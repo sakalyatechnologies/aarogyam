@@ -474,6 +474,8 @@ async fn every_route_requires_sign_in_and_a_permission() {
         let public = [
             "/api/v1/shared/{token}",
             "/api/v1/shared/{token}/open",
+            // The clinic's letterhead for that page: no patient data, needs the link's token.
+            "/api/v1/shared/{token}/letterhead",
             "/api/v1/verify/prescriptions/{verify_token}",
             // Patients booking for themselves: the doctors and free slots are public (no
             // patient data, throttled per IP); booking is covered by `signed_in_only` below.
@@ -486,6 +488,8 @@ async fn every_route_requires_sign_in_and_a_permission() {
             || public.contains(&path.as_str())
             // A signed download link is its own proof of access, checked by the clinical tests.
             || path == "/api/v1/attachments/{id}/content"
+            // A letterhead image link is signed too (tests/letterhead.rs).
+            || path == "/api/v1/letterhead/images/{id}/content"
             // The public registration form needs no sign-in; it is throttled per IP and
             // answers the same whatever happened (tests/onboarding.rs).
             || path == "/api/v1/registrations"

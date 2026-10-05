@@ -178,6 +178,8 @@ pub struct PractitionerRow {
     pub display_name: String,
     /// Council registration number.
     pub registration_number: Option<String>,
+    /// Degrees printed on the letterhead, such as `BDS, MDS`.
+    pub qualifications: Option<String>,
     /// Specialty, such as `Orthodontics`.
     pub specialty: Option<String>,
     /// `#RRGGBB`.
@@ -195,6 +197,8 @@ pub struct PractitionerValues<'a> {
     pub display_name: &'a str,
     /// Registration number.
     pub registration_number: Option<&'a str>,
+    /// Qualifications.
+    pub qualifications: Option<&'a str>,
     /// Specialty.
     pub specialty: Option<&'a str>,
     /// Colour.
@@ -210,7 +214,7 @@ pub struct PractitionerValues<'a> {
 pub async fn practitioners(conn: &mut PgConnection) -> Result<Vec<PractitionerRow>, DbError> {
     let rows = sqlx::query_as!(
         PractitionerRow,
-        r#"select id, membership_id, display_name, registration_number, specialty, calendar_color, active
+        r#"select id, membership_id, display_name, registration_number, qualifications, specialty, calendar_color, active
            from aarogyam.practitioners
            where deleted_at is null
            order by display_name"#
@@ -230,7 +234,7 @@ pub async fn practitioner(
 ) -> Result<Option<PractitionerRow>, DbError> {
     let row = sqlx::query_as!(
         PractitionerRow,
-        r#"select id, membership_id, display_name, registration_number, specialty, calendar_color, active
+        r#"select id, membership_id, display_name, registration_number, qualifications, specialty, calendar_color, active
            from aarogyam.practitioners
            where id = $1 and deleted_at is null"#,
         id
@@ -266,13 +270,14 @@ pub async fn insert_practitioner(
     let row = sqlx::query_as!(
         PractitionerRow,
         r#"insert into aarogyam.practitioners
-             (id, membership_id, display_name, registration_number, specialty, calendar_color, active)
-           values ($1, $2, $3, $4, $5, $6, $7)
-           returning id, membership_id, display_name, registration_number, specialty, calendar_color, active"#,
+             (id, membership_id, display_name, registration_number, qualifications, specialty, calendar_color, active)
+           values ($1, $2, $3, $4, $5, $6, $7, $8)
+           returning id, membership_id, display_name, registration_number, qualifications, specialty, calendar_color, active"#,
         id,
         values.membership_id,
         values.display_name,
         values.registration_number,
+        values.qualifications,
         values.specialty,
         values.calendar_color,
         values.active
@@ -294,14 +299,15 @@ pub async fn update_practitioner(
     let row = sqlx::query_as!(
         PractitionerRow,
         r#"update aarogyam.practitioners
-           set membership_id = $2, display_name = $3, registration_number = $4, specialty = $5,
-               calendar_color = $6, active = $7
+           set membership_id = $2, display_name = $3, registration_number = $4, qualifications = $5, specialty = $6,
+               calendar_color = $7, active = $8
            where id = $1 and deleted_at is null
-           returning id, membership_id, display_name, registration_number, specialty, calendar_color, active"#,
+           returning id, membership_id, display_name, registration_number, qualifications, specialty, calendar_color, active"#,
         id,
         values.membership_id,
         values.display_name,
         values.registration_number,
+        values.qualifications,
         values.specialty,
         values.calendar_color,
         values.active

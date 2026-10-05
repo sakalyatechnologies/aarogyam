@@ -269,7 +269,7 @@ TABLES = [
     T(name="practitioners", domain="people", rls="clinic", star=True, lifecycle="soft_delete",
       purpose="Doctors who see patients at the clinic, with registration and fees.",
       cols=["membership_id uuid? -> memberships | null for a visiting consultant without a sign-in",
-            "display_name text", "registration_number text?", "specialty text?",
+            "display_name text", "registration_number text?", "qualifications text?", "specialty text?",
             "calendar_color text | #RRGGBB", "active bool"],
       notes="Built in M3 with the columns the calendar needs. Planned: slug (public page), qualifications, council, signature_asset_id -> assets, default_fee_paise, is_visiting."),
     T(name="working_hours", domain="people", rls="clinic", star=True, lifecycle="ephemeral",

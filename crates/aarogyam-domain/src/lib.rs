@@ -71,6 +71,7 @@ pub mod files;
 pub mod ids;
 pub mod import;
 pub mod inventory;
+pub mod letterhead;
 pub mod onboarding;
 pub mod outbox;
 pub mod patient;

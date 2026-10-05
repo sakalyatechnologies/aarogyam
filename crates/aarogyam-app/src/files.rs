@@ -269,6 +269,62 @@ impl LinkSigner {
     }
 }
 
+impl LinkSigner {
+    fn image_message(clinic: ClinicId, image: AttachmentId, expires: i64) -> String {
+        format!(
+            "letterhead-image:v1|{}|{}|{expires}",
+            clinic.uuid(),
+            image.uuid()
+        )
+    }
+
+    /// A token to show a clinic's letterhead image (not patient data, so it names no member)
+    /// until `expires`.
+    #[must_use]
+    pub fn sign_image(
+        &self,
+        clinic: ClinicId,
+        image: AttachmentId,
+        expires: OffsetDateTime,
+    ) -> String {
+        let expires = expires.unix_timestamp();
+        let tag = hmac::sign(
+            &self.key,
+            Self::image_message(clinic, image, expires).as_bytes(),
+        );
+        format!("{expires}.{}", URL_SAFE_NO_PAD.encode(tag.as_ref()))
+    }
+
+    /// Checks a letterhead image token at `now`.
+    ///
+    /// # Errors
+    /// [`LinkRefusal::Invalid`] unless signed by this server for this clinic and image;
+    /// [`LinkRefusal::Expired`] once past its expiry.
+    pub fn verify_image(
+        &self,
+        clinic: ClinicId,
+        image: AttachmentId,
+        token: &str,
+        now: OffsetDateTime,
+    ) -> Result<(), LinkRefusal> {
+        let (expires, tag) = token.trim().split_once('.').ok_or(LinkRefusal::Invalid)?;
+        let expires: i64 = expires.parse().map_err(|_| LinkRefusal::Invalid)?;
+        let tag = URL_SAFE_NO_PAD
+            .decode(tag)
+            .map_err(|_| LinkRefusal::Invalid)?;
+        hmac::verify(
+            &self.key,
+            Self::image_message(clinic, image, expires).as_bytes(),
+            &tag,
+        )
+        .map_err(|_| LinkRefusal::Invalid)?;
+        if now.unix_timestamp() > expires {
+            return Err(LinkRefusal::Expired);
+        }
+        Ok(())
+    }
+}
+
 /// Where files go and how their links are signed.
 #[derive(Debug, Clone)]
 pub struct Files {
@@ -287,6 +343,10 @@ impl Files {
     #[must_use]
     pub const fn signer(&self) -> &LinkSigner {
         &self.signer
+    }
+
+    pub(crate) fn storage(&self) -> &dyn Storage {
+        &*self.storage
     }
 }
 

@@ -269,6 +269,53 @@ export const onlineBooking = z.object({
 }) satisfies z.ZodType<C.OnlineBooking>;
 export type OnlineBooking = z.output<typeof onlineBooking>;
 
+export const letterheadTemplate = z.enum(["logo_left", "classic", "modern_band", "minimal_line", "two_doctor", "bilingual"]);
+export type LetterheadTemplate = z.output<typeof letterheadTemplate>;
+
+export const letterheadShown = z.object({
+  logo: z.boolean(),
+  doctors: z.boolean(),
+  registration: z.boolean(),
+  address: z.boolean(),
+  phone: z.boolean(),
+  email: z.boolean(),
+  timings: z.boolean(),
+  gstin: z.boolean(),
+}) satisfies z.ZodType<C.LetterheadShown>;
+export type LetterheadShown = z.output<typeof letterheadShown>;
+
+export const letterhead = z.object({
+  mode: z.enum(["upload", "template"]),
+  template: letterheadTemplate,
+  accent: optionalText,
+  show: letterheadShown,
+  local_name: optionalText,
+  footer: optionalText,
+  email: optionalText,
+  timings: optionalText,
+  doctor_ids: z.array(practitionerId),
+  has_image: z.boolean(),
+  has_logo: z.boolean(),
+}) satisfies z.ZodType<C.Letterhead>;
+export type Letterhead = z.output<typeof letterhead>;
+
+/** Body's `letterhead` part of `PATCH /api/v1/settings/clinic`. */
+export type LetterheadChanges = C.LetterheadChanges;
+
+/** Which picture of the letterhead: the full header image, or the logo a design uses. */
+export type LetterheadSlot = "letterhead" | "logo";
+
+export const letterheadDocument = z.object({
+  clinic: z.object({ name: z.string(), legal_name: optionalText, gstin: optionalText, address, phone: optionalText }),
+  brand: optionalText,
+  letterhead,
+  doctors: z.array(z.object({ name: z.string(), qualifications: optionalText, registration_number: optionalText, specialty: optionalText })),
+  image_url: optionalText,
+  logo_url: optionalText,
+  expires_at: timestamp,
+}) satisfies z.ZodType<C.LetterheadDocument>;
+export type LetterheadDocument = z.output<typeof letterheadDocument>;
+
 export const clinicSettings = z.object({
   name: z.string(),
   legal_name: optionalText,
@@ -280,6 +327,7 @@ export const clinicSettings = z.object({
   address,
   branding: clinicBranding,
   online_booking: onlineBooking,
+  letterhead,
 }) satisfies z.ZodType<C.ClinicSettings>;
 export type ClinicSettings = z.output<typeof clinicSettings>;
 
@@ -422,6 +470,7 @@ export const practitioner = z.object({
   active: z.boolean(),
   membership_id: membershipId.nullable().exactOptional(),
   registration_number: optionalText,
+  qualifications: optionalText,
   specialty: optionalText,
 }) satisfies z.ZodType<C.Practitioner>;
 export type Practitioner = z.output<typeof practitioner>;

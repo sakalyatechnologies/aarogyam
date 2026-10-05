@@ -12,6 +12,7 @@ pub(crate) mod imports;
 pub(crate) mod internal;
 pub(crate) mod inventory;
 pub(crate) mod invitations;
+pub(crate) mod letterhead;
 pub(crate) mod me;
 pub(crate) mod onboarding;
 pub(crate) mod patients;
@@ -160,6 +161,22 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(files::list)
                 .post(files::upload)
                 .layer(DefaultBodyLimit::max(files::MAX_UPLOAD_BODY)),
+        )
+        .route("/letterhead", get(letterhead::document))
+        .route(
+            "/settings/letterhead/images/{slot}",
+            axum::routing::put(letterhead::upload_image)
+                .delete(letterhead::remove_image)
+                .layer(DefaultBodyLimit::max(letterhead::MAX_UPLOAD_BODY)),
+        )
+        // Public, no sign-in: on the clinic's host, by signed link or share token.
+        .route(
+            "/letterhead/images/{id}/content",
+            get(letterhead::image_content),
+        )
+        .route(
+            "/shared/{token}/letterhead",
+            get(letterhead::shared_document),
         )
         .route("/attachments/{id}/download", get(files::link))
         .route("/attachments/{id}/content", get(files::content))

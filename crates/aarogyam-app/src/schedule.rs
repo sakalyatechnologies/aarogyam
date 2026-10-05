@@ -227,6 +227,8 @@ pub struct PractitionerInput {
     pub display_name: Option<String>,
     /// Council registration number.
     pub registration_number: Option<String>,
+    /// Qualifications, such as `BDS, MDS`.
+    pub qualifications: Option<String>,
     /// Specialty.
     pub specialty: Option<String>,
     /// `#RRGGBB`.
@@ -288,6 +290,12 @@ async fn practitioner_values(
             "registration_number",
             40,
         )?,
+        qualifications: optional_text(
+            input.qualifications.as_ref(),
+            current.and_then(|row| row.qualifications.as_ref()),
+            "qualifications",
+            160,
+        )?,
         specialty: optional_text(
             input.specialty.as_ref(),
             current.and_then(|row| row.specialty.as_ref()),
@@ -307,6 +315,7 @@ fn practitioner_row_values(row: &PractitionerRow) -> dal::PractitionerValues<'_>
         membership_id: row.membership_id,
         display_name: &row.display_name,
         registration_number: row.registration_number.as_deref(),
+        qualifications: row.qualifications.as_deref(),
         specialty: row.specialty.as_deref(),
         calendar_color: &row.calendar_color,
         active: row.active,

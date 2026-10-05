@@ -2463,6 +2463,13 @@
      "note": ""
     },
     {
+     "name": "qualifications",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
      "name": "specialty",
      "type": "text",
      "nullable": true,

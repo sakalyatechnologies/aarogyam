@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { membershipId, patientId, type ApiClient, type ApiResult } from "../index.js";
+import { membershipId, patientId, type ApiClient, type ApiResult, type LetterheadChanges } from "../index.js";
 import { createFakeBackend, createFixtures, fakeTokenFor } from "./index.js";
 
 // 11:00 in Pune: mid-morning clinic hours.
@@ -312,6 +312,95 @@ describe("fake client: clinic settings", () => {
     const owner = as(PEOPLE.asha, SUNRISE);
     expect(errorOf(await owner.updateClinicSettings({ upi_id: "not-a-upi-id" }))?.field).toBe("upi_id");
     expect(errorOf(await owner.updateClinicSettings({ gstin: "not-a-gstin" }))?.field).toBe("gstin");
+  });
+});
+
+describe("fake client: letterhead", () => {
+  const png = () => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "logo.png", { type: "image/png" });
+  const form = (file: File) => {
+    const body = new FormData();
+    body.set("file", file);
+    return body;
+  };
+
+  it("starts from the default design and merges changes, naming the field that is wrong", async () => {
+    const owner = setup().as(PEOPLE.asha, SUNRISE);
+    const before = value(await owner.getClinicSettings()).letterhead;
+    expect(before).toMatchObject({ mode: "template", template: "classic", has_image: false, show: { gstin: false, phone: true } });
+
+    const saved = value(
+      await owner.updateClinicSettings({
+        letterhead: { template: "modern_band", accent: "#0f766e", footer: " Open Mon to Sat ", email: "Care@Sunrise.test", show: { gstin: true } },
+      }),
+    ).letterhead;
+    expect(saved).toMatchObject({ template: "modern_band", accent: "#0F766E", footer: "Open Mon to Sat", email: "care@sunrise.test" });
+    expect(saved.show).toMatchObject({ gstin: true, phone: true });
+
+    const bad: [LetterheadChanges, string][] = [
+      [{ mode: "paper" }, "letterhead.mode"],
+      [{ mode: "upload" }, "letterhead.mode"],
+      [{ template: "fancy" }, "letterhead.template"],
+      [{ accent: "teal" }, "letterhead.accent"],
+      [{ footer: "x".repeat(201) }, "letterhead.footer"],
+      [{ email: "nobody" }, "letterhead.email"],
+      [{ doctor_ids: ["nobody"] }, "letterhead.doctor_ids"],
+    ];
+    for (const [changes, field] of bad) {
+      expect(errorOf(await owner.updateClinicSettings({ letterhead: changes }))?.field, field).toBe(field);
+    }
+  });
+
+  it("checks images by type and size, switches to upload mode once one exists, and falls back when removed", async () => {
+    const owner = setup().as(PEOPLE.asha, SUNRISE);
+    expect(errorOf(await owner.uploadLetterheadImage("letterhead", form(new File(["%PDF-"], "x.pdf", { type: "application/pdf" }))))?.field).toBe("image");
+    const big = new File([new Uint8Array(2 * 1024 * 1024 + 1)], "big.png", { type: "image/png" });
+    expect(errorOf(await owner.uploadLetterheadImage("letterhead", form(big)))?.status).toBe(413);
+
+    expect(value(await owner.uploadLetterheadImage("letterhead", form(png()))).has_image).toBe(true);
+    expect(value(await owner.updateClinicSettings({ letterhead: { mode: "upload" } })).letterhead.mode).toBe("upload");
+    expect(value(await owner.getLetterhead()).image_url).not.toBeNull();
+    const removed = value(await owner.removeLetterheadImage("letterhead"));
+    expect(removed).toMatchObject({ has_image: false, mode: "template" });
+    expect(value(await owner.getLetterhead()).image_url).toBeNull();
+  });
+
+  it("needs settings.manage to change it and patients.read to print it", async () => {
+    const { as } = setup();
+    const desk = as(PEOPLE.farah, SUNRISE);
+    expect(errorOf(await desk.uploadLetterheadImage("logo", form(png())))?.status).toBe(403);
+    expect(errorOf(await desk.removeLetterheadImage("logo"))?.status).toBe(403);
+    expect(value(await desk.getLetterhead()).clinic.name).toBe("Sunrise Dental");
+    expect(errorOf(await as(null, SUNRISE).getLetterhead())?.status).toBe(401);
+  });
+
+  it("keeps each clinic's letterhead and doctors apart", async () => {
+    const { as } = setup();
+    const owner = as(PEOPLE.asha, SUNRISE);
+    const lotus = as(PEOPLE.bina, LOTUS);
+    value(await owner.updateClinicSettings({ letterhead: { footer: "Sunrise footer" } }));
+    expect(value(await lotus.getLetterhead()).letterhead.footer ?? null).toBeNull();
+    const lotusDoctors = value(await lotus.listPractitioners()).items;
+    expect(lotusDoctors.length).toBeGreaterThan(0);
+    const foreign = lotusDoctors[0]?.id;
+    expect(errorOf(await owner.updateClinicSettings({ letterhead: { doctor_ids: foreign === undefined ? [] : [foreign, foreign] } }))?.field).toBe(
+      "letterhead.doctor_ids",
+    );
+    expect(errorOf(await owner.updateClinicSettings({ letterhead: { doctor_ids: foreign === undefined ? [] : [foreign] } }))?.field).toBe(
+      "letterhead.doctor_ids",
+    );
+  });
+
+  it("prints doctors with their qualifications and registration numbers", async () => {
+    const owner = setup().as(PEOPLE.asha, SUNRISE);
+    value(await owner.addPractitioner({ display_name: "Dr Zoya Khan", qualifications: "BDS, MDS", registration_number: "Z-99" }));
+    const document = value(await owner.getLetterhead());
+    expect(document.doctors).toContainEqual(expect.objectContaining({ name: "Dr Zoya Khan", qualifications: "BDS, MDS", registration_number: "Z-99" }));
+    expect(document.doctors.length).toBeLessThanOrEqual(4);
+  });
+
+  it("serves a share link's letterhead without sign-in, and nothing for a made-up link", async () => {
+    const { as } = setup();
+    expect(errorOf(await as(null, SUNRISE).getSharedLetterhead("not-a-token"))?.status).toBe(404);
   });
 });
 

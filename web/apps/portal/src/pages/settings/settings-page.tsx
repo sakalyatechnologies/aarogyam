@@ -35,6 +35,7 @@ import {
   useUpdateClinicSettings,
 } from "../../queries.js";
 import { ChairsDoctorsPanel } from "./chairs-doctors-panel.js";
+import { LetterheadThemePanel } from "./letterhead-theme-panel.js";
 import { PriceListPanel } from "./price-list-panel.js";
 
 /** Clinic profile, notifications and website cards in the mock-up's layout, then the admin panels. */
@@ -92,6 +93,7 @@ export function SettingsPage() {
           )}
         </div>
       </div>
+      {can("settings.manage") ? <LetterheadThemePanel /> : null}
       <MkCard title="Clinic administration" hint="Chairs, doctors, prices, staff and your signed-in devices">
         <Tabs label="Settings" items={items} />
       </MkCard>

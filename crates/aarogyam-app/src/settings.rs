@@ -8,6 +8,7 @@ use aarogyam_domain::clinic::{
     Address, BrandColor, ClinicName, ClinicTimezone, Gstin, SettingsError, ThemeMode, UpiId,
     legal_name, prescription_footer,
 };
+use aarogyam_domain::letterhead::{Letterhead, LetterheadChanges};
 use aarogyam_domain::permission::Permission;
 use sakalya_db::Db;
 use sakalya_types::{CallingCode, PhoneE164};
@@ -43,6 +44,8 @@ pub struct ClinicSettings {
     pub upi_id: Option<String>,
     /// Online booking settings.
     pub booking: BookingSettings,
+    /// The letterhead printed on the clinic's documents.
+    pub letterhead: Letterhead,
 }
 
 /// Address parts as received; each replaces the stored part, and empty clears it.
@@ -86,6 +89,8 @@ pub struct SettingsChanges {
     pub upi_id: Option<String>,
     /// Online booking changes.
     pub booking: BookingChanges,
+    /// Letterhead changes.
+    pub letterhead: Option<LetterheadChanges>,
 }
 
 /// Changes to the online booking settings; `None` leaves a value as it is.
@@ -130,6 +135,16 @@ fn put(object: &mut Value, key: &str, value: Option<&str>) {
     }
 }
 
+/// Sets `key` in a settings object to a JSON value, keeping every other key.
+pub(crate) fn put_value(object: &mut Value, key: &str, value: Value) {
+    if !object.is_object() {
+        *object = Value::Object(Map::new());
+    }
+    if let Value::Object(map) = object {
+        map.insert(key.to_owned(), value);
+    }
+}
+
 fn view(row: &SettingsRow) -> ClinicSettings {
     let address = row.address.clone().unwrap_or(Value::Null);
     ClinicSettings {
@@ -150,6 +165,7 @@ fn view(row: &SettingsRow) -> ClinicSettings {
         phone: row.phone_e164.clone(),
         upi_id: text(&row.billing, "upi_id"),
         booking: read_settings(&row.booking),
+        letterhead: Letterhead::from_value(row.branding.get("letterhead").unwrap_or(&Value::Null)),
     }
 }
 
@@ -163,6 +179,22 @@ fn optional<T>(
     } else {
         parse(input).map(Some).map_err(AppError::settings)
     }
+}
+
+/// Applies letterhead changes to the branding object, keeping its other keys.
+fn apply_letterhead(
+    branding: &mut Value,
+    changes: Option<&LetterheadChanges>,
+) -> Result<(), AppError> {
+    let Some(changes) = changes else {
+        return Ok(());
+    };
+    let mut letterhead = Letterhead::from_value(branding.get("letterhead").unwrap_or(&Value::Null));
+    letterhead
+        .apply(changes)
+        .map_err(|error| AppError::invalid(error.field(), error))?;
+    put_value(branding, "letterhead", letterhead.to_value());
+    Ok(())
 }
 
 /// Applies `changes` to the stored row, validating each given setting.
@@ -209,6 +241,7 @@ fn apply(mut row: SettingsRow, changes: &SettingsChanges) -> Result<SettingsRow,
             upi_id.as_ref().map(UpiId::as_str),
         );
     }
+    apply_letterhead(&mut row.branding, changes.letterhead.as_ref())?;
     let booking = &changes.booking;
     let mut settings = read_settings(&row.booking);
     settings.enabled = booking.enabled.unwrap_or(settings.enabled);
@@ -300,6 +333,23 @@ pub async fn update(
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
         let row = apply(row, &changes)?;
+        if let Some(ids) = changes
+            .letterhead
+            .as_ref()
+            .and_then(|c| c.doctor_ids.as_ref())
+        {
+            for id in ids {
+                if aarogyam_dal::schedule::practitioner(tx.conn(), *id)
+                    .await?
+                    .is_none()
+                {
+                    return Err(AppError::invalid(
+                        "letterhead.doctor_ids",
+                        "no such doctor in this clinic",
+                    ));
+                }
+            }
+        }
         dal::save(tx.conn(), &row).await?;
         Ok(view(&row))
     })

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into aarogyam.practitioners\n             (id, membership_id, display_name, registration_number, specialty, calendar_color, active)\n           values ($1, $2, $3, $4, $5, $6, $7)\n           returning id, membership_id, display_name, registration_number, specialty, calendar_color, active",
+  "query": "select id, membership_id, display_name, registration_number, qualifications, specialty, calendar_color, active\n           from aarogyam.practitioners\n           where deleted_at is null\n           order by display_name",
   "describe": {
     "columns": [
       {
@@ -49,6 +49,17 @@
       },
       {
         "ordinal": 4,
+        "name": "qualifications",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "qualifications"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "specialty",
         "type_info": "Text",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "calendar_color",
         "type_info": "Text",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "active",
         "type_info": "Bool",
         "origin": {
@@ -82,15 +93,7 @@
       }
     ],
     "parameters": {
-      "Left": [
-        "Uuid",
-        "Uuid",
-        "Text",
-        "Text",
-        "Text",
-        "Text",
-        "Bool"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -98,9 +101,10 @@
       false,
       true,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "27fe1d597783ae030deed7ebd0feae1b546700a754a8244272a1ec241a84e04c"
+  "hash": "295bcf34030977c61b87d15fb3b2dd72c5eca2d751a57548973d4573e2786426"
 }

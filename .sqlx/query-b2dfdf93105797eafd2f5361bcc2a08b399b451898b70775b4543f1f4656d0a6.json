@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, membership_id, display_name, registration_number, specialty, calendar_color, active\n           from aarogyam.practitioners\n           where id = $1 and deleted_at is null",
+  "query": "select id, membership_id, display_name, registration_number, qualifications, specialty, calendar_color, active\n           from aarogyam.practitioners\n           where id = $1 and deleted_at is null",
   "describe": {
     "columns": [
       {
@@ -49,6 +49,17 @@
       },
       {
         "ordinal": 4,
+        "name": "qualifications",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "qualifications"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "specialty",
         "type_info": "Text",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "calendar_color",
         "type_info": "Text",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "active",
         "type_info": "Bool",
         "origin": {
@@ -92,9 +103,10 @@
       false,
       true,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "956723de3a5711d6f52aa19c3f3bc86afc862ab3ce6b2822359a44ce6afcbadd"
+  "hash": "b2dfdf93105797eafd2f5361bcc2a08b399b451898b70775b4543f1f4656d0a6"
 }

@@ -121,11 +121,11 @@ pub struct UploadForm {
     language: Option<String>,
 }
 
-fn bad_form(message: &'static str) -> ApiFailure {
+pub(super) fn bad_form(message: &'static str) -> ApiFailure {
     ApiFailure(ApiError::bad_request("invalid_request", message))
 }
 
-fn too_large() -> ApiFailure {
+pub(super) fn too_large() -> ApiFailure {
     ApiFailure(ApiError::new(
         ErrorKind::PayloadTooLarge,
         "too_large",
@@ -133,7 +133,7 @@ fn too_large() -> ApiFailure {
     ))
 }
 
-fn form_error(error: &MultipartError) -> ApiFailure {
+pub(super) fn form_error(error: &MultipartError) -> ApiFailure {
     if error.status() == StatusCode::PAYLOAD_TOO_LARGE {
         too_large()
     } else {

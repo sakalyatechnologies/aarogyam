@@ -1,0 +1,85 @@
+/* The patient's prescription page: a desk with one A4-like sheet; a phone gets the sheet full width. */
+.shp {
+  min-height: 100%;
+  background: #e6ebe8;
+  padding: 16px 0 40px;
+}
+.shp-page {
+  padding: 0 16px;
+}
+@media (min-width: 700px) {
+  .shp-page {
+    padding: 8px 24px;
+  }
+}
+.shp-bar {
+  max-width: 210mm;
+  margin: 0 auto 12px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-weight: 700;
+  color: #14201b;
+}
+.shp-title {
+  margin: 0 0 4px;
+  font-size: 1.5em;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.shp-muted {
+  color: #555;
+  font-size: 0.9em;
+}
+.shp-pin {
+  max-width: 26em;
+  margin: 1em auto;
+}
+.shp-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1em;
+  flex-wrap: wrap;
+  padding-bottom: 0.8em;
+  border-bottom: 1px solid #d8dedb;
+}
+.shp-right {
+  text-align: right;
+}
+.shp-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.shp-line {
+  margin: 0.9em 0 0;
+}
+.shp-items {
+  margin: 0.4em 0 0;
+  padding-left: 1.4em;
+}
+.shp-items li {
+  padding: 0.55em 0;
+  border-bottom: 1px dashed #d8dedb;
+}
+.shp-items li:last-child {
+  border-bottom: 0;
+}
+.shp-doctor {
+  margin: 1.6em 0 0;
+  font-weight: 700;
+  text-align: right;
+}
+@media print {
+  .shp {
+    background: #fff;
+    padding: 0;
+  }
+  .shp-page {
+    padding: 0;
+  }
+  .shp-bar {
+    display: none !important;
+  }
+}

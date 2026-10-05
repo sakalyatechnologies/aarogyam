@@ -291,6 +291,8 @@ function PractitionersSection() {
 function PractitionerDialog({ practitioner, onOpenChange }: { practitioner: Practitioner | undefined; onOpenChange: () => void }) {
   const [displayName, setDisplayName] = useState(practitioner?.display_name ?? "");
   const [specialty, setSpecialty] = useState(practitioner?.specialty ?? "");
+  const [qualifications, setQualifications] = useState(practitioner?.qualifications ?? "");
+  const [registration, setRegistration] = useState(practitioner?.registration_number ?? "");
   const [calendarColor, setCalendarColor] = useState(practitioner?.calendar_color ?? "#64748b");
   const [active, setActive] = useState(practitioner?.active ?? true);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -303,7 +305,14 @@ function PractitionerDialog({ practitioner, onOpenChange }: { practitioner: Prac
     const onError = (thrown: unknown) => {
       setError(apiErrorOf(thrown)?.message ?? "Couldn't save that doctor. Please try again.");
     };
-    const fields = { display_name: displayName, specialty, calendar_color: calendarColor, active };
+    const fields = {
+      display_name: displayName,
+      specialty,
+      qualifications,
+      registration_number: registration,
+      calendar_color: calendarColor,
+      active,
+    };
     if (practitioner === undefined) {
       add.mutate(fields, { onSuccess: onOpenChange, onError });
     } else {
@@ -341,6 +350,24 @@ function PractitionerDialog({ practitioner, onOpenChange }: { practitioner: Prac
             value={specialty}
             onChange={(event) => {
               setSpecialty(event.target.value);
+            }}
+          />
+        </Field>
+        <Field label="Qualifications" hint="Printed under the name on the letterhead, such as BDS, MDS">
+          <TextInput
+            value={qualifications}
+            maxLength={160}
+            onChange={(event) => {
+              setQualifications(event.target.value);
+            }}
+          />
+        </Field>
+        <Field label="Registration number" hint="Dental or medical council number, printed on prescriptions">
+          <TextInput
+            value={registration}
+            maxLength={40}
+            onChange={(event) => {
+              setRegistration(event.target.value);
             }}
           />
         </Field>

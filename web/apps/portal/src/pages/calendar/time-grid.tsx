@@ -1,4 +1,6 @@
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
+
+import "./calendar.css";
 
 import { clockLabel, offsetPercent, packColumns } from "../../lib/time-grid.js";
 
@@ -38,6 +40,7 @@ export function TimeGrid({
   startHour,
   endHour,
   nowMinute,
+  workingMinutes,
   onSelect,
   summary,
 }: {
@@ -47,6 +50,8 @@ export function TimeGrid({
   endHour: number;
   /** Minutes after local midnight now, drawn in columns with `showNow`. */
   nowMinute?: number;
+  /** The clinic's usual working span (minutes after midnight); time outside it is shaded. */
+  workingMinutes?: { start: number; end: number };
   onSelect: (id: string) => void;
   summary: string;
 }) {
@@ -63,7 +68,9 @@ export function TimeGrid({
     if (el === null) return;
     const focus = showsNow ? nowMinute : Number.isFinite(firstStart) ? firstStart : startHour * 60;
     const top = ((focus - startHour * 60) / 60) * HOUR_HEIGHT - el.clientHeight / 3;
-    el.scrollTop = Math.max(0, top);
+    const target = Math.max(0, top);
+    if (typeof el.scrollTo === "function") el.scrollTo({ top: target, behavior: "smooth" });
+    else el.scrollTop = target;
     // Only on first show; later scrolling belongs to the person.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -90,28 +97,43 @@ export function TimeGrid({
         {columns.map((c) => {
           const packed = packColumns(events.filter((e) => e.columnId === c.id));
           return (
-            <div key={c.id} className="mk-tg-col" style={{ backgroundSize: `100% ${String(HOUR_HEIGHT)}px` }}>
-              {packed.map(({ item, column, columns: span }) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`mk-tg-ev mk-evchip ${item.tone}`}
-                  title={item.label}
-                  aria-label={item.label}
-                  style={{
-                    top: `${String(offsetPercent(item.startMin, startHour, endHour))}%`,
-                    height: `calc(${String(((item.endMin - item.startMin) / ((endHour - startHour) * 60)) * 100)}% - 2px)`,
-                    left: `calc(${String((column / span) * 100)}% + 2px)`,
-                    width: `calc(${String(100 / span)}% - 4px)`,
-                  }}
-                  onClick={() => {
-                    onSelect(item.id);
-                  }}
-                >
-                  <b>{item.title}</b>
-                  {item.subtitle === undefined ? null : <span>{item.subtitle}</span>}
-                </button>
-              ))}
+            <div key={c.id} className={`mk-tg-col ${c.current === true ? "current" : ""}`} style={{ backgroundSize: `100% ${String(HOUR_HEIGHT)}px` }}>
+              {workingMinutes === undefined ? null : (
+                <>
+                  <div className="mk-tg-off" aria-hidden="true" style={{ top: 0, height: `${String(offsetPercent(Math.min(Math.max(workingMinutes.start, startHour * 60), endHour * 60), startHour, endHour))}%` }} />
+                  <div className="mk-tg-off" aria-hidden="true" style={{ bottom: 0, height: `${String(100 - offsetPercent(Math.min(Math.max(workingMinutes.end, startHour * 60), endHour * 60), startHour, endHour))}%` }} />
+                </>
+              )}
+              {packed.map(({ item, column, columns: span }) => {
+                const top = `${String(offsetPercent(item.startMin, startHour, endHour))}%`;
+                const left = `calc(${String((column / span) * 100)}% + 2px)`;
+                const roomy = item.endMin - item.startMin >= 40;
+                return (
+                  <Fragment key={item.id}>
+                    <button
+                      type="button"
+                      className={`mk-tg-ev mk-evchip ${item.tone}`}
+                      aria-label={item.label}
+                      style={{
+                        top,
+                        height: `calc(${String(((item.endMin - item.startMin) / ((endHour - startHour) * 60)) * 100)}% - 2px)`,
+                        left,
+                        width: `calc(${String(100 / span)}% - 4px)`,
+                      }}
+                      onClick={() => {
+                        onSelect(item.id);
+                      }}
+                    >
+                      <b>{item.title}</b>
+                      {roomy && item.subtitle !== undefined ? <span>{item.subtitle}</span> : null}
+                    </button>
+                    <div className={`mk-tip ${item.tone}`} role="tooltip" aria-hidden="true" style={{ top, left }}>
+                      <b>{item.title}</b>
+                      {item.subtitle === undefined ? null : <span>{item.subtitle}</span>}
+                    </div>
+                  </Fragment>
+                );
+              })}
               {c.showNow === true && nowMinute !== undefined && nowMinute >= startHour * 60 && nowMinute <= endHour * 60 ? (
                 <div className="mk-tg-now" role="presentation" style={{ top: `${String(offsetPercent(nowMinute, startHour, endHour))}%` }} data-testid="now-line" />
               ) : null}

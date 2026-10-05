@@ -1,11 +1,13 @@
-import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
+
+import "./calendar.css";
 import { useSearchParams } from "react-router";
 
 import { apiErrorOf, type AppointmentStatus } from "@aarogyam/api-client";
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
 import { EmptyState, Select, Skeleton } from "@sakalya/ui";
 
+import { DatePicker } from "../../components/mk/date-picker.js";
 import { MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { gridHours, nowMinutes, placementOf } from "../../lib/time-grid.js";
@@ -37,6 +39,45 @@ const CHIP: Readonly<Record<AppointmentStatus, string>> = {
 /** The legend colour for an appointment: requested dashed, emergencies red, new consults indigo, else by status. */
 function toneOf(a: { status: AppointmentStatus; kind: string }): string {
   return CHIP[a.status === "requested" ? "requested" : a.kind === "emergency" ? "no_show" : a.kind === "new" && a.status !== "completed" && a.status !== "arrived" ? "confirmed" : a.status];
+}
+
+/** The usual working day, shaded around in the time grid. */
+const WORKING_MINUTES = { start: 9 * 60, end: 18 * 60 };
+
+const LEGEND = [
+  { tone: "g", label: "Completed" },
+  { tone: "a", label: "Waiting" },
+  { tone: "b", label: "Booked" },
+  { tone: "i", label: "New consult" },
+  { tone: "r", label: "Emergency or no-show" },
+  { tone: "q", label: "Awaiting confirmation" },
+] as const;
+
+/** Colour key for the schedule cards. */
+function Legend() {
+  return (
+    <ul className="mk-legend" aria-label="Colour key">
+      {LEGEND.map((l) => (
+        <li key={l.tone} className={`mk-legend-chip ${l.tone}`}>
+          <span aria-hidden="true" />
+          {l.label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** The days the view shows, which is exactly what is requested: a week, a day, or the month grid (at most 42 days). */
+export function visibleRange(view: View, anchor: string): { from: string; to: string } {
+  if (view === "week") {
+    const from = mondayOf(anchor);
+    return { from, to: addDays(from, 6) };
+  }
+  if (view === "month") {
+    const days = monthWeeks(anchor).flat();
+    return { from: days[0] ?? anchor, to: days.at(-1) ?? anchor };
+  }
+  return { from: anchor, to: anchor };
 }
 
 /** `29 Sep`, or `5 Oct 2026` with the year. */
@@ -77,12 +118,21 @@ export function CalendarPage() {
   }, []);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
 
-  const monthDays = view === "month" ? monthWeeks(anchor).flat() : [];
-  const from = view === "week" ? mondayOf(anchor) : view === "month" ? (monthDays[0] ?? anchor) : anchor;
-  const to = view === "week" ? addDays(from, 6) : view === "month" ? (monthDays.at(-1) ?? anchor) : anchor;
+  const { from, to } = visibleRange(view, anchor);
   // The range rides in the URL (ISO dates only, never patient data) so the view can be shared or reloaded.
   useEffect(() => {
-    setSearchParams({ from, to }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        if (prev.get("from") === from && prev.get("to") === to && !prev.has("book")) return prev;
+        const next = new URLSearchParams(prev);
+        // `book` has done its job once the form is open.
+        next.delete("book");
+        next.set("from", from);
+        next.set("to", to);
+        return next;
+      },
+      { replace: true },
+    );
   }, [from, to, setSearchParams]);
   const appointments = useAppointments({ from, to });
   const rooms = useRooms();
@@ -192,17 +242,7 @@ export function CalendarPage() {
             </button>
           ))}
         </span>
-        {view === "day" ? (
-          <input
-            type="date"
-            className="mk-chipf"
-            aria-label="Pick a day"
-            value={anchor}
-            onChange={(event) => {
-              if (event.target.value !== "") setAnchor(event.target.value);
-            }}
-          />
-        ) : null}
+        {view === "day" ? <DatePicker value={anchor} onChange={setAnchor} today={today} id="cal-day" className="mk-dp-compact" /> : null}
         {view === "day" ? (
           <Select
             options={[
@@ -216,19 +256,8 @@ export function CalendarPage() {
             className="max-w-40"
           />
         ) : null}
-        {canWrite ? (
-          <button
-            type="button"
-            className="mk-btn mk-btn-primary mk-spacer"
-            onClick={() => {
-              setBookingOpen(true);
-            }}
-          >
-            <Plus aria-hidden="true" /> New appointment
-          </button>
-        ) : null}
       </div>
-      <MkCard title={view === "week" ? "Week view" : view === "month" ? "Month view" : "Day view"} hint="Colour: completed · waiting · booked · new consult · dashed: awaiting your confirmation">
+      <MkCard title={view === "week" ? "Week view" : view === "month" ? "Month view" : "Day view"} action={<Legend />}>
         {appointments.isPending ? (
           <Skeleton shape="block" />
         ) : appointments.isError ? (
@@ -262,6 +291,7 @@ export function CalendarPage() {
             startHour={hours.start}
             endHour={hours.end}
             nowMinute={nowOnClinicClock.minutes}
+            workingMinutes={WORKING_MINUTES}
             summary={`Appointments from ${from} to ${to}`}
             onSelect={setSelectedId}
           />

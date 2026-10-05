@@ -1,3 +1,5 @@
+import "./calendar.css";
+
 import { monthWeeks } from "../../lib/time.js";
 
 export interface MonthItem {

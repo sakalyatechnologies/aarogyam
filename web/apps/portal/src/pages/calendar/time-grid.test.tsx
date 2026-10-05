@@ -37,9 +37,10 @@ describe("TimeGrid", () => {
   it("opens an event on click and from the keyboard, and shows the full title on hover", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
-    render(<TimeGrid columns={COLUMNS} events={[event("A", 600, 660, { label: "Asha Rao, Cleaning at 10:00 am" })]} startHour={8} endHour={18} onSelect={onSelect} summary="Grid" />);
+    const { container } = render(<TimeGrid columns={COLUMNS} events={[event("A", 600, 660, { label: "Asha Rao, Cleaning at 10:00 am", subtitle: "10:00 am · Dr Shah" })]} startHour={8} endHour={18} onSelect={onSelect} summary="Grid" />);
     const button = screen.getByRole("button", { name: "Asha Rao, Cleaning at 10:00 am" });
-    expect(button.getAttribute("title")).toBe("Asha Rao, Cleaning at 10:00 am");
+    // The hover/focus popover carries the full details.
+    expect(container.querySelector(".mk-tip")?.textContent).toBe("A10:00 am · Dr Shah");
     await user.tab();
     expect(document.activeElement).toBe(button);
     await user.keyboard("{Enter}");
@@ -53,5 +54,26 @@ describe("TimeGrid", () => {
     expect(screen.getByTestId("now-line").style.top).toBe("50%");
     rerender(<TimeGrid columns={[{ id: "d", label: "Mon" }]} events={[]} startHour={8} endHour={18} nowMinute={13 * 60} onSelect={() => undefined} summary="Grid" />);
     expect(screen.queryByTestId("now-line")).toBeNull();
+  });
+});
+
+describe("TimeGrid cards", () => {
+  it("shows the second line only when the card is tall enough, and shades non-working time", () => {
+    const { container } = render(
+      <TimeGrid
+        columns={[{ id: "d", label: "Mon", current: true }]}
+        events={[event("Long", 600, 660, { subtitle: "10:00 am · Dr Shah" }), event("Short", 720, 735, { subtitle: "12:00 pm · Dr Shah" })]}
+        startHour={8}
+        endHour={18}
+        workingMinutes={{ start: 540, end: 1020 }}
+        onSelect={() => undefined}
+        summary="Grid"
+      />,
+    );
+    const buttons = container.querySelectorAll<HTMLElement>(".mk-tg-ev");
+    expect(buttons[0]?.textContent).toContain("Dr Shah");
+    expect(buttons[1]?.textContent).toBe("Short");
+    expect(container.querySelectorAll(".mk-tg-off").length).toBe(2);
+    expect(container.querySelector(".mk-tg-col.current")).not.toBeNull();
   });
 });

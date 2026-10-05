@@ -28,7 +28,7 @@ describe("Calendar: booking", () => {
 
     // 28 Sep has no fixture appointments, so this booking can't collide with anything.
     renderPortal("/calendar?from=2026-09-28&to=2026-10-04", { as: PEOPLE.farah, backend });
-    await user.click(await screen.findByRole("button", { name: "New appointment" }));
+    await user.click(await screen.findByRole("button", { name: "Schedule an appointment" }));
     await user.type(await screen.findByPlaceholderText("Name, clinic number or phone"), "SD-5");
     await user.click(await screen.findByRole("button", { name: new RegExp(target.full_name) }));
     await chooseOption(user, screen.getByLabelText(/^Doctor/), "Asha Kulkarni");
@@ -61,7 +61,10 @@ describe("Calendar: booking", () => {
 
     // The fixture's morning schedule already has Chair 1 booked at 09:00 on 3 Oct.
     renderPortal("/calendar?from=2026-10-03&to=2026-10-03", { as: PEOPLE.farah, backend });
-    await user.click(await screen.findByRole("button", { name: "New appointment" }));
+    // Let the page finish rewriting its URL to the week range before the top bar navigates.
+    await screen.findByRole("group", { name: "Appointments from 2026-09-28 to 2026-10-04" });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await user.click(await screen.findByRole("button", { name: "Schedule an appointment" }));
     await user.type(await screen.findByPlaceholderText("Name, clinic number or phone"), "SD-1");
     await user.click(await screen.findByRole("button", { name: new RegExp(target.full_name) }));
     await chooseOption(user, screen.getByLabelText(/^Doctor/), "Dr Dev Rao");

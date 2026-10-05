@@ -7,7 +7,7 @@
 
 mod support;
 
-use aarogyam_domain::access::{Authorization, ClinicActor, MembershipStatus};
+use aarogyam_domain::access::{Authorization, ClinicActor, ClinicPlace, MembershipStatus};
 use aarogyam_domain::ids::{ClinicId, InvoiceId, MembershipId, UserId};
 use aarogyam_domain::permission::{Permission, PermissionSet, Scope};
 use axum::http::{Method, StatusCode};
@@ -338,7 +338,12 @@ async fn owner_actor(app: &TestApp) -> ClinicActor {
         permissions: PermissionSet::EMPTY.with(Permission::BillingWrite, Scope::All),
         session_revoked: false,
     };
-    ClinicActor::admit(clinic, authorization).unwrap()
+    let place = ClinicPlace {
+        id: clinic,
+        timezone: "Asia/Kolkata".into(),
+        number_prefix: "AD".into(),
+    };
+    ClinicActor::admit(place, authorization).unwrap()
 }
 
 #[tokio::test]

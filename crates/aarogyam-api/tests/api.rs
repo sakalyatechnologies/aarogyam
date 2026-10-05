@@ -617,3 +617,56 @@ async fn an_invited_owner_joins_with_the_verified_email() {
     assert_eq!(status, StatusCode::NOT_FOUND);
     app.finish().await;
 }
+
+/// A request with nothing cached checks the host and the member in one lookup and answers as
+/// the two separate lookups did: a member gets in, a closed clinic is `404` and records no
+/// sign-in session, and an unknown host is `404` even with a bad token.
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_first_request_checks_host_and_member_together() {
+    let app = TestApp::start().await;
+    let (status, body) = app
+        .send(
+            Method::GET,
+            BETA,
+            "/api/v1/session",
+            Some(&app.token(BETA_OWNER)),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["membership"]["role_key"], "owner");
+    assert_eq!(body["clinic"]["timezone"], "Asia/Kolkata");
+
+    sqlx::query("update aarogyam.organizations set status = 'suspended' where slug = 'alpha'")
+        .execute(&app.owner)
+        .await
+        .unwrap();
+    let (status, _) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            "/api/v1/session",
+            Some(&app.token(ALPHA_OWNER)),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let sessions: i64 = sqlx::query_scalar(
+        "select count(*) from aarogyam.sessions s join aarogyam.users u on u.id = s.user_id
+         where u.auth_uid = $1",
+    )
+    .bind(ALPHA_OWNER)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(sessions, 0, "a closed clinic recorded the session");
+
+    for host in ["nowhere.localtest.me", ALPHA] {
+        let (status, _) = app
+            .send(Method::GET, host, "/api/v1/session", Some("bad"), None)
+            .await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{host}");
+    }
+    app.finish().await;
+}

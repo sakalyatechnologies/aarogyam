@@ -4,7 +4,7 @@
 
 use std::marker::PhantomData;
 
-use aarogyam_dal::lookups::{self, PlatformAccess};
+use aarogyam_dal::lookups::{self, HostClinic, PlatformAccess};
 use aarogyam_domain::access::{ClinicActor, ClinicStatus, Denied};
 use aarogyam_domain::permission::Required;
 use axum::extract::FromRequestParts;
@@ -74,17 +74,35 @@ impl FromRequestParts<AppState> for ClinicRequest {
         if host == hosts.console || host == hosts.app {
             return Err(ApiFailure(not_found()));
         }
-        let clinic = state
-            .clinic_for_host(&host)
-            .await?
-            .filter(|clinic| clinic.status.is_some_and(ClinicStatus::is_open))
-            .ok_or(Denied::UnknownClinic)?;
-        let claims = state.claims(&parts.headers).await?;
-        let authorization = state
-            .authorization(clinic.clinic_id, &claims)
-            .await?
-            .ok_or(Denied::NotAMember)?;
-        let actor = ClinicActor::admit(clinic.clinic_id, authorization)?;
+        let is_open = |clinic: &HostClinic| clinic.status.is_some_and(ClinicStatus::is_open);
+        let (clinic, authorization) = if let Some(clinic) = state.cached_host(&host) {
+            let clinic = Some(clinic).filter(is_open).ok_or(Denied::UnknownClinic)?;
+            let claims = state.claims(&parts.headers).await?;
+            let authorization = state.authorization(clinic.clinic_id, &claims).await?;
+            (clinic, authorization)
+        } else {
+            // Nothing cached: the host and the member in one round trip. An unknown or closed
+            // host still answers 404 before a bad token's 401, as when they were two lookups.
+            let claims = match state.claims(&parts.headers).await {
+                Ok(claims) => claims,
+                Err(failure) => {
+                    state
+                        .clinic_for_host(&host)
+                        .await?
+                        .filter(is_open)
+                        .ok_or(Denied::UnknownClinic)?;
+                    return Err(failure);
+                }
+            };
+            let (clinic, authorization) = state
+                .host_and_authorization(&host, &claims)
+                .await?
+                .ok_or(Denied::UnknownClinic)?;
+            let clinic = Some(clinic).filter(is_open).ok_or(Denied::UnknownClinic)?;
+            (clinic, authorization)
+        };
+        let authorization = authorization.ok_or(Denied::NotAMember)?;
+        let actor = ClinicActor::admit(clinic.place(), authorization)?;
         sakalya_telemetry::record_tenant(actor.clinic_id.uuid());
         sakalya_telemetry::record_user(actor.user_id.uuid());
         Ok(Self {

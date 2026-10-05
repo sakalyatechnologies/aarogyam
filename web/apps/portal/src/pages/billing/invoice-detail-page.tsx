@@ -2,7 +2,7 @@ import { Printer } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
-import { apiErrorOf, invoiceId as invoiceIdSchema, type Invoice, type InvoiceLineInput, type PaymentMethod } from "@aarogyam/api-client";
+import { apiErrorOf, randomUuid, invoiceId as invoiceIdSchema, type Invoice, type InvoiceLineInput, type PaymentMethod } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
 import {
   Button,
@@ -430,14 +430,14 @@ function PaymentDialog({ open, invoice, onClose }: { open: boolean; invoice: Inv
   const [rupees, setRupees] = useState(() => (invoice.balance_paise / 100).toString());
   const [reference, setReference] = useState("");
   const [error, setError] = useState<string>();
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey, setIdempotencyKey] = useState(() => randomUuid());
 
   const close = () => {
     onClose();
     setMethod("cash");
     setReference("");
     setError(undefined);
-    setIdempotencyKey(crypto.randomUUID());
+    setIdempotencyKey(randomUuid());
   };
 
   const submit = () => {

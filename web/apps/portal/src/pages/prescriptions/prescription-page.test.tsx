@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -17,8 +17,6 @@ describe("Prescriptions", () => {
     renderPortal(patientPath, { as: PEOPLE.asha, backend });
 
     await user.click(await screen.findByRole("button", { name: "New prescription" }));
-    const table = await screen.findByRole("table");
-    await user.click(within(table).getByRole("link", { name: /draft/i }));
 
     await user.click(await screen.findByRole("button", { name: "Add free-text medicine" }));
     const medicineInput = screen.getByPlaceholderText("Medicine name");

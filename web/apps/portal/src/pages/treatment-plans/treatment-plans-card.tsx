@@ -3,7 +3,8 @@ import { useState } from "react";
 
 import { apiErrorOf, type PatientId, type Plan, type VisitId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatRupees } from "@aarogyam/app-kit";
-import { Button, Card, Dialog, EmptyState, Field, Pill, Skeleton, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, Skeleton, TextInput, useToast } from "@sakalya/ui";
+import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
 import { useAcceptPlan, useCreatePlan, usePlans, useSetPlanItemStatus } from "./queries.js";
 
@@ -11,12 +12,12 @@ function planTone(status: string): "neutral" | "success" | "warning" | "danger" 
   return status === "completed" ? "success" : status === "declined" ? "danger" : status === "proposed" ? "neutral" : "warning";
 }
 
-/** A patient's treatment plans on the visit screen: propose, accept, and carry items out in this visit. */
-export function TreatmentPlansCard({ patientId, visitId, visitOpen, canWrite }: { patientId: PatientId; visitId: VisitId; visitOpen: boolean; canWrite: boolean }) {
+/** A patient's treatment plans on the visit screen: propose, accept and mark items done, with or without an open visit. */
+export function TreatmentPlansCard({ patientId, visitId, canWrite }: { patientId: PatientId; visitId: VisitId; canWrite: boolean }) {
   const plans = usePlans(patientId);
   const [creating, setCreating] = useState(false);
   return (
-    <Card
+    <MkCard
       title="Treatment plans"
       action={
         canWrite ? (
@@ -37,11 +38,11 @@ export function TreatmentPlansCard({ patientId, visitId, visitOpen, canWrite }: 
       ) : plans.isError ? (
         <ApiErrorNotice title="Couldn't load treatment plans" error={plans.error} onRetry={() => void plans.refetch()} />
       ) : plans.data.items.length === 0 ? (
-        <EmptyState title="No treatment plans yet" icon={null} />
+        <Empty title="No treatment plans yet" />
       ) : (
         <div className="flex flex-col gap-4">
           {plans.data.items.map((plan) => (
-            <PlanView key={plan.id} patientId={patientId} plan={plan} canCarryOut={canWrite && visitOpen} canWrite={canWrite} />
+            <PlanView key={plan.id} patientId={patientId} plan={plan} canWrite={canWrite} />
           ))}
         </div>
       )}
@@ -54,11 +55,11 @@ export function TreatmentPlansCard({ patientId, visitId, visitOpen, canWrite }: 
           }}
         />
       ) : null}
-    </Card>
+    </MkCard>
   );
 }
 
-function PlanView({ patientId, plan, canWrite, canCarryOut }: { patientId: PatientId; plan: Plan; canWrite: boolean; canCarryOut: boolean }) {
+function PlanView({ patientId, plan, canWrite }: { patientId: PatientId; plan: Plan; canWrite: boolean }) {
   const accept = useAcceptPlan(patientId);
   const finish = useSetPlanItemStatus(patientId);
   const toast = useToast();
@@ -66,7 +67,7 @@ function PlanView({ patientId, plan, canWrite, canCarryOut }: { patientId: Patie
     <div className="rounded-2xl border border-border p-4">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-bold text-text">{plan.title}</h3>
-        <Pill tone={planTone(plan.status)}>{plan.status.replace("_", " ")}</Pill>
+        <Tag tone={statusTone(planTone(plan.status))}>{plan.status.replace("_", " ")}</Tag>
         <span className="ms-auto text-sm font-semibold tabular-nums text-text">{formatRupees(plan.estimate_paise)}</span>
         {canWrite && plan.status === "proposed" ? (
           <Button
@@ -98,11 +99,11 @@ function PlanView({ patientId, plan, canWrite, canCarryOut }: { patientId: Patie
               {item.tooth == null ? "" : ` · Tooth ${String(item.tooth)}`}
             </span>
             <span className="text-xs text-muted">Phase {item.phase}</span>
-            <Pill tone={item.status === "done" ? "success" : item.status === "cancelled" ? "danger" : item.status === "accepted" ? "warning" : "neutral"}>
+            <Tag tone={statusTone(item.status === "done" ? "success" : item.status === "cancelled" ? "danger" : item.status === "accepted" ? "warning" : "neutral")}>
               {item.status}
-            </Pill>
+            </Tag>
             <span className="ms-auto tabular-nums text-text">{formatRupees(item.estimate_paise)}</span>
-            {canCarryOut && item.status === "accepted" ? (
+            {canWrite && item.status === "accepted" ? (
               <Button
                 variant="ghost"
                 icon={<Check aria-hidden="true" className="size-4" />}

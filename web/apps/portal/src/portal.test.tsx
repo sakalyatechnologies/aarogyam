@@ -87,6 +87,20 @@ describe("Patients search", () => {
     });
   });
 
+  it("opens Patient 360 from a click anywhere on the row, with the name link as the keyboard way in", async () => {
+    const user = userEvent.setup();
+    const { router } = renderPortal("/patients", { as: PEOPLE.farah });
+    const table = await screen.findByRole("table", { name: "Patients" });
+    const link = await within(table).findAllByRole("link");
+    const row = link[0]?.closest("tr");
+    if (row == null) throw new Error("expected a patient row");
+    expect(within(row).getAllByRole("link")).toHaveLength(1);
+    await user.click(within(row).getByText(/^SD-\d+$/));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toMatch(/^\/patients\/[0-9a-f-]{36}$/);
+    });
+  });
+
   it("says so when nothing matches, and offers to register", async () => {
     const user = userEvent.setup();
     renderPortal("/patients", { as: PEOPLE.farah });

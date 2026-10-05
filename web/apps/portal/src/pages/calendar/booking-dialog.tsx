@@ -1,13 +1,13 @@
 import { X } from "lucide-react";
 import { useState } from "react";
 
-import { apiErrorOf, type Patient, type PractitionerPage, type RoomPage } from "@aarogyam/api-client";
+import { apiErrorOf, patientId as patientIdSchema, type Patient, type PractitionerPage, type RoomPage } from "@aarogyam/api-client";
 import { Avatar, Button, DateInput, Dialog, Field, Select, TextArea, TextInput, useToast } from "@sakalya/ui";
 
 import { PatientPicker } from "../../components/patient-picker.js";
 import { ageSex } from "../../lib/patients.js";
 import { localInstant } from "../../lib/time.js";
-import { useBookAppointment } from "../../queries.js";
+import { useBookAppointment, usePatient } from "../../queries.js";
 
 const DURATIONS = [15, 20, 30, 45, 60, 90] as const;
 const KINDS = [
@@ -24,11 +24,21 @@ export interface BookingDialogProps {
   rooms: RoomPage["items"];
   practitioners: PractitionerPage["items"];
   defaultDate: string;
+  /** `?patient=<id>`: book for this patient without searching. */
+  patientParam?: string | null;
 }
 
 /** The dialog that books a new appointment: find the patient, pick a doctor, chair and time. */
-export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitioners, defaultDate }: BookingDialogProps) {
-  const [patient, setPatient] = useState<Patient | undefined>(undefined);
+export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitioners, defaultDate, patientParam = null }: BookingDialogProps) {
+  const [picked, setPicked] = useState<Patient | undefined>(undefined);
+  const [cleared, setCleared] = useState(false);
+  const parsed = patientIdSchema.safeParse(patientParam);
+  const prefill = usePatient(parsed.success ? parsed.data : undefined);
+  const patient = picked ?? (cleared ? undefined : prefill.data);
+  const setPatient = (next: Patient | undefined) => {
+    setPicked(next);
+    setCleared(next === undefined);
+  };
   const [practitionerId, setPractitionerId] = useState("");
   const [roomId, setRoomId] = useState("");
   const [date, setDate] = useState(defaultDate);
@@ -42,7 +52,8 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
   const toast = useToast();
 
   const reset = () => {
-    setPatient(undefined);
+    setPicked(undefined);
+    setCleared(false);
     setPractitionerId("");
     setRoomId("");
     setDate(defaultDate);

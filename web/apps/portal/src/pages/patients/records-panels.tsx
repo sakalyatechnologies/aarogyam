@@ -3,7 +3,8 @@ import { useNavigate } from "react-router";
 
 import type { Invoice, PatientId, Prescription } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatRupees } from "@aarogyam/app-kit";
-import { Button, Card, EmptyState, Link, Pill, Skeleton, useToast } from "@sakalya/ui";
+import { Button, Link, Skeleton, useToast } from "@sakalya/ui";
+import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { useInvoices } from "../billing/queries.js";
@@ -17,7 +18,7 @@ export function BillsPanel({ patientId }: { patientId: PatientId }) {
   const navigate = useNavigate();
   const invoices = useInvoices({ patientId });
   if (!can("billing.read")) {
-    return <EmptyState title="Billing is hidden for your role" description="Ask the clinic owner if you need to see bills." />;
+    return <Empty title="Billing is hidden for your role">Ask the clinic owner if you need to see bills.</Empty>;
   }
   const items: readonly Invoice[] = invoices.data?.items.slice(0, RECENT) ?? [];
   return (
@@ -39,23 +40,23 @@ export function BillsPanel({ patientId }: { patientId: PatientId }) {
       ) : invoices.isError ? (
         <ApiErrorNotice title="Couldn't load bills" error={invoices.error} onRetry={() => void invoices.refetch()} />
       ) : items.length === 0 ? (
-        <EmptyState title="No bills yet" description="Bills, payments and dues for this patient will appear here." />
+        <Empty title="No bills yet">Bills, payments and dues for this patient will appear here.</Empty>
       ) : (
-        <Card>
+        <MkCard>
           <ul aria-label="Recent bills" className="flex flex-col gap-2">
             {items.map((i) => (
               <li key={i.id} className="flex flex-wrap items-center gap-2 text-sm">
                 <Link href={`/billing/invoices/${i.id}`} className="font-mono text-xs font-semibold text-primary-text hover:underline">
                   {i.number ?? "Draft"}
                 </Link>
-                <Pill tone={i.status === "issued" ? "success" : i.status === "void" ? "danger" : "neutral"}>{i.status}</Pill>
-                {i.payment_state == null ? null : <Pill tone={i.payment_state === "paid" ? "success" : "warning"}>{i.payment_state}</Pill>}
+                <Tag tone={statusTone(i.status === "issued" ? "success" : i.status === "void" ? "danger" : "neutral")}>{i.status}</Tag>
+                {i.payment_state == null ? null : <Tag tone={statusTone(i.payment_state === "paid" ? "success" : "warning")}>{i.payment_state}</Tag>}
                 <span className="ms-auto font-semibold tabular-nums text-text">{formatRupees(i.total_paise)}</span>
                 <span className="text-muted">{formatDate(i.issued_at ?? i.created_at)}</span>
               </li>
             ))}
           </ul>
-        </Card>
+        </MkCard>
       )}
     </div>
   );
@@ -107,22 +108,22 @@ export function PrescriptionsPanel({ patientId }: { patientId: PatientId }) {
       ) : prescriptions.isError ? (
         <ApiErrorNotice title="Couldn't load prescriptions" error={prescriptions.error} onRetry={() => void prescriptions.refetch()} />
       ) : items.length === 0 ? (
-        <EmptyState title="No prescriptions yet" description="Drafts and issued prescriptions will appear here." />
+        <Empty title="No prescriptions yet">Drafts and issued prescriptions will appear here.</Empty>
       ) : (
-        <Card>
+        <MkCard>
           <ul aria-label="Recent prescriptions" className="flex flex-col gap-2">
             {items.map((rx) => (
               <li key={rx.id} className="flex flex-wrap items-center gap-2 text-sm">
                 <Link href={`/prescriptions/${rx.id}`} className="font-mono text-xs font-semibold text-primary-text hover:underline">
                   {rx.number ?? "Draft"}
                 </Link>
-                <Pill tone={rx.status === "issued" ? "success" : rx.status === "cancelled" ? "danger" : "neutral"}>{rx.status}</Pill>
+                <Tag tone={statusTone(rx.status === "issued" ? "success" : rx.status === "cancelled" ? "danger" : "neutral")}>{rx.status}</Tag>
                 <span className="text-muted">{rx.items.map((item) => item.drug_name).join(", ")}</span>
                 <span className="ms-auto text-muted">{formatDate(rx.issued_at ?? rx.created_at)}</span>
               </li>
             ))}
           </ul>
-        </Card>
+        </MkCard>
       )}
     </div>
   );

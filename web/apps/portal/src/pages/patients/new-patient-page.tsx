@@ -5,7 +5,8 @@ import { z } from "zod";
 
 import { apiErrorOf, type NewPatient, type Sex } from "@aarogyam/api-client";
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, Card, DateInput, EmptyState, Field, FormActions, PageHeader, PhoneInput, RadioGroup, Select, TextInput, useToast } from "@sakalya/ui";
+import { Button, DateInput, Field, FormActions, PageHeader, PhoneInput, RadioGroup, Select, TextInput, useToast } from "@sakalya/ui";
+import { MkCard, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { LANGUAGES, SEX_OPTIONS, patientPath, useTodayDate } from "../../lib/patients.js";
@@ -71,7 +72,7 @@ export function NewPatientPage() {
   const { session, can } = useClinic();
   useDocumentTitle("New patient", session.clinic.name);
   if (!can("patients.write")) {
-    return <EmptyState title="You can't register patients" description="Ask the clinic's owner if you need to." />;
+    return <Empty title="You can't register patients">Ask the clinic's owner if you need to.</Empty>;
   }
   return <NewPatientForm />;
 }
@@ -108,7 +109,7 @@ function NewPatientForm() {
   return (
     <>
       <PageHeader title="New patient" subtitle="The clinic number is given when you save." />
-      <Card className="max-w-2xl">
+      <MkCard className="max-w-2xl">
         <form noValidate onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-5">
           <Field label="Full name" error={errors.fullName?.message} required>
             <TextInput autoComplete="off" {...form.register("fullName")} />
@@ -183,7 +184,7 @@ function NewPatientForm() {
             </Button>
           </FormActions>
         </form>
-      </Card>
+      </MkCard>
     </>
   );
 }

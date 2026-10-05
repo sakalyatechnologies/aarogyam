@@ -52,6 +52,33 @@ describe("Treatment plans", () => {
     expect(within(items).getAllByText("accepted")).toHaveLength(1);
   });
 
+  it("marks an accepted item done on a closed visit", async () => {
+    const user = userEvent.setup();
+    let path = "";
+    const backend = fakeApi((fixtures) => {
+      const note = fixtures.notes.find((n) => n.status === "signed");
+      const visit = fixtures.visits.find((v) => v.id === note?.visit_id);
+      expect(visit?.status).toBe("closed");
+      path = `/patients/${visit?.patient_id ?? ""}/visits/${visit?.id ?? ""}`;
+      fixtures.plans.push({
+        id: crypto.randomUUID(),
+        clinic_id: visit?.clinic_id ?? "",
+        patient_id: visit?.patient_id ?? "",
+        visit_id: visit?.id ?? null,
+        clinician_membership_id: visit?.clinician_membership_id ?? "",
+        title: "Earlier plan",
+        status: "accepted",
+        items: [{ id: crypto.randomUUID(), name: "Scaling", surfaces: [], phase: 1, estimate_paise: 50000, status: "accepted" }],
+        created_at: new Date().toISOString(),
+        accepted_at: new Date().toISOString(),
+      });
+    });
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await user.click(await screen.findByRole("button", { name: "Mark done: Scaling" }));
+    const items = await screen.findByRole("list", { name: "Items of Earlier plan" });
+    expect(await within(items).findByText("done")).toBeTruthy();
+  });
+
   it("hides New plan from someone without clinical.write", async () => {
     let path = "";
     const backend = fakeApi((fixtures) => {

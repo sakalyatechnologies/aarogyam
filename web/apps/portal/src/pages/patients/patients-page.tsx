@@ -1,86 +1,24 @@
-import { Plus, Upload, UserRoundSearch } from "lucide-react";
-import { useState } from "react";
-import { useNavigate } from "react-router";
+import { Plus, Upload } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router";
 
-import type { Patient } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, Card, ChipFilterGroup, DataTable, Link, Pill, SearchInput, type DataTableColumn } from "@sakalya/ui";
+import { Skeleton } from "@sakalya/ui";
 
+import { Empty, MkAvatar, MkCard, Tag, rowLink } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { patientPath } from "../../lib/patients.js";
 import { usePatientList } from "./queries.js";
 
 type QuickFilter = "all" | "with_balance" | "recalls_due" | "new_this_month";
 
-/** Mock-up palette for the initials tile; chosen from the patient number so it stays the same between visits. */
-const TILE_COLOURS = ["#1b734a", "#a86e0f", "#4338ca", "#136650", "#be123c", "#0ea5e9", "#7c3aed"] as const;
+const PAGE = 20;
 
-function tileColour(key: string): string {
-  let sum = 0;
-  for (const ch of key) {
-    sum += ch.charCodeAt(0);
-  }
-  return TILE_COLOURS[sum % TILE_COLOURS.length] ?? TILE_COLOURS[0];
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase())
-    .join("")
-    .slice(0, 3);
-}
-
-const COLUMNS: readonly DataTableColumn<Patient>[] = [
-  {
-    id: "name",
-    header: "Patient",
-    sortValue: (row) => row.full_name,
-    cell: (row) => (
-      <span className="flex items-center gap-2.5">
-        {/* The tile is decoration: the name beside it is the accessible label. */}
-        <span
-          aria-hidden="true"
-          className="grid size-8 flex-none place-items-center rounded-[11px] text-xs font-extrabold text-white"
-          style={{ background: tileColour(row.number) }}
-        >
-          {initials(row.full_name)}
-        </span>
-        <Link href={patientPath(row)} className="font-semibold text-text hover:underline">
-          {row.full_name}
-        </Link>
-        {row.age_years == null ? null : <span className="font-normal text-muted">· {row.age_years}y</span>}
-      </span>
-    ),
-  },
-  { id: "number", header: "File no.", cell: (row) => <span className="font-mono">{row.number}</span> },
-  { id: "visit", header: "Last visit", sortValue: (row) => row.last_visit_at, cell: (row) => (row.last_visit_at == null ? "—" : formatDate(row.last_visit_at)) },
-  {
-    id: "next",
-    header: "Next",
-    sortValue: (row) => row.next_appointment?.starts_at,
-    cell: (row) =>
-      row.next_appointment == null ? (
-        "—"
-      ) : (
-        <span title={row.next_appointment.practitioner}>{formatDateTime(row.next_appointment.starts_at)}</span>
-      ),
-  },
-  {
-    id: "balance",
-    header: "Balance",
-    sortValue: (row) => row.balance_paise,
-    // Null without billing.read: a dash, not zero.
-    cell: (row) => (row.balance_paise == null ? "—" : row.balance_paise > 0 ? <span className="font-semibold text-danger">{formatRupees(row.balance_paise)}</span> : formatRupees(0)),
-  },
-  {
-    id: "status",
-    header: "Status",
-    cell: (row) => (
-      <Pill tone={row.status === "active" ? "success" : "warning"}>{row.status === "active" ? "ACTIVE" : row.status.toUpperCase()}</Pill>
-    ),
-  },
+const FILTERS: readonly { value: QuickFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "with_balance", label: "With balance" },
+  { value: "recalls_due", label: "Recalls due" },
+  { value: "new_this_month", label: "New this month" },
 ];
 
 /** Find a patient by name, clinic number or phone. The search never goes in the page URL. */
@@ -88,100 +26,171 @@ export function PatientsPage() {
   const { session, can } = useClinic();
   useDocumentTitle("Patients", session.clinic.name);
   const navigate = useNavigate();
+  const [shown, setShown] = useState(PAGE);
+  const [typed, setTyped] = useState("");
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<readonly QuickFilter[]>(["all"]);
+  // Search once typing pauses, not on every keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQ(typed.trim());
+      setShown(PAGE);
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [typed]);
+  const [filter, setFilter] = useState<QuickFilter>("all");
   const search = usePatientList(q, {
-    withBalance: filter[0] === "with_balance",
-    recallsDue: filter[0] === "recalls_due",
-    newThisMonth: filter[0] === "new_this_month",
+    withBalance: filter === "with_balance",
+    recallsDue: filter === "recalls_due",
+    newThisMonth: filter === "new_this_month",
   });
   const rows = search.data?.items ?? [];
-  const register = can("patients.write") ? (
-    <Button
-      icon={<Plus aria-hidden="true" className="size-4" />}
+  const canWrite = can("patients.write");
+  const register = canWrite ? (
+    <button
+      type="button"
+      className="mk-btn mk-btn-primary"
       onClick={() => {
         void navigate("/patients/new");
       }}
     >
-      New patient
-    </Button>
+      <Plus aria-hidden="true" /> New patient
+    </button>
   ) : undefined;
-  const actions = can("patients.write") ? (
-    <>
-      <Button
-        variant="secondary"
-        icon={<Upload aria-hidden="true" className="size-4" />}
-        onClick={() => {
-          void navigate("/patients/import");
-        }}
-      >
-        Import
-      </Button>
-      {register}
-    </>
-  ) : undefined;
+  const empty =
+    q !== ""
+      ? { title: "No patients match your search", text: "Check the spelling, or search by clinic number or the last digits of the phone." }
+      : filter === "new_this_month"
+        ? { title: "No patients registered this month", text: "Switch back to All to see everyone." }
+        : filter === "with_balance"
+          ? { title: "No patients with a balance", text: "Switch back to All to see everyone." }
+          : filter === "recalls_due"
+            ? { title: "No recalls due", text: "Switch back to All to see everyone." }
+            : { title: "No patients yet", text: "Registered patients show here." };
 
   return (
-    <>
-      <h1 className="sr-only">Patients</h1>
-      <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
-        <SearchInput
-          label="Search patients"
+    <div className="mk-panel">
+      <h1 className="mk-sr">Patients</h1>
+      <div className="mk-ptools">
+        <input
+          type="search"
+          className="mk-tin"
+          style={{ width: "auto", minWidth: 240, flex: "0 1 300px" }}
+          aria-label="Search patients"
           placeholder="Search by name, phone, file no…"
-          value={q}
-          onValueChange={setQ}
-          className="w-full sm:w-auto sm:min-w-60"
+          value={typed}
+          onChange={(event) => {
+            setTyped(event.target.value);
+          }}
         />
-        <ChipFilterGroup
-          label="Filter patients"
-          value={filter}
-          onValueChange={setFilter}
-          options={[
-            { value: "all", label: "All" },
-            { value: "with_balance", label: "With balance" },
-            { value: "recalls_due", label: "Recalls due" },
-            { value: "new_this_month", label: "New this month" },
-          ]}
-        />
-        <div className="flex flex-wrap gap-2 sm:ms-auto">{actions}</div>
+        <div role="group" aria-label="Filter patients" style={{ display: "contents" }}>
+          {FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              className="mk-chipf"
+              aria-pressed={filter === f.value}
+              onClick={() => {
+                setFilter(f.value);
+                setShown(PAGE);
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <span className="mk-spacer" />
+        {canWrite ? (
+          <button
+            type="button"
+            className="mk-btn mk-btn-ghost"
+            onClick={() => {
+              void navigate("/patients/import");
+            }}
+          >
+            <Upload aria-hidden="true" /> Import
+          </button>
+        ) : null}
+        {register}
       </div>
-      <Card>
-        <h2 className="text-[15px] font-extrabold tracking-tight text-text">
-          Patients <span className="font-medium text-muted">· {search.isPending ? "…" : rows.length.toLocaleString("en-IN")} records</span>
-        </h2>
-        <p className="mb-4 mt-1 text-[12.5px] text-muted">Open a patient name for Patient 360</p>
-        <p role="status" className="sr-only">
+      <MkCard
+        title={`Patients · ${search.isPending ? "…" : rows.length.toLocaleString("en-IN")} records`}
+        hint="Open a patient name for Patient 360"
+      >
+        <p role="status" className="mk-sr">
           {search.isFetching ? "Searching" : `${String(rows.length)} patients shown`}
         </p>
         {search.isError ? (
           <ApiErrorNotice title="Couldn't search patients" error={search.error} onRetry={() => void search.refetch()} />
+        ) : search.isPending ? (
+          <Skeleton shape="block" />
+        ) : rows.length === 0 ? (
+          <Empty title={empty.title}>
+            {empty.text} {register}
+          </Empty>
         ) : (
-          <DataTable
-            caption="Patients"
-            columns={COLUMNS}
-            rows={rows}
-            rowKey={(row) => row.id}
-            loading={search.isPending}
-            pageSize={20}
-            empty={
-              q !== ""
-                ? {
-                    title: "No patients match your search",
-                    description: "Check the spelling, or search by clinic number or the last digits of the phone.",
-                    icon: <UserRoundSearch className="size-7" />,
-                    action: register,
-                  }
-                : filter[0] === "new_this_month"
-                  ? { title: "No patients registered this month", description: "Switch back to All to see everyone.", action: register }
-                  : filter[0] === "with_balance"
-                    ? { title: "No patients with a balance", description: "Switch back to All to see everyone." }
-                    : filter[0] === "recalls_due"
-                      ? { title: "No recalls due", description: "Switch back to All to see everyone." }
-                      : { title: "No patients yet", description: "Registered patients show here.", action: register }
-            }
-          />
+          <>
+            <div className="mk-tablewrap">
+              <table className="mk-table">
+                <caption className="mk-sr">Patients</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Patient</th>
+                    <th scope="col">File no.</th>
+                    <th scope="col">Last visit</th>
+                    <th scope="col">Next</th>
+                    <th scope="col">Balance</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.slice(0, shown).map((row) => (
+                    <tr key={row.id} {...rowLink(() => void navigate(patientPath(row)))}>
+                      <th scope="row">
+                        <span className="mk-pname">
+                          <MkAvatar name={row.full_name} />
+                          <Link to={patientPath(row)}>{row.full_name}</Link>
+                          {row.age_years == null ? null : <span className="mk-hint" style={{ margin: 0 }}>· {row.age_years}y</span>}
+                        </span>
+                      </th>
+                      <td className="mk-mono">{row.number}</td>
+                      <td>{row.last_visit_at == null ? "—" : formatDate(row.last_visit_at)}</td>
+                      <td>
+                        {row.next_appointment == null ? (
+                          "—"
+                        ) : (
+                          <span title={row.next_appointment.practitioner}>{formatDateTime(row.next_appointment.starts_at)}</span>
+                        )}
+                      </td>
+                      {/* Null without billing.read: a dash, not zero. */}
+                      <td>
+                        {row.balance_paise == null ? "—" : row.balance_paise > 0 ? <b style={{ color: "var(--red)" }}>{formatRupees(row.balance_paise)}</b> : formatRupees(0)}
+                      </td>
+                      <td>
+                        <Tag tone={row.status === "active" ? "done" : "wait"}>{row.status.toUpperCase()}</Tag>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {rows.length > shown ? (
+              <p style={{ textAlign: "center", margin: "14px 0 0" }}>
+                <button
+                  type="button"
+                  className="mk-btn mk-btn-ghost"
+                  onClick={() => {
+                    setShown(shown + PAGE);
+                  }}
+                >
+                  Show more ({rows.length - shown} left)
+                </button>
+              </p>
+            ) : null}
+          </>
         )}
-      </Card>
-    </>
+      </MkCard>
+    </div>
   );
 }

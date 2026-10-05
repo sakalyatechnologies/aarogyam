@@ -2,7 +2,7 @@ import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 
-import { apiErrorOf, type InvoiceLineInput, type Patient } from "@aarogyam/api-client";
+import { apiErrorOf, randomUuid, type InvoiceLineInput, type Patient } from "@aarogyam/api-client";
 import { formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
 import { Avatar, Button, Card, Field, FormActions, PageHeader, Select, TextInput } from "@sakalya/ui";
 
@@ -19,7 +19,7 @@ interface DraftLine {
 }
 
 function emptyLine(): DraftLine {
-  return { key: crypto.randomUUID(), priceItemId: "", description: "", quantity: "1", unitRupees: "" };
+  return { key: randomUuid(), priceItemId: "", description: "", quantity: "1", unitRupees: "" };
 }
 
 /** Starts a draft bill: pick the patient, add lines from the price list or free text. */

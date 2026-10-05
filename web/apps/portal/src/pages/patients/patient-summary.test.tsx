@@ -65,4 +65,16 @@ describe("Patient summary", () => {
     await user.click(await screen.findByRole("button", { name: "Recalls due" }));
     expect(await screen.findByText("No recalls due")).toBeTruthy();
   });
+
+  it("opens booking with this patient chosen from the Follow-up button", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = billedPatient();
+    const { router } = renderPortal(path, { as: PEOPLE.asha, backend });
+    await user.click(await screen.findByRole("button", { name: /Follow-up/ }));
+    expect(router.state.location.pathname).toBe("/calendar");
+    const dialog = await screen.findByRole("dialog", { name: "New appointment" });
+    // The patient is already chosen: no search box, and their file number shows.
+    expect(await within(dialog).findByText(/^SD-\d+ ·/)).toBeTruthy();
+    expect(within(dialog).queryByPlaceholderText("Name, clinic number or phone")).toBeNull();
+  });
 });

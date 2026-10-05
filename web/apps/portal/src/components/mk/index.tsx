@@ -1,6 +1,6 @@
 // Everything here is free of clinic types. // moves to sakalya-web (mock-up styled kpi tile, tag, bars, donut, toggle, drawer)
 import { X } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
 
 export type MkTone = "up" | "down" | "warn" | "info";
 export type TagTone = "wait" | "done" | "next" | "info" | "down" | "neutral";
@@ -23,6 +23,11 @@ export function initials(name: string): string {
 
 export function Tag({ tone = "neutral", children }: { tone?: TagTone; children: ReactNode }) {
   return <span className={`mk-tag ${tone === "neutral" ? "" : tone}`}>{children}</span>;
+}
+
+/** Maps the shared library's status tones onto the mock-up's tag colours. */
+export function statusTone(tone: "neutral" | "success" | "warning" | "danger" | "info"): TagTone {
+  return tone === "success" ? "done" : tone === "warning" ? "wait" : tone === "danger" ? "down" : tone === "info" ? "info" : "neutral";
 }
 
 export function MkPill({ tone, children }: { tone?: MkTone | undefined; children: ReactNode }) {
@@ -190,6 +195,22 @@ export function Toggle({ checked, onChange, label, disabled }: { checked: boolea
       }}
     />
   );
+}
+
+/**
+ * Row-link pattern: the row's own link stays the keyboard and screen-reader control, and a mouse
+ * click anywhere else on the row follows it. Spread the result onto the `<tr>`.
+ */
+export function rowLink(open: () => void): { className: string; onClick: (event: MouseEvent<HTMLElement>) => void } {
+  return {
+    className: "mk-rowlink",
+    onClick: (event) => {
+      if (event.target instanceof Element && event.target.closest("a, button, input, select, textarea, label") !== null) {
+        return;
+      }
+      open();
+    },
+  };
 }
 
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {

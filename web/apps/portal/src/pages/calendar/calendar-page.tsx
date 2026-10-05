@@ -55,6 +55,8 @@ export function CalendarPage() {
   const [anchor, setAnchor] = useState(() => searchParams.get("from") ?? today);
   const [view, setView] = useState<View>("week");
   const [lane, setLane] = useState<Lane>("chair");
+  // `?patient=<id>` (Patient 360's Follow-up) prefills the booking form. The range sync below rewrites the URL, so keep it here.
+  const [bookPatient, setBookPatient] = useState(() => searchParams.get("patient"));
   const [bookingOpen, setBookingOpen] = useState(searchParams.get("book") === "1");
   // The top bar's New appointment button arrives here as `?book=1`; open the form once per arrival.
   const bookParam = searchParams.get("book") === "1";
@@ -254,11 +256,15 @@ export function CalendarPage() {
 
       <BookingDialog
         open={bookingOpen}
-        onOpenChange={setBookingOpen}
+        onOpenChange={(open) => {
+          setBookingOpen(open);
+          if (!open) setBookPatient(null);
+        }}
         timeZone={timeZone}
         rooms={rooms.data?.items ?? []}
         practitioners={practitioners.data?.items ?? []}
         defaultDate={anchor}
+        patientParam={bookPatient}
       />
       <AppointmentDialog
         appointment={selected}

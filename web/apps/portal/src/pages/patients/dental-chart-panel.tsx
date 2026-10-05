@@ -1,6 +1,7 @@
 import type { ChartFinding, PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
-import { Card, Skeleton } from "@sakalya/ui";
+import { Skeleton } from "@sakalya/ui";
+import { MkCard } from "../../components/mk/index.js";
 import { useState } from "react";
 
 import { useClinic } from "../../clinic.js";
@@ -72,7 +73,7 @@ export function DentalChartPanel({ patientId }: { patientId: PatientId }) {
   const openVisit = visits.data?.items.find((v) => v.status === "open");
 
   return (
-    <Card title="Dental chart">
+    <MkCard title="Dental chart">
       <div className="flex flex-col items-center gap-3">
         <ToothRow teeth={UPPER} findingOf={findingOf} onPick={onPick} />
         <div aria-hidden="true" className="h-px w-full max-w-md bg-border" />
@@ -95,7 +96,7 @@ export function DentalChartPanel({ patientId }: { patientId: PatientId }) {
           }}
         />
       )}
-    </Card>
+    </MkCard>
   );
 }
 

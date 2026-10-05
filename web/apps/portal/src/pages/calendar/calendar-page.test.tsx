@@ -36,6 +36,20 @@ describe("Calendar: booking", () => {
     expect(await screen.findByText("Appointment booked")).toBeTruthy();
   });
 
+  it("opens booking with the patient from ?patient= already chosen", async () => {
+    const backend = fakeApi();
+    const client = backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: PEOPLE.farah }), now: () => NOW });
+    const patients = await client.listPatients();
+    if (!patients.ok) throw new Error("expected patients");
+    const target = patients.value.items.find((p) => p.number === "SD-5");
+    if (target === undefined) throw new Error("expected SD-5 in fixtures");
+
+    renderPortal(`/calendar?from=2026-09-28&to=2026-10-04&book=1&patient=${target.id}`, { as: PEOPLE.farah, backend });
+    const dialog = await screen.findByRole("dialog", { name: "New appointment" });
+    expect(await within(dialog).findByText(target.full_name)).toBeTruthy();
+    expect(within(dialog).queryByPlaceholderText("Name, clinic number or phone")).toBeNull();
+  });
+
   it("refuses a second booking in the same chair at the same time", async () => {
     const user = userEvent.setup();
     const backend = fakeApi();

@@ -26,6 +26,7 @@ pub(crate) mod registrations;
 pub(crate) mod reports;
 pub(crate) mod schedule;
 pub(crate) mod settings;
+pub(crate) mod setup;
 pub(crate) mod staff;
 pub(crate) mod today;
 pub(crate) mod treatment;
@@ -198,6 +199,22 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/staff/{membership_id}", patch(staff::change))
         .route("/roles", get(staff::roles))
         .route(
+            "/settings/onboarding",
+            get(setup::get_clinic).patch(setup::update_clinic),
+        )
+        .route(
+            "/me/onboarding",
+            get(setup::get_mine).patch(setup::update_mine),
+        )
+        .route(
+            "/me/practitioner",
+            get(setup::my_practitioner).patch(setup::update_my_practitioner),
+        )
+        .route(
+            "/me/working-hours",
+            get(setup::my_hours).put(setup::set_my_hours),
+        )
+        .route(
             "/settings/clinic",
             get(settings::get_clinic).patch(settings::update_clinic),
         )
@@ -332,7 +349,7 @@ pub(crate) fn optional_uuid(field: &'static str, text: &str) -> Result<Option<Uu
         .map_err(|_| ApiError::bad_request("invalid_request", format!("{field}: must be an id")))
 }
 
-fn bad(field: &str, problem: &str) -> ApiError {
+pub(crate) fn bad(field: &str, problem: &str) -> ApiError {
     ApiError::bad_request("invalid_request", format!("{field}: {problem}"))
 }
 

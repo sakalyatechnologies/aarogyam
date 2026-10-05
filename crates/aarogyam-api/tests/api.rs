@@ -521,6 +521,11 @@ async fn every_route_requires_sign_in_and_a_permission() {
                 "/api/v1/me/sessions",
                 "/api/v1/me/sessions/{id}/revoke",
                 "/api/v1/session",
+                // A member's own setup, doctor record and hours: theirs, whatever the role
+                // (tests/setup.rs).
+                "/api/v1/me/onboarding",
+                "/api/v1/me/practitioner",
+                "/api/v1/me/working-hours",
                 "/api/v1/invitations/accept",
                 // A verified-email sign-in with no clinic membership: tests/self_booking.rs.
                 "/api/v1/public/bookings",

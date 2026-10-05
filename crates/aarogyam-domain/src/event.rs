@@ -12,6 +12,8 @@ pub enum Event {
     MembershipChanged,
     /// A clinic's settings changed.
     SettingsChanged,
+    /// A first-run setup step was answered or the card dismissed.
+    SetupChanged,
     /// A person signed one of their sessions out.
     SessionRevoked,
     /// A queued message was delivered.
@@ -95,6 +97,7 @@ impl Event {
             Self::StaffInvited => "staff.invited",
             Self::MembershipChanged => "membership.changed",
             Self::SettingsChanged => "settings.changed",
+            Self::SetupChanged => "setup.changed",
             Self::SessionRevoked => "session.revoked",
             Self::MessageSent => "message.sent",
             Self::MessageRetried => "message.retried",

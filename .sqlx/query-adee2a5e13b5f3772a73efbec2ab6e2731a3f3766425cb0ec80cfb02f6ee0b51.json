@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.member_setup (org_id, membership_id)\n           values (app.tenant_id(), $1) on conflict (org_id, membership_id) do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "adee2a5e13b5f3772a73efbec2ab6e2731a3f3766425cb0ec80cfb02f6ee0b51"
+}

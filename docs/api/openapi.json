@@ -1733,6 +1733,152 @@
         ]
       }
     },
+    "/api/v1/me/onboarding": {
+      "get": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "The signed-in member's own setup (a doctor's one screen).",
+        "operationId": "get_mine",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Setup"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "Answers the member's own step or closes their card.",
+        "operationId": "update_mine",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Setup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown step or status"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/practitioner": {
+      "get": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "The doctor record linked to the signed-in member.",
+        "operationId": "my_practitioner",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Practitioner"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, a member of it, or not a doctor here"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "Changes the member's own doctor details: name, qualifications, registration number and\nspecialty. Colour, availability and the link to the member are ignored.",
+        "operationId": "update_my_practitioner",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PractitionerFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Practitioner"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, a member of it, or not a doctor here"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/sessions": {
       "get": {
         "tags": [
@@ -1788,6 +1934,79 @@
           },
           "404": {
             "description": "Not one of the person's sessions"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/working-hours": {
+      "get": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "The signed-in doctor's weekly hours.",
+        "operationId": "my_hours",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkingHours"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, a member of it, or not a doctor here"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "Replaces the signed-in doctor's weekly hours. An empty list clears them.",
+        "operationId": "set_my_hours",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkingHours"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkingHours"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad or overlapping shifts"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, a member of it, or not a doctor here"
           }
         },
         "security": [
@@ -5641,6 +5860,85 @@
           },
           "403": {
             "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings/onboarding": {
+      "get": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "The clinic's first-run setup. Nothing is stored until the owner answers a step.",
+        "operationId": "get_clinic",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Setup"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "Answers a step of the clinic's setup, closes the card, or says how the clinic practises.",
+        "operationId": "update_clinic",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Setup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown step, status or practice"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
           }
         },
         "security": [
@@ -14522,6 +14820,86 @@
           }
         }
       },
+      "Setup": {
+        "type": "object",
+        "description": "Where a first-run setup stands.",
+        "required": [
+          "standing",
+          "steps"
+        ],
+        "properties": {
+          "practice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`solo`, `team` or `multi`, once the owner said (the clinic's setup only)."
+          },
+          "standing": {
+            "type": "string",
+            "description": "`new` (show the wizard), `in_progress` (show \"Finish setting up\"), `complete` or\n`dismissed`."
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SetupStep"
+            },
+            "description": "Every step in order."
+          }
+        }
+      },
+      "SetupStep": {
+        "type": "object",
+        "description": "One step of a setup.",
+        "required": [
+          "key",
+          "status"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "The step key: `clinic`, `hours`, `look`, `services` or `team` (the owner's), `profile`\n(a doctor's own)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`done`, `skipped`, or `todo` while the person hasn't answered."
+          }
+        }
+      },
+      "SetupUpdate": {
+        "type": "object",
+        "description": "An answer to one step, and other changes. Anything left out stays as it is.",
+        "properties": {
+          "dismissed": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Close (`true`) or reopen (`false`) the \"Finish setting up\" card."
+          },
+          "practice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`solo`, `team` or `multi` (the clinic's setup only)."
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`done`, `skipped` or `todo` (reopens it). Needed with `step`."
+          },
+          "step": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The step to change."
+          }
+        }
+      },
       "ShareLink": {
         "type": "object",
         "description": "A new patient link. The token and PIN are shown once.",
@@ -16676,6 +17054,10 @@
     {
       "name": "settings",
       "description": "A clinic's own settings; clinic host only"
+    },
+    {
+      "name": "setup",
+      "description": "First-run setup: the owner's short wizard and a doctor's own one screen; clinic host only"
     },
     {
       "name": "website",

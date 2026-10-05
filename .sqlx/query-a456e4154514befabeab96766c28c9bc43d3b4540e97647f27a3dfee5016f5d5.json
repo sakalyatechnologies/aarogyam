@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.clinic_setup\n           set practice = $1, steps = $2, dismissed_at = $3, completed_at = $4, updated_at = now()\n           where org_id = app.tenant_id()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Jsonb",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a456e4154514befabeab96766c28c9bc43d3b4540e97647f27a3dfee5016f5d5"
+}

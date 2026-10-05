@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select practice, steps, dismissed_at, completed_at\n           from aarogyam.clinic_setup where org_id = app.tenant_id()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "practice",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_setup",
+            "name": "practice"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "steps",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_setup",
+            "name": "steps"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "dismissed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_setup",
+            "name": "dismissed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "completed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinic_setup",
+            "name": "completed_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "edc4869af1e37fe6e545a712ceb022346ea42dbdcdf26b3462b6c61e02c5b97d"
+}

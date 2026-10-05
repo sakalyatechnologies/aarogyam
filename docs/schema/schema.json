@@ -1815,6 +1815,7 @@
     "invoices.issued_by",
     "invoices.voided_by",
     "medical_history_items.verified_by",
+    "member_setup.membership_id",
     "membership_branches.membership_id",
     "note_addenda.author_id",
     "observations.verified_by",
@@ -7390,6 +7391,94 @@
     },
     {
      "name": "domain_checked_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "public",
+   "offline": "server_only"
+  },
+  {
+   "name": "clinic_setup",
+   "domain": "web",
+   "purpose": "Where the clinic stands in the first-run setup wizard: practice size, step statuses, dismissed or completed.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
+   "notes": "Primary key (org_id): one row per clinic. Clinics that existed before the wizard are dismissed.",
+   "cols": [
+    {
+     "name": "practice",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "solo, team, multi"
+    },
+    {
+     "name": "steps",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "step key -> done, skipped"
+    },
+    {
+     "name": "dismissed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "completed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "public",
+   "offline": "server_only"
+  },
+  {
+   "name": "member_setup",
+   "domain": "web",
+   "purpose": "Where an invited doctor stands in their one-screen setup.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
+   "notes": "Primary key (org_id, membership_id).",
+   "cols": [
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "steps",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "step key -> done, skipped"
+    },
+    {
+     "name": "dismissed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "completed_at",
      "type": "timestamptz",
      "nullable": true,
      "ref": null,

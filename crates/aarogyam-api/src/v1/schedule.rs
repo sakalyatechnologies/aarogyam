@@ -308,7 +308,7 @@ pub struct PractitionerFields {
 }
 
 impl PractitionerFields {
-    fn into_input(self) -> Result<PractitionerInput, ApiFailure> {
+    pub(crate) fn into_input(self) -> Result<PractitionerInput, ApiFailure> {
         let membership_id = match self.membership_id.as_deref().map(str::trim) {
             None => None,
             Some("") => Some(None),

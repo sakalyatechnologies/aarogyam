@@ -2,7 +2,7 @@ import AarogyamShared
 import SakalyaUI
 import SwiftUI
 
-/// Patient 360: header, safety banner, upcoming appointment, recent visits and, with `billing.read`, the balance.
+/// Patient 360: Overview (banner, contact, upcoming, visits and, with `billing.read`, the balance), Chart, Rx and Billing tabs.
 struct Patient360Screen: View {
     let holder: Patient360StateHolder
     let state: Patient360State
@@ -11,15 +11,28 @@ struct Patient360Screen: View {
     let patientId: String
     @Environment(\.skTheme) private var theme
     @State private var tab = 0
+    /// The Chart tab's state holder, kept across tab switches.
+    @State private var chartModel: ScreenModel<ChartStateHolder, ChartState>?
+
+    private static let tabs: [String] = [
+        String(localized: "patient.tab.overview"),
+        chartText("patient.tab.chart"),
+        String(localized: "patient.tab.rx"),
+        chartText("patient.tab.billing"),
+    ]
 
     var body: some View {
         VStack(spacing: SkSpacing.m) {
             if loaded != nil {
-                SkSegmentedControl([String(localized: "patient.tab.overview"), String(localized: "patient.tab.rx")], selection: $tab)
+                SkSegmentedControl(Self.tabs, selection: $tab)
                     .padding(.horizontal, SkSpacing.l)
             }
-            if let loaded, tab == 1 {
+            if loaded != nil, tab == 1 {
+                chartTab
+            } else if let loaded, tab == 2 {
                 RxTab(graph: graph, clinic: clinic, patientId: patientId, allergies: loaded.view.flags.allergies)
+            } else if loaded != nil, tab == 3 {
+                SkEmptyState(Self.tabs[3], message: chartText("patient.tab.coming"))
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: SkSpacing.ml) {
@@ -33,6 +46,17 @@ struct Patient360Screen: View {
         }
         .navigationTitle(loaded?.view.name ?? String(localized: "patient.title"))
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder private var chartTab: some View {
+        if let chartModel {
+            ChartTab(holder: chartModel.holder, state: chartModel.value)
+        } else {
+            ProgressView().frame(maxWidth: .infinity).padding(SkSpacing.xxl)
+                .onAppear {
+                    chartModel = ScreenModel(make: { graph.chart(clinic: clinic, patientId: patientId, screen: $0) }, state: { $0.state })
+                }
+        }
     }
 
     private var loaded: Patient360StateLoaded? {

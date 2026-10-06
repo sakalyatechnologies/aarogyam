@@ -1,6 +1,7 @@
 package com.aarogyam.staff
 
 import com.aarogyam.staff.calendar.CalendarStateHolder
+import com.aarogyam.staff.chart.ChartStateHolder
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicDirectory
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
@@ -88,6 +89,12 @@ class AppGraph private constructor(
         patientId: String,
         scope: CoroutineScope,
     ): Patient360StateHolder = Patient360StateHolder(clinic, patientId, scope, logger("aarogyam.patient360"))
+
+    fun chart(
+        clinic: ClinicContext,
+        patientId: String,
+        scope: CoroutineScope,
+    ): ChartStateHolder = ChartStateHolder(clinic, patientId, scope, logger("aarogyam.chart"))
 
     fun rxList(
         clinic: ClinicContext,

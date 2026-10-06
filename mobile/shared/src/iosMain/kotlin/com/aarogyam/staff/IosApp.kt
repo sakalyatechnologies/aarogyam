@@ -1,6 +1,7 @@
 package com.aarogyam.staff
 
 import com.aarogyam.staff.calendar.CalendarStateHolder
+import com.aarogyam.staff.chart.ChartStateHolder
 import com.aarogyam.staff.clinic.ClinicBranding
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
@@ -69,6 +70,13 @@ fun AppGraph.patient360(
     patientId: String,
     screen: ScreenScope,
 ): Patient360StateHolder = patient360(clinic, patientId, screen.scope)
+
+/** The dental chart state holder for [patientId], living as long as [screen]. */
+fun AppGraph.chart(
+    clinic: ClinicContext,
+    patientId: String,
+    screen: ScreenScope,
+): ChartStateHolder = chart(clinic, patientId, screen.scope)
 
 /** The Rx tab's state holder for [patientId], living as long as [screen]. */
 fun AppGraph.rxList(

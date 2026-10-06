@@ -43,12 +43,13 @@ import com.sakalya.mobile.designcompose.SkTopBar
 import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
 
-/** Patient 360: header, safety banner, upcoming appointment, recent visits and (with `billing.read`) the balance. */
+/** Patient 360: Overview (banner, contact, upcoming, visits, balance with `billing.read`), Chart, Rx and Billing tabs. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Patient360Screen(
     holder: Patient360StateHolder,
     onBack: () -> Unit,
+    chartTab: @Composable () -> Unit,
     rxTab: @Composable (PatientView) -> Unit,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
@@ -62,13 +63,19 @@ fun Patient360Screen(
         var tab by rememberSaveable { mutableIntStateOf(0) }
         if (loaded != null) {
             SkTabs(
-                titles = listOf(stringResource(R.string.patient_tab_overview), stringResource(R.string.patient_tab_rx)),
+                titles = TABS.map { stringResource(it) },
                 selectedIndex = tab,
                 onSelect = { tab = it },
             )
         }
-        if (loaded != null && tab == 1) {
-            Box(Modifier.weight(1f).navigationBarsPadding()) { rxTab(loaded.view) }
+        if (loaded != null && tab != TAB_OVERVIEW) {
+            Box(Modifier.weight(1f).navigationBarsPadding()) {
+                when (tab) {
+                    TAB_CHART -> chartTab()
+                    TAB_RX -> rxTab(loaded.view)
+                    else -> SkEmptyState(stringResource(TABS[tab]), stringResource(R.string.patient_tab_coming))
+                }
+            }
             return@Column
         }
         PullToRefreshBox(
@@ -104,6 +111,18 @@ fun Patient360Screen(
         }
     }
 }
+
+/** Patient 360's tabs, in order; the indices below pick each one's content. */
+private val TABS =
+    listOf(
+        R.string.patient_tab_overview,
+        R.string.patient_tab_chart,
+        R.string.patient_tab_rx,
+        R.string.patient_tab_billing,
+    )
+private const val TAB_OVERVIEW = 0
+private const val TAB_CHART = 1
+private const val TAB_RX = 2
 
 @Composable
 private fun header(view: PatientView): String {

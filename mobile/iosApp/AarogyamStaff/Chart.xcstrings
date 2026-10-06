@@ -1,0 +1,622 @@
+{
+  "sourceLanguage": "en",
+  "version": "1.0",
+  "strings": {
+    "chart.adult": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adult"
+          }
+        }
+      }
+    },
+    "chart.cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "chart.child": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Child"
+          }
+        }
+      }
+    },
+    "chart.dismiss": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss"
+          }
+        }
+      }
+    },
+    "chart.entered_in_error": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entered in error"
+          }
+        }
+      }
+    },
+    "chart.finding": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finding"
+          }
+        }
+      }
+    },
+    "chart.history": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "History"
+          }
+        }
+      }
+    },
+    "chart.history_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t load this tooth’s history."
+          }
+        }
+      }
+    },
+    "chart.history_none": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing recorded yet."
+          }
+        }
+      }
+    },
+    "chart.legend": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Legend"
+          }
+        }
+      }
+    },
+    "chart.lower": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LOWER ARCH"
+          }
+        }
+      }
+    },
+    "chart.need_care": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Need care: %d/%d"
+          }
+        }
+      }
+    },
+    "chart.not_allowed.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your role can’t see clinical records at this clinic."
+          }
+        }
+      }
+    },
+    "chart.not_allowed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The chart isn’t available"
+          }
+        }
+      }
+    },
+    "chart.note": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remark"
+          }
+        }
+      }
+    },
+    "chart.now": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now"
+          }
+        }
+      }
+    },
+    "chart.pick_tooth": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap a tooth to see its history."
+          }
+        }
+      }
+    },
+    "chart.record": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record a finding"
+          }
+        }
+      }
+    },
+    "chart.record_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t save that finding, so the chart is back as it was. %@"
+          }
+        }
+      }
+    },
+    "chart.record_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record a finding · tooth %d"
+          }
+        }
+      }
+    },
+    "chart.reset_zoom": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset zoom"
+          }
+        }
+      }
+    },
+    "chart.save": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
+    "chart.saving": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving…"
+          }
+        }
+      }
+    },
+    "chart.superseded": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Superseded"
+          }
+        }
+      }
+    },
+    "chart.surface": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surface"
+          }
+        }
+      }
+    },
+    "chart.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dental chart"
+          }
+        }
+      }
+    },
+    "chart.tooth": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tooth %d"
+          }
+        }
+      }
+    },
+    "chart.tooth_description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tooth %d, %@"
+          }
+        }
+      }
+    },
+    "chart.upper": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UPPER ARCH"
+          }
+        }
+      }
+    },
+    "chart.whole_tooth": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whole tooth"
+          }
+        }
+      }
+    },
+    "chart.zoom_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinch to zoom, then tap a surface."
+          }
+        }
+      }
+    },
+    "finding.bridge": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bridge"
+          }
+        }
+      }
+    },
+    "finding.caries": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caries"
+          }
+        }
+      }
+    },
+    "finding.crown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crown"
+          }
+        }
+      }
+    },
+    "finding.filled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filled"
+          }
+        }
+      }
+    },
+    "finding.fractured": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fractured"
+          }
+        }
+      }
+    },
+    "finding.implant": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Implant"
+          }
+        }
+      }
+    },
+    "finding.missing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missing"
+          }
+        }
+      }
+    },
+    "finding.root_canal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Root canal"
+          }
+        }
+      }
+    },
+    "finding.sound": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sound"
+          }
+        }
+      }
+    },
+    "finding.watch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watch"
+          }
+        }
+      }
+    },
+    "kind.canine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "canine"
+          }
+        }
+      }
+    },
+    "kind.incisor": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "incisor"
+          }
+        }
+      }
+    },
+    "kind.molar": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "molar"
+          }
+        }
+      }
+    },
+    "kind.premolar": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "premolar"
+          }
+        }
+      }
+    },
+    "patient.tab.billing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Billing"
+          }
+        }
+      }
+    },
+    "patient.tab.chart": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chart"
+          }
+        }
+      }
+    },
+    "patient.tab.coming": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coming in this build"
+          }
+        }
+      }
+    },
+    "surface.buccal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buccal"
+          }
+        }
+      }
+    },
+    "surface.distal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Distal"
+          }
+        }
+      }
+    },
+    "surface.facial": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Facial"
+          }
+        }
+      }
+    },
+    "surface.incisal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incisal"
+          }
+        }
+      }
+    },
+    "surface.lingual": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lingual"
+          }
+        }
+      }
+    },
+    "surface.mesial": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesial"
+          }
+        }
+      }
+    },
+    "surface.occlusal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Occlusal"
+          }
+        }
+      }
+    },
+    "surface.palatal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Palatal"
+          }
+        }
+      }
+    }
+  }
+}

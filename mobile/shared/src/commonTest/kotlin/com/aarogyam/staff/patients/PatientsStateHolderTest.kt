@@ -10,6 +10,7 @@ import com.aarogyam.staff.patientJson
 import com.aarogyam.staff.patientListJson
 import com.aarogyam.staff.testGraph
 import com.sakalya.mobile.core.MemoryLogSink
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceTimeBy
@@ -40,6 +41,7 @@ class PatientsStateHolderTest {
             backend.on(route, { json(patientListJson(meera)) })
             val state = holder(backend).state.first { it is PatientsState.Loaded } as PatientsState.Loaded
             assertEquals(1, backend.count(route))
+            assertEquals(HttpMethod.Post, backend.requests.last().method)
             assertEquals(listOf("Meera Shah"), state.items.map { it.name })
             assertEquals("SD-1042", state.items[0].number)
             assertEquals(Sex.Female, state.items[0].sex)

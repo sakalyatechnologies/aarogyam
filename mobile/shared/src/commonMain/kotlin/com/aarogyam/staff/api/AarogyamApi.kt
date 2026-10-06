@@ -2,10 +2,12 @@ package com.aarogyam.staff.api
 
 import com.aarogyam.staff.api.model.AppointmentList
 import com.aarogyam.staff.api.model.ClinicalFlags
+import com.aarogyam.staff.api.model.DentalChart
 import com.aarogyam.staff.api.model.DrugList
 import com.aarogyam.staff.api.model.DrugSearch
 import com.aarogyam.staff.api.model.IssueRequest
 import com.aarogyam.staff.api.model.Me
+import com.aarogyam.staff.api.model.NewChartEntries
 import com.aarogyam.staff.api.model.Patient
 import com.aarogyam.staff.api.model.PatientList
 import com.aarogyam.staff.api.model.PractitionerList
@@ -76,6 +78,31 @@ class ClinicApi(
     /** `GET /api/v1/patients/{id}/visits` (`listVisits`): newest first. */
     suspend fun visits(id: String): Outcome<VisitList, ApiError> =
         client.call { url("api/v1/patients/${id.encodeURLPathPart()}/visits") }
+
+    /**
+     * `GET /api/v1/patients/{id}/dental-chart` (`getDentalChart`): every tooth's current findings in
+     * one request, plus the full history of [tooth] when given.
+     */
+    suspend fun dentalChart(
+        id: String,
+        tooth: Int? = null,
+    ): Outcome<DentalChart, ApiError> =
+        client.call {
+            url("api/v1/patients/${id.encodeURLPathPart()}/dental-chart")
+            if (tooth != null) parameter("tooth", tooth)
+        }
+
+    /** `POST /api/v1/patients/{id}/dental-chart` (`recordDentalChart`): records findings, returns the updated chart. */
+    suspend fun recordDentalChart(
+        id: String,
+        entries: NewChartEntries,
+    ): Outcome<DentalChart, ApiError> =
+        client.call {
+            method = HttpMethod.Post
+            url("api/v1/patients/${id.encodeURLPathPart()}/dental-chart")
+            contentType(ContentType.Application.Json)
+            setBody(entries)
+        }
 
     /** `GET /api/v1/appointments` (`listAppointments`): the clinic's local days [from] to [to] (`YYYY-MM-DD`). */
     suspend fun appointments(

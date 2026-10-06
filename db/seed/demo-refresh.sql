@@ -4,9 +4,12 @@
 -- all of them, so order, durations and weekdays are unchanged. Never deletes rows; run it as the owner.
 -- Use scripts/demo-refresh.sh (dry run by default); directly:
 --   psql "$OWNER_URL" -v apply=1 [-v exact=1] -f db/seed/demo-refresh.sql
+--   psql "$OWNER_URL" -v apply=1 -v appointments_only=1 -f db/seed/demo-refresh.sql
 -- Shift = whole weeks (multiple of 7) from the latest past appointment day to today, so the weekday of every
 -- appointment stays; -v exact=1 shifts by exactly that many days instead (latest day lands on today).
 -- Never more than keeps every past event in the past. A shift of 0 does nothing, so it is safe daily.
+-- With -v appointments_only=1, only appointments, appointment_events, and queue tokens are shifted,
+-- and the cap from invoices/payments/encounters is ignored.
 \set ON_ERROR_STOP 1
 \pset tuples_only on
 \pset format unaligned
@@ -18,6 +21,10 @@
 \else
   \set exact 0
 \endif
+\if :{?appointments_only}
+\else
+  \set appointments_only 0
+\endif
 begin;
 set local timezone = 'UTC';
 
@@ -25,20 +32,22 @@ create temp table _demo_orgs on commit drop as
   select id, slug from aarogyam.organizations where slug in ('sunrise', 'lotus', 'suhasyadental');
 
 -- Days from the latest appointment (clinic-local date) to today, capped so that nothing already
--- happened (bills, receipts, arrivals, visits) lands in the future.
+-- happened (bills, receipts, arrivals, visits) lands in the future. When appointments_only=1 the
+-- cap is skipped so only the appointment day matters.
 select coalesce((with anchor as (
   -- The latest appointment already past is the data's "present"; one booked weeks ahead (a
   -- follow-up, or one made while testing) must not make stale data look current.
   select (select max((starts_at at time zone 'Asia/Kolkata')::date) from aarogyam.appointments
           where org_id in (select id from _demo_orgs) and starts_at <= now()) as latest_day,
-         (select max(t) from (
+         case when :appointments_only::int = 1 then now()
+         else (select max(t) from (
             select max(issued_at) t from aarogyam.invoices where org_id in (select id from _demo_orgs)
             union all select max(received_at) from aarogyam.payments where org_id in (select id from _demo_orgs)
             union all select max(started_at) from aarogyam.encounters where org_id in (select id from _demo_orgs)
             union all select max(issued_at) from aarogyam.queue_tokens where org_id in (select id from _demo_orgs)
             union all select max(arrived_at) from aarogyam.appointments where org_id in (select id from _demo_orgs)
             union all select max(completed_at) from aarogyam.appointments where org_id in (select id from _demo_orgs)
-          ) x) as latest_event
+          ) x) end as latest_event
 ), days as (
   select least(
            (now() at time zone 'Asia/Kolkata')::date - latest_day,
@@ -47,7 +56,9 @@ select coalesce((with anchor as (
 )
 select case when :exact::int = 1 then greatest(d, 0) else greatest(d, 0) / 7 * 7 end from days), 0) as shift_days \gset
 select :shift_days > 0 as go, set_config('demo.shift', :'shift_days', true) as _ \gset
-select 'demo clinics: ' || coalesce(string_agg(slug, ', ' order by slug), 'none found') || '; shift: ' || :shift_days || ' days'
+select 'demo clinics: ' || coalesce(string_agg(slug, ', ' order by slug), 'none found')
+  || '; shift: ' || :shift_days || ' days'
+  || case when :appointments_only::int = 1 then ' (appointments only)' else '' end
 from _demo_orgs;
 
 \if :go
@@ -66,12 +77,17 @@ begin
   -- Tables whose dated columns move. Every date and timestamp column of these moves, except birth
   -- dates. Tables that do not exist (yet) are skipped.
   foreach tbl in array array[
-    'appointments', 'appointment_events', 'queue_tokens', 'leave_blocks', 'teleconsult_sessions',
+    case when :appointments_only::int = 1 then
+      array['appointments', 'appointment_events', 'queue_tokens']
+    else
+      array['appointments', 'appointment_events', 'queue_tokens', 'leave_blocks', 'teleconsult_sessions',
     'encounters', 'clinical_notes', 'note_addenda', 'observations', 'conditions', 'allergies',
     'medical_history_items', 'prescriptions', 'prescription_items', 'prescription_alerts', 'procedures',
     'treatment_plans', 'treatment_plan_items', 'attachments', 'specialty_records', 'consent_forms',
     'invoices', 'invoice_items', 'payments', 'payment_allocations', 'refunds', 'expenses', 'daily_closings',
     'lab_orders', 'lab_payments', 'recalls', 'stock_batches', 'stock_movements', 'share_links', 'patients']
+    end
+    ]
   loop
     continue when to_regclass('aarogyam.' || tbl) is null;
     select string_agg(format('%1$I = %1$I + %2$s', c.column_name,

@@ -34,6 +34,7 @@ import type {
   ClinicDetail,
   ClinicId,
   ClinicInvited,
+  ResentOwnerInvitation,
   ClinicSettings,
   ClinicSettingsChanges,
   Letterhead,
@@ -406,6 +407,8 @@ export interface ApiClient {
   getClinicDetail(id: ClinicId, options?: RequestOptions): Promise<ApiResult<ClinicDetail>>;
   /** Console host: invites a doctor or other staff member to a clinic, by email and role. */
   inviteToClinic(id: ClinicId, input: NewClinicInvitation, options?: RequestOptions): Promise<ApiResult<ClinicInvited>>;
+  /** Sends the owner's invitation again (new link, old one stops working) while the owner hasn't joined. */
+  resendOwnerInvitation(id: ClinicId, options?: RequestOptions): Promise<ApiResult<ResentOwnerInvitation>>;
 
   /** Clinic host: finds medicines in the shared catalogue. Needs `prescriptions.issue`. */
   searchDrugs(input: DrugSearch, options?: RequestOptions): Promise<ApiResult<DrugList>>;

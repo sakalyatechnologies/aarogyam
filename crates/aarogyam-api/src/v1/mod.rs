@@ -260,6 +260,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/console/clinics/{id}/invitations",
             post(onboarding::invite),
         )
+        .route(
+            "/console/clinics/{id}/owner-invitation/resend",
+            post(onboarding::resend_owner_invitation),
+        )
         .route("/console/slugs", get(console::check_slug))
         .route("/console/applications", get(onboarding::applications))
         .route(

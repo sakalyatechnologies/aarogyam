@@ -2908,6 +2908,36 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }),
         ),
 
+      resendOwnerInvitation: (id, opts) =>
+        respond(S.resentOwnerInvitation, opts?.signal, () =>
+          inConsole(() => {
+            const clinic = state.clinics.find((c) => c.id === id);
+            if (clinic === undefined) {
+              return notFound;
+            }
+            const owner = [...invitations.entries()]
+              .filter(([, inv]) => inv.clinicId === clinic.id && inv.roleKey === "owner")
+              .sort(([, a], [, b]) => a.createdAt.localeCompare(b.createdAt))[0];
+            if (owner === undefined) {
+              return notFound;
+            }
+            const [oldToken, invitation] = owner;
+            if (invitation.used) {
+              return refuse(409, "conflict", "The owner has already joined.");
+            }
+            invitations.delete(oldToken);
+            const token = random.hex(32);
+            const expiresAt = new Date(clock().getTime() + 7 * 86_400_000).toISOString();
+            invitations.set(token, { ...invitation, expiresAt });
+            return reply({
+              id: invitation.id,
+              email: invitation.email,
+              invite_link: `https://${clinic.host}/invite#${token}`,
+              expires_at: expiresAt,
+            } satisfies C.ResentOwnerInvitation);
+          }),
+        ),
+
       searchDrugs: (input, opts) =>
         respond(S.drugList, opts?.signal, async () => {
           const caller = await inClinic("prescriptions.issue");

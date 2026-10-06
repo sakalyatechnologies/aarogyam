@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select org_id as \"org_id!\", invitation_id as \"invitation_id!\"\n           from app.console_create_clinic($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+  "query": "select org_id as \"org_id!\", invitation_id as \"invitation_id!\"\n           from app.console_create_clinic_invited($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
   "describe": {
     "columns": [
       {
@@ -26,7 +26,11 @@
         "Text",
         "Text",
         "Timestamptz",
-        "Uuid"
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Jsonb",
+        "Text"
       ]
     },
     "nullable": [
@@ -34,5 +38,5 @@
       null
     ]
   },
-  "hash": "420d4ed561e908d93cd696b977847a56427bf8502ab957c9065627904e937e0c"
+  "hash": "2f1881988dbb1476c84e4c3d50f3a1c29f2d6edbb606f524215e00f74ffcfd65"
 }

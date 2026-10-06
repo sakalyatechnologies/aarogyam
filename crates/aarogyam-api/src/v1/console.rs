@@ -130,7 +130,8 @@ pub struct CreatedClinic {
     pub invite_expires_at: String,
 }
 
-/// Creates a clinic and invites its owner. Owner and onboarding staff only.
+/// Creates a clinic and invites its owner: the invitation is emailed and its secret returned once
+/// for the console to show. Owner and onboarding staff only.
 #[utoipa::path(
     post,
     path = "/api/v1/console/clinics",
@@ -142,7 +143,8 @@ pub struct CreatedClinic {
         (status = 201, body = CreatedClinic),
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 403, description = "Not allowed to create clinics"),
-        (status = 409, description = "The subdomain is taken")
+        (status = 409, description = "The subdomain is taken"),
+        (status = 503, description = "Supabase could not create the owner's sign-in account")
     )
 )]
 pub(crate) async fn create_clinic(
@@ -162,6 +164,7 @@ pub(crate) async fn create_clinic(
     let created = app::create_clinic(
         state.db(),
         &request.staff,
+        state.accounts(),
         CreateClinic {
             name: body.name,
             slug: body.slug,

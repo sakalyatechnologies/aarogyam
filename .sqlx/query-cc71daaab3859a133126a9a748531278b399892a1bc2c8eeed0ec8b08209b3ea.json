@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select r.id, r.key, r.name, r.description, r.is_template,\n                  coalesce(array_agg(rp.permission order by rp.permission)\n                             filter (where rp.permission is not null), '{}') as \"permissions!\",\n                  coalesce(array_agg(rp.scope order by rp.permission)\n                             filter (where rp.permission is not null), '{}') as \"scopes!\"\n           from aarogyam.roles r\n           left join aarogyam.role_permissions rp on rp.org_id = r.org_id and rp.role_id = r.id\n           group by r.id, r.key, r.name, r.description, r.is_template\n           order by r.is_template desc, r.name",
+  "query": "select r.id, r.key, r.name, r.description, r.is_template,\n                  coalesce(array_agg(rp.permission order by rp.permission)\n                             filter (where rp.permission is not null), '{}') as \"permissions!\",\n                  coalesce(array_agg(rp.scope order by rp.permission)\n                             filter (where rp.permission is not null), '{}') as \"scopes!\",\n                  (select count(*) from aarogyam.memberships m\n                   where m.org_id = r.org_id and m.role_id = r.id\n                     and m.status in ('invited', 'active', 'suspended')) as \"members!\"\n           from aarogyam.roles r\n           left join aarogyam.role_permissions rp on rp.org_id = r.org_id and rp.role_id = r.id\n           where r.deleted_at is null\n           group by r.org_id, r.id, r.key, r.name, r.description, r.is_template\n           order by r.is_template desc, r.name",
   "describe": {
     "columns": [
       {
@@ -69,6 +69,12 @@
         "name": "scopes!",
         "type_info": "TextArray",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "members!",
+        "type_info": "Int8",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -81,8 +87,9 @@
       true,
       false,
       null,
+      null,
       null
     ]
   },
-  "hash": "fde25729818cf925fc697d4bfa16594ff9028cb317dc474329a8257d89bb0b03"
+  "hash": "cc71daaab3859a133126a9a748531278b399892a1bc2c8eeed0ec8b08209b3ea"
 }

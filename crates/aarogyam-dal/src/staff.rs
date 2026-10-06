@@ -153,7 +153,7 @@ pub async fn update_membership(
            set role_id = r.id, status = $3,
                joined_at = case when $3 = 'active' then coalesce(m.joined_at, now()) else m.joined_at end
            from aarogyam.roles r
-           where m.id = $1 and r.org_id = m.org_id and r.key = $2"#,
+           where m.id = $1 and r.org_id = m.org_id and r.key = $2 and r.deleted_at is null"#,
         id,
         role_key,
         status
@@ -180,9 +180,12 @@ pub struct RoleRow {
     pub permissions: Vec<String>,
     /// Each permission's scope, in the same order.
     pub scopes: Vec<String>,
+    /// Members who have it (invited, active or suspended).
+    pub members: i64,
 }
 
-/// The clinic's roles with their permissions, templates first, then by name.
+/// The clinic's live roles with their permissions and member counts, templates first, then by
+/// name.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -193,10 +196,14 @@ pub async fn roles(conn: &mut PgConnection) -> Result<Vec<RoleRow>, DbError> {
                   coalesce(array_agg(rp.permission order by rp.permission)
                              filter (where rp.permission is not null), '{}') as "permissions!",
                   coalesce(array_agg(rp.scope order by rp.permission)
-                             filter (where rp.permission is not null), '{}') as "scopes!"
+                             filter (where rp.permission is not null), '{}') as "scopes!",
+                  (select count(*) from aarogyam.memberships m
+                   where m.org_id = r.org_id and m.role_id = r.id
+                     and m.status in ('invited', 'active', 'suspended')) as "members!"
            from aarogyam.roles r
            left join aarogyam.role_permissions rp on rp.org_id = r.org_id and rp.role_id = r.id
-           group by r.id, r.key, r.name, r.description, r.is_template
+           where r.deleted_at is null
+           group by r.org_id, r.id, r.key, r.name, r.description, r.is_template
            order by r.is_template desc, r.name"#
     )
     .fetch_all(conn)
@@ -212,9 +219,12 @@ pub async fn role_by_key(
     conn: &mut PgConnection,
     key: &str,
 ) -> Result<Option<(Uuid, String)>, DbError> {
-    let row = sqlx::query!(r#"select id, name from aarogyam.roles where key = $1"#, key)
-        .fetch_optional(conn)
-        .await?;
+    let row = sqlx::query!(
+        r#"select id, name from aarogyam.roles where key = $1 and deleted_at is null"#,
+        key
+    )
+    .fetch_optional(conn)
+    .await?;
     Ok(row.map(|row| (row.id, row.name)))
 }
 

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce((select jsonb_agg(jsonb_build_object('key', tp.permission, 'scope', tp.scope)\n                                             order by tp.permission collate \"C\")\n                            from aarogyam.role_template_permissions tp\n                            where tp.role_template_id = t.id), '[]')\n                    as \"grants!: Json<Vec<GrantRow>>\"\n           from aarogyam.role_templates t where t.key = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "grants!: Json<Vec<GrantRow>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "02a013b4f6350b125f0b07a24755317f2c24da496a227693e67b28c19c7af89b"
+}

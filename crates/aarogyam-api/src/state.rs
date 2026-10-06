@@ -378,6 +378,20 @@ impl AppState {
             });
     }
 
+    /// Forgets what was cached for everyone in a clinic with role `role_key`, so a change to
+    /// the role's permissions applies to their next request. Per instance, like
+    /// [`Self::forget_session`].
+    pub(crate) fn forget_role(&self, clinic_id: ClinicId, role_key: &str) {
+        self.inner
+            .grant_cache
+            .remove_where(|(clinic, _, _), found| {
+                *clinic == clinic_id.uuid()
+                    && found
+                        .as_ref()
+                        .is_some_and(|grant| grant.role_key == role_key)
+            });
+    }
+
     /// Forgets the cached host lookups of a clinic, so a change to its time zone applies to
     /// the next request. Per instance, like [`Self::forget_session`].
     pub(crate) fn forget_clinic(&self, clinic_id: ClinicId) {

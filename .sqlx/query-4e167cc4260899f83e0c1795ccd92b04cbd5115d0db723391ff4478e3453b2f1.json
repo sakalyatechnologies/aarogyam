@@ -1,0 +1,117 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select r.id, r.key, r.name, r.description, r.is_template, t.key as \"template_key?\",\n                  coalesce((select jsonb_agg(jsonb_build_object('key', rp.permission, 'scope', rp.scope)\n                                             order by rp.permission collate \"C\")\n                            from aarogyam.role_permissions rp\n                            where rp.org_id = r.org_id and rp.role_id = r.id), '[]')\n                    as \"permissions!: Json<Vec<GrantRow>>\",\n                  coalesce((select jsonb_agg(jsonb_build_object('key', tp.permission, 'scope', tp.scope)\n                                             order by tp.permission collate \"C\")\n                            from aarogyam.role_template_permissions tp\n                            where tp.role_template_id = t.id), '[]')\n                    as \"defaults!: Json<Vec<GrantRow>>\",\n                  (select count(*) from aarogyam.memberships m\n                   where m.org_id = r.org_id and m.role_id = r.id\n                     and m.status in ('invited', 'active', 'suspended')) as \"members!\",\n                  coalesce((select jsonb_agg(h order by h.at desc)\n                            from (select c.id, c.action, c.created_at as at, c.changed_by,\n                                         u.display_name as changed_by_name, c.before, c.after\n                                  from aarogyam.role_changes c\n                                  left join aarogyam.users u on u.id = c.changed_by\n                                  where c.org_id = r.org_id and c.role_id = r.id\n                                  order by c.created_at desc, c.id desc\n                                  limit $2) h), '[]')\n                    as \"history!: Json<Vec<ChangeRow>>\"\n           from aarogyam.roles r\n           left join aarogyam.role_templates t\n             on t.id = r.template_id or (r.template_id is null and r.is_template and t.key = r.key)\n           where r.key = $1 and r.deleted_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "is_template",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "is_template"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "template_key?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.role_templates",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "permissions!: Json<Vec<GrantRow>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "defaults!: Json<Vec<GrantRow>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "members!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "history!: Json<Vec<ChangeRow>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "4e167cc4260899f83e0c1795ccd92b04cbd5115d0db723391ff4478e3453b2f1"
+}

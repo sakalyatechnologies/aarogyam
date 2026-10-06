@@ -11,9 +11,10 @@ use sakalya_db::{Db, ScopedTx};
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
-use crate::appointments::apply_status;
+use crate::appointments::{StatusPlan, apply_status, plan_status};
 use crate::clock::clinic_today;
 use crate::error::AppError;
+use crate::moved::Moved;
 use crate::patients::age_on;
 use crate::schedule::resolve_branch;
 use crate::scope::staff_scope as scope;
@@ -195,11 +196,13 @@ pub async fn walk_in(
 }
 
 /// Moves a token along: `in_chair`, `done` or `left`. A token with an appointment moves the
-/// appointment too (in the chair, completed, or cancelled as left without being seen).
+/// appointment too (in the chair, completed, or cancelled as left without being seen). Asking
+/// for the status the token already has changes nothing and returns it; a move the table
+/// doesn't allow is refused with the token as it is.
 ///
 /// # Errors
-/// [`AppError::Invalid`] for an unknown status or a move the table doesn't allow;
-/// [`AppError::NotFound`] when the token isn't in this clinic.
+/// [`AppError::Invalid`] for an unknown status; [`AppError::NotFound`] when the token isn't in
+/// this clinic.
 pub async fn set_status(
     db: &Db,
     actor: &ClinicActor,
@@ -207,20 +210,31 @@ pub async fn set_status(
     token_id: QueueTokenId,
     status: &str,
     now: OffsetDateTime,
-) -> Result<TokenView, AppError> {
+) -> Result<Moved<TokenView>, AppError> {
     actor.require(Permission::AppointmentsWrite)?;
     let to = QueueStatus::parse(status).map_err(|error| AppError::invalid("status", error))?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let profile = clinic::profile(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
+        let today = clinic_today(&actor.timezone, now);
+        // A retry of a move that landed is answered from one read, without a lock.
+        if let Some(row) = dal::get(tx.conn(), token_id.uuid()).await?
+            && row.status == to.as_str()
+        {
+            return Ok(Moved::AlreadyDone(TokenView::new(row, now, today)));
+        }
         let token = dal::get_for_update(tx.conn(), token_id.uuid())
             .await?
             .ok_or(AppError::NotFound("queue token"))?;
         let from = QueueStatus::parse(&token.status)
             .map_err(|_| AppError::Internal("unknown token status"))?;
-        from.check(to)
-            .map_err(|error| AppError::invalid("status", error))?;
+        if from == to {
+            return Ok(Moved::AlreadyDone(view(tx, token.id, now, today).await?));
+        }
+        if let Err(error) = from.check(to) {
+            return Ok(Moved::Refused {
+                reason: error.to_string(),
+                current: view(tx, token.id, now, today).await?,
+            });
+        }
         match (token.appointment_id, to.appointment_status()) {
             (Some(appointment_id), Some(next)) => {
                 appointments::lock(tx.conn(), appointment_id).await?;
@@ -228,11 +242,26 @@ pub async fn set_status(
                     .await?
                     .ok_or(AppError::NotFound("appointment"))?;
                 let reason = (to == QueueStatus::Left).then_some(LEFT_REASON);
-                apply_status(tx, &profile.timezone, &current, next, reason, now).await?;
+                match plan_status(&current.status, next, reason)? {
+                    StatusPlan::Move(reason) => {
+                        apply_status(tx, &actor.timezone, &current, next, reason.as_ref(), now)
+                            .await?;
+                    }
+                    // The appointment is already there: bring the token along.
+                    StatusPlan::Same => {
+                        dal::set_status(tx.conn(), token.id, to.as_str(), now).await?;
+                    }
+                    StatusPlan::Refused(error) => {
+                        return Ok(Moved::Refused {
+                            reason: error.to_string(),
+                            current: view(tx, token.id, now, today).await?,
+                        });
+                    }
+                }
             }
             _ => dal::set_status(tx.conn(), token.id, to.as_str(), now).await?,
         }
-        view(tx, token.id, now, clinic_today(&profile.timezone, now)).await
+        Ok(Moved::Done(view(tx, token.id, now, today).await?))
     })
     .await
 }

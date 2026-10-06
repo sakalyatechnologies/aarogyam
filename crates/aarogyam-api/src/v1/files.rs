@@ -124,11 +124,11 @@ pub struct UploadForm {
 }
 
 pub(super) fn bad_form(message: &'static str) -> ApiFailure {
-    ApiFailure(ApiError::bad_request("invalid_request", message))
+    ApiFailure::Error(ApiError::bad_request("invalid_request", message))
 }
 
 pub(super) fn too_large() -> ApiFailure {
-    ApiFailure(ApiError::new(
+    ApiFailure::Error(ApiError::new(
         ErrorKind::PayloadTooLarge,
         "too_large",
         "file: must be at most 10 MB",
@@ -372,11 +372,11 @@ pub(crate) async fn content(
     )
     .await
     .map_err(|refusal| match refusal {
-        DownloadRefusal::Expired => ApiFailure(ApiError::forbidden(
+        DownloadRefusal::Expired => ApiFailure::Error(ApiError::forbidden(
             "link_expired",
             "This link has expired; ask for a new one.",
         )),
-        DownloadRefusal::NotFound => ApiFailure(not_found()),
+        DownloadRefusal::NotFound => ApiFailure::Error(not_found()),
         DownloadRefusal::Failed(error) => error.into(),
     })?;
     tracing::info!(event = Event::AttachmentDownloaded.as_str(), attachment_id = %id, "file downloaded");

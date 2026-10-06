@@ -629,9 +629,8 @@ async fn statuses_follow_the_table_and_arrivals_get_tokens() {
         ids.push(body["appointment"]["id"].as_str().unwrap().to_owned());
     }
 
-    // Invalid moves are 400s that say why.
+    // Bad input is a 400 that says why; a move the table doesn't allow is a 409 (tests/transitions.rs).
     for (body, field) in [
-        (json!({ "status": "completed" }), "status"),
         (json!({ "status": "cancelled" }), "reason"),
         (json!({ "status": "rescheduled" }), "status"),
     ] {
@@ -645,14 +644,19 @@ async fn statuses_follow_the_table_and_arrivals_get_tokens() {
             "{error}"
         );
     }
+    let (code, error) = status(&app, &desk, &ids[0], json!({ "status": "completed" })).await;
+    assert_eq!(code, StatusCode::CONFLICT, "{error}");
+    assert_eq!(error["current"]["appointment"]["status"], "booked");
 
     // Arrivals get the day's tokens in order; a walk-in gets the next one.
     let (code, arrived) = status(&app, &desk, &ids[0], json!({ "status": "arrived" })).await;
     assert_eq!(code, StatusCode::OK, "{arrived}");
     assert_eq!(arrived["appointment"]["token_number"], 1);
     assert!(arrived["appointment"]["arrived_at"].is_string());
-    let (code, _) = status(&app, &desk, &ids[0], json!({ "status": "arrived" })).await;
-    assert_eq!(code, StatusCode::BAD_REQUEST);
+    // Arriving again is a repeat: the same appointment, no second token.
+    let (code, repeated) = status(&app, &desk, &ids[0], json!({ "status": "arrived" })).await;
+    assert_eq!(code, StatusCode::OK, "{repeated}");
+    assert_eq!(repeated, arrived);
     status(&app, &desk, &ids[1], json!({ "status": "confirmed" })).await;
     let (_, second) = status(&app, &desk, &ids[1], json!({ "status": "arrived" })).await;
     assert_eq!(second["appointment"]["token_number"], 2);
@@ -697,7 +701,8 @@ async fn statuses_follow_the_table_and_arrivals_get_tokens() {
     for (next, expected) in [
         ("in_chair", StatusCode::OK),
         ("done", StatusCode::OK),
-        ("done", StatusCode::BAD_REQUEST),
+        ("done", StatusCode::OK),
+        ("in_chair", StatusCode::CONFLICT),
     ] {
         let (code, _) = app
             .send(
@@ -737,7 +742,7 @@ async fn statuses_follow_the_table_and_arrivals_get_tokens() {
     let (code, _) = status(&app, &desk, &ids[2], json!({ "status": "no_show" })).await;
     assert_eq!(code, StatusCode::OK);
     let (code, _) = status(&app, &desk, &ids[2], json!({ "status": "arrived" })).await;
-    assert_eq!(code, StatusCode::BAD_REQUEST);
+    assert_eq!(code, StatusCode::CONFLICT);
     let (code, _) = app
         .send(
             Method::PATCH,
@@ -808,6 +813,7 @@ async fn statuses_follow_the_table_and_arrivals_get_tokens() {
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
 async fn today_counts_the_clinic_day() {
+    use aarogyam_app::Moved;
     use aarogyam_app::appointments::{self as appointments, NewAppointment};
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);
@@ -865,9 +871,13 @@ async fn today_counts_the_clinic_day() {
     };
     let set = async |appointment: AppointmentId, to: &str, when: OffsetDateTime| {
         let reason = (to == "cancelled").then_some("Clinic closed early");
-        appointments::set_status(&db, &actor, None, appointment, to, reason, when)
+        let moved = appointments::set_status(&db, &actor, None, appointment, to, reason, when)
             .await
             .unwrap();
+        assert!(
+            !matches!(moved, Moved::Refused { .. }),
+            "{to} was refused: {moved:?}"
+        );
     };
     let done = book(0, &s.chair1, at(9, 0), 30).await;
     set(done, "arrived", at(9, 0)).await;

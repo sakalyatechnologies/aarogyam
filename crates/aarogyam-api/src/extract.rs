@@ -20,7 +20,7 @@ fn edge(parts: &Parts) -> Result<&Edge, ApiFailure> {
     parts
         .extensions
         .get::<Edge>()
-        .ok_or_else(|| ApiFailure(ApiError::internal("the edge layer is not installed")))
+        .ok_or_else(|| ApiFailure::Error(ApiError::internal("the edge layer is not installed")))
 }
 
 fn request_id(parts: &Parts) -> Option<Uuid> {
@@ -88,7 +88,7 @@ impl FromRequestParts<AppState> for ClinicRequest {
         let host = edge(parts)?.host().as_str().to_owned();
         let hosts = state.hosts();
         if host == hosts.console || host == hosts.app {
-            return Err(ApiFailure(not_found()));
+            return Err(ApiFailure::Error(not_found()));
         }
         let is_open = |clinic: &HostClinic| clinic.status.is_some_and(ClinicStatus::is_open);
         let (clinic, authorization) = if let Some(clinic) = state.cached_host(&host) {
@@ -150,13 +150,13 @@ impl FromRequestParts<AppState> for ClinicHost {
         let host = edge(parts)?.host().as_str().to_owned();
         let hosts = state.hosts();
         if host == hosts.console || host == hosts.app {
-            return Err(ApiFailure(not_found()));
+            return Err(ApiFailure::Error(not_found()));
         }
         let clinic = state
             .clinic_for_host(&host)
             .await?
             .filter(|clinic| clinic.status.is_some_and(ClinicStatus::is_open))
-            .ok_or_else(|| ApiFailure(not_found()))?;
+            .ok_or_else(|| ApiFailure::Error(not_found()))?;
         sakalya_telemetry::record_tenant(clinic.clinic_id.uuid());
         Ok(Self {
             clinic_id: clinic.clinic_id,
@@ -209,7 +209,7 @@ impl FromRequestParts<AppState> for PlatformRequest {
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
         if edge(parts)?.host().as_str() != state.hosts().console {
-            return Err(ApiFailure(not_found()));
+            return Err(ApiFailure::Error(not_found()));
         }
         let claims = state.live_claims(&parts.headers).await?;
         let staff = lookups::platform_access(state.db().pool(), claims.subject().uuid())

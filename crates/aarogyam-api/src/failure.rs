@@ -3,42 +3,99 @@
 
 use aarogyam_app::AppError;
 use aarogyam_domain::access::Denied;
+use axum::Json;
+use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use sakalya_auth::AuthError;
 use sakalya_db::DbError;
 use sakalya_http::ApiError;
+use serde::Serialize;
+use utoipa::ToSchema;
 
 /// A handler or extractor failure. Wraps [`ApiError`] so use-case errors convert with `?`.
 #[derive(Debug)]
-pub struct ApiFailure(pub ApiError);
+pub enum ApiFailure {
+    /// An ordinary failure: the status and the `{"error": {code, message}}` body come from it.
+    Error(ApiError),
+    /// `409`: the record's state doesn't allow the move, and `current` is the record as it is.
+    Refused {
+        /// What is wrong, without patient data.
+        message: String,
+        /// The record, in the shape the move returns when it succeeds.
+        current: serde_json::Value,
+    },
+}
+
+impl ApiFailure {
+    /// A `409` for a move the record's state doesn't allow, carrying the record as it is.
+    pub fn refused(message: impl Into<String>, current: &impl Serialize) -> Self {
+        Self::Refused {
+            message: message.into(),
+            current: serde_json::to_value(current).unwrap_or(serde_json::Value::Null),
+        }
+    }
+}
+
+/// What went wrong, as every error answer sends it.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ErrorDetail {
+    /// A stable code to branch on, such as `conflict`.
+    pub code: String,
+    /// A message for people, without patient data.
+    pub message: String,
+}
+
+/// The `409` answer to a move the record's state doesn't allow (an appointment that is already
+/// cancelled can't arrive): the usual error and the record as it is, so the client can show it.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MoveRefused {
+    /// The refusal.
+    pub error: ErrorDetail,
+    /// The record as it is, in the shape the move returns when it succeeds.
+    #[schema(value_type = Object)]
+    pub current: serde_json::Value,
+}
 
 impl IntoResponse for ApiFailure {
     fn into_response(self) -> Response {
-        self.0.into_response()
+        match self {
+            Self::Error(error) => error.into_response(),
+            Self::Refused { message, current } => {
+                tracing::debug!(code = "conflict", "request rejected");
+                let body = MoveRefused {
+                    error: ErrorDetail {
+                        code: "conflict".to_owned(),
+                        message,
+                    },
+                    current,
+                };
+                (StatusCode::CONFLICT, Json(body)).into_response()
+            }
+        }
     }
 }
 
 impl From<ApiError> for ApiFailure {
     fn from(error: ApiError) -> Self {
-        Self(error)
+        Self::Error(error)
     }
 }
 
 impl From<DbError> for ApiFailure {
     fn from(error: DbError) -> Self {
-        Self(error.into())
+        Self::Error(error.into())
     }
 }
 
 impl From<AuthError> for ApiFailure {
     fn from(error: AuthError) -> Self {
-        Self(error.into())
+        Self::Error(error.into())
     }
 }
 
 impl From<Denied> for ApiFailure {
     fn from(denied: Denied) -> Self {
-        Self(match denied {
+        Self::Error(match denied {
             // Not telling an outsider whether a clinic or a record exists.
             Denied::UnknownClinic | Denied::NotAMember => not_found(),
             Denied::SessionRevoked => ApiError::unauthenticated(),
@@ -57,20 +114,20 @@ impl From<AppError> for ApiFailure {
     fn from(error: AppError) -> Self {
         match error {
             AppError::Denied(denied) => denied.into(),
-            AppError::NotFound(_) => Self(not_found()),
-            AppError::Invalid { field, message } => Self(ApiError::bad_request(
+            AppError::NotFound(_) => Self::Error(not_found()),
+            AppError::Invalid { field, message } => Self::Error(ApiError::bad_request(
                 "invalid_request",
                 format!("{field}: {message}"),
             )),
-            AppError::Conflict(message) => Self(ApiError::conflict("conflict", message)),
-            AppError::IdConflict => Self(ApiError::conflict(
+            AppError::Conflict(message) => Self::Error(ApiError::conflict("conflict", message)),
+            AppError::IdConflict => Self::Error(ApiError::conflict(
                 "id_conflict",
                 "That id is already used by a different record.",
             )),
-            AppError::Forbidden(message) => Self(ApiError::forbidden("forbidden", message)),
+            AppError::Forbidden(message) => Self::Error(ApiError::forbidden("forbidden", message)),
             AppError::Db(error) => error.into(),
-            AppError::Internal(what) => Self(ApiError::internal(what)),
-            AppError::Accounts(error) => Self(ApiError::unavailable(error)),
+            AppError::Internal(what) => Self::Error(ApiError::internal(what)),
+            AppError::Accounts(error) => Self::Error(ApiError::unavailable(error)),
         }
     }
 }

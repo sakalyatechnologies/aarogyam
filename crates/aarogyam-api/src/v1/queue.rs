@@ -1,5 +1,6 @@
 //! The waiting-room queue.
 
+use aarogyam_app::Moved;
 use aarogyam_app::queue::{self as app, TokenView, WalkIn};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{BranchId, PatientId, PractitionerId, QueueTokenId};
@@ -17,7 +18,7 @@ use super::appointments::{PatientBrief, PractitionerBrief};
 use super::{parse_day, parse_id, rfc3339};
 use crate::AppState;
 use crate::extract::Require;
-use crate::failure::ApiFailure;
+use crate::failure::{ApiFailure, MoveRefused};
 
 /// A waiting-room token.
 #[derive(Debug, Serialize, ToSchema)]
@@ -219,7 +220,9 @@ pub struct TokenStatusChange {
     pub status: String,
 }
 
-/// Moves a token along. A token with an appointment moves the appointment too.
+/// Moves a token along. A token with an appointment moves the appointment too. Asking for the
+/// status the token already has changes nothing and returns it, so a retry after a lost answer
+/// is safe.
 #[utoipa::path(
     post,
     path = "/api/v1/queue/{id}/status",
@@ -230,10 +233,11 @@ pub struct TokenStatusChange {
     security(("bearer" = [])),
     responses(
         (status = 200, body = QueueToken),
-        (status = 400, description = "Unknown status or a move the table doesn't allow"),
+        (status = 400, description = "Unknown status"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks appointments.write"),
-        (status = 404, description = "No such token in this clinic")
+        (status = 404, description = "No such token in this clinic"),
+        (status = 409, body = MoveRefused, description = "A move the table doesn't allow; `current` is the token as it is")
     )
 )]
 pub(crate) async fn set_status(
@@ -242,7 +246,7 @@ pub(crate) async fn set_status(
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<TokenStatusChange>,
 ) -> Result<Json<QueueToken>, ApiFailure> {
-    let token = app::set_status(
+    let outcome = app::set_status(
         state.db(),
         &request.actor,
         request.request_id,
@@ -251,5 +255,10 @@ pub(crate) async fn set_status(
         OffsetDateTime::now_utc(),
     )
     .await?;
-    Ok(Json(token.into()))
+    match outcome {
+        Moved::Done(token) | Moved::AlreadyDone(token) => Ok(Json(token.into())),
+        Moved::Refused { reason, current } => {
+            Err(ApiFailure::refused(reason, &QueueToken::from(current)))
+        }
+    }
 }

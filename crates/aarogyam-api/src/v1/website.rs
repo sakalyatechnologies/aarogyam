@@ -170,7 +170,7 @@ pub struct WebsiteContent {
 fn convert<A: Serialize, B: for<'de> Deserialize<'de>>(from: &A) -> Result<B, ApiFailure> {
     serde_json::to_value(from)
         .and_then(serde_json::from_value)
-        .map_err(|_| ApiFailure(ApiError::internal("could not convert website content")))
+        .map_err(|_| ApiFailure::Error(ApiError::internal("could not convert website content")))
 }
 
 /// A website picture.
@@ -641,11 +641,11 @@ pub struct PhotoForm {
 pub(crate) const MAX_UPLOAD_BODY: usize = MAX_PHOTO_BYTES + 64 * 1024;
 
 fn bad_form(message: &'static str) -> ApiFailure {
-    ApiFailure(ApiError::bad_request("invalid_request", message))
+    ApiFailure::Error(ApiError::bad_request("invalid_request", message))
 }
 
 fn too_large() -> ApiFailure {
-    ApiFailure(ApiError::new(
+    ApiFailure::Error(ApiError::new(
         ErrorKind::PayloadTooLarge,
         "too_large",
         "file: must be at most 5 MB",
@@ -819,7 +819,7 @@ pub(crate) async fn public_site(
 ) -> Result<Response, ApiFailure> {
     let site = app::public_site(state.db(), public.clinic_id, public.request_id)
         .await?
-        .ok_or_else(|| ApiFailure(not_found()))?;
+        .ok_or_else(|| ApiFailure::Error(not_found()))?;
     let mut response = Json(SitePage::try_from(&site)?).into_response();
     response.headers_mut().insert(
         header::CACHE_CONTROL,

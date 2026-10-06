@@ -223,7 +223,7 @@ pub(crate) async fn my_practitioner(
 ) -> Result<Json<Practitioner>, ApiFailure> {
     let row = schedule::my_practitioner(state.db(), &request.actor, request.request_id)
         .await?
-        .ok_or_else(|| ApiFailure(not_found()))?;
+        .ok_or_else(|| ApiFailure::Error(not_found()))?;
     Ok(Json(row.into()))
 }
 

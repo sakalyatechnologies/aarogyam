@@ -66,6 +66,8 @@ pub struct AppointmentRow {
     pub practitioner_color: String,
     /// Today's queue token, once arrived.
     pub token_number: Option<i32>,
+    /// That token's identifier.
+    pub token_id: Option<Uuid>,
 }
 
 /// Active and finished appointments starting in `[from, to)`, optionally in one room or with
@@ -89,7 +91,7 @@ pub async fn list(
                   p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
                   p.birth_date_estimated as patient_birth_date_estimated,
                   a.practitioner_id, d.display_name as practitioner_name,
-                  d.calendar_color as practitioner_color, q.token_number as "token_number?"
+                  d.calendar_color as practitioner_color, q.token_number as "token_number?", q.id as "token_id?"
            from aarogyam.appointments a
            join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id
            join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id
@@ -123,7 +125,7 @@ pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<Appointment
                   p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
                   p.birth_date_estimated as patient_birth_date_estimated,
                   a.practitioner_id, d.display_name as practitioner_name,
-                  d.calendar_color as practitioner_color, q.token_number as "token_number?"
+                  d.calendar_color as practitioner_color, q.token_number as "token_number?", q.id as "token_id?"
            from aarogyam.appointments a
            join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id
            join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id

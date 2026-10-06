@@ -69,8 +69,8 @@ async fn created(app: &TestApp, token: &str, path: &str, body: Value) -> String 
 }
 
 /// A doctor working every day, a chair, and three patients booked tomorrow. Returns the
-/// doctor and the last patient.
-async fn clinic_day(app: &TestApp, owner: &str, tomorrow: Date) -> (String, String) {
+/// doctor, the last patient and their appointment.
+async fn clinic_day(app: &TestApp, owner: &str, tomorrow: Date) -> (String, String, String) {
     let doctor = created(
         app,
         owner,
@@ -93,6 +93,7 @@ async fn clinic_day(app: &TestApp, owner: &str, tomorrow: Date) -> (String, Stri
     assert_eq!(status, StatusCode::OK, "{body}");
     let chair = created(app, owner, "/api/v1/rooms", json!({ "name": "Chair 1" })).await;
     let mut patient = String::new();
+    let mut appointment = String::new();
     for (index, name) in ["Ravi Kumar", "Meera Iyer", "Sunil Rao"].iter().enumerate() {
         patient = created(
             app,
@@ -101,7 +102,7 @@ async fn clinic_day(app: &TestApp, owner: &str, tomorrow: Date) -> (String, Stri
             json!({ "full_name": name, "age_years": 40, "phone": format!("+9198765432{index}0") }),
         )
         .await;
-        created(
+        appointment = created(
             app,
             owner,
             "/api/v1/appointments",
@@ -113,7 +114,61 @@ async fn clinic_day(app: &TestApp, owner: &str, tomorrow: Date) -> (String, Stri
         )
         .await;
     }
-    (doctor, patient)
+    (doctor, patient, appointment)
+}
+
+/// Moves a phone may repeat after a lost answer: each is idempotent, so the measured repeats
+/// succeed.
+async fn repeatable_moves(
+    app: &TestApp,
+    owner: &str,
+    patient: &str,
+    appointment: &str,
+) -> [Route; 3] {
+    let token = created(
+        app,
+        owner,
+        "/api/v1/queue",
+        json!({ "patient_id": patient }),
+    )
+    .await;
+    let visit = created(
+        app,
+        owner,
+        &format!("/api/v1/patients/{patient}/visits"),
+        json!({ "chief_complaint": "Pain" }),
+    )
+    .await;
+    let note = created(
+        app,
+        owner,
+        &format!("/api/v1/visits/{visit}/notes"),
+        json!({ "sections": { "subjective": "Pain on chewing" } }),
+    )
+    .await;
+    let post = |name: &'static str, uri: String, body: Value| Route {
+        method: Method::POST,
+        body: Some(body),
+        ..Route::get(name, ALPHA, uri)
+    };
+
+    [
+        post(
+            "POST /appointments/{id}/status",
+            format!("/api/v1/appointments/{appointment}/status"),
+            json!({ "status": "confirmed" }),
+        ),
+        post(
+            "POST /queue/{id}/status",
+            format!("/api/v1/queue/{token}/status"),
+            json!({ "status": "in_chair" }),
+        ),
+        post(
+            "POST /notes/{id}/sign",
+            format!("/api/v1/notes/{note}/sign"),
+            json!({}),
+        ),
+    ]
 }
 
 /// Round trips of one request, after the background release checks settle.
@@ -235,15 +290,16 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
     let monday = today - Duration::days(i64::from(today.weekday().number_days_from_monday()));
     let sunday = monday + Duration::days(6);
     let tomorrow = today + Duration::days(1);
-    let (doctor, patient) = clinic_day(&app, &owner, tomorrow).await;
+    let (doctor, patient, appointment) = clinic_day(&app, &owner, tomorrow).await;
 
+    let moves = repeatable_moves(&app, &owner, &patient, &appointment).await;
     let routes = hot_routes(monday, sunday, tomorrow, &doctor, &patient);
 
     let mut table = String::from(
         "\nroute                     cold  warm  (cold: prepares, new connections; warm: pings, release checks)\n",
     );
     let mut over = Vec::new();
-    for route in &routes {
+    for route in moves.iter().chain(&routes) {
         // A state of its own warms the pool's connections and their statement caches, so
         // what is counted is the request, not connecting or preparing.
         let (db, trips) = app.counting_db().await;

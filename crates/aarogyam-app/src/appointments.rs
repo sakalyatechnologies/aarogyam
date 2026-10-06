@@ -19,6 +19,7 @@ use uuid::Uuid;
 
 use crate::clock::{clinic_offset, clinic_today, days_bounds};
 use crate::error::AppError;
+use crate::moved::Moved;
 use crate::patients::age_on;
 use crate::queue::issue_token;
 use crate::schedule::resolve_branch;
@@ -576,23 +577,53 @@ pub struct StatusChanged {
     pub token_id: Option<Uuid>,
 }
 
-/// Applies a status change inside an open transaction: checks the transition, saves it,
+/// What a status request comes to for an appointment, by the transition table.
+pub(crate) enum StatusPlan {
+    /// The appointment already has that status: repeating the request changes nothing.
+    Same,
+    /// The table allows the move; the cancel reason to keep, if any.
+    Move(Option<Reason>),
+    /// The table doesn't allow it.
+    Refused(ScheduleError),
+}
+
+/// Checks a request to give an appointment in status `from` the status `to`.
+///
+/// # Errors
+/// [`AppError::Invalid`] for a cancel without a reason or a reason that can't be kept.
+pub(crate) fn plan_status(
+    from: &str,
+    to: AppointmentStatus,
+    reason: Option<&str>,
+) -> Result<StatusPlan, AppError> {
+    let from = AppointmentStatus::parse(from)
+        .map_err(|_| AppError::Internal("unknown appointment status"))?;
+    if from == to {
+        return Ok(StatusPlan::Same);
+    }
+    match check_transition(from, to, reason) {
+        Ok(reason) => Ok(StatusPlan::Move(reason)),
+        Err(error @ ScheduleError::Transition(..)) => Ok(StatusPlan::Refused(error)),
+        Err(error @ (ScheduleError::ReasonRequired | ScheduleError::Text)) => {
+            Err(AppError::invalid("reason", error))
+        }
+        Err(error) => Err(AppError::invalid("status", error)),
+    }
+}
+
+/// Applies a status change that [`plan_status`] allowed, inside an open transaction: saves it,
 /// appends the history, issues a queue token on arrival and moves an existing token along.
 pub(crate) async fn apply_status(
     tx: &mut ScopedTx,
     timezone: &str,
     current: &AppointmentRow,
     to: AppointmentStatus,
-    reason: Option<&str>,
+    reason: Option<&Reason>,
     now: OffsetDateTime,
 ) -> Result<Option<Uuid>, AppError> {
     let from = AppointmentStatus::parse(&current.status)
         .map_err(|_| AppError::Internal("unknown appointment status"))?;
-    let reason = check_transition(from, to, reason).map_err(|error| match error {
-        ScheduleError::ReasonRequired | ScheduleError::Text => AppError::invalid("reason", error),
-        _ => AppError::invalid("status", error),
-    })?;
-    let reason = reason.as_ref().map(Reason::as_str);
+    let reason = reason.map(Reason::as_str);
     dal::set_status(
         tx.conn(),
         current.id,
@@ -645,12 +676,30 @@ pub(crate) async fn apply_status(
     }
 }
 
+/// An appointment as a status request leaves it, with its queue token once the patient has
+/// arrived.
+async fn status_changed(
+    tx: &mut ScopedTx,
+    id: Uuid,
+    today: Date,
+) -> Result<StatusChanged, AppError> {
+    let token_id = queue::for_appointment(tx.conn(), id)
+        .await?
+        .map(|token| token.id);
+    Ok(StatusChanged {
+        appointment: reload(tx, id, today).await?,
+        token_id,
+    })
+}
+
 /// Changes an appointment's status along the transition table. Cancelling needs a reason;
-/// arriving issues a queue token for the branch and clinic day.
+/// arriving issues a queue token for the branch and clinic day. Asking for the status it
+/// already has changes nothing (no second history entry, no second token) and returns the
+/// appointment; a move the table doesn't allow is refused with the appointment as it is.
 ///
 /// # Errors
-/// [`AppError::Invalid`] for an unknown status, a move the table doesn't allow, or a cancel
-/// without a reason; [`AppError::NotFound`] when it isn't in this clinic.
+/// [`AppError::Invalid`] for an unknown status or a cancel without a reason;
+/// [`AppError::NotFound`] when it isn't in this clinic.
 pub async fn set_status(
     db: &Db,
     actor: &ClinicActor,
@@ -659,25 +708,50 @@ pub async fn set_status(
     status: &str,
     reason: Option<&str>,
     now: OffsetDateTime,
-) -> Result<StatusChanged, AppError> {
+) -> Result<Moved<StatusChanged>, AppError> {
     actor.require(Permission::AppointmentsWrite)?;
     let to =
         AppointmentStatus::parse(status).map_err(|error| AppError::invalid("status", error))?;
     db.scoped(&scope(actor, request_id), async |tx| {
+        let today = clinic_today(&actor.timezone, now);
+        // A retry of a move that landed is answered from one read, without a lock.
+        if let Some(row) = dal::get(tx.conn(), appointment_id.uuid()).await?
+            && row.status == to.as_str()
+        {
+            return Ok(Moved::AlreadyDone(StatusChanged {
+                token_id: row.token_id,
+                appointment: AppointmentView::new(row, today),
+            }));
+        }
         let profile = clinic::profile(tx.conn())
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
         let current = locked(tx, appointment_id).await?;
-        let token_id = apply_status(tx, &profile.timezone, &current, to, reason, now).await?;
+        let token_id = match plan_status(&current.status, to, reason)? {
+            StatusPlan::Same => {
+                return Ok(Moved::AlreadyDone(
+                    status_changed(tx, current.id, today).await?,
+                ));
+            }
+            StatusPlan::Refused(error) => {
+                return Ok(Moved::Refused {
+                    reason: error.to_string(),
+                    current: status_changed(tx, current.id, today).await?,
+                });
+            }
+            StatusPlan::Move(reason) => {
+                apply_status(tx, &profile.timezone, &current, to, reason.as_ref(), now).await?
+            }
+        };
         if current.source == BookingSource::Website.as_str()
             && current.status == AppointmentStatus::Requested.as_str()
         {
             crate::self_booking::notify_decision(tx, &profile, &current, to).await?;
         }
-        Ok(StatusChanged {
-            appointment: reload(tx, current.id, clinic_today(&profile.timezone, now)).await?,
+        Ok(Moved::Done(StatusChanged {
+            appointment: reload(tx, current.id, today).await?,
             token_id,
-        })
+        }))
     })
     .await
 }

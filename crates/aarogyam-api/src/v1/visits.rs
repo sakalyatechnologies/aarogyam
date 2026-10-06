@@ -1,6 +1,7 @@
 //! Visits and clinical notes: start, list, open, close; draft, edit, sign, addenda, entered in
 //! error.
 
+use aarogyam_app::Moved;
 use aarogyam_app::record::{self, VisitDetail as DetailView};
 use aarogyam_app::visits::{
     self as app, AddendumView, Member as MemberView, NoteInput, NoteView, StartVisit, VisitView,
@@ -26,7 +27,7 @@ use super::treatment::Procedure;
 use super::vitals::Observation;
 use crate::AppState;
 use crate::extract::Require;
-use crate::failure::ApiFailure;
+use crate::failure::{ApiFailure, MoveRefused};
 
 /// A member named on a clinical record: who saw the patient, wrote a note or acted.
 ///
@@ -505,7 +506,8 @@ pub(crate) async fn edit_note(
     Ok(Json(view.into()))
 }
 
-/// Signs a draft. Only its author may; the note never changes afterwards.
+/// Signs a draft. Only its author may; the note never changes afterwards. Signing a note you
+/// already signed changes nothing and returns it again, so a retry after a lost answer is safe.
 #[utoipa::path(
     post,
     path = "/api/v1/notes/{id}/sign",
@@ -518,7 +520,7 @@ pub(crate) async fn edit_note(
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write, or the note is someone else's"),
         (status = 404, description = "No such note in this clinic"),
-        (status = 409, description = "Not a draft, or every section is empty")
+        (status = 409, body = MoveRefused, description = "The note can't be signed (it is entered in error, someone else signed it, or every section is empty); `current` is the note as it is")
     )
 )]
 pub(crate) async fn sign_note(
@@ -526,7 +528,7 @@ pub(crate) async fn sign_note(
     Require { request, .. }: Require<ClinicalWrite>,
     ApiPath(id): ApiPath<Uuid>,
 ) -> Result<Json<Note>, ApiFailure> {
-    let view = app::sign_note(
+    let outcome = app::sign_note(
         state.db(),
         &request.actor,
         request.request_id,
@@ -534,8 +536,16 @@ pub(crate) async fn sign_note(
         OffsetDateTime::now_utc(),
     )
     .await?;
-    tracing::info!(event = Event::NoteSigned.as_str(), note_id = %id, "note signed");
-    Ok(Json(view.into()))
+    match outcome {
+        Moved::Done(view) => {
+            tracing::info!(event = Event::NoteSigned.as_str(), note_id = %id, "note signed");
+            Ok(Json(view.into()))
+        }
+        Moved::AlreadyDone(view) => Ok(Json(view.into())),
+        Moved::Refused { reason, current } => {
+            Err(ApiFailure::refused(reason, &Note::from(current)))
+        }
+    }
 }
 
 /// An addendum's text.

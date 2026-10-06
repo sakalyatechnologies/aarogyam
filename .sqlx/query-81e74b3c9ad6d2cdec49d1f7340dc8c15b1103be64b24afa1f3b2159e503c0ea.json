@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select a.id, a.branch_id, a.room_id, r.name as \"room_name?\", a.starts_at, a.ends_at,\n                  a.status, a.kind, a.reason, a.notes, a.source, a.cancel_reason, a.arrived_at,\n                  a.seated_at, a.completed_at,\n                  a.patient_id, p.number as patient_number, p.full_name as patient_name,\n                  p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,\n                  p.birth_date_estimated as patient_birth_date_estimated,\n                  a.practitioner_id, d.display_name as practitioner_name,\n                  d.calendar_color as practitioner_color, q.token_number as \"token_number?\"\n           from aarogyam.appointments a\n           join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id\n           join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id\n           left join aarogyam.rooms r on r.org_id = a.org_id and r.id = a.room_id\n           left join aarogyam.queue_tokens q on q.org_id = a.org_id and q.appointment_id = a.id\n           where a.deleted_at is null and a.starts_at >= $1 and a.starts_at < $2\n             and ($3::uuid is null or a.room_id = $3)\n             and ($4::uuid is null or a.practitioner_id = $4)\n           order by a.starts_at, r.name, a.id",
+  "query": "select a.id, a.branch_id, a.room_id, r.name as \"room_name?\", a.starts_at, a.ends_at,\n                  a.status, a.kind, a.reason, a.notes, a.source, a.cancel_reason, a.arrived_at,\n                  a.seated_at, a.completed_at,\n                  a.patient_id, p.number as patient_number, p.full_name as patient_name,\n                  p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,\n                  p.birth_date_estimated as patient_birth_date_estimated,\n                  a.practitioner_id, d.display_name as practitioner_name,\n                  d.calendar_color as practitioner_color, q.token_number as \"token_number?\", q.id as \"token_id?\"\n           from aarogyam.appointments a\n           join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id\n           join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id\n           left join aarogyam.rooms r on r.org_id = a.org_id and r.id = a.room_id\n           left join aarogyam.queue_tokens q on q.org_id = a.org_id and q.appointment_id = a.id\n           where a.deleted_at is null and a.starts_at >= $1 and a.starts_at < $2\n             and ($3::uuid is null or a.room_id = $3)\n             and ($4::uuid is null or a.practitioner_id = $4)\n           order by a.starts_at, r.name, a.id",
   "describe": {
     "columns": [
       {
@@ -277,6 +277,17 @@
             "name": "token_number"
           }
         }
+      },
+      {
+        "ordinal": 25,
+        "name": "token_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "id"
+          }
+        }
       }
     ],
     "parameters": {
@@ -312,8 +323,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "a6cb1e1699d777bb7afba34a22d8faf66cc603b3bf32435fd06c9b424fa3af39"
+  "hash": "81e74b3c9ad6d2cdec49d1f7340dc8c15b1103be64b24afa1f3b2159e503c0ea"
 }

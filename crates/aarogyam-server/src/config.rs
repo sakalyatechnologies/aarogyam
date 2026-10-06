@@ -54,6 +54,9 @@ pub struct Config {
     /// Request limits (`ARO_THROTTLE__*`).
     #[serde(default)]
     pub throttle: ThrottleSettings,
+    /// How clinics' portal hosts are made to work at the edge (`ARO_EDGE__*`).
+    #[serde(default)]
+    pub edge: EdgeSettings,
 }
 
 impl Config {
@@ -72,6 +75,17 @@ impl Config {
         }
         if config.supabase.secret_key.is_none() {
             config.supabase.secret_key = plain("SUPABASE_SECRET_KEY").map(SecretString::from);
+        }
+        // And the names `.env.cloudflare` uses, for the backfill script.
+        let edge = &mut config.edge;
+        if edge.cloudflare_api_token.is_none() {
+            edge.cloudflare_api_token = plain("CLOUDFLARE_API_TOKEN").map(SecretString::from);
+        }
+        if edge.cloudflare_account_id.is_none() {
+            edge.cloudflare_account_id = plain("CLOUDFLARE_ACCOUNT_ID");
+        }
+        if edge.workers_subdomain.is_none() {
+            edge.workers_subdomain = plain("CLOUDFLARE_WORKERS_SUBDOMAIN");
         }
         Ok(config)
     }
@@ -293,6 +307,55 @@ pub struct HostSettings {
     pub console: String,
     /// The neutral host for the phone apps (`ARO_HOSTS__APP`).
     pub app: String,
+}
+
+/// How portal hosts are made to work (`ARO_EDGE__HOSTS`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EdgeHosts {
+    /// Not set up: new hosts stay pending (the default outside local).
+    #[default]
+    Off,
+    /// A wildcard already serves every host (`*.localtest.me` locally, or a wildcard custom
+    /// domain): hosts are marked ready at once.
+    Wildcard,
+    /// One small Worker per clinic on workers.dev, created through the Cloudflare API.
+    WorkersDev,
+}
+
+/// How clinics' portal hosts are made to work at the edge, run by `aarogyam outbox drain`.
+#[derive(Debug, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct EdgeSettings {
+    /// `off`, `wildcard` or `workers_dev` (`ARO_EDGE__HOSTS`).
+    pub hosts: EdgeHosts,
+    /// The Cloudflare account (`ARO_EDGE__CLOUDFLARE_ACCOUNT_ID`, or `CLOUDFLARE_ACCOUNT_ID`).
+    pub cloudflare_account_id: Option<String>,
+    /// A token with only "Workers Scripts: Edit" on that account
+    /// (`ARO_EDGE__CLOUDFLARE_API_TOKEN`, or `CLOUDFLARE_API_TOKEN`). Only the outbox job needs it.
+    pub cloudflare_api_token: Option<SecretString>,
+    /// The account's workers.dev subdomain, such as `spring-snow-130f`
+    /// (`ARO_EDGE__WORKERS_SUBDOMAIN`, or `CLOUDFLARE_WORKERS_SUBDOMAIN`).
+    pub workers_subdomain: Option<String>,
+    /// A clinic Worker's name, with `{slug}` replaced (`ARO_EDGE__WORKER_NAME_TEMPLATE`).
+    /// Default `{slug}-aarogyam`; it must match `hosts.portal_host_template`.
+    pub worker_name_template: String,
+    /// The portal Worker every clinic Worker hands requests to (`ARO_EDGE__PORTAL_WORKER`).
+    /// Default `aarogyam-portal`.
+    pub portal_worker: String,
+}
+
+impl Default for EdgeSettings {
+    fn default() -> Self {
+        Self {
+            hosts: EdgeHosts::Off,
+            cloudflare_account_id: None,
+            cloudflare_api_token: None,
+            workers_subdomain: None,
+            worker_name_template: "{slug}-aarogyam".to_owned(),
+            portal_worker: "aarogyam-portal".to_owned(),
+        }
+    }
 }
 
 /// Outgoing email, sent from the outbox.

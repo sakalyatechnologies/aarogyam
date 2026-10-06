@@ -64,6 +64,21 @@ ENV_VARS="${ENV_VARS}#ARO_FILES__BACKEND=supabase#ARO_FILES__BUCKET=aarogyam-fil
 ENV_VARS="${ENV_VARS}#ARO_TELEMETRY__FORMAT=cloud-logging"
 ENV_VARS="${ENV_VARS}#ARO_TELEMETRY__FILTER=info"
 
+# The outbox job also gives new clinics their portal address (one Worker each on workers.dev),
+# so only it gets the Cloudflare token; the API service never sees it.
+JOB_ENV_VARS="$ENV_VARS"
+JOB_SECRETS="$SECRETS"
+CLOUDFLARE_ACCOUNT_ID="$(env_value .env.cloudflare CLOUDFLARE_ACCOUNT_ID)"
+if [ -n "$CLOUDFLARE_ACCOUNT_ID" ] && { [ "$DRY_RUN" = "1" ] || secret_exists "$SECRET_CLOUDFLARE"; }; then
+  JOB_ENV_VARS="${JOB_ENV_VARS}#ARO_EDGE__HOSTS=workers_dev"
+  JOB_ENV_VARS="${JOB_ENV_VARS}#ARO_EDGE__CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}"
+  JOB_ENV_VARS="${JOB_ENV_VARS}#ARO_EDGE__WORKERS_SUBDOMAIN=${WORKERS_SUBDOMAIN}"
+  JOB_SECRETS="${JOB_SECRETS},ARO_EDGE__CLOUDFLARE_API_TOKEN=${SECRET_CLOUDFLARE}:latest"
+  ADDRESSES="automatic (workers_dev)"
+else
+  ADDRESSES="OFF: add CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN to .env.cloudflare, re-run cloud-run-setup.sh"
+fi
+
 if [ -z "${IMAGE:-}" ]; then
   TAG="$(git rev-parse --short HEAD)"
   git diff --quiet HEAD 2>/dev/null || TAG="${TAG}-dirty-$(date -u +%H%M%S)"
@@ -80,6 +95,7 @@ Image:     $IMAGE $([ "$DO_BUILD" = 1 ] && echo "(Cloud Build, as $BUILD_SA_NAME
 Service:   $SERVICE  min 0 / max 1 instance, concurrency 40, 512Mi, CPU only during requests
 Job:       $DRAIN_JOB  runs 'outbox drain' on schedule '$DRAIN_SCHEDULE' (UTC)
 Hosts:     portal {slug}-aarogyam.$WORKERS, app/console on $WORKERS
+Addresses: $ADDRESSES
 Source:    this checkout (.gcloudignore keeps .env files, docs and web out of the upload)
 PLAN
 if [ "$DO_BUILD" = 1 ] && ! git diff --quiet HEAD 2>/dev/null; then
@@ -142,7 +158,7 @@ echo "== Outbox job"
 mutate gcloud run jobs deploy "$DRAIN_JOB" --project "$PROJECT_ID" --region "$REGION" \
   --image "$DIGEST_IMAGE" --service-account "$RUN_SA" --args "outbox,drain" \
   --tasks 1 --max-retries 0 --task-timeout 120s --cpu 1 --memory 512Mi \
-  --set-env-vars "^#^${ENV_VARS}" --set-secrets "$SECRETS" --quiet
+  --set-env-vars "^#^${JOB_ENV_VARS}" --set-secrets "$JOB_SECRETS" --quiet
 
 mutate gcloud run jobs add-iam-policy-binding "$DRAIN_JOB" --project "$PROJECT_ID" \
   --region "$REGION" --member "serviceAccount:${SCHED_SA}" --role roles/run.invoker --quiet >/dev/null

@@ -127,7 +127,8 @@ const myClinic = z.object({
 }) satisfies z.ZodType<C.MyClinic>;
 export type ClinicAccess = z.output<typeof myClinic>;
 
-export const meResponse = z.object({ clinics: z.array(myClinic) }) satisfies z.ZodType<C.Me>;
+/** `console_access`: active Sakalya staff, whom central sign-in sends to the console (first, beside any clinics). */
+export const meResponse = z.object({ clinics: z.array(myClinic), console_access: z.boolean() }) satisfies z.ZodType<C.Me>;
 export type Me = z.output<typeof meResponse>;
 
 // Clinic host --------------------------------------------------------------------------------
@@ -673,6 +674,10 @@ export type PatientImport = C.PatientImport;
 export const clinicStatus = z.enum(["trial", "active", "suspended", "churned"]);
 export type ClinicStatus = z.output<typeof clinicStatus>;
 
+/** Whether the edge serves a clinic's portal host yet; the outbox job makes it ready. */
+export const addressStatus = z.enum(["pending", "ready", "failed"]);
+export type AddressStatus = z.output<typeof addressStatus>;
+
 const consoleClinic = z.object({
   id: clinicId,
   slug: z.string().min(1),
@@ -681,6 +686,7 @@ const consoleClinic = z.object({
   status: clinicStatus,
   created_at: timestamp,
   portal_host: optionalText,
+  address_status: addressStatus.nullable().exactOptional(),
   active_members: count,
   patients: count,
 }) satisfies z.ZodType<C.ConsoleClinic>;
@@ -688,6 +694,23 @@ export type ConsoleClinic = z.output<typeof consoleClinic>;
 
 export const consoleClinics = z.object({ items: z.array(consoleClinic) }) satisfies z.ZodType<C.ConsoleClinics>;
 export type ConsoleClinicPage = z.output<typeof consoleClinics>;
+
+/** Whether a clinic address is free, with free alternatives (`<name>-<city>`, short suffixes) when it isn't. */
+export const slugCheck = z.object({
+  slug: z.string(),
+  portal_host: z.string(),
+  available: z.boolean(),
+  problem: optionalText,
+  suggestions: z.array(z.string()),
+}) satisfies z.ZodType<C.SlugCheck>;
+export type SlugCheck = z.output<typeof slugCheck>;
+
+/** What to check: the clinic's name, and the typed address and city when known. */
+export interface SlugQuery {
+  name: string;
+  slug?: string | undefined;
+  city?: string | undefined;
+}
 
 /** What creating a clinic returns: its portal host and the owner's one-time invitation. */
 export const createdClinic = z.object({
@@ -824,6 +847,30 @@ export const devTokenResponse = z.object({
 /** `POST /api/v1/invitations/accept`: the clinic joined and the new membership. */
 export const joined = z.object({ org_id: clinicId, membership_id: membershipId }) satisfies z.ZodType<C.Joined>;
 export type Joined = z.output<typeof joined>;
+
+// Central sign-in: the session handoff to a clinic or console host ------------------------------
+
+/** Body of `POST /api/v1/auth/handoff`: the host the signed-in person is going to. */
+export type NewHandoff = C.NewHandoff;
+
+/** A one-time code for one host, valid for a minute; send the browser to `redirect_url`. */
+export const handoff = z.object({
+  code: z.string().min(1),
+  host: z.string().min(1),
+  expires_at: timestamp,
+  redirect_url: z.string().min(1),
+}) satisfies z.ZodType<C.Handoff>;
+export type Handoff = z.output<typeof handoff>;
+
+/** Body of `POST /api/v1/auth/handoff/redeem`. */
+export type RedeemHandoff = C.RedeemHandoff;
+
+/** What signs the person in on this host: a Supabase magic-link token hash, or (locally) a dev token. */
+export const handoffSession = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("supabase"), email: z.string().min(1), token_hash: z.string().min(1), access_token: z.null().exactOptional() }),
+  z.object({ kind: z.literal("dev"), access_token: z.string().min(1), email: z.null().exactOptional(), token_hash: z.null().exactOptional() }),
+]) satisfies z.ZodType<C.HandoffSession>;
+export type HandoffSession = z.output<typeof handoffSession>;
 
 // Clinical flags: allergies and conditions (M4) --------------------------------------------------
 
@@ -1275,6 +1322,8 @@ export const clinicDetail = z.object({
   timezone: z.string().min(1),
   created_at: timestamp,
   hosts: z.array(z.string()),
+  address_status: addressStatus.nullable().exactOptional(),
+  address_error: optionalText,
   active_members: count,
   patients: count,
   pending_invitations: count,

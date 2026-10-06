@@ -196,6 +196,11 @@ async fn approval_creates_the_clinic_the_account_the_invitation_and_the_email() 
         count(&app, "select count(*) from aarogyam.outbox_events where event_key = 'staff.invited' and recipient = 'lata@lotus.test' and secret is not null").await,
         1
     );
+    // Its portal address is queued for the outbox job, as for a clinic made in the console.
+    assert_eq!(
+        count(&app, "select count(*) from aarogyam.org_domains where hostname = 'lotus-dental-care.localtest.me' and edge_status = 'pending'").await,
+        1
+    );
 
     // Approving twice does nothing more.
     let (status, _) = app
@@ -446,5 +451,86 @@ async fn analysts_can_look_but_not_onboard() {
         assert_eq!(status, StatusCode::FORBIDDEN, "{path}");
     }
     assert_eq!(accounts.calls.load(Ordering::SeqCst), 0);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_approve_form_checks_addresses_and_suggests_free_ones() {
+    let accounts = Arc::new(FakeAccounts::default());
+    let app = start(&accounts).await;
+    let staff = app.token(STAFF);
+    let check = |query: &str| format!("/api/v1/console/slugs?{query}");
+
+    // Taken: the name with the city first, then short suffixes, all free.
+    let (status, taken) = app
+        .send(
+            Method::GET,
+            CONSOLE,
+            &check("name=Alpha&city=Pune"),
+            Some(&staff),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{taken}");
+    assert_eq!(taken["slug"], "alpha");
+    assert_eq!(taken["available"], false);
+    let suggestions: Vec<&str> = taken["suggestions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s.as_str().unwrap())
+        .collect();
+    assert_eq!(suggestions.len(), 3, "{suggestions:?}");
+    assert_eq!(suggestions[0], "alpha-pune");
+    assert!(
+        suggestions[1..]
+            .iter()
+            .all(|s| s.len() == "alpha-xyz".len() && s.starts_with("alpha-"))
+    );
+
+    // Free, typed, with its host.
+    let (_, free) = app
+        .send(
+            Method::GET,
+            CONSOLE,
+            &check("name=Gamma%20Dental&slug=gamma"),
+            Some(&staff),
+            None,
+        )
+        .await;
+    assert_eq!(free["available"], true);
+    assert_eq!(free["portal_host"], "gamma.localtest.me");
+    assert_eq!(free["suggestions"], json!([]));
+
+    // Reserved: refused with the reason, and the name's own slug offered.
+    let (_, reserved) = app
+        .send(
+            Method::GET,
+            CONSOLE,
+            &check("name=Gamma%20Dental&slug=admin"),
+            Some(&staff),
+            None,
+        )
+        .await;
+    assert_eq!(reserved["available"], false);
+    assert_eq!(reserved["problem"], "is reserved");
+    assert_eq!(reserved["suggestions"], json!(["gamma-dental"]));
+
+    // Console only, staff only.
+    let (status, _) = app
+        .send(Method::GET, ALPHA, &check("name=Alpha"), Some(&staff), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = app
+        .send(
+            Method::GET,
+            CONSOLE,
+            &check("name=Alpha"),
+            Some(&app.token(ALPHA_OWNER)),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
     app.finish().await;
 }

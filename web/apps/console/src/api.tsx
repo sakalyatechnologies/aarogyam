@@ -11,6 +11,7 @@ import {
   type NewClinic,
   type NewClinicInvitation,
   type RejectApplication,
+  type SlugQuery,
   type ApiClient,
 } from "@aarogyam/api-client";
 
@@ -82,6 +83,17 @@ export function useApplications(status?: ApplicationStatus) {
 }
 
 /** Approves an application, creating the clinic and the owner's invitation. Refreshes applications and clinics. */
+/** Checks a clinic address as it is typed; idle until there is something to check. */
+export function useSlugCheck(query: SlugQuery | undefined) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["slug-check", query],
+    queryFn: ({ signal }) => unwrap(api.checkSlug(query ?? { name: "" }, { signal })),
+    enabled: query !== undefined,
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useApproveApplication() {
   const api = useApi();
   const queryClient = useQueryClient();

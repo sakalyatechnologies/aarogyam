@@ -25,6 +25,7 @@ sakalya-config.workspace = true
 sakalya-db.workspace = true
 sakalya-http.workspace = true
 sakalya-telemetry.workspace = true
+sakalya-types.workspace = true
 secrecy.workspace = true
 serde.workspace = true
 time = { workspace = true }

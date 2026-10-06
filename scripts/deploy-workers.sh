@@ -4,9 +4,10 @@
 # from git-ignored .env files and never echoes their values.
 #
 # Usage: scripts/deploy-workers.sh <api-origin> [clinic-worker-name]
-#   With a clinic Worker name (such as aarogyam-suhasya), deploys only the portal under that
-#   name. workers.dev has no wildcard subdomains, so each demo clinic gets its own Worker at
-#   <name>.<account subdomain>.workers.dev, matching the API's ARO_HOSTS__PORTAL_HOST_TEMPLATE.
+#   With a clinic Worker name (such as suhasya-aarogyam), deploys a full copy of the portal under
+#   that name. Superseded: the outbox job now gives every clinic a small forwarding Worker
+#   automatically, and scripts/provision-hosts.sh backfills existing ones (docs/deploy.md
+#   "Clinic addresses"). Re-deploying the portal here also updates every clinic's address.
 #   DEMO_DEV_SIGNIN=1 scripts/deploy-workers.sh <api-origin>   # skip Supabase; use the API's
 #                                                               # dev-token sign-in (local API,
 #                                                               # ARO_ENVIRONMENT=local, only)

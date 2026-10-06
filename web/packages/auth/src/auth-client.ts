@@ -47,6 +47,8 @@ export interface DevAuthClient extends AuthClientBase {
   signInAs: (personId: string) => void;
   /** Signs in as someone not in the seed, with a fresh random ID, for example to accept an invitation. */
   signInAsNew: (person: { displayName: string; email: string }) => void;
+  /** Signs in as the person a development access token names: the local end of a central sign-in handoff. False when it names no one. */
+  signInWithToken: (accessToken: string) => boolean;
 }
 
 /**
@@ -66,6 +68,8 @@ export interface EmailCodeAuthClient extends AuthClientBase {
   signInWithPassword: (email: string, password: string) => Promise<AuthOutcome>;
   /** Sets or changes the signed-in person's password. */
   setPassword: (password: string) => Promise<AuthOutcome>;
+  /** Finishes a central sign-in handoff: trades the one-time magic-link token hash the API gave this host for a session here. */
+  verifyTokenHash: (tokenHash: string) => Promise<AuthOutcome>;
 }
 
 export type AuthClient = DevAuthClient | EmailCodeAuthClient;

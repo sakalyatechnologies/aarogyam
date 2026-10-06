@@ -12,7 +12,7 @@ use aarogyam_dal::lookups::{self, HostClinic};
 use aarogyam_dal::sessions;
 use aarogyam_domain::access::Authorization;
 use aarogyam_domain::ids::{ClinicId, MembershipId};
-use aarogyam_notify::{Notifier, PortalLinks};
+use aarogyam_notify::{Notifier, PortalAddresses, PortalLinks};
 use axum::http::HeaderMap;
 use sakalya_auth::{Claims, JwtVerifier, bearer_token};
 use sakalya_db::Db;
@@ -139,6 +139,7 @@ struct Inner {
     metrics: Arc<ServiceMetrics>,
     throttle: Option<Throttle>,
     notifier: Notifier,
+    addresses: PortalAddresses,
     allergies: Arc<dyn AllergySource>,
     files: Option<Files>,
     website: WebsiteLinks,
@@ -167,6 +168,7 @@ impl AppState {
                 metrics: Arc::new(ServiceMetrics::new()),
                 throttle: None,
                 notifier: Notifier::log(PortalLinks::default()),
+                addresses: PortalAddresses::Wildcard,
                 allergies: Arc::new(RecordedAllergies),
                 files: None,
                 website: WebsiteLinks::default(),
@@ -192,6 +194,17 @@ impl AppState {
     pub fn with_notifier(mut self, notifier: Notifier) -> Self {
         if let Some(inner) = Arc::get_mut(&mut self.inner) {
             inner.notifier = notifier;
+        }
+        self
+    }
+
+    /// Replaces how the local outbox drain makes portal hosts work, which by default marks
+    /// them ready (local hosts are served by `*.localtest.me`). Call before the state is shared
+    /// (cloned); afterwards it has no effect.
+    #[must_use]
+    pub fn with_addresses(mut self, addresses: PortalAddresses) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.addresses = addresses;
         }
         self
     }
@@ -272,6 +285,10 @@ impl AppState {
 
     pub(crate) fn notifier(&self) -> &Notifier {
         &self.inner.notifier
+    }
+
+    pub(crate) fn addresses(&self) -> &PortalAddresses {
+        &self.inner.addresses
     }
 
     pub(crate) fn throttle(&self) -> Option<&Throttle> {

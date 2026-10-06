@@ -9,7 +9,7 @@ export {
   type DevPerson,
   type EmailCodeAuthClient,
 } from "./auth-client.js";
-export { createDevAuth, createParentDomainStorage, type DevAuthOptions } from "./dev-auth.js";
+export { createDevAuth, createParentDomainStorage, personInToken, type DevAuthOptions } from "./dev-auth.js";
 export { AuthProvider, useAuth, useAuthState, useCompleteAuthRedirect, type AuthProviderProps } from "./react.js";
 export { AuthHeading, AuthShell, AuthSteps, ClinicVisual, ConsoleVisual, type AuthShellProps, type AuthStepsProps } from "./auth-shell.js";
 export {
@@ -33,3 +33,4 @@ export {
   type PasswordStrength,
 } from "./password.js";
 export { PasswordDialog, supportsPassword, usePasswordDialog, type PasswordDialogProps } from "./password-dialog.js";
+export { centralSignInUrl, completeHandoff, handoffCode, HANDOFF_EXPIRED, type HandoffSessionLike, type RedeemHandoff } from "./handoff.js";

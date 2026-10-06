@@ -9,6 +9,7 @@ import { Avatar, Button, Card, DataTable, Dialog, EmptyState, Field, PageHeader,
 import { useClinicDetail, useInviteToClinic } from "../../api.js";
 import { StatusChip } from "../../ui/status-chip.js";
 import { Tile } from "../../ui/tile.js";
+import { ADDRESS_STATUS, AddressStatusPill } from "./address-status.js";
 import { ClinicStatusPill } from "./clinic-status.js";
 import { STATUS_MEANING, expiryNote } from "./clinics-view.js";
 
@@ -144,9 +145,20 @@ export function ClinicDetailPage() {
             <EmptyState title="No address yet" description="The clinic gets its portal address when it is created." />
           ) : (
             <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label="Clinic addresses">
-              {clinic.hosts.map((host) => (
+              {clinic.hosts.map((host, index) => (
                 <li key={host} className="flex items-center justify-between gap-3 rounded-xl bg-surface-muted px-3 py-2">
-                  <span className="font-mono text-xs break-all">{host}</span>
+                  <span className="flex min-w-0 flex-col items-start gap-1">
+                    <span className="font-mono text-xs break-all">{host}</span>
+                    {index === 0 && clinic.address_status != null ? (
+                      <>
+                        <AddressStatusPill status={clinic.address_status} />
+                        <span className="text-xs text-muted">{ADDRESS_STATUS[clinic.address_status].meaning}</span>
+                        {clinic.address_status !== "ready" && clinic.address_error != null ? (
+                          <span className="text-xs text-danger-text">Last attempt: {clinic.address_error}</span>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </span>
                   <a
                     href={`https://${host}`}
                     target="_blank"

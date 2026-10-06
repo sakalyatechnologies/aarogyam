@@ -28,9 +28,17 @@ pub struct DrainReport {
     pub failed: usize,
     /// Old processed messages deleted.
     pub purged: i64,
+    /// How portal hosts are made to work: `off`, `wildcard` or `workers_dev`.
+    pub address_provider: &'static str,
+    /// Portal hosts made to work, run before the messages so invitation links work.
+    pub addresses_ready: usize,
+    /// Portal hosts that failed and will be tried again.
+    pub addresses_retrying: usize,
+    /// Portal hosts that failed for the last time.
+    pub addresses_failed: usize,
 }
 
-/// Delivers due outbox messages across clinics (local development only; later Cloud
+/// Makes new portal hosts work, then delivers due outbox messages across clinics (local development only; later Cloud
 /// Scheduler with a Google-signed token).
 #[utoipa::path(
     post,
@@ -42,6 +50,10 @@ pub struct DrainReport {
 pub(crate) async fn drain_outbox(
     State(state): State<AppState>,
 ) -> Result<Json<DrainReport>, ApiFailure> {
+    let addresses = state.addresses();
+    let hosts = addresses
+        .provision(state.db(), OffsetDateTime::now_utc())
+        .await?;
     let notifier = state.notifier();
     let report = notifier
         .drain(state.db(), OffsetDateTime::now_utc())
@@ -53,5 +65,9 @@ pub(crate) async fn drain_outbox(
         retrying: report.retrying,
         failed: report.failed,
         purged: report.purged,
+        address_provider: addresses.name(),
+        addresses_ready: hosts.ready,
+        addresses_retrying: hosts.retrying,
+        addresses_failed: hosts.failed,
     }))
 }

@@ -51,6 +51,7 @@ Crates split further by module (patients, appointments, billing) only when build
 ## Trust boundaries
 
 - **The edge.** The Cloud Run URL is public, so anyone could call it directly and fake the host or client IP. The API trusts `X-Forwarded-Host` and `cf-connecting-ip` only when the request carries the Worker's secret header; otherwise it refuses the request.
+- **Clinic Workers forward, never vouch.** On workers.dev each clinic's Worker hands the request unchanged to the portal Worker through a service binding; the portal Worker forwards the request URL's host, which only Cloudflare (the address the visitor used) or a Worker in our own account can set. Clinic Workers hold no secret. The Cloudflare token that creates them is mounted on the outbox job only.
 - **Clinic from the host only.** Never from a header the client controls, a path segment or the body. The phone apps first call the neutral host (`app.aarogyam.example/api/v1/me`) to list the user's clinics, then call that clinic's own host.
 - **The database.** The API logs in as `aarogyam_api`, which can do nothing on its own: clinic data only inside a `ClinicTx` (as `app_user`, under row-level security), and before the clinic is known only the three lookup functions. Migrations run as the owner. See `data-model.md`.
 - **The console** sits behind Cloudflare Access, and the API also checks the caller's platform role.
@@ -69,14 +70,14 @@ Crates split further by module (patients, appointments, billing) only when build
 | | Local | Staging | Production |
 |---|---|---|---|
 | API | `localhost:8080` | project `sakalya-clinic-staging` | project `sakalya-clinic-prod` |
-| Clinic hosts | `sunrise.localtest.me:8080` (seeded) | a wildcard staging domain, chosen when staging is set up | `*.aarogyam.example` |
+| Clinic hosts | `sunrise.localtest.me:8080` (seeded) | `<slug>-aarogyam.<account>.workers.dev`, one Worker per clinic made by the outbox job; later `<slug>-aarogyam.sakalyatechnologies.com` | `*.aarogyam.example` |
 | Database | local Postgres | Supabase free project | Supabase Pro project |
 | Data | seeded fakes | synthetic | real |
 | Logs | pretty, `debug` | Cloud Logging, `info,aarogyam=debug` | Cloud Logging, `info`; per-clinic debug for 30 minutes on demand |
 
 `localtest.me` and its subdomains resolve to `127.0.0.1`, so host-based tenancy works locally without editing `/etc/hosts`.
 
-Domains are not chosen yet, so docs use the reserved placeholder `aarogyam.example`. Every environment reads the clinic from the host name; there is no path-based mode, so staging waits for a wildcard domain.
+Domains are not chosen yet, so docs use the reserved placeholder `aarogyam.example`. Every environment reads the clinic from the host name; there is no path-based mode. A new clinic's host is `pending` until the edge serves it; the outbox job makes it work (a Worker per clinic on workers.dev, or nothing to do behind a wildcard) and the console shows the status (`docs/decisions.md`, "Automatic clinic addresses").
 
 ## Cloudflare
 

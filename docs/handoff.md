@@ -9,7 +9,7 @@ Where the work stands and exactly what to do next. Update this file at the end o
 **Demo (running on the founder's Mac; synthetic data only):**
 - Database: Supabase (all migrations, seeded with Sunrise and Lotus). Local development keeps its own `aarogyam_dev`.
 - `scripts/demo-api.sh` runs the API on 127.0.0.1:8095 plus the outbox sender (Resend, `noreply@aarogyam.sakalyatechnologies.com`, domain verified). `cloudflared` quick tunnel → `scratchpad/tunnel-url.txt`.
-- Workers: `aarogyam-portal` (landing, sign-in, register; the API's app host), `aarogyam-console`, and one portal Worker per clinic, `<slug>-aarogyam.spring-snow-130f.workers.dev`, deployed with `scripts/deploy-workers.sh <api-origin> <slug>-aarogyam` from a clean worktree (`../wt-release`).
+- Workers: `aarogyam-portal` (landing, sign-in, register; the API's app host), `aarogyam-console`, and one small forwarding Worker per clinic, `<slug>-aarogyam.spring-snow-130f.workers.dev`, created automatically by the outbox job when a clinic is created or approved (`scripts/provision-hosts.sh` backfills; docs/deploy.md "Clinic addresses").
 - The founder signs in by email code; platform owner and Sunrise owner.
 
 **Merged on 4 Oct afternoon (all gates green: Rust incl. database tests, 166 web tests):**
@@ -34,7 +34,7 @@ Where the work stands and exactly what to do next. Update this file at the end o
 | Playwright flakiness (2 of 5 journeys) | `web/e2e` | investigate |
 | Mock-up elements without backend: ratings, sparklines, AI brief/scribe, messages KPIs/templates/campaigns, payouts, notification/website settings, month calendar, chair utilisation, purchase orders | — | product decisions |
 
-**Decision waiting on the founder:** a product domain on Cloudflare (wildcard `*.<domain>` → one portal Worker) so approved clinics work instantly, replacing the per-clinic Worker deploy.
+**Decision waiting on the founder:** move `sakalyatechnologies.com` DNS to Cloudflare's free plan (GoDaddy stays registrar) for `<slug>-aarogyam.sakalyatechnologies.com` behind one wildcard route; until then clinic Workers on workers.dev are made automatically (docs/decisions.md, "Automatic clinic addresses").
 
 **Fallback models:** `docs/fallback-agent.md` (rules) and `docs/fallback-tasks.md` (queue). Claude reviews `fallback/*` branches and merges.
 

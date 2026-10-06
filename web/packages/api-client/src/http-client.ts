@@ -41,6 +41,8 @@ import {
   importResult,
   invoice,
   invoiceList,
+  handoff,
+  handoffSession,
   joined,
   leave,
   leaveList,
@@ -82,6 +84,7 @@ import {
   rolesResponse,
   savedAppointment,
   sessionResponse,
+  slugCheck,
   shareLink,
   sharedPreview,
   staffResponse,
@@ -184,6 +187,9 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     getMe: (opts) => call({ method: "GET", path: "/api/v1/me", schema: meResponse, signal: opts?.signal }),
     acceptInvitation: (input, opts) =>
       call({ method: "POST", path: "/api/v1/invitations/accept", schema: joined, body: input, signal: opts?.signal }),
+    createHandoff: (input, opts) => call({ method: "POST", path: "/api/v1/auth/handoff", schema: handoff, body: input, signal: opts?.signal }),
+    redeemHandoff: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/auth/handoff/redeem", schema: handoffSession, body: input, signal: opts?.signal }),
     getSession: (opts) => call({ method: "GET", path: "/api/v1/session", schema: sessionResponse, signal: opts?.signal }),
     listPatients: (opts) =>
       call({
@@ -407,6 +413,14 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     listApplications: (status, opts) =>
       call({ method: "GET", path: "/api/v1/console/applications", schema: applications, query: { status }, signal: opts?.signal }),
+    checkSlug: (query, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/console/slugs",
+        schema: slugCheck,
+        query: { name: query.name, slug: query.slug, city: query.city },
+        signal: opts?.signal,
+      }),
     approveApplication: (id, input, opts) =>
       call({
         method: "POST",

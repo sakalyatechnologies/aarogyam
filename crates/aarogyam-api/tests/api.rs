@@ -484,6 +484,9 @@ async fn every_route_requires_sign_in_and_a_permission() {
             // The published website and its pictures: public, no patient data (tests/website.rs).
             "/api/v1/public/site",
             "/api/v1/public/site/photos/{id}",
+            // Redeeming a handoff code: the code is the proof, single-use, a minute long, for
+            // one host, throttled per IP (tests/handoff.rs).
+            "/api/v1/auth/handoff/redeem",
         ];
         if !path.starts_with("/api/v1/")
             || path.starts_with("/api/v1/dev/")
@@ -527,6 +530,8 @@ async fn every_route_requires_sign_in_and_a_permission() {
                 "/api/v1/me/practitioner",
                 "/api/v1/me/working-hours",
                 "/api/v1/invitations/accept",
+                // Any signed-in person; the host they ask for is checked (tests/handoff.rs).
+                "/api/v1/auth/handoff",
                 // A verified-email sign-in with no clinic membership: tests/self_booking.rs.
                 "/api/v1/public/bookings",
             ];

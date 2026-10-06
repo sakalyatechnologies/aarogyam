@@ -19,6 +19,7 @@ SECRET_EDGE="aarogyam-edge-secret"             # ARO_HTTP__EDGE_SECRET  (.env.ed
 SECRET_SUPABASE_KEY="aarogyam-supabase-secret-key"  # SUPABASE_SECRET_KEY (.env.supabase)
 SECRET_FILES_KEY="aarogyam-files-signing-key"  # ARO_FILES__SIGNING_KEY (generated once)
 SECRET_RESEND="aarogyam-resend-api-key"        # ARO_EMAIL__RESEND_API_KEY (optional)
+SECRET_CLOUDFLARE="aarogyam-cloudflare-token"  # ARO_EDGE__CLOUDFLARE_API_TOKEN (.env.cloudflare; outbox job only)
 SECRET_GIT_TOKEN="sakalya-backend-read-token"  # Cloud Build only: private cargo dependency
 
 DRY_RUN="${DRY_RUN:-0}"

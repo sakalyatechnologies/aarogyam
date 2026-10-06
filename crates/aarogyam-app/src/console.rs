@@ -149,6 +149,122 @@ pub async fn create_clinic(
     })
 }
 
+/// The longest suggested slug: what the console's address field accepts.
+const SUGGESTION_MAX: usize = 30;
+/// Characters for a suggestion's suffix: no `0`/`o` or `1`/`l` look-alikes.
+const SUFFIX_CHARS: &[u8] = b"abcdefghijkmnpqrstuvwxyz23456789";
+
+/// Whether a clinic address is free, and free ones to offer when it isn't.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SlugCheck {
+    /// The slug checked: the one typed, or the one derived from the name.
+    pub slug: String,
+    /// Free to use.
+    pub available: bool,
+    /// Why it can't be used when it is malformed or reserved.
+    pub problem: Option<String>,
+    /// Free alternatives, best first: `<name>-<city>`, then short suffixes.
+    pub suggestions: Vec<String>,
+}
+
+/// `base` cut so that `base-<tail>` fits [`SUGGESTION_MAX`], on a hyphen when possible.
+fn with_tail(base: &str, tail: &str) -> String {
+    let room = SUGGESTION_MAX.saturating_sub(tail.len() + 1);
+    let mut cut = base.get(..room.min(base.len())).unwrap_or(base).to_owned();
+    if cut.len() < base.len()
+        && let Some(boundary) = cut.rfind('-').filter(|&at| at > 0)
+    {
+        cut.truncate(boundary);
+    }
+    format!("{}-{tail}", cut.trim_end_matches('-'))
+}
+
+/// Three-character suffixes from `bytes`.
+fn suffixes(bytes: &[u8]) -> Vec<String> {
+    bytes
+        .chunks(3)
+        .map(|chunk| {
+            chunk
+                .iter()
+                .map(|b| char::from(SUFFIX_CHARS[usize::from(*b) % SUFFIX_CHARS.len()]))
+                .collect()
+        })
+        .collect()
+}
+
+/// The candidates after `base`: with the city's slug, then with random suffixes. Only valid,
+/// unreserved slugs.
+fn candidates(base: &str, city: Option<&str>, random: &[u8]) -> Vec<String> {
+    let mut out = Vec::new();
+    if let Some(city) = city.and_then(|c| Slug::from_name(c).ok())
+        && !base.ends_with(city.as_str())
+    {
+        out.push(with_tail(base, city.as_str()));
+    }
+    out.extend(
+        suffixes(random)
+            .iter()
+            .map(|suffix| with_tail(base, suffix)),
+    );
+    out.retain(|text| {
+        Slug::parse(text).is_ok() && !RESERVED.contains(&text.as_str()) && text != base
+    });
+    out.dedup();
+    out
+}
+
+/// Checks a clinic address for the console's approve form: the typed `slug`, or the one
+/// derived from `name`; when it is taken, up to three free alternatives.
+///
+/// # Errors
+/// [`AppError::Internal`] if the random number generator fails; [`AppError::Db`] on database
+/// failures.
+pub async fn check_slug(
+    db: &Db,
+    name: &str,
+    slug: Option<&str>,
+    city: Option<&str>,
+) -> Result<SlugCheck, AppError> {
+    let typed = slug.map(str::trim).filter(|s| !s.is_empty());
+    let (base, problem) = match slug_for(name, typed) {
+        Ok(slug) => (slug.as_str().to_owned(), None),
+        Err(AppError::Invalid { message, .. }) => {
+            // Suggest from the name instead, when the typed text can't be used.
+            let fallback = slug_for(name, None).map(|s| s.as_str().to_owned()).ok();
+            return Ok(SlugCheck {
+                slug: typed.unwrap_or_default().to_owned(),
+                available: false,
+                problem: Some(message),
+                suggestions: fallback.into_iter().collect(),
+            });
+        }
+        Err(other) => return Err(other),
+    };
+    let mut random = [0_u8; 9];
+    aws_lc_rs::rand::fill(&mut random)
+        .map_err(|_| AppError::Internal("random number generator failed"))?;
+    let alternatives = candidates(&base, city, &random);
+    let mut asked = vec![base.clone()];
+    asked.extend(alternatives.iter().cloned());
+    let taken = dal::slugs_taken(db.pool(), &asked).await?;
+    let available = !taken.contains(&base);
+    let suggestions = if available {
+        Vec::new()
+    } else {
+        alternatives
+            .into_iter()
+            .filter(|s| !taken.contains(s))
+            .take(3)
+            .collect()
+    };
+    Ok(SlugCheck {
+        slug: base,
+        available,
+        problem,
+        suggestions,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,6 +281,31 @@ mod tests {
         assert_eq!(
             portal_host("{slug}.localtest.me", "sunrise"),
             "sunrise.localtest.me"
+        );
+    }
+
+    #[test]
+    fn suggestions_add_the_city_then_short_suffixes_and_fit_the_field() {
+        let found = candidates("sunrise-dental", Some("Pune"), &[0, 1, 2, 3, 4, 5]);
+        assert_eq!(
+            found,
+            [
+                "sunrise-dental-pune",
+                "sunrise-dental-abc",
+                "sunrise-dental-def"
+            ]
+        );
+        let long = candidates(
+            "dr-mehtas-dental-implant-centre",
+            Some("Navi Mumbai"),
+            &[9, 9, 9],
+        );
+        assert!(long.iter().all(|s| s.len() <= SUGGESTION_MAX), "{long:?}");
+        assert_eq!(long[0], "dr-mehtas-dental-navi-mumbai");
+        // No city suffix twice, and nothing reserved or malformed.
+        assert_eq!(
+            candidates("lotus-pune", Some("pune"), &[]),
+            Vec::<String>::new()
         );
     }
 

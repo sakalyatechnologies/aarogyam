@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.edge_host_ready($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "edge_host_ready",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "35927eb37a3376b38fc9b06dc5c5751da0cd840eb037ac227e1f93495758ab7e"
+}

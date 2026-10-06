@@ -21,6 +21,8 @@ export const routes: RouteObject[] = [
       { index: true, lazy: lazyPage(() => import("./pages/landing-page.js"), (m) => m.RootPage) },
       { path: "sign-in", lazy: lazyPage(() => import("./pages/sign-in-page.js"), (m) => m.SignInPage) },
       { path: "auth/callback", lazy: lazyPage(() => import("./pages/auth-callback-page.js"), (m) => m.AuthCallbackPage) },
+      // Central sign-in lands here with a one-time code in the fragment.
+      { path: "auth/handoff", lazy: lazyPage(() => import("./pages/handoff-page.js"), (m) => m.HandoffPage) },
       { path: "register", lazy: lazyPage(() => import("./pages/register-page.js"), (m) => m.RegisterPage) },
       { path: "invite", lazy: lazyPage(() => import("./pages/invite-page.js"), (m) => m.InvitePage) },
       { path: "book", lazy: lazyPage(() => import("./pages/public/book-page.js"), (m) => m.BookPage) },

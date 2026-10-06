@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.edge_hosts_requeue($1) as \"count!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e23b2aa52ca3ac493c6df08055ec439145fd0bcdc415c2a0426a520d34a0b709"
+}

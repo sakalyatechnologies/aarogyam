@@ -71,6 +71,28 @@ export function createParentDomainStorage(domain: string): Pick<Storage, "getIte
   };
 }
 
+/** The person a development token names: `fake:<id>|<email>` from the fake API, or a JWT's `sub` and `email`. */
+export function personInToken(token: string): { id: string; email?: string } | undefined {
+  if (token.startsWith("fake:")) {
+    const [id, email] = token.slice("fake:".length).split("|");
+    return id === undefined || id === "" ? undefined : email === undefined ? { id } : { id, email };
+  }
+  const payload = token.split(".")[1];
+  if (payload === undefined) {
+    return undefined;
+  }
+  try {
+    const json: unknown = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+    if (typeof json === "object" && json !== null && "sub" in json && typeof json.sub === "string") {
+      const email = "email" in json && typeof json.email === "string" ? json.email : undefined;
+      return email === undefined ? { id: json.sub } : { id: json.sub, email };
+    }
+  } catch {
+    // Not a token.
+  }
+  return undefined;
+}
+
 export function createDevAuth(options: DevAuthOptions): DevAuthClient {
   const storage = options.storage === undefined ? sessionStorageOrNull() : options.storage;
   const key = options.storageKey ?? "aarogyam.dev-auth";
@@ -110,6 +132,20 @@ export function createDevAuth(options: DevAuthOptions): DevAuthClient {
     signInAsNew: ({ displayName, email }) => {
       const person = { id: crypto.randomUUID(), displayName, email };
       remember(person, JSON.stringify(person));
+    },
+    signInWithToken: (accessToken) => {
+      const named = personInToken(accessToken);
+      if (named === undefined) {
+        return false;
+      }
+      const seeded = find(named.id);
+      if (seeded !== undefined) {
+        remember(seeded, seeded.id);
+      } else {
+        const person = { id: named.id, displayName: named.email ?? "Signed in", email: named.email ?? "" };
+        remember(person, JSON.stringify(person));
+      }
+      return true;
     },
     signOut: () => {
       try {

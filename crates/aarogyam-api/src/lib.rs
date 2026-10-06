@@ -71,6 +71,10 @@ pub fn standard_throttle_with(
     let config = ThrottleConfig::default().with_rules(vec![
         RuleConfig::new("ip", KeyKind::Ip, 600, 60),
         RuleConfig::new("ip-dev-sign-in", KeyKind::Ip, 30, 15 * 60).on_paths(&["/api/v1/dev/"]),
+        // Handoff codes are random 32-byte secrets, but guessing is still throttled hard.
+        RuleConfig::new("ip-handoff-redeem", KeyKind::Ip, 20, 10 * 60)
+            .on_paths(&["/api/v1/auth/handoff/redeem"]),
+        RuleConfig::new("ip-handoff", KeyKind::Ip, 60, 10 * 60).on_paths(&["/api/v1/auth/handoff"]),
         RuleConfig::new("ip-registration", KeyKind::Ip, 5, 60 * 60)
             .on_paths(&["/api/v1/registrations"]),
         // Public booking: reads (doctors, slots) are cheap but unauthenticated, so capped per IP;

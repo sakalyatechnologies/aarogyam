@@ -243,6 +243,38 @@ pub async fn my_clinics(pool: &PgPool, auth_uid: Uuid) -> Result<Vec<MyClinic>, 
         .collect())
 }
 
+/// The person's clinics, as [`my_clinics`], and whether they are active Sakalya staff who can
+/// open the console, in one round trip.
+///
+/// # Errors
+/// [`DbError`] when the database can't be reached.
+pub async fn me(pool: &PgPool, auth_uid: Uuid) -> Result<(Vec<MyClinic>, bool), DbError> {
+    let rows = sqlx::query!(
+        r#"select c.org_id, c.slug, c.name, c.role_key, c.role_name, c.portal_host,
+                  p.console as "console_access!"
+           from (select exists (select 1 from app.platform_access($1)) as console) p
+           left join app.my_clinics($1) c on true"#,
+        auth_uid
+    )
+    .fetch_all(pool)
+    .await?;
+    let console = rows.first().is_some_and(|row| row.console_access);
+    let clinics = rows
+        .into_iter()
+        .filter_map(|row| {
+            Some(MyClinic {
+                org_id: row.org_id?,
+                slug: row.slug?,
+                name: row.name?,
+                role_key: row.role_key?,
+                role_name: row.role_name?,
+                host: row.portal_host,
+            })
+        })
+        .collect();
+    Ok((clinics, console))
+}
+
 /// An active Sakalya staff member, as the console sees them.
 #[derive(Debug, Clone)]
 pub struct PlatformAccess {

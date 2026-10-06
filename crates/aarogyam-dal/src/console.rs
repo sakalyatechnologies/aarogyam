@@ -25,6 +25,8 @@ pub struct ConsoleClinic {
     pub created_at: OffsetDateTime,
     /// The portal host name.
     pub portal_host: Option<String>,
+    /// Whether the edge serves it: `pending`, `ready` or `failed`.
+    pub address_status: Option<String>,
     /// Members with an active membership.
     pub active_members: i64,
     /// Patients, excluding deleted records.
@@ -39,7 +41,8 @@ pub async fn clinics(pool: &PgPool) -> Result<Vec<ConsoleClinic>, DbError> {
     let rows = sqlx::query_as!(
         ConsoleClinic,
         r#"select id as "id!", slug as "slug!", name as "name!", specialty as "specialty!", status as "status!",
-                  created_at as "created_at!", portal_host, active_members as "active_members!",
+                  created_at as "created_at!", portal_host, address_status,
+                  active_members as "active_members!",
                   patients as "patients!"
            from app.console_clinics()"#
     )
@@ -137,6 +140,10 @@ pub struct ClinicDetail {
     pub created_at: OffsetDateTime,
     /// Its host names, primary first.
     pub hosts: Vec<String>,
+    /// Whether the edge serves its portal host: `pending`, `ready` or `failed`.
+    pub address_status: Option<String>,
+    /// Why the last attempt to make it work failed.
+    pub address_error: Option<String>,
     /// Members with an active membership.
     pub active_members: i64,
     /// Patients, excluding deleted records.
@@ -154,7 +161,7 @@ pub async fn clinic(pool: &PgPool, org_id: Uuid) -> Result<Option<ClinicDetail>,
         ClinicDetail,
         r#"select id as "id!", slug as "slug!", name as "name!", specialty as "specialty!",
                   status as "status!", timezone as "timezone!", created_at as "created_at!",
-                  hosts as "hosts!", active_members as "active_members!", patients as "patients!",
+                  hosts as "hosts!", address_status, address_error, active_members as "active_members!", patients as "patients!",
                   pending_invitations as "pending_invitations!"
            from app.console_clinic($1)"#,
         org_id
@@ -324,4 +331,18 @@ pub async fn add_member(
     .await?;
     tx.commit().await?;
     Ok(Some(membership_id))
+}
+
+/// Which of `slugs` (at most 20 are looked at) belong to a clinic already.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn slugs_taken(pool: &PgPool, slugs: &[String]) -> Result<Vec<String>, DbError> {
+    let taken = sqlx::query_scalar!(
+        r#"select taken as "slug!" from app.console_slugs_taken($1) as taken"#,
+        slugs
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(taken)
 }

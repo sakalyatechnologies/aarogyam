@@ -1,9 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 
 import { hasPermission, readBranding, type ClinicAccess } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
-import { useAuth, useAuthState } from "@aarogyam/auth";
+import { centralSignInUrl, useAuth, useAuthState } from "@aarogyam/auth";
 import { parseHexColor } from "@sakalya/tokens";
 import { Avatar, Button, Card, EmptyState, Skeleton, ThemeScope } from "@sakalya/ui";
 
@@ -28,9 +28,21 @@ export function RequireAuth() {
     return <Loading label="Checking your session" />;
   }
   if (state.status === "signed_out") {
+    const central = import.meta.env.VITE_CENTRAL_SIGN_IN_URL ?? "";
+    if (central !== "") {
+      return <CentralSignIn signInUrl={central} />;
+    }
     return <Navigate to="/sign-in" replace state={{ from: location.pathname }} />;
   }
   return <Outlet />;
+}
+
+/** Leaves for the public site's sign-in, which hands the session back through `/auth/handoff`. */
+function CentralSignIn({ signInUrl }: { signInUrl: string }) {
+  useEffect(() => {
+    window.location.assign(centralSignInUrl(signInUrl, window.location.host));
+  }, [signInUrl]);
+  return <Loading label="Going to sign-in" />;
 }
 
 /**

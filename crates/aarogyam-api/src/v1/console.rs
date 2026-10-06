@@ -3,6 +3,7 @@
 use std::time::SystemTime;
 
 use aarogyam_app::console::{self as app, CreateClinic};
+use aarogyam_domain::edge::AddressStatus;
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -36,10 +37,20 @@ pub struct ConsoleClinic {
     pub created_at: String,
     /// The portal host name.
     pub portal_host: Option<String>,
+    /// Whether the edge serves the portal host yet: `pending`, `ready` or `failed`.
+    #[schema(value_type = Option<String>)]
+    pub address_status: Option<&'static str>,
     /// Members with an active membership.
     pub active_members: i64,
     /// Patients, excluding deleted records.
     pub patients: i64,
+}
+
+/// The stored address status as the API sends it; unknown values are left out.
+pub(crate) fn address_status(stored: Option<&str>) -> Option<&'static str> {
+    stored
+        .and_then(|text| AddressStatus::parse(text).ok())
+        .map(AddressStatus::as_str)
 }
 
 /// Every clinic.
@@ -78,6 +89,7 @@ pub(crate) async fn clinics(
                 status: row.status,
                 created_at: rfc3339(row.created_at),
                 portal_host: row.portal_host,
+                address_status: address_status(row.address_status.as_deref()),
                 active_members: row.active_members,
                 patients: row.patients,
             })
@@ -106,7 +118,8 @@ pub struct CreatedClinic {
     pub id: Uuid,
     /// Its subdomain.
     pub slug: String,
-    /// Its portal host name.
+    /// Its portal host name. Its address starts `pending`; the outbox job makes it work
+    /// within a couple of minutes (see `address_status` on the clinic).
     pub portal_host: String,
     /// The owner's invitation.
     #[schema(value_type = String)]
@@ -170,6 +183,75 @@ pub(crate) async fn create_clinic(
             invite_expires_at: rfc3339(created.invite_expires_at),
         }),
     ))
+}
+
+/// What to check: a typed address, or the one derived from the clinic's name.
+#[derive(Debug, Deserialize)]
+pub struct SlugParams {
+    /// The clinic's name.
+    pub name: String,
+    /// The typed subdomain; derived from the name when absent.
+    pub slug: Option<String>,
+    /// The clinic's city, for a `<name>-<city>` suggestion.
+    pub city: Option<String>,
+}
+
+/// Whether an address is free, with free alternatives when it isn't.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SlugCheck {
+    /// The subdomain checked.
+    pub slug: String,
+    /// Its portal host.
+    pub portal_host: String,
+    /// Free to use now (creating the clinic still checks).
+    pub available: bool,
+    /// Why it can't be used, when malformed or reserved.
+    pub problem: Option<String>,
+    /// Free alternatives, best first.
+    pub suggestions: Vec<String>,
+}
+
+/// Checks a clinic address as it is typed, suggesting free ones (`<name>-<city>`, or a short
+/// suffix) when it is taken. Sakalya staff only.
+#[utoipa::path(
+    get,
+    path = "/api/v1/console/slugs",
+    operation_id = "checkSlug",
+    tag = "console",
+    params(
+        ("name" = String, Query, description = "The clinic's name"),
+        ("slug" = Option<String>, Query, description = "The typed subdomain"),
+        ("city" = Option<String>, Query, description = "The clinic's city")
+    ),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = SlugCheck),
+        (status = 403, description = "Not Sakalya staff"),
+        (status = 404, description = "Not the console host")
+    )
+)]
+pub(crate) async fn check_slug(
+    State(state): State<AppState>,
+    _staff: PlatformRequest,
+    ApiQuery(params): ApiQuery<SlugParams>,
+) -> Result<Json<SlugCheck>, ApiFailure> {
+    let checked = app::check_slug(
+        state.db(),
+        &params.name,
+        params.slug.as_deref(),
+        params.city.as_deref(),
+    )
+    .await?;
+    Ok(Json(SlugCheck {
+        portal_host: state
+            .hosts()
+            .portal_host_template
+            .replace("{slug}", &checked.slug),
+        slug: checked.slug,
+        available: checked.available,
+        problem: checked.problem,
+        suggestions: checked.suggestions,
+    }))
 }
 
 /// Which window of service metrics to show.

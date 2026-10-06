@@ -8,7 +8,7 @@
 use std::net::SocketAddr;
 use std::path::Path;
 
-use aarogyam_server::config::{AuthMode, Config};
+use aarogyam_server::config::{AuthMode, Config, EdgeHosts};
 use figment::Jail;
 use sakalya_config::Environment;
 use secrecy::ExposeSecret;
@@ -203,6 +203,44 @@ fn without_a_bypass_token_every_environment_is_allowed() {
         ] {
             config.throttle.ensure_allowed(environment).unwrap();
         }
+        Ok(())
+    });
+}
+
+#[test]
+fn portal_addresses_are_off_until_set_and_read_the_cloudflare_file_names() {
+    Jail::expect_with(|jail| {
+        set_required(jail);
+        let config = load(NO_FILE);
+        assert_eq!(config.edge.hosts, EdgeHosts::Off);
+        assert_eq!(config.edge.worker_name_template, "{slug}-aarogyam");
+        assert_eq!(config.edge.portal_worker, "aarogyam-portal");
+
+        jail.set_env("ARO_EDGE__HOSTS", "workers_dev");
+        jail.set_env("CLOUDFLARE_API_TOKEN", "cf-token");
+        jail.set_env("CLOUDFLARE_ACCOUNT_ID", "0123456789abcdef0123456789abcdef");
+        jail.set_env("CLOUDFLARE_WORKERS_SUBDOMAIN", "spring-snow-130f");
+        let config = load(NO_FILE);
+        assert_eq!(config.edge.hosts, EdgeHosts::WorkersDev);
+        assert_eq!(
+            config.edge.cloudflare_api_token.unwrap().expose_secret(),
+            "cf-token"
+        );
+        assert_eq!(
+            config.edge.workers_subdomain.as_deref(),
+            Some("spring-snow-130f")
+        );
+        // The token never shows in debug output.
+        assert!(!format!("{:?}", load(NO_FILE).edge).contains("cf-token"));
+        Ok(())
+    });
+}
+
+#[test]
+fn local_marks_addresses_ready_without_cloudflare() {
+    Jail::expect_with(|jail| {
+        jail.clear_env();
+        assert_eq!(load(LOCAL_FILE).edge.hosts, EdgeHosts::Wildcard);
         Ok(())
     });
 }

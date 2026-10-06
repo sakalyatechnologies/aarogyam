@@ -53,6 +53,10 @@ export interface FakeClinic {
   name: string;
   /** The clinic host the API resolves this clinic from. */
   host: string;
+  /** Whether the edge serves `host` yet; `ready` when absent. New clinics start `pending`. */
+  address_status?: "pending" | "ready" | "failed";
+  /** Why making `host` work failed. */
+  address_error?: string;
   timezone: string;
   specialty: string;
   status: "trial" | "active" | "suspended" | "churned";

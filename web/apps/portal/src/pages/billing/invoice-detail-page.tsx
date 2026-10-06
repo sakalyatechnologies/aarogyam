@@ -207,13 +207,17 @@ function InvoiceBody({ invoice, canWrite }: { invoice: Invoice; canWrite: boolea
           });
         }}
       />
-      <PaymentDialog
-        open={payOpen}
-        invoice={invoice}
-        onClose={() => {
-          setPayOpen(false);
-        }}
-      />
+      {/* Mounted only while open, so the amount starts from the balance as it is now: the
+          balance changes when the bill is issued and with every payment. */}
+      {payOpen ? (
+        <PaymentDialog
+          open
+          invoice={invoice}
+          onClose={() => {
+            setPayOpen(false);
+          }}
+        />
+      ) : null}
     </>
   );
 }

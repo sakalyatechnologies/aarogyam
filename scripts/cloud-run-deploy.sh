@@ -60,7 +60,7 @@ ENV_VARS="${ENV_VARS}#ARO_HOSTS__APP=aarogyam-portal.${WORKERS}"
 ENV_VARS="${ENV_VARS}#ARO_HOSTS__CONSOLE=aarogyam-console.${WORKERS}"
 ENV_VARS="${ENV_VARS}#ARO_EMAIL__PORTAL_LINK=https://{host}"
 ENV_VARS="${ENV_VARS}#ARO_EMAIL__FROM=${ARO_EMAIL__FROM:-Aarogyam <noreply@aarogyam.sakalyatechnologies.com>}"
-ENV_VARS="${ENV_VARS}#ARO_FILES__DIR=/tmp/attachments"
+ENV_VARS="${ENV_VARS}#ARO_FILES__BACKEND=supabase#ARO_FILES__BUCKET=aarogyam-files"
 ENV_VARS="${ENV_VARS}#ARO_TELEMETRY__FORMAT=cloud-logging"
 ENV_VARS="${ENV_VARS}#ARO_TELEMETRY__FILTER=info"
 

@@ -205,8 +205,8 @@ from your Mac as today (it needs `ARO_DB__OWNER_URL`, which is deliberately not 
   between runs: about 4 seconds of CPU per run is roughly 90,000 of the 180,000 free
   vCPU-seconds a month. Change the pace with `DRAIN_SCHEDULE='*/5 * * * *'
   scripts/cloud-run-deploy.sh`; an invitation email arrives within the interval.
-- **Patient files** still go to `/tmp` inside the instance (lost when it stops). Object
-  storage is open work in `docs/handoff.md`; don't upload real patient files until then.
+- **Patient files** go to the private Supabase Storage bucket `aarogyam-files`
+  (`ARO_FILES__BACKEND=supabase`), streamed through the API's permission-checked routes.
 
 ### Costs to expect
 

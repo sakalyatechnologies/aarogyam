@@ -1,0 +1,17 @@
+# What `gcloud builds submit` uploads: only what the Docker build needs.
+.git
+.github
+.githooks
+.claude
+.env
+.env.*
+!.env.example
+target
+var
+node_modules
+web
+mobile
+docs
+*.md
+!rust-toolchain.toml
+.DS_Store

@@ -1,6 +1,7 @@
 package com.aarogyam.staff.today
 
 import com.aarogyam.staff.api.model.Appointment
+import com.aarogyam.staff.api.model.TodayMoney
 import com.aarogyam.staff.api.model.TodayResponse
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -35,6 +36,24 @@ data class TodayCountsView(
     val done: Int,
 )
 
+/** The money tiles, only for a role that holds `finance.view`. Amounts are paise; [upiShareBps] is basis points. */
+data class MoneyView(
+    val collectedPaise: Long,
+    val paymentsToday: Long,
+    val pendingDuesPaise: Long,
+    val pendingDuesPatients: Int,
+    val upiShareBps: Long,
+)
+
+internal fun TodayMoney.toView() =
+    MoneyView(
+        collectedPaise = collectedPaise,
+        paymentsToday = paymentsToday,
+        pendingDuesPaise = pendingDuesPaise,
+        pendingDuesPatients = pendingDuesPatients,
+        upiShareBps = upiShareBps,
+    )
+
 /** Everything the Today screen draws, in the clinic's time zone. */
 data class TodayView(
     val clinicName: String,
@@ -45,6 +64,8 @@ data class TodayView(
     val heroKind: HeroKind?,
     val hero: ScheduleItem?,
     val schedule: List<ScheduleItem>,
+    /** Null without `finance.view`, or when the money request failed (the rest of Today still shows). */
+    val money: MoneyView? = null,
 )
 
 internal fun TodayResponse.toView(

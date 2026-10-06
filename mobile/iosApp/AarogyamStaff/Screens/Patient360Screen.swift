@@ -9,6 +9,8 @@ struct Patient360Screen: View {
     let graph: AppGraph
     let clinic: ClinicContext
     let patientId: String
+    let billing: BillingStateHolder
+    let billingState: BillingState
     @Environment(\.skTheme) private var theme
     @State private var tab = 0
     /// The Chart tab's state holder, kept across tab switches.
@@ -21,10 +23,15 @@ struct Patient360Screen: View {
         chartText("patient.tab.billing"),
     ]
 
+    /// Without `billing.read` the Billing tab does not exist.
+    private var tabs: [String] {
+        if case .hidden = onEnum(of: billingState) { Array(Self.tabs.dropLast()) } else { Self.tabs }
+    }
+
     var body: some View {
         VStack(spacing: SkSpacing.m) {
             if loaded != nil {
-                SkSegmentedControl(Self.tabs, selection: $tab)
+                SkSegmentedControl(tabs, selection: $tab)
                     .padding(.horizontal, SkSpacing.l)
             }
             if loaded != nil, tab == 1 {
@@ -32,7 +39,7 @@ struct Patient360Screen: View {
             } else if let loaded, tab == 2 {
                 RxTab(graph: graph, clinic: clinic, patientId: patientId, allergies: loaded.view.flags.allergies)
             } else if loaded != nil, tab == 3 {
-                SkEmptyState(Self.tabs[3], message: chartText("patient.tab.coming"))
+                BillingTab(holder: billing, state: billingState)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: SkSpacing.ml) {

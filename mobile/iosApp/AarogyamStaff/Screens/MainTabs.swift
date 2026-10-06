@@ -47,8 +47,13 @@ struct MainTabs: View {
 private extension View {
     func patientDestination(graph: AppGraph, clinic: ClinicContext) -> some View {
         navigationDestination(for: PatientRoute.self) { route in
-            ScreenHost(make: { graph.patient360(clinic: clinic, patientId: route.id, screen: $0) }, state: { $0.state }) { holder, state in
-                Patient360Screen(holder: holder, state: state, graph: graph, clinic: clinic, patientId: route.id)
+            ScreenHost(make: { graph.billing(clinic: clinic, patientId: route.id, screen: $0) }, state: { $0.state }) { billing, billingState in
+                ScreenHost(make: { graph.patient360(clinic: clinic, patientId: route.id, screen: $0) }, state: { $0.state }) { holder, state in
+                    Patient360Screen(
+                        holder: holder, state: state, graph: graph, clinic: clinic, patientId: route.id,
+                        billing: billing, billingState: billingState
+                    )
+                }
             }
         }
     }

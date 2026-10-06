@@ -70,6 +70,35 @@ final class PatientMappingTests: XCTestCase {
     }
 }
 
+final class BillingMappingTests: XCTestCase {
+    func test_every_bill_status_has_copy_and_paid_is_success() {
+        for status in BillStatus.allCases { XCTAssertFalse(status.label.hasPrefix("bill."), "untranslated \(status)") }
+        XCTAssertEqual(BillStatus.paid.tone, .success)
+        XCTAssertEqual(BillStatus.partPaid.tone, .warning)
+        XCTAssertEqual(BillStatus.void.tone, .danger)
+    }
+
+    func test_every_payment_method_has_copy() {
+        XCTAssertEqual(PayMethod.allCases.map(\.label), ["Cash", "UPI", "Card"])
+    }
+
+    func test_amounts_are_rupees_from_paise_with_indian_grouping() {
+        XCTAssertEqual(ClinicFormat.rupees(paise: 790_000), "₹7,900")
+        XCTAssertEqual(ClinicFormat.rupees(paise: 125_050), "₹1,250.50")
+        XCTAssertEqual(ClinicFormat.rupees(paise: 0), "₹0")
+    }
+
+    func test_the_balance_reads_due_or_clear() {
+        XCTAssertEqual(BillingView(balancePaise: 790_000, bills: []).balanceText, "₹7,900 due")
+        XCTAssertEqual(BillingView(balancePaise: 0, bills: []).balanceText, "Nothing due.")
+    }
+
+    func test_the_upi_share_is_a_whole_percentage() {
+        let money = MoneyView(collectedPaise: 4_820_000, paymentsToday: 9, pendingDuesPaise: 1_250_000, pendingDuesPatients: 4, upiShareBps: 6800)
+        XCTAssertEqual(money.upiShareText, "68%")
+    }
+}
+
 final class ThemeTests: XCTestCase {
     func test_the_default_brand_draws_the_tulsi_palette() {
         let light = ClinicBranding.companion.Default.skTheme(systemDark: false)

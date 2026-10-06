@@ -112,6 +112,8 @@ fun Long.rupees(): String =
         .getCurrencyInstance(Locale.forLanguageTag("en-IN"))
         .apply {
             maximumFractionDigits = 2
+            minimumFractionDigits = if (this@rupees % PAISE_PER_RUPEE == 0L) 0 else 2
         }.format(this / PAISE)
 
 private const val PAISE = 100.0
+private const val PAISE_PER_RUPEE = 100L

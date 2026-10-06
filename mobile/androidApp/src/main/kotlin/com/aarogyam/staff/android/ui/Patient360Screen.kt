@@ -22,6 +22,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.billing.BillingState
+import com.aarogyam.staff.billing.BillingStateHolder
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.ClinicMoment
 import com.aarogyam.staff.patients.FlagsView
@@ -51,8 +53,12 @@ fun Patient360Screen(
     onBack: () -> Unit,
     chartTab: @Composable () -> Unit,
     rxTab: @Composable (PatientView) -> Unit,
+    billing: BillingStateHolder,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
+    val billingState by billing.state.collectAsStateWithLifecycle()
+    // Without billing.read the Billing tab does not exist.
+    val tabCount = if (billingState == BillingState.Hidden) TAB_BILLING else TABS.size
     val loaded = state as? Patient360State.Loaded
     Column(Modifier.fillMaxSize()) {
         SkTopBar(
@@ -63,7 +69,7 @@ fun Patient360Screen(
         var tab by rememberSaveable { mutableIntStateOf(0) }
         if (loaded != null) {
             SkTabs(
-                titles = TABS.map { stringResource(it) },
+                titles = TABS.take(tabCount).map { stringResource(it) },
                 selectedIndex = tab,
                 onSelect = { tab = it },
             )
@@ -73,7 +79,7 @@ fun Patient360Screen(
                 when (tab) {
                     TAB_CHART -> chartTab()
                     TAB_RX -> rxTab(loaded.view)
-                    else -> SkEmptyState(stringResource(TABS[tab]), stringResource(R.string.patient_tab_coming))
+                    else -> BillingTab(billing)
                 }
             }
             return@Column
@@ -123,6 +129,7 @@ private val TABS =
 private const val TAB_OVERVIEW = 0
 private const val TAB_CHART = 1
 private const val TAB_RX = 2
+private const val TAB_BILLING = 3
 
 @Composable
 private fun header(view: PatientView): String {

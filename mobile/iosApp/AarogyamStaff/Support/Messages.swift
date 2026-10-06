@@ -91,7 +91,7 @@ enum ClinicFormat {
         formatter.locale = locale
         formatter.numberStyle = .currency
         formatter.currencyCode = "INR"
-        formatter.minimumFractionDigits = 0
+        formatter.minimumFractionDigits = paise % 100 == 0 ? 0 : 2
         formatter.maximumFractionDigits = 2
         return formatter.string(from: (Decimal(paise) / 100) as NSDecimalNumber) ?? "\(paise / 100)"
     }
@@ -173,4 +173,59 @@ extension CalendarEntry {
             ClinicFormat.time(minuteOfDay: ends.minuteOfDay)
         )
     }
+}
+
+extension BillStatus {
+    var label: String {
+        switch self {
+        case .issued: String(localized: "bill.issued")
+        case .partPaid: String(localized: "bill.part_paid")
+        case .paid: String(localized: "bill.paid")
+        case .void: String(localized: "bill.void")
+        case .unknown: String(localized: "bill.unknown")
+        }
+    }
+
+    var tone: SkTone {
+        switch self {
+        case .paid: .success
+        case .partPaid, .issued: .warning
+        case .void: .danger
+        case .unknown: .neutral
+        }
+    }
+}
+
+extension PayMethod {
+    var label: String {
+        switch self {
+        case .cash: String(localized: "pay.cash")
+        case .upi: String(localized: "pay.upi")
+        case .card: String(localized: "pay.card")
+        }
+    }
+}
+
+extension BillView {
+    var titleText: String { number ?? String(localized: "bill.no_number") }
+
+    var subtitleText: String {
+        let issued = issuedOn.map { ClinicFormat.date(iso: $0.isoText) }
+        return [issued, String(format: String(localized: "bill.total"), ClinicFormat.rupees(paise: totalPaise))]
+            .compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
+extension BillingView {
+    /// `₹7,900 due`, or "Nothing due."
+    var balanceText: String {
+        balancePaise > 0
+            ? String(format: String(localized: "patient.balance.due"), ClinicFormat.rupees(paise: balancePaise))
+            : String(localized: "patient.balance.clear")
+    }
+}
+
+extension MoneyView {
+    /// A share in basis points as a whole percentage (`6800` is `68%`).
+    var upiShareText: String { "\(upiShareBps / 100)%" }
 }

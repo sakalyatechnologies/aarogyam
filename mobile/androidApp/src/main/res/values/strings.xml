@@ -169,4 +169,29 @@
     <string name="error_server">Something went wrong on our side. Try again.</string>
     <string name="error_not_configured">This build has no address for this environment.</string>
     <string name="error_unknown">Something went wrong. Try again.</string>
+    <!-- Billing -->
+    <string name="billing_title">Billing</string>
+    <string name="bills_title">Bills</string>
+    <string name="bills_none">No bills yet.</string>
+    <string name="bill_no_number">Bill</string>
+    <string name="bill_total">Total %1$s</string>
+    <string name="bill_issued">Issued</string>
+    <string name="bill_part_paid">Part paid</string>
+    <string name="bill_paid">Paid</string>
+    <string name="bill_void">Void</string>
+    <string name="bill_unknown">Bill</string>
+    <string name="record_payment">Record payment</string>
+    <string name="payment_recording">Recording…</string>
+    <string name="payment_balance">Balance: %1$s</string>
+    <string name="payment_amount">Amount (₹)</string>
+    <string name="payment_amount_invalid">Enter an amount more than zero.</string>
+    <string name="payment_reference">Reference (optional)</string>
+    <string name="payment_recorded">Receipt %1$s recorded</string>
+    <string name="pay_cash">Cash</string>
+    <string name="pay_upi">UPI</string>
+    <string name="pay_card">Card</string>
+    <string name="stat_collected">Collected</string>
+    <string name="stat_dues">Pending dues</string>
+    <string name="stat_upi">UPI share</string>
+
 </resources>

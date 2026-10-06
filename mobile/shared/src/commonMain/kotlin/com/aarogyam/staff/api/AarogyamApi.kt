@@ -5,11 +5,14 @@ import com.aarogyam.staff.api.model.ClinicalFlags
 import com.aarogyam.staff.api.model.DentalChart
 import com.aarogyam.staff.api.model.DrugList
 import com.aarogyam.staff.api.model.DrugSearch
+import com.aarogyam.staff.api.model.InvoiceList
 import com.aarogyam.staff.api.model.IssueRequest
 import com.aarogyam.staff.api.model.Me
 import com.aarogyam.staff.api.model.NewChartEntries
+import com.aarogyam.staff.api.model.NewPayment
 import com.aarogyam.staff.api.model.Patient
 import com.aarogyam.staff.api.model.PatientList
+import com.aarogyam.staff.api.model.Payment
 import com.aarogyam.staff.api.model.PractitionerList
 import com.aarogyam.staff.api.model.Prescription
 import com.aarogyam.staff.api.model.PrescriptionList
@@ -18,11 +21,14 @@ import com.aarogyam.staff.api.model.RxValues
 import com.aarogyam.staff.api.model.SearchRequest
 import com.aarogyam.staff.api.model.Session
 import com.aarogyam.staff.api.model.ShareLink
+import com.aarogyam.staff.api.model.TodayMoney
 import com.aarogyam.staff.api.model.TodayResponse
 import com.aarogyam.staff.api.model.VisitList
 import com.sakalya.mobile.core.ApiError
+import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Outcome
 import com.sakalya.mobile.http.call
+import com.sakalya.mobile.http.idempotencyKey
 import io.ktor.client.HttpClient
 import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
@@ -51,6 +57,33 @@ class ClinicApi(
 
     /** `GET /api/v1/today` (`getToday`): everything the Today screen shows, in one request. */
     suspend fun today(): Outcome<TodayResponse, ApiError> = client.call { url("api/v1/today") }
+
+    /** `GET /api/v1/today/money` (`getTodayMoney`): the money tiles, in one request; needs `finance.view`. */
+    suspend fun todayMoney(): Outcome<TodayMoney, ApiError> = client.call { url("api/v1/today/money") }
+
+    /** `GET /api/v1/invoices?patient_id=` (`listInvoices`): the patient's bills, newest first, without lines. */
+    suspend fun invoices(patientId: String): Outcome<InvoiceList, ApiError> =
+        client.call {
+            url("api/v1/invoices")
+            parameter("patient_id", patientId)
+            parameter("limit", INVOICE_LIMIT)
+        }
+
+    /**
+     * `POST /api/v1/payments` (`recordPayment`): sends [key] as the `Idempotency-Key`, so a retry of
+     * the same submission returns the first payment (200) instead of recording another (201).
+     */
+    suspend fun recordPayment(
+        payment: NewPayment,
+        key: IdempotencyKey,
+    ): Outcome<Payment, ApiError> =
+        client.call {
+            method = HttpMethod.Post
+            url("api/v1/payments")
+            idempotencyKey(key)
+            contentType(ContentType.Application.Json)
+            setBody(payment)
+        }
 
     /**
      * `POST /api/v1/patients/search` (`searchPatients`): by number, phone or the start of a name.
@@ -180,5 +213,6 @@ class ClinicApi(
     private companion object {
         const val SEARCH_LIMIT = 20L
         const val DRUG_LIMIT = 20L
+        const val INVOICE_LIMIT = 50L
     }
 }

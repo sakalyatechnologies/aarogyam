@@ -87,7 +87,7 @@ class ClinicPickerStateHolderTest {
                 "$DEMO_APP/api/v1/me",
                 {
                     json(
-                        """{"clinics":[{"org_id":"o1","slug":"sunrise","name":"Sunrise Dental","role_key":"doctor","role_name":"Doctor"}]}""",
+                        """{"clinics":[{"org_id":"o1","slug":"sunrise","name":"Sunrise Dental","role_key":"doctor","role_name":"Doctor"}],"console_access":false}""",
                     )
                 },
             )
@@ -130,7 +130,7 @@ class ClinicPickerStateHolderTest {
             val backend = FakeBackend()
             backend.on("$DEMO_APP/api/v1/me", {
                 apiError(HttpStatusCode.NotImplemented, "internal")
-            }, { json("""{"clinics":[]}""") })
+            }, { json("""{"clinics":[],"console_access":false}""") })
             val graph = testGraph(backend, backgroundScope)
             signIn(graph, backend)
             // 501: a server error the client does not retry, so one answer is one attempt.

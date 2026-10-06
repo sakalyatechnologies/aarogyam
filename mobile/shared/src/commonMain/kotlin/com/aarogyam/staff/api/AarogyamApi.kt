@@ -19,6 +19,7 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.encodeURLPathPart
 
@@ -49,6 +50,7 @@ class ClinicApi(
         limit: Long = SEARCH_LIMIT,
     ): Outcome<PatientList, ApiError> =
         client.call {
+            method = HttpMethod.Post
             url("api/v1/patients/search")
             contentType(ContentType.Application.Json)
             setBody(SearchRequest(q = query, limit = limit))

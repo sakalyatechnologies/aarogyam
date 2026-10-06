@@ -47,6 +47,7 @@ import type {
   CreatedClinic,
   CreatedInvitation,
   DentalChart,
+  DentalTerm,
   DownloadLink,
   DrugList,
   DrugSearch,
@@ -70,6 +71,7 @@ import type {
   NewBooking,
   NewAddendum,
   NewChartEntries,
+  NewDentalTerm,
   NewPlan,
   NewClinic,
   NewClinicInvitation,
@@ -383,6 +385,8 @@ export interface ApiClient {
   getDentalChart(id: PatientId, tooth?: number, options?: RequestOptions): Promise<ApiResult<DentalChart>>;
   /** Clinic host: records chart findings. Needs `clinical.write`. */
   recordChartEntries(id: PatientId, input: NewChartEntries, options?: RequestOptions): Promise<ApiResult<DentalChart>>;
+  /** Clinic host: adds a procedure or material to the clinic's list; a label already there (or seeded) returns that term. Needs `clinical.write`. */
+  addDentalTerm(input: NewDentalTerm, options?: RequestOptions): Promise<ApiResult<DentalTerm>>;
 
   /** Clinic host: a patient's files, newest first. Needs `clinical.read`. */
   listAttachments(id: PatientId, options?: RequestOptions): Promise<ApiResult<AttachmentPage>>;

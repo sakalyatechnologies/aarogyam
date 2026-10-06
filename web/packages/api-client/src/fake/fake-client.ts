@@ -53,6 +53,7 @@ import {
   type FakeVisit,
   type Fixtures,
 } from "./fixtures.js";
+import { clinicTerms } from "./dental-terms.js";
 import { createMetrics } from "./metrics.js";
 import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photosOf, siteOf, wirePhoto, wireSettings, type FakePhoto } from "./website.js";
 import { createRandom, fakeUuid } from "./random.js";
@@ -1593,7 +1594,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               const wired = wireProcedure(p, state);
               return wired === undefined ? [] : [wired];
             });
-          const chart_entries = state.chartEntries.filter((c) => c.visit_id === id).map(wireChartEntry);
+          const chart_entries = state.chartEntries.filter((c) => c.visit_id === id).map((c) => wireChartEntry(c, state));
           const attachments = state.attachments.filter((a) => a.visit_id === id).map(wireAttachment);
           return reply({ visit: wiredVisit, notes, observations, procedures, chart_entries, attachments } satisfies C.VisitDetail);
         }),
@@ -2060,7 +2061,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               : state.chartEntries
                   .filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.tooth === tooth)
                   .sort((a, b) => b.effective_at.localeCompare(a.effective_at));
-          return reply({ current: current.map(wireChartEntry), history: history.map(wireChartEntry) } satisfies C.DentalChart);
+          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: history.map((c) => wireChartEntry(c, state)), terms: clinicTerms(state.dentalTerms, caller.clinic.id) } satisfies C.DentalChart);
         }),
 
       recordChartEntries: (id, input, opts) =>
@@ -2081,6 +2082,16 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             if (!findingParsed.success) {
               return invalid("finding", "unknown finding");
             }
+            const terms = clinicTerms(state.dentalTerms, caller.clinic.id);
+            for (const kind of ["procedure", "material"] as const) {
+              const wanted = entry[kind];
+              if (wanted != null && !terms.some((t) => t.kind === kind && t.id === wanted)) {
+                return invalid("entries", `unknown ${kind}`);
+              }
+            }
+            if (findingParsed.data === "sound" && (entry.procedure != null || entry.material != null)) {
+              return invalid("entries", "sound clears the tooth; leave the procedure and material out");
+            }
             const surface = entry.surface ?? null;
             const existing = state.chartEntries.find(
               (c) =>
@@ -2100,6 +2111,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               tooth: entry.tooth,
               surface: parseSurface(surface),
               finding: findingParsed.data,
+              procedure: entry.procedure ?? null,
+              material: entry.material ?? null,
               note: entry.note ?? null,
               status: "current",
               recorded_by: caller.membership.id,
@@ -2110,7 +2123,32 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             state.chartEntries.push(record);
           }
           const current = state.chartEntries.filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.status === "current");
-          return reply({ current: current.map(wireChartEntry), history: [] } satisfies C.DentalChart);
+          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: [], terms: clinicTerms(state.dentalTerms, caller.clinic.id) } satisfies C.DentalChart);
+        }),
+
+      addDentalTerm: (input, opts) =>
+        respond(S.dentalTerm, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const kind = S.dentalTermKind.safeParse(input.kind);
+          if (!kind.success) {
+            return invalid("kind", "must be procedure or material");
+          }
+          const label = input.label.split(/\s+/).filter((w) => w !== "").join(" ");
+          if (label.length < 1 || label.length > 80) {
+            return invalid("label", "label must be 1 to 80 characters");
+          }
+          const found = clinicTerms(state.dentalTerms, caller.clinic.id).find(
+            (t) => t.kind === kind.data && (t.id === label || t.label.toLowerCase() === label.toLowerCase()),
+          );
+          if (found !== undefined) {
+            return reply(found satisfies C.DentalTerm);
+          }
+          const term = { id: fakeUuid(random, clock()), clinic_id: caller.clinic.id, kind: kind.data, label };
+          (state.dentalTerms ??= []).push(term);
+          return reply({ id: term.id, kind: term.kind, label, own: true } satisfies C.DentalTerm);
         }),
 
       listAttachments: (id, opts) =>
@@ -5182,12 +5220,16 @@ function wireProcedure(p: FakeProcedure, state: Fixtures): C.Procedure | undefin
   };
 }
 
-function wireChartEntry(c: FakeChartEntry): C.ChartEntry {
+function wireChartEntry(c: FakeChartEntry, state: Fixtures): C.ChartEntry {
+  const terms = clinicTerms(state.dentalTerms, c.clinic_id);
+  const term = (id: string | null | undefined) => (id == null ? null : (terms.find((t) => t.id === id) ?? null));
   return {
     id: c.id,
     tooth: c.tooth,
     surface: c.surface ?? null,
     finding: c.finding,
+    procedure: term(c.procedure),
+    material: term(c.material),
     note: c.note ?? null,
     status: c.status,
     recorded_by: c.recorded_by ?? null,

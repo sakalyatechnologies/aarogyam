@@ -35,6 +35,7 @@ import {
   createdClinic,
   createdInvitation,
   dentalChart,
+  dentalTerm,
   devTokenResponse,
   downloadLink,
   drugList,
@@ -367,6 +368,7 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         body: input,
         signal: opts?.signal,
       }),
+    addDentalTerm: (input, opts) => call({ method: "POST", path: "/api/v1/dental-terms", schema: dentalTerm, body: input, signal: opts?.signal }),
 
     listAttachments: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/attachments`, schema: attachmentList, signal: opts?.signal }),

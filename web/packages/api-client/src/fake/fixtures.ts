@@ -322,6 +322,9 @@ export interface FakeChartEntry {
   tooth: number;
   surface?: C.ToothSurface | null;
   finding: C.ChartFinding;
+  /** Term ids: seeded or a FakeDentalTerm's. */
+  procedure?: string | null;
+  material?: string | null;
   note?: string | null;
   status: C.ChartEntryStatus;
   recorded_by?: string | null;
@@ -578,6 +581,8 @@ export interface Fixtures {
   observations: FakeObservation[];
   procedures: FakeProcedure[];
   chartEntries: FakeChartEntry[];
+  /** Procedures and materials clinics added, made on first use. */
+  dentalTerms?: import("./dental-terms.js").FakeDentalTerm[];
   plans: FakePlan[];
   attachments: FakeAttachment[];
   sessions: FakeSession[];
@@ -1010,6 +1015,8 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
             tooth: 46,
             surface: "D",
             finding: "filled",
+            procedure: "filling",
+            material: "composite",
             status: "current",
             recorded_by: sunriseDoctorMembership.id,
             visit_id: pastVisit.id,

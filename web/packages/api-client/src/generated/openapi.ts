@@ -306,6 +306,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dental-terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adds a procedure or material to the clinic's list ("Add new" in the chart's dropdowns). A
+         *     label matching a seeded term or one the clinic has (ignoring case) returns that term with
+         *     `200`; a new one answers `201`.
+         */
+        post: operations["addDentalTerm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dev/token": {
         parameters: {
             query?: never;
@@ -2896,8 +2917,10 @@ export interface components {
             finding: string;
             /** @description Identifier. */
             id: string;
+            material?: components["schemas"]["DentalTerm"] | null;
             /** @description The clinician's remark. */
             note?: string | null;
+            procedure?: components["schemas"]["DentalTerm"] | null;
             /** @description The member who recorded it. */
             recorded_by?: string | null;
             /** @description `current`, `superseded` or `entered_in_error`. */
@@ -3267,6 +3290,22 @@ export interface components {
             current: components["schemas"]["ChartEntry"][];
             /** @description Every entry of the requested tooth, newest first; empty unless `tooth` was given. */
             history: components["schemas"]["ChartEntry"][];
+            /**
+             * @description The procedures and materials to offer: the seeded vocabulary, then the clinic's own.
+             *     Filter it as the clinician types; it changes only when someone adds a term.
+             */
+            terms: components["schemas"]["DentalTerm"][];
+        };
+        /** @description A procedure or material: seeded (`zirconia`) or added by the clinic (a UUID id). */
+        DentalTerm: {
+            /** @description The seeded id, such as `zirconia`, or the clinic term's UUID. */
+            id: string;
+            /** @description `procedure` or `material`. */
+            kind: string;
+            /** @description What the clinician reads. */
+            label: string;
+            /** @description Added by the clinic rather than seeded. */
+            own: boolean;
         };
         /** @description Who to sign in as. */
         DevTokenRequest: {
@@ -4130,8 +4169,12 @@ export interface components {
         NewChartEntry: {
             /** @description `sound` (clears an earlier finding), `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`. */
             finding: string;
+            /** @description A material id from the chart's `terms`: seeded (`zirconia`) or the clinic's own. Not with `sound`. */
+            material?: string | null;
             /** @description A remark, up to 500 characters. */
             note?: string | null;
+            /** @description A procedure id from the chart's `terms`: seeded (`crown`) or the clinic's own. Not with `sound`. */
+            procedure?: string | null;
             /** @description `M`, `O`, `D`, `B` or `L`; leave out for the whole tooth (crown, missing, implant, root canal and bridge are whole-tooth only). */
             surface?: string | null;
             /**
@@ -4157,6 +4200,13 @@ export interface components {
             email: string;
             /** @description A role of the clinic, such as `doctor` or `front_desk`. */
             role_key: string;
+        };
+        /** @description A procedure or material to add to the clinic's list. */
+        NewDentalTerm: {
+            /** @description `procedure` or `material`. */
+            kind: string;
+            /** @description What the clinician reads, 1 to 80 characters. */
+            label: string;
         };
         /** @description Where the signed-in person is going. */
         NewHandoff: {
@@ -7293,6 +7343,67 @@ export interface operations {
             };
         };
     };
+    addDentalTerm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDentalTerm"];
+            };
+        };
+        responses: {
+            /** @description Already in the list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DentalTerm"];
+                };
+            };
+            /** @description Added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DentalTerm"];
+                };
+            };
+            /** @description An unknown list or a bad label */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The same label was added at the same moment */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     createDevToken: {
         parameters: {
             query?: never;
@@ -9684,7 +9795,7 @@ export interface operations {
                     "application/json": components["schemas"]["DentalChart"];
                 };
             };
-            /** @description A bad tooth, surface or finding, or a visit of another patient */
+            /** @description A bad tooth, surface, finding, procedure or material, or a visit of another patient */
             400: {
                 headers: {
                     [name: string]: unknown;

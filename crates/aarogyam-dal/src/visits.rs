@@ -4,6 +4,7 @@
 
 use sakalya_db::DbError;
 use sqlx::PgConnection;
+use sqlx::types::Json;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -550,4 +551,90 @@ pub async fn record_access(conn: &mut PgConnection, entry: &Access<'_>) -> Resul
     .execute(conn)
     .await?;
     Ok(())
+}
+
+/// An addendum as the note query returns it inside JSON.
+#[derive(Debug, serde::Deserialize)]
+struct AddendumJson {
+    id: Uuid,
+    note_id: Uuid,
+    author_id: Uuid,
+    body: String,
+    #[serde(with = "time::serde::rfc3339")]
+    created_at: OffsetDateTime,
+}
+
+/// A note with its addenda and the display names of everyone who wrote or signed on it.
+#[derive(Debug, Clone)]
+pub struct NoteBundle {
+    /// The note.
+    pub note: NoteRow,
+    /// Its addenda, oldest first.
+    pub addenda: Vec<AddendumRow>,
+    /// Display names by membership: the author and the addenda's authors.
+    pub names: Vec<(Uuid, String)>,
+}
+
+/// One note with its addenda and names, in a single statement and without a lock: the read a
+/// repeated request needs to answer from.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn get_note_bundle(
+    conn: &mut PgConnection,
+    id: Uuid,
+) -> Result<Option<NoteBundle>, DbError> {
+    let row = sqlx::query!(
+        r#"select n.id, n.encounter_id, n.patient_id, n.author_id, n.kind, n.body, n.source,
+                  n.status, n.signed_at, n.signed_by, n.conflicts_with_id, n.error_reason,
+                  n.error_at, n.created_at, n.updated_at,
+                  (select coalesce(jsonb_agg(jsonb_build_object(
+                              'id', a.id, 'note_id', a.note_id, 'author_id', a.author_id,
+                              'body', a.body, 'created_at', a.created_at)
+                              order by a.created_at, a.id), '[]'::jsonb)
+                   from aarogyam.note_addenda a where a.note_id = n.id
+                  ) as "addenda!: Json<Vec<AddendumJson>>",
+                  (select coalesce(jsonb_agg(jsonb_build_array(m.id, u.display_name)), '[]'::jsonb)
+                   from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
+                   where m.id = n.author_id
+                      or m.id in (select a.author_id from aarogyam.note_addenda a
+                                  where a.note_id = n.id)
+                  ) as "names!: Json<Vec<(Uuid, String)>>"
+           from aarogyam.clinical_notes n where n.id = $1"#,
+        id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row.map(|row| NoteBundle {
+        note: NoteRow {
+            id: row.id,
+            encounter_id: row.encounter_id,
+            patient_id: row.patient_id,
+            author_id: row.author_id,
+            kind: row.kind,
+            body: row.body,
+            source: row.source,
+            status: row.status,
+            signed_at: row.signed_at,
+            signed_by: row.signed_by,
+            conflicts_with_id: row.conflicts_with_id,
+            error_reason: row.error_reason,
+            error_at: row.error_at,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        },
+        addenda: row
+            .addenda
+            .0
+            .into_iter()
+            .map(|a| AddendumRow {
+                id: a.id,
+                note_id: a.note_id,
+                author_id: a.author_id,
+                body: a.body,
+                created_at: a.created_at,
+            })
+            .collect(),
+        names: row.names.0,
+    }))
 }

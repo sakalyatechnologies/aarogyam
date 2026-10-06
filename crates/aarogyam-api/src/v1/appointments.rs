@@ -1,5 +1,6 @@
 //! Appointments: the calendar, booking, moving, and status changes.
 
+use aarogyam_app::Moved;
 use aarogyam_app::appointments::{
     self as app, AppointmentView, CalendarQuery, ChangeAppointment, NewAppointment, Saved,
 };
@@ -18,7 +19,7 @@ use uuid::Uuid;
 use super::{parse_day, parse_id, parse_instant, rfc3339};
 use crate::AppState;
 use crate::extract::Require;
-use crate::failure::ApiFailure;
+use crate::failure::{ApiFailure, MoveRefused};
 
 /// A patient as the calendar and queue show them.
 #[derive(Debug, Serialize, ToSchema)]
@@ -428,7 +429,8 @@ pub struct StatusChanged {
 
 /// Moves an appointment along: booked → confirmed → arrived → in the chair → completed, or
 /// cancelled (with a reason) or no-show before arrival. Arriving issues the branch's next queue
-/// token for the clinic day.
+/// token for the clinic day. Asking for the status it already has changes nothing (no second
+/// history entry or token) and returns the appointment, so a retry after a lost answer is safe.
 #[utoipa::path(
     post,
     path = "/api/v1/appointments/{id}/status",
@@ -439,10 +441,11 @@ pub struct StatusChanged {
     security(("bearer" = [])),
     responses(
         (status = 200, body = StatusChanged),
-        (status = 400, description = "Unknown status, a move the table doesn't allow, or a cancel without a reason"),
+        (status = 400, description = "Unknown status, or a cancel without a reason"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks appointments.write"),
-        (status = 404, description = "No such appointment in this clinic")
+        (status = 404, description = "No such appointment in this clinic"),
+        (status = 409, body = MoveRefused, description = "A move the table doesn't allow; `current` is the appointment as it is")
     )
 )]
 pub(crate) async fn set_status(
@@ -451,7 +454,7 @@ pub(crate) async fn set_status(
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<StatusChange>,
 ) -> Result<Json<StatusChanged>, ApiFailure> {
-    let changed = app::set_status(
+    let outcome = app::set_status(
         state.db(),
         &request.actor,
         request.request_id,
@@ -461,14 +464,28 @@ pub(crate) async fn set_status(
         OffsetDateTime::now_utc(),
     )
     .await?;
-    tracing::info!(
-        event = Event::AppointmentStatusChanged.as_str(),
-        appointment_id = %changed.appointment.row.id,
-        status = %changed.appointment.row.status,
-        "appointment status changed"
-    );
-    Ok(Json(StatusChanged {
-        appointment: changed.appointment.into(),
-        queue_token_id: changed.token_id,
-    }))
+    match outcome {
+        Moved::Done(changed) => {
+            tracing::info!(
+                event = Event::AppointmentStatusChanged.as_str(),
+                appointment_id = %changed.appointment.row.id,
+                status = %changed.appointment.row.status,
+                "appointment status changed"
+            );
+            Ok(Json(changed.into()))
+        }
+        Moved::AlreadyDone(changed) => Ok(Json(changed.into())),
+        Moved::Refused { reason, current } => {
+            Err(ApiFailure::refused(reason, &StatusChanged::from(current)))
+        }
+    }
+}
+
+impl From<app::StatusChanged> for StatusChanged {
+    fn from(changed: app::StatusChanged) -> Self {
+        Self {
+            appointment: changed.appointment.into(),
+            queue_token_id: changed.token_id,
+        }
+    }
 }

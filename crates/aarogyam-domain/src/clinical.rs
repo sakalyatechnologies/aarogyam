@@ -402,6 +402,15 @@ pub struct NoteState {
     pub author: MembershipId,
 }
 
+/// What signing a note comes to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Signing {
+    /// The draft is signed now.
+    Sign,
+    /// Its author already signed it: repeating the request changes nothing.
+    AlreadySigned,
+}
+
 impl NoteState {
     /// Whether `actor` may edit the draft.
     ///
@@ -417,16 +426,20 @@ impl NoteState {
         Ok(())
     }
 
-    /// Whether `actor` may sign the note with `body`.
+    /// What signing the note with `body` comes to for `actor`. The author signing a note they
+    /// already signed is a repeat, not a refusal.
     ///
     /// # Errors
     /// The [`NoteRefusal`] that applies.
-    pub fn check_sign(self, actor: MembershipId, body: &NoteBody) -> Result<(), NoteRefusal> {
+    pub fn check_sign(self, actor: MembershipId, body: &NoteBody) -> Result<Signing, NoteRefusal> {
+        if self.status == NoteStatus::Signed && self.author == actor {
+            return Ok(Signing::AlreadySigned);
+        }
         self.check_edit(actor)?;
         if body.is_empty() {
             return Err(NoteRefusal::Empty);
         }
-        Ok(())
+        Ok(Signing::Sign)
     }
 
     /// Whether an addendum may be added.
@@ -488,7 +501,7 @@ mod tests {
         };
         assert_eq!(draft.check_edit(author), Ok(()));
         assert_eq!(draft.check_edit(other), Err(NoteRefusal::NotAuthor));
-        assert_eq!(draft.check_sign(author, &body), Ok(()));
+        assert_eq!(draft.check_sign(author, &body), Ok(Signing::Sign));
         assert_eq!(
             draft.check_sign(author, &NoteBody::default()),
             Err(NoteRefusal::Empty)
@@ -499,7 +512,9 @@ mod tests {
             author,
         };
         assert_eq!(signed.check_edit(author), Err(NoteRefusal::NotDraft));
-        assert_eq!(signed.check_sign(author, &body), Err(NoteRefusal::NotDraft));
+        // The author repeating the signature is fine; anyone else meets a note that isn't a draft.
+        assert_eq!(signed.check_sign(author, &body), Ok(Signing::AlreadySigned));
+        assert_eq!(signed.check_sign(other, &body), Err(NoteRefusal::NotDraft));
         assert_eq!(signed.check_addendum(), Ok(()));
         assert_eq!(signed.check_entered_in_error(other), Ok(()));
         assert_eq!(
@@ -514,6 +529,7 @@ mod tests {
             voided.check_entered_in_error(author),
             Err(NoteRefusal::AlreadyInError)
         );
+        assert_eq!(voided.check_sign(author, &body), Err(NoteRefusal::NotDraft));
     }
 
     #[test]

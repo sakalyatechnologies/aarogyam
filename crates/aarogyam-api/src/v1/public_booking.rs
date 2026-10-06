@@ -244,7 +244,7 @@ async fn book(
     body: NewBooking,
 ) -> Result<Booked, ApiFailure> {
     let email = signed_in.claims.email().ok_or_else(|| {
-        ApiFailure(ApiError::forbidden(
+        ApiFailure::Error(ApiError::forbidden(
             "email_required",
             "Verify your email address to book.",
         ))

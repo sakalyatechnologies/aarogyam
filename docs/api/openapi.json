@@ -192,7 +192,7 @@
         "tags": [
           "appointments"
         ],
-        "summary": "Moves an appointment along: booked → confirmed → arrived → in the chair → completed, or\ncancelled (with a reason) or no-show before arrival. Arriving issues the branch's next queue\ntoken for the clinic day.",
+        "summary": "Moves an appointment along: booked → confirmed → arrived → in the chair → completed, or\ncancelled (with a reason) or no-show before arrival. Arriving issues the branch's next queue\ntoken for the clinic day. Asking for the status it already has changes nothing (no second\nhistory entry or token) and returns the appointment, so a retry after a lost answer is safe.",
         "operationId": "setAppointmentStatus",
         "parameters": [
           {
@@ -226,7 +226,7 @@
             }
           },
           "400": {
-            "description": "Unknown status, a move the table doesn't allow, or a cancel without a reason"
+            "description": "Unknown status, or a cancel without a reason"
           },
           "401": {
             "description": "Not signed in"
@@ -236,6 +236,16 @@
           },
           "404": {
             "description": "No such appointment in this clinic"
+          },
+          "409": {
+            "description": "A move the table doesn't allow; `current` is the appointment as it is",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveRefused"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2204,7 +2214,7 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Signs a draft. Only its author may; the note never changes afterwards.",
+        "summary": "Signs a draft. Only its author may; the note never changes afterwards. Signing a note you\nalready signed changes nothing and returns it again, so a retry after a lost answer is safe.",
         "operationId": "signNote",
         "parameters": [
           {
@@ -2237,7 +2247,14 @@
             "description": "No such note in this clinic"
           },
           "409": {
-            "description": "Not a draft, or every section is empty"
+            "description": "The note can't be signed (it is entered in error, someone else signed it, or every section is empty); `current` is the note as it is",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveRefused"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -5176,7 +5193,7 @@
         "tags": [
           "queue"
         ],
-        "summary": "Moves a token along. A token with an appointment moves the appointment too.",
+        "summary": "Moves a token along. A token with an appointment moves the appointment too. Asking for the\nstatus the token already has changes nothing and returns it, so a retry after a lost answer\nis safe.",
         "operationId": "setQueueTokenStatus",
         "parameters": [
           {
@@ -5210,7 +5227,7 @@
             }
           },
           "400": {
-            "description": "Unknown status or a move the table doesn't allow"
+            "description": "Unknown status"
           },
           "401": {
             "description": "Not signed in"
@@ -5220,6 +5237,16 @@
           },
           "404": {
             "description": "No such token in this clinic"
+          },
+          "409": {
+            "description": "A move the table doesn't allow; `current` is the token as it is",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveRefused"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -9853,6 +9880,24 @@
           }
         }
       },
+      "ErrorDetail": {
+        "type": "object",
+        "description": "What went wrong, as every error answer sends it.",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "A stable code to branch on, such as `conflict`."
+          },
+          "message": {
+            "type": "string",
+            "description": "A message for people, without patient data."
+          }
+        }
+      },
       "ExpireBody": {
         "type": "object",
         "description": "A write-off.",
@@ -11349,6 +11394,24 @@
             "type": "integer",
             "format": "int64",
             "description": "Share of all billed, in basis points."
+          }
+        }
+      },
+      "MoveRefused": {
+        "type": "object",
+        "description": "The `409` answer to a move the record's state doesn't allow (an appointment that is already\ncancelled can't arrive): the usual error and the record as it is, so the client can show it.",
+        "required": [
+          "error",
+          "current"
+        ],
+        "properties": {
+          "current": {
+            "type": "object",
+            "description": "The record as it is, in the shape the move returns when it succeeds."
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail",
+            "description": "The refusal."
           }
         }
       },

@@ -309,11 +309,11 @@ pub(crate) async fn image_content(
     )
     .await
     .map_err(|refusal| match refusal {
-        ImageRefusal::Expired => ApiFailure(ApiError::forbidden(
+        ImageRefusal::Expired => ApiFailure::Error(ApiError::forbidden(
             "link_expired",
             "This link has expired; load the page again.",
         )),
-        ImageRefusal::NotFound => ApiFailure(not_found()),
+        ImageRefusal::NotFound => ApiFailure::Error(not_found()),
         ImageRefusal::Failed(error) => error.into(),
     })?;
     let mut response = image.bytes.into_response();

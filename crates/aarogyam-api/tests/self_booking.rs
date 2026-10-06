@@ -391,7 +391,7 @@ async fn a_verified_patient_requests_and_the_front_desk_decides() {
         .await;
     assert_eq!(
         status,
-        StatusCode::BAD_REQUEST,
+        StatusCode::CONFLICT,
         "a request must be answered first"
     );
     let (status, answered) = app

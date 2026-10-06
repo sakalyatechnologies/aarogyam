@@ -267,7 +267,7 @@ impl AppState {
         self.inner
             .files
             .as_ref()
-            .ok_or_else(|| ApiFailure(ApiError::internal("file storage is not configured")))
+            .ok_or_else(|| ApiFailure::Error(ApiError::internal("file storage is not configured")))
     }
 
     pub(crate) fn notifier(&self) -> &Notifier {
@@ -314,7 +314,7 @@ impl AppState {
         let claims = self.claims(headers).await?;
         let session = claims.session_id().ok_or_else(ApiError::unauthenticated)?;
         if sessions::is_revoked(self.inner.db.pool(), claims.subject().uuid(), session).await? {
-            return Err(ApiFailure(ApiError::unauthenticated()));
+            return Err(ApiFailure::Error(ApiError::unauthenticated()));
         }
         Ok(claims)
     }

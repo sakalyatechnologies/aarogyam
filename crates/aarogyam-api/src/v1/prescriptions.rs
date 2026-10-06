@@ -442,7 +442,7 @@ pub(crate) async fn last(
     let view = rows
         .into_iter()
         .next()
-        .ok_or_else(|| ApiFailure(ApiError::not_found("not_found", "Not found.")))?;
+        .ok_or_else(|| ApiFailure::Error(ApiError::not_found("not_found", "Not found.")))?;
     Ok(Json(view.into()))
 }
 

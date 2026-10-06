@@ -7,7 +7,7 @@ use aarogyam_dal::{patients, visits};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::clinical::{
     ClinicalError, EncounterStatus, NoteBody, NoteKind, NoteRefusal, NoteSource, NoteState,
-    NoteStatus, clinical_text, error_reason, optional_text,
+    NoteStatus, Signing, clinical_text, error_reason, optional_text,
 };
 use aarogyam_domain::ids::{ClinicalNoteId, EncounterId, MembershipId, NoteAddendumId, PatientId};
 use aarogyam_domain::permission::Permission;
@@ -16,6 +16,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::error::AppError;
+use crate::moved::Moved;
 use crate::scope::{STAFF, staff_scope as scope};
 
 /// Most visits a list returns.
@@ -569,27 +570,55 @@ pub async fn edit_note(
     .await
 }
 
-/// Signs a draft. Only its author may; from then on the note never changes.
+/// Signs a draft. Only its author may; from then on the note never changes. The author signing
+/// it again changes nothing and gets the signed note back; a note that can't be signed (entered
+/// in error, empty) is refused with the note as it is.
 ///
 /// # Errors
 /// [`AppError::NotFound`] when the note isn't in this clinic; [`AppError::Forbidden`] for
-/// someone else's note; [`AppError::Conflict`] when not a draft or empty.
+/// someone else's draft.
 pub async fn sign_note(
     db: &Db,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     note_id: ClinicalNoteId,
     now: OffsetDateTime,
-) -> Result<NoteView, AppError> {
+) -> Result<Moved<NoteView>, AppError> {
     actor.require(Permission::ClinicalWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
+        // A retry of a signature that landed is answered from one read, without a lock.
+        if let Some(bundle) = visits::get_note_bundle(tx.conn(), note_id.uuid()).await?
+            && NoteStatus::parse(&bundle.note.status).is_ok_and(|s| s == NoteStatus::Signed)
+            && bundle.note.author_id == actor.membership_id.uuid()
+        {
+            let names = Names(bundle.names.into_iter().collect());
+            let addenda = bundle
+                .addenda
+                .into_iter()
+                .map(|a| AddendumView {
+                    id: NoteAddendumId::from_uuid(a.id),
+                    author: names.member(a.author_id),
+                    body: a.body,
+                    created_at: a.created_at,
+                })
+                .collect();
+            return Ok(Moved::AlreadyDone(note_view(bundle.note, addenda, &names)?));
+        }
         let (row, state) = note_for_change(tx, note_id).await?;
         let body: NoteBody = serde_json::from_value(row.body.clone()).unwrap_or_default();
-        state
-            .check_sign(actor.membership_id, &body)
-            .map_err(refused)?;
-        let row = visits::sign_note(tx.conn(), row.id, actor.membership_id.uuid(), now).await?;
-        one_note(tx, row).await
+        match state.check_sign(actor.membership_id, &body) {
+            Ok(Signing::Sign) => {
+                let row =
+                    visits::sign_note(tx.conn(), row.id, actor.membership_id.uuid(), now).await?;
+                Ok(Moved::Done(one_note(tx, row).await?))
+            }
+            Ok(Signing::AlreadySigned) => Ok(Moved::AlreadyDone(one_note(tx, row).await?)),
+            Err(NoteRefusal::NotAuthor) => Err(refused(NoteRefusal::NotAuthor)),
+            Err(refusal) => Ok(Moved::Refused {
+                reason: refusal.message().to_owned(),
+                current: one_note(tx, row).await?,
+            }),
+        }
     })
     .await
 }

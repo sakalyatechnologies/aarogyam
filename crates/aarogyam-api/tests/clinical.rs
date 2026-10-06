@@ -191,8 +191,15 @@ async fn notes_are_drafted_signed_frozen_and_amended() {
         status_of(&app, Method::PATCH, ALPHA, &note_path, &owner, Some(edit)).await,
         StatusCode::CONFLICT
     );
+    // Signing again is a repeat for the author (the same note comes back) and a refusal for
+    // anyone else (tests/transitions.rs).
+    let (status, repeated) = app
+        .send(Method::POST, ALPHA, &sign_path, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{repeated}");
+    assert_eq!(repeated, signed);
     assert_eq!(
-        status_of(&app, Method::POST, ALPHA, &sign_path, &owner, None).await,
+        status_of(&app, Method::POST, ALPHA, &sign_path, &doctor, None).await,
         StatusCode::CONFLICT
     );
     let alpha = app.clinic_id("alpha").await;

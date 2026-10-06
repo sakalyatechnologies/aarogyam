@@ -22,7 +22,7 @@ The worker starts at the task's tier and moves up one after two failed attempts.
 | Tier | Work | Default model (`AGENT_MODEL_<n>` overrides) |
 |---|---|---|
 | 1 | Docs, lint, renames, simple tests | `deepseek/deepseek-chat` |
-| 2 | Bug fixes, endpoints and screens that follow an existing pattern | `qwen/qwen3-coder-next` |
+| 2 | Bug fixes, endpoints and screens that follow an existing pattern | `deepseek/deepseek-v4-pro` (qwen3-coder-next failed 4 of 4 on the first task) |
 | 3 | Multi-file features | `deepseek/deepseek-v4-pro` |
 | Claude | Architecture, security, scaffolding, review, failed tasks | Claude Code |
 

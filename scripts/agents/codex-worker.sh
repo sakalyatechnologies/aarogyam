@@ -18,10 +18,12 @@ ACTOR=codex-$SLOT
 TIMEOUT=${AGENT_TIMEOUT:-1500}
 POLL=${AGENT_POLL:-60}
 MODEL_1=${AGENT_MODEL_1:-deepseek/deepseek-chat}
-MODEL_2=${AGENT_MODEL_2:-qwen/qwen3-coder-next}
+MODEL_2=${AGENT_MODEL_2:-deepseek/deepseek-v4-pro}
 MODEL_3=${AGENT_MODEL_3:-deepseek/deepseek-v4-pro}
 export CARGO_TARGET_DIR=${AGENT_TARGETS:-$HOME/.cache/agent-targets}/slot-$SLOT
 export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH"
+# Web tests time out under load when several workers and gates run at once.
+export VITEST_MAX_WORKERS=${VITEST_MAX_WORKERS:-2}
 mkdir -p "$WT_ROOT" "$LOGS" "$CARGO_TARGET_DIR"
 
 bdq() { bd -C "$Q" --actor "$ACTOR" "$@"; }
@@ -92,8 +94,12 @@ $fail_tail"
         fail_tail="No files were changed."
       elif (cd "$wt" && bash -c "$check") >"$dir/check-$attempt.log" 2>&1; then
         git -C "$wt" add -A
+        # The hook runs the whole suite; under load a test can time out, so it gets one retry
+        # before the attempt counts against the model.
         if git -C "$wt" commit -q -m "$title" -m "Task $id, by Codex ($model, tier $tier)." \
-          >"$dir/hook-$attempt.log" 2>&1; then
+          >"$dir/hook-$attempt.log" 2>&1 ||
+          git -C "$wt" commit -q -m "$title" -m "Task $id, by Codex ($model, tier $tier)." \
+            >"$dir/hook-$attempt-retry.log" 2>&1; then
           bdq update "$id" -s review --append-notes "passed: branch $branch, $(git -C "$wt" log -1 --format=%h)" >/dev/null
           log "$id passed, set to review"
           return

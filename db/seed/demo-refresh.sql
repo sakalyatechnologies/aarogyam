@@ -4,7 +4,7 @@
 -- all of them, so order, durations and weekdays are unchanged. Never deletes rows; run it as the owner.
 -- Use scripts/demo-refresh.sh (dry run by default); directly:
 --   psql "$OWNER_URL" -v apply=1 [-v exact=1] -f db/seed/demo-refresh.sql
--- Shift = whole weeks (multiple of 7) from the latest appointment day to today, so the weekday of every
+-- Shift = whole weeks (multiple of 7) from the latest past appointment day to today, so the weekday of every
 -- appointment stays; -v exact=1 shifts by exactly that many days instead (latest day lands on today).
 -- Never more than keeps every past event in the past. A shift of 0 does nothing, so it is safe daily.
 \set ON_ERROR_STOP 1
@@ -27,8 +27,10 @@ create temp table _demo_orgs on commit drop as
 -- Days from the latest appointment (clinic-local date) to today, capped so that nothing already
 -- happened (bills, receipts, arrivals, visits) lands in the future.
 select coalesce((with anchor as (
+  -- The latest appointment already past is the data's "present"; one booked weeks ahead (a
+  -- follow-up, or one made while testing) must not make stale data look current.
   select (select max((starts_at at time zone 'Asia/Kolkata')::date) from aarogyam.appointments
-          where org_id in (select id from _demo_orgs)) as latest_day,
+          where org_id in (select id from _demo_orgs) and starts_at <= now()) as latest_day,
          (select max(t) from (
             select max(issued_at) t from aarogyam.invoices where org_id in (select id from _demo_orgs)
             union all select max(received_at) from aarogyam.payments where org_id in (select id from _demo_orgs)

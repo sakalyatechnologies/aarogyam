@@ -1,12 +1,12 @@
-import { ClipboardList, Copy, ExternalLink, Globe, UserPlus, UsersRound } from "lucide-react";
+import { ClipboardList, Copy, ExternalLink, Globe, MailPlus, UserPlus, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "react-router";
 
-import { clinicId as clinicIdSchema, apiErrorOf, type ClinicId, type ClinicInvited } from "@aarogyam/api-client";
+import { clinicId as clinicIdSchema, apiErrorOf, type ClinicId, type ClinicInvited, type ResentOwnerInvitation } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatNumber, useDocumentTitle } from "@aarogyam/app-kit";
 import { Avatar, Button, Card, DataTable, Dialog, EmptyState, Field, PageHeader, Select, Skeleton, TextInput, useToast, type DataTableColumn, type Tone } from "@sakalya/ui";
 
-import { useClinicDetail, useInviteToClinic } from "../../api.js";
+import { useClinicDetail, useInviteToClinic, useResendOwnerInvitation } from "../../api.js";
 import { StatusChip } from "../../ui/status-chip.js";
 import { Tile } from "../../ui/tile.js";
 import { ADDRESS_STATUS, AddressStatusPill } from "./address-status.js";
@@ -27,6 +27,7 @@ export function ClinicDetailPage() {
   const id = parsed.success ? parsed.data : undefined;
   const detail = useClinicDetail(id);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [resendOpen, setResendOpen] = useState(false);
 
   useDocumentTitle(detail.data?.name ?? "Clinic", "Sakalya Console");
 
@@ -96,14 +97,27 @@ export function ClinicDetailPage() {
         title={clinic.name}
         subtitle={clinic.hosts[0] ?? clinic.slug}
         end={
-          <Button
-            icon={<UserPlus aria-hidden="true" className="size-4" />}
-            onClick={() => {
-              setInviteOpen(true);
-            }}
-          >
-            Invite doctor or staff
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {clinic.members.some((m) => m.role_key === "owner" && m.status === "active") ? null : (
+              <Button
+                variant="secondary"
+                icon={<MailPlus aria-hidden="true" className="size-4" />}
+                onClick={() => {
+                  setResendOpen(true);
+                }}
+              >
+                Resend invitation
+              </Button>
+            )}
+            <Button
+              icon={<UserPlus aria-hidden="true" className="size-4" />}
+              onClick={() => {
+                setInviteOpen(true);
+              }}
+            >
+              Invite doctor or staff
+            </Button>
+          </div>
         }
       />
       <div className="mb-4 grid grid-cols-2 gap-4 xl:grid-cols-4">
@@ -195,6 +209,7 @@ export function ClinicDetailPage() {
         </Card>
       </div>
       <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} clinicId={id} />
+      <ResendDialog open={resendOpen} onOpenChange={setResendOpen} clinicId={id} />
     </>
   );
 }
@@ -285,6 +300,81 @@ function InviteDialog({ open, onOpenChange, clinicId: id }: { open: boolean; onO
       ) : (
         <Field label="Invitation link">
           <TextInput readOnly value={created.invite_link} className="font-mono" onFocus={(event) => { event.currentTarget.select(); }} />
+        </Field>
+      )}
+    </Dialog>
+  );
+}
+
+function ResendDialog({ open, onOpenChange, clinicId: id }: { open: boolean; onOpenChange: (open: boolean) => void; clinicId: ClinicId }) {
+  const resend = useResendOwnerInvitation(id);
+  const toast = useToast();
+  const [error, setError] = useState<string>();
+  const [sent, setSent] = useState<ResentOwnerInvitation>();
+
+  const close = () => {
+    onOpenChange(false);
+    setError(undefined);
+    setSent(undefined);
+  };
+
+  const submit = () => {
+    setError(undefined);
+    resend.mutate(undefined, {
+      onSuccess: setSent,
+      onError: (thrown) => {
+        setError(apiErrorOf(thrown)?.message ?? "Couldn't send the invitation. Please try again.");
+      },
+    });
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) close();
+      }}
+      title={sent === undefined ? "Resend the owner's invitation" : "Invitation sent"}
+      description={
+        sent === undefined
+          ? "The owner gets a new email with a new link. The link sent before stops working."
+          : `It was also emailed to ${sent.email}. The earlier link no longer works.`
+      }
+      dismissOnOutsidePress={sent === undefined}
+      footer={
+        sent === undefined ? (
+          <>
+            <Button variant="secondary" onClick={close}>
+              Cancel
+            </Button>
+            <Button onClick={submit} disabled={resend.isPending}>
+              {resend.isPending ? "Sending…" : "Resend invitation"}
+            </Button>
+          </>
+        ) : (
+          <Button
+            icon={<Copy aria-hidden="true" className="size-4" />}
+            onClick={() => {
+              void navigator.clipboard.writeText(sent.invite_link).then(
+                () => toast.show({ title: "Invitation link copied", tone: "success" }),
+                () => toast.show({ title: "Couldn't copy; select the link and copy it", tone: "warning" }),
+              );
+            }}
+          >
+            Copy link
+          </Button>
+        )
+      }
+    >
+      {sent === undefined ? (
+        error === undefined ? null : (
+          <p role="alert" className="text-sm font-medium text-danger-text">
+            {error}
+          </p>
+        )
+      ) : (
+        <Field label="Invitation link">
+          <TextInput readOnly value={sent.invite_link} className="font-mono" onFocus={(event) => { event.currentTarget.select(); }} />
         </Field>
       )}
     </Dialog>

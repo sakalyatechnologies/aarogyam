@@ -207,7 +207,10 @@ export interface paths {
         /** Lists every clinic with member and patient counts. */
         get: operations["listClinics"];
         put?: never;
-        /** Creates a clinic and invites its owner. Owner and onboarding staff only. */
+        /**
+         * Creates a clinic and invites its owner: the invitation is emailed and its secret returned once
+         *     for the console to show. Owner and onboarding staff only.
+         */
         post: operations["createClinic"];
         delete?: never;
         options?: never;
@@ -246,6 +249,26 @@ export interface paths {
          *     and emails it.
          */
         post: operations["inviteClinicStaff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/clinics/{id}/owner-invitation/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sends a clinic's owner invitation again, for an owner who hasn't joined: a new link replaces
+         *     the old one and is emailed.
+         */
+        post: operations["resendOwnerInvitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5241,6 +5264,20 @@ export interface components {
             /** @description A short reason, for the console only. */
             reason?: string | null;
         };
+        /**
+         * @description An owner invitation sent again. `invite_link` is shown once; it was also emailed, and the
+         *     previous link no longer works.
+         */
+        ResentOwnerInvitation: {
+            /** @description The owner's address. */
+            email: string;
+            /** @description When it expires (RFC 3339). */
+            expires_at: string;
+            /** @description The invitation. */
+            id: string;
+            /** @description The invitation link, with its new one-time secret. */
+            invite_link: string;
+        };
         /** @description A role. */
         Role: {
             /** @description What it is for. */
@@ -7096,6 +7133,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Supabase could not create the owner's sign-in account */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     getClinic: {
@@ -7174,6 +7218,56 @@ export interface operations {
             };
             /** @description No such clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Supabase could not create the sign-in account */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resendOwnerInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clinic */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResentOwnerInvitation"];
+                };
+            };
+            /** @description Not allowed to onboard clinics */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such clinic, or it has no owner invitation */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The owner has already joined */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

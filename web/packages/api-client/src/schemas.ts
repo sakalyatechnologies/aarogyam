@@ -1405,6 +1405,14 @@ export const clinicInvited = z.object({
 }) satisfies z.ZodType<C.ClinicInvited>;
 export type ClinicInvited = z.output<typeof clinicInvited>;
 
+export const resentOwnerInvitation = z.object({
+  id: invitationId,
+  email: z.string(),
+  invite_link: z.string().min(1),
+  expires_at: timestamp,
+}) satisfies z.ZodType<C.ResentOwnerInvitation>;
+export type ResentOwnerInvitation = z.output<typeof resentOwnerInvitation>;
+
 // Billing (M5) --------------------------------------------------------------------------------
 
 export const drugId = z.string().min(1).brand<"DrugId">();

@@ -24,6 +24,7 @@ import {
   cancelled,
   clinicDetail,
   clinicInvited,
+  resentOwnerInvitation,
   clinicSettings,
   letterhead,
   letterheadDocument,
@@ -454,6 +455,13 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         path: `/api/v1/console/clinics/${encodeURIComponent(id)}/invitations`,
         schema: clinicInvited,
         body: input,
+        signal: opts?.signal,
+      }),
+    resendOwnerInvitation: (id, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/console/clinics/${encodeURIComponent(id)}/owner-invitation/resend`,
+        schema: resentOwnerInvitation,
         signal: opts?.signal,
       }),
 

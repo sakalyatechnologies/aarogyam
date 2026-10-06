@@ -2,16 +2,41 @@
 
 use aarogyam_dal::console as dal;
 use aarogyam_dal::lookups::PlatformAccess;
+use aarogyam_domain::ids::ClinicId;
+use aarogyam_domain::outbox::MessageKind;
 use aarogyam_domain::patient::{Email, NumberPrefix};
 use sakalya_db::Db;
 use sakalya_types::Slug;
+use serde_json::json;
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::accounts::SignInAccounts;
+use crate::clock::clinic_offset;
 use crate::error::AppError;
 
 /// How long an owner's invitation stays valid.
 pub const INVITE_VALID_FOR: Duration = Duration::days(7);
+
+/// The time zone new clinics start in.
+pub(crate) const DEFAULT_TIMEZONE: &str = "Asia/Kolkata";
+
+/// The values of a clinic owner's invitation email. The token and the invitation id are not
+/// here: the token travels as the message's secret and the database adds the id.
+pub(crate) fn owner_invite_payload(
+    clinic_name: &str,
+    portal_host: &str,
+    expires_at: OffsetDateTime,
+    timezone: &str,
+) -> serde_json::Value {
+    let day = expires_at.to_offset(clinic_offset(timezone)).date();
+    json!({
+        "clinic_name": clinic_name,
+        "role_name": "Owner",
+        "portal_host": portal_host,
+        "expires_on": format!("{} {} {}", day.day(), day.month(), day.year()),
+    })
+}
 
 /// Subdomains the platform keeps for itself (mirrors the check in the database).
 const RESERVED: [&str; 18] = [
@@ -92,16 +117,18 @@ pub(crate) fn slug_for(name: &str, slug: Option<&str>) -> Result<Slug, AppError>
     Ok(slug)
 }
 
-/// Creates a clinic with an owner invitation. Its portal host comes from `portal_host_template`
-/// with `{slug}` replaced by the clinic's own slug.
+/// Creates a clinic with an owner invitation and queues the invitation email, in one
+/// transaction; the owner's sign-in account is made sure of first. Its portal host comes from
+/// `portal_host_template` with `{slug}` replaced by the clinic's own slug.
 ///
 /// # Errors
 /// [`AppError::Denied`]-style refusal is the caller's job (platform role); this returns
-/// [`AppError::Invalid`] for bad input, [`AppError::Conflict`] for a taken subdomain, and
-/// [`AppError::Db`] on database failures.
+/// [`AppError::Invalid`] for bad input, [`AppError::Conflict`] for a taken subdomain,
+/// [`AppError::Accounts`] when Supabase fails, and [`AppError::Db`] on database failures.
 pub async fn create_clinic(
     db: &Db,
     staff: &PlatformAccess,
+    accounts: Option<&dyn SignInAccounts>,
     input: CreateClinic,
     portal_host_template: &str,
     now: OffsetDateTime,
@@ -118,8 +145,12 @@ pub async fn create_clinic(
         .map_err(|error| AppError::invalid("owner_email", error))?;
     let prefix = NumberPrefix::parse(&number_prefix(&name)).map_err(AppError::patient)?;
     let portal_host = portal_host(portal_host_template, slug.as_str());
+    if let Some(accounts) = accounts {
+        accounts.ensure_user(&owner_email).await?;
+    }
     let (token, token_hash) = crate::tokens::new_token()?;
     let expires_at = now + INVITE_VALID_FOR;
+    let payload = owner_invite_payload(&name, &portal_host, expires_at, DEFAULT_TIMEZONE);
     let created = dal::create_clinic(
         db.pool(),
         &dal::NewClinic {
@@ -132,6 +163,12 @@ pub async fn create_clinic(
             invite_token_hash: &token_hash,
             invite_expires_at: expires_at,
             created_by: staff.user_id.uuid(),
+            message: &dal::InviteMessage {
+                id: Uuid::now_v7(),
+                event: MessageKind::StaffInvited.as_str(),
+                payload: &payload,
+                secret: &token,
+            },
         },
     )
     .await
@@ -147,6 +184,85 @@ pub async fn create_clinic(
         invite_token: token,
         invite_expires_at: expires_at,
     })
+}
+
+/// An owner invitation sent again.
+#[derive(Debug, Clone)]
+pub struct ResentInvitation {
+    /// The invitation, whose token was replaced.
+    pub invitation_id: Uuid,
+    /// The owner's address.
+    pub email: String,
+    /// The clinic's portal host.
+    pub portal_host: String,
+    /// The new secret for the invitation link; the previous one no longer works.
+    pub invite_token: String,
+    /// When it expires.
+    pub invite_expires_at: OffsetDateTime,
+}
+
+/// Sends a clinic's owner invitation again while the owner hasn't joined: a new token replaces
+/// the old one and the email is queued, in one transaction.
+///
+/// # Errors
+/// [`AppError::NotFound`] for an unknown clinic or one with no owner invitation;
+/// [`AppError::Conflict`] when the owner already joined; [`AppError::Accounts`] when Supabase
+/// fails; [`AppError::Db`] on database failures.
+pub async fn resend_owner_invitation(
+    db: &Db,
+    staff: &PlatformAccess,
+    accounts: Option<&dyn SignInAccounts>,
+    clinic_id: ClinicId,
+    now: OffsetDateTime,
+) -> Result<ResentInvitation, AppError> {
+    let clinic = dal::clinic(db.pool(), clinic_id.uuid())
+        .await?
+        .ok_or(AppError::NotFound("clinic"))?;
+    let portal_host = clinic
+        .hosts
+        .first()
+        .cloned()
+        .ok_or(AppError::Conflict("the clinic has no portal address yet"))?;
+    let (token, token_hash) = crate::tokens::new_token()?;
+    let expires_at = now + INVITE_VALID_FOR;
+    let payload = owner_invite_payload(&clinic.name, &portal_host, expires_at, &clinic.timezone);
+    let outcome = dal::resend_owner_invitation(
+        db.pool(),
+        &dal::ResendOwnerInvitation {
+            org_id: clinic_id.uuid(),
+            token_hash: &token_hash,
+            expires_at,
+            resent_by: staff.user_id.uuid(),
+            message: &dal::InviteMessage {
+                id: Uuid::now_v7(),
+                event: MessageKind::StaffInvited.as_str(),
+                payload: &payload,
+                secret: &token,
+            },
+        },
+    )
+    .await?;
+    match outcome {
+        dal::Resent::Resent {
+            invitation_id,
+            email,
+        } => {
+            if let Some(accounts) = accounts {
+                let address = Email::parse(&email)
+                    .map_err(|error| AppError::invalid("owner_email", error))?;
+                accounts.ensure_user(&address).await?;
+            }
+            Ok(ResentInvitation {
+                invitation_id,
+                email,
+                portal_host,
+                invite_token: token,
+                invite_expires_at: expires_at,
+            })
+        }
+        dal::Resent::Accepted => Err(AppError::Conflict("the owner has already joined")),
+        dal::Resent::None => Err(AppError::NotFound("owner invitation")),
+    }
 }
 
 /// The longest suggested slug: what the console's address field accepts.

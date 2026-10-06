@@ -74,6 +74,16 @@ export function useInviteToClinic(id: ClinicId | undefined) {
   });
 }
 
+/** Sends a clinic's owner invitation again and refreshes its detail. */
+export function useResendOwnerInvitation(id: ClinicId | undefined) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => (id === undefined ? Promise.reject(new Error("no clinic")) : unwrap(api.resendOwnerInvitation(id))),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["clinic", id] }),
+  });
+}
+
 export function useApplications(status?: ApplicationStatus) {
   const api = useApi();
   return useQuery({

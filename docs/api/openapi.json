@@ -642,7 +642,7 @@
         "tags": [
           "console"
         ],
-        "summary": "Creates a clinic and invites its owner. Owner and onboarding staff only.",
+        "summary": "Creates a clinic and invites its owner: the invitation is emailed and its secret returned once\nfor the console to show. Owner and onboarding staff only.",
         "operationId": "createClinic",
         "requestBody": {
           "content": {
@@ -672,6 +672,9 @@
           },
           "409": {
             "description": "The subdomain is taken"
+          },
+          "503": {
+            "description": "Supabase could not create the owner's sign-in account"
           }
         },
         "security": [
@@ -769,6 +772,54 @@
           },
           "404": {
             "description": "No such clinic"
+          },
+          "503": {
+            "description": "Supabase could not create the sign-in account"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/console/clinics/{id}/owner-invitation/resend": {
+      "post": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Sends a clinic's owner invitation again, for an owner who hasn't joined: a new link replaces\nthe old one and is emailed.",
+        "operationId": "resendOwnerInvitation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The clinic",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResentOwnerInvitation"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed to onboard clinics"
+          },
+          "404": {
+            "description": "No such clinic, or it has no owner invitation"
+          },
+          "409": {
+            "description": "The owner has already joined"
           },
           "503": {
             "description": "Supabase could not create the sign-in account"
@@ -15224,6 +15275,34 @@
               "null"
             ],
             "description": "A short reason, for the console only."
+          }
+        }
+      },
+      "ResentOwnerInvitation": {
+        "type": "object",
+        "description": "An owner invitation sent again. `invite_link` is shown once; it was also emailed, and the\nprevious link no longer works.",
+        "required": [
+          "id",
+          "email",
+          "invite_link",
+          "expires_at"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "The owner's address."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When it expires (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The invitation."
+          },
+          "invite_link": {
+            "type": "string",
+            "description": "The invitation link, with its new one-time secret."
           }
         }
       },

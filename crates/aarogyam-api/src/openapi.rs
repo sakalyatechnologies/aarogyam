@@ -130,6 +130,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::quality::quality,
         crate::v1::onboarding::clinic,
         crate::v1::onboarding::invite,
+        crate::v1::onboarding::resend_owner_invitation,
         crate::v1::onboarding::applications,
         crate::v1::onboarding::approve,
         crate::v1::onboarding::reject,

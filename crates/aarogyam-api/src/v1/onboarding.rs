@@ -475,3 +475,61 @@ pub(crate) async fn invite(
         }),
     ))
 }
+
+/// An owner invitation sent again. `invite_link` is shown once; it was also emailed, and the
+/// previous link no longer works.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ResentOwnerInvitation {
+    /// The invitation.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// The owner's address.
+    pub email: String,
+    /// The invitation link, with its new one-time secret.
+    pub invite_link: String,
+    /// When it expires (RFC 3339).
+    pub expires_at: String,
+}
+
+/// Sends a clinic's owner invitation again, for an owner who hasn't joined: a new link replaces
+/// the old one and is emailed.
+#[utoipa::path(
+    post,
+    path = "/api/v1/console/clinics/{id}/owner-invitation/resend",
+    operation_id = "resendOwnerInvitation",
+    tag = "console",
+    params(("id" = String, Path, description = "The clinic")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = ResentOwnerInvitation),
+        (status = 403, description = "Not allowed to onboard clinics"),
+        (status = 404, description = "No such clinic, or it has no owner invitation"),
+        (status = 409, description = "The owner has already joined"),
+        (status = 503, description = "Supabase could not create the sign-in account")
+    )
+)]
+pub(crate) async fn resend_owner_invitation(
+    State(state): State<AppState>,
+    request: PlatformRequest,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Json<ResentOwnerInvitation>, ApiFailure> {
+    require_onboarding(&request)?;
+    let sent = aarogyam_app::console::resend_owner_invitation(
+        state.db(),
+        &request.staff,
+        state.accounts(),
+        ClinicId::from_uuid(id),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    tracing::info!(clinic_id = %id, invitation_id = %sent.invitation_id, "owner invitation sent again");
+    Ok(Json(ResentOwnerInvitation {
+        id: sent.invitation_id,
+        invite_link: state
+            .notifier()
+            .links()
+            .invite(&sent.portal_host, &sent.invite_token),
+        email: sent.email,
+        expires_at: rfc3339(sent.invite_expires_at),
+    }))
+}

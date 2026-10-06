@@ -4,7 +4,7 @@ Where the work stands and exactly what to do next. Update this file at the end o
 
 ## Status at 4 Oct 2026, 13:30 PDT (read this first)
 
-**Built and on `main` (not pushed):** M2–M5 backend (front desk, visits, prescriptions, billing), onboarding (registration → console approval → owner invitation email), portal screens for Today, patients, calendar and booking, queue, visit and dental chart, billing and collections, prescriptions with print, QR and PIN share; landing page and registration; console Applications, Clinic detail and Invite. Operator commands `aarogyam admin grant-platform | add-member` and `aarogyam outbox drain [--every N]`. The pre-commit hook runs the Rust gate and, for web changes, `pnpm check`.
+**Built and on `main` (not pushed):** M2–M5 backend (front desk, visits, prescriptions, billing), onboarding (registration → console approval → owner invitation email), portal screens for Today, patients, calendar and booking, queue, visit and dental chart, billing and collections, prescriptions with print, QR and PIN share; landing page and registration; console Applications, Clinic detail and Invite. Operator commands `aarogyam platform grant | revoke | list`, `aarogyam admin add-member` and `aarogyam outbox drain [--every N]`. The pre-commit hook runs the Rust gate and, for web changes, `pnpm check`.
 
 **Demo (running on the founder's Mac; synthetic data only):**
 - Database: Supabase (all migrations, seeded with Sunrise and Lotus). Local development keeps its own `aarogyam_dev`.
@@ -61,7 +61,7 @@ The walking skeleton runs end to end locally: Postgres (migrated as a Supabase-s
 - Project on the free plan in Mumbai, Postgres 17.11. Data API off, sign-ups off, email OTP template set. The founder is added as a user.
 - `.env.supabase` (git-ignored) holds the session-pooler owner URL, project URL and publishable key. Connect with `sslmode=verify-full&sslrootcert=config/supabase-ca.crt` (Supabase's public root CA, committed).
 - All 17 migrations applied there as Supabase's non-superuser `postgres`; the schema lint passes and `anon`/`authenticated` hold no grants. Data stays local; Supabase is used for sign-in next.
-- Still to do: set `aarogyam_api`'s password there; bootstrap the founder's Supabase user as platform owner in the local database with `aarogyam admin grant-platform` (README). The local API accepts Supabase tokens alongside dev tokens (`ARO_AUTH__MODE=supabase`, `auth.dev_tokens`).
+- Still to do: set `aarogyam_api`'s password there; bootstrap the founder's Supabase user as platform owner in the local database with `aarogyam platform grant` (README). The local API accepts Supabase tokens alongside dev tokens (`ARO_AUTH__MODE=supabase`, `auth.dev_tokens`).
 
 ## Next steps, in order
 

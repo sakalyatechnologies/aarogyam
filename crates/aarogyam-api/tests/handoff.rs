@@ -297,8 +297,8 @@ async fn me_says_who_may_open_the_console() {
         json!({ "clinics": [], "console_access": false })
     );
 
-    // Staff who also belong to a clinic get both, so the site can offer the console first.
-    sqlx::query(
+    // Staff can't also belong to a clinic: the database refuses, so /me never mixes the two.
+    let joined = sqlx::query(
         "insert into aarogyam.memberships (org_id, user_id, role_id, status)
          select o.id, u.id, r.id, 'active' from aarogyam.organizations o
          join aarogyam.roles r on r.org_id = o.id and r.key = 'owner'
@@ -306,10 +306,22 @@ async fn me_says_who_may_open_the_console() {
     )
     .bind(STAFF)
     .execute(&app.owner)
+    .await;
+    assert!(joined.is_err());
+    assert_eq!(me(&app, STAFF).await["clinics"], json!([]));
+
+    // Clinic members can't be made staff, and the last owner can't be deactivated.
+    sqlx::query(
+        "insert into aarogyam.platform_users (user_id, role)
+         select id, 'owner' from aarogyam.users where auth_uid = $1",
+    )
+    .bind(ALPHA_OWNER)
+    .execute(&app.owner)
     .await
-    .unwrap();
-    let both = me(&app, STAFF).await;
-    assert_eq!(both["console_access"], true);
-    assert_eq!(both["clinics"][0]["slug"], "beta");
+    .unwrap_err();
+    sqlx::query("update aarogyam.platform_users set active = false")
+        .execute(&app.owner)
+        .await
+        .unwrap_err();
     app.finish().await;
 }

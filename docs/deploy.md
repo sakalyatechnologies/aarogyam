@@ -126,6 +126,21 @@ API's compute (the founder's Mac). No Google Cloud spend in this path.
 
 ---
 
+## Super admins
+
+Sakalya's console staff (`aarogyam.platform_users`) are separate people from clinic users: someone with active platform access can't hold a clinic membership or accept a clinic invitation, and granting access to a clinic member is refused. Support work inside a clinic goes through time-limited support grants only. The last active owner can't be revoked. Changes are audited.
+
+Moving the console from `ketankrishnapatil@gmail.com` to a dedicated admin address (the new address must not belong to any clinic):
+
+1. Sign in once on the console with the new address, or skip this: `grant` creates the sign-in account and user record if the person hasn't signed in yet.
+2. Grant owner (owner connection, from `.env.supabase`):
+   `set -a; . ./.env.supabase; set +a; ./target/debug/aarogyam platform grant sakalyatechnologies@gmail.com --role owner`
+3. Check, then remove the old account:
+   `./target/debug/aarogyam platform list` (one log line per person)
+   `./target/debug/aarogyam platform revoke ketankrishnapatil@gmail.com`
+
+`/me` reports `console_access: true` while the person has an active `platform_users` row, so the new address gets the console and the revoked one loses it on its next request. If the old address also holds a clinic membership, it keeps the clinic and loses only the console. Roles: `owner`, `support`, `onboarding`, `analyst`; run `grant` again to change one.
+
 ## Public website (Cloudflare Pages)
 
 The marketing site (`web/apps/website`, built in Lovable, kept here) is a static build served by

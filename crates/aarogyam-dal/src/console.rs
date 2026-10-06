@@ -244,20 +244,55 @@ pub async fn clinic_invitations(
     Ok(rows)
 }
 
+/// Why a platform-staff change was refused.
+#[derive(Debug, thiserror::Error)]
+pub enum PlatformError {
+    /// The person holds an active clinic membership; staff accounts are separate from clinic accounts.
+    #[error(
+        "this person holds an active clinic membership; platform access needs an account with no clinic membership"
+    )]
+    ClinicMember,
+    /// The change would leave the console with no active owner.
+    #[error("refusing to remove the last active platform owner; grant another owner first")]
+    LastOwner,
+    /// Nobody with that email address is active platform staff.
+    #[error("no active platform staff with that email address")]
+    NotStaff,
+    /// The database failed.
+    #[error(transparent)]
+    Db(#[from] DbError),
+}
+
+/// Sorts a database error into the refusals the separation triggers raise
+/// (`db/migrations/0172_platform_separation.sql`).
+fn refusal(error: sqlx::Error) -> PlatformError {
+    match error
+        .as_database_error()
+        .and_then(sqlx::error::DatabaseError::code)
+        .as_deref()
+    {
+        Some("AP001") => PlatformError::ClinicMember,
+        Some("AP002") => PlatformError::LastOwner,
+        _ => PlatformError::Db(error.into()),
+    }
+}
+
 /// Makes the person with `auth_uid` active Sakalya staff with `role`, creating their user
-/// record if needed. Over the owner connection only (`aarogyam admin grant-platform`): the API
-/// role can't write these tables.
+/// record if needed. Over the owner connection only (`aarogyam platform grant`): the API
+/// role can't write these tables. The change is audited by the table's trigger.
 ///
 /// # Errors
-/// [`DbError`] on a database failure.
+/// [`PlatformError::ClinicMember`] when they hold an active clinic membership;
+/// [`PlatformError::LastOwner`] when this would demote the last owner; [`PlatformError::Db`]
+/// on a database failure.
 pub async fn grant_platform(
     owner: &PgPool,
     auth_uid: Uuid,
     email: &str,
     display_name: &str,
     role: &str,
-) -> Result<Uuid, DbError> {
-    let user_id = sqlx::query_scalar!(
+) -> Result<Uuid, PlatformError> {
+    sqlx::query_scalar!(
         r#"with person as (
              insert into aarogyam.users as u (auth_uid, email, display_name)
              values ($1, $2, $3)
@@ -274,8 +309,58 @@ pub async fn grant_platform(
         role
     )
     .fetch_one(owner)
+    .await
+    .map_err(refusal)
+}
+
+/// Ends the platform access of the active staff member with `email`; their user record stays.
+///
+/// # Errors
+/// [`PlatformError::NotStaff`] when nobody active has that email;
+/// [`PlatformError::LastOwner`] when they are the last active owner; [`PlatformError::Db`]
+/// on a database failure.
+pub async fn revoke_platform(owner: &PgPool, email: &str) -> Result<Uuid, PlatformError> {
+    sqlx::query_scalar!(
+        r#"update aarogyam.platform_users p set active = false
+           from aarogyam.users u
+           where u.id = p.user_id and u.email = lower($1) and p.active
+           returning p.user_id"#,
+        email
+    )
+    .fetch_optional(owner)
+    .await
+    .map_err(refusal)?
+    .ok_or(PlatformError::NotStaff)
+}
+
+/// A platform staff member, for `aarogyam platform list`.
+#[derive(Debug, Clone)]
+pub struct PlatformStaff {
+    /// Their sign-in email address.
+    pub email: Option<String>,
+    /// Their name.
+    pub display_name: String,
+    /// `owner`, `support`, `onboarding` or `analyst`.
+    pub role: String,
+    /// Whether they can use the console now.
+    pub active: bool,
+}
+
+/// All platform staff, active first.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn list_platform(owner: &PgPool) -> Result<Vec<PlatformStaff>, DbError> {
+    let rows = sqlx::query_as!(
+        PlatformStaff,
+        r#"select u.email, u.display_name, p.role, p.active
+           from aarogyam.platform_users p
+           join aarogyam.users u on u.id = p.user_id
+           order by p.active desc, p.role, u.email"#
+    )
+    .fetch_all(owner)
     .await?;
-    Ok(user_id)
+    Ok(rows)
 }
 
 /// Makes the person with `auth_uid` an active member of the clinic `slug` with the role

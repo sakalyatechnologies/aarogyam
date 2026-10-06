@@ -16,7 +16,7 @@ import {
   type VisitId,
 } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDateTime, useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, Dialog, Field, PageHeader, Select, Skeleton, TextArea, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, PageHeader, Select, TextArea, TextInput, useToast } from "@sakalya/ui";
 import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
@@ -38,6 +38,7 @@ import { RecordingPlayer } from "./voice/recording-player.js";
 import type { FinishedRecording } from "./voice/use-voice-recorder.js";
 import { VoiceRecorder } from "./voice/voice-recorder.js";
 import { insertAt } from "./voice/dictation.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 const OBSERVATION_KINDS: readonly { value: ObservationKind; label: string; unit: string }[] = [
   { value: "bp_systolic", label: "BP systolic", unit: "mmHg" },
@@ -67,11 +68,7 @@ export function VisitPage() {
     return <NotFoundPage title="We couldn't find that visit" />;
   }
   if (visit.isPending) {
-    return (
-      <div role="status" aria-label="Loading the visit">
-        <Skeleton shape="block" />
-      </div>
-    );
+    return <SkeletonRows count={4} tall label="Loading the visit" />;
   }
   if (visit.isError) {
     return <ApiErrorNotice title="Couldn't open this visit" error={visit.error} onRetry={() => void visit.refetch()} />;

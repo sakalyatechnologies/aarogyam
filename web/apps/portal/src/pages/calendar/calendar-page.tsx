@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router";
 
 import { apiErrorOf, type AppointmentStatus } from "@aarogyam/api-client";
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
-import { EmptyState, Select, Skeleton } from "@sakalya/ui";
+import { EmptyState, Select } from "@sakalya/ui";
 
 import { DatePicker } from "../../components/mk/date-picker.js";
 import { MkCard } from "../../components/mk/index.js";
@@ -19,6 +19,7 @@ import { AppointmentDialog } from "./appointment-dialog.js";
 import { MonthView, type MonthItem } from "./month-view.js";
 import { TimeGrid, type GridColumn, type GridEvent } from "./time-grid.js";
 import { BookingDialog } from "./booking-dialog.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 type View = "day" | "week" | "month";
 type Lane = "chair" | "doctor";
@@ -266,7 +267,7 @@ export function CalendarPage() {
       </div>
       <MkCard title={view === "week" ? "Week view" : view === "month" ? "Month view" : "Day view"} action={<Legend />}>
         {appointments.isPending ? (
-          <Skeleton shape="block" />
+          <SkeletonRows count={8} tall label="Loading the schedule" />
         ) : appointments.isError ? (
           apiErrorOf(appointments.error)?.status === 404 ? (
             <EmptyState title="Appointments aren't connected yet" description="The schedule will appear here once the API serves appointments." />

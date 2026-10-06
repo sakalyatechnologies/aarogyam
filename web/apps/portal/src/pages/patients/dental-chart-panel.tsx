@@ -1,6 +1,5 @@
 import type { PatientId, ToothSurface } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
-import { Skeleton } from "@sakalya/ui";
 import { MkCard } from "../../components/mk/index.js";
 import { useState } from "react";
 
@@ -9,6 +8,7 @@ import { useDentalChart, useVisits } from "../../queries.js";
 import { Odontogram } from "../visits/odontogram/odontogram.js";
 import { RecordFindingDialog } from "../visits/record-finding-dialog.js";
 import { usePlans } from "../treatment-plans/queries.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 /** The odontogram: every tooth's current findings by surface, planned and done treatment, and (with clinical.write) the record dialog. */
 export function DentalChartPanel({ patientId }: { patientId: PatientId }) {
@@ -18,7 +18,7 @@ export function DentalChartPanel({ patientId }: { patientId: PatientId }) {
   const visits = useVisits(patientId);
   const [recording, setRecording] = useState<{ tooth: number; surface: ToothSurface | null } | undefined>(undefined);
   if (chart.isPending) {
-    return <Skeleton shape="block" />;
+    return <SkeletonRows count={2} tall label="Loading the dental chart" />;
   }
   if (chart.isError) {
     return <ApiErrorNotice title="Couldn't load the dental chart" error={chart.error} onRetry={() => void chart.refetch()} />;

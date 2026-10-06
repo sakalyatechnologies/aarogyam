@@ -3,12 +3,13 @@ import { useState } from "react";
 
 import { apiErrorOf, type Allergy, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate } from "@aarogyam/app-kit";
-import { Button, Dialog, Field, Select, Skeleton, TextArea, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, Select, TextArea, TextInput, useToast } from "@sakalya/ui";
 import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { useAddAllergy, useAddCondition, useClinicalFlags } from "../../queries.js";
 import { useEditAllergy } from "./queries.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 const SEVERITIES = [
   { value: "mild", label: "Mild" },
@@ -25,7 +26,7 @@ export function ClinicalFlagsPanel({ patientId }: { patientId: PatientId }) {
   const [editing, setEditing] = useState<Allergy | undefined>(undefined);
 
   if (flags.isPending) {
-    return <Skeleton shape="block" />;
+    return <SkeletonRows count={3} label="Loading clinical flags" />;
   }
   if (flags.isError) {
     return <ApiErrorNotice title="Couldn't load clinical flags" error={flags.error} onRetry={() => void flags.refetch()} />;

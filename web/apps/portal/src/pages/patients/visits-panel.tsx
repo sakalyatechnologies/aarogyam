@@ -4,11 +4,12 @@ import { useNavigate } from "react-router";
 
 import { apiErrorOf, type PatientId, type TimelineEventKind } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDateTime } from "@aarogyam/app-kit";
-import { Button, Skeleton, useToast } from "@sakalya/ui";
+import { Button, useToast } from "@sakalya/ui";
 import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { useStartVisit, useTimeline, useVisits } from "../../queries.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 const EVENT_ICON: Readonly<Record<TimelineEventKind, ReactNode>> = {
   visit: <Stethoscope aria-hidden="true" className="size-4" />,
@@ -55,7 +56,7 @@ export function VisitsPanel({ patientId }: { patientId: PatientId }) {
         </div>
       ) : null}
       {timeline.isPending ? (
-        <Skeleton shape="block" />
+        <SkeletonRows label="Loading visits" />
       ) : timeline.isError ? (
         <ApiErrorNotice title="Couldn't load the timeline" error={timeline.error} onRetry={() => void timeline.refetch()} />
       ) : timeline.data.items.length === 0 ? (

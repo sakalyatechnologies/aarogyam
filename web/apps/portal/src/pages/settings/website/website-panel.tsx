@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { apiErrorOf, type SitePhoto, type WebsiteChanges, type WebsiteContent, type WebsiteSettings } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
 import type { EditApi, PhotoKind } from "@aarogyam/site-kit";
-import { Button, Pill, Skeleton, Tabs, useToast, type TabItem } from "@sakalya/ui";
+import { Button, Pill, Tabs, useToast, type TabItem } from "@sakalya/ui";
 
 import { ContentTab } from "./content-tab.js";
 import { DesignTab, type Design } from "./design-tab.js";
@@ -14,12 +14,13 @@ import { PicturesTab } from "./pictures-tab.js";
 import { SitePreview } from "./preview.js";
 import { useDeletePhoto, useDescribePhoto, useUpdateWebsite, useUploadPhoto, useWebsite } from "./queries.js";
 import "./website.css";
+import { SkeletonRows } from "../../../components/skeleton-rows.js";
 
 /** Settings, Website: choose a design, edit the content in a live preview, and publish. */
 export function WebsitePanel() {
   const website = useWebsite();
   if (website.isPending) {
-    return <Skeleton shape="block" />;
+    return <SkeletonRows count={4} label="Loading the website" />;
   }
   if (website.isError) {
     return <ApiErrorNotice title="Couldn't load the website settings" error={website.error} onRetry={() => void website.refetch()} />;

@@ -3,12 +3,13 @@ import { useState } from "react";
 
 import { apiErrorOf, type Patient, type QueueToken } from "@aarogyam/api-client";
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
-import { Avatar, Button, Card, Dialog, EmptyState, Field, PageHeader, Pill, Select, Skeleton, useToast } from "@sakalya/ui";
+import { Avatar, Button, Card, Dialog, EmptyState, Field, PageHeader, Pill, Select, useToast } from "@sakalya/ui";
 
 import { PatientPicker } from "../../components/patient-picker.js";
 import { useClinic } from "../../clinic.js";
 import { ageSex, patientPath } from "../../lib/patients.js";
 import { useAddWalkIn, usePractitioners, useQueue, useSetQueueStatus } from "../../queries.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 /** Today's waiting room: wait times, walk-ins and moving tokens along. Built for a tablet at the counter. */
 export function QueuePage() {
@@ -44,7 +45,7 @@ export function QueuePage() {
         }
       />
       {queue.isPending ? (
-        <Skeleton shape="block" />
+        <SkeletonRows count={5} tall label="Loading the queue" />
       ) : queue.isError ? (
         apiErrorOf(queue.error)?.status === 404 ? (
           <EmptyState title="The queue isn't connected yet" description="Tokens appear here once the API serves the queue." />

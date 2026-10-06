@@ -3,10 +3,11 @@ import { useState } from "react";
 
 import { apiErrorOf, type PatientId, type Plan, type VisitId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatRupees } from "@aarogyam/app-kit";
-import { Button, Dialog, Field, Skeleton, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, TextInput, useToast } from "@sakalya/ui";
 import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
 import { useAcceptPlan, useCreatePlan, usePlans, useSetPlanItemStatus } from "./queries.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 function planTone(status: string): "neutral" | "success" | "warning" | "danger" {
   return status === "completed" ? "success" : status === "declined" ? "danger" : status === "proposed" ? "neutral" : "warning";
@@ -34,7 +35,7 @@ export function TreatmentPlansCard({ patientId, visitId, canWrite }: { patientId
       }
     >
       {plans.isPending ? (
-        <Skeleton shape="block" />
+        <SkeletonRows count={2} tall label="Loading treatment plans" />
       ) : plans.isError ? (
         <ApiErrorNotice title="Couldn't load treatment plans" error={plans.error} onRetry={() => void plans.refetch()} />
       ) : plans.data.items.length === 0 ? (

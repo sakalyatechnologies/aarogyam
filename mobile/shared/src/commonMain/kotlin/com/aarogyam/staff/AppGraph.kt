@@ -1,5 +1,6 @@
 package com.aarogyam.staff
 
+import com.aarogyam.staff.billing.BillingStateHolder
 import com.aarogyam.staff.calendar.CalendarStateHolder
 import com.aarogyam.staff.chart.ChartStateHolder
 import com.aarogyam.staff.clinic.ClinicContext
@@ -109,6 +110,12 @@ class AppGraph private constructor(
         allergies: List<AllergyView>,
         scope: CoroutineScope,
     ): RxSheetStateHolder = RxSheetStateHolder(clinic, patientId, allergies, scope, logger("aarogyam.rxsheet"))
+
+    fun billing(
+        clinic: ClinicContext,
+        patientId: String,
+        scope: CoroutineScope,
+    ): BillingStateHolder = BillingStateHolder(clinic, patientId, scope, logger("aarogyam.billing"))
 
     fun calendar(
         clinic: ClinicContext,

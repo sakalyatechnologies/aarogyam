@@ -92,6 +92,13 @@ private struct TodayContent: View {
                 SkStatTile(value: "\(view.counts.waiting)", label: String(localized: "today.stat.waiting"))
                 SkStatTile(value: "\(view.counts.done)", label: String(localized: "today.stat.done"))
             }
+            if let money = view.money {
+                HStack(spacing: SkSpacing.m) {
+                    SkStatTile(value: ClinicFormat.rupees(paise: money.collectedPaise), label: String(localized: "today.stat.collected"))
+                    SkStatTile(value: ClinicFormat.rupees(paise: money.pendingDuesPaise), label: String(localized: "today.stat.dues"))
+                    SkStatTile(value: money.upiShareText, label: String(localized: "today.stat.upi"))
+                }
+            }
             Text("today.schedule").skTextStyle(SkTypeScale.label).foregroundStyle(p.textMuted.color)
                 .textCase(.uppercase)
                 .padding(.horizontal, SkSpacing.xs)

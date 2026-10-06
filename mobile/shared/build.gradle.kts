@@ -67,6 +67,15 @@ val apiModels =
         "PrintData",
         "IssueRequest",
         "ShareLink",
+        "InvoiceList",
+        "Invoice",
+        "InvoiceLine",
+        "NewPayment",
+        "Payment",
+        "Allocation",
+        "TodayMoney",
+        "PendingItem",
+        "MixItem",
     )
 val generatedApi = layout.buildDirectory.dir("generated/openapi")
 

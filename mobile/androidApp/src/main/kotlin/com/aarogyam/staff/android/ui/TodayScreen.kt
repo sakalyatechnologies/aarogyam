@@ -127,6 +127,26 @@ private fun TodayContent(state: TodayState.Loaded) {
                 SkStatTile(view.counts.done.toString(), stringResource(R.string.stat_done), Modifier.weight(1f))
             }
         }
+        view.money?.let { money ->
+            item {
+                Row(
+                    Modifier.padding(horizontal = Spacing.ML.dp, vertical = Spacing.M.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.M.dp),
+                ) {
+                    SkStatTile(
+                        money.collectedPaise.rupees(),
+                        stringResource(R.string.stat_collected),
+                        Modifier.weight(1f),
+                    )
+                    SkStatTile(money.pendingDuesPaise.rupees(), stringResource(R.string.stat_dues), Modifier.weight(1f))
+                    SkStatTile(
+                        "${money.upiShareBps / BPS_PER_PERCENT}%",
+                        stringResource(R.string.stat_upi),
+                        Modifier.weight(1f),
+                    )
+                }
+            }
+        }
         val hero = view.hero
         if (hero != null) {
             item {
@@ -170,3 +190,5 @@ private fun Schedule(items: List<ScheduleItem>) {
 
 private fun detail(item: ScheduleItem): String =
     listOfNotNull(item.reason, item.room, item.patientNumber).joinToString(" · ")
+
+private const val BPS_PER_PERCENT = 100

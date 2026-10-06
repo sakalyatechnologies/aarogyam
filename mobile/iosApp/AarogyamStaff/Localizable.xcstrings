@@ -68,6 +68,182 @@
         }
       }
     },
+    "bill.issued": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Issued"
+          }
+        }
+      }
+    },
+    "bill.no_number": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bill"
+          }
+        }
+      }
+    },
+    "bill.paid": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paid"
+          }
+        }
+      }
+    },
+    "bill.part_paid": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part paid"
+          }
+        }
+      }
+    },
+    "bill.total": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total %@"
+          }
+        }
+      }
+    },
+    "bill.unknown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bill"
+          }
+        }
+      }
+    },
+    "bill.void": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Void"
+          }
+        }
+      }
+    },
+    "billing.amount": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amount (₹)"
+          }
+        }
+      }
+    },
+    "billing.amount.invalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter an amount more than zero."
+          }
+        }
+      }
+    },
+    "billing.balance": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Balance: %@"
+          }
+        }
+      }
+    },
+    "billing.none": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No bills yet."
+          }
+        }
+      }
+    },
+    "billing.payment_recorded": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receipt %@ recorded"
+          }
+        }
+      }
+    },
+    "billing.record": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record payment"
+          }
+        }
+      }
+    },
+    "billing.recording": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording…"
+          }
+        }
+      }
+    },
+    "billing.reference": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reference (optional)"
+          }
+        }
+      }
+    },
+    "billing.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Billing"
+          }
+        }
+      }
+    },
     "calendar.by_chair": {
       "extractionState": "manual",
       "localizations": {
@@ -647,6 +823,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Patients"
+          }
+        }
+      }
+    },
+    "pay.card": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Card"
+          }
+        }
+      }
+    },
+    "pay.cash": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cash"
+          }
+        }
+      }
+    },
+    "pay.upi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UPI"
           }
         }
       }
@@ -1378,6 +1587,17 @@
         }
       }
     },
+    "tab.billing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Billing"
+          }
+        }
+      }
+    },
     "tab.calendar": {
       "extractionState": "manual",
       "localizations": {
@@ -1389,6 +1609,17 @@
         }
       }
     },
+    "tab.overview": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Overview"
+          }
+        }
+      }
+    },
     "tab.patients": {
       "extractionState": "manual",
       "localizations": {
@@ -1396,6 +1627,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Patients"
+          }
+        }
+      }
+    },
+    "tab.rx": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rx"
+          }
+        }
+      }
+    },
+    "tab.soon": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coming soon."
           }
         }
       }
@@ -1499,6 +1752,17 @@
         }
       }
     },
+    "today.stat.collected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collected"
+          }
+        }
+      }
+    },
     "today.stat.done": {
       "extractionState": "manual",
       "localizations": {
@@ -1506,6 +1770,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Done"
+          }
+        }
+      }
+    },
+    "today.stat.dues": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending dues"
+          }
+        }
+      }
+    },
+    "today.stat.upi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UPI share"
           }
         }
       }

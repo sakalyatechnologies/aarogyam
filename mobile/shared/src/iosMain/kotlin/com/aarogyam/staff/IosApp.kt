@@ -1,5 +1,6 @@
 package com.aarogyam.staff
 
+import com.aarogyam.staff.billing.BillingStateHolder
 import com.aarogyam.staff.calendar.CalendarStateHolder
 import com.aarogyam.staff.chart.ChartStateHolder
 import com.aarogyam.staff.clinic.ClinicBranding
@@ -92,6 +93,13 @@ fun AppGraph.rxSheet(
     allergies: List<AllergyView>,
     screen: ScreenScope,
 ): RxSheetStateHolder = rxSheet(clinic, patientId, allergies, screen.scope)
+
+/** The Billing tab's state holder for [patientId], living as long as [screen]. */
+fun AppGraph.billing(
+    clinic: ClinicContext,
+    patientId: String,
+    screen: ScreenScope,
+): BillingStateHolder = billing(clinic, patientId, screen.scope)
 
 /** The Calendar state holder for [clinic], living as long as [screen]. */
 fun AppGraph.calendar(

@@ -168,4 +168,45 @@ class TodayStateHolderTest {
                 graph.today(clinic, this).state.first { it is TodayState.Failed },
             )
         }
+
+    private val money =
+        """{"date":"2026-10-05","collected_paise":4820000,"payments_today":9,"invoiced_paise":5100000,"invoices_today":8,
+           "collected_this_month_paise":90000000,"upi_share_bps":6800,"pending_dues_paise":1250000,"pending_dues_patients":4,
+           "revenue_mix":[],"pending":[]}"""
+
+    @Test
+    fun finance_view_adds_the_money_tiles_from_one_extra_request() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/today", { json(todayBody()) })
+            backend.on("$SUNRISE/api/v1/today/money", { json(money) })
+            val (graph, clinic) = open(backend, this, backgroundScope, listOf("appointments.read", "finance.view"))
+            val view = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view
+            assertEquals(1, backend.count("$SUNRISE/api/v1/today/money"))
+            assertEquals(MoneyView(4820000, 9, 1250000, 4, 6800), view.money)
+        }
+
+    @Test
+    fun without_finance_view_money_is_never_requested() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/today", { json(todayBody()) })
+            backend.on("$SUNRISE/api/v1/today/money", { json(money) })
+            val (graph, clinic) = open(backend, this, backgroundScope)
+            val view = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view
+            assertEquals(0, backend.count("$SUNRISE/api/v1/today/money"))
+            assertEquals(null, view.money)
+        }
+
+    @Test
+    fun a_failed_money_request_only_hides_the_tiles() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/today", { json(todayBody()) })
+            backend.on("$SUNRISE/api/v1/today/money", { apiError(HttpStatusCode.Forbidden, "forbidden") })
+            val (graph, clinic) = open(backend, this, backgroundScope, listOf("appointments.read", "finance.view"))
+            val view = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view
+            assertEquals(null, view.money)
+            assertEquals(3, view.counts.visits)
+        }
 }

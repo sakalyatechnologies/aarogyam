@@ -52,3 +52,6 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 - An owner (admin doctor) of several clinics manages staff across all of them in one place: who has access to which clinic and with which role; grant or remove access to another clinic without switching clinics.
 - **Rules (already true per clinic, keep them):** access only by invitation per clinic; a person sees only clinics they belong to (picker, switcher, API 404 otherwise); money stays owner-only by default (`finance.view`, `billing.read`), changed only by the owner in Roles & access.
 - **Design notes:** a clinic group (owner's organisation spanning clinics) with its own owner role; cross-clinic actions are invitations/memberships in each clinic underneath, so per-clinic RLS and audits are unchanged.
+
+## Mobile sign-in with a password (6 Oct 2026)
+- The staff apps offer only the email code; add "Use a password" like the website (same Supabase password sign-in, 12+ characters), and later the handoff from the website for one sign-in across web and phone where it helps.

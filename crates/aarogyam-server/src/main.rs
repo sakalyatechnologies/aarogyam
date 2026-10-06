@@ -554,9 +554,10 @@ async fn migrate(config: Config) -> anyhow::Result<()> {
         .context("db.owner_url (ARO_DB__OWNER_URL) is required to migrate")?;
     let db = Db::connect_lazy(&DbConfig::new(url))
         .context("db.owner_url is not a valid Postgres URL")?;
-    aarogyam_dal::migrate(db.pool())
+    let applied = aarogyam_dal::migrate(db.pool())
         .await
         .context("could not migrate the database")?;
-    tracing::info!("database migrated");
+    // The number is in the message text: scripts/cloud-run-deploy.sh reads it from the job log.
+    tracing::info!("database migrated: {applied} applied");
     Ok(())
 }

@@ -52,13 +52,14 @@ static MIGRATOR: Migrator = sqlx::migrate!("../../db/migrations");
 ///
 /// Run it as the schema owner: the API's login role must not be able to change the schema.
 /// A Postgres advisory lock stops two instances from migrating at the same time, and
-/// migrations that already ran are skipped, so running it again is safe.
+/// migrations that already ran are skipped, so running it again is safe. Returns how many
+/// migrations this call applied.
 ///
 /// # Errors
 ///
 /// Returns [`MigrateError`] if the database is unreachable, a migration fails (its changes are
 /// rolled back), or a migration that already ran has since been edited.
-pub async fn migrate(pool: &PgPool) -> Result<(), MigrateError> {
+pub async fn migrate(pool: &PgPool) -> Result<u64, MigrateError> {
     let mut conn = pool
         .acquire()
         .await
@@ -68,8 +69,27 @@ pub async fn migrate(pool: &PgPool) -> Result<(), MigrateError> {
     conn.execute("create schema if not exists private; set search_path to private")
         .await
         .map_err(sqlx::migrate::MigrateError::from)?;
+    let before = ledger_count(&mut conn).await?;
     MIGRATOR.run(&mut *conn).await?;
-    Ok(())
+    let after = ledger_count(&mut conn).await?;
+    Ok(after.saturating_sub(before))
+}
+
+/// How many migrations the ledger records (0 before the ledger exists).
+async fn ledger_count(conn: &mut sqlx::PgConnection) -> Result<u64, MigrateError> {
+    let exists: bool =
+        sqlx::query_scalar("select to_regclass('private._sqlx_migrations') is not null")
+            .fetch_one(&mut *conn)
+            .await
+            .map_err(sqlx::migrate::MigrateError::from)?;
+    if !exists {
+        return Ok(0);
+    }
+    let count: i64 = sqlx::query_scalar("select count(*) from private._sqlx_migrations")
+        .fetch_one(&mut *conn)
+        .await
+        .map_err(sqlx::migrate::MigrateError::from)?;
+    Ok(u64::try_from(count).unwrap_or(0))
 }
 
 /// The database migrations could not be applied.

@@ -57,6 +57,67 @@
     <string name="status_no_show">No-show</string>
     <string name="status_unknown">Scheduled</string>
 
+    <!-- Tabs -->
+    <string name="tab_today">Today</string>
+    <string name="tab_patients">Patients</string>
+    <string name="tab_calendar">Calendar</string>
+    <string name="back">Back</string>
+
+    <!-- Patients -->
+    <string name="patients_title">Patients</string>
+    <string name="patients_search">Search name, phone or file number</string>
+    <string name="patients_empty_title">No patients found</string>
+    <string name="patients_empty_message">Try a different name, phone number or file number.</string>
+    <string name="patients_none_title">No patients yet</string>
+    <string name="patients_none_message">Registered patients will show here.</string>
+    <string name="patients_not_allowed_title">Patients aren\'t available</string>
+    <string name="patients_not_allowed_message">Your role can\'t see patients at this clinic.</string>
+    <string name="recall_due">Recall due</string>
+    <string name="sex_female">Female</string>
+    <string name="sex_male">Male</string>
+    <string name="sex_other">Other</string>
+    <string name="age_years">Age %1$d</string>
+
+    <!-- Patient 360 -->
+    <string name="patient_title">Patient</string>
+    <string name="patient_not_allowed_title">This record isn\'t available</string>
+    <string name="patient_not_allowed_message">Your role can\'t open patient records at this clinic.</string>
+    <string name="flags_title">Allergies and conditions</string>
+    <string name="flags_none">No allergies or conditions flagged.</string>
+    <string name="flags_counts">Allergies %1$d · Conditions %2$d</string>
+    <string name="flags_hidden">Details need clinical access.</string>
+    <string name="severity_mild">Mild</string>
+    <string name="severity_moderate">Moderate</string>
+    <string name="severity_severe">Severe</string>
+    <string name="severity_unknown">Allergy</string>
+    <string name="contact_title">Contact</string>
+    <string name="upcoming_title">Upcoming appointment</string>
+    <string name="upcoming_none">Nothing booked.</string>
+    <string name="visits_title">Recent visits</string>
+    <string name="visits_none">No visits yet.</string>
+    <string name="visit_open">Open</string>
+    <string name="balance_title">Balance</string>
+    <string name="balance_due">%1$s due</string>
+    <string name="balance_clear">Nothing due.</string>
+
+    <!-- Calendar -->
+    <string name="calendar_title">Calendar</string>
+    <string name="calendar_by_doctor">Doctors</string>
+    <string name="calendar_by_chair">Chairs</string>
+    <string name="calendar_previous">Previous day</string>
+    <string name="calendar_next">Next day</string>
+    <string name="calendar_column_count">%1$s (%2$d)</string>
+    <string name="calendar_empty_title">No appointments</string>
+    <string name="calendar_empty_message">Nothing is booked for this day.</string>
+    <string name="calendar_not_allowed_title">Calendar isn\'t available</string>
+    <string name="calendar_not_allowed_message">Your role can\'t see the schedule at this clinic.</string>
+    <string name="appointment_when">%1$s to %2$s</string>
+    <string name="appointment_doctor">Doctor</string>
+    <string name="appointment_room">Chair or room</string>
+    <string name="appointment_reason">Reason</string>
+    <string name="appointment_notes">Note</string>
+    <string name="open_patient">Open patient</string>
+
     <!-- Errors -->
     <string name="error_offline">You\'re offline. Check your connection.</string>
     <string name="error_network">Couldn\'t reach Aarogyam. Try again.</string>

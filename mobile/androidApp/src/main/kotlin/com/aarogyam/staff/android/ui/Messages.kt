@@ -3,13 +3,19 @@ package com.aarogyam.staff.android.ui
 import androidx.annotation.StringRes
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.patients.Severity
+import com.aarogyam.staff.patients.Sex
 import com.aarogyam.staff.signin.SignInError
 import com.aarogyam.staff.today.VisitStatus
 import com.sakalya.mobile.designcompose.SkTone
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import kotlinx.datetime.toJavaLocalDate
 import kotlinx.datetime.toJavaLocalTime
+import java.text.NumberFormat
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.Locale
 
 @StringRes
 fun ScreenError.message(): Int =
@@ -65,3 +71,47 @@ private val timeFormat: DateTimeFormatter = DateTimeFormatter.ofLocalizedTime(Fo
 
 /** A clinic-local time in the phone's locale format (`9:00 am`). */
 fun LocalTime.display(): String = toJavaLocalTime().format(timeFormat)
+
+@StringRes
+fun Sex.label(): Int? =
+    when (this) {
+        Sex.Female -> R.string.sex_female
+        Sex.Male -> R.string.sex_male
+        Sex.Other -> R.string.sex_other
+        Sex.Unknown -> null
+    }
+
+@StringRes
+fun Severity.label(): Int =
+    when (this) {
+        Severity.Mild -> R.string.severity_mild
+        Severity.Moderate -> R.string.severity_moderate
+        Severity.Severe -> R.string.severity_severe
+        Severity.Unknown -> R.string.severity_unknown
+    }
+
+fun Severity.tone(): SkTone =
+    when (this) {
+        Severity.Severe -> SkTone.Danger
+        Severity.Moderate -> SkTone.Warning
+        Severity.Mild, Severity.Unknown -> SkTone.Neutral
+    }
+
+private val dateFormat: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+
+/** A clinic-local date in the phone's locale format (`5 Oct 2026`). */
+fun LocalDate.display(): String = toJavaLocalDate().format(dateFormat)
+
+/** A clinic-local date as the day header reads it (`Mon 5 Oct`). */
+fun LocalDate.dayLabel(): String =
+    toJavaLocalDate().format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault()))
+
+/** An amount in paise as rupees with Indian grouping (`₹1,250`). */
+fun Long.rupees(): String =
+    NumberFormat
+        .getCurrencyInstance(Locale.forLanguageTag("en-IN"))
+        .apply {
+            maximumFractionDigits = 2
+        }.format(this / PAISE)
+
+private const val PAISE = 100.0

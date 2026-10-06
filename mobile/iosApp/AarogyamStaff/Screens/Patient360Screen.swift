@@ -6,19 +6,33 @@ import SwiftUI
 struct Patient360Screen: View {
     let holder: Patient360StateHolder
     let state: Patient360State
+    let graph: AppGraph
+    let clinic: ClinicContext
+    let patientId: String
     @Environment(\.skTheme) private var theme
+    @State private var tab = 0
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: SkSpacing.ml) {
-                content
+        VStack(spacing: SkSpacing.m) {
+            if loaded != nil {
+                SkSegmentedControl([String(localized: "patient.tab.overview"), String(localized: "patient.tab.rx")], selection: $tab)
+                    .padding(.horizontal, SkSpacing.l)
             }
-            .padding(.horizontal, SkSpacing.l)
-            .padding(.bottom, SkSpacing.xxl)
+            if let loaded, tab == 1 {
+                RxTab(graph: graph, clinic: clinic, patientId: patientId, allergies: loaded.view.flags.allergies)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: SkSpacing.ml) {
+                        content
+                    }
+                    .padding(.horizontal, SkSpacing.l)
+                    .padding(.bottom, SkSpacing.xxl)
+                }
+                .refreshable { await refresh() }
+            }
         }
         .navigationTitle(loaded?.view.name ?? String(localized: "patient.title"))
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await refresh() }
     }
 
     private var loaded: Patient360StateLoaded? {

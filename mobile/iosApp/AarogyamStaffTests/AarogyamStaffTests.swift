@@ -98,3 +98,42 @@ final class BuildSettingsTests: XCTestCase {
         XCTAssertEqual(BuildSettings.config(info: [:], secrets: [:], debug: false).environment, .prod)
     }
 }
+
+final class PrescriptionMappingTests: XCTestCase {
+    private func assertTranslated(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
+        let looksLikeKey = text.range(of: #"^[a-z_]+(\.[a-z_]+)+$"#, options: .regularExpression) != nil
+        XCTAssertFalse(text.isEmpty || looksLikeKey, "untranslated \(text)", file: file, line: line)
+    }
+
+    func test_every_status_has_copy_and_issued_is_success() {
+        for status in RxStatus.allCases { assertTranslated(status.label) }
+        XCTAssertEqual(RxStatus.issued.tone, .success)
+        XCTAssertEqual(RxStatus.draft.tone, .warning)
+        XCTAssertEqual(RxStatus.cancelled.tone, .danger)
+    }
+
+    func test_days_are_plural_aware() {
+        XCTAssertEqual(RxFormat.days(1), "1 day")
+        XCTAssertEqual(RxFormat.days(5), "5 days")
+    }
+
+    func test_a_medicine_line_skips_what_is_missing() {
+        let full = RxMedicine(name: "AMOXICILLIN 500 mg", dose: "1 capsule", frequency: "1-0-1", durationDays: 5)
+        XCTAssertEqual(full.detailText, "1 capsule · 1-0-1 · 5 days")
+        let bare = RxMedicine(name: "ORS", dose: nil, frequency: "SOS", durationDays: nil)
+        XCTAssertEqual(bare.detailText, "SOS")
+    }
+
+    func test_an_allergy_warning_names_the_drug_the_allergy_and_its_severity() {
+        let warning = AllergyWarning(lineKey: 0, drug: "Amoxicillin", substance: "Penicillin", severity: .severe)
+        XCTAssertEqual(warning.text, "Amoxicillin: recorded allergy to Penicillin (Severe)")
+    }
+
+    func test_the_share_text_names_the_clinic_and_never_the_pin() {
+        let link = ShareView(url: "https://sunrise.example/shared/tok", pin: "482913", expiresAt: nil)
+        let message = link.shareMessage(clinic: "Sunrise Dental")
+        XCTAssertTrue(message.contains("Sunrise Dental"))
+        XCTAssertFalse(message.contains("482913"))
+        XCTAssertFalse(message.contains("tok"))
+    }
+}

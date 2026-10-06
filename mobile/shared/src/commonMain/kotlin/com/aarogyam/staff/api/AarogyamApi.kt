@@ -2,13 +2,20 @@ package com.aarogyam.staff.api
 
 import com.aarogyam.staff.api.model.AppointmentList
 import com.aarogyam.staff.api.model.ClinicalFlags
+import com.aarogyam.staff.api.model.DrugList
+import com.aarogyam.staff.api.model.DrugSearch
+import com.aarogyam.staff.api.model.IssueRequest
 import com.aarogyam.staff.api.model.Me
 import com.aarogyam.staff.api.model.Patient
 import com.aarogyam.staff.api.model.PatientList
 import com.aarogyam.staff.api.model.PractitionerList
+import com.aarogyam.staff.api.model.Prescription
+import com.aarogyam.staff.api.model.PrescriptionList
 import com.aarogyam.staff.api.model.RoomList
+import com.aarogyam.staff.api.model.RxValues
 import com.aarogyam.staff.api.model.SearchRequest
 import com.aarogyam.staff.api.model.Session
+import com.aarogyam.staff.api.model.ShareLink
 import com.aarogyam.staff.api.model.TodayResponse
 import com.aarogyam.staff.api.model.VisitList
 import com.sakalya.mobile.core.ApiError
@@ -19,6 +26,7 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.encodeURLPathPart
 
@@ -33,6 +41,8 @@ class AppApi(
 /** Calls on one clinic's host; the host alone selects the clinic. */
 class ClinicApi(
     private val client: HttpClient,
+    /** The clinic's origin (`https://host`), the base of links the patient opens. */
+    val origin: String = "",
 ) {
     /** `GET /api/v1/session` (`getSession`): clinic, branding, time zone and permissions. */
     suspend fun session(): Outcome<Session, ApiError> = client.call { url("api/v1/session") }
@@ -50,6 +60,7 @@ class ClinicApi(
     ): Outcome<PatientList, ApiError> =
         client.call {
             url("api/v1/patients/search")
+            method = HttpMethod.Post
             contentType(ContentType.Application.Json)
             setBody(SearchRequest(q = query, limit = limit))
         }
@@ -83,7 +94,64 @@ class ClinicApi(
     /** `GET /api/v1/rooms` (`listRooms`): reference data, cached by [ReferenceData]. */
     suspend fun rooms(): Outcome<RoomList, ApiError> = client.call { url("api/v1/rooms") }
 
+    /** `GET /api/v1/patients/{id}/prescriptions` (`listPatientPrescriptions`): newest first; needs `clinical.read`. */
+    suspend fun prescriptions(patientId: String): Outcome<PrescriptionList, ApiError> =
+        client.call { url("api/v1/patients/${patientId.encodeURLPathPart()}/prescriptions") }
+
+    /** `GET /api/v1/patients/{id}/prescriptions/last` (`getLastPrescription`): the last issued one, for Quick Rx. */
+    suspend fun lastPrescription(patientId: String): Outcome<Prescription, ApiError> =
+        client.call { url("api/v1/patients/${patientId.encodeURLPathPart()}/prescriptions/last") }
+
+    /** `POST /api/v1/drugs/search` (`searchDrugs`): the shared medicine list; the terms travel in the body. */
+    suspend fun searchDrugs(
+        query: String,
+        limit: Long = DRUG_LIMIT,
+    ): Outcome<DrugList, ApiError> =
+        client.call {
+            url("api/v1/drugs/search")
+            method = HttpMethod.Post
+            contentType(ContentType.Application.Json)
+            setBody(DrugSearch(q = query, limit = limit))
+        }
+
+    /** `POST /api/v1/patients/{id}/prescriptions` (`createPrescription`): a draft with its medicines. */
+    suspend fun createPrescription(
+        patientId: String,
+        values: RxValues,
+    ): Outcome<Prescription, ApiError> =
+        client.call {
+            url("api/v1/patients/${patientId.encodeURLPathPart()}/prescriptions")
+            method = HttpMethod.Post
+            contentType(ContentType.Application.Json)
+            setBody(values)
+        }
+
+    /**
+     * `POST /api/v1/prescriptions/{id}/issue` (`issuePrescription`). Without an [overrideReason] an
+     * allergy alert answers 409; that body is not the standard error envelope, so it reaches the
+     * caller as a `Conflict` failure with code `unexpected_response` (see `RxSheetStateHolder`).
+     * The patient is not emailed: the app shares the link itself.
+     */
+    suspend fun issuePrescription(
+        id: String,
+        overrideReason: String?,
+    ): Outcome<Prescription, ApiError> =
+        client.call {
+            url("api/v1/prescriptions/${id.encodeURLPathPart()}/issue")
+            method = HttpMethod.Post
+            contentType(ContentType.Application.Json)
+            setBody(IssueRequest(notifyPatient = false, overrideReason = overrideReason))
+        }
+
+    /** `POST /api/v1/prescriptions/{id}/share` (`createPrescriptionShare`): a seven-day link and its PIN, shown once. */
+    suspend fun sharePrescription(id: String): Outcome<ShareLink, ApiError> =
+        client.call {
+            url("api/v1/prescriptions/${id.encodeURLPathPart()}/share")
+            method = HttpMethod.Post
+        }
+
     private companion object {
         const val SEARCH_LIMIT = 20L
+        const val DRUG_LIMIT = 20L
     }
 }

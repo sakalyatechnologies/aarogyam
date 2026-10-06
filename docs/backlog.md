@@ -55,3 +55,36 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 
 ## Mobile sign-in with a password (6 Oct 2026)
 - The staff apps offer only the email code; add "Use a password" like the website (same Supabase password sign-in, 12+ characters), and later the handoff from the website for one sign-in across web and phone where it helps.
+
+## Contacting patients (6 Oct 2026)
+- From a patient (web and mobile): **Call** (phone dialler) and **WhatsApp** (opens a chat with the patient's number), logged on the patient's timeline without message content.
+- **Templates:** appointment reminder, follow-up, birthday, festivals and new year, plus **custom** text; placeholders (name, clinic, date) filled safely.
+- **Campaigns:** choose all, active, or filtered patients (last visit, treatment, age, birthday month) and send an offer, camp or greeting; opt-out honoured, quiet hours, preview and count before sending, delivery report.
+- **Design notes:** WhatsApp Business API (Meta-approved templates for outbound) and SMS via the notification service and outbox (AGENTS.md rule 10, never direct from handlers); consent and opt-out stored per patient (DPDP); campaigns need a permission, rate limits and an audit; costs per message shown before sending.
+
+## Analytics tab (6 Oct 2026)
+- A dedicated Analytics area for the owner/admin doctor (not staff), on web and the same on mobile. The founder will share a dashboard mock-up; plan from that, review, then build.
+- **Design notes:** owner-only by default via a new permission; one query per chart within the round-trip budget; respects scopes.
+
+## Referral programme (later)
+- Clinics refer other clinics and earn a discount (e.g. 10–50% of the next month) when the referred clinic subscribes; tracking codes, a referrals page, and terms to decide with pricing.
+
+## Look and feel: make it impressive (6 Oct 2026)
+- The current UI looks dull. The founder will share screenshots of what they expect. Empty states must still look alive (illustrations, sample previews, next steps), never bare boxes.
+- **Sign-in and landing pages** should show what Aarogyam is (product visuals, value), not just sign-in boxes; see how MyDwarpal handled it.
+- Review the whole portal and both mobile apps against the new direction before building more screens.
+
+## Simplify navigation (6 Oct 2026)
+- **Staff vs Settings:** both exist in the sidebar; decide one place (likely Settings → Team & roles, with clinic settings alongside) and remove the duplicate.
+- **Prescriptions page:** drop the clinic-wide Prescriptions page; prescriptions live on the patient's Rx tab (history paginated, "New prescription" there). Keep a clinic-wide list only if a real workflow needs it (e.g. a pharmacy hand-off queue).
+
+## Pharmacies (later)
+- A pharmacy app or dashboard: the doctor sends a prescription to a chosen pharmacy; the patient shows a QR code or screenshot to collect; later, payments. Builds on the existing prescription verify page and QR.
+
+## Other specialties (planning)
+- Today the product is dental-first. Plan specialty packs for general practice (MBBS), gynaecology, ENT, paediatrics and others as data (AGENTS.md rule 11): forms, vocabularies, templates and charts per specialty; a clinic can have several.
+
+## One patient across clinics (planning, important)
+- Today each clinic's records are isolated by design (row-level security per clinic): a patient who sees Doctor A and then Doctor B at another clinic has two separate records, and Doctor B cannot see Doctor A's dental chart.
+- **Direction:** sharing only with the patient's consent: a patient-owned record (the Aarogyam patient app and/or ABDM/ABHA consent artefacts) where the patient grants Doctor B's clinic access to selected history (e.g. the dental chart), time-limited and revocable, audited on both sides. Never automatic sharing by phone number match.
+- **Design notes:** findings already reference vocabulary ids and carry dates and clinicians, which makes a shareable, structured summary possible; ABDM identifiers are already on the review follow-up list.

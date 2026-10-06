@@ -1,6 +1,7 @@
 package com.aarogyam.staff.android.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -32,56 +36,79 @@ import com.sakalya.mobile.designcompose.SkChip
 import com.sakalya.mobile.designcompose.SkDivider
 import com.sakalya.mobile.designcompose.SkEmptyState
 import com.sakalya.mobile.designcompose.SkListRow
+import com.sakalya.mobile.designcompose.SkTabs
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTone
 import com.sakalya.mobile.designcompose.SkTopBar
 import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
 
-/** Patient 360: header, safety banner, upcoming appointment, recent visits and (with `billing.read`) the balance. */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Patient 360: the header and tabs ([PatientTab]). Overview holds the safety banner, upcoming
+ * appointment, recent visits and (with `billing.read`) the balance; [tabContent] draws the others.
+ */
 @Composable
 fun Patient360Screen(
     holder: Patient360StateHolder,
     onBack: () -> Unit,
+    tabContent: @Composable (PatientTab) -> Unit,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     val loaded = state as? Patient360State.Loaded
+    var tab by rememberSaveable { mutableStateOf(PatientTab.Overview) }
     Column(Modifier.fillMaxSize()) {
         SkTopBar(
             title = loaded?.view?.name ?: stringResource(R.string.patient_title),
             subtitle = loaded?.view?.let { header(it) },
             navigation = { BarAction(stringResource(R.string.back), SkTheme.colors.onBrandDark.color, onBack) },
         )
-        PullToRefreshBox(
-            isRefreshing = loaded?.refreshing == true,
-            onRefresh = holder::refresh,
-            modifier = Modifier.weight(1f).navigationBarsPadding(),
-        ) {
-            when (val current = state) {
-                Patient360State.Loading -> {
-                    LoadingIndicator()
-                }
+        if (loaded != null) {
+            SkTabs(
+                titles = PatientTab.entries.map { stringResource(it.title) },
+                selectedIndex = tab.ordinal,
+                onSelect = { tab = PatientTab.entries[it] },
+            )
+        }
+        Box(Modifier.weight(1f).navigationBarsPadding()) {
+            if (loaded == null || tab == PatientTab.Overview) OverviewTab(state, holder) else tabContent(tab)
+        }
+    }
+}
 
-                Patient360State.NotAllowed -> {
-                    SkEmptyState(
-                        stringResource(R.string.patient_not_allowed_title),
-                        stringResource(R.string.patient_not_allowed_message),
-                    )
-                }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OverviewTab(
+    state: Patient360State,
+    holder: Patient360StateHolder,
+) {
+    PullToRefreshBox(
+        isRefreshing = (state as? Patient360State.Loaded)?.refreshing == true,
+        onRefresh = holder::refresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        when (state) {
+            Patient360State.Loading -> {
+                LoadingIndicator()
+            }
 
-                is Patient360State.Failed -> {
-                    SkEmptyState(
-                        stringResource(R.string.patient_title),
-                        stringResource(current.error.message()),
-                        actionLabel = stringResource(R.string.try_again),
-                        onAction = holder::refresh,
-                    )
-                }
+            Patient360State.NotAllowed -> {
+                SkEmptyState(
+                    stringResource(R.string.patient_not_allowed_title),
+                    stringResource(R.string.patient_not_allowed_message),
+                )
+            }
 
-                is Patient360State.Loaded -> {
-                    Overview(current)
-                }
+            is Patient360State.Failed -> {
+                SkEmptyState(
+                    stringResource(R.string.patient_title),
+                    stringResource(state.error.message()),
+                    actionLabel = stringResource(R.string.try_again),
+                    onAction = holder::refresh,
+                )
+            }
+
+            is Patient360State.Loaded -> {
+                Overview(state)
             }
         }
     }

@@ -123,7 +123,12 @@ private fun Signed(graph: AppGraph) {
                     composable(Routes.PATIENT) { entry ->
                         val open = clinic ?: return@composable
                         val id = entry.arguments?.getString("id") ?: return@composable
-                        Patient360Screen(rememberHolder { graph.patient360(open, id, it) }, onBack = nav::popBackStack)
+                        Patient360Screen(
+                            rememberHolder { graph.patient360(open, id, it) },
+                            onBack = nav::popBackStack,
+                        ) { tab ->
+                            PatientTabContent(tab, graph, open, id)
+                        }
                     }
                 }
             }

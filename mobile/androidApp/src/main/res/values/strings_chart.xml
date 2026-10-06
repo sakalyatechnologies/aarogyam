@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dental chart (ChartTab.kt, ToothChart.kt) -->
+    <string name="chart_title">Dental chart</string>
+    <string name="chart_need_care">Need care: %1$d/%2$d</string>
+    <string name="chart_adult">Adult</string>
+    <string name="chart_child">Child</string>
+    <string name="chart_upper">UPPER ARCH</string>
+    <string name="chart_lower">LOWER ARCH</string>
+    <string name="chart_zoom_hint">Pinch to zoom, then tap a surface.</string>
+    <string name="chart_reset_zoom">Reset zoom</string>
+    <string name="chart_pick_tooth">Tap a tooth to see its history.</string>
+    <string name="chart_not_allowed_title">The chart isn\'t available</string>
+    <string name="chart_not_allowed_message">Your role can\'t see clinical records at this clinic.</string>
+    <string name="chart_legend">Legend</string>
+    <string name="chart_tooth">Tooth %1$d</string>
+    <string name="chart_tooth_description">Tooth %1$d, %2$s</string>
+    <string name="chart_whole_tooth">Whole tooth</string>
+    <string name="chart_now">Now</string>
+    <string name="chart_history">History</string>
+    <string name="chart_history_none">Nothing recorded yet.</string>
+    <string name="chart_history_failed">Couldn\'t load this tooth\'s history.</string>
+    <string name="chart_superseded">Superseded</string>
+    <string name="chart_entered_in_error">Entered in error</string>
+    <string name="chart_record">Record a finding</string>
+    <string name="chart_record_title">Record a finding · tooth %1$d</string>
+    <string name="chart_finding">Finding</string>
+    <string name="chart_surface">Surface</string>
+    <string name="chart_note">Remark</string>
+    <string name="chart_save">Save</string>
+    <string name="chart_saving">Saving…</string>
+    <string name="chart_record_failed">Couldn\'t save that finding, so the chart is back as it was. %1$s</string>
+    <string name="chart_dismiss">Dismiss</string>
+    <string name="finding_sound">Sound</string>
+    <string name="finding_caries">Caries</string>
+    <string name="finding_filled">Filled</string>
+    <string name="finding_crown">Crown</string>
+    <string name="finding_root_canal">Root canal</string>
+    <string name="finding_missing">Missing</string>
+    <string name="finding_implant">Implant</string>
+    <string name="finding_bridge">Bridge</string>
+    <string name="finding_fractured">Fractured</string>
+    <string name="finding_watch">Watch</string>
+    <string name="surface_mesial">Mesial</string>
+    <string name="surface_distal">Distal</string>
+    <string name="surface_occlusal">Occlusal</string>
+    <string name="surface_incisal">Incisal</string>
+    <string name="surface_buccal">Buccal</string>
+    <string name="surface_facial">Facial</string>
+    <string name="surface_lingual">Lingual</string>
+    <string name="surface_palatal">Palatal</string>
+    <string name="kind_incisor">incisor</string>
+    <string name="kind_canine">canine</string>
+    <string name="kind_premolar">premolar</string>
+    <string name="kind_molar">molar</string>
+</resources>

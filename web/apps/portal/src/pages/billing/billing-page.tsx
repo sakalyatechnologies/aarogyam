@@ -10,6 +10,7 @@ import { useClinic } from "../../clinic.js";
 import { compactRupees } from "../../lib/money.js";
 import { useTodayDate } from "../../lib/patients.js";
 import { useCollections, useInvoices, usePendingReport } from "./queries.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 const plural = (n: number, word: string) => `${String(n)} ${word}${n === 1 ? "" : "s"}`;
 
@@ -73,15 +74,20 @@ export function BillingPage() {
         ) : null}
       </div>
       <div className="mk-kpis">
-        <Kpi label={`Collected · ${monthName}`} value={month.isPending ? "—" : compactRupees(month.data?.collected_paise ?? 0)} pill={month.data === undefined ? undefined : plural(month.data.payments, "payment")} pillTone="up" />
-        <Kpi
-          label="Outstanding"
-          value={month.isPending ? "—" : compactRupees(month.data?.outstanding_paise ?? 0)}
-          pill={pending.data === undefined ? undefined : plural(pending.data.items.length, "bill")}
-          pillTone="warn"
-        />
-        <Kpi label="Consulting payout" value="—" pill="not tracked yet" pillTone="info" />
-        <Kpi label="UPI share" value={month.isPending ? "—" : `${String(Math.round(upiShare / 100))}%`} />
+        {month.isPending
+          ? Array.from({ length: 4 }, (_, index) => <Skeleton key={index} shape="block" />)
+          : [
+              <Kpi key="collected" label={`Collected · ${monthName}`} value={compactRupees(month.data?.collected_paise ?? 0)} pill={month.data === undefined ? undefined : plural(month.data.payments, "payment")} pillTone="up" />,
+              <Kpi
+                key="outstanding"
+                label="Outstanding"
+                value={compactRupees(month.data?.outstanding_paise ?? 0)}
+                pill={pending.data === undefined ? undefined : plural(pending.data.items.length, "bill")}
+                pillTone="warn"
+              />,
+              <Kpi key="payout" label="Consulting payout" value="—" pill="not tracked yet" pillTone="info" />,
+              <Kpi key="upi" label="UPI share" value={`${String(Math.round(upiShare / 100))}%`} />,
+            ]}
       </div>
       <div className="mk-grid mk-g2r">
         <MkCard title="Weekly collections" hint="Last 8 weeks · ₹ thousands">
@@ -116,7 +122,7 @@ export function BillingPage() {
           {invoices.isError ? (
             <ApiErrorNotice title="Couldn't load bills" error={invoices.error} onRetry={() => void invoices.refetch()} />
           ) : invoices.isPending ? (
-            <Skeleton shape="block" />
+            <SkeletonRows count={5} tall label="Loading bills" />
           ) : rows.length === 0 ? (
             <Empty title="No bills yet">Issue the first bill to see it here.</Empty>
           ) : (

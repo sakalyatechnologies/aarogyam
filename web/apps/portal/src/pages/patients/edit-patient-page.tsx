@@ -5,13 +5,14 @@ import { z } from "zod";
 
 import { apiErrorOf, patientId, type PatientChanges, type PatientId, type Patient, type Sex } from "@aarogyam/api-client";
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, DateInput, Field, FormActions, PageHeader, PhoneInput, RadioGroup, Select, Skeleton, TextInput, useToast } from "@sakalya/ui";
+import { Button, DateInput, Field, FormActions, PageHeader, PhoneInput, RadioGroup, Select, TextInput, useToast } from "@sakalya/ui";
 import { MkCard, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { LANGUAGES, SEX_OPTIONS, patientPath, useTodayDate } from "../../lib/patients.js";
 import { usePatient, useUpdatePatient } from "../../queries.js";
 import { NotFoundPage } from "../not-found-page.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 function parseId(param: string | undefined): PatientId | undefined {
   const id = patientId.safeParse(param);
@@ -99,11 +100,7 @@ export function EditPatientPage() {
     return <Empty title="You can't edit patients">Ask the clinic's owner if you need to.</Empty>;
   }
   if (patient.isPending) {
-    return (
-      <div role="status" aria-label="Loading the patient">
-        <Skeleton shape="block" />
-      </div>
-    );
+    return <SkeletonRows count={6} label="Loading the patient" />;
   }
   if (patient.isError) {
     return <ApiErrorNotice title="Couldn't open this patient" error={patient.error} onRetry={() => void patient.refetch()} />;

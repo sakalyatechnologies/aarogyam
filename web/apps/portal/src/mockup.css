@@ -391,3 +391,7 @@
 .mk-mcount { font-size: 10px; font-weight: 700; background: var(--brand-soft); color: var(--brand-text); border-radius: 999px; padding: 1px 7px; }
 .mk-more { border: 0; background: none; text-align: left; font-size: 10.5px; font-weight: 700; color: var(--muted); cursor: pointer; padding: 2px 4px; }
 .mk-more:hover { text-decoration: underline; }
+
+.aro-progress { animation: aro-progress 1.1s ease-in-out infinite; }
+@keyframes aro-progress { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { .aro-progress { animation: none; width: 100%; opacity: 0.6; } }

@@ -14,7 +14,6 @@ import {
   Menu,
   Pill,
   Select,
-  Skeleton,
   Tabs,
   TextInput,
   useToast,
@@ -39,6 +38,7 @@ import { ChairsDoctorsPanel } from "./chairs-doctors-panel.js";
 import { LetterheadThemePanel } from "./letterhead-theme-panel.js";
 import { PriceListPanel } from "./price-list-panel.js";
 import { WebsitePanel } from "./website/website-panel.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 /** Clinic profile, notifications and website cards in the mock-up's layout, then the admin panels. */
 export function SettingsPage() {
@@ -132,7 +132,7 @@ function OnlineBookingCard() {
         settings.isError ? (
           <ApiErrorNotice title="Couldn't load online booking" error={settings.error} onRetry={() => void settings.refetch()} />
         ) : (
-          <Skeleton shape="block" />
+          <SkeletonRows count={3} label="Loading online booking" />
         )
       ) : (
         <>
@@ -182,7 +182,7 @@ function OnlineBookingCard() {
 function ProfilePanel() {
   const settings = useClinicSettings();
   if (settings.isPending) {
-    return <Skeleton shape="block" />;
+    return <SkeletonRows count={6} label="Loading settings" />;
   }
   if (settings.isError) {
     return <ApiErrorNotice title="Couldn't load the clinic's settings" error={settings.error} onRetry={() => void settings.refetch()} />;
@@ -325,7 +325,7 @@ function StaffPanel() {
   const [inviteOpen, setInviteOpen] = useState(false);
 
   if (staff.isPending) {
-    return <Skeleton shape="block" />;
+    return <SkeletonRows count={5} label="Loading staff" />;
   }
   if (staff.isError) {
     return <ApiErrorNotice title="Couldn't load the staff list" error={staff.error} onRetry={() => void staff.refetch()} />;
@@ -507,7 +507,7 @@ function SessionsPanel() {
   const revoke = useRevokeSession();
   const toast = useToast();
   if (sessions.isPending) {
-    return <Skeleton shape="block" />;
+    return <SkeletonRows count={3} label="Loading sessions" />;
   }
   if (sessions.isError) {
     return <ApiErrorNotice title="Couldn't load your sessions" error={sessions.error} onRetry={() => void sessions.refetch()} />;

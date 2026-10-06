@@ -3,12 +3,12 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
-import { Skeleton } from "@sakalya/ui";
 
 import { Empty, MkAvatar, MkCard, Tag, rowLink } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { patientPath } from "../../lib/patients.js";
 import { usePatientList } from "./queries.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 type QuickFilter = "all" | "with_balance" | "recalls_due" | "new_this_month";
 
@@ -124,7 +124,7 @@ export function PatientsPage() {
         {search.isError ? (
           <ApiErrorNotice title="Couldn't search patients" error={search.error} onRetry={() => void search.refetch()} />
         ) : search.isPending ? (
-          <Skeleton shape="block" />
+          <SkeletonRows count={6} tall label="Loading patients" />
         ) : rows.length === 0 ? (
           <Empty title={empty.title}>
             {empty.text} {register}

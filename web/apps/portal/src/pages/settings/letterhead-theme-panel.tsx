@@ -6,7 +6,7 @@ import {
   type LetterheadDocument,
 } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
-import { Skeleton, useToast } from "@sakalya/ui";
+import { useToast } from "@sakalya/ui";
 
 import {
   LetterheadPicker,
@@ -31,6 +31,7 @@ import {
   useUpdateClinicSettings,
   useUploadLetterheadImage,
 } from "../../queries.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 function Shell({ bare, children }: { bare: boolean; children: ReactNode }) {
   return bare ? (
@@ -71,7 +72,7 @@ export function LetterheadThemePanel({ bare = false }: { bare?: boolean }) {
   if (settings.data === undefined || document.data === undefined || practitioners.data === undefined) {
     return (
       <Shell bare={bare}>
-        <Skeleton shape="block" />
+        <SkeletonRows count={3} tall label="Loading the letterhead" />
       </Shell>
     );
   }

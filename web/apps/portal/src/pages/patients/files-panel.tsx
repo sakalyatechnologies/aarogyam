@@ -3,11 +3,12 @@ import { useRef, useState } from "react";
 
 import { apiErrorOf, type AttachmentId, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatBytes, formatDateTime } from "@aarogyam/app-kit";
-import { Button, Dialog, Field, Select, Skeleton, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, Select, TextInput, useToast } from "@sakalya/ui";
 import { MkCard, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { useAttachments, useDownloadLink, useUploadAttachment } from "../../queries.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 const KINDS = [
   { value: "photo", label: "Photo" },
@@ -52,7 +53,7 @@ export function FilesPanel({ patientId }: { patientId: PatientId }) {
         </div>
       ) : null}
       {attachments.isPending ? (
-        <Skeleton shape="block" />
+        <SkeletonRows count={3} label="Loading files" />
       ) : attachments.isError ? (
         <ApiErrorNotice title="Couldn't load files" error={attachments.error} onRetry={() => void attachments.refetch()} />
       ) : attachments.data.items.length === 0 ? (

@@ -10,7 +10,6 @@ import {
   Field,
   Pill,
   Select,
-  Skeleton,
   Switch,
   TextInput,
   useToast,
@@ -19,6 +18,7 @@ import {
 
 import { useClinic } from "../../clinic.js";
 import { useAddPriceItem, useChangePriceItem, usePriceItems } from "../billing/queries.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 const GST_RATES = [
   { value: "0", label: "0% (exempt)" },
@@ -72,7 +72,7 @@ export function PriceListPanel() {
   const [dialog, setDialog] = useState<{ item?: PriceItem } | undefined>(undefined);
 
   if (items.isPending) {
-    return <Skeleton shape="block" />;
+    return <SkeletonRows count={6} label="Loading the price list" />;
   }
   if (items.isError) {
     return <ApiErrorNotice title="Couldn't load the price list" error={items.error} onRetry={() => void items.refetch()} />;

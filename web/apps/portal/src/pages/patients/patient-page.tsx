@@ -16,6 +16,7 @@ import { DentalChartPanel } from "./dental-chart-panel.js";
 import { FilesPanel } from "./files-panel.js";
 import { BillsPanel, PrescriptionsPanel } from "./records-panels.js";
 import { VisitsPanel } from "./visits-panel.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 /** The URL carries the patient's ID, validated before it reaches the API. */
 function parseId(param: string | undefined): PatientId | undefined {
@@ -66,8 +67,14 @@ export function PatientPage() {
   }
   if (patient.isPending) {
     return (
-      <div role="status" aria-label="Loading the patient">
-        <Skeleton shape="block" />
+      <div className="flex flex-col gap-4">
+        <SkeletonRows count={1} tall label="Loading the patient" />
+        <div className="flex gap-3" aria-hidden="true">
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton key={index} shape="line" className="h-9 w-24" />
+          ))}
+        </div>
+        <SkeletonRows count={3} tall label="Loading the patient's details" />
       </div>
     );
   }

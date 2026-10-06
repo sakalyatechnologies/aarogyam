@@ -3,12 +3,13 @@ import { useNavigate } from "react-router";
 
 import type { Invoice, PatientId, Prescription } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatRupees } from "@aarogyam/app-kit";
-import { Button, Link, Skeleton, useToast } from "@sakalya/ui";
+import { Button, Link, useToast } from "@sakalya/ui";
 import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { useInvoices } from "../billing/queries.js";
 import { useCreatePrescription, usePrescriptions } from "../prescriptions/queries.js";
+import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 const RECENT = 5;
 
@@ -36,7 +37,7 @@ export function BillsPanel({ patientId }: { patientId: PatientId }) {
         </div>
       ) : null}
       {invoices.isPending ? (
-        <Skeleton shape="block" />
+        <SkeletonRows label="Loading" />
       ) : invoices.isError ? (
         <ApiErrorNotice title="Couldn't load bills" error={invoices.error} onRetry={() => void invoices.refetch()} />
       ) : items.length === 0 ? (
@@ -104,7 +105,7 @@ export function PrescriptionsPanel({ patientId }: { patientId: PatientId }) {
         </Button>
       </div>
       {prescriptions.isPending ? (
-        <Skeleton shape="block" />
+        <SkeletonRows label="Loading" />
       ) : prescriptions.isError ? (
         <ApiErrorNotice title="Couldn't load prescriptions" error={prescriptions.error} onRetry={() => void prescriptions.refetch()} />
       ) : items.length === 0 ? (

@@ -98,3 +98,69 @@ final class BuildSettingsTests: XCTestCase {
         XCTAssertEqual(BuildSettings.config(info: [:], secrets: [:], debug: false).environment, .prod)
     }
 }
+
+final class ChartMappingTests: XCTestCase {
+    private func assertTranslated(_ text: String?, file: StaticString = #filePath, line: UInt = #line) {
+        let text = text ?? ""
+        let looksLikeKey = text.range(of: #"^[a-z_]+(\.[a-z_]+)+$"#, options: .regularExpression) != nil
+        XCTAssertFalse(text.isEmpty || looksLikeKey, "untranslated \(text)", file: file, line: line)
+    }
+
+    func test_every_chart_enum_has_copy() {
+        for finding in Finding.allCases { assertTranslated(finding.label) }
+        for name in SurfaceName.allCases { assertTranslated(name.label) }
+        for kind in ToothKind.allCases { assertTranslated(kind.label) }
+        for dentition in Dentition.allCases { assertTranslated(dentition.label) }
+        assertTranslated(EntryStatus.superseded.label)
+        assertTranslated(EntryStatus.enteredInError.label)
+        XCTAssertNil(EntryStatus.current.label)
+        XCTAssertEqual(Set(Finding.allCases.map(\.label)).count, Finding.allCases.count)
+    }
+
+    func test_the_tab_list_is_overview_chart_rx_billing() {
+        XCTAssertEqual(PatientTab.allCases, [.overview, .chart, .rx, .billing])
+        for tab in PatientTab.allCases { assertTranslated(tab.title) }
+        assertTranslated(String(localized: "patient.tab.coming", table: "PatientTabs"))
+    }
+
+    func test_findings_are_drawn_apart_and_like_the_legend() {
+        let p = SkPalette.tulsiLight
+        XCTAssertEqual(Finding.caries.paint(p).pattern, .solid)
+        XCTAssertEqual(Finding.filled.paint(p).pattern, .stripes)
+        XCTAssertEqual(Finding.fractured.paint(p).pattern, .cross)
+        XCTAssertEqual(Finding.sound.paint(p).fill, .clear)
+        XCTAssertNotEqual(Finding.caries.paint(p), Finding.filled.paint(p))
+    }
+
+    func test_surfaces_are_named_for_the_tooth() {
+        let incisor = ToothView(number: 11, whole: nil, surfaces: [:], pending: false)
+        let molar = ToothView(number: 46, whole: .rootCanal, surfaces: [:], pending: false)
+        XCTAssertEqual(incisor.surfaceText(.o), SurfaceName.incisal.label)
+        XCTAssertEqual(incisor.surfaceText(.l), SurfaceName.palatal.label)
+        XCTAssertEqual(molar.surfaceText(.o), SurfaceName.occlusal.label)
+        XCTAssertEqual(molar.surfaceText(nil), String(localized: "chart.whole_tooth", table: "Chart"))
+        XCTAssertEqual(molar.accessibilityText, "Tooth 46, Root canal")
+    }
+
+    func test_taps_land_on_the_surface_drawn_there() {
+        let size = CGSize(width: 40, height: 60)
+        // Upper right (11): root on top, so buccal is the crown's top edge and mesial faces right.
+        let upperRight = ToothGeometry(upper: true, mesialFacesRight: true, kind: .incisor, size: size)
+        let c = upperRight.crown
+        XCTAssertEqual(upperRight.surface(at: CGPoint(x: c.midX, y: c.midY)), .o)
+        XCTAssertEqual(upperRight.surface(at: CGPoint(x: c.midX, y: c.minY + 1)), .b)
+        XCTAssertEqual(upperRight.surface(at: CGPoint(x: c.midX, y: c.maxY - 1)), .l)
+        XCTAssertEqual(upperRight.surface(at: CGPoint(x: c.maxX - 1, y: c.midY)), .m)
+        XCTAssertNil(upperRight.surface(at: CGPoint(x: c.midX, y: 2)), "the root picks the whole tooth")
+        // Lower left (36): root at the bottom, mesial faces left.
+        let lowerLeft = ToothGeometry(upper: false, mesialFacesRight: false, kind: .molar, size: size)
+        let l = lowerLeft.crown
+        XCTAssertEqual(lowerLeft.surface(at: CGPoint(x: l.midX, y: l.maxY - 1)), .b)
+        XCTAssertEqual(lowerLeft.surface(at: CGPoint(x: l.minX + 1, y: l.midY)), .m)
+    }
+
+    func test_history_details_skip_what_is_missing() {
+        let entry = HistoryEntryView(id: "e1", finding: .caries, surface: .o, status: .superseded, at: nil, note: nil)
+        XCTAssertEqual(entry.detailText, EntryStatus.superseded.label)
+    }
+}

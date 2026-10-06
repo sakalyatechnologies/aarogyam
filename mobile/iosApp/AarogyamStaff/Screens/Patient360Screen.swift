@@ -2,13 +2,40 @@ import AarogyamShared
 import SakalyaUI
 import SwiftUI
 
-/// Patient 360: header, safety banner, upcoming appointment, recent visits and, with `billing.read`, the balance.
+/// Patient 360: the header and tabs (`PatientTab`). Overview holds the safety banner, upcoming
+/// appointment, recent visits and, with `billing.read`, the balance; `PatientTabContent` draws the others.
 struct Patient360Screen: View {
     let holder: Patient360StateHolder
     let state: Patient360State
+    let context: PatientContext
+    @State private var tab: PatientTab = .overview
+    @State private var models = PatientTabModels()
     @Environment(\.skTheme) private var theme
 
     var body: some View {
+        VStack(spacing: SkSpacing.sm) {
+            if loaded != nil {
+                SkSegmentedControl(PatientTab.allCases.map(\.title), selection: tabIndex)
+                    .padding(.horizontal, SkSpacing.l)
+            }
+            if loaded == nil || tab == .overview {
+                overview
+            } else {
+                PatientTabContent(tab: tab, context: context, models: models)
+            }
+        }
+        .navigationTitle(loaded?.view.name ?? String(localized: "patient.title"))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var tabIndex: Binding<Int> {
+        Binding(
+            get: { PatientTab.allCases.firstIndex(of: tab) ?? 0 },
+            set: { tab = PatientTab.allCases[$0] }
+        )
+    }
+
+    private var overview: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: SkSpacing.ml) {
                 content
@@ -16,8 +43,6 @@ struct Patient360Screen: View {
             .padding(.horizontal, SkSpacing.l)
             .padding(.bottom, SkSpacing.xxl)
         }
-        .navigationTitle(loaded?.view.name ?? String(localized: "patient.title"))
-        .navigationBarTitleDisplayMode(.inline)
         .refreshable { await refresh() }
     }
 

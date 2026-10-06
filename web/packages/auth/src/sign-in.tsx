@@ -1,9 +1,10 @@
-import { ArrowLeft, CheckCircle2, Mail, RotateCw } from "lucide-react";
+import { ArrowLeft, CheckCircle2, KeyRound, Mail, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type SubmitEvent } from "react";
 
 import { Avatar, Button, Field, TextInput, useFieldControl } from "@sakalya/ui";
 
 import { AuthSteps } from "./auth-shell.js";
+import { clearPasswordReset, markPasswordReset, MAX_PASSWORD_LENGTH } from "./password.js";
 import { AUTH_MESSAGES, type AuthClient, type DevAuthClient, type EmailCodeAuthClient } from "./auth-client.js";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -172,6 +173,7 @@ export function CodeInput({ value, onValueChange, length = CODE_LENGTH, disabled
 }
 
 const SIGN_IN_STEPS = ["Your email", "Your code"] as const;
+const PASSWORD_STEPS = ["Your email", "Your password"] as const;
 
 export interface EmailCodeSignInProps {
   auth: EmailCodeAuthClient;
@@ -184,12 +186,12 @@ export interface EmailCodeSignInProps {
 }
 
 /**
- * Email, then a six-digit code. Whatever happens, the form never reveals whether an email is
+ * Email, then a six-digit code (or, by choice, a password). Whatever happens, the form never reveals whether an email is
  * registered: an unknown address gets the same "if this email is registered" answer. The code
  * is submitted as soon as the sixth digit arrives, by typing or pasting.
  */
 export function EmailCodeSignIn({ auth, cooldownSeconds = 60, emailLabel = "Work email", showSteps = true }: EmailCodeSignInProps) {
-  const [step, setStep] = useState<"email" | "code">("email");
+  const [step, setStep] = useState<"email" | "code" | "password">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [fieldError, setFieldError] = useState<string>();
@@ -197,13 +199,18 @@ export function EmailCodeSignIn({ auth, cooldownSeconds = 60, emailLabel = "Work
   const [notice, setNotice] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [sentTo, setSentTo] = useState("");
+  const [password, setPassword] = useState("");
   const cooldown = useCooldown();
 
-  const sendCode = async (address: string, again: boolean) => {
+  const sendCode = async (address: string, again: boolean, forgot = false) => {
     setBusy(true);
     setProblem(undefined);
     const outcome = await auth.requestCode(address);
     setBusy(false);
+    if (forgot && outcome.ok) {
+      // After this code signs them in, the app offers a new password.
+      markPasswordReset();
+    }
     if (outcome.ok) {
       cooldown.start(cooldownSeconds);
       setSentTo(address);
@@ -227,6 +234,40 @@ export function EmailCodeSignIn({ auth, cooldownSeconds = 60, emailLabel = "Work
   };
 
   const checkEmail = (text: string): string | undefined => (EMAIL.test(text.trim()) ? undefined : AUTH_MESSAGES.invalidEmail);
+
+  const usePasswordInstead = () => {
+    const address = email.trim();
+    const invalid = checkEmail(address);
+    if (invalid !== undefined) {
+      setFieldError(invalid);
+      return;
+    }
+    setFieldError(undefined);
+    setProblem(undefined);
+    setEmail(address);
+    setStep("password");
+  };
+
+  const signInWithPassword = async () => {
+    if (busy) {
+      return;
+    }
+    if (password === "") {
+      setFieldError("Enter your password.");
+      return;
+    }
+    setFieldError(undefined);
+    setProblem(undefined);
+    setBusy(true);
+    const outcome = await auth.signInWithPassword(email, password);
+    setBusy(false);
+    if (outcome.ok) {
+      setPassword("");
+      return;
+    }
+    // Wrong password and unknown email read the same: one message, shown the same way.
+    setProblem(outcome.message);
+  };
 
   const onEmailSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -287,7 +328,7 @@ export function EmailCodeSignIn({ auth, cooldownSeconds = 60, emailLabel = "Work
       <div>
         {showSteps ? <AuthSteps steps={SIGN_IN_STEPS} current={0} label="Sign-in steps" /> : null}
         <form noValidate onSubmit={onEmailSubmit} className="flex flex-col gap-4">
-          <Field label={emailLabel} error={fieldError} hint="We'll email you a six-digit code. No password needed." required>
+          <Field label={emailLabel} error={fieldError} hint="We'll email you a six-digit code, or you can use a password if you've set one." required>
             <TextInput
               type="email"
               name="email"
@@ -313,7 +354,82 @@ export function EmailCodeSignIn({ auth, cooldownSeconds = 60, emailLabel = "Work
           </Field>
           {problemBox}
           <Button type="submit" disabled={busy || waiting}>
-            {busy ? "Sending…" : waiting ? `Try again in ${String(cooldown.secondsLeft)} s` : "Send code"}
+            {busy ? "Sending…" : waiting ? `Try again in ${String(cooldown.secondsLeft)} s` : "Email me a code"}
+          </Button>
+          <Button variant="secondary" disabled={busy} icon={<KeyRound aria-hidden="true" className="size-4" />} onClick={usePasswordInstead}>
+            Use a password
+          </Button>
+        </form>
+      </div>
+    );
+  }
+
+  if (step === "password") {
+    const backToEmail = () => {
+      setStep("email");
+      setPassword("");
+      setFieldError(undefined);
+      setProblem(undefined);
+    };
+    return (
+      <div>
+        {showSteps ? <AuthSteps steps={PASSWORD_STEPS} current={1} label="Sign-in steps" /> : null}
+        <form
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            void signInWithPassword();
+          }}
+          className="flex flex-col gap-4"
+        >
+          <p className="text-sm text-muted">
+            Signing in as <b className="text-text">{email}</b>
+          </p>
+          <Field label="Password" error={fieldError} required>
+            <TextInput
+              type="password"
+              name="password"
+              autoComplete="current-password"
+              maxLength={MAX_PASSWORD_LENGTH}
+              autoFocus
+              value={password}
+              onChange={(event) => {
+                setPassword(event.currentTarget.value);
+                setFieldError(undefined);
+              }}
+            />
+          </Field>
+          {problemBox}
+          <Button type="submit" disabled={busy}>
+            {busy ? "Signing in…" : "Sign in"}
+          </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button variant="ghost" icon={<ArrowLeft aria-hidden="true" className="size-4" />} onClick={backToEmail}>
+              Use a different email
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                setPassword("");
+                setFieldError(undefined);
+                void sendCode(email, false, true);
+              }}
+            >
+              Forgot password?
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            disabled={busy}
+            onClick={() => {
+              setPassword("");
+              setProblem(undefined);
+              clearPasswordReset();
+              void sendCode(email, false);
+            }}
+          >
+            Email me a code instead
           </Button>
         </form>
       </div>
@@ -346,6 +462,7 @@ export function EmailCodeSignIn({ auth, cooldownSeconds = 60, emailLabel = "Work
               setFieldError(undefined);
               setProblem(undefined);
               setNotice(undefined);
+              clearPasswordReset();
             }}
           >
             Use a different email

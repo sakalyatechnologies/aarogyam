@@ -12,7 +12,7 @@ function returnPath(state: unknown): string | undefined {
   return undefined;
 }
 
-const POINTS = ["Service health, quality runs and clinics in one place", "Sakalya team only, signed in with a one-time email code", "Every change is attributed to the person who made it"] as const;
+const POINTS = ["Service health, quality runs and clinics in one place", "Sakalya team only, signed in with an email code or a password", "Every change is attributed to the person who made it"] as const;
 
 /** The console's shared frame: sign-in and the link callback both use it. */
 export function ConsoleAuthShell({ children }: { children: ReactNode }) {

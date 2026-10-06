@@ -2,14 +2,18 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AUTH_MESSAGES, AuthShell, AuthSteps, createDevAuth, DevSignIn, digitsOnly, EmailCodeSignIn, type AuthOutcome, type EmailCodeAuthClient } from "./index.js";
+import { AUTH_MESSAGES, AuthShell, AuthSteps, createDevAuth, DevSignIn, digitsOnly, EmailCodeSignIn, hasPasswordReset, passwordStrength, type AuthOutcome, type EmailCodeAuthClient } from "./index.js";
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
 });
 
-function stubAuth(responses: { request?: AuthOutcome; verify?: AuthOutcome } = {}) {
+function stubAuth(responses: { request?: AuthOutcome; verify?: AuthOutcome; password?: AuthOutcome; setPassword?: AuthOutcome } = {}) {
+  const signInWithPassword = vi.fn((email: string, password: string) =>
+    Promise.resolve(responses.password ?? { ok: true as const, email, password }),
+  );
+  const setPassword = vi.fn((password: string) => Promise.resolve(responses.setPassword ?? { ok: true as const, password }));
   const requestCode = vi.fn((email: string) => Promise.resolve(responses.request ?? { ok: true as const, email }));
   const verifyCode = vi.fn((email: string, code: string) => Promise.resolve(responses.verify ?? { ok: true as const, email, code }));
   const auth: EmailCodeAuthClient = {
@@ -21,8 +25,10 @@ function stubAuth(responses: { request?: AuthOutcome; verify?: AuthOutcome } = {
     requestCode,
     verifyCode,
     completeRedirect: () => Promise.resolve({ ok: true }),
+    signInWithPassword,
+    setPassword,
   };
-  return { auth, requestCode, verifyCode };
+  return { auth, requestCode, verifyCode, signInWithPassword, setPassword };
 }
 
 describe("EmailCodeSignIn", () => {
@@ -32,7 +38,7 @@ describe("EmailCodeSignIn", () => {
     render(<EmailCodeSignIn auth={auth} />);
 
     await user.type(screen.getByLabelText(/work email/i), "not-an-email");
-    await user.click(screen.getByRole("button", { name: "Send code" }));
+    await user.click(screen.getByRole("button", { name: "Email me a code" }));
 
     expect(screen.getByText(AUTH_MESSAGES.invalidEmail)).toBeTruthy();
     expect(screen.getByLabelText(/work email/i).getAttribute("aria-invalid")).toBe("true");
@@ -58,7 +64,7 @@ describe("EmailCodeSignIn", () => {
     const { auth, requestCode } = stubAuth();
     render(<EmailCodeSignIn auth={auth} />);
     await user.type(screen.getByLabelText(/work email/i), "aarav@sakalya.example");
-    await user.click(screen.getByRole("button", { name: "Send code" }));
+    await user.click(screen.getByRole("button", { name: "Email me a code" }));
 
     const resend = () => screen.getByRole("button", { name: /resend code/i });
     expect(resend().textContent).toBe("Resend code in 60 s");
@@ -141,7 +147,7 @@ describe("EmailCodeSignIn: the code step", () => {
     // The same address must wait out the resend timer; a corrected one may go at once.
     expect(screen.getByRole("button", { name: /try again in 60 s/i }).hasAttribute("disabled")).toBe(true);
     await user.type(screen.getByLabelText(/work email/i), "x");
-    expect(screen.getByRole("button", { name: "Send code" }).hasAttribute("disabled")).toBe(false);
+    expect(screen.getByRole("button", { name: "Email me a code" }).hasAttribute("disabled")).toBe(false);
   });
 
   it("can hide its own progress bar inside a flow that has one", () => {
@@ -204,5 +210,82 @@ describe("DevSignIn", () => {
     await user.click(screen.getByRole("button", { name: "Isha Nair" }));
 
     expect(auth.getState()).toMatchObject({ status: "signed_in", user: { id: "p2" } });
+  });
+});
+
+describe("password sign-in", () => {
+  afterEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  async function toPasswordStep(responses: Parameters<typeof stubAuth>[0] = {}) {
+    const user = userEvent.setup();
+    const stub = stubAuth(responses);
+    render(<EmailCodeSignIn auth={stub.auth} />);
+    await user.type(screen.getByLabelText(/work email/i), "aarav@sakalya.example");
+    await user.click(screen.getByRole("button", { name: "Use a password" }));
+    return { user, ...stub };
+  }
+
+  it("offers the code first and a password as the alternative", () => {
+    render(<EmailCodeSignIn auth={stubAuth().auth} />);
+    expect(screen.getByRole("button", { name: "Email me a code" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Use a password" })).toBeTruthy();
+  });
+
+  it("checks the email before moving to the password", async () => {
+    const user = userEvent.setup();
+    render(<EmailCodeSignIn auth={stubAuth().auth} />);
+    await user.type(screen.getByLabelText(/work email/i), "nope");
+    await user.click(screen.getByRole("button", { name: "Use a password" }));
+    expect(screen.getByText(AUTH_MESSAGES.invalidEmail)).toBeTruthy();
+    expect(screen.queryByLabelText(/^password/i)).toBeNull();
+  });
+
+  it("signs in with email and password", async () => {
+    const { user, signInWithPassword } = await toPasswordStep();
+    await user.type(screen.getByLabelText(/^password/i), "correct horse battery");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(signInWithPassword).toHaveBeenCalledWith("aarav@sakalya.example", "correct horse battery");
+  });
+
+  it("shows one message for a wrong password or an unknown email", async () => {
+    const { user } = await toPasswordStep({ password: { ok: false, code: "invalid_credentials", message: AUTH_MESSAGES.invalidCredentials } });
+    await user.type(screen.getByLabelText(/^password/i), "whatever it is");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(screen.getByRole("alert").textContent).toBe(AUTH_MESSAGES.invalidCredentials);
+  });
+
+  it("does not call the service with an empty password", async () => {
+    const { user, signInWithPassword } = await toPasswordStep();
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(screen.getByText("Enter your password.")).toBeTruthy();
+    expect(signInWithPassword).not.toHaveBeenCalled();
+  });
+
+  it("Forgot password sends the email code and remembers to offer a new password", async () => {
+    const { user, requestCode } = await toPasswordStep();
+    await user.click(screen.getByRole("button", { name: "Forgot password?" }));
+    expect(requestCode).toHaveBeenCalledWith("aarav@sakalya.example");
+    expect(screen.getByLabelText(/6-digit code/i)).toBeTruthy();
+    expect(hasPasswordReset()).toBe(true);
+  });
+
+  it("Email me a code instead sends the code without the reset note", async () => {
+    const { user, requestCode } = await toPasswordStep();
+    await user.click(screen.getByRole("button", { name: "Email me a code instead" }));
+    expect(requestCode).toHaveBeenCalledTimes(1);
+    expect(hasPasswordReset()).toBe(false);
+  });
+});
+
+describe("passwordStrength", () => {
+  it("rejects fewer than 12 characters", () => {
+    expect(passwordStrength("short1!")).toMatchObject({ score: 0, acceptable: false });
+    expect(passwordStrength("elevenchars")).toMatchObject({ acceptable: false });
+  });
+  it("rates repeats and runs weak, and long mixed phrases strong", () => {
+    expect(passwordStrength("aaaaaaaaaaaaaaaa")).toMatchObject({ score: 1, acceptable: true });
+    expect(passwordStrength("Tulip-lantern-4-river-moss")).toMatchObject({ score: 4, acceptable: true });
   });
 });

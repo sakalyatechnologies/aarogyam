@@ -23,3 +23,13 @@ export {
   type EmailCodeSignInProps,
   type SignInPanelProps,
 } from "./sign-in.js";
+export {
+  clearPasswordReset,
+  hasPasswordReset,
+  markPasswordReset,
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  passwordStrength,
+  type PasswordStrength,
+} from "./password.js";
+export { PasswordDialog, supportsPassword, usePasswordDialog, type PasswordDialogProps } from "./password-dialog.js";

@@ -1,5 +1,5 @@
 /**
- * Email one-time-code sign-in through Supabase Auth. Imported on its own path so builds that
+ * Email one-time-code (and optional password) sign-in through Supabase Auth. Imported on its own path so builds that
  * use development sign-in never include the Supabase library.
  */
 
@@ -29,6 +29,11 @@ export interface SupabaseAuthApi {
     data: { session: SupabaseSession | null };
     error: SupabaseError | null;
   }>;
+  signInWithPassword(credentials: { email: string; password: string }): Promise<{
+    data: { session: SupabaseSession | null };
+    error: SupabaseError | null;
+  }>;
+  updateUser(attributes: { password: string }): Promise<{ error: SupabaseError | null }>;
   /** PKCE: trades the `?code=` query parameter of a magic-link email for a session. */
   exchangeCodeForSession(code: string): Promise<{ data: { session: SupabaseSession | null }; error: SupabaseError | null }>;
   /** The older implicit flow: a `#access_token`/`#refresh_token` fragment straight from the email. */
@@ -136,6 +141,48 @@ export function createSupabaseAuth(api: SupabaseAuthApi, options: SupabaseAuthOp
           return failed("network", AUTH_MESSAGES.network);
         }
         return failed("invalid_code", AUTH_MESSAGES.invalidCode);
+      } catch {
+        return failed("network", AUTH_MESSAGES.network);
+      }
+    },
+    signInWithPassword: async (email, password) => {
+      try {
+        const { data, error } = await api.signInWithPassword({ email, password });
+        if (error === null) {
+          store.set(fromSession(data.session));
+          return { ok: true };
+        }
+        if (isRateLimited(error)) {
+          return failed("rate_limited", AUTH_MESSAGES.rateLimited);
+        }
+        if (isNetworkFailure(error)) {
+          return failed("network", AUTH_MESSAGES.network);
+        }
+        // Wrong password, unknown email, unconfirmed or disabled account: one answer for all.
+        return failed("invalid_credentials", AUTH_MESSAGES.invalidCredentials);
+      } catch {
+        return failed("network", AUTH_MESSAGES.network);
+      }
+    },
+    setPassword: async (password) => {
+      try {
+        const { error } = await api.updateUser({ password });
+        if (error === null) {
+          return { ok: true };
+        }
+        if (isRateLimited(error)) {
+          return failed("rate_limited", AUTH_MESSAGES.rateLimited);
+        }
+        if (isNetworkFailure(error)) {
+          return failed("network", AUTH_MESSAGES.network);
+        }
+        if (error.code === "weak_password") {
+          return failed("weak_password", AUTH_MESSAGES.weakPassword);
+        }
+        if (error.code === "same_password") {
+          return failed("weak_password", "That is already your password. Choose a different one.");
+        }
+        return failed("rejected", AUTH_MESSAGES.passwordRejected);
       } catch {
         return failed("network", AUTH_MESSAGES.network);
       }

@@ -17,11 +17,12 @@ import {
   UsersRound,
   X,
   Wallet,
+  KeyRound,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link, Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
 
-import { useAuth } from "@aarogyam/auth";
+import { PasswordDialog, supportsPassword, useAuth, usePasswordDialog } from "@aarogyam/auth";
 import { useToast } from "@sakalya/ui";
 
 import { initials } from "../components/mk/index.js";
@@ -176,11 +177,13 @@ function Account() {
   const { session, access } = useClinic();
   const auth = useAuth();
   const [open, setOpen] = useState(false);
+  const password = usePasswordDialog();
   const ref = useDismiss(open, () => {
     setOpen(false);
   });
   return (
     <div className="mk-account" ref={ref}>
+      {supportsPassword(auth) ? <PasswordDialog auth={auth} open={password.open} onOpenChange={password.setOpen} /> : null}
       <button
         type="button"
         className="mk-avatar"
@@ -199,6 +202,17 @@ function Account() {
             <b>{session.user.display_name}</b>
             {access.role_name} · {access.name}
           </p>
+          {supportsPassword(auth) ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                password.setOpen(true);
+              }}
+            >
+              <KeyRound aria-hidden="true" /> Password
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {

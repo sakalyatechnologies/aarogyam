@@ -21,6 +21,8 @@ function stubApi(overrides: Partial<SupabaseAuthApi> = {}) {
       return { data: { subscription: { unsubscribe: () => undefined } } };
     },
     signOut: vi.fn(() => Promise.resolve({ error: null })),
+    signInWithPassword: vi.fn(() => Promise.resolve({ data: { session: null }, error: null })),
+    updateUser: vi.fn(() => Promise.resolve({ error: null })),
     ...overrides,
   };
   return {
@@ -141,6 +143,43 @@ describe("createSupabaseAuth", () => {
     it("reports an incomplete link", async () => {
       const outcome = await createSupabaseAuth(stubApi().api).completeRedirect("https://sunrise.example/auth/callback");
       expect(outcome.ok).toBe(false);
+    });
+  });
+
+  describe("passwords", () => {
+    it("signs in and publishes the session", async () => {
+      const session = { access_token: "jwt", user: { id: "u1", email: "a@b.co" } };
+      const signInWithPassword = vi.fn(() => Promise.resolve({ data: { session }, error: null }));
+      const auth = createSupabaseAuth(stubApi({ signInWithPassword }).api);
+      expect(await auth.signInWithPassword("a@b.co", "a long enough phrase")).toEqual({ ok: true });
+      expect(signInWithPassword).toHaveBeenCalledWith({ email: "a@b.co", password: "a long enough phrase" });
+      expect(auth.getState()).toEqual({ status: "signed_in", user: { id: "u1", email: "a@b.co" } });
+    });
+
+    it("answers a wrong password and an unknown email identically", async () => {
+      const wrong = stubApi({ signInWithPassword: () => Promise.resolve({ data: { session: null }, error: apiError(400, "invalid_credentials") }) });
+      const unknown = stubApi({ signInWithPassword: () => Promise.resolve({ data: { session: null }, error: apiError(400, "user_not_found") }) });
+      const expected = { ok: false, code: "invalid_credentials", message: AUTH_MESSAGES.invalidCredentials };
+      expect(await createSupabaseAuth(wrong.api).signInWithPassword("a@b.co", "x")).toEqual(expected);
+      expect(await createSupabaseAuth(unknown.api).signInWithPassword("z@b.co", "x")).toEqual(expected);
+    });
+
+    it("maps rate limits and network failures on sign-in", async () => {
+      const limited = stubApi({ signInWithPassword: () => Promise.resolve({ data: { session: null }, error: apiError(429, "over_request_rate_limit") }) });
+      expect(await createSupabaseAuth(limited.api).signInWithPassword("a@b.co", "x")).toMatchObject({ code: "rate_limited" });
+      const offline = stubApi({ signInWithPassword: () => Promise.reject(new TypeError("Failed to fetch")) });
+      expect(await createSupabaseAuth(offline.api).signInWithPassword("a@b.co", "x")).toMatchObject({ code: "network" });
+    });
+
+    it("sets a password through updateUser and maps refusals", async () => {
+      const updateUser = vi.fn(() => Promise.resolve({ error: null }));
+      expect(await createSupabaseAuth(stubApi({ updateUser }).api).setPassword("a long enough phrase")).toEqual({ ok: true });
+      expect(updateUser).toHaveBeenCalledWith({ password: "a long enough phrase" });
+
+      const weak = stubApi({ updateUser: () => Promise.resolve({ error: apiError(422, "weak_password") }) });
+      expect(await createSupabaseAuth(weak.api).setPassword("x")).toMatchObject({ code: "weak_password" });
+      const other = stubApi({ updateUser: () => Promise.resolve({ error: apiError(400, "reauthentication_needed") }) });
+      expect(await createSupabaseAuth(other.api).setPassword("x")).toMatchObject({ code: "rejected", message: AUTH_MESSAGES.passwordRejected });
     });
   });
 });

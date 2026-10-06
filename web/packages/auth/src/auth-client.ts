@@ -14,7 +14,7 @@ export type AuthState =
   | { status: "signed_out" }
   | { status: "signed_in"; user: AuthUser };
 
-export type AuthErrorCode = "invalid_email" | "invalid_code" | "rate_limited" | "network";
+export type AuthErrorCode = "invalid_email" | "invalid_code" | "invalid_credentials" | "weak_password" | "rejected" | "rate_limited" | "network";
 
 /**
  * The result of asking for or checking a code. Messages never say whether an account exists,
@@ -49,7 +49,10 @@ export interface DevAuthClient extends AuthClientBase {
   signInAsNew: (person: { displayName: string; email: string }) => void;
 }
 
-/** Sign-in with a one-time code sent by email. */
+/**
+ * Sign-in with a one-time code sent by email, or optionally a password. Passwords are handed
+ * straight to the auth service; nothing here stores or logs them.
+ */
 export interface EmailCodeAuthClient extends AuthClientBase {
   kind: "email_code";
   requestCode: (email: string) => Promise<AuthOutcome>;
@@ -59,6 +62,10 @@ export interface EmailCodeAuthClient extends AuthClientBase {
    * parameter, or a `#access_token`/`#refresh_token` fragment. For the `/auth/callback` route.
    */
   completeRedirect: (url: string) => Promise<AuthOutcome>;
+  /** A wrong password and an unknown email both fail with `invalid_credentials` and one message. */
+  signInWithPassword: (email: string, password: string) => Promise<AuthOutcome>;
+  /** Sets or changes the signed-in person's password. */
+  setPassword: (password: string) => Promise<AuthOutcome>;
 }
 
 export type AuthClient = DevAuthClient | EmailCodeAuthClient;
@@ -68,6 +75,9 @@ export const AUTH_MESSAGES = {
   rateLimited: "Too many attempts. Wait a minute, then try again.",
   invalidEmail: "Enter a valid email address, like name@clinic.in.",
   invalidCode: "That code is wrong or has expired. Check the email, or send a new code.",
+  invalidCredentials: "That email or password is wrong. Check them, or email yourself a code instead.",
+  weakPassword: "Choose a longer or less guessable password.",
+  passwordRejected: "We couldn't save that password. Sign in again with an email code, then try once more.",
 } as const;
 
 /** A small store for auth state that React reads with `useSyncExternalStore`. */

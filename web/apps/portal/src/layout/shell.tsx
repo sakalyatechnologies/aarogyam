@@ -22,11 +22,12 @@ import {
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link, Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
 
-import { PasswordDialog, supportsPassword, useAuth, usePasswordDialog } from "@aarogyam/auth";
+import { PasswordDialog, signOutToSite, supportsPassword, useAuth, usePasswordDialog } from "@aarogyam/auth";
 import { useToast } from "@sakalya/ui";
 
 import { initials } from "../components/mk/index.js";
 import { useClinic } from "../clinic.js";
+import { centralSignInSetting } from "../env.js";
 import { useToday } from "../queries.js";
 import { ClinicMark } from "./clinic-mark.js";
 import { CommandPalette } from "./command-palette.js";
@@ -219,7 +220,7 @@ function Account() {
           <button
             type="button"
             onClick={() => {
-              void auth.signOut();
+              void signOutToSite(auth, centralSignInSetting());
             }}
           >
             <LogOut aria-hidden="true" /> Sign out

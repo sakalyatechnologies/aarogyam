@@ -31,7 +31,7 @@ describe("Central sign-in handoff", () => {
     window.history.replaceState(null, "", `/auth/handoff#code=${created.value.code}`);
     const { router } = renderPortal("/auth/handoff", { backend });
     await waitFor(() => {
-      expect(router.state.location.pathname).not.toBe("/auth/handoff");
+      expect(router.state.location.pathname).toBe("/today");
     });
     expect(window.location.hash).toBe("");
     // Used once: the same code now fails.

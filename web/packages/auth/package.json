@@ -6,7 +6,8 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./supabase": "./src/supabase.ts"
+    "./supabase": "./src/supabase.ts",
+    "./handoff": "./src/handoff.ts"
   },
   "scripts": {
     "typecheck": "tsc -p ."

@@ -9,7 +9,7 @@
 #   automatically, and scripts/provision-hosts.sh backfills existing ones (docs/deploy.md
 #   "Clinic addresses"). Re-deploying the portal here also updates every clinic's address.
 #   DEMO_DEV_SIGNIN=1 scripts/deploy-workers.sh <api-origin>   # skip Supabase; use the API's
-#                                                               # dev-token sign-in (local API,
+#                                                               # dev-token sign-in, no central sign-in (local API,
 #                                                               # ARO_ENVIRONMENT=local, only)
 set -euo pipefail
 
@@ -72,6 +72,13 @@ SUBDOMAIN="${CLOUDFLARE_WORKERS_SUBDOMAIN:-<subdomain>}"
 DEFAULT_TEMPLATE='{slug}'"-aarogyam.${SUBDOMAIN}.workers.dev"
 PORTAL_HOST_TEMPLATE="${PORTAL_HOST_TEMPLATE:-$DEFAULT_TEMPLATE}"
 
+# Everyone signs in on the public website; the portal and console send signed-out visitors there.
+# Set CENTRAL_SIGNIN_URL to the custom domain's /sign-in later. Empty keeps each app's own sign-in.
+CENTRAL_SIGNIN_URL="${CENTRAL_SIGNIN_URL-https://aarogyam-website.pages.dev/sign-in}"
+if [ "${DEMO_DEV_SIGNIN:-0}" = "1" ]; then
+  CENTRAL_SIGNIN_URL=""
+fi
+
 deploy_app() {
   local app_dir="$1" worker_dir="$2" worker_name="$3"
 
@@ -84,6 +91,7 @@ deploy_app() {
     VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
     VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
     VITE_PORTAL_HOST_TEMPLATE="$PORTAL_HOST_TEMPLATE" \
+    VITE_CENTRAL_SIGNIN_URL="$CENTRAL_SIGNIN_URL" \
       pnpm build
   )
 

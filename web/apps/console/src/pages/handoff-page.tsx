@@ -11,7 +11,7 @@ import { ConsoleAuthShell } from "./sign-in-page.js";
 
 /**
  * Where central sign-in lands (`/auth/handoff#code=…`): redeems the one-time code on the
- * console host, signs in here, then continues to `/` like any sign-in.
+ * console host, signs in here, then lands on its home (service health).
  */
 export function HandoffPage() {
   useDocumentTitle("Signing in", "Sakalya Console");
@@ -35,7 +35,7 @@ export function HandoffPage() {
       return result.ok ? result.value : null;
     }).then((outcome) => {
       if (outcome.ok) {
-        void navigate("/", { replace: true });
+        void navigate("/health", { replace: true });
       } else {
         setProblem(outcome.message);
       }

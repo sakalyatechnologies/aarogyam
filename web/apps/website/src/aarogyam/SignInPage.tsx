@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { fetchMe, handoffUrl, requestHandoff } from "./api";
 import { getAuthClient, signInConfigured } from "./auth";
 import { CONSOLE_URL } from "./env";
-import { decideDestination, type Destination } from "./routing";
+import { decideDestination, resolveNext, type Destination } from "./routing";
 
 type Step = "email" | "code" | "password" | "routing";
 
@@ -28,7 +28,9 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
       setStep("email");
       return;
     }
-    const dest = decideDestination(me.value, CONSOLE_URL);
+    // `?next=` (set by a clinic or the console) goes first, but only to a place this person belongs to.
+    const wanted = resolveNext(me.value, new URLSearchParams(window.location.search).get("next"), CONSOLE_URL);
+    const dest: Destination = wanted === null ? decideDestination(me.value, CONSOLE_URL) : { kind: "go", place: wanted };
     setToken(accessToken);
     if (dest.kind === "go") await openPlace(accessToken, dest.place.host);
     else if (dest.kind === "picker") setPicker(dest);

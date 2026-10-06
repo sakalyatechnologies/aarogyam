@@ -61,3 +61,15 @@ describe("central sign-in handoff", () => {
     );
   });
 });
+
+describe("central sign-in addresses", () => {
+  it("builds the handoff address with the code in the fragment, encoded", async () => {
+    const { handoffUrl } = await import("./handoff.js");
+    expect(handoffUrl("a.x", "abc 1")).toBe("https://a.x/auth/handoff#code=abc%201");
+  });
+  it("returns to the site's front page after sign-out, and names the console in next", async () => {
+    const { centralHomeUrl, centralSignInUrl, CONSOLE_NEXT } = await import("./handoff.js");
+    expect(centralHomeUrl("https://aarogyam-website.pages.dev/sign-in")).toBe("https://aarogyam-website.pages.dev/");
+    expect(centralSignInUrl("https://site.example/sign-in", CONSOLE_NEXT)).toBe("https://site.example/sign-in?next=console");
+  });
+});

@@ -1,4 +1,6 @@
 // Aarogyam-owned. The three public-site calls to the API; each takes `fetch` so tests can mock it.
+import { handoffUrl } from "@aarogyam/auth/handoff";
+
 import { API_BASE_URL } from "./env";
 
 export type Fetch = typeof fetch;
@@ -74,9 +76,7 @@ export async function requestHandoff(token: string, targetHost: string, f: Fetch
   }
 }
 
-export function handoffUrl(host: string, code: string): string {
-  return `https://${host}/auth/handoff#code=${encodeURIComponent(code)}`;
-}
+export { handoffUrl };
 
 export interface RegistrationFields {
   name: string;

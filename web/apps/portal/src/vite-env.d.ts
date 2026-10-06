@@ -8,8 +8,8 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_ANON_KEY?: string;
   /**
    * The public site's sign-in page, such as `https://aarogyam.sakalyatechnologies.com/sign-in`.
-   * When set, signed-out visitors go there (with `?next=<this host>`) instead of this portal's
-   * own sign-in, which keeps working until the site ships.
+   * When set, `/sign-in` and every signed-out redirect go there (with `?next=<this host>`)
+   * instead of this portal's own sign-in. Unset in local development.
    */
-  readonly VITE_CENTRAL_SIGN_IN_URL?: string;
+  readonly VITE_CENTRAL_SIGNIN_URL?: string;
 }

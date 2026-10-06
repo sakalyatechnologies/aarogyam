@@ -2,10 +2,11 @@ import { Activity, Building2, CheckCircle2, Inbox, KeyRound, LogOut } from "luci
 import { Navigate, Outlet, useLocation } from "react-router";
 
 import { renderRouterLink } from "@aarogyam/app-kit";
-import { PasswordDialog, supportsPassword, useAuth, useAuthState, usePasswordDialog } from "@aarogyam/auth";
+import { CentralSignInRedirect, CONSOLE_NEXT, PasswordDialog, signOutToSite, supportsPassword, useAuth, useAuthState, usePasswordDialog } from "@aarogyam/auth";
 import { AppShell, IconButton, Skeleton, UserChip, type NavEntry } from "@sakalya/ui";
 
 import { ConsoleBrand } from "../brand.js";
+import { centralSignInSetting } from "../env.js";
 
 const NAV: readonly NavEntry[] = [
   { id: "health", label: "Service health", icon: <Activity />, href: "/health" },
@@ -26,6 +27,10 @@ export function RequireAuth() {
     );
   }
   if (state.status === "signed_out") {
+    const central = centralSignInSetting();
+    if (central !== "") {
+      return <CentralSignInRedirect signInUrl={central} next={CONSOLE_NEXT} />;
+    }
     return <Navigate to="/sign-in" replace state={{ from: location.pathname }} />;
   }
   return <Outlet />;
@@ -63,7 +68,7 @@ export function ConsoleLayout() {
           <IconButton
             label="Sign out"
             onClick={() => {
-              void auth.signOut();
+              void signOutToSite(auth, centralSignInSetting());
             }}
           >
             <LogOut aria-hidden="true" className="size-5" />

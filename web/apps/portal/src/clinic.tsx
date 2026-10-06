@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
 import { hasPermission, unwrap, type ApiClient, type ClinicAccess, type Me, type Permission, type Session } from "@aarogyam/api-client";
+import { handoffUrl } from "@aarogyam/auth";
 
 import { REFERENCE } from "./lib/cache-policy.js";
 
@@ -54,12 +55,22 @@ export function clinicUrl(host: string, path = "/"): string {
 }
 
 /**
+ * Opens another clinic's host signed in: asks for a one-time handoff code (the same one the
+ * public site uses) and goes to that host's `/auth/handoff`. Without a code (say the request
+ * failed) it still goes to the host, which sends the person to sign in on the site.
+ */
+export async function openClinic(api: ApiClient, host: string): Promise<void> {
+  const result = await api.createHandoff({ host });
+  window.location.assign(result.ok ? handoffUrl(host, result.value.code) : clinicUrl(host));
+}
+
+/**
  * The clinic to open. Against the real API it is always this page's host (the API reads the
  * clinic from it), and choosing another clinic goes to that clinic's host. With fake data one
  * page serves every clinic, so the choice is kept for the tab.
  */
 export function useClinicChoice(me: Me | undefined) {
-  const { mode } = useServices();
+  const { mode, neutral } = useServices();
   const [chosen, setChosen] = useState<string | null>(readStored);
   const clinics = me?.clinics ?? [];
   const here = clinics.find((c) => c.host === window.location.hostname);
@@ -68,7 +79,7 @@ export function useClinicChoice(me: Me | undefined) {
   const choose = (clinic: ClinicAccess) => {
     if (mode === "http") {
       if (clinic.host != null) {
-        window.location.assign(clinicUrl(clinic.host));
+        void openClinic(neutral, clinic.host);
       }
       return;
     }

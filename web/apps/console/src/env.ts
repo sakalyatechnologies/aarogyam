@@ -20,3 +20,8 @@ export function readEnv(): ConsoleEnv {
     supabase: url !== "" && anonKey !== "" ? { url, anonKey } : null,
   };
 }
+
+/** The public site's sign-in page when this build sends everyone there (deployed builds), else "" (local development keeps the in-app sign-in). */
+export function centralSignInSetting(): string {
+  return (import.meta.env.VITE_CENTRAL_SIGNIN_URL ?? "").trim();
+}

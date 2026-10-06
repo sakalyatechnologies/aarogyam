@@ -18,3 +18,25 @@ export function getAuthClient(): Promise<EmailCodeAuthClient> {
   );
   return client;
 }
+
+/**
+ * The stored session's token, but only after the auth server confirms the session is still
+ * good. A revoked or expired session is cleared and gives null, so the sign-in form shows
+ * instead of routing someone on a stale local copy.
+ */
+export async function verifiedAccessToken(): Promise<string | null> {
+  const auth = await getAuthClient();
+  const token = await auth.getAccessToken();
+  if (token === null) return null;
+  return (await auth.verifySession()) ? token : null;
+}
+
+/** Ends this person's session everywhere and clears the one this site holds. */
+export async function signOutEverywhere(): Promise<void> {
+  if (!signInConfigured) return;
+  try {
+    await (await getAuthClient()).signOut();
+  } catch {
+    // Nothing more to clear.
+  }
+}

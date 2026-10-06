@@ -12,8 +12,8 @@ import { routes } from "../routes.js";
 type Client = ReturnType<FakeBackend["client"]>;
 
 /** Renders the console at `path` against the fake backend, signed in as the first platform user unless told otherwise. */
-export function renderConsole(path: string, options: { signedIn?: boolean; override?: (client: Client) => Client } = {}) {
-  const { signedIn = true, override } = options;
+export function renderConsole(path: string, options: { signedIn?: boolean; asClinicMember?: boolean; override?: (client: Client) => Client } = {}) {
+  const { signedIn = true, asClinicMember = false, override } = options;
   const backend = createFakeBackend(createFixtures({ now: new Date("2026-10-03T05:30:00Z") }));
   const team = backend.platformUsers();
   const auth = createDevAuth({
@@ -21,7 +21,10 @@ export function renderConsole(path: string, options: { signedIn?: boolean; overr
     tokenFor: fakeTokenFor,
     storage: null,
   });
-  if (signedIn) {
+  if (signedIn && asClinicMember) {
+    // A clinic member who is not Sakalya staff, holding a session on the console host.
+    auth.signInWithToken(fakeTokenFor({ id: backend.users()[0]?.id ?? "" }));
+  } else if (signedIn) {
     auth.signInAs(team[0]?.id ?? "");
   }
   const client = backend.client({ getToken: auth.getAccessToken });
@@ -31,5 +34,5 @@ export function renderConsole(path: string, options: { signedIn?: boolean; overr
       <RouterProvider router={router} />
     </Providers>,
   );
-  return { router, backend };
+  return { router, backend, auth };
 }

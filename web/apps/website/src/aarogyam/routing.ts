@@ -40,3 +40,26 @@ export function decideDestination(me: Me, consoleUrl: string): Destination {
   if (places.length > 1) return { kind: "picker", places };
   return { kind: "none" };
 }
+
+/**
+ * Where `?next=` asks to go, if the person may go there: the console (`console`, for staff) or
+ * one of their own clinics' hosts, matched exactly against what /me lists. Anything else
+ * (another host, a URL, a path) gives null, so the normal routing applies and nobody is ever
+ * sent to a host the account doesn't belong to.
+ */
+export function resolveNext(me: Me, next: string | null | undefined, consoleUrl: string): Place | null {
+  const wanted = (next ?? "").trim().toLowerCase();
+  if (wanted === "") return null;
+  const consoleAt = consoleHost(consoleUrl);
+  if (wanted === "console") {
+    return me.console_access === true && consoleAt !== ""
+      ? { key: "console", name: "Sakalya console", detail: "Super admin", host: consoleAt }
+      : null;
+  }
+  for (const c of me.clinics) {
+    if (typeof c.host === "string" && c.host !== "" && c.host.toLowerCase() === wanted) {
+      return { key: c.org_id, name: c.name, detail: c.role_name, host: c.host };
+    }
+  }
+  return null;
+}

@@ -147,6 +147,7 @@ export function createDevAuth(options: DevAuthOptions): DevAuthClient {
       }
       return true;
     },
+    verifySession: () => Promise.resolve(store.get().status === "signed_in"),
     signOut: () => {
       try {
         storage?.removeItem(key);

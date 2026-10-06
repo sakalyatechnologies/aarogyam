@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { fetchMe, handoffUrl, requestHandoff, submitRegistration, type Fetch, type RegistrationFields } from "./api";
-import { decideDestination } from "./routing";
+import { decideDestination, resolveNext } from "./routing";
 
 const json = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status });
 const mock = (res: Response): Fetch => vi.fn(() => Promise.resolve(res)) as unknown as Fetch;
@@ -60,5 +60,25 @@ describe("API calls", () => {
     const bad = await submitRegistration(fields, mock(json(400, { error: { message: "email is not valid" } })));
     expect(bad).toEqual({ ok: false, message: "email is not valid" });
     expect((await submitRegistration(fields, mock(json(429, {})))).ok).toBe(false);
+  });
+});
+
+describe("resolveNext", () => {
+  const CONSOLE = "https://console-aarogyam.example.com/";
+  const me = { clinics: [clinic("a", "a.x"), clinic("b", "B.X"), clinic("c", null)] };
+  it("accepts one of the person's own clinic hosts, ignoring case", () => {
+    expect(resolveNext(me, "a.x", CONSOLE)?.host).toBe("a.x");
+    expect(resolveNext(me, "b.x", CONSOLE)?.host).toBe("B.X");
+  });
+  it("never accepts a foreign host, a URL, a path or a look-alike", () => {
+    for (const next of ["evil.example.com", "https://a.x", "a.x/phish", "a.x.evil.com", "//evil.com", "", null, undefined, "c"]) {
+      expect(resolveNext(me, next, CONSOLE)).toBeNull();
+    }
+  });
+  it("opens the console only for staff, and not by its host name alone", () => {
+    expect(resolveNext({ ...me, console_access: true }, "console", CONSOLE)?.host).toBe("console-aarogyam.example.com");
+    expect(resolveNext(me, "console", CONSOLE)).toBeNull();
+    expect(resolveNext({ ...me, console_access: true }, "console", "")).toBeNull();
+    expect(resolveNext({ clinics: [], console_access: true }, "console-aarogyam.example.com", CONSOLE)).toBeNull();
   });
 });

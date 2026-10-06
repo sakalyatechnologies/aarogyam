@@ -2,9 +2,9 @@
 import { useEffect, useState } from "react";
 
 import { fetchMe, handoffUrl, requestHandoff } from "./api";
-import { getAuthClient, signInConfigured } from "./auth";
+import { getAuthClient, signInConfigured, verifiedAccessToken } from "./auth";
 import { CONSOLE_URL } from "./env";
-import { decideDestination, type Destination } from "./routing";
+import { decideDestination, resolveNext, type Destination } from "./routing";
 
 type Step = "email" | "code" | "password" | "routing";
 
@@ -28,7 +28,9 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
       setStep("email");
       return;
     }
-    const dest = decideDestination(me.value, CONSOLE_URL);
+    // `?next=` (set by a clinic or the console) goes first, but only to a place this person belongs to.
+    const wanted = resolveNext(me.value, new URLSearchParams(window.location.search).get("next"), CONSOLE_URL);
+    const dest: Destination = wanted === null ? decideDestination(me.value, CONSOLE_URL) : { kind: "go", place: wanted };
     setToken(accessToken);
     if (dest.kind === "go") await openPlace(accessToken, dest.place.host);
     else if (dest.kind === "picker") setPicker(dest);
@@ -49,8 +51,7 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
   // Someone who already signed in on this browser skips the form.
   useEffect(() => {
     if (!signInConfigured) return;
-    void getAuthClient().then(async (auth) => {
-      const t = await auth.getAccessToken();
+    void verifiedAccessToken().then(async (t) => {
       if (t !== null) await goTo(t);
     });
     // Runs once on mount.

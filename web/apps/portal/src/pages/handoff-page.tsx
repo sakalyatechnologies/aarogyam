@@ -11,7 +11,7 @@ import { PortalAuthShell } from "./brand.js";
 
 /**
  * Where central sign-in lands (`/auth/handoff#code=…`): redeems the one-time code on this
- * clinic's host, signs in here, then continues to `/` like any sign-in.
+ * clinic's host, signs in here, then lands on Today.
  */
 export function HandoffPage() {
   useDocumentTitle("Signing in", "Aarogyam");
@@ -36,7 +36,7 @@ export function HandoffPage() {
       return result.ok ? result.value : null;
     }).then((outcome) => {
       if (outcome.ok) {
-        void navigate("/", { replace: true });
+        void navigate("/today", { replace: true });
       } else {
         setProblem(outcome.message);
       }

@@ -48,9 +48,22 @@ export async function completeHandoff(auth: AuthClient, hash: string, redeem: Re
   return { ok: false, code: "rejected", message: "This app signs in differently from the sign-in page. Sign in here instead." };
 }
 
-/** Where a signed-out visitor goes when central sign-in is on: the public site's sign-in, told which host to come back to. */
-export function centralSignInUrl(signInUrl: string, host: string): string {
+/** The `next` value that means the Sakalya console (a clinic is named by its host). */
+export const CONSOLE_NEXT = "console";
+
+/** Where a signed-out visitor goes when central sign-in is on: the public site's sign-in, told where to return to (a host, or `console`). */
+export function centralSignInUrl(signInUrl: string, next: string): string {
   const url = new URL(signInUrl);
-  url.searchParams.set("next", host);
+  url.searchParams.set("next", next);
   return url.toString();
+}
+
+/** Where signing out leaves to when central sign-in is on: the site's `/sign-out`, which clears its own session and shows sign-in. */
+export function centralSignOutUrl(signInUrl: string): string {
+  return new URL("/sign-out", signInUrl).toString();
+}
+
+/** The address a one-time code is redeemed at: the target host's `/auth/handoff`, code in the fragment. */
+export function handoffUrl(host: string, code: string): string {
+  return `https://${host}/auth/handoff#code=${encodeURIComponent(code)}`;
 }

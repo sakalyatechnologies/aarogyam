@@ -3,7 +3,9 @@ import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router";
 
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import { AuthHeading, AuthShell, SignInPanel, useAuth, useAuthState } from "@aarogyam/auth";
+import { AuthHeading, AuthShell, CentralSignInRedirect, CONSOLE_NEXT, SignInPanel, useAuth, useAuthState } from "@aarogyam/auth";
+
+import { centralSignInSetting } from "../env.js";
 
 function returnPath(state: unknown): string | undefined {
   if (typeof state === "object" && state !== null && "from" in state && typeof state.from === "string" && state.from.startsWith("/")) {
@@ -38,6 +40,10 @@ export function SignInPage() {
   const location = useLocation();
   if (state.status === "signed_in") {
     return <Navigate to={returnPath(location.state) ?? "/health"} replace />;
+  }
+  const central = centralSignInSetting();
+  if (central !== "") {
+    return state.status === "signed_out" ? <CentralSignInRedirect signInUrl={central} next={CONSOLE_NEXT} /> : null;
   }
   return (
     <ConsoleAuthShell>

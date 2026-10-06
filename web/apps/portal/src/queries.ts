@@ -22,6 +22,8 @@ import {
   type NewPatient,
   type NewProcedure,
   type NewReadings,
+  type NewRole,
+  type RolePermissionsUpdate,
   type NewVisit,
   type NoteContent,
   type NoteId,
@@ -206,6 +208,64 @@ export function useRoles() {
     queryKey: ["roles", access.org_id],
     queryFn: ({ signal }) => unwrap(api.listRoles({ signal })),
     ...ROLES,
+  });
+}
+
+/** The permission catalogue and the standard roles' defaults, for Settings → Roles & access. */
+export function useAccessCatalogue(enabled = true) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["access-catalogue", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.getAccessCatalogue({ signal })),
+    enabled,
+    ...ROLES,
+  });
+}
+
+export function useRole(key: string | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["role", access.org_id, key],
+    queryFn: ({ signal }) => unwrap(api.getRole(key ?? "", { signal })),
+    enabled: key !== undefined,
+  });
+}
+
+function useRoleInvalidation() {
+  const { access } = useClinic();
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["roles", access.org_id] }),
+      queryClient.invalidateQueries({ queryKey: ["role", access.org_id] }),
+      queryClient.invalidateQueries({ queryKey: ["staff", access.org_id] }),
+    ]);
+}
+
+export function useSetRolePermissions() {
+  const { api } = useClinic();
+  const invalidate = useRoleInvalidation();
+  return useMutation({
+    mutationFn: ({ key, update }: { key: string; update: RolePermissionsUpdate }) => unwrap(api.setRolePermissions(key, update)),
+    onSuccess: invalidate,
+  });
+}
+
+export function useCreateRole() {
+  const { api } = useClinic();
+  const invalidate = useRoleInvalidation();
+  return useMutation({
+    mutationFn: (input: NewRole) => unwrap(api.createRole(input)),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteRole() {
+  const { api } = useClinic();
+  const invalidate = useRoleInvalidation();
+  return useMutation({
+    mutationFn: (key: string) => unwrap(api.deleteRole(key)),
+    onSuccess: invalidate,
   });
 }
 

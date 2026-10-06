@@ -23,6 +23,7 @@ function stubFetch(response: Response | (() => Promise<Response>)) {
 
 const patientBody = {
   id: "01a103b1-ea26-7120-ad93-41b6b4b4ebf2",
+  row_version: 1,
   number: "SD-9",
   full_name: "Test Patient",
   sex: "female",

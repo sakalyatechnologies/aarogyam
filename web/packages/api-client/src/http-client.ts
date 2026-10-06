@@ -82,6 +82,9 @@ import {
   room,
   roomList,
   rolesResponse,
+  accessCatalogue,
+  roleDetail,
+  savedRole,
   savedAppointment,
   sessionResponse,
   slugCheck,
@@ -378,6 +381,12 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     changeStaffMember: (membershipId, changes, opts) =>
       call({ method: "PATCH", path: `/api/v1/staff/${encodeURIComponent(membershipId)}`, schema: member, body: changes, signal: opts?.signal }),
     listRoles: (opts) => call({ method: "GET", path: "/api/v1/roles", schema: rolesResponse, signal: opts?.signal }),
+    getAccessCatalogue: (opts) => call({ method: "GET", path: "/api/v1/permissions", schema: accessCatalogue, signal: opts?.signal }),
+    getRole: (key, opts) => call({ method: "GET", path: `/api/v1/roles/${encodeURIComponent(key)}`, schema: roleDetail, signal: opts?.signal }),
+    setRolePermissions: (key, update, opts) =>
+      call({ method: "PUT", path: `/api/v1/roles/${encodeURIComponent(key)}/permissions`, schema: savedRole, body: update, signal: opts?.signal }),
+    createRole: (input, opts) => call({ method: "POST", path: "/api/v1/roles", schema: roleDetail, body: input, signal: opts?.signal }),
+    deleteRole: (key, opts) => call({ method: "DELETE", path: `/api/v1/roles/${encodeURIComponent(key)}`, schema: voidResponse, signal: opts?.signal }),
 
     getClinicSettings: (opts) => call({ method: "GET", path: "/api/v1/settings/clinic", schema: clinicSettings, signal: opts?.signal }),
     updateClinicSettings: (changes, opts) =>

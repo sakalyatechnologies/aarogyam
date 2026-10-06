@@ -13,10 +13,13 @@ export const PERMISSIONS = [
   "billing.read",
   "billing.write",
   "prescriptions.issue",
-  /** Fake only, for Today's money tiles, until the API has a finance permission. */
+  /** Revenue and money totals (Today's money tiles, reports). */
   "finance.view",
   "settings.manage",
   "staff.manage",
+  "roles.manage",
+  "reports.export",
+  "audit.view",
   "inventory.read",
   "inventory.manage",
 ] as const;

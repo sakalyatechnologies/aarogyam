@@ -47,6 +47,15 @@ export type CreatedInvitation = Schemas["CreatedInvitation"];
 export type RolePermission = Schemas["RolePermission"];
 export type Role = Schemas["Role"];
 export type Roles = Schemas["Roles"];
+export type AccessCatalogue = Schemas["AccessCatalogue"];
+export type CataloguePermission = Schemas["CataloguePermission"];
+export type RoleTemplate = Schemas["RoleTemplate"];
+export type RoleDetail = Schemas["RoleDetail"];
+export type RoleChange = Schemas["RoleChange"];
+export type SavedRole = Schemas["SavedRole"];
+export type RolePermissionsUpdate = Schemas["RolePermissionsUpdate"];
+export type RolePermissionInput = Schemas["RolePermissionInput"];
+export type NewRole = Schemas["NewRole"];
 
 export type Address = Schemas["Address"];
 export type Branding = Schemas["Branding"];

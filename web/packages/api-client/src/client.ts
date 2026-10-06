@@ -137,6 +137,11 @@ import type {
   RegistrationReceived,
   RejectApplication,
   Roles,
+  AccessCatalogue,
+  RoleDetail,
+  RolePermissionsUpdate,
+  SavedRole,
+  NewRole,
   Room,
   RoomFields,
   RoomId,
@@ -284,6 +289,16 @@ export interface ApiClient {
   changeStaffMember(membershipId: MembershipId, changes: MemberChanges, options?: RequestOptions): Promise<ApiResult<Member>>;
   /** Clinic host: the clinic's roles and what each may do, for choosing a role. Needs `staff.manage`. */
   listRoles(options?: RequestOptions): Promise<ApiResult<Roles>>;
+  /** Clinic host: every permission in plain words, with its scopes, and the standard roles' defaults. Needs `roles.manage`. */
+  getAccessCatalogue(options?: RequestOptions): Promise<ApiResult<AccessCatalogue>>;
+  /** Clinic host: one role, its defaults, member count and latest changes. Needs `roles.manage`. */
+  getRole(key: string, options?: RequestOptions): Promise<ApiResult<RoleDetail>>;
+  /** Clinic host: replaces a role's permissions. Needs `roles.manage`; not the owner role, not your own, nothing you don't hold. */
+  setRolePermissions(key: string, update: RolePermissionsUpdate, options?: RequestOptions): Promise<ApiResult<SavedRole>>;
+  /** Clinic host: a custom role copied from a standard role. Needs `roles.manage`. */
+  createRole(input: NewRole, options?: RequestOptions): Promise<ApiResult<RoleDetail>>;
+  /** Clinic host: removes a custom role nobody has. Needs `roles.manage`. */
+  deleteRole(key: string, options?: RequestOptions): Promise<ApiResult<void>>;
 
   /** Clinic host: the clinic's profile, GSTIN, address, phone, UPI ID and branding. Needs `settings.manage`. */
   getClinicSettings(options?: RequestOptions): Promise<ApiResult<ClinicSettings>>;

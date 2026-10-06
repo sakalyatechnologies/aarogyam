@@ -14,6 +14,7 @@ import { hasPermission, type Permission } from "../permissions.js";
 import { failure, parseApiError, success, type ApiResult } from "../result.js";
 import * as S from "../schemas.js";
 import {
+  PERMISSION_CATALOGUE,
   ROLES,
   type FakeAllergy,
   type FakePlan,
@@ -125,8 +126,78 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
   /** Payment ids already recorded for an `Idempotency-Key`, so a retry returns the first payment. */
   const paymentByIdempotencyKey = new Map<string, string>();
 
-  function roleByKey(key: string): FakeRole | undefined {
+  /** A clinic's own copy of a role: editable, with its change record. */
+  interface ClinicRole {
+    key: string;
+    name: string;
+    description: string | null;
+    isTemplate: boolean;
+    templateKey: string | null;
+    permissions: C.RolePermission[];
+    history: C.RoleChange[];
+    /** What memberships with this role point at; replaced on every change. */
+    role: FakeRole;
+  }
+  const clinicRoles = new Map<string, ClinicRole[]>();
+  const sortGrants = (grants: readonly C.RolePermission[]) => [...grants].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  const asFakeRole = (key: string, name: string, grants: readonly C.RolePermission[]): FakeRole => ({
+    key,
+    name,
+    permissions: grants.map((g) => g.key).filter((k): k is Permission => PERMISSION_CATALOGUE.some((p) => p.key === k)),
+  });
+
+  /** The clinic's roles, copied from the templates the first time they are needed. */
+  function rolesOf(clinicId: string): ClinicRole[] {
+    let roles = clinicRoles.get(clinicId);
+    if (roles === undefined) {
+      roles = Object.values(ROLES).map((template) => {
+        const permissions = sortGrants(template.permissions.map((key) => ({ key, scope: "all" as const })));
+        return { key: template.key, name: template.name, description: null, isTemplate: true, templateKey: template.key, permissions, history: [], role: asFakeRole(template.key, template.name, permissions) };
+      });
+      clinicRoles.set(clinicId, roles);
+      for (const m of state.memberships) {
+        if (m.clinic_id === clinicId) {
+          const own = roles.find((r) => r.key === m.role.key);
+          if (own !== undefined) m.role = own.role;
+        }
+      }
+    }
+    return roles;
+  }
+
+  function roleByKey(key: string, clinicId?: string): FakeRole | undefined {
+    if (clinicId !== undefined) {
+      return rolesOf(clinicId).find((candidate) => candidate.key === key)?.role;
+    }
     return Object.values(ROLES).find((candidate) => candidate.key === key);
+  }
+
+  function membersWith(clinicId: string, key: string): number {
+    return state.memberships.filter((m) => m.clinic_id === clinicId && m.role.key === key && (m.status ?? "active") !== "left").length;
+  }
+
+  function wireRole(clinicId: string, role: ClinicRole): C.Role {
+    return { id: role.key, key: role.key, name: role.name, description: role.description, is_template: role.isTemplate, permissions: role.permissions, member_count: membersWith(clinicId, role.key) };
+  }
+
+  function roleDetailOf(clinicId: string, role: ClinicRole): C.RoleDetail {
+    const template = Object.values(ROLES).find((t) => t.key === role.templateKey);
+    return {
+      ...wireRole(clinicId, role),
+      template_key: role.templateKey,
+      editable: role.key !== "owner",
+      default_permissions: sortGrants(template?.permissions.map((key) => ({ key, scope: "all" as const })) ?? []),
+      history: role.history.slice(0, 10),
+    };
+  }
+
+  /** Sets a role's permissions; its members' checks follow at once. */
+  function setGrants(clinicId: string, role: ClinicRole, grants: C.RolePermission[]) {
+    role.permissions = grants;
+    role.role = asFakeRole(role.key, role.name, grants);
+    for (const m of state.memberships) {
+      if (m.clinic_id === clinicId && m.role.key === role.key) m.role = role.role;
+    }
   }
 
   function client(options: FakeClientOptions = {}): ApiClient {
@@ -246,6 +317,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       const contact = hasPermission(caller.membership.role.permissions, "patients.contact");
       return {
         id: p.id,
+        row_version: 1,
         number: p.number,
         full_name: p.full_name,
         sex: p.sex,
@@ -360,7 +432,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             id: fakeUuid(random, clock()),
             user_id: who.id,
             clinic_id: invitation.clinicId,
-            role: roleByKey(invitation.roleKey) ?? OWNER,
+            role: roleByKey(invitation.roleKey, invitation.clinicId) ?? OWNER,
             status: "active",
             joined_at: clock().toISOString(),
           };
@@ -2167,7 +2239,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!EMAIL.test(input.email)) {
             return invalid("email", "invalid email address");
           }
-          const role = roleByKey(input.role_key);
+          const role = roleByKey(input.role_key, caller.clinic.id);
           if (role === undefined) {
             return invalid("role_key", "unknown role");
           }
@@ -2195,7 +2267,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (target.id === caller.membership.id) {
             return refuse(409, "conflict", "You can't change your own membership.");
           }
-          const nextRole = changes.role_key == null ? undefined : roleByKey(changes.role_key);
+          const nextRole = changes.role_key == null ? undefined : roleByKey(changes.role_key, caller.clinic.id);
           if (changes.role_key != null && nextRole === undefined) {
             return invalid("role_key", "unknown role");
           }
@@ -2229,19 +2301,159 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!isCaller(caller)) {
             return caller;
           }
-          const items = Object.values(ROLES)
+          const items = rolesOf(caller.clinic.id)
+            .map((role): C.Role => wireRole(caller.clinic.id, role))
+            .sort((a, b) => Number(b.is_template) - Number(a.is_template) || a.name.localeCompare(b.name));
+          return reply({ items } satisfies C.Roles);
+        }),
+
+      getAccessCatalogue: (opts) =>
+        respond(S.accessCatalogue, opts?.signal, async () => {
+          const caller = await inClinic("roles.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const templates = Object.values(ROLES)
             .map(
-              (role): C.Role => ({
-                id: role.key,
-                key: role.key,
-                name: role.name,
-                description: null,
-                is_template: true,
-                permissions: role.permissions.map((key): C.RolePermission => ({ key, scope: "all" })),
+              (t): C.RoleTemplate => ({
+                key: t.key,
+                name: t.name,
+                description: t.name,
+                permissions: sortGrants(t.permissions.map((key) => ({ key, scope: "all" }))),
               }),
             )
             .sort((a, b) => a.name.localeCompare(b.name));
-          return reply({ items } satisfies C.Roles);
+          return reply({ permissions: PERMISSION_CATALOGUE.map((p) => ({ ...p, scopes: [...p.scopes] })), templates } satisfies C.AccessCatalogue);
+        }),
+
+      getRole: (key, opts) =>
+        respond(S.roleDetail, opts?.signal, async () => {
+          const caller = await inClinic("roles.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const role = rolesOf(caller.clinic.id).find((r) => r.key === key);
+          return role === undefined ? notFound : reply(roleDetailOf(caller.clinic.id, role));
+        }),
+
+      setRolePermissions: (key, update, opts) =>
+        respond(S.savedRole, opts?.signal, async () => {
+          const caller = await inClinic("roles.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const role = rolesOf(caller.clinic.id).find((r) => r.key === key);
+          if (role === undefined) {
+            return notFound;
+          }
+          if (role.key === "owner") {
+            return refuse(403, "forbidden", "the owner role always has full access and can't be changed or removed");
+          }
+          if (role.key === caller.membership.role.key) {
+            return refuse(409, "conflict", "you can't change your own role's access; ask an owner");
+          }
+          const grants: C.RolePermission[] = [];
+          for (const item of update.permissions) {
+            const entry = PERMISSION_CATALOGUE.find((p) => p.key === item.key);
+            const scope = item.scope ?? "all";
+            if (entry === undefined) {
+              return invalid("permissions", `unknown permission ${item.key}`);
+            }
+            if (scope !== "all" && scope !== "own" && scope !== "assigned") {
+              return invalid("permissions", "scope must be all, own or assigned");
+            }
+            if (!entry.scopes.includes(scope)) {
+              return invalid("permissions", `${item.key} can't be limited to ${scope} records`);
+            }
+            if (grants.some((g) => g.key === item.key)) {
+              return invalid("permissions", `${item.key} is listed twice`);
+            }
+            grants.push({ key: item.key, scope });
+          }
+          const held: readonly string[] = caller.membership.role.permissions;
+          const granting = grants.some((g) => !held.includes(g.key) && !role.permissions.some((p) => p.key === g.key && (p.scope === "all" || p.scope === g.scope)));
+          if (granting) {
+            return refuse(403, "forbidden", "you can only give access you have yourself");
+          }
+          const after = sortGrants(grants);
+          const changed = JSON.stringify(after) !== JSON.stringify(role.permissions);
+          if (changed) {
+            role.history.unshift({
+              id: fakeUuid(random, clock()),
+              action: "permissions_changed",
+              at: clock().toISOString(),
+              changed_by: caller.user.id,
+              changed_by_name: caller.user.display_name,
+              before: role.permissions,
+              after,
+            });
+            setGrants(caller.clinic.id, role, after);
+          }
+          return reply({ id: role.key, key: role.key, name: role.name, description: role.description, is_template: role.isTemplate, permissions: after, changed } satisfies C.SavedRole);
+        }),
+
+      createRole: (input, opts) =>
+        respond(S.roleDetail, opts?.signal, async () => {
+          const caller = await inClinic("roles.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const name = input.name.trim();
+          if (name === "" || name.length > 80) {
+            return invalid("name", "must be 1 to 80 characters");
+          }
+          const key = (input.key ?? name.toLowerCase().replace(/[^a-z]+/g, "_").replace(/^_+|_+$/g, "")).slice(0, 40);
+          if (!/^[a-z_]{2,40}$/.test(key)) {
+            return invalid("key", "use 2 to 40 lower-case letters a to z and underscores");
+          }
+          if (input.template_key === "owner") {
+            return invalid("template_key", "start from another role; only the owner role has full access");
+          }
+          const template = rolesOf(caller.clinic.id).find((r) => r.isTemplate && r.key === input.template_key);
+          if (template === undefined) {
+            return invalid("template_key", "is not a standard role");
+          }
+          const roles = rolesOf(caller.clinic.id);
+          if (roles.some((r) => r.key === key)) {
+            return refuse(409, "conflict", "a role with that key already exists");
+          }
+          const defaults = sortGrants(Object.values(ROLES).find((t) => t.key === template.key)?.permissions.map((k) => ({ key: k, scope: "all" as const })) ?? []);
+          const role: ClinicRole = {
+            key,
+            name,
+            description: input.description ?? null,
+            isTemplate: false,
+            templateKey: template.key,
+            permissions: defaults,
+            history: [{ id: fakeUuid(random, clock()), action: "created", at: clock().toISOString(), changed_by: caller.user.id, changed_by_name: caller.user.display_name, before: [], after: defaults }],
+            role: asFakeRole(key, name, defaults),
+          };
+          roles.push(role);
+          return reply(roleDetailOf(caller.clinic.id, role));
+        }),
+
+      deleteRole: (key, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("roles.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const roles = rolesOf(caller.clinic.id);
+          const role = roles.find((r) => r.key === key);
+          if (role === undefined) {
+            return notFound;
+          }
+          if (role.key === "owner") {
+            return refuse(403, "forbidden", "the owner role always has full access and can't be changed or removed");
+          }
+          if (role.isTemplate) {
+            return refuse(409, "conflict", "standard roles can be edited or reset, not removed");
+          }
+          if (membersWith(caller.clinic.id, key) > 0) {
+            return refuse(409, "conflict", "people still have this role or are invited with it; move them to another role first");
+          }
+          roles.splice(roles.indexOf(role), 1);
+          return reply(undefined);
         }),
 
       getClinicSettings: (opts) =>
@@ -4757,6 +4969,7 @@ function wireAppointment(appt: FakeAppointment, state: Fixtures, now: Date): C.A
   const room = appt.room_id == null ? undefined : state.rooms.find((r) => r.id === appt.room_id);
   return {
     id: appt.id,
+    row_version: 1,
     branch_id: appt.branch_id,
     starts_at: appt.starts_at,
     ends_at: appt.ends_at,
@@ -4873,6 +5086,7 @@ function wireNote(n: FakeNote, state: Fixtures): C.Note | undefined {
   });
   return {
     id: n.id,
+    row_version: 1,
     visit_id: n.visit_id,
     author,
     kind: n.kind,

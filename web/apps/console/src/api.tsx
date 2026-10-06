@@ -42,7 +42,14 @@ export function useMetrics(range: MetricsRange) {
 
 export function useClinics() {
   const api = useApi();
-  return useQuery({ queryKey: ["clinics"], queryFn: ({ signal }) => unwrap(api.listClinics({ signal })) });
+  return useQuery({
+    queryKey: ["clinics"],
+    queryFn: ({ signal }) => unwrap(api.listClinics({ signal })),
+    refetchInterval: (query) => {
+      const items = query.state.data?.items ?? [];
+      return items.some((c) => c.address_status === "pending") ? 10_000 : false;
+    },
+  });
 }
 
 /** Creates a clinic and refreshes the list. Failures reject with an ApiFailure for field mapping. */
@@ -61,6 +68,7 @@ export function useClinicDetail(id: ClinicId | undefined) {
     queryKey: ["clinic", id],
     queryFn: ({ signal }) => (id === undefined ? Promise.reject(new Error("no clinic")) : unwrap(api.getClinicDetail(id, { signal }))),
     enabled: id !== undefined,
+    refetchInterval: (query) => (query.state.data?.address_status === "pending" ? 10_000 : false),
   });
 }
 

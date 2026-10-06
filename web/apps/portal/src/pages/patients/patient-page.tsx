@@ -125,9 +125,13 @@ function PatientView({ patient }: { patient: Patient }) {
               label="Next appointment"
               value={patient.next_appointment == null ? "—" : `${formatDateTime(patient.next_appointment.starts_at)} · ${patient.next_appointment.practitioner}`}
             />
-            {/* Money is null without billing.read: a dash, never a made-up zero. */}
-            <Kv label="Lifetime value" value={patient.lifetime_paid_paise == null ? "—" : formatRupees(patient.lifetime_paid_paise)} />
-            <Kv label="Outstanding" value={patient.balance_paise == null ? "—" : formatRupees(patient.balance_paise)} />
+            {/* Money only with billing.read; null still shows a dash, never a made-up zero. */}
+            {can("billing.read") ? (
+              <>
+                <Kv label="Lifetime value" value={patient.lifetime_paid_paise == null ? "—" : formatRupees(patient.lifetime_paid_paise)} />
+                <Kv label="Outstanding" value={patient.balance_paise == null ? "—" : formatRupees(patient.balance_paise)} />
+              </>
+            ) : null}
           </dl>
           <div>
             {patient.phone == null ? (
@@ -192,11 +196,7 @@ function PatientView({ patient }: { patient: Patient }) {
                   { value: "files", label: "Files", content: <FilesPanel patientId={patient.id} /> },
                 ]
               : []),
-            {
-              value: "billing",
-              label: "Billing",
-              content: <BillsPanel patientId={patient.id} />,
-            },
+            ...(can("billing.read") ? [{ value: "billing", label: "Billing", content: <BillsPanel patientId={patient.id} /> }] : []),
           ]}
         />
       </MkCard>

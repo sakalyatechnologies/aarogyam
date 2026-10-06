@@ -153,10 +153,12 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
             </b>
             <span>visits completed</span>
           </div>
-          <div>
-            <b>{money.data === undefined ? "—" : compactRupees(money.data.collected_paise)}</b>
-            <span>collected today</span>
-          </div>
+          {showMoney ? (
+            <div>
+              <b>{money.data === undefined ? "—" : compactRupees(money.data.collected_paise)}</b>
+              <span>collected today</span>
+            </div>
+          ) : null}
           <div>
             <b>—</b>
             <span>avg. rating this week</span>

@@ -97,7 +97,8 @@ function Batches({ itemId, batches }: { itemId: InventoryItemId; batches: readon
     { id: "batch", header: "Batch", cell: (b) => b.batch_no ?? "—" },
     { id: "expiry", header: "Expiry", cell: (b) => (b.expiry == null ? "None" : formatDate(`${b.expiry}T00:00:00+05:30`)) },
     { id: "left", header: "Left", align: "end", cell: (b) => `${formatNumber(b.quantity)} of ${formatNumber(b.received_quantity)}` },
-    { id: "cost", header: "Unit cost", align: "end", cell: (b) => formatRupees(b.unit_cost_paise) },
+    // What stock cost is money: shown only with billing.read.
+    ...(can("billing.read") ? [{ id: "cost", header: "Unit cost", align: "end" as const, cell: (b: StockBatch) => formatRupees(b.unit_cost_paise) }] : []),
     {
       id: "actions",
       header: "Write off",

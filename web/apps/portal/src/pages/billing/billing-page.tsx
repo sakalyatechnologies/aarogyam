@@ -52,10 +52,11 @@ export function BillingPage() {
   useDocumentTitle("Billing", "Aarogyam");
   const today = useTodayDate();
   const ms = monthStart(today);
-  const collections = useCollections({ from: ms, to: today });
+  const finance = can("finance.view");
+  const collections = useCollections({ from: ms, to: today }, finance);
   const monthFigures = collections.data ? computeMonthFigures(collections.data.by_day, collections.data.by_method, ms) : undefined;
   const invoices = useInvoices();
-  const pending = usePendingReport();
+  const pending = usePendingReport(finance);
   const canWrite = can("billing.write");
   const monthName = new Date(`${today}T00:00:00Z`).toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
   const upiShare = monthFigures?.by_method.find((m) => m.method === "upi")?.share_bps ?? 0;
@@ -66,15 +67,20 @@ export function BillingPage() {
     <div className="mk-panel">
       <h1 className="mk-sr">Billing</h1>
       <div className="mk-ptools">
-        <Link to="/billing/pending" className="mk-btn mk-btn-ghost mk-spacer">
-          <FileWarning aria-hidden="true" /> Pending payments
-        </Link>
+        {finance ? (
+          <Link to="/billing/pending" className="mk-btn mk-btn-ghost mk-spacer">
+            <FileWarning aria-hidden="true" /> Pending payments
+          </Link>
+        ) : (
+          <span className="mk-spacer" />
+        )}
         {canWrite ? (
           <Link to="/billing/invoices/new" className="mk-btn mk-btn-primary">
             <Plus aria-hidden="true" /> New bill
           </Link>
         ) : null}
       </div>
+      {finance ? (
       <div className="mk-kpis">
         {collections.isPending
           ? Array.from({ length: 4 }, (_, index) => <Skeleton key={index} shape="block" />)
@@ -91,7 +97,9 @@ export function BillingPage() {
               <Kpi key="upi" label="UPI share" value={`${String(Math.round(upiShare / 100))}%`} />,
             ]}
       </div>
+      ) : null}
       <div className="mk-grid mk-g2r">
+        {finance ? (
         <MkCard title="Weekly collections" hint="Last 8 weeks · ₹ thousands">
           {collections.isPending ? (
             <Skeleton shape="block" />
@@ -106,6 +114,7 @@ export function BillingPage() {
             />
           )}
         </MkCard>
+        ) : null}
         <MkCard
           title="Invoices"
           action={

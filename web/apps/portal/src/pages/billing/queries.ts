@@ -153,11 +153,12 @@ export function useVoidPayment(id: PaymentId) {
   });
 }
 
-export function useCollections(range: Partial<DateRange> = {}) {
+export function useCollections(range: Partial<DateRange> = {}, enabled = true) {
   const { api, access } = useClinic();
   return useQuery({
     queryKey: ["collections", access.org_id, range.from, range.to],
     queryFn: ({ signal }) => unwrap(api.getCollections(range, { signal })),
+    enabled,
   });
 }
 

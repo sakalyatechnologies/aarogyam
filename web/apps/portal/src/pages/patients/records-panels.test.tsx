@@ -42,15 +42,14 @@ describe("Patient 360 bills and prescriptions", () => {
   });
 
   it("hides billing from a role without billing.read", async () => {
-    const user = userEvent.setup();
     const { path } = billedPatient();
     const backend = fakeApi((fixtures) => {
       const membership = fixtures.memberships.find((m) => m.user_id === PEOPLE.farah);
       if (membership !== undefined) membership.role = ROLES.assistant;
     });
     renderPortal(path, { as: PEOPLE.farah, backend });
-    await user.click(await screen.findByRole("tab", { name: "Billing" }));
-    expect(await screen.findByText("Billing is hidden for your role")).toBeTruthy();
+    await screen.findByRole("tab", { name: "Overview" });
+    expect(screen.queryByRole("tab", { name: "Billing" })).toBeNull();
     expect(screen.queryByRole("button", { name: "New bill" })).toBeNull();
   });
 });

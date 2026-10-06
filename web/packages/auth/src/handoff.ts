@@ -58,9 +58,9 @@ export function centralSignInUrl(signInUrl: string, next: string): string {
   return url.toString();
 }
 
-/** Where signing out leaves to when central sign-in is on: the public site's front page. */
-export function centralHomeUrl(signInUrl: string): string {
-  return new URL("/", signInUrl).toString();
+/** Where signing out leaves to when central sign-in is on: the site's `/sign-out`, which clears its own session and shows sign-in. */
+export function centralSignOutUrl(signInUrl: string): string {
+  return new URL("/sign-out", signInUrl).toString();
 }
 
 /** The address a one-time code is redeemed at: the target host's `/auth/handoff`, code in the fragment. */

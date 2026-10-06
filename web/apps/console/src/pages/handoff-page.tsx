@@ -7,6 +7,7 @@ import { AuthHeading, completeHandoff, useAuth } from "@aarogyam/auth";
 import { Button } from "@sakalya/ui";
 
 import { useApi } from "../api.js";
+import { NO_CONSOLE_ACCESS, useLeaveForNoAccess } from "../layout/console-access.js";
 import { ConsoleAuthShell } from "./sign-in-page.js";
 
 /**
@@ -19,6 +20,8 @@ export function HandoffPage() {
   const auth = useAuth();
   const api = useApi();
   const [problem, setProblem] = useState<string>();
+  const [leave, setLeave] = useState(false);
+  useLeaveForNoAccess(leave);
   const started = useRef(false);
 
   useEffect(() => {
@@ -34,11 +37,19 @@ export function HandoffPage() {
       const result = await api.redeemHandoff({ code });
       return result.ok ? result.value : null;
     }).then((outcome) => {
-      if (outcome.ok) {
-        void navigate("/health", { replace: true });
-      } else {
+      if (!outcome.ok) {
         setProblem(outcome.message);
+        return;
       }
+      // Signed in is not enough: only Sakalya staff may hold a console session.
+      void api.getMe().then((me) => {
+        if (me.ok && me.value.console_access) {
+          void navigate("/health", { replace: true });
+        } else {
+          setProblem(me.ok ? NO_CONSOLE_ACCESS : "We could not check your console access. Sign in again.");
+          setLeave(true);
+        }
+      });
     });
     // Runs once per mount, guarded by `started`.
     // eslint-disable-next-line react-hooks/exhaustive-deps

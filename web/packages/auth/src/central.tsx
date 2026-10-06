@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { centralHomeUrl, centralSignInUrl } from "./handoff.js";
+import { centralSignOutUrl, centralSignInUrl } from "./handoff.js";
 import type { AuthClient } from "./auth-client.js";
 
 /** Set while signing out so the signed-out redirect doesn't race the trip back to the site's front page. */
@@ -16,13 +16,20 @@ export function CentralSignInRedirect({ signInUrl, next }: { signInUrl: string; 
   return <div className="p-6" role="status" aria-label="Going to sign-in" />;
 }
 
-/** Signs out here, then, when central sign-in is on, returns to the public site. */
-export async function signOutToSite(auth: AuthClient, signInUrl: string): Promise<void> {
+/**
+ * Signs out everywhere (the session ends for every app), clears this origin's session, then,
+ * when central sign-in is on, goes to the public site's `/sign-out`. `delayMs` leaves time to
+ * read a message first.
+ */
+export async function signOutToSite(auth: AuthClient, signInUrl: string, delayMs = 0): Promise<void> {
   if (signInUrl !== "") {
     leaving = true;
   }
   await auth.signOut();
   if (signInUrl !== "") {
-    window.location.assign(centralHomeUrl(signInUrl));
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    window.location.assign(centralSignOutUrl(signInUrl));
   }
 }

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 
 import { fetchMe, handoffUrl, requestHandoff } from "./api";
-import { getAuthClient, signInConfigured } from "./auth";
+import { getAuthClient, signInConfigured, verifiedAccessToken } from "./auth";
 import { CONSOLE_URL } from "./env";
 import { decideDestination, resolveNext, type Destination } from "./routing";
 
@@ -51,8 +51,7 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
   // Someone who already signed in on this browser skips the form.
   useEffect(() => {
     if (!signInConfigured) return;
-    void getAuthClient().then(async (auth) => {
-      const t = await auth.getAccessToken();
+    void verifiedAccessToken().then(async (t) => {
       if (t !== null) await goTo(t);
     });
     // Runs once on mount.

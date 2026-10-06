@@ -33,5 +33,5 @@ export {
   type PasswordStrength,
 } from "./password.js";
 export { PasswordDialog, supportsPassword, usePasswordDialog, type PasswordDialogProps } from "./password-dialog.js";
-export { centralHomeUrl, centralSignInUrl, CONSOLE_NEXT, completeHandoff, handoffUrl, handoffCode, HANDOFF_EXPIRED, type HandoffSessionLike, type RedeemHandoff } from "./handoff.js";
+export { centralSignOutUrl, centralSignInUrl, CONSOLE_NEXT, completeHandoff, handoffUrl, handoffCode, HANDOFF_EXPIRED, type HandoffSessionLike, type RedeemHandoff } from "./handoff.js";
 export { CentralSignInRedirect, signOutToSite } from "./central.js";

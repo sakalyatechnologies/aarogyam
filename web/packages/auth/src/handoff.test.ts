@@ -37,6 +37,7 @@ describe("central sign-in handoff", () => {
       exchangeCodeForSession: none,
       setSession: none,
       getSession: () => Promise.resolve({ data: { session: null } }),
+      getUser: () => Promise.resolve({ data: { user: null }, error: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => undefined } } }),
       signOut: () => Promise.resolve({ error: null }),
       signInWithPassword: none,
@@ -67,9 +68,9 @@ describe("central sign-in addresses", () => {
     const { handoffUrl } = await import("./handoff.js");
     expect(handoffUrl("a.x", "abc 1")).toBe("https://a.x/auth/handoff#code=abc%201");
   });
-  it("returns to the site's front page after sign-out, and names the console in next", async () => {
-    const { centralHomeUrl, centralSignInUrl, CONSOLE_NEXT } = await import("./handoff.js");
-    expect(centralHomeUrl("https://aarogyam-website.pages.dev/sign-in")).toBe("https://aarogyam-website.pages.dev/");
+  it("sends sign-out to the site's /sign-out, and names the console in next", async () => {
+    const { centralSignOutUrl, centralSignInUrl, CONSOLE_NEXT } = await import("./handoff.js");
+    expect(centralSignOutUrl("https://aarogyam-website.pages.dev/sign-in")).toBe("https://aarogyam-website.pages.dev/sign-out");
     expect(centralSignInUrl("https://site.example/sign-in", CONSOLE_NEXT)).toBe("https://site.example/sign-in?next=console");
   });
 });

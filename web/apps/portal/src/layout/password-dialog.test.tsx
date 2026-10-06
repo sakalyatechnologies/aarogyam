@@ -15,6 +15,7 @@ function stubAuth(responses: { setPassword?: AuthOutcome } = {}) {
     subscribe: () => () => undefined,
     getAccessToken: () => Promise.resolve("jwt"),
     signOut: () => Promise.resolve(),
+    verifySession: () => Promise.resolve(true),
     requestCode: () => Promise.resolve({ ok: true }),
     verifyCode: () => Promise.resolve({ ok: true }),
     completeRedirect: () => Promise.resolve({ ok: true }),

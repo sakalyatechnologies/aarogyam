@@ -58,7 +58,7 @@ describe("Central sign-in", () => {
     await user.click(await screen.findByRole("button", { name: /^Account:/ }));
     await user.click(screen.getByRole("button", { name: /Sign out/ }));
     await waitFor(() => {
-      expect(assign).toHaveBeenCalledWith("https://site.example/");
+      expect(assign).toHaveBeenCalledWith("https://site.example/sign-out");
     });
     expect(auth.getState().status).toBe("signed_out");
     expect(assign).not.toHaveBeenCalledWith(expect.stringContaining("next="));

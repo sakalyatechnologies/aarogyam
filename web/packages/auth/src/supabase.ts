@@ -45,7 +45,10 @@ export interface SupabaseAuthApi {
   onAuthStateChange(callback: (event: string, session: SupabaseSession | null) => void): {
     data: { subscription: { unsubscribe(): void } };
   };
-  signOut(): Promise<{ error: SupabaseError | null }>;
+  /** Asks the auth server about the stored session's user. */
+  getUser(): Promise<{ data: { user: { id: string } | null }; error: SupabaseError | null }>;
+  /** `global` ends every session of this person, not just this browser's. */
+  signOut(options?: { scope: "global" | "local" }): Promise<{ error: SupabaseError | null }>;
 }
 
 const RATE_LIMIT_CODES = new Set(["over_email_send_rate_limit", "over_request_rate_limit"]);
@@ -235,8 +238,32 @@ export function createSupabaseAuth(api: SupabaseAuthApi, options: SupabaseAuthOp
       }
     },
     signOut: async () => {
-      await api.signOut();
+      // Everywhere first; if the server can't be reached or already refuses the token, still clear this browser.
+      try {
+        const { error } = await api.signOut({ scope: "global" });
+        if (error !== null) {
+          await api.signOut({ scope: "local" });
+        }
+      } catch {
+        await api.signOut({ scope: "local" }).catch(() => undefined);
+      }
       store.set({ status: "signed_out" });
+    },
+    verifySession: async () => {
+      try {
+        const { data, error } = await api.getUser();
+        if (error === null && data.user !== null) {
+          return true;
+        }
+        // The server refused (or knows no one): forget what this browser holds. A dropped connection keeps it.
+        if (error === null || !isNetworkFailure(error)) {
+          await api.signOut({ scope: "local" });
+          store.set({ status: "signed_out" });
+        }
+        return false;
+      } catch {
+        return false;
+      }
     },
   };
 }

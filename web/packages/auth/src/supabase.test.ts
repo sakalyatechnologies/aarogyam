@@ -21,6 +21,7 @@ function stubApi(overrides: Partial<SupabaseAuthApi> = {}) {
       return { data: { subscription: { unsubscribe: () => undefined } } };
     },
     signOut: vi.fn(() => Promise.resolve({ error: null })),
+    getUser: vi.fn(() => Promise.resolve({ data: { user: { id: "u1" } }, error: null })),
     signInWithPassword: vi.fn(() => Promise.resolve({ data: { session: null }, error: null })),
     updateUser: vi.fn(() => Promise.resolve({ error: null })),
     ...overrides,
@@ -99,6 +100,26 @@ describe("createSupabaseAuth", () => {
     expect(await auth.getAccessToken()).toBe("jwt");
 
     await auth.signOut();
+    expect(auth.getState()).toEqual({ status: "signed_out" });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(api.signOut).toHaveBeenCalledWith({ scope: "global" });
+  });
+
+  it("still clears this browser when the global sign-out fails", async () => {
+    const { api } = stubApi({ signOut: vi.fn(() => Promise.reject(new Error("offline"))) });
+    const auth = createSupabaseAuth(api);
+    await auth.signOut();
+    expect(auth.getState()).toEqual({ status: "signed_out" });
+  });
+
+  it("verifies a stored session with the server, and drops one the server refuses", async () => {
+    const good = stubApi();
+    expect(await createSupabaseAuth(good.api).verifySession()).toBe(true);
+    const bad = stubApi({ getUser: vi.fn(() => Promise.resolve({ data: { user: null }, error: apiError(401) })) });
+    const auth = createSupabaseAuth(bad.api);
+    expect(await auth.verifySession()).toBe(false);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(bad.api.signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(auth.getState()).toEqual({ status: "signed_out" });
   });
 

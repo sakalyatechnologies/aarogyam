@@ -29,7 +29,13 @@ interface AuthClientBase {
   subscribe: (listener: () => void) => () => void;
   /** The bearer token for API calls, or `null` when signed out. */
   getAccessToken: () => Promise<string | null>;
+  /** Ends the session everywhere (every device and app signed in as this person), then clears it here. */
   signOut: () => Promise<void>;
+  /**
+   * Asks the auth server whether the stored session is still good (not revoked, not expired).
+   * A session the server refuses is cleared here and gives false.
+   */
+  verifySession: () => Promise<boolean>;
 }
 
 /** A person to sign in as without a network, for local development. */

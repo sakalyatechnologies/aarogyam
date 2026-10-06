@@ -47,3 +47,8 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 
 ## Support access for Sakalya staff (6 Oct 2026)
 - `support_grants` exists only in the docs model, not as a migration. Build it: a clinic owner (or an approved request) grants a named staff member time-limited access to their clinic, visible to the clinic, audited, and ending automatically. Platform staff can't hold clinic memberships (migration 0172), so this is the only way for staff to help inside a clinic.
+
+## One admin doctor across several clinics (6 Oct 2026)
+- An owner (admin doctor) of several clinics manages staff across all of them in one place: who has access to which clinic and with which role; grant or remove access to another clinic without switching clinics.
+- **Rules (already true per clinic, keep them):** access only by invitation per clinic; a person sees only clinics they belong to (picker, switcher, API 404 otherwise); money stays owner-only by default (`finance.view`, `billing.read`), changed only by the owner in Roles & access.
+- **Design notes:** a clinic group (owner's organisation spanning clinics) with its own owner role; cross-clinic actions are invitations/memberships in each clinic underneath, so per-clinic RLS and audits are unchanged.

@@ -9,6 +9,11 @@
 # is left unset (the default x-forwarded-host): the Cloudflare Worker sets it and Cloud Run
 # passes it through. The edge secret is what stops anyone but the Workers using the API.
 #
+# Migrations: every deploy first runs `aarogyam migrate` as the Cloud Run job aarogyam-migrate
+# (same image digest, its own service account, the schema owner's URL from Secret Manager) and
+# waits for it. If it fails the deploy stops and the service is not touched. Migrations are
+# expand-only, so the previous revision keeps working against a newer schema.
+#
 # Outbox sender: a Cloud Run *job* (`aarogyam outbox drain`, once, then exit) started by Cloud
 # Scheduler every 2 minutes. It costs nothing when idle, unlike a background task in the API,
 # which would need an always-running instance (min-instances 1, never free).
@@ -36,7 +41,7 @@ WORKERS_SUBDOMAIN="$(env_value .env.cloudflare CLOUDFLARE_WORKERS_SUBDOMAIN)"
 WORKERS="${WORKERS_SUBDOMAIN}.workers.dev"
 
 if [ "$DRY_RUN" != "1" ]; then
-  for s in "$SECRET_DB_URL" "$SECRET_EDGE" "$SECRET_SUPABASE_KEY" "$SECRET_FILES_KEY" "$SECRET_GIT_TOKEN"; do
+  for s in "$SECRET_DB_URL" "$SECRET_EDGE" "$SECRET_SUPABASE_KEY" "$SECRET_FILES_KEY" "$SECRET_GIT_TOKEN" "$SECRET_DB_OWNER_URL"; do
     secret_exists "$s" || die "secret '$s' not found: run scripts/cloud-run-setup.sh first"
   done
 fi
@@ -63,6 +68,11 @@ ENV_VARS="${ENV_VARS}#ARO_EMAIL__FROM=${ARO_EMAIL__FROM:-Aarogyam <noreply@aarog
 ENV_VARS="${ENV_VARS}#ARO_FILES__BACKEND=supabase#ARO_FILES__BUCKET=aarogyam-files"
 ENV_VARS="${ENV_VARS}#ARO_TELEMETRY__FORMAT=cloud-logging"
 ENV_VARS="${ENV_VARS}#ARO_TELEMETRY__FILTER=info"
+
+# The migrate job gets the same plain settings (the config needs them to load) and only the
+# owner URL secret; it is also what the config requires as ARO_DB__URL, so the API's login URL
+# (and every other secret) stays out of this job.
+MIGRATE_SECRETS="ARO_DB__OWNER_URL=${SECRET_DB_OWNER_URL}:latest,ARO_DB__URL=${SECRET_DB_OWNER_URL}:latest"
 
 # The outbox job also gives new clinics their portal address (one Worker each on workers.dev),
 # so only it gets the Cloudflare token; the API service never sees it.
@@ -93,6 +103,7 @@ cat <<PLAN
 Project:   $PROJECT_ID   Region: $REGION
 Image:     $IMAGE $([ "$DO_BUILD" = 1 ] && echo "(Cloud Build, as $BUILD_SA_NAME)" || echo "(existing, no build)")
 Service:   $SERVICE  min 0 / max 1 instance, concurrency 40, 512Mi, CPU only during requests
+Migrate:   job $MIGRATE_JOB runs 'migrate' as $MIGRATE_SA_NAME before the service is updated
 Job:       $DRAIN_JOB  runs 'outbox drain' on schedule '$DRAIN_SCHEDULE' (UTC)
 Hosts:     portal {slug}-aarogyam.$WORKERS, app/console on $WORKERS
 Addresses: $ADDRESSES
@@ -142,6 +153,37 @@ else
   DIGEST_IMAGE="$(gcloud artifacts docker images describe "$IMAGE" \
     --format='value(image_summary.fully_qualified_digest)')"
   [ -n "$DIGEST_IMAGE" ] || die "image $IMAGE not found in Artifact Registry"
+fi
+
+# ---- Migrations ---------------------------------------------------------------------------
+# Before the service is updated: if this fails, set -e stops the deploy here. `jobs deploy`
+# creates or updates, so the same flags work both ways. The 'run' job is started with --wait.
+echo "== Database migrations"
+mutate gcloud run jobs deploy "$MIGRATE_JOB" --project "$PROJECT_ID" --region "$REGION" \
+  --image "$DIGEST_IMAGE" --service-account "$MIGRATE_SA" --args "migrate" \
+  --tasks 1 --max-retries 0 --task-timeout 300s --cpu 1 --memory 512Mi \
+  --set-env-vars "^#^${ENV_VARS}" --set-secrets "$MIGRATE_SECRETS" --quiet
+if [ "$DRY_RUN" = "1" ]; then
+  mutate gcloud run jobs execute "$MIGRATE_JOB" --project "$PROJECT_ID" --region "$REGION" --wait
+  echo "  [dry-run] would print: Migrations applied: <n>"
+else
+  EXECUTION="$(gcloud run jobs execute "$MIGRATE_JOB" --project "$PROJECT_ID" --region "$REGION" \
+    --wait --format='value(metadata.name)')" || {
+    echo "error: the migration failed, so the service was NOT updated (the old revision keeps serving)." >&2
+    echo "  gcloud run jobs executions list --job $MIGRATE_JOB --region $REGION --project $PROJECT_ID" >&2
+    echo "  gcloud logging read 'resource.type=cloud_run_job AND resource.labels.job_name=$MIGRATE_JOB' --project $PROJECT_ID --limit 20 --freshness 1h" >&2
+    exit 1
+  }
+  APPLIED=""
+  for _ in 1 2 3 4 5 6; do   # log lines can lag the execution by a few seconds
+    APPLIED="$(gcloud logging read \
+      "resource.type=cloud_run_job AND resource.labels.job_name=${MIGRATE_JOB} AND labels.\"run.googleapis.com/execution_name\"=${EXECUTION}" \
+      --project "$PROJECT_ID" --freshness 1h --limit 50 --format='value(jsonPayload.message,textPayload)' 2>/dev/null \
+      | sed -n 's/.*database migrated: \([0-9][0-9]*\) applied.*/\1/p' | head -n 1 || true)"
+    [ -n "$APPLIED" ] && break
+    sleep 5
+  done
+  echo "  Migrations applied: ${APPLIED:-unknown (the job succeeded; count not in the logs yet)}"
 fi
 
 # ---- Service ------------------------------------------------------------------------------

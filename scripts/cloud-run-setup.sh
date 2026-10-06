@@ -4,7 +4,7 @@
 # account)". Prints what it will do, then asks before changing anything.
 #
 # What it does: enables the APIs; creates an Artifact Registry repo (scanning off, keeps the
-# last 3 images); creates three service accounts with only the roles they need; stores the
+# last 3 images); creates four service accounts with only the roles they need; stores the
 # secrets in Secret Manager, read from the git-ignored .env.supabase, .env.edge and
 # .env.cloudflare (values are never printed); and creates a $1 budget with email alerts at 50%,
 # 90% and 100%.
@@ -40,6 +40,7 @@ require_value() { # file key
   [ -n "$(env_value "$1" "$2")" ] || die "$2 is missing or empty in $1"
 }
 require_value .env.supabase ARO_DB__URL
+require_value .env.supabase ARO_DB__OWNER_URL
 require_value .env.supabase SUPABASE_URL
 require_value .env.supabase SUPABASE_SECRET_KEY
 require_value .env.edge EDGE_SECRET
@@ -69,9 +70,12 @@ Will do:
        $RUN_SA_NAME    runs the API and the outbox job; reads only its own secrets
        $BUILD_SA_NAME  runs Cloud Build; writes images to '$AR_REPO', writes logs,
                        reads the build source and the GitHub token secret
+       $MIGRATE_SA_NAME  runs the migrate job on every deploy; reads only $SECRET_DB_OWNER_URL
+                       (the schema owner's URL, never given to $RUN_SA_NAME) and writes logs
        $SCHED_SA_NAME  lets Cloud Scheduler start the outbox job (role granted by the deploy script)
   4. Secrets in Secret Manager (values read from files, never printed):
        $SECRET_DB_URL, $SECRET_SUPABASE_KEY  <- .env.supabase
+       $SECRET_DB_OWNER_URL  <- .env.supabase (ARO_DB__OWNER_URL; migrate account only)
        $SECRET_EDGE            <- .env.edge
        $SECRET_FILES_KEY       <- generated once, never rotated by this script
        $SECRET_RESEND          <- $RESEND_SOURCE
@@ -123,6 +127,7 @@ ensure_sa() { # name display
 ensure_sa "$RUN_SA_NAME" "Aarogyam API runtime"
 ensure_sa "$BUILD_SA_NAME" "Aarogyam Cloud Build"
 ensure_sa "$SCHED_SA_NAME" "Aarogyam Cloud Scheduler"
+ensure_sa "$MIGRATE_SA_NAME" "Aarogyam database migrations"
 
 # A new service account can take a few seconds to be visible to IAM.
 [ "$DRY_RUN" = "1" ] || sleep 8
@@ -134,6 +139,10 @@ for role in roles/logging.logWriter roles/storage.objectViewer; do
 done
 mutate gcloud artifacts repositories add-iam-policy-binding "$AR_REPO" --location "$REGION" \
   --project "$PROJECT_ID" --member "serviceAccount:$BUILD_SA" --role roles/artifactregistry.writer --quiet >/dev/null
+
+echo "== Migrate account roles"
+mutate gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:$MIGRATE_SA" \
+  --role roles/logging.logWriter --condition=None --quiet >/dev/null
 
 # ---- 4. Secrets ---------------------------------------------------------------------------
 echo "== Secrets"
@@ -159,6 +168,7 @@ put_secret() { # name value
 }
 
 put_secret "$SECRET_DB_URL" "$(env_value .env.supabase ARO_DB__URL)"
+put_secret "$SECRET_DB_OWNER_URL" "$(env_value .env.supabase ARO_DB__OWNER_URL)"
 put_secret "$SECRET_SUPABASE_KEY" "$(env_value .env.supabase SUPABASE_SECRET_KEY)"
 put_secret "$SECRET_EDGE" "$(env_value .env.edge EDGE_SECRET)"
 if ! secret_exists "$SECRET_FILES_KEY"; then
@@ -195,6 +205,8 @@ grant_secret() { # secret member role
 for s in "$SECRET_DB_URL" "$SECRET_SUPABASE_KEY" "$SECRET_EDGE" "$SECRET_FILES_KEY" "$SECRET_RESEND" "$SECRET_CLOUDFLARE"; do
   grant_secret "$s" "$RUN_SA" roles/secretmanager.secretAccessor
 done
+# The owner URL can change the schema: only the migrate account may read it, never $RUN_SA_NAME.
+grant_secret "$SECRET_DB_OWNER_URL" "$MIGRATE_SA" roles/secretmanager.secretAccessor
 grant_secret "$SECRET_GIT_TOKEN" "$BUILD_SA" roles/secretmanager.secretAccessor
 
 # ---- 5. Budget ----------------------------------------------------------------------------

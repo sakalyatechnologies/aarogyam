@@ -218,8 +218,18 @@ build is the real test (see "If the first build fails").
 8. **Check mail.** `gcloud run jobs execute aarogyam-outbox --region asia-south1` sends the
    queue now; `gcloud run services logs read aarogyam-api --region asia-south1` shows logs.
 
-Database migrations are not part of these scripts: run `aarogyam migrate` against Supabase
-from your Mac as today (it needs `ARO_DB__OWNER_URL`, which is deliberately not in Cloud Run).
+Database migrations run on every deploy, before the service is updated: the deploy script
+(re)creates the Cloud Run job `aarogyam-migrate` from the same image digest, runs it with
+`--wait`, and prints `Migrations applied: <n>`. If the job fails, the deploy stops and the
+service is untouched. The job runs as its own account `aarogyam-migrate`, which can read only
+the secret `aarogyam-db-owner-url` (`ARO_DB__OWNER_URL` from `.env.supabase`) and write logs;
+the API's account `aarogyam-run` cannot read it. Re-run `scripts/cloud-run-setup.sh` once to
+create the account and the secret.
+
+Rollback: migrations are expand-only and append-only (AGENTS.md), so the previous revision
+keeps working against the newer schema. Move traffic back with
+`gcloud run services update-traffic aarogyam-api --to-revisions=<previous>=100`. Never edit a
+merged migration; fix forward with a new one.
 
 ### How it is set up
 

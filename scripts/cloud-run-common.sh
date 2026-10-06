@@ -11,10 +11,13 @@ DRAIN_SCHEDULE="${DRAIN_SCHEDULE:-*/2 * * * *}"   # every 2 minutes, see docs/de
 RUN_SA_NAME="aarogyam-run"          # the API and the outbox job run as this
 BUILD_SA_NAME="aarogyam-build"      # Cloud Build runs as this
 SCHED_SA_NAME="aarogyam-scheduler"  # Cloud Scheduler calls the job as this
+MIGRATE_JOB="${MIGRATE_JOB:-aarogyam-migrate}"
+MIGRATE_SA_NAME="aarogyam-migrate"  # the migrate job runs as this; reads only the owner-URL secret
 ENVIRONMENT_NAME="${ARO_ENVIRONMENT:-staging}"
 
 # Secret Manager names, and where each value comes from (see cloud-run-setup.sh).
 SECRET_DB_URL="aarogyam-db-url"                # ARO_DB__URL            (.env.supabase)
+SECRET_DB_OWNER_URL="aarogyam-db-owner-url"    # ARO_DB__OWNER_URL      (.env.supabase; migrate job only)
 SECRET_EDGE="aarogyam-edge-secret"             # ARO_HTTP__EDGE_SECRET  (.env.edge)
 SECRET_SUPABASE_KEY="aarogyam-supabase-secret-key"  # SUPABASE_SECRET_KEY (.env.supabase)
 SECRET_FILES_KEY="aarogyam-files-signing-key"  # ARO_FILES__SIGNING_KEY (generated once)
@@ -62,6 +65,7 @@ require_project() {
     || die "set PROJECT_ID=<your project id> (or: gcloud config set project <id>)"
   RUN_SA="${RUN_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
   BUILD_SA="${BUILD_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+  MIGRATE_SA="${MIGRATE_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
   SCHED_SA="${SCHED_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
   IMAGE_REPO="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}"
 }

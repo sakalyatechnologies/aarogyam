@@ -14,6 +14,7 @@ Queue workers (`scripts/agents/`, see `docs/agent-workflow.md`) skip this list: 
 3. `docs/database.md`: every table, column and relationship (generated; edit `docs/schema/model.py` and run `python3 scripts/gen_schema_docs.py`). `docs/data-model.md` has the identifier and schema rules.
 4. `docs/cicd.md`: how code reaches staging and production.
 5. `docs/decisions.md`: decisions already made. Don't reopen them in code; propose a change in that file instead.
+6. `docs/backlog.md`: requested features not built yet. Design so they stay possible.
 
 ## Commands
 

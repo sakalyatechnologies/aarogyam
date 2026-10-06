@@ -110,6 +110,140 @@ API's compute (the founder's Mac). No Google Cloud spend in this path.
 
 ---
 
+## Cloud Run (free trial account)
+
+The API runs on Cloud Run in Mumbai (`asia-south1`, next to the Supabase database); the
+Workers don't change except for being pointed at the new URL. Three scripts do the work, all
+read-only until you confirm, and all accept `--dry-run` (prints every change instead of
+making it). Nothing here has been run yet, and the image has never been built: the first
+build is the real test (see "If the first build fails").
+
+| Script | When | What |
+|---|---|---|
+| `scripts/cloud-run-setup.sh` | once | APIs, Artifact Registry, 3 service accounts, secrets, $1 budget |
+| `scripts/cloud-run-deploy.sh` | every release | remote build, service, outbox job and schedule |
+| `scripts/deploy-workers.sh <url>` | after a deploy that changed the URL | points the Workers at the API |
+
+### Steps, from nothing to a working URL
+
+1. **Create the account.** Go to <https://console.cloud.google.com> and start the free trial
+   ($300 credit for 90 days; a card is required for identity, and in India Google may ask for
+   a small refundable verification charge). A trial account is not charged when the credit
+   or time runs out; it is paused until you click "Activate full account".
+2. **Create a project** (project selector, New Project), for example `aarogyam-prod`. Note
+   the *project ID* (it has a numeric suffix if the name was taken). Billing links to the
+   trial automatically; if not, Billing, Link a billing account.
+3. **Sign in on this Mac.** `gcloud auth login`, then `export PROJECT_ID=<project id>`.
+4. **A read-only GitHub token** for the private `sakalya-backend` repository (cargo
+   downloads it during the build). As the `sakalyatechnologies` owner: GitHub, Settings,
+   Developer settings, Fine-grained tokens, only that repository, permission Contents:
+   Read-only, 90 days. Put it in the git-ignored `.env.github` as
+   `SAKALYA_BACKEND_READ_TOKEN=...`, or paste it when the setup script asks (hidden).
+5. **Preview, then run the setup.**
+   ```bash
+   scripts/cloud-run-setup.sh --dry-run     # shows every change, makes none
+   scripts/cloud-run-setup.sh               # lists the plan and asks before changing anything
+   ```
+   It reads `.env.supabase` and `.env.edge` (run `scripts/deploy-workers.sh` once first if
+   `.env.edge` doesn't exist) and stores their values in Secret Manager without printing
+   them. It creates a **$1 budget with email alerts at 50%, 90% and 100%**. If your billing
+   account is in rupees it retries as 85 INR. A budget alerts; it cannot stop spending.
+6. **Deploy.**
+   ```bash
+   scripts/cloud-run-deploy.sh
+   ```
+   Cloud Build compiles Rust on Google's machines (about 15-25 minutes the first time, and
+   every time: there is no build cache). It prints the service URL and runs two checks:
+   `/healthz` must be 200, and `/api/v1/me` must be 401 (no edge secret, refused by design).
+7. **Point the Workers at it**, the portal and console and then one per clinic:
+   ```bash
+   scripts/deploy-workers.sh <service url>
+   scripts/deploy-workers.sh <service url> aarogyam-<clinic>
+   ```
+   The clinic host mapping (`org_domains`) is unchanged: see "Map the demo clinic's host"
+   above. Stop `scripts/demo-api.sh` and the tunnel; they are no longer needed.
+8. **Check mail.** `gcloud run jobs execute aarogyam-outbox --region asia-south1` sends the
+   queue now; `gcloud run services logs read aarogyam-api --region asia-south1` shows logs.
+
+Database migrations are not part of these scripts: run `aarogyam migrate` against Supabase
+from your Mac as today (it needs `ARO_DB__OWNER_URL`, which is deliberately not in Cloud Run).
+
+### How it is set up
+
+- **Service** `aarogyam-api`: minimum 0 and maximum 1 instance, 40 concurrent requests,
+  512Mi, 1 vCPU billed only while a request runs, 30 s timeout, public URL (the edge secret,
+  not the network, keeps everyone but the Workers out). It runs as `aarogyam-run`, which can
+  read only its own secrets, not as the default account that has Editor on the project.
+- **Settings** match `scripts/demo-api.sh` (Supabase sign-in, dev tokens off, the Workers'
+  host names). The one difference: `ARO_HTTP__EDGE_HOST_HEADER` is **not** set. The Funnel
+  workaround used `x-sakalya-host` because Tailscale overwrites `x-forwarded-host`; Cloudflare
+  to Cloud Run doesn't, so the default `x-forwarded-host` is right.
+- **Secrets** (Secret Manager, as environment variables): `aarogyam-db-url`
+  (`ARO_DB__URL`), `aarogyam-edge-secret`, `aarogyam-supabase-secret-key`,
+  `aarogyam-files-signing-key` (generated once), and `aarogyam-resend-api-key` if
+  `.env.supabase` has `RESEND_API_KEY`. Re-run the setup to rotate one after changing the
+  file, then redeploy.
+- **Outbox sender**: a Cloud Run **job** (`aarogyam outbox drain`, once, then exit), started
+  by **Cloud Scheduler every 2 minutes**. The alternative, a loop inside the API, needs an
+  instance that never sleeps (min-instances 1), which is never free. A job costs nothing
+  between runs: about 4 seconds of CPU per run is roughly 90,000 of the 180,000 free
+  vCPU-seconds a month. Change the pace with `DRAIN_SCHEDULE='*/5 * * * *'
+  scripts/cloud-run-deploy.sh`; an invitation email arrives within the interval.
+- **Patient files** still go to `/tmp` inside the instance (lost when it stops). Object
+  storage is open work in `docs/handoff.md`; don't upload real patient files until then.
+
+### Costs to expect
+
+- **$0 within the trial credit and the always-free tier.** Always free each month: Cloud Run
+  2 million requests, 180,000 vCPU-seconds and 360,000 GiB-seconds; Cloud Build 2,500
+  minutes on the default machine; Artifact Registry 0.5 GB (the image is about 30 MB and
+  the cleanup policy keeps 3); Secret Manager 6 secret versions; Cloud Scheduler 3 jobs per
+  billing account. This deploy uses 1 service, 1 job and 1 schedule.
+- **Pennies, not free, after the trial** and only if you upgrade: network egress out of
+  India (the free allowance covers North America only; API replies are small JSON) and
+  secret versions beyond six (about $0.06 each a month).
+- **Not in this bill:** Supabase (free project), Cloudflare Workers (free plan), Resend (its
+  own free tier).
+- The $1 budget alert is the safety net. Check Billing, Reports, once in the first week.
+
+### Update, roll back, tear down
+
+```bash
+scripts/cloud-run-deploy.sh                       # a new release
+gcloud run revisions list --service aarogyam-api --region asia-south1
+gcloud run services update-traffic aarogyam-api --region asia-south1 --to-revisions=<previous>=100
+```
+
+Tear down everything and stop all billing in one step: `gcloud projects delete $PROJECT_ID`
+(kept for 30 days, so it can be restored; the budget goes with the project). To remove only
+the API and keep the project:
+
+```bash
+gcloud scheduler jobs delete aarogyam-outbox --location asia-south1
+gcloud run jobs delete aarogyam-outbox --region asia-south1
+gcloud run services delete aarogyam-api --region asia-south1
+gcloud artifacts repositories delete aarogyam --location asia-south1
+for s in aarogyam-db-url aarogyam-edge-secret aarogyam-supabase-secret-key \
+         aarogyam-files-signing-key aarogyam-resend-api-key sakalya-backend-read-token; do
+  gcloud secrets delete $s --quiet; done
+```
+
+Then point the Workers back at a tunnel (`scripts/tunnel-up.sh`, `scripts/demo-api.sh`) or
+a new URL with `scripts/deploy-workers.sh`.
+
+### If the first build fails
+
+The Dockerfile was reviewed by hand, not built (no Docker here). Read the log it prints, or
+`gcloud builds list --region asia-south1`. Likely causes: the GitHub token cannot read
+`sakalya-backend` (a `fatal: could not read Username` or 404 while fetching); the Rust image tag
+`1.99` (set `ARG RUST_VERSION` to match `rust-toolchain.toml`); or a build timeout on the
+2-vCPU machine (raise `timeout` in `scripts/cloud-run-deploy.sh`).
+
+The older Cloud Build pipeline below (`cloudbuild.yaml`, `deploy/cloud-run/*.yaml`) is for the
+staging project once CI resumes (`docs/cicd.md`). It is not needed for the trial deploy.
+
+---
+
 ## Cloud Run + Cloudflare Workers (staging)
 
 The API moves off the founder's Mac onto Cloud Run; the Workers don't change except for one

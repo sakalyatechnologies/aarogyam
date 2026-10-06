@@ -5,8 +5,11 @@ import com.aarogyam.staff.clinic.ClinicBranding
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
+import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
 import com.aarogyam.staff.patients.PatientsStateHolder
+import com.aarogyam.staff.prescriptions.RxListStateHolder
+import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
 import com.sakalya.mobile.design.ThemeMode
@@ -66,6 +69,21 @@ fun AppGraph.patient360(
     patientId: String,
     screen: ScreenScope,
 ): Patient360StateHolder = patient360(clinic, patientId, screen.scope)
+
+/** The Rx tab's state holder for [patientId], living as long as [screen]. */
+fun AppGraph.rxList(
+    clinic: ClinicContext,
+    patientId: String,
+    screen: ScreenScope,
+): RxListStateHolder = rxList(clinic, patientId, screen.scope)
+
+/** The Rx sheet's state holder, living as long as [screen]; [allergies] come from Patient 360. */
+fun AppGraph.rxSheet(
+    clinic: ClinicContext,
+    patientId: String,
+    allergies: List<AllergyView>,
+    screen: ScreenScope,
+): RxSheetStateHolder = rxSheet(clinic, patientId, allergies, screen.scope)
 
 /** The Calendar state holder for [clinic], living as long as [screen]. */
 fun AppGraph.calendar(

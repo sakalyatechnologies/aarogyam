@@ -3,7 +3,7 @@
 use std::fmt;
 
 use crate::ids::{ClinicId, MembershipId, UserId};
-use crate::permission::{Permission, PermissionSet};
+use crate::permission::{Permission, PermissionSet, Scope};
 
 /// Who is acting, as recorded in the change history and the access record.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -243,6 +243,17 @@ impl ClinicActor {
         }
     }
 
+    /// Which records `permission` reaches for this person. `own` and `assigned` both narrow
+    /// to the member's own records: the schema has no care-team assignment yet.
+    #[must_use]
+    pub fn reach(&self, permission: Permission) -> Reach {
+        match self.permissions.scope(permission) {
+            Some(Scope::All) => Reach::All,
+            // No permission reaches nothing; the route's permission check refuses first.
+            Some(Scope::Own | Scope::Assigned) | None => Reach::Own(self.membership_id),
+        }
+    }
+
     /// Why this person is reading a patient's record, for the access record.
     #[must_use]
     pub fn access_purpose(&self) -> &'static str {
@@ -250,6 +261,38 @@ impl ClinicActor {
             "front_desk" => "front_desk",
             "finance" => "billing",
             _ => "care",
+        }
+    }
+}
+
+/// Which records a permission reaches: every record in the clinic, or the member's own. Queries
+/// take it as [`Reach::member`], a nullable parameter that the `app.*_in_reach` SQL functions
+/// read: null passes every row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reach {
+    /// Every record in the clinic.
+    All,
+    /// Records this membership is responsible for or created (see `docs/decisions.md`).
+    Own(MembershipId),
+}
+
+impl Reach {
+    /// The membership to narrow to, or `None` for every record.
+    #[must_use]
+    pub fn member(self) -> Option<uuid::Uuid> {
+        match self {
+            Self::All => None,
+            Self::Own(member) => Some(member.uuid()),
+        }
+    }
+
+    /// Whether a record belonging to `membership` (such as a practitioner's sign-in) is within
+    /// reach.
+    #[must_use]
+    pub fn includes(self, membership: Option<uuid::Uuid>) -> bool {
+        match self {
+            Self::All => true,
+            Self::Own(member) => membership == Some(member.uuid()),
         }
     }
 }
@@ -334,6 +377,25 @@ mod tests {
             Err(Denied::MissingPermission(Permission::FinanceView))
         );
         assert_eq!(actor.access_purpose(), "front_desk");
+    }
+
+    #[test]
+    fn reach_follows_the_widest_scope() {
+        let mut auth = authorization();
+        auth.permissions = PermissionSet::EMPTY
+            .with(Permission::PatientsRead, Scope::All)
+            .with(Permission::ClinicalRead, Scope::Own)
+            .with(Permission::ClinicalWrite, Scope::Assigned);
+        let member = auth.membership_id;
+        let actor = ClinicActor::admit(place(), auth).unwrap();
+        assert_eq!(actor.reach(Permission::PatientsRead), Reach::All);
+        assert_eq!(actor.reach(Permission::PatientsRead).member(), None);
+        assert_eq!(actor.reach(Permission::ClinicalRead), Reach::Own(member));
+        assert_eq!(actor.reach(Permission::ClinicalWrite), Reach::Own(member));
+        assert_eq!(
+            actor.reach(Permission::ClinicalWrite).member(),
+            Some(member.uuid())
+        );
     }
 
     #[test]

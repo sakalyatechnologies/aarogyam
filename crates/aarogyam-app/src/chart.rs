@@ -128,7 +128,8 @@ pub async fn get(
         .transpose()
         .map_err(|error| AppError::invalid("tooth", error))?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
+        let patient =
+            require_patient(tx, patient_id, actor.reach(Permission::ClinicalRead)).await?;
         load(tx, patient.id, tooth).await
     })
     .await
@@ -193,12 +194,18 @@ pub async fn record(
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| AppError::invalid("entries", error))?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
+        let patient =
+            require_patient(tx, patient_id, actor.reach(Permission::ClinicalWrite)).await?;
         if let Some(visit_id) = input.visit_id {
-            let visit = aarogyam_dal::visits::get_encounter(tx.conn(), visit_id, false)
-                .await?
-                .filter(|visit| visit.patient_id == patient.id)
-                .ok_or_else(|| AppError::invalid("visit_id", "not a visit of this patient"))?;
+            let visit = aarogyam_dal::visits::get_encounter(
+                tx.conn(),
+                visit_id,
+                false,
+                actor.reach(Permission::ClinicalWrite).member(),
+            )
+            .await?
+            .filter(|visit| visit.patient_id == patient.id)
+            .ok_or_else(|| AppError::invalid("visit_id", "not a visit of this patient"))?;
             if visit.status != EncounterStatus::Open.as_str() {
                 return Err(AppError::Conflict(NoteRefusal::VisitClosed.message()));
             }

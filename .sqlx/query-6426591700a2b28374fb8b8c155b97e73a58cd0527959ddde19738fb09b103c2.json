@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id from aarogyam.appointments\n           where id = $1 and deleted_at is null and app.practitioner_in_reach(practitioner_id, $2)\n           for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6426591700a2b28374fb8b8c155b97e73a58cd0527959ddde19738fb09b103c2"
+}

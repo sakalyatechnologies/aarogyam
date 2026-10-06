@@ -6,6 +6,7 @@ use sakalya_db::DbError;
 use sqlx::PgConnection;
 use sqlx::types::Json;
 use time::{Date, OffsetDateTime};
+use uuid::Uuid;
 
 use crate::appointments::AppointmentRow;
 use crate::inventory::StockRow;
@@ -43,6 +44,7 @@ pub async fn today(
     day: Date,
     weekday: i16,
     with_stock: bool,
+    member: Option<Uuid>,
 ) -> Result<TodayRows, DbError> {
     // Each subquery is the query its module runs for one list (appointments::list,
     // queue::list, schedule::rooms, shifts, leave and practitioners, inventory::stock).
@@ -62,7 +64,8 @@ pub async fn today(
                     join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id
                     left join aarogyam.rooms r on r.org_id = a.org_id and r.id = a.room_id
                     left join aarogyam.queue_tokens q on q.org_id = a.org_id and q.appointment_id = a.id
-                    where a.deleted_at is null and a.starts_at >= $1 and a.starts_at < $2) a
+                    where a.deleted_at is null and a.starts_at >= $1 and a.starts_at < $2
+                      and app.practitioner_in_reach(a.practitioner_id, $6)) a
              ) as "appointments!: Json<Vec<AppointmentRow>>",
              (select coalesce(json_agg(q order by q.branch_id, q.token_number), '[]'::json)
               from (select q.id, q.branch_id, q.day, q.token_number, q.status, q.issued_at,
@@ -74,7 +77,7 @@ pub async fn today(
                     from aarogyam.queue_tokens q
                     join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
                     left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
-                    where q.day = $3) q
+                    where q.day = $3 and app.practitioner_in_reach(q.practitioner_id, $6)) q
              ) as "tokens!: Json<Vec<TokenRow>>",
              (select coalesce(json_agg(r order by r.sort_order, r.name), '[]'::json)
               from (select id, branch_id, name, kind, active, sort_order
@@ -106,7 +109,8 @@ pub async fn today(
         end,
         day,
         weekday,
-        with_stock
+        with_stock,
+        member
     )
     .fetch_one(conn)
     .await?;

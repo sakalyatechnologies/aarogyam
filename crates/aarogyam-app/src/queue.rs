@@ -3,7 +3,7 @@
 
 use aarogyam_dal::queue::{self as dal, TokenRow};
 use aarogyam_dal::{appointments, clinic, patients, schedule};
-use aarogyam_domain::access::ClinicActor;
+use aarogyam_domain::access::{ClinicActor, Reach};
 use aarogyam_domain::ids::{BranchId, PatientId, PractitionerId, QueueTokenId};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::{QueueStatus, minutes_between};
@@ -92,7 +92,7 @@ async fn view(
     now: OffsetDateTime,
     today: Date,
 ) -> Result<TokenView, AppError> {
-    let row = dal::get(tx.conn(), id)
+    let row = dal::get(tx.conn(), id, None)
         .await?
         .ok_or(AppError::NotFound("queue token"))?;
     Ok(TokenView::new(row, now, today))
@@ -126,7 +126,13 @@ pub async fn list(
             .ok_or(AppError::NotFound("clinic"))?;
         let today = clinic_today(&profile.timezone, now);
         let date = date.unwrap_or(today);
-        let rows = dal::list(tx.conn(), date, branch_id.map(BranchId::uuid)).await?;
+        let rows = dal::list(
+            tx.conn(),
+            date,
+            branch_id.map(BranchId::uuid),
+            actor.reach(Permission::AppointmentsRead).member(),
+        )
+        .await?;
         Ok(Queue {
             date,
             tokens: rows
@@ -166,16 +172,24 @@ pub async fn walk_in(
         let profile = clinic::profile(tx.conn())
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
-        if patients::get(tx.conn(), input.patient_id.uuid())
+        if patients::get(tx.conn(), input.patient_id.uuid(), None)
             .await?
             .is_none()
         {
             return Err(AppError::NotFound("patient"));
         }
+        // A member who queues only their own patients queues them only with themselves.
+        let reach = actor.reach(Permission::AppointmentsWrite);
+        if input.practitioner_id.is_none() && reach != Reach::All {
+            return Err(AppError::invalid(
+                "practitioner_id",
+                "choose yourself as the doctor",
+            ));
+        }
         if let Some(id) = input.practitioner_id
             && schedule::practitioner(tx.conn(), id.uuid())
                 .await?
-                .is_none()
+                .is_none_or(|row| !reach.includes(row.membership_id))
         {
             return Err(AppError::invalid("practitioner_id", "no such doctor"));
         }
@@ -216,12 +230,13 @@ pub async fn set_status(
     db.scoped(&scope(actor, request_id), async |tx| {
         let today = clinic_today(&actor.timezone, now);
         // A retry of a move that landed is answered from one read, without a lock.
-        if let Some(row) = dal::get(tx.conn(), token_id.uuid()).await?
+        let reach = actor.reach(Permission::AppointmentsWrite).member();
+        if let Some(row) = dal::get(tx.conn(), token_id.uuid(), reach).await?
             && row.status == to.as_str()
         {
             return Ok(Moved::AlreadyDone(TokenView::new(row, now, today)));
         }
-        let token = dal::get_for_update(tx.conn(), token_id.uuid())
+        let token = dal::get_for_update(tx.conn(), token_id.uuid(), reach)
             .await?
             .ok_or(AppError::NotFound("queue token"))?;
         let from = QueueStatus::parse(&token.status)
@@ -237,8 +252,8 @@ pub async fn set_status(
         }
         match (token.appointment_id, to.appointment_status()) {
             (Some(appointment_id), Some(next)) => {
-                appointments::lock(tx.conn(), appointment_id).await?;
-                let current = appointments::get(tx.conn(), appointment_id)
+                appointments::lock(tx.conn(), appointment_id, None).await?;
+                let current = appointments::get(tx.conn(), appointment_id, None)
                     .await?
                     .ok_or(AppError::NotFound("appointment"))?;
                 let reason = (to == QueueStatus::Left).then_some(LEFT_REASON);

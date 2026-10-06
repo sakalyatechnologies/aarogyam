@@ -247,15 +247,20 @@ pub async fn record_procedure(
         .map_err(invalid("price_paise"))?;
     let note = optional_text(input.note.as_deref(), 1000).map_err(invalid("note"))?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let visit = require_open_visit(tx, visit_id).await?;
+        let visit =
+            require_open_visit(tx, visit_id, actor.reach(Permission::ClinicalWrite)).await?;
         let item = match input.plan_item_id {
             Some(item_id) => {
-                let item = treatment::get_item_for_update(tx.conn(), item_id)
-                    .await?
-                    .filter(|item| item.patient_id == visit.patient_id)
-                    .ok_or_else(|| {
-                        AppError::invalid("plan_item_id", "not a plan item of this patient")
-                    })?;
+                let item = treatment::get_item_for_update(
+                    tx.conn(),
+                    item_id,
+                    actor.reach(Permission::ClinicalWrite).member(),
+                )
+                .await?
+                .filter(|item| item.patient_id == visit.patient_id)
+                .ok_or_else(|| {
+                    AppError::invalid("plan_item_id", "not a plan item of this patient")
+                })?;
                 if item.status != PlanItemStatus::Accepted.as_str() {
                     return Err(AppError::Conflict(
                         "only an accepted plan item can be carried out",
@@ -319,9 +324,13 @@ pub async fn complete_procedure(
 ) -> Result<ProcedureView, AppError> {
     actor.require(Permission::ClinicalWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let row = treatment::get_procedure_for_update(tx.conn(), procedure_id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("procedure"))?;
+        let row = treatment::get_procedure_for_update(
+            tx.conn(),
+            procedure_id.uuid(),
+            actor.reach(Permission::ClinicalWrite).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("procedure"))?;
         if row.status != ProcedureStatus::Planned.as_str() {
             return Err(AppError::Conflict(
                 "only a planned procedure can be completed",
@@ -358,9 +367,13 @@ pub async fn mark_procedure_in_error(
     actor.require(Permission::ClinicalWrite)?;
     let reason = error_reason(reason).map_err(invalid("reason"))?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let row = treatment::get_procedure_for_update(tx.conn(), procedure_id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("procedure"))?;
+        let row = treatment::get_procedure_for_update(
+            tx.conn(),
+            procedure_id.uuid(),
+            actor.reach(Permission::ClinicalWrite).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("procedure"))?;
         if row.status == ProcedureStatus::EnteredInError.as_str() {
             return Err(AppError::Conflict("already marked entered in error"));
         }
@@ -395,8 +408,9 @@ pub async fn procedures(
 ) -> Result<Vec<ProcedureView>, AppError> {
     actor.require(Permission::ClinicalRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
-        let rows = treatment::list_procedures(tx.conn(), patient.id).await?;
+        let reach = actor.reach(Permission::ClinicalRead);
+        let patient = require_patient(tx, patient_id, reach).await?;
+        let rows = treatment::list_procedures(tx.conn(), patient.id, reach.member()).await?;
         procedure_views(tx, rows).await
     })
     .await
@@ -553,7 +567,8 @@ pub async fn create_plan(
         })
         .collect::<Result<Vec<_>, AppError>>()?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
+        let patient =
+            require_patient(tx, patient_id, actor.reach(Permission::ClinicalWrite)).await?;
         let plan = treatment::insert_plan(
             tx.conn(),
             TreatmentPlanId::new_v7().uuid(),
@@ -597,7 +612,8 @@ pub async fn plans(
 ) -> Result<Vec<PlanView>, AppError> {
     actor.require(Permission::ClinicalRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
+        let patient =
+            require_patient(tx, patient_id, actor.reach(Permission::ClinicalRead)).await?;
         let rows = treatment::list_plans(tx.conn(), patient.id).await?;
         plan_views(tx, rows).await
     })
@@ -620,9 +636,14 @@ pub async fn accept_plan(
 ) -> Result<PlanView, AppError> {
     actor.require(Permission::ClinicalWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let plan = treatment::get_plan(tx.conn(), plan_id.uuid(), true)
-            .await?
-            .ok_or(AppError::NotFound("treatment plan"))?;
+        let plan = treatment::get_plan(
+            tx.conn(),
+            plan_id.uuid(),
+            true,
+            actor.reach(Permission::ClinicalWrite).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("treatment plan"))?;
         if plan.status != PlanStatus::Proposed.as_str() {
             return Err(AppError::Conflict("only a proposed plan can be accepted"));
         }
@@ -641,7 +662,7 @@ pub async fn accept_plan(
             }
         }
         treatment::accept_plan(tx.conn(), plan.id, item_ids.as_deref(), now).await?;
-        let plan = treatment::get_plan(tx.conn(), plan.id, false)
+        let plan = treatment::get_plan(tx.conn(), plan.id, false, None)
             .await?
             .ok_or(AppError::NotFound("treatment plan"))?;
         let mut views = plan_views(tx, vec![plan]).await?;
@@ -670,14 +691,18 @@ pub async fn set_item_status(
         return Err(AppError::invalid("status", "use done or cancelled"));
     }
     db.scoped(&scope(actor, request_id), async |tx| {
-        let item = treatment::get_item_for_update(tx.conn(), item_id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("treatment plan item"))?;
+        let item = treatment::get_item_for_update(
+            tx.conn(),
+            item_id.uuid(),
+            actor.reach(Permission::ClinicalWrite).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("treatment plan item"))?;
         if item.status != PlanItemStatus::Accepted.as_str() {
             return Err(AppError::Conflict("only an accepted item can be finished"));
         }
         treatment::set_item_status(tx.conn(), item.id, status.as_str()).await?;
-        let plan = treatment::get_plan(tx.conn(), item.plan_id, false)
+        let plan = treatment::get_plan(tx.conn(), item.plan_id, false, None)
             .await?
             .ok_or(AppError::NotFound("treatment plan"))?;
         let mut views = plan_views(tx, vec![plan]).await?;

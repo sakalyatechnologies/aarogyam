@@ -5,7 +5,7 @@
 
 use aarogyam_dal::appointments::{self as dal, AppointmentRow, Booking};
 use aarogyam_dal::{clinic, patients, queue, schedule};
-use aarogyam_domain::access::ClinicActor;
+use aarogyam_domain::access::{ClinicActor, Reach};
 use aarogyam_domain::ids::{AppointmentId, BranchId, PatientId, PractitionerId, RoomId};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::{
@@ -139,6 +139,7 @@ pub async fn list(
             end,
             room_id.map(RoomId::uuid),
             practitioner_id.map(PractitionerId::uuid),
+            actor.reach(Permission::AppointmentsRead).member(),
         )
         .await?;
         Ok(rows
@@ -197,10 +198,16 @@ fn parse_notes(text: Option<&str>) -> Result<Option<String>, AppError> {
     Ok(Some(text.to_owned()))
 }
 
-/// Checks the doctor exists and takes bookings.
-async fn check_practitioner(tx: &mut ScopedTx, id: PractitionerId) -> Result<(), AppError> {
+/// Checks the doctor exists, takes bookings, and is within `reach`: a member who books only
+/// their own appointments books only with their own practitioner record.
+async fn check_practitioner(
+    tx: &mut ScopedTx,
+    id: PractitionerId,
+    reach: Reach,
+) -> Result<(), AppError> {
     let practitioner = schedule::practitioner(tx.conn(), id.uuid())
         .await?
+        .filter(|row| reach.includes(row.membership_id))
         .ok_or(AppError::invalid("practitioner_id", "no such doctor"))?;
     if !practitioner.active {
         return Err(AppError::invalid(
@@ -278,7 +285,7 @@ async fn warnings(
 }
 
 async fn reload(tx: &mut ScopedTx, id: Uuid, today: Date) -> Result<AppointmentView, AppError> {
-    let row = dal::get(tx.conn(), id)
+    let row = dal::get(tx.conn(), id, None)
         .await?
         .ok_or(AppError::NotFound("appointment"))?;
     Ok(AppointmentView::new(row, today))
@@ -321,13 +328,19 @@ pub async fn book(
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
         let today = clinic_today(&profile.timezone, now);
-        if patients::get(tx.conn(), input.patient_id.uuid())
+        // Any patient may be booked; the booking makes them the doctor's own.
+        if patients::get(tx.conn(), input.patient_id.uuid(), None)
             .await?
             .is_none()
         {
             return Err(AppError::NotFound("patient"));
         }
-        check_practitioner(tx, input.practitioner_id).await?;
+        check_practitioner(
+            tx,
+            input.practitioner_id,
+            actor.reach(Permission::AppointmentsWrite),
+        )
+        .await?;
         let branch_id = booking_branch(tx, input.room_id, input.branch_id).await?;
         let id = AppointmentId::new_v7().uuid();
         let booking = Booking {
@@ -436,11 +449,17 @@ fn history_changes(current: &AppointmentRow, next: &Booking<'_>) -> Map<String, 
 }
 
 /// The appointment, locked until the transaction ends so changes apply one after the other.
-async fn locked(tx: &mut ScopedTx, id: AppointmentId) -> Result<AppointmentRow, AppError> {
-    if !dal::lock(tx.conn(), id.uuid()).await? {
+/// Not found when out of the member's `appointments.write` reach.
+async fn locked(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    id: AppointmentId,
+) -> Result<AppointmentRow, AppError> {
+    let reach = actor.reach(Permission::AppointmentsWrite).member();
+    if !dal::lock(tx.conn(), id.uuid(), reach).await? {
         return Err(AppError::NotFound("appointment"));
     }
-    dal::get(tx.conn(), id.uuid())
+    dal::get(tx.conn(), id.uuid(), None)
         .await?
         .ok_or(AppError::NotFound("appointment"))
 }
@@ -497,7 +516,7 @@ pub async fn change(
         .transpose()?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let today = clinic_today(&actor.timezone, now);
-        let current = locked(tx, appointment_id).await?;
+        let current = locked(tx, actor, appointment_id).await?;
         AppError::check_version(expected_version, current.row_version)?;
         let status = AppointmentStatus::parse(&current.status)
             .map_err(|_| AppError::Internal("unknown appointment status"))?;
@@ -510,7 +529,7 @@ pub async fn change(
         let practitioner_id = match input.practitioner_id {
             Some(id) => {
                 if id.uuid() != current.practitioner_id {
-                    check_practitioner(tx, id).await?;
+                    check_practitioner(tx, id, actor.reach(Permission::AppointmentsWrite)).await?;
                 }
                 id.uuid()
             }
@@ -717,7 +736,8 @@ pub async fn set_status(
     db.scoped(&scope(actor, request_id), async |tx| {
         let today = clinic_today(&actor.timezone, now);
         // A retry of a move that landed is answered from one read, without a lock.
-        if let Some(row) = dal::get(tx.conn(), appointment_id.uuid()).await?
+        let reach = actor.reach(Permission::AppointmentsWrite).member();
+        if let Some(row) = dal::get(tx.conn(), appointment_id.uuid(), reach).await?
             && row.status == to.as_str()
         {
             return Ok(Moved::AlreadyDone(StatusChanged {
@@ -728,7 +748,7 @@ pub async fn set_status(
         let profile = clinic::profile(tx.conn())
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
-        let current = locked(tx, appointment_id).await?;
+        let current = locked(tx, actor, appointment_id).await?;
         let token_id = match plan_status(&current.status, to, reason)? {
             StatusPlan::Same => {
                 return Ok(Moved::AlreadyDone(

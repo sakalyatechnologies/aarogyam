@@ -528,9 +528,18 @@ pub async fn insert_leave(conn: &mut PgConnection, row: &LeaveRow) -> Result<Lea
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
-pub async fn delete_leave(conn: &mut PgConnection, id: Uuid) -> Result<bool, DbError> {
-    let done = sqlx::query!(r#"delete from aarogyam.leave_blocks where id = $1"#, id)
-        .execute(conn)
-        .await?;
+pub async fn delete_leave(
+    conn: &mut PgConnection,
+    id: Uuid,
+    member: Option<Uuid>,
+) -> Result<bool, DbError> {
+    let done = sqlx::query!(
+        r#"delete from aarogyam.leave_blocks
+           where id = $1 and app.practitioner_in_reach(practitioner_id, $2)"#,
+        id,
+        member
+    )
+    .execute(conn)
+    .await?;
     Ok(done.rows_affected() == 1)
 }

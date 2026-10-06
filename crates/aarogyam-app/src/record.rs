@@ -134,9 +134,12 @@ pub async fn timeline(
     actor.require(Permission::ClinicalRead)?;
     let limit = limit.clamp(1, MAX_EVENTS);
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = visits::require_patient(tx, patient_id).await?;
+        let reach = actor.reach(Permission::ClinicalRead);
+        let patient = visits::require_patient(tx, patient_id, reach).await?;
         visits::record_access(tx, actor, request_id, patient.id, "chart", None, "view").await?;
-        let rows = aarogyam_dal::timeline::events(tx.conn(), patient.id, before, limit).await?;
+        let rows =
+            aarogyam_dal::timeline::events(tx.conn(), patient.id, before, limit, reach.member())
+                .await?;
         let names = visits::Names::load(tx, rows.iter().filter_map(|row| row.member_id)).await?;
         rows.into_iter()
             .map(|row| {

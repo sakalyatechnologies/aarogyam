@@ -422,7 +422,9 @@ pub async fn edit(
     }
     db.scoped(&scope(actor, request_id), async |tx| {
         let today = clinic_today(&actor.timezone, now);
-        let current = patients::get_for_update(tx.conn(), patient_id.uuid())
+        // The edit answers with the record, so it reaches only patients the member can read.
+        let reach = actor.reach(Permission::PatientsRead).member();
+        let current = patients::get_for_update(tx.conn(), patient_id.uuid(), reach)
             .await?
             .ok_or(AppError::NotFound("patient"))?;
         AppError::check_version(expected_version, current.row_version)?;
@@ -476,29 +478,30 @@ pub async fn search(
         recalls_due: filter.recalls_due,
         created_since,
     };
+    let reach = actor.reach(Permission::PatientsRead).member();
     db.scoped(&scope(actor, request_id), async |tx| {
         let rows = match PatientQuery::classify(query, CallingCode::INDIA) {
-            None if filter.is_empty() => patients::recent(tx.conn(), limit, at).await?,
-            None => patients::recent_filtered(tx.conn(), &list_filter, limit, at).await?,
+            None if filter.is_empty() => patients::recent(tx.conn(), limit, at, reach).await?,
+            None => patients::recent_filtered(tx.conn(), &list_filter, limit, at, reach).await?,
             Some(PatientQuery::Number(number)) => {
-                patients::find_by_number(tx.conn(), number.as_str(), at)
+                patients::find_by_number(tx.conn(), number.as_str(), at, reach)
                     .await?
                     .into_iter()
                     .collect()
             }
             Some(PatientQuery::NumberDigits(digits)) => {
                 let number = format!("{}-{digits}", actor.number_prefix);
-                patients::find_by_number(tx.conn(), &number, at)
+                patients::find_by_number(tx.conn(), &number, at, reach)
                     .await?
                     .into_iter()
                     .collect()
             }
             Some(PatientQuery::Phone(phone)) => {
-                patients::search_phone(tx.conn(), phone.as_e164(), limit, at).await?
+                patients::search_phone(tx.conn(), phone.as_e164(), limit, at, reach).await?
             }
             Some(PatientQuery::NamePrefix(prefix)) => {
                 let fuzzy = prefix.chars().count() >= 3;
-                patients::search_name(tx.conn(), &prefix, limit, fuzzy, at).await?
+                patients::search_name(tx.conn(), &prefix, limit, fuzzy, at, reach).await?
             }
         };
         let mut views: Vec<PatientView> = rows
@@ -545,6 +548,7 @@ pub async fn open(
                 request_id: request_text.as_deref(),
             },
             patients::SummaryAt { now, today },
+            actor.reach(Permission::PatientsRead).member(),
         )
         .await?
         .ok_or(AppError::NotFound("patient"))?;

@@ -205,8 +205,9 @@ pub async fn record(
     if recorded_at > now + Duration::minutes(5) {
         return Err(AppError::invalid("recorded_at", "can't be in the future"));
     }
+    let reach = actor.reach(Permission::ClinicalWrite).member();
     db.scoped(&scope(actor, request_id), async |tx| {
-        let visit = aarogyam_dal::visits::get_encounter(tx.conn(), visit_id.uuid(), true)
+        let visit = aarogyam_dal::visits::get_encounter(tx.conn(), visit_id.uuid(), true, reach)
             .await?
             .ok_or(AppError::NotFound("visit"))?;
         let mut known = Vec::with_capacity(readings.len());
@@ -214,7 +215,7 @@ pub async fn record(
             let existing = match item.id {
                 Some(id) => {
                     aarogyam_dal::visits::lock_client_id(tx.conn(), id.uuid()).await?;
-                    vitals::get_for_update(tx.conn(), id.uuid()).await?
+                    vitals::get_for_update(tx.conn(), id.uuid(), reach).await?
                 }
                 None => None,
             };
@@ -241,7 +242,7 @@ pub async fn record(
             }
             let (reading, supersedes_id) = (&item.reading, &item.supersedes_id);
             if let Some(old_id) = supersedes_id {
-                let old = vitals::get_for_update(tx.conn(), *old_id)
+                let old = vitals::get_for_update(tx.conn(), *old_id, reach)
                     .await?
                     .filter(|old| old.patient_id == visit.patient_id)
                     .ok_or_else(|| {
@@ -303,9 +304,13 @@ pub async fn mark_in_error(
     actor.require(Permission::ClinicalWrite)?;
     let reason = error_reason(reason).map_err(invalid("reason"))?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let row = vitals::get_for_update(tx.conn(), observation_id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("observation"))?;
+        let row = vitals::get_for_update(
+            tx.conn(),
+            observation_id.uuid(),
+            actor.reach(Permission::ClinicalWrite).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("observation"))?;
         if row.status != "final" {
             return Err(AppError::Conflict(
                 "only a final reading can be marked entered in error",

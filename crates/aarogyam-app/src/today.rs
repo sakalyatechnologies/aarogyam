@@ -278,8 +278,11 @@ pub async fn today(
     let (start, end) = day_bounds(&actor.timezone, date);
     let weekday = i16::from(date.weekday().number_from_monday());
     let with_stock = actor.permissions.allows(Permission::InventoryRead);
+    // Counts, chairs and the team follow from the appointments and tokens in reach.
+    let reach = actor.reach(Permission::AppointmentsRead).member();
     db.scoped(&scope(actor, request_id), async |tx| {
-        let rows = dal_today::today(tx.conn(), start, end, date, weekday, with_stock).await?;
+        let rows =
+            dal_today::today(tx.conn(), start, end, date, weekday, with_stock, reach).await?;
         let appointments: Vec<AppointmentView> = rows
             .appointments
             .into_iter()

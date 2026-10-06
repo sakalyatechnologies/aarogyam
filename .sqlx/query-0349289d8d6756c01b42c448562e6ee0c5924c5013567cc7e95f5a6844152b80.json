@@ -1,0 +1,216 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with found as (\n             select * from aarogyam.patients\n             where id = $1 and deleted_at is null and app.patient_in_reach(id, $10)\n           ), recorded as (\n             insert into audit.access_log\n               (actor_user_id, actor_kind, patient_id, resource, action, purpose, request_id)\n             select $2, $3, found.id, $4, $5, $6, $7 from found\n           )\n           select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,\n                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,\n                  s.next_starts_at, s.next_practitioner, s.balance_paise as \"balance_paise!\",\n                  s.lifetime_paid_paise as \"lifetime_paid_paise!\", s.recall_due as \"recall_due!\"\n           from found p\n           cross join lateral app.patient_summary(p.id, $8, $9) s",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "full_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "full_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "sex",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "sex"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "date_of_birth",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "date_of_birth"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "birth_date_estimated",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "birth_date_estimated"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "phone_e164",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "phone_e164"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "email",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "email"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "preferred_language",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "preferred_language"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "last_visit_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "last_visit_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "row_version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "row_version"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "next_starts_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "next_practitioner",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 15,
+        "name": "balance_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 16,
+        "name": "lifetime_paid_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 17,
+        "name": "recall_due!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Date",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "0349289d8d6756c01b42c448562e6ee0c5924c5013567cc7e95f5a6844152b80"
+}

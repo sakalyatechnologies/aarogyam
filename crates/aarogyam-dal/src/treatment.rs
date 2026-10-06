@@ -156,13 +156,17 @@ pub async fn get_plan(
     conn: &mut PgConnection,
     id: Uuid,
     lock: bool,
+    member: Option<Uuid>,
 ) -> Result<Option<PlanRow>, DbError> {
     let row = if lock {
         sqlx::query_as!(
             PlanRow,
             r#"select id, patient_id, clinician_id, encounter_id, title, status, accepted_at, created_at
-               from aarogyam.treatment_plans where id = $1 for update"#,
-            id
+               from aarogyam.treatment_plans
+               where id = $1 and app.patient_in_reach(patient_id, $2)
+               for update"#,
+            id,
+            member
         )
         .fetch_optional(conn)
         .await?
@@ -170,8 +174,10 @@ pub async fn get_plan(
         sqlx::query_as!(
             PlanRow,
             r#"select id, patient_id, clinician_id, encounter_id, title, status, accepted_at, created_at
-               from aarogyam.treatment_plans where id = $1"#,
-            id
+               from aarogyam.treatment_plans
+               where id = $1 and app.patient_in_reach(patient_id, $2)"#,
+            id,
+            member
         )
         .fetch_optional(conn)
         .await?
@@ -212,14 +218,18 @@ pub async fn list_items(
 pub async fn get_item_for_update(
     conn: &mut PgConnection,
     id: Uuid,
+    member: Option<Uuid>,
 ) -> Result<Option<ItemRow>, DbError> {
     let row = sqlx::query_as!(
         ItemRow,
         r#"select i.id, i.plan_id, i.patient_id, i.name, i.code_system, i.code, i.tooth,
                   i.surfaces, i.phase, i.estimate_paise, i.status,
                   null::uuid as procedure_id
-           from aarogyam.treatment_plan_items i where i.id = $1 for update"#,
-        id
+           from aarogyam.treatment_plan_items i
+           where i.id = $1 and app.patient_in_reach(i.patient_id, $2)
+           for update"#,
+        id,
+        member
     )
     .fetch_optional(conn)
     .await?;
@@ -400,14 +410,18 @@ pub async fn insert_procedure(
 pub async fn get_procedure_for_update(
     conn: &mut PgConnection,
     id: Uuid,
+    member: Option<Uuid>,
 ) -> Result<Option<ProcedureRow>, DbError> {
     let row = sqlx::query_as!(
         ProcedureRow,
         r#"select id, encounter_id, patient_id, clinician_id, name, code_system, code, tooth,
                   surfaces, status, performed_at, price_paise, treatment_plan_item_id, note,
                   error_reason, created_at
-           from aarogyam.procedures where id = $1 for update"#,
-        id
+           from aarogyam.procedures
+           where id = $1 and app.clinical_in_reach(clinician_id, created_by, encounter_id, $2)
+           for update"#,
+        id,
+        member
     )
     .fetch_optional(conn)
     .await?;
@@ -450,15 +464,18 @@ pub async fn set_procedure_status(
 pub async fn list_procedures(
     conn: &mut PgConnection,
     patient_id: Uuid,
+    member: Option<Uuid>,
 ) -> Result<Vec<ProcedureRow>, DbError> {
     let rows = sqlx::query_as!(
         ProcedureRow,
         r#"select id, encounter_id, patient_id, clinician_id, name, code_system, code, tooth,
                   surfaces, status, performed_at, price_paise, treatment_plan_item_id, note,
                   error_reason, created_at
-           from aarogyam.procedures where patient_id = $1
+           from aarogyam.procedures
+           where patient_id = $1 and app.clinical_in_reach(clinician_id, created_by, encounter_id, $2)
            order by coalesce(performed_at, created_at) desc, id desc"#,
-        patient_id
+        patient_id,
+        member
     )
     .fetch_all(conn)
     .await?;

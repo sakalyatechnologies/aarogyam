@@ -666,9 +666,11 @@ pub async fn add_leave(
         .transpose()
         .map_err(invalid("reason"))?;
     db.scoped(&scope(actor, request_id), async |tx| {
+        // A member who manages only their own appointments records only their own leave.
+        let reach = actor.reach(Permission::AppointmentsWrite);
         if dal::practitioner(tx.conn(), practitioner_id.uuid())
             .await?
-            .is_none()
+            .is_none_or(|row| !reach.includes(row.membership_id))
         {
             return Err(AppError::NotFound("practitioner"));
         }
@@ -699,7 +701,13 @@ pub async fn remove_leave(
 ) -> Result<(), AppError> {
     actor.require(Permission::AppointmentsWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        if dal::delete_leave(tx.conn(), leave_id.uuid()).await? {
+        if dal::delete_leave(
+            tx.conn(),
+            leave_id.uuid(),
+            actor.reach(Permission::AppointmentsWrite).member(),
+        )
+        .await?
+        {
             Ok(())
         } else {
             Err(AppError::NotFound("leave"))

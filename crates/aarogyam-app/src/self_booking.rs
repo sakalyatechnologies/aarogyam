@@ -497,7 +497,7 @@ pub(crate) async fn notify_decision(
         AppointmentStatus::Cancelled => MessageKind::BookingDeclined,
         _ => return Ok(()),
     };
-    let Some(email) = patients::get(tx.conn(), row.patient_id)
+    let Some(email) = patients::get(tx.conn(), row.patient_id, None)
         .await?
         .and_then(|patient| patient.email)
         .and_then(|text| Email::parse(&text).ok())

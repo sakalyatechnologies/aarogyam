@@ -1,0 +1,213 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with by_prefix as (\n             select id, row_number() over (order by search_name collate \"C\") as position\n             from aarogyam.patients\n             where (search_name collate \"C\") ^@ $1 and deleted_at is null\n               and app.patient_in_reach(id, $7)\n             order by search_name collate \"C\"\n             limit $2\n           ), close as (\n             select f.id, f.position\n             from app.search_patients($1, $3) with ordinality\n                  as f(id, number, full_name, sex, date_of_birth, birth_date_estimated,\n                       phone_e164, last_visit_at, similarity, position)\n             where $4 and (select count(*) from by_prefix) < 3\n               and f.id not in (select id from by_prefix)\n               and app.patient_in_reach(f.id, $7)\n           ), picked as (\n             select id, 0 as source, position from by_prefix\n             union all\n             select id, 1, position from close\n           )\n           select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,\n                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,\n                  s.next_starts_at, s.next_practitioner, s.balance_paise as \"balance_paise!\",\n                  s.lifetime_paid_paise as \"lifetime_paid_paise!\", s.recall_due as \"recall_due!\"\n           from picked\n           join aarogyam.patients p on p.id = picked.id\n           cross join lateral app.patient_summary(p.id, $5, $6) s\n           where p.deleted_at is null\n           order by picked.source, picked.position",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "full_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "full_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "sex",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "sex"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "date_of_birth",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "date_of_birth"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "birth_date_estimated",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "birth_date_estimated"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "phone_e164",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "phone_e164"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "email",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "email"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "preferred_language",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "preferred_language"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "last_visit_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "last_visit_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "row_version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "row_version"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "next_starts_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "next_practitioner",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 15,
+        "name": "balance_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 16,
+        "name": "lifetime_paid_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 17,
+        "name": "recall_due!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int4",
+        "Bool",
+        "Timestamptz",
+        "Date",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "adb65e47b6529e74335ed5cb25aba4fb1a21c2ba6d6604ba6440d3c77e820416"
+}

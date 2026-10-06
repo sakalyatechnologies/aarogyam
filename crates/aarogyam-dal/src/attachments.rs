@@ -116,13 +116,19 @@ pub async fn insert(
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
-pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<AttachmentRow>, DbError> {
+pub async fn get(
+    conn: &mut PgConnection,
+    id: Uuid,
+    member: Option<Uuid>,
+) -> Result<Option<AttachmentRow>, DbError> {
     let row = sqlx::query_as!(
         AttachmentRow,
         r#"select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,
                   taken_at, created_at, note_id, addendum_id, duration_seconds, language
-           from aarogyam.attachments where id = $1 and deleted_at is null"#,
-        id
+           from aarogyam.attachments
+           where id = $1 and deleted_at is null and app.patient_in_reach(patient_id, $2)"#,
+        id,
+        member
     )
     .fetch_optional(conn)
     .await?;

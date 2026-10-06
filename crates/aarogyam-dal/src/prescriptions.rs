@@ -149,6 +149,8 @@ pub struct RxFilter {
     pub issued_only: bool,
     /// Most rows.
     pub limit: i64,
+    /// Only this member's own (`app.clinical_in_reach`); `None` for all.
+    pub member: Option<Uuid>,
 }
 
 /// Prescriptions matching `filter`, newest first (by issue, then start).
@@ -173,12 +175,14 @@ pub async fn prescriptions(
            where ($1::uuid is null or r.id = $1)
              and ($2::uuid is null or r.patient_id = $2)
              and (not $3 or r.status = 'issued')
+             and app.clinical_in_reach(r.issued_by, r.created_by, r.encounter_id, $5)
            order by coalesce(r.issued_at, r.created_at) desc, r.id desc
            limit $4"#,
         filter.id,
         filter.patient_id,
         filter.issued_only,
-        filter.limit
+        filter.limit,
+        filter.member
     )
     .fetch_all(conn)
     .await?;
@@ -354,10 +358,17 @@ pub async fn clear_draft_lines(
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
-pub async fn lock(conn: &mut PgConnection, id: Uuid) -> Result<Option<(String, Uuid)>, DbError> {
+pub async fn lock(
+    conn: &mut PgConnection,
+    id: Uuid,
+    member: Option<Uuid>,
+) -> Result<Option<(String, Uuid)>, DbError> {
     let row = sqlx::query!(
-        "select status, patient_id from aarogyam.prescriptions where id = $1 for update",
-        id
+        "select status, patient_id from aarogyam.prescriptions
+         where id = $1 and app.clinical_in_reach(issued_by, created_by, encounter_id, $2)
+         for update",
+        id,
+        member
     )
     .fetch_optional(conn)
     .await?;

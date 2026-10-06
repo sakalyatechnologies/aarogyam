@@ -219,4 +219,20 @@ Onboarding answers become a site configuration. A GitHub App creates the clinic'
 
 **Decision.** A new `roles.manage` permission (owner only by default) lets a clinic change what each role may do (`PUT /api/v1/roles/{key}/permissions`), create custom roles from a standard role and remove unused ones. The owner role is never edited or removed, nobody edits their own role, and nobody grants a permission or a wider scope they don't hold (keeping what a role already has is not granting). Every change is one statement that also writes `role_changes` (who, before, after); the API forgets the cached permissions of everyone with the role, so it applies on their next request. Removed roles are soft-deleted so history and old invitations still point at them. Standard role defaults are unchanged: `finance.view` stays with owner and finance.
 
-**Known gap.** `own` and `assigned` scopes are stored and offered where the catalogue allows them, but routes still check only whether a permission is held. Until each area enforces scopes, a narrowed permission reaches every record.
+**Known gap (closed 2026-10-06, see "Permission scopes are enforced").** `own` and `assigned` scopes were stored and offered, but routes checked only whether a permission was held.
+
+## 2026-10-06: Permission scopes are enforced
+
+**Decision.** A permission held at `own` reaches only the member's own records; anything else is `404`, exactly like another clinic's record, in lists, search, counts, single reads and writes. The route's permission decides the scope (`ClinicActor::reach`), and each query takes the member as one nullable parameter (null at `all`) checked by SQL functions in its own `WHERE` (`app.patient_in_reach`, `app.clinical_in_reach`, `app.practitioner_in_reach`, migration 0171), inside the request's one scoped transaction, so scoping adds no round trip.
+
+What `own` means, per record:
+
+- **Patients** (`patients.read`, with their identifiers, recalls and clinical flags; and patient-level records under `clinical.read`/`clinical.write`: allergies, conditions, dental chart, files, treatment plans): patients the member has seen in a visit (`encounters.clinician_id`), who are booked with the member's practitioner record (any appointment not deleted), or whom the member registered (`patients.created_by`).
+- **Appointments, queue tokens and leave** (`appointments.read`/`write`): those with the member's own practitioner record. Booking, walk-ins and leave with another doctor are refused; a walk-in must name the member as the doctor.
+- **Visits, notes, prescriptions, procedures, vitals** (`clinical.*`, `prescriptions.issue`): the member is responsible (the visit's clinician, the note's author, who issued it), created it, or treats the visit it belongs to.
+- **Invoices and payments**: billing permissions only come at `all` (the catalogue), so they are not narrowed. If that changes, `own` would mean bills for the member's visits.
+
+**`assigned` behaves like `own`.** The schema has no care-team or patient assignment, so `assigned` narrows to the member's own records too. When care teams exist, `assigned` adds their patients.
+
+**Consequences.** Starting a visit or prescribing needs the patient in reach first, so a narrowed doctor can't make any patient their own; booking a patient with themselves (at `appointments.write` `own`) does, and that is how a patient becomes theirs. Clinic set-up stays visible to anyone who can see the calendar (rooms, doctors, hours, leave, letterhead, the drug list). A patient's header still shows their next appointment even if it is with a colleague. Editing a patient (`patients.write`, which is `all` only) still needs the patient within `patients.read` reach, because the answer shows the record. The consultant template, which was `assigned` from the start, is now narrowed as intended.
+

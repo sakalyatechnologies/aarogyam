@@ -68,6 +68,8 @@ pub struct AppointmentRow {
     pub token_number: Option<i32>,
     /// That token's identifier.
     pub token_id: Option<Uuid>,
+    /// Goes up when the appointment changes; edits send it back to detect a stale copy.
+    pub row_version: i64,
 }
 
 /// Active and finished appointments starting in `[from, to)`, optionally in one room or with
@@ -86,7 +88,7 @@ pub async fn list(
         AppointmentRow,
         r#"select a.id, a.branch_id, a.room_id, r.name as "room_name?", a.starts_at, a.ends_at,
                   a.status, a.kind, a.reason, a.notes, a.source, a.cancel_reason, a.arrived_at,
-                  a.seated_at, a.completed_at,
+                  a.seated_at, a.completed_at, a.row_version,
                   a.patient_id, p.number as patient_number, p.full_name as patient_name,
                   p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
                   p.birth_date_estimated as patient_birth_date_estimated,
@@ -120,7 +122,7 @@ pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<Appointment
         AppointmentRow,
         r#"select a.id, a.branch_id, a.room_id, r.name as "room_name?", a.starts_at, a.ends_at,
                   a.status, a.kind, a.reason, a.notes, a.source, a.cancel_reason, a.arrived_at,
-                  a.seated_at, a.completed_at,
+                  a.seated_at, a.completed_at, a.row_version,
                   a.patient_id, p.number as patient_number, p.full_name as patient_name,
                   p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
                   p.birth_date_estimated as patient_birth_date_estimated,

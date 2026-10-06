@@ -8,6 +8,7 @@ use aarogyam_dal::lookups::{self, HostClinic, PlatformAccess};
 use aarogyam_domain::access::{ClinicActor, ClinicStatus, Denied};
 use aarogyam_domain::permission::Required;
 use axum::extract::FromRequestParts;
+use axum::http::header;
 use axum::http::request::Parts;
 use sakalya_auth::Claims;
 use sakalya_http::{ApiError, Edge, REQUEST_ID_HEADER};
@@ -221,5 +222,36 @@ impl FromRequestParts<AppState> for PlatformRequest {
             staff,
             request_id: request_id(parts),
         })
+    }
+}
+
+/// The `If-Match` header: the `row_version` (the `ETag` the API sent) of the record the client
+/// last read. `None` when the header is absent or `*`, which keeps the edit unconditional.
+#[derive(Debug, Clone, Copy)]
+pub struct IfMatch(pub Option<i64>);
+
+impl<S: Send + Sync> FromRequestParts<S> for IfMatch {
+    type Rejection = ApiFailure;
+
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "the trait's method is async; this header needs no await"
+    )]
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let Some(value) = parts.headers.get(header::IF_MATCH) else {
+            return Ok(Self(None));
+        };
+        let text = value.to_str().unwrap_or_default().trim();
+        if text == "*" {
+            return Ok(Self(None));
+        }
+        let digits = text.strip_prefix("W/").unwrap_or(text).trim_matches('"');
+        match digits.parse::<i64>() {
+            Ok(version) if version >= 1 && !digits.starts_with('+') => Ok(Self(Some(version))),
+            _ => Err(ApiFailure::Error(ApiError::bad_request(
+                "invalid_request",
+                "If-Match: must be the record's row_version in quotes, such as \"3\"",
+            ))),
+        }
     }
 }

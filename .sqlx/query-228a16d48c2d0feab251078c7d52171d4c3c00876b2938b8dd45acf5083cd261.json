@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,\n                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,\n                  s.next_starts_at, s.next_practitioner, s.balance_paise as \"balance_paise!\",\n                  s.lifetime_paid_paise as \"lifetime_paid_paise!\", s.recall_due as \"recall_due!\"\n           from aarogyam.patients p\n           cross join lateral app.patient_summary(p.id, $2, $3) s\n           where p.number = $1 and p.deleted_at is null",
+  "query": "select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,\n                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,\n                  s.next_starts_at, s.next_practitioner, s.balance_paise as \"balance_paise!\",\n                  s.lifetime_paid_paise as \"lifetime_paid_paise!\", s.recall_due as \"recall_due!\"\n           from aarogyam.patients p\n           cross join lateral app.patient_summary(p.id, $2, $3) s\n           where p.number = $1 and p.deleted_at is null",
   "describe": {
     "columns": [
       {
@@ -137,30 +137,41 @@
       },
       {
         "ordinal": 12,
+        "name": "row_version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "row_version"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
         "name": "next_starts_at",
         "type_info": "Timestamptz",
         "origin": "Expression"
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "next_practitioner",
         "type_info": "Text",
         "origin": "Expression"
       },
       {
-        "ordinal": 14,
+        "ordinal": 15,
         "name": "balance_paise!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 15,
+        "ordinal": 16,
         "name": "lifetime_paid_paise!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "recall_due!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -186,6 +197,7 @@
       false,
       false,
       true,
+      false,
       null,
       null,
       null,
@@ -193,5 +205,5 @@
       null
     ]
   },
-  "hash": "892190d2c28b458f3ff7d415bd8e3e6895f1daf5584b6798df0a18f977216adb"
+  "hash": "228a16d48c2d0feab251078c7d52171d4c3c00876b2938b8dd45acf5083cd261"
 }

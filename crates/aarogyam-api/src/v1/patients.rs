@@ -16,8 +16,9 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::rfc3339;
+use super::{WithEtag, with_etag};
 use crate::AppState;
-use crate::extract::Require;
+use crate::extract::{IfMatch, Require};
 use crate::failure::ApiFailure;
 
 /// A patient. Phone and email are masked (`+91******3210`) unless the role has `patients.contact`.
@@ -50,6 +51,9 @@ pub struct Patient {
     pub created_at: String,
     /// The last visit (RFC 3339), once visits exist.
     pub last_visit_at: Option<String>,
+    /// Goes up when the details change. Send it back in `If-Match` (it is also the `ETag`) to
+    /// edit only if the patient is unchanged since you read it.
+    pub row_version: i64,
     /// The next booked or confirmed appointment, from the list and the record only.
     pub next_appointment: Option<NextAppointment>,
     /// Paise owed on issued bills; null without `billing.read`.
@@ -85,6 +89,7 @@ impl From<PatientView> for Patient {
             status: view.status,
             created_at: rfc3339(view.created_at),
             last_visit_at: view.last_visit_at.map(rfc3339),
+            row_version: view.row_version,
             next_appointment: view.next_appointment.map(|next| NextAppointment {
                 starts_at: rfc3339(next.starts_at),
                 practitioner: next.practitioner,
@@ -254,7 +259,7 @@ fn parse_date(text: &str) -> Result<Date, ApiError> {
     request_body = NewPatient,
     security(("bearer" = [])),
     responses(
-        (status = 201, body = Patient),
+        (status = 201, body = Patient, headers(("ETag" = String, description = "The `row_version` in quotes; send it back in `If-Match` when editing"))),
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks patients.write")
@@ -264,7 +269,7 @@ pub(crate) async fn register(
     State(state): State<AppState>,
     Require { request, .. }: Require<PatientsWrite>,
     ApiJson(body): ApiJson<NewPatient>,
-) -> Result<(StatusCode, Json<Patient>), ApiFailure> {
+) -> Result<(StatusCode, WithEtag<Patient>), ApiFailure> {
     let date_of_birth = body.date_of_birth.as_deref().map(parse_date).transpose()?;
     let input = RegisterPatient {
         full_name: body.full_name,
@@ -283,7 +288,10 @@ pub(crate) async fn register(
         OffsetDateTime::now_utc(),
     )
     .await?;
-    Ok((StatusCode::CREATED, Json(view.into())))
+    Ok((
+        StatusCode::CREATED,
+        with_etag(view.row_version, view.into()),
+    ))
 }
 
 /// Opens a patient's record. Every open is written to the access record.
@@ -295,7 +303,7 @@ pub(crate) async fn register(
     params(("id" = String, Path, description = "The patient")),
     security(("bearer" = [])),
     responses(
-        (status = 200, body = Patient),
+        (status = 200, body = Patient, headers(("ETag" = String, description = "The `row_version` in quotes; send it back in `If-Match` when editing"))),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks patients.read"),
         (status = 404, description = "No such patient in this clinic")
@@ -305,7 +313,7 @@ pub(crate) async fn open(
     State(state): State<AppState>,
     Require { request, .. }: Require<PatientsRead>,
     ApiPath(id): ApiPath<Uuid>,
-) -> Result<Json<Patient>, ApiFailure> {
+) -> Result<WithEtag<Patient>, ApiFailure> {
     let view = app::open(
         state.db(),
         &request.actor,
@@ -314,7 +322,7 @@ pub(crate) async fn open(
         OffsetDateTime::now_utc(),
     )
     .await?;
-    Ok(Json(view.into()))
+    Ok(with_etag(view.row_version, view.into()))
 }
 
 /// Changes to a patient. Fields left out stay as they are; an empty `phone`, `email` or
@@ -338,29 +346,35 @@ pub struct PatientChanges {
 }
 
 /// Edits a patient's details with the same rules as registration. Changing the phone or email
-/// also needs `patients.contact`. The change history records each change.
+/// also needs `patients.contact`. The change history records each change. Send the `ETag` you
+/// read in `If-Match` to refuse the edit (`412`) if the patient changed since.
 #[utoipa::path(
     patch,
     path = "/api/v1/patients/{id}",
     operation_id = "updatePatient",
     tag = "patients",
-    params(("id" = String, Path, description = "The patient")),
+    params(
+        ("id" = String, Path, description = "The patient"),
+        ("If-Match" = Option<String>, Header, description = "The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the record changed since")
+    ),
     request_body = PatientChanges,
     security(("bearer" = [])),
     responses(
-        (status = 200, body = Patient),
+        (status = 200, body = Patient, headers(("ETag" = String, description = "The `row_version` in quotes; send it back in `If-Match` when editing"))),
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks patients.write, or patients.contact for phone or email"),
-        (status = 404, description = "No such patient in this clinic")
+        (status = 404, description = "No such patient in this clinic"),
+        (status = 412, description = "`stale_version`: the record changed since the `If-Match` version; the current version is in `ETag`")
     )
 )]
 pub(crate) async fn edit(
     State(state): State<AppState>,
     Require { request, .. }: Require<PatientsWrite>,
     ApiPath(id): ApiPath<Uuid>,
+    IfMatch(expected): IfMatch,
     ApiJson(body): ApiJson<PatientChanges>,
-) -> Result<Json<Patient>, ApiFailure> {
+) -> Result<WithEtag<Patient>, ApiFailure> {
     let date_of_birth = match body.date_of_birth.as_deref().map(str::trim) {
         None => None,
         Some("") => Some(None),
@@ -381,9 +395,10 @@ pub(crate) async fn edit(
         request.request_id,
         PatientId::from_uuid(id),
         input,
+        expected,
         OffsetDateTime::now_utc(),
     )
     .await?;
     tracing::info!(event = Event::PatientUpdated.as_str(), patient_id = %id, "patient updated");
-    Ok(Json(view.into()))
+    Ok(with_etag(view.row_version, view.into()))
 }

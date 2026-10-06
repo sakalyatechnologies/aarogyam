@@ -51,7 +51,7 @@ pub async fn today(
              (select coalesce(json_agg(a order by a.starts_at, a.room_name, a.id), '[]'::json)
               from (select a.id, a.branch_id, a.room_id, r.name as room_name, a.starts_at, a.ends_at,
                            a.status, a.kind, a.reason, a.notes, a.source, a.cancel_reason,
-                           a.arrived_at, a.seated_at, a.completed_at,
+                           a.arrived_at, a.seated_at, a.completed_at, a.row_version,
                            a.patient_id, p.number as patient_number, p.full_name as patient_name,
                            p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
                            p.birth_date_estimated as patient_birth_date_estimated,

@@ -52,6 +52,8 @@ pub struct PatientView {
     pub created_at: OffsetDateTime,
     /// The last visit, once visits exist.
     pub last_visit_at: Option<OffsetDateTime>,
+    /// Goes up when the details change; send it back as `If-Match` when editing.
+    pub row_version: i64,
     /// The next booked or confirmed appointment, when summaries were loaded.
     pub next_appointment: Option<NextAppointment>,
     /// Owed on issued bills; only with `billing.read`.
@@ -323,6 +325,7 @@ fn view(row: patients::PatientRow, actor: &ClinicActor, today: Date) -> PatientV
         status: row.status,
         created_at: row.created_at,
         last_visit_at: row.last_visit_at,
+        row_version: row.row_version,
         next_appointment: None,
         balance_paise: None,
         lifetime_paid_paise: None,
@@ -396,17 +399,21 @@ pub async fn register(
 }
 
 /// Edits a patient's details with the same rules as registration. Changing the phone or email
-/// also needs `patients.contact`. The change history records what changed.
+/// also needs `patients.contact`. The change history records what changed. With
+/// `expected_version` (the `row_version` the client last saw), an edit of a record that has
+/// changed since is refused.
 ///
 /// # Errors
 /// [`AppError::Denied`] without the permissions; [`AppError::NotFound`] when the patient isn't
-/// in this clinic; [`AppError::Invalid`] for bad input; [`AppError::Db`] on database failures.
+/// in this clinic; [`AppError::Stale`] when `expected_version` is out of date;
+/// [`AppError::Invalid`] for bad input; [`AppError::Db`] on database failures.
 pub async fn edit(
     db: &Db,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     patient_id: PatientId,
     input: EditPatient,
+    expected_version: Option<i64>,
     now: OffsetDateTime,
 ) -> Result<PatientView, AppError> {
     actor.require(Permission::PatientsWrite)?;
@@ -414,13 +421,11 @@ pub async fn edit(
         actor.require(Permission::PatientsContact)?;
     }
     db.scoped(&scope(actor, request_id), async |tx| {
-        let profile = clinic::profile(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
-        let today = clinic_today(&profile.timezone, now);
+        let today = clinic_today(&actor.timezone, now);
         let current = patients::get_for_update(tx.conn(), patient_id.uuid())
             .await?
             .ok_or(AppError::NotFound("patient"))?;
+        AppError::check_version(expected_version, current.row_version)?;
         let edited = apply_edit(&current, &input, today)?;
         let row = patients::update(
             tx.conn(),
@@ -636,6 +641,7 @@ mod tests {
             status: "active".into(),
             created_at: OffsetDateTime::UNIX_EPOCH,
             last_visit_at: None,
+            row_version: 1,
         }
     }
 

@@ -810,6 +810,7 @@ A clinic's own record of a patient. Two clinics never share this row.
 | `status` | `patient_status` | active, inactive, deceased, merged |
 | `merged_into_id` | `uuid?` | → `patients`. set by a merge, cleared by an unmerge |
 | `last_visit_at` | `timestamptz?` |  |
+| `row_version` | `bigint` | starts at 1 and goes up when the record changes; sent as the ETag, checked against If-Match on edits |
 
 A phone number is contact information, never identity: families share numbers and numbers change. A merge only sets merged_into_id; records stay on the original patient and reads resolve to the canonical one, so a wrong merge can be undone. Number, phone and name-prefix search use plain indexes; fuzzy name search goes through app.search_patients(), because trigram matching can't use an index under row-level security. Same-phone registrations get a duplicate warning, never an automatic merge.
 
@@ -980,6 +981,7 @@ A booked slot with a doctor, optionally in a room or chair.
 | `seated_at` | `timestamptz?` |  |
 | `completed_at` | `timestamptz?` |  |
 | `booked_by_account` | `uuid?` | Supabase auth id of the patient who booked online; null for staff bookings |
+| `row_version` | `bigint` | starts at 1 and goes up when the record changes; sent as the ETag, checked against If-Match on edits |
 
 Online self-bookings start as requested (or confirmed when the clinic auto-confirms); a unique index on (doctor, start) for active self-bookings backs the per-doctor check. An exclusion constraint on (org_id, room_id, time range) for active rows (not cancelled, not no-show, not deleted) stops two bookings in one chair; a doctor in two chairs at once is a warning, not an error. Status changes follow the transition table in aarogyam_domain::schedule. Visits point at appointments, not the other way round.
 
@@ -1148,6 +1150,7 @@ Doctor and intake notes. Signed notes never change.
 | `error_reason` | `text?` | required when marked entered_in_error |
 | `error_at` | `timestamptz?` |  |
 | `error_by` | `uuid?` | → `memberships` |
+| `row_version` | `bigint` | starts at 1 and goes up when the record changes; sent as the ETag, checked against If-Match on edits |
 
 Drafts are edited by their author only. Signing freezes the note: app.freeze_when() lets a signed or conflict note only move to entered_in_error (with a reason) and nothing else on it change. Never merged automatically: if a change synced from a device collides with a note already signed on the server, it is kept as a separate note with status conflict, linked by conflicts_with_id, and its author resolves it by marking one version entered_in_error. Corrections go in note_addenda.
 

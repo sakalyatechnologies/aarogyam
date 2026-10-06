@@ -197,6 +197,8 @@ pub struct NoteView {
     pub created_at: OffsetDateTime,
     /// When it last changed.
     pub updated_at: OffsetDateTime,
+    /// Goes up when the note changes; send it back as `If-Match` when editing a draft.
+    pub row_version: i64,
     /// Addenda, oldest first.
     pub addenda: Vec<AddendumView>,
 }
@@ -219,6 +221,7 @@ fn note_view(
         error_reason: row.error_reason,
         created_at: row.created_at,
         updated_at: row.updated_at,
+        row_version: row.row_version,
         addenda,
     })
 }
@@ -540,16 +543,19 @@ async fn note_for_change(
 }
 
 /// Replaces a draft's sections (and kind, when given). Only the author may, and only while
-/// it is a draft.
+/// it is a draft. With `expected_version` (the `row_version` the client last saw), an edit of a
+/// note that has changed since is refused.
 ///
 /// # Errors
-/// [`AppError::NotFound`] when the note isn't in this clinic; [`AppError::Forbidden`] for
-/// someone else's note; [`AppError::Conflict`] once signed.
+/// [`AppError::NotFound`] when the note isn't in this clinic; [`AppError::Stale`] when
+/// `expected_version` is out of date; [`AppError::Forbidden`] for someone else's note;
+/// [`AppError::Conflict`] once signed.
 pub async fn edit_note(
     db: &Db,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     note_id: ClinicalNoteId,
+    expected_version: Option<i64>,
     input: NoteInput,
 ) -> Result<NoteView, AppError> {
     actor.require(Permission::ClinicalWrite)?;
@@ -562,6 +568,7 @@ pub async fn edit_note(
         .map_err(invalid("kind"))?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let (row, state) = note_for_change(tx, note_id).await?;
+        AppError::check_version(expected_version, row.row_version)?;
         state.check_edit(actor.membership_id).map_err(refused)?;
         let kind = kind.map_or(row.kind.clone(), |k| k.as_str().to_owned());
         let row = visits::update_note_body(tx.conn(), row.id, &kind, &body).await?;

@@ -95,6 +95,14 @@
         },
         "responses": {
           "201": {
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The `row_version` in quotes; send it back in `If-Match` when editing"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -131,7 +139,7 @@
         "tags": [
           "appointments"
         ],
-        "summary": "Moves, reassigns or edits an appointment that isn't completed, cancelled or a no-show.",
+        "summary": "Moves, reassigns or edits an appointment that isn't completed, cancelled or a no-show. Send\nthe `ETag` you read in `If-Match` to refuse the edit (`412`) if the appointment changed since.",
         "operationId": "updateAppointment",
         "parameters": [
           {
@@ -141,6 +149,18 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the record changed since",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
@@ -156,6 +176,14 @@
         },
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The `row_version` in quotes; send it back in `If-Match` when editing"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -178,6 +206,9 @@
           },
           "409": {
             "description": "The appointment is finished, or the chair is taken"
+          },
+          "412": {
+            "description": "`stale_version`: the record changed since the `If-Match` version; the current version is in `ETag`"
           }
         },
         "security": [
@@ -217,6 +248,14 @@
         },
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The `row_version` in quotes; send it back in `If-Match` when editing"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2171,7 +2210,7 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Replaces a draft's sections. Only the author may, and only while it is a draft.",
+        "summary": "Replaces a draft's sections. Only the author may, and only while it is a draft. Send the\n`ETag` you read in `If-Match` to refuse the edit (`412`) if the draft changed since.",
         "operationId": "updateNote",
         "parameters": [
           {
@@ -2181,6 +2220,18 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the record changed since",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
@@ -2196,6 +2247,14 @@
         },
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The `row_version` in quotes; send it back in `If-Match` when editing"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2218,6 +2277,9 @@
           },
           "409": {
             "description": "The note is signed; add an addendum instead"
+          },
+          "412": {
+            "description": "`stale_version`: the record changed since the `If-Match` version; the current version is in `ETag`"
           }
         },
         "security": [
@@ -2545,6 +2607,14 @@
         },
         "responses": {
           "201": {
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The `row_version` in quotes; send it back in `If-Match` when editing"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2634,6 +2704,14 @@
         ],
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The `row_version` in quotes; send it back in `If-Match` when editing"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2662,7 +2740,7 @@
         "tags": [
           "patients"
         ],
-        "summary": "Edits a patient's details with the same rules as registration. Changing the phone or email\nalso needs `patients.contact`. The change history records each change.",
+        "summary": "Edits a patient's details with the same rules as registration. Changing the phone or email\nalso needs `patients.contact`. The change history records each change. Send the `ETag` you\nread in `If-Match` to refuse the edit (`412`) if the patient changed since.",
         "operationId": "updatePatient",
         "parameters": [
           {
@@ -2672,6 +2750,18 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the record changed since",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
@@ -2687,6 +2777,14 @@
         },
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The `row_version` in quotes; send it back in `If-Match` when editing"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2706,6 +2804,9 @@
           },
           "404": {
             "description": "No such patient in this clinic"
+          },
+          "412": {
+            "description": "`stale_version`: the record changed since the `If-Match` version; the current version is in `ETag`"
           }
         },
         "security": [
@@ -7442,6 +7543,14 @@
         },
         "responses": {
           "201": {
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The `row_version` in quotes; send it back in `If-Match` when editing"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -8117,6 +8226,7 @@
           "kind",
           "has_notes",
           "source",
+          "row_version",
           "patient",
           "practitioner"
         ],
@@ -8197,6 +8307,11 @@
               "null"
             ],
             "description": "Chair or room, if booked into one."
+          },
+          "row_version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Goes up when the appointment changes. Send it back in `If-Match` (it is also the `ETag`)\nto edit only if the appointment is unchanged since you read it."
           },
           "seated_at": {
             "type": [
@@ -12540,6 +12655,7 @@
           "author",
           "created_at",
           "updated_at",
+          "row_version",
           "addenda"
         ],
         "properties": {
@@ -12579,6 +12695,11 @@
           "kind": {
             "type": "string",
             "description": "`soap`, `progress`, `procedure`, `intake` or `front_desk`."
+          },
+          "row_version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Goes up when the note changes. Send it back in `If-Match` (it is also the `ETag`) to edit\na draft only if it is unchanged since you read it."
           },
           "sections": {
             "$ref": "#/components/schemas/NoteSections",
@@ -12875,6 +12996,7 @@
           "preferred_language",
           "status",
           "created_at",
+          "row_version",
           "recall_due"
         ],
         "properties": {
@@ -12969,6 +13091,11 @@
           "recall_due": {
             "type": "boolean",
             "description": "Whether an open recall is due on or before today."
+          },
+          "row_version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Goes up when the details change. Send it back in `If-Match` (it is also the `ETag`) to\nedit only if the patient is unchanged since you read it."
           },
           "sex": {
             "type": "string",

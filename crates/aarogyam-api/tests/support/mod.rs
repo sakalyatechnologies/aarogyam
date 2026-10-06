@@ -14,7 +14,7 @@ use aarogyam_api::{AppState, DevTokens, Hosts, TokenCheck, router};
 use aarogyam_app::files::{Files, LinkSigner, LocalDisk};
 use axum::Router;
 use axum::body::{Body, to_bytes};
-use axum::http::{Method, Request, StatusCode};
+use axum::http::{HeaderMap, Method, Request, StatusCode};
 use sakalya_db::{Db, DbConfig};
 use sakalya_http::HttpConfig;
 use sakalya_testkit::PgRoundTrips;
@@ -409,6 +409,19 @@ impl TestApp {
         )
     }
 
+    /// [`Self::send_with`] that also returns the response headers, such as `ETag`.
+    pub async fn send_full(
+        &self,
+        method: Method,
+        host: &str,
+        path: &str,
+        token: Option<&str>,
+        body: Option<Value>,
+        headers: &[(&str, &str)],
+    ) -> (StatusCode, HeaderMap, Value) {
+        send_full(&self.router, method, host, path, token, body, headers).await
+    }
+
     /// Drops the database. Called at the end of each test; a failed test leaves it for inspection.
     pub async fn finish(self) {
         let _ = std::fs::remove_dir_all(&self.files_dir);
@@ -447,6 +460,20 @@ pub async fn send_with_headers(
     body: Option<Value>,
     headers: &[(&str, &str)],
 ) -> (StatusCode, Value) {
+    let (status, _, value) = send_full(router, method, host, path, token, body, headers).await;
+    (status, value)
+}
+
+/// Sends a request with extra headers and returns the status, response headers and JSON body.
+pub async fn send_full(
+    router: &Router,
+    method: Method,
+    host: &str,
+    path: &str,
+    token: Option<&str>,
+    body: Option<Value>,
+    headers: &[(&str, &str)],
+) -> (StatusCode, HeaderMap, Value) {
     let mut request = Request::builder()
         .method(method)
         .uri(path)
@@ -466,7 +493,8 @@ pub async fn send_with_headers(
     };
     let response = router.clone().oneshot(request).await.unwrap();
     let status = response.status();
+    let response_headers = response.headers().clone();
     let bytes = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
     let value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
-    (status, value)
+    (status, response_headers, value)
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select n.id, n.encounter_id, n.patient_id, n.author_id, n.kind, n.body, n.source,\n                  n.status, n.signed_at, n.signed_by, n.conflicts_with_id, n.error_reason,\n                  n.error_at, n.created_at, n.updated_at,\n                  (select coalesce(jsonb_agg(jsonb_build_object(\n                              'id', a.id, 'note_id', a.note_id, 'author_id', a.author_id,\n                              'body', a.body, 'created_at', a.created_at)\n                              order by a.created_at, a.id), '[]'::jsonb)\n                   from aarogyam.note_addenda a where a.note_id = n.id\n                  ) as \"addenda!: Json<Vec<AddendumJson>>\",\n                  (select coalesce(jsonb_agg(jsonb_build_array(m.id, u.display_name)), '[]'::jsonb)\n                   from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id\n                   where m.id = n.author_id\n                      or m.id in (select a.author_id from aarogyam.note_addenda a\n                                  where a.note_id = n.id)\n                  ) as \"names!: Json<Vec<(Uuid, String)>>\"\n           from aarogyam.clinical_notes n where n.id = $1",
+  "query": "select n.id, n.encounter_id, n.patient_id, n.author_id, n.kind, n.body, n.source,\n                  n.status, n.signed_at, n.signed_by, n.conflicts_with_id, n.error_reason,\n                  n.error_at, n.created_at, n.updated_at, n.row_version,\n                  (select coalesce(jsonb_agg(jsonb_build_object(\n                              'id', a.id, 'note_id', a.note_id, 'author_id', a.author_id,\n                              'body', a.body, 'created_at', a.created_at)\n                              order by a.created_at, a.id), '[]'::jsonb)\n                   from aarogyam.note_addenda a where a.note_id = n.id\n                  ) as \"addenda!: Json<Vec<AddendumJson>>\",\n                  (select coalesce(jsonb_agg(jsonb_build_array(m.id, u.display_name)), '[]'::jsonb)\n                   from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id\n                   where m.id = n.author_id\n                      or m.id in (select a.author_id from aarogyam.note_addenda a\n                                  where a.note_id = n.id)\n                  ) as \"names!: Json<Vec<(Uuid, String)>>\"\n           from aarogyam.clinical_notes n where n.id = $1",
   "describe": {
     "columns": [
       {
@@ -170,12 +170,23 @@
       },
       {
         "ordinal": 15,
+        "name": "row_version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinical_notes",
+            "name": "row_version"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
         "name": "addenda!: Json<Vec<AddendumJson>>",
         "type_info": "Jsonb",
         "origin": "Expression"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "names!: Json<Vec<(Uuid, String)>>",
         "type_info": "Jsonb",
         "origin": "Expression"
@@ -202,9 +213,10 @@
       true,
       false,
       false,
+      false,
       null,
       null
     ]
   },
-  "hash": "99a2755058154fe77262431ae70bc70bbddbd6f32140105d40177d7a26ca99a8"
+  "hash": "07a4b3954d960d7b930b9c4645f8499c745cd2e7cb9484a9676a0a757ca2e61e"
 }

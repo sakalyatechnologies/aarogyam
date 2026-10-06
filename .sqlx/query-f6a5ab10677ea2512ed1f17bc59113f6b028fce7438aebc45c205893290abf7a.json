@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update aarogyam.clinical_notes set status = 'signed', signed_at = $3, signed_by = $2\n           where id = $1\n           returning id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,\n                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at",
+  "query": "update aarogyam.clinical_notes set status = 'signed', signed_at = $3, signed_by = $2\n           where id = $1\n           returning id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,\n                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version",
   "describe": {
     "columns": [
       {
@@ -167,6 +167,17 @@
             "name": "updated_at"
           }
         }
+      },
+      {
+        "ordinal": 15,
+        "name": "row_version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinical_notes",
+            "name": "row_version"
+          }
+        }
       }
     ],
     "parameters": {
@@ -191,8 +202,9 @@
       true,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "974d3a5a6b5c08b4df0d5a699dfc807be3639fe52e9ff52f362b0310bd5d64ff"
+  "hash": "f6a5ab10677ea2512ed1f17bc59113f6b028fce7438aebc45c205893290abf7a"
 }

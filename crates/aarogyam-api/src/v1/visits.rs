@@ -22,11 +22,11 @@ use uuid::Uuid;
 use super::chart::ChartEntry;
 use super::client_id;
 use super::files::Attachment;
-use super::rfc3339;
 use super::treatment::Procedure;
 use super::vitals::Observation;
+use super::{WithEtag, rfc3339, with_etag};
 use crate::AppState;
-use crate::extract::Require;
+use crate::extract::{IfMatch, Require};
 use crate::failure::{ApiFailure, MoveRefused};
 
 /// A member named on a clinical record: who saw the patient, wrote a note or acted.
@@ -168,6 +168,9 @@ pub struct Note {
     pub created_at: String,
     /// When it last changed (RFC 3339).
     pub updated_at: String,
+    /// Goes up when the note changes. Send it back in `If-Match` (it is also the `ETag`) to edit
+    /// a draft only if it is unchanged since you read it.
+    pub row_version: i64,
     /// Addenda, oldest first.
     pub addenda: Vec<Addendum>,
 }
@@ -192,6 +195,7 @@ impl From<NoteView> for Note {
             error_reason: view.error_reason,
             created_at: rfc3339(view.created_at),
             updated_at: rfc3339(view.updated_at),
+            row_version: view.row_version,
             addenda: view.addenda.into_iter().map(Addendum::from).collect(),
         }
     }
@@ -434,7 +438,7 @@ pub struct NewNote {
     request_body = NewNote,
     security(("bearer" = [])),
     responses(
-        (status = 201, body = Note),
+        (status = 201, body = Note, headers(("ETag" = String, description = "The `row_version` in quotes; send it back in `If-Match` when editing"))),
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
@@ -447,7 +451,7 @@ pub(crate) async fn create_note(
     Require { request, .. }: Require<ClinicalWrite>,
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<NewNote>,
-) -> Result<(StatusCode, Json<Note>), ApiFailure> {
+) -> Result<(StatusCode, WithEtag<Note>), ApiFailure> {
     let note_id = body
         .id
         .as_deref()
@@ -468,42 +472,52 @@ pub(crate) async fn create_note(
         },
     )
     .await?;
-    Ok((StatusCode::CREATED, Json(view.into())))
+    Ok((
+        StatusCode::CREATED,
+        with_etag(view.row_version, view.into()),
+    ))
 }
 
-/// Replaces a draft's sections. Only the author may, and only while it is a draft.
+/// Replaces a draft's sections. Only the author may, and only while it is a draft. Send the
+/// `ETag` you read in `If-Match` to refuse the edit (`412`) if the draft changed since.
 #[utoipa::path(
     patch,
     path = "/api/v1/notes/{id}",
     operation_id = "updateNote",
     tag = "clinical",
-    params(("id" = String, Path, description = "The note")),
+    params(
+        ("id" = String, Path, description = "The note"),
+        ("If-Match" = Option<String>, Header, description = "The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the record changed since")
+    ),
     request_body = NoteContent,
     security(("bearer" = [])),
     responses(
-        (status = 200, body = Note),
+        (status = 200, body = Note, headers(("ETag" = String, description = "The `row_version` in quotes; send it back in `If-Match` when editing"))),
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write, or the note is someone else's"),
         (status = 404, description = "No such note in this clinic"),
-        (status = 409, description = "The note is signed; add an addendum instead")
+        (status = 409, description = "The note is signed; add an addendum instead"),
+        (status = 412, description = "`stale_version`: the record changed since the `If-Match` version; the current version is in `ETag`")
     )
 )]
 pub(crate) async fn edit_note(
     State(state): State<AppState>,
     Require { request, .. }: Require<ClinicalWrite>,
     ApiPath(id): ApiPath<Uuid>,
+    IfMatch(expected): IfMatch,
     ApiJson(body): ApiJson<NoteContent>,
-) -> Result<Json<Note>, ApiFailure> {
+) -> Result<WithEtag<Note>, ApiFailure> {
     let view = app::edit_note(
         state.db(),
         &request.actor,
         request.request_id,
         ClinicalNoteId::from_uuid(id),
+        expected,
         body.into(),
     )
     .await?;
-    Ok(Json(view.into()))
+    Ok(with_etag(view.row_version, view.into()))
 }
 
 /// Signs a draft. Only its author may; the note never changes afterwards. Signing a note you
@@ -527,7 +541,7 @@ pub(crate) async fn sign_note(
     State(state): State<AppState>,
     Require { request, .. }: Require<ClinicalWrite>,
     ApiPath(id): ApiPath<Uuid>,
-) -> Result<Json<Note>, ApiFailure> {
+) -> Result<WithEtag<Note>, ApiFailure> {
     let outcome = app::sign_note(
         state.db(),
         &request.actor,
@@ -539,9 +553,9 @@ pub(crate) async fn sign_note(
     match outcome {
         Moved::Done(view) => {
             tracing::info!(event = Event::NoteSigned.as_str(), note_id = %id, "note signed");
-            Ok(Json(view.into()))
+            Ok(with_etag(view.row_version, view.into()))
         }
-        Moved::AlreadyDone(view) => Ok(Json(view.into())),
+        Moved::AlreadyDone(view) => Ok(with_etag(view.row_version, view.into())),
         Moved::Refused { reason, current } => {
             Err(ApiFailure::refused(reason, &Note::from(current)))
         }
@@ -580,7 +594,7 @@ pub(crate) async fn add_addendum(
     Require { request, .. }: Require<ClinicalWrite>,
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<NewAddendum>,
-) -> Result<(StatusCode, Json<Note>), ApiFailure> {
+) -> Result<(StatusCode, WithEtag<Note>), ApiFailure> {
     let addendum_id = body
         .id
         .as_deref()
@@ -596,7 +610,10 @@ pub(crate) async fn add_addendum(
     )
     .await?;
     tracing::info!(event = Event::NoteAmended.as_str(), note_id = %id, "note amended");
-    Ok((StatusCode::CREATED, Json(view.into())))
+    Ok((
+        StatusCode::CREATED,
+        with_etag(view.row_version, view.into()),
+    ))
 }
 
 /// Why a record is being marked entered in error.
@@ -630,7 +647,7 @@ pub(crate) async fn note_in_error(
     Require { request, .. }: Require<ClinicalWrite>,
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<EnteredInError>,
-) -> Result<Json<Note>, ApiFailure> {
+) -> Result<WithEtag<Note>, ApiFailure> {
     let view = app::mark_note_in_error(
         state.db(),
         &request.actor,
@@ -641,7 +658,7 @@ pub(crate) async fn note_in_error(
     )
     .await?;
     tracing::info!(event = Event::RecordRetracted.as_str(), note_id = %id, "note entered in error");
-    Ok(Json(view.into()))
+    Ok(with_etag(view.row_version, view.into()))
 }
 
 /// One event on a patient's timeline.

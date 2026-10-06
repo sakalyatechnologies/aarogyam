@@ -100,6 +100,47 @@
     <string name="balance_due">%1$s due</string>
     <string name="balance_clear">Nothing due.</string>
 
+    <!-- Prescriptions -->
+    <string name="patient_tab_overview">Overview</string>
+    <string name="patient_tab_rx">Rx</string>
+    <string name="rx_new">New prescription</string>
+    <string name="rx_empty">No prescriptions yet.</string>
+    <string name="rx_not_allowed">Your role can\'t see prescriptions at this clinic.</string>
+    <string name="rx_status_draft">Draft</string>
+    <string name="rx_status_issued">Issued</string>
+    <string name="rx_status_cancelled">Cancelled</string>
+    <string name="rx_status_unknown">Prescription</string>
+    <string name="rx_allergy_overridden">Allergy overridden</string>
+    <plurals name="rx_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <string name="rx_sheet_title">New prescription</string>
+    <string name="rx_sheet_not_allowed">Your role can\'t write prescriptions at this clinic.</string>
+    <string name="rx_search">Search medicines</string>
+    <string name="rx_quick">Quick Rx: repeat the last one</string>
+    <string name="rx_remove_short">Remove</string>
+    <string name="rx_remove">Remove %1$s</string>
+    <string name="rx_dose">Dose</string>
+    <string name="rx_frequency">Frequency</string>
+    <string name="rx_duration">Duration</string>
+    <string name="rx_allergy_warning">%1$s: recorded allergy to %2$s (%3$s)</string>
+    <string name="rx_server_alert">The clinic\'s allergy check flagged this prescription.</string>
+    <string name="rx_override_label">Reason to issue anyway</string>
+    <string name="rx_override_help">Needed because of the allergy alert. It is saved with the prescription.</string>
+    <string name="rx_issue">Issue prescription</string>
+    <string name="rx_issuing">Issuing</string>
+    <string name="rx_issued_title">Prescription issued</string>
+    <string name="rx_link_creating">Making the patient\'s link</string>
+    <string name="rx_pin_label">Read this PIN to the patient</string>
+    <string name="rx_pin_note">The patient needs it to open the link. It is shown only now.</string>
+    <string name="rx_link_expires">Link works until %1$s</string>
+    <string name="rx_share">Share link</string>
+    <string name="rx_share_retry">Try making the link again</string>
+    <string name="rx_share_text">Prescription from %1$s. Open it here, with the PIN I will tell you: %2$s</string>
+    <string name="rx_share_chooser">Share prescription link</string>
+    <string name="done">Done</string>
+
     <!-- Calendar -->
     <string name="calendar_title">Calendar</string>
     <string name="calendar_by_doctor">Doctors</string>

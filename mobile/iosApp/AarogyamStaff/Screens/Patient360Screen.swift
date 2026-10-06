@@ -2,48 +2,61 @@ import AarogyamShared
 import SakalyaUI
 import SwiftUI
 
-/// Patient 360: the header and tabs (`PatientTab`). Overview holds the safety banner, upcoming
-/// appointment, recent visits and, with `billing.read`, the balance; `PatientTabContent` draws the others.
+/// Patient 360: Overview (banner, contact, upcoming, visits and, with `billing.read`, the balance), Chart, Rx and Billing tabs.
 struct Patient360Screen: View {
     let holder: Patient360StateHolder
     let state: Patient360State
-    let context: PatientContext
-    @State private var tab: PatientTab = .overview
-    @State private var models = PatientTabModels()
+    let graph: AppGraph
+    let clinic: ClinicContext
+    let patientId: String
     @Environment(\.skTheme) private var theme
+    @State private var tab = 0
+    /// The Chart tab's state holder, kept across tab switches.
+    @State private var chartModel: ScreenModel<ChartStateHolder, ChartState>?
+
+    private static let tabs: [String] = [
+        String(localized: "patient.tab.overview"),
+        chartText("patient.tab.chart"),
+        String(localized: "patient.tab.rx"),
+        chartText("patient.tab.billing"),
+    ]
 
     var body: some View {
-        VStack(spacing: SkSpacing.sm) {
+        VStack(spacing: SkSpacing.m) {
             if loaded != nil {
-                SkSegmentedControl(PatientTab.allCases.map(\.title), selection: tabIndex)
+                SkSegmentedControl(Self.tabs, selection: $tab)
                     .padding(.horizontal, SkSpacing.l)
             }
-            if loaded == nil || tab == .overview {
-                overview
+            if loaded != nil, tab == 1 {
+                chartTab
+            } else if let loaded, tab == 2 {
+                RxTab(graph: graph, clinic: clinic, patientId: patientId, allergies: loaded.view.flags.allergies)
+            } else if loaded != nil, tab == 3 {
+                SkEmptyState(Self.tabs[3], message: chartText("patient.tab.coming"))
             } else {
-                PatientTabContent(tab: tab, context: context, models: models)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: SkSpacing.ml) {
+                        content
+                    }
+                    .padding(.horizontal, SkSpacing.l)
+                    .padding(.bottom, SkSpacing.xxl)
+                }
+                .refreshable { await refresh() }
             }
         }
         .navigationTitle(loaded?.view.name ?? String(localized: "patient.title"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private var tabIndex: Binding<Int> {
-        Binding(
-            get: { PatientTab.allCases.firstIndex(of: tab) ?? 0 },
-            set: { tab = PatientTab.allCases[$0] }
-        )
-    }
-
-    private var overview: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: SkSpacing.ml) {
-                content
-            }
-            .padding(.horizontal, SkSpacing.l)
-            .padding(.bottom, SkSpacing.xxl)
+    @ViewBuilder private var chartTab: some View {
+        if let chartModel {
+            ChartTab(holder: chartModel.holder, state: chartModel.value)
+        } else {
+            ProgressView().frame(maxWidth: .infinity).padding(SkSpacing.xxl)
+                .onAppear {
+                    chartModel = ScreenModel(make: { graph.chart(clinic: clinic, patientId: patientId, screen: $0) }, state: { $0.state })
+                }
         }
-        .refreshable { await refresh() }
     }
 
     private var loaded: Patient360StateLoaded? {

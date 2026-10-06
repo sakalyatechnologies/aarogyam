@@ -69,7 +69,7 @@ class ClinicDirectory(
             return Outcome.Success(cached)
         }
         val base = hosts.clinic(clinic.slug, clinic.host) ?: return Outcome.Failure(ScreenError.notConfigured())
-        val api = ClinicApi(clientFor(base))
+        val api = ClinicApi(clientFor(base), base.toString().trimEnd('/'))
         return when (val session = api.session()) {
             is Outcome.Success -> {
                 val context = ClinicContext(clinic.slug, api, session.value)

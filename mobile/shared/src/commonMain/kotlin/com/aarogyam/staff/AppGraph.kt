@@ -7,8 +7,11 @@ import com.aarogyam.staff.clinic.ClinicDirectory
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.Hosts
+import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
 import com.aarogyam.staff.patients.PatientsStateHolder
+import com.aarogyam.staff.prescriptions.RxListStateHolder
+import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
 import com.sakalya.mobile.auth.PublishableKey
@@ -92,6 +95,20 @@ class AppGraph private constructor(
         patientId: String,
         scope: CoroutineScope,
     ): ChartStateHolder = ChartStateHolder(clinic, patientId, scope, logger("aarogyam.chart"))
+
+    fun rxList(
+        clinic: ClinicContext,
+        patientId: String,
+        scope: CoroutineScope,
+    ): RxListStateHolder = RxListStateHolder(clinic, patientId, scope, logger("aarogyam.rxlist"))
+
+    /** [allergies] are the patient's recorded ones, from Patient 360's banner. */
+    fun rxSheet(
+        clinic: ClinicContext,
+        patientId: String,
+        allergies: List<AllergyView>,
+        scope: CoroutineScope,
+    ): RxSheetStateHolder = RxSheetStateHolder(clinic, patientId, allergies, scope, logger("aarogyam.rxsheet"))
 
     fun calendar(
         clinic: ClinicContext,

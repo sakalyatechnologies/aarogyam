@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Dental chart (ChartTab.kt, ToothChart.kt) -->
+    <string name="patient_tab_chart">Chart</string>
+    <string name="patient_tab_billing">Billing</string>
+    <string name="patient_tab_coming">Coming in this build</string>
     <string name="chart_title">Dental chart</string>
     <string name="chart_need_care">Need care: %1$d/%2$d</string>
     <string name="chart_adult">Adult</string>

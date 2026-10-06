@@ -497,6 +497,39 @@
         }
       }
     },
+    "patient.tab.billing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Billing"
+          }
+        }
+      }
+    },
+    "patient.tab.chart": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chart"
+          }
+        }
+      }
+    },
+    "patient.tab.coming": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coming in this build"
+          }
+        }
+      }
+    },
     "surface.buccal": {
       "extractionState": "manual",
       "localizations": {

@@ -20,6 +20,7 @@ import androidx.navigation.compose.rememberNavController
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.GraphState
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.chart.ChartTab
 import com.aarogyam.staff.clinic.ClinicBranding
 import com.sakalya.mobile.auth.SessionState
 import com.sakalya.mobile.designcompose.SkEmptyState
@@ -126,9 +127,9 @@ private fun Signed(graph: AppGraph) {
                         Patient360Screen(
                             rememberHolder { graph.patient360(open, id, it) },
                             onBack = nav::popBackStack,
-                        ) { tab ->
-                            PatientTabContent(tab, graph, open, id)
-                        }
+                            chartTab = { ChartTab(rememberHolder { graph.chart(open, id, it) }) },
+                            rxTab = { RxTab(graph, open, id, it.flags.allergies) },
+                        )
                     }
                 }
             }

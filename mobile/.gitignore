@@ -1,0 +1,10 @@
+# Pinned sakalya-mobile checkout (scripts/mobile-deps.sh).
+/.deps/
+# Machine and secret settings: SDK path, Supabase URL and publishable key.
+local.properties
+local.secrets.properties
+.gradle/
+.kotlin/
+build/
+*.iml
+.idea/

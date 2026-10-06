@@ -5,7 +5,7 @@
  * mock-up's palette for the default brand and follow the clinic's branding otherwise.
  * Generic pieces here (kpi tile, meter, bars, donut, toggle, drawer, toast) move to sakalya-web.
  */
-.mk-app, .mk-drawer, .mk-scrim, .mk-toast, .mk-palette {
+.mk-app, .mk-drawer, .mk-scrim, .mk-toast, .mk-palette, .mk-bk {
   --sk-shadow: 0 1px 2px rgba(13, 42, 34, 0.07), 0 12px 32px rgba(13, 42, 34, 0.08);
   --brand: var(--sk-primary);
   --brand2: var(--mk-brand2, color-mix(in srgb, var(--sk-primary) 72%, #000));
@@ -79,14 +79,10 @@
 .mk-nav .mk-ico { width: 20px; height: 20px; display: grid; place-items: center; flex: none; }
 .mk-nav .mk-ico svg { width: 17px; height: 17px; }
 .mk-nav .mk-bdg { margin-left: auto; background: #e2ac4a; color: #3a2a05; font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
-.mk-side-foot { margin-top: auto; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 14px; font-size: 12.5px; color: #a9beb4; }
-.mk-side-foot b { color: #fff; }
-.mk-side-foot button { margin-top: 10px; width: 100%; background: #e2ac4a; color: #3a2a05; border: 0; border-radius: 10px; padding: 9px; font-weight: 800; cursor: pointer; }
-.mk-side-foot button[disabled] { opacity: .55; cursor: not-allowed; }
 .mk-menu-scrim { display: none; }
 
 /* main + top bar */
-.mk-main { padding: 0 34px 60px; max-width: 1360px; width: 100%; min-width: 0; }
+.mk-main { padding: 0 clamp(20px, 2.4vw, 56px) 60px; width: 100%; min-width: 0; }
 .mk-topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px; padding: 16px 0; background: linear-gradient(180deg, var(--bg) 70%, transparent); backdrop-filter: blur(2px); }
 .mk-menubtn { display: none; }
 .mk-top-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
@@ -201,9 +197,6 @@
 .mk-mini { margin-left: auto; flex: none; font-size: 11.5px; font-weight: 800; color: var(--brand-text); background: var(--brand-soft); border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer; transition: .2s; text-decoration: none; }
 .mk-mini:hover { background: var(--brand); color: var(--sk-on-primary); }
 
-.mk-ai { border-radius: var(--r); padding: 18px 20px; margin-bottom: 14px; color: #fff; position: relative; overflow: hidden; background: linear-gradient(120deg, #1a1033, #3b2a6e 60%, #6d28d9); box-shadow: 0 16px 40px rgba(76,29,149,.35); }
-.mk-ai::before { content: "✦"; position: absolute; right: 18px; top: 10px; font-size: 44px; opacity: .25; }
-.mk-ai b { font-size: 14px; } .mk-ai p { font-size: 12.5px; color: #e4daf8; margin: 6px 0 0; max-width: 60ch; }
 
 /* chairs */
 .mk-chairs { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -341,8 +334,7 @@
   .mk-app.mk-collapsed { grid-template-columns: 76px minmax(0, 1fr); }
   .mk-collapsed .mk-side { padding: 22px 10px; align-items: stretch; overflow-x: hidden; }
   .mk-collapsed .mk-logo { flex-direction: column; padding: 4px 0 14px; gap: 10px; }
-  .mk-collapsed .mk-logo-t, .mk-collapsed .mk-navlbl, .mk-collapsed .mk-nav-t, .mk-collapsed .mk-clinic, .mk-collapsed .mk-side-foot, .mk-collapsed .mk-nav .mk-bdg { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; padding: 0; margin: 0; border: 0; }
-  .mk-collapsed .mk-nav a { justify-content: center; padding: 11px 0; }
+  .mk-collapsed .mk-logo-t, .mk-collapsed .mk-navlbl, .mk-collapsed .mk-nav-t, .mk-collapsed .mk-clinic, .mk-collapsed   .mk-collapsed .mk-nav a { justify-content: center; padding: 11px 0; }
   .mk-collapsed .mk-nav { align-items: stretch; }
 }
 @media (max-width: 1120px) {
@@ -352,6 +344,9 @@
 
 /* top-bar search button and the command palette */
 .mk-searchbtn { flex: none; }
+.mk-searchbtn.mk-iconbtn { width: auto; min-width: 42px; padding: 0 14px; border-radius: 999px; gap: 8px; grid-auto-flow: column; align-items: center; font-size: 13px; font-weight: 600; }
+.mk-searchbtn kbd { font: inherit; font-size: 11px; font-weight: 700; color: var(--muted); border: 1px solid var(--rule); border-radius: 6px; padding: 1px 6px; }
+@media (max-width: 640px) { .mk-searchbtn.mk-iconbtn { width: 42px; padding: 0; } .mk-searchbtn .mk-sb-txt { display: none; } }
 .mk-palette-scrim { position: fixed; inset: 0; z-index: 120; background: color-mix(in srgb, var(--sk-scrim, #000) 45%, transparent); display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px; backdrop-filter: blur(2px); }
 .mk-palette { width: min(620px, 100%); max-height: 70vh; display: flex; flex-direction: column; background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: 18px; box-shadow: 0 30px 80px rgba(0,0,0,.35); overflow: hidden; font-family: var(--sk-font, "Plus Jakarta Sans", system-ui, sans-serif); }
 .mk-palette-in { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--rule); color: var(--muted); }

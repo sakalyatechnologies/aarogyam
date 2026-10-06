@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -81,6 +81,8 @@ describe("Voice note in the visit", () => {
     const { backend, name } = patientPath();
     renderPortal("/", { as: PEOPLE.asha, backend });
     await user.click(await screen.findByRole("button", { name: "Voice note" }));
+    const dialog = await screen.findByRole("dialog", { name: "Voice note: choose the patient" });
+    expect(within(dialog).getByText("The note is saved as a draft on this patient's record.")).toBeTruthy();
     await user.type(await screen.findByPlaceholderText("Name, clinic number or phone"), name);
     await user.click(await screen.findByRole("button", { name: new RegExp(name) }));
     await screen.findByRole("heading", { name: /^Visit V-/ });

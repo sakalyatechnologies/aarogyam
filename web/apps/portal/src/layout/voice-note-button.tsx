@@ -65,8 +65,8 @@ export function VoiceNoteButton() {
           onOpenChange={() => {
             setChoosing(false);
           }}
-          title="Voice note for which patient?"
-          description="Opens their current visit, or starts one if they have none."
+          title="Voice note: choose the patient"
+          description="The note is saved as a draft on this patient's record."
           footer={
             <Button
               variant="secondary"

@@ -229,6 +229,10 @@ fn check(input: &RecordPayment) -> Result<Checked, AppError> {
 /// or bill; [`AppError::Invalid`] for bad values or an allocation past a bill's balance or the
 /// payment; [`AppError::Conflict`] for a key reused with a different request or a bill that
 /// isn't issued.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the lock, balance check and insert form a single transaction"
+)]
 pub async fn record(
     db: &Db,
     actor: &ClinicActor,
@@ -267,7 +271,9 @@ pub async fn record(
                 .ok_or(AppError::NotFound("patient"))?;
             let ids: Vec<Uuid> = input.allocations.iter().map(|(id, _)| id.uuid()).collect();
             let bills = dal::lock_invoices(tx.conn(), &ids).await?;
-            for (invoice, amount) in &input.allocations {
+            // Validate bills and compute the total balance due.
+            let mut balance_due: i64 = 0;
+            for (invoice, _amount) in &input.allocations {
                 let bill = bills
                     .iter()
                     .find(|bill| {
@@ -277,6 +283,22 @@ pub async fn record(
                 if bill.status != InvoiceStatus::Issued.as_str() {
                     return Err(AppError::Conflict("only issued bills take payments"));
                 }
+                balance_due = balance_due.saturating_add(bill.total_paise - bill.paid_paise);
+            }
+            // The total payment must not exceed the balance due.
+            if !input.allocations.is_empty() && input.amount_paise > balance_due {
+                return Err(AppError::invalid(
+                    "amount",
+                    "must not be more than the balance due",
+                ));
+            }
+            // Each allocation must not exceed its bill's remaining balance.
+            for (invoice, amount) in &input.allocations {
+                let Some(bill) = bills.iter().find(|bill| {
+                    bill.id == invoice.uuid() && bill.patient_id == input.patient_id.uuid()
+                }) else {
+                    return Err(AppError::Internal("invoice not found after validation"));
+                };
                 if *amount > bill.total_paise - bill.paid_paise {
                     return Err(AppError::invalid(
                         "allocations.amount_paise",

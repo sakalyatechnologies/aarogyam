@@ -38,3 +38,12 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 - **Review before it counts:** every automatic extraction is shown for confirmation (side by side with the scan) before it becomes a clinical record; the original scan is kept as an attachment.
 - **Exists:** CSV/pasted patient import with per-row errors (`/api/v1/imports/patients`, web Patients → Import).
 - **Design notes:** extraction runs as a background job (outbox-style), never in the request path; the AI provider must meet the health-data rules (no training on our data, India data residency where required; see `docs/guidelines/`); imported records keep their source (scan id, file and row) for traceability.
+
+## Moving between clinics and sign-in polish (6 Oct 2026)
+- **Clinic switcher in the portal:** people who belong to several clinics switch from the top bar or account menu, without going back to the website (lists `/me` clinics; switching uses the same one-time handoff to the other clinic's host).
+- **Console shows address progress live:** "Address pending" updates to "ready" without a manual refresh (the outbox job provisions it within ~2 minutes, before the invitation email goes out).
+- **Handoff lands on Today directly** instead of passing through the clinic's `/sign-in` route.
+- **Clinic addresses are an implementation detail:** people sign in on the website and never need to type a clinic's address; keep it out of emails and screens except where a clinic shares a booking link.
+
+## Support access for Sakalya staff (6 Oct 2026)
+- `support_grants` exists only in the docs model, not as a migration. Build it: a clinic owner (or an approved request) grants a named staff member time-limited access to their clinic, visible to the clinic, audited, and ending automatically. Platform staff can't hold clinic memberships (migration 0172), so this is the only way for staff to help inside a clinic.

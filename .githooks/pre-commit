@@ -9,6 +9,7 @@
 #   6. pnpm check, from the repo root
 #   Mobile (when mobile/ or scripts/mobile-deps.sh is staged):
 #   7. ./gradlew check in mobile/ (tests, Android lint with warnings as errors, ktlint)
+#   8. the iOS app: simulator build and XCTests (mobile/iosApp/scripts/ios-check.sh)
 # Bypass only in an emergency: git commit --no-verify
 staged=$(git diff --cached --name-only)
 rust_staged=$(printf '%s\n' "$staged" | grep -vE '^mobile/|^scripts/mobile-deps\.sh$' |
@@ -53,9 +54,9 @@ if [ -n "$web_staged" ]; then
 fi
 
 if [ -n "$mobile_staged" ]; then
-  if [ ! -d mobile/.deps/sakalya-mobile ]; then
-    scripts/mobile-deps.sh || fail "could not fetch sakalya-mobile; set SAKALYA_MOBILE_PATH to a local clone"
-  fi
+  # Idempotent: a no-op when the pinned commit is already checked out, a fetch after a pin bump.
+  scripts/mobile-deps.sh >/dev/null || fail "could not fetch sakalya-mobile; set SAKALYA_MOBILE_PATH to a local clone"
   export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@17}"
-  (cd mobile && ./gradlew check --quiet) || fail "fix the mobile check findings above (cd mobile && ./gradlew check)"
+  (cd mobile && ./gradlew check --quiet --max-workers=2) || fail "fix the mobile check findings above (cd mobile && ./gradlew check)"
+  mobile/iosApp/scripts/ios-check.sh || fail "fix the iOS build or tests above (mobile/iosApp/scripts/ios-check.sh)"
 fi

@@ -1,6 +1,6 @@
 # AGENTS.md: aarogyam/mobile
 
-The Aarogyam staff app: Kotlin Multiplatform shared code (`shared/`), the Compose Android app (`androidApp/`) and, later, the SwiftUI iOS app (`iosApp/`).
+The Aarogyam staff app: Kotlin Multiplatform shared code (`shared/`), the Compose Android app (`androidApp/`) and the SwiftUI iOS app (`iosApp/`, XcodeGen `project.yml`, the shared framework through SKIE).
 
 ## Read before writing code
 
@@ -29,9 +29,11 @@ Run from `mobile/` with `JAVA_HOME` set to a JDK 17.
 | Install the debug app | `./gradlew :androidApp:installLocalDebug` |
 | Format | `./gradlew spotlessApply` |
 | Gate (tests, lint warnings-as-errors, ktlint) | `./gradlew check` |
+| iOS app build and XCTests (simulator) | `iosApp/scripts/ios-check.sh` |
 
 ## Done means
 
-- [ ] `./gradlew check` passes (the pre-commit hook runs it when `mobile/` is staged).
+- [ ] `./gradlew check` and `iosApp/scripts/ios-check.sh` pass (the pre-commit hook runs both when `mobile/` is staged).
+- [ ] Swift: no `print` or `os_log` of patient data; copy in `Localizable.xcstrings`.
 - [ ] New state holders and endpoint wrappers have `commonTest` tests.
 - [ ] Small Conventional Commits.

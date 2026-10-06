@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aarogyam Mobile — Interactive Mockups · Live Theme Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --brand:#136650; --brand2:#0c4a39; --brand-soft:#e1efe8;
+  --ink:#14201b; --muted:#71837a; --rule:#dde5e0;
+  --amber:#a86e0f; --amber-soft:#f9efda; --red:#b3261e; --red-soft:#fbe9e7;
+  --green:#1b734a; --green-soft:#ddf2e5; --indigo:#4338ca; --indigo-soft:#e8e8fb;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:"Plus Jakarta Sans",system-ui,sans-serif;color:var(--ink);
+  background:radial-gradient(900px 500px at 8% 0%,color-mix(in srgb,var(--brand) 12%,transparent),transparent 60%),
+             radial-gradient(800px 500px at 96% 8%,rgba(67,56,202,.08),transparent 60%),#eef2ef;
+  -webkit-font-smoothing:antialiased;padding:0 24px 70px}
+@keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.pressable{transition:transform .15s}
+.pressable:active{transform:scale(.96)}
+.wrap{max-width:1180px;margin:0 auto}
+.hd{text-align:center;padding:40px 0 6px;animation:rise .6s ease both}
+.hd .kick{font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--brand);text-transform:uppercase}
+.hd h1{font-size:clamp(28px,4vw,42px);letter-spacing:-.03em;margin:8px 0}
+.hd h1 .grad{background:linear-gradient(120deg,var(--brand),#a86e0f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hd p{color:var(--muted);font-size:14.5px;max-width:66ch;margin:0 auto}
+.themebar{position:sticky;top:12px;z-index:50;margin:26px auto 0;max-width:880px;
+  background:rgba(255,255,255,.82);backdrop-filter:blur(14px);border:1px solid var(--rule);
+  border-radius:20px;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  box-shadow:0 14px 40px rgba(13,42,34,.12);animation:rise .6s .1s ease both}
+.live{display:flex;align-items:center;gap:8px;font-size:10.5px;font-weight:800;letter-spacing:.12em;color:var(--brand)}
+.live i{width:9px;height:9px;border-radius:50%;background:var(--brand);animation:pulse 1.6s infinite}
+.dots{display:flex;gap:9px;align-items:center;flex:1;flex-wrap:wrap}
+.dot{width:30px;height:30px;border-radius:50%;border:3px solid #fff;cursor:pointer;
+  box-shadow:0 0 0 1px var(--rule),0 3px 8px rgba(0,0,0,.15);transition:.2s}
+.dot:hover{transform:scale(1.15)} .dot.on{box-shadow:0 0 0 2px var(--brand),0 3px 8px rgba(0,0,0,.15);transform:scale(1.12)}
+.custom{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer}
+.custom input{width:30px;height:30px;border:0;border-radius:50%;padding:0;background:none;cursor:pointer}
+.tname{font-size:12.5px;font-weight:800;min-width:64px;text-align:right}
+.tname small{display:block;font-weight:600;color:var(--muted);font-size:10.5px}
+.dice{border:1px solid var(--rule);background:#fff;border-radius:12px;font-size:16px;padding:7px 11px;cursor:pointer;transition:.2s}
+.dice:hover{transform:rotate(-12deg) scale(1.1)}
+.plat{display:grid;grid-template-columns:1fr 1fr;gap:44px;margin-top:44px;justify-items:center}
+@media(max-width:980px){.plat{grid-template-columns:1fr}}
+.pcol{display:flex;flex-direction:column;align-items:center;gap:18px;animation:rise .7s ease both}
+.pcol:nth-child(2){animation-delay:.12s}
+.pbadge{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--rule);border-radius:999px;
+  padding:9px 12px 9px 20px;font-weight:800;font-size:14px;box-shadow:0 6px 18px rgba(13,42,34,.08)}
+.pbadge small{font-weight:600;color:var(--muted)}
+.darkbtn{border:1px solid var(--rule);background:#101614;color:#fff;border-radius:999px;font:inherit;font-size:12px;
+  font-weight:700;padding:8px 14px;cursor:pointer;transition:.25s}
+.darkbtn.lit{background:#fff8e1;color:#7a520b;border-color:#e2ac4a}
+/* ===== phone ===== */
+.phone{width:382px;max-width:94vw;background:#0b0f0d;border-radius:56px;padding:13px;
+  box-shadow:0 40px 90px rgba(10,25,20,.35), inset 0 0 0 2px #2a332f;position:relative;transition:transform .4s}
+.phone:hover{transform:translateY(-6px)}
+.screen{border-radius:44px;overflow:hidden;height:780px;position:relative;display:flex;flex-direction:column;
+  background:var(--pbg);color:var(--ptext);
+  --pbg:#f4f6f4; --pcard:#ffffff; --ptext:#14201b; --pmut:#6b7d74; --prule:#e3e9e5; --pinset:#eef2ef; --psearch:#e8edea;
+  transition:background .4s,color .4s}
+.screen.dark{--pbg:#0e1411; --pcard:#182019; --ptext:#e9f0ec; --pmut:#8fa39a; --prule:#263129; --pinset:#131a15; --psearch:#1e2721}
+.ios .screen{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Plus Jakarta Sans",sans-serif}
+.android .screen{font-family:"Roboto","Plus Jakarta Sans",sans-serif}
+.sbar{height:52px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 28px;
+  font-size:13px;font-weight:700;position:relative;z-index:5}
+.ios .sbar{background:var(--pbg);color:var(--ptext)}
+.android .sbar{background:var(--brand2);color:#fff}
+.island{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:112px;height:30px;background:#000;border-radius:20px;z-index:6}
+.punch{position:absolute;top:22px;left:50%;transform:translateX(-50%);width:14px;height:14px;background:#000;border-radius:50%;z-index:6}
+.homebar{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:rgba(128,128,128,.5);z-index:6}
+.gbar{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:110px;height:4px;border-radius:2px;background:rgba(128,128,128,.6);z-index:6}
+.body{flex:1;overflow-y:auto;position:relative;padding-bottom:20px}
+.body::-webkit-scrollbar{width:0}
+.page{display:none}.page.on{display:block;animation:fadeUp .35s ease}
+/* shared bits */
+.iav{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px;flex:none}
+.itag{font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px}
+.mchip{display:inline-flex;font-size:11px;font-weight:700;border-radius:999px;padding:4px 11px;margin-right:6px}
+.chipf{cursor:pointer;background:var(--pinset);color:var(--ptext);transition:.2s}
+.chipf.on{background:var(--brand);color:#fff}
+.pempty{text-align:center;padding:34px 16px;color:var(--pmut)}
+.pempty p{font-size:14px;font-weight:700;margin:0 0 4px;color:var(--ptext)}
+.pempty span{font-size:12.5px}
+/* role-based visibility */
+.staffmode .money{display:none!important}
+.staffmode [data-ptab="bills"]{display:none!important}
+.roleseg{display:flex;background:var(--pinset,#eef2ef);border:1px solid var(--rule);border-radius:999px;padding:3px;gap:2px}
+.roleseg button{border:0;background:transparent;font:inherit;font-size:12px;font-weight:700;color:var(--muted);padding:7px 14px;border-radius:999px;cursor:pointer;transition:.2s;white-space:nowrap}
+.roleseg button.on{background:#fff;color:var(--ink);box-shadow:0 2px 8px rgba(0,0,0,.14)}
+.sfield{margin:10px 0}
+.sfield label{display:block;font-size:10.5px;font-weight:800;letter-spacing:.08em;color:var(--pmut);margin-bottom:6px;text-transform:uppercase}
+.sfield input{width:100%;border:1px solid var(--prule);background:var(--pinset);border-radius:12px;padding:11px 13px;font:inherit;font-size:14px;color:var(--ptext);outline:0}
+.sfield input:focus{border-color:var(--brand)}
+.abtnrow{display:flex;gap:10px;margin:0 16px}
+.abtn.sm{padding:11px 10px;font-size:13px}
+.fchip{font-size:10.5px;font-weight:800;padding:4px 10px;border-radius:999px}
+.fchip.red{background:var(--red-soft);color:var(--red)} .fchip.grn{background:var(--green-soft);color:var(--green)}
+.fchip.amb{background:var(--amber-soft);color:var(--amber)} .fchip.ind{background:var(--indigo-soft);color:var(--indigo)}
+/* iOS */
+.ios .largetitle{font-size:32px;font-weight:800;letter-spacing:-.02em;padding:6px 20px 4px;color:var(--ptext)}
+.ios .sub{font-size:13px;color:var(--pmut);padding:0 20px 12px}
+.icard{margin:10px 16px;background:var(--pcard);border-radius:18px;padding:16px;box-shadow:0 4px 16px rgba(13,42,34,.07);transition:background .4s}
+.ihero{margin:10px 16px;border-radius:20px;padding:20px;color:#fff;position:relative;overflow:hidden;background:linear-gradient(135deg,var(--brand2),var(--brand))}
+.ihero:after{content:"";position:absolute;inset:0;background:radial-gradient(200px 120px at 90% 0%,rgba(226,172,74,.4),transparent 60%)}
+.ihero>*{position:relative}
+.ihero .k{font-size:11px;font-weight:700;letter-spacing:.1em;opacity:.75;text-transform:uppercase}
+.ihero h3{margin:6px 0 2px;font-size:21px}
+.ihero p{margin:0;font-size:13px;opacity:.85}
+.irow{display:flex;gap:10px;padding:12px 16px;align-items:center;cursor:pointer}
+.irow+.irow{border-top:1px solid var(--prule)}
+.irow b{font-size:14.5px;display:block}.irow p{margin:2px 0 0;font-size:12.5px;color:var(--pmut)}
+.ichev{margin-left:auto;color:var(--pmut);opacity:.5;font-size:18px}
+.itabbar{flex:none;display:flex;background:color-mix(in srgb,var(--pcard) 88%,transparent);backdrop-filter:blur(12px);
+  border-top:1px solid var(--prule);padding:8px 6px 22px;z-index:5}
+.itab{flex:1;border:0;background:none;font:inherit;font-size:10px;font-weight:600;color:var(--pmut);display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
+.itab .ti{font-size:21px;transition:.2s}.itab.on{color:var(--brand)}.itab.on .ti{transform:scale(1.18)}
+.isearch{margin:4px 16px 8px;background:var(--psearch);border-radius:12px;padding:10px 14px;font-size:14px;color:var(--pmut);display:flex;gap:8px;align-items:center}
+.isearch input{border:0;background:transparent;outline:0;font:inherit;color:var(--ptext);width:100%}
+.ios .secttl{font-size:13px;font-weight:700;color:var(--pmut);padding:14px 20px 2px}
+/* iOS segmented */
+.seg{margin:6px 16px 2px;background:var(--psearch);border-radius:12px;padding:3px;display:flex}
+.seg button{flex:1;border:0;background:transparent;font:inherit;font-size:12.5px;font-weight:600;color:var(--pmut);
+  padding:8px 4px;border-radius:9px;cursor:pointer;transition:.2s}
+.seg button.on{background:var(--pcard);color:var(--ptext);font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+/* Android */
+.mappbar{background:linear-gradient(135deg,var(--brand2),var(--brand));color:#fff;padding:6px 18px 16px;z-index:4}
+.mappbar .r1{display:flex;align-items:center;gap:12px}
+.mappbar h2{font-size:19px;font-weight:500;margin:0;flex:1}
+.mappbar .mi{font-size:19px;opacity:.9;cursor:pointer}
+.mappbar .hello{font-size:13px;opacity:.75;margin-top:2px}
+.mbackbtn{border:0;background:rgba(255,255,255,.16);color:#fff;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer}
+.mcard{margin:12px 14px;background:var(--pcard);border-radius:20px;padding:16px;box-shadow:0 2px 8px rgba(13,42,34,.08);transition:background .4s}
+.mstats{display:flex;gap:10px;margin:12px 14px}
+.mstat{flex:1;background:var(--pcard);border-radius:18px;padding:14px 12px;box-shadow:0 2px 8px rgba(13,42,34,.08);text-align:center;transition:background .4s;cursor:pointer}
+.mstat b{font-size:21px;display:block}.mstat span{font-size:11px;color:var(--pmut)}
+.mfab{position:absolute;right:18px;bottom:96px;width:58px;height:58px;border-radius:18px;border:0;z-index:6;
+  background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-size:26px;cursor:pointer;
+  box-shadow:0 10px 24px color-mix(in srgb,var(--brand) 55%,transparent);animation:floaty 4s ease-in-out infinite}
+.mnavbar{flex:none;display:flex;background:var(--pcard);border-top:1px solid var(--prule);padding:8px 4px 20px;z-index:5;transition:background .4s}
+.mnav{flex:1;border:0;background:none;font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--pmut)}
+.mnav .pill{width:58px;height:30px;border-radius:999px;display:grid;place-items:center;font-size:17px;transition:.25s}
+.mnav.on{color:var(--brand);font-weight:700}
+.mnav.on .pill{background:color-mix(in srgb,var(--brand) 18%,transparent);transform:scale(1.06)}
+.msearch{margin:12px 14px;background:var(--pcard);border-radius:999px;padding:13px 18px;font-size:14px;color:var(--pmut);
+  display:flex;gap:10px;align-items:center;box-shadow:0 2px 8px rgba(13,42,34,.08);transition:background .4s}
+.msearch input{border:0;background:transparent;outline:0;font:inherit;color:var(--ptext);width:100%}
+.mtabs{display:flex;background:transparent;padding:4px 14px 0;gap:4px}
+.mtabs button{flex:1;border:0;background:none;font:inherit;font-size:12.5px;font-weight:500;color:var(--pmut);
+  padding:10px 4px;cursor:pointer;border-bottom:2.5px solid transparent}
+.mtabs button.on{color:var(--brand);font-weight:700;border-color:var(--brand)}
+/* patient detail */
+.phero{display:flex;gap:14px;align-items:center}
+.phero .big{width:64px;height:64px;border-radius:20px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:22px;flex:none}
+.phero h3{margin:0;font-size:19px}.ios .phero h3{letter-spacing:-.01em}
+.phero .meta{font-size:12px;color:var(--pmut);margin:3px 0 0}
+.pflags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.teeth16{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;margin:8px 0 4px}
+.mtooth{aspect-ratio:.8;border-radius:6px;border:1.5px solid var(--prule);background:var(--pcard);font-size:7.5px;font-weight:800;
+  color:var(--pmut);display:grid;place-items:center;cursor:pointer;padding:0;transition:.15s}
+.mtooth:active{transform:scale(1.25)}
+.mtooth.treated{border-color:var(--green);background:var(--green-soft);color:var(--green)}
+.mtooth.rct{border-color:var(--indigo);background:var(--indigo-soft);color:var(--indigo)}
+.mtooth.planned{border-color:var(--amber);border-style:dashed;background:var(--amber-soft);color:var(--amber)}
+.mtooth.watch{border-color:var(--red);color:var(--red)}
+.mtooth.sel{box-shadow:0 0 0 2px var(--brand)}
+.archlbl{font-size:9.5px;font-weight:800;letter-spacing:.1em;color:var(--pmut);margin:8px 0 2px}
+.txline{border-left:3px solid var(--brand);background:var(--pinset);border-radius:0 10px 10px 0;padding:9px 12px;margin:8px 0;font-size:12px}
+.txline b{font-size:12.5px;display:block}.txline span{color:var(--pmut)}
+.vrow{padding:11px 2px;border-bottom:1px solid var(--prule);font-size:13px}
+.vrow:last-child{border:0}.vrow b{display:block;font-size:13.5px}.vrow span{color:var(--pmut);font-size:11.5px}.vrow p{margin:5px 0 0;color:var(--ptext);font-size:12.5px}
+.abtn{flex:1;border:0;border-radius:14px;padding:13px;font:inherit;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px}
+.abtn.pri{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;box-shadow:0 6px 16px color-mix(in srgb,var(--brand) 40%,transparent)}
+.abtn.gho{background:var(--pinset);color:var(--ptext)}
+.abtn.wa{background:#1faa53;color:#fff}
+/* bottom sheet */
+.sheetdrop{position:absolute;inset:0;background:rgba(8,14,11,.5);z-index:20;opacity:0;pointer-events:none;transition:.3s}
+.sheetdrop.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--pcard);border-radius:24px 24px 0 0;
+  padding:10px 20px 34px;transform:translateY(105%);transition:transform .38s cubic-bezier(.2,.9,.25,1);max-height:72%;overflow-y:auto}
+.sheet.on{transform:translateY(0);animation:sheetUp .38s cubic-bezier(.2,.9,.25,1)}
+.sheet::-webkit-scrollbar{width:0}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--prule);margin:6px auto 14px}
+.sheet h3{margin:0 0 4px;font-size:17px}.sheet .ssub{font-size:12.5px;color:var(--pmut);margin-bottom:12px}
+.opt{display:flex;align-items:center;gap:12px;padding:13px 4px;border-bottom:1px solid var(--prule);cursor:pointer;font-size:14px;font-weight:600}
+.opt:last-child{border:0}.opt .e{font-size:20px}.opt small{display:block;font-weight:400;color:var(--pmut);font-size:12px}
+.opt:active{background:var(--pinset)}
+.expchips{display:flex;gap:8px;margin:6px 0 14px}
+.expchips button{flex:1;border:1.5px solid var(--prule);background:transparent;color:var(--ptext);border-radius:12px;
+  padding:10px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.expchips button.on{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 12%,transparent)}
+.linkbox{background:var(--pinset);border-radius:12px;padding:12px 14px;font-family:monospace;font-size:11.5px;
+  word-break:break-all;margin:8px 0 14px;color:var(--ptext)}
+/* phone toast */
+.ptoast{position:absolute;left:50%;bottom:100px;transform:translate(-50%,20px);background:#101614;color:#fff;font-size:12.5px;
+  font-weight:600;padding:11px 18px;border-radius:999px;z-index:40;opacity:0;pointer-events:none;transition:.3s;white-space:nowrap;
+  box-shadow:0 10px 26px rgba(0,0,0,.35);max-width:90%}
+.ptoast.on{opacity:1;transform:translate(-50%,0)}
+.note{margin:18px 16px 0;background:#fff;border:1px dashed var(--rule);border-radius:14px;padding:13px 15px;font-size:12px;color:var(--muted);max-width:400px}
+.note b{color:var(--ink)}
+.vs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:900px;margin:40px auto 0}
+@media(max-width:700px){.vs{grid-template-columns:1fr}}
+.vscard{background:#fff;border:1px solid var(--rule);border-radius:16px;padding:16px 18px;box-shadow:0 6px 18px rgba(13,42,34,.06)}
+.vscard b{font-size:13px;display:block;margin-bottom:4px}.vscard p{font-size:12.5px;color:var(--muted);margin:0}.vscard .e{font-size:20px}
+.howto{max-width:900px;margin:34px auto 0;background:#fff;border:1px solid var(--rule);border-radius:18px;padding:20px 24px}
+.howto b{font-size:14px}.howto ol{margin:10px 0 0;padding-left:20px;font-size:13px;color:var(--muted)}
+.howto li{margin:6px 0}.howto li b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hd">
+    <div class="kick">Aarogyam · Clinic OS</div>
+    <h1>Fully interactive mobile <span class="grad">mockups</span></h1>
+    <p>Everything taps back. Try it: <b>search</b> the patient list, <b>tap a patient</b> for their 360 view, <b>tap teeth</b> on the chart, switch Chart / Visits / Rx / Bills, send a prescription, generate an expiring share link. Theme engine + dark mode included.</p>
+  </div>
+
+  <div class="themebar">
+    <span class="live"><i></i>LIVE THEME</span>
+    <div class="dots" id="dots"></div>
+    <label class="custom"><input type="color" id="customColor" value="#136650">Custom</label>
+    <button class="dice" id="dice" title="Surprise me">🎲</button>
+    <div class="roleseg" id="roleSeg" title="Preview as role">
+      <button class="on" onclick="setRole('doctor',this)">👨‍⚕️ Doctor</button><button onclick="setRole('staff',this)">🧑‍💼 Assistant</button>
+    </div>
+    <div class="tname"><span id="tname">Tulsi</span><small id="thex">#136650</small></div>
+  </div>
+
+  <div class="plat">
+    <!-- ================= iOS ================= -->
+    <div class="pcol">
+      <div class="pbadge">🍎 iOS <small>· tap around</small> <button class="darkbtn" data-screen="iosScreen">🌙 Dark</button></div>
+      <div class="phone ios"><div class="screen" id="iosScreen">
+        <div class="island"></div>
+        <div class="sbar"><span>10:32</span><span>🔋</span></div>
+        <div class="body" id="iosBody">
+          <div class="page on" data-p="today">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding-right:20px"><div class="largetitle" style="padding-right:0">Today</div><button class="pressable" onclick="qrSheet('ios')" title="Patient self-booking QR" style="border:1px solid var(--prule);background:var(--pcard);width:38px;height:38px;border-radius:50%;font-size:18px;cursor:pointer;flex:none">📷</button></div><div class="sub">Sat 3 Oct · Smile Catchers</div>
+            <div class="ihero pressable" onclick="ptoast('ios','Opening Rohan Iyer — Chair 1')"><div class="k">Up next · 10:45</div><h3>Rohan Iyer</h3><p>Crown fitting · Chair 1 · lab work ready ✓</p></div>
+            <div style="display:flex;gap:10px;margin:0 16px">
+              <div class="icard pressable" style="flex:1;margin:0;text-align:center" onclick="ptoast('ios','24 visits · 14 completed')"><b style="font-size:22px">24</b><div style="font-size:11px;color:var(--pmut)">Visits</div></div>
+              <div class="icard pressable" style="flex:1;margin:0;text-align:center" onclick="ptoast('ios','5 waiting · longest 12 min')"><b style="font-size:22px">5</b><div style="font-size:11px;color:var(--pmut)">Waiting</div></div>
+              <div class="icard pressable money" style="flex:1;margin:0;text-align:center" onclick="ptoast('ios','₹48,200 collected · UPI 68%')"><b style="font-size:22px">₹48k</b><div style="font-size:11px;color:var(--pmut)">Collected</div></div>
+            </div>
+            <div class="secttl">SCHEDULE</div>
+            <div class="icard" style="padding:4px 6px" id="iosSched">
+              <div class="irow pressable" onclick="openPatient('ios','Meera Shah')"><div class="iav" style="background:#1b734a">MS</div><div><b>Meera Shah</b><p>9:00 · Root canal review</p></div><span class="itag" style="background:#ddf2e5;color:#1b734a">DONE</span></div>
+              <div class="irow pressable" onclick="openPatient('ios','Kavya Reddy')"><div class="iav" style="background:#a86e0f">KR</div><div><b>Kavya Reddy</b><p>10:15 · Braces · waiting 12 min</p></div><span class="itag" style="background:#f9efda;color:#a86e0f">WAITING</span></div>
+              <div class="irow pressable" onclick="openPatient('ios','Rohan Iyer')"><div class="iav" style="background:#136650">RI</div><div><b>Rohan Iyer</b><p>10:45 · Crown fitting</p></div><span class="ichev">›</span></div>
+            </div>
+            <div class="secttl">NEEDS ATTENTION</div>
+            <div class="icard pressable" style="border-left:4px solid #b3261e" onclick="ptoast('ios','Allergy record opened · Penicillin')"><b style="font-size:13.5px">⚠ Allergy flag — Penicillin</b><p style="font-size:12.5px;color:var(--pmut);margin:4px 0 0">Meera Shah · verify before prescribing</p></div>
+          </div>
+          <div class="page" data-p="patients">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding-right:20px"><div class="largetitle" style="padding-right:0">Patients</div><button class="pressable" onclick="addPatientSheet('ios')" style="border:0;background:var(--brand);color:#fff;width:34px;height:34px;border-radius:50%;font-size:20px;cursor:pointer;flex:none">+</button></div>
+            <div class="isearch">⌕<input id="iosSearch" placeholder="Search name, phone, file no." oninput="filterP('ios')"></div>
+            <div class="icard" style="padding:4px 6px" id="iosPlist"></div>
+          </div>
+          <div class="page" data-p="cal">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding-right:20px"><div class="largetitle" style="padding-right:0">Calendar</div><button class="pressable" onclick="bookSheet('ios')" title="Book appointment" style="border:0;background:var(--brand);color:#fff;width:34px;height:34px;border-radius:50%;font-size:20px;cursor:pointer;flex:none">+</button></div><div class="sub">Week 29 Sep – 5 Oct</div>
+            <div class="icard"><div style="display:flex;justify-content:space-between;text-align:center;font-size:11px;color:var(--pmut)" id="iosCal"></div></div>
+            <div class="secttl">SATURDAY 4 OCT</div>
+            <div class="icard" style="padding:4px 6px">
+              <div class="irow pressable" onclick="openPatient('ios','Meera Shah')"><div style="font-size:12px;font-weight:700;color:var(--pmut);width:44px">9:00</div><div><b>Meera Shah</b><p>Root canal review</p></div></div>
+              <div class="irow pressable" onclick="openPatient('ios','Kavya Reddy')"><div style="font-size:12px;font-weight:700;color:var(--pmut);width:44px">10:15</div><div><b>Kavya Reddy</b><p>Braces adjustment</p></div><span class="itag" style="background:#f9efda;color:#a86e0f">WAITING</span></div>
+              <div class="irow pressable" onclick="openPatient('ios','Rohan Iyer')"><div style="font-size:12px;font-weight:700;color:var(--pmut);width:44px">10:45</div><div><b>Rohan Iyer</b><p>Crown fitting</p></div></div>
+            </div>
+          </div>
+          <!-- PATIENT DETAIL -->
+          <div class="page" data-p="patient">
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 12px 0">
+              <button class="pressable" onclick="backToList('ios')" style="border:0;background:var(--psearch);color:var(--brand);width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;font-weight:700">‹</button>
+              <b style="font-size:16px">Patient 360</b>
+              <span style="margin-left:auto;display:flex;gap:8px">
+                <button class="pressable" onclick="shareSheet('ios')" style="border:0;background:var(--psearch);width:34px;height:34px;border-radius:50%;cursor:pointer">↗</button>
+              </span>
+            </div>
+            <div class="icard"><div class="phero"><div class="big" id="iosPAv">MS</div>
+              <div><h3 id="iosPName">—</h3><p class="meta" id="iosPMeta">—</p></div></div>
+              <div class="pflags" id="iosPFlags"></div></div>
+            <div class="seg" id="iosSeg">
+              <button class="on" data-ptab="chart">🦷 Chart</button><button data-ptab="visits">Visits</button><button data-ptab="rx">Rx</button><button data-ptab="bills">Bills</button>
+            </div>
+            <div id="iosPBody" style="padding-bottom:8px"></div>
+            <div style="display:flex;gap:10px;margin:12px 16px">
+              <button class="abtn pri" onclick="rxSheet('ios')">℞ Send Rx</button>
+              <button class="abtn gho" onclick="shareSheet('ios')">↗ Share</button>
+            </div>
+          </div>
+        </div>
+        <nav class="itabbar" id="iosNav">
+          <button class="itab on" data-goto="today"><span class="ti">◉</span>Today</button>
+          <button class="itab" data-goto="patients"><span class="ti">◎</span>Patients</button>
+          <button class="itab" data-goto="cal"><span class="ti">▤</span>Calendar</button>
+        </nav>
+        <div class="homebar"></div>
+        <div class="sheetdrop" id="drop-ios" onclick="closeSheet('ios')"></div>
+        <div class="sheet" id="sheet-ios"><div class="grab"></div><div id="sheetBody-ios"></div></div>
+        <div class="ptoast" id="ptoast-ios"></div>
+      </div></div>
+      <div class="note"><b>iOS flow:</b> Patients → tap row → 360 slides in → segmented Chart/Visits/Rx/Bills → action sheets from the bottom, Apple-style.</div>
+    </div>
+
+    <!-- ================= ANDROID ================= -->
+    <div class="pcol">
+      <div class="pbadge">🤖 Android <small>· tap around</small> <button class="darkbtn" data-screen="andScreen">🌙 Dark</button></div>
+      <div class="phone android"><div class="screen" id="andScreen">
+        <div class="punch"></div>
+        <div class="sbar"><span>10:32</span><span>🔋</span></div>
+        <div class="body" id="andBody">
+          <div class="page on" data-p="today">
+            <div class="mappbar"><div class="r1"><h2>Aarogyam</h2><span class="mi" onclick="qrSheet('and')">📷</span><span class="mi" onclick="ptoast('and','3 notifications')">🔔</span><span class="mi">◎</span></div>
+              <div class="hello">Good morning, Dr. Patil · Smile Catchers</div></div>
+            <div class="mstats">
+              <div class="mstat pressable" onclick="ptoast('and','24 visits · 14 completed')"><b>24</b><span>Visits today</span></div>
+              <div class="mstat pressable" onclick="ptoast('and','5 waiting · longest 12 min')"><b>5</b><span>Waiting</span></div>
+              <div class="mstat pressable money" onclick="ptoast('and','₹48,200 collected · UPI 68%')"><b>₹48k</b><span>Collected</span></div>
+            </div>
+            <div class="mcard pressable" style="background:linear-gradient(135deg,var(--brand2),var(--brand));color:#fff;border:0" onclick="openPatient('and','Rohan Iyer')">
+              <div style="font-size:11px;font-weight:700;letter-spacing:.08em;opacity:.75">UP NEXT · 10:45</div>
+              <div style="font-size:18px;font-weight:700;margin:6px 0 2px">Rohan Iyer</div>
+              <div style="font-size:13px;opacity:.85">Crown fitting · Chair 1 · lab work ready ✓</div>
+              <div style="margin-top:12px;display:flex;gap:8px">
+                <span class="mchip" style="background:rgba(255,255,255,.2);color:#fff">▶ Start visit</span>
+                <span class="mchip" style="background:rgba(255,255,255,.2);color:#fff">✉ Message</span>
+              </div>
+            </div>
+            <div class="mcard" id="andSched">
+              <div style="font-weight:700;margin-bottom:10px">Schedule</div>
+              <div class="irow pressable" style="padding:10px 4px" onclick="openPatient('and','Meera Shah')"><div class="iav" style="background:#1b734a">MS</div><div><b>Meera Shah</b><p>9:00 · Root canal review</p></div><span class="mchip" style="background:#ddf2e5;color:#1b734a;margin-left:auto">DONE</span></div>
+              <div class="irow pressable" style="padding:10px 4px;border-top:1px solid var(--prule)" onclick="openPatient('and','Kavya Reddy')"><div class="iav" style="background:#a86e0f">KR</div><div><b>Kavya Reddy</b><p>10:15 · Braces</p></div><span class="mchip" style="background:#f9efda;color:#a86e0f;margin-left:auto">WAITING</span></div>
+            </div>
+            <div class="mcard pressable" style="border-left:4px solid #b3261e" onclick="ptoast('and','Allergy record opened · Penicillin')">
+              <b style="font-size:13.5px">⚠ Allergy flag — Penicillin</b>
+              <p style="font-size:12.5px;color:var(--pmut);margin:4px 0 0">Meera Shah · verify before prescribing</p>
+            </div>
+            </div>
+          <div class="page" data-p="patients">
+            <div class="mappbar"><div class="r1"><h2>Patients</h2><span class="mi pressable" onclick="addPatientSheet('and')" title="Add patient" style="font-size:22px;font-weight:700">+</span><span class="mi">⫿</span></div></div>
+            <div class="msearch">⌕<input id="andSearch" placeholder="Search patients…" oninput="filterP('and')"><span class="mchip" style="background:var(--brand-soft);color:var(--brand2)">🎙</span></div>
+            <div style="padding:0 14px" id="andChips">
+              <span class="mchip chipf on" data-f="all" onclick="chipFilter('and','all',this)">All</span><span class="mchip chipf" data-f="due" onclick="chipFilter('and','due',this)">Balance due</span><span class="mchip chipf" data-f="recall" onclick="chipFilter('and','recall',this)">Recalls</span>
+            </div>
+            <div class="mcard" style="padding:6px 10px" id="andPlist"></div>
+            
+          </div>
+          <div class="page" data-p="cal">
+            <div class="mappbar"><div class="r1"><h2>Calendar</h2><span class="mi pressable" onclick="bookSheet('and')" title="Book appointment">＋</span></div><div class="hello">Week 29 Sep – 5 Oct</div></div>
+            <div class="mcard"><div style="display:flex;justify-content:space-between;text-align:center;font-size:11px;color:var(--pmut)" id="andCal"></div></div>
+            <div class="mcard">
+              <div style="font-weight:700;margin-bottom:8px">Saturday 4 Oct</div>
+              <div class="irow pressable" style="padding:9px 4px" onclick="openPatient('and','Meera Shah')"><div class="iav" style="background:#1b734a">MS</div><div><b>Meera Shah</b><p>9:00 · Root canal review</p></div></div>
+              <div class="irow pressable" style="padding:9px 4px;border-top:1px solid var(--prule)" onclick="openPatient('and','Kavya Reddy')"><div class="iav" style="background:#a86e0f">KR</div><div><b>Kavya Reddy</b><p>10:15 · Braces</p></div><span class="mchip" style="background:#f9efda;color:#a86e0f;margin-left:auto">WAITING</span></div>
+              <div class="irow pressable" style="padding:9px 4px;border-top:1px solid var(--prule)" onclick="openPatient('and','Rohan Iyer')"><div class="iav" style="background:#136650">RI</div><div><b>Rohan Iyer</b><p>10:45 · Crown fitting</p></div></div>
+            </div>
+            <button class="mfab" onclick="bookSheet('and')">+</button>
+          </div>
+          <!-- PATIENT DETAIL -->
+          <div class="page" data-p="patient">
+            <div class="mappbar"><div class="r1">
+              <button class="mbackbtn pressable" onclick="backToList('and')">←</button><h2 id="andPName">—</h2>
+              <span class="mi" onclick="shareSheet('and')">↗</span></div>
+              <div class="hello" id="andPMeta">—</div></div>
+            <div class="mcard"><div class="phero"><div class="big" id="andPAv">MS</div>
+              <div><div class="pflags" id="andPFlags" style="margin-top:0"></div></div></div></div>
+            <div class="mtabs" id="andTabs">
+              <button class="on" data-ptab="chart">Chart</button><button data-ptab="visits">Visits</button><button data-ptab="rx">Rx</button><button data-ptab="bills">Bills</button>
+            </div>
+            <div id="andPBody" style="padding-bottom:8px"></div>
+            <div style="display:flex;gap:10px;margin:12px 14px">
+              <button class="abtn pri" onclick="rxSheet('and')">℞ Send Rx</button>
+              <button class="abtn gho" onclick="shareSheet('and')">↗ Share</button>
+            </div>
+          </div>
+        </div>
+        <nav class="mnavbar" id="andNav">
+          <button class="mnav on" data-goto="today"><span class="pill">◉</span>Today</button>
+          <button class="mnav" data-goto="patients"><span class="pill">◎</span>Patients</button>
+          <button class="mnav" data-goto="cal"><span class="pill">▤</span>Calendar</button>
+        </nav>
+        <div class="gbar"></div>
+        <div class="sheetdrop" id="drop-and" onclick="closeSheet('and')"></div>
+        <div class="sheet" id="sheet-and"><div class="grab"></div><div id="sheetBody-and"></div></div>
+        <div class="ptoast" id="ptoast-and"></div>
+      </div></div>
+      <div class="note"><b>Android flow:</b> Material bottom sheets, tab bar with pill indicator, FAB context actions, back-arrow app bar on detail.</div>
+    </div>
+  </div>
+
+  <div class="howto">
+    <b>👆 Try this guided tour</b>
+    <ol>
+      <li>Roll the <b>🎲 dice</b> up top — both phones re-theme instantly.</li>
+      <li>Toggle <b>🌙 Dark</b> on one phone — compare light vs dark side by side.</li>
+      <li>Type <b>"kavya"</b> in either patient search — the list filters live.</li>
+      <li><b>Tap Meera Shah</b> → Patient 360 opens. Tap <b>tooth 46</b> on the chart.</li>
+      <li>Hit <b>℞ Send Rx</b> → pick WhatsApp → sent. Then <b>↗ Share</b> → generate an expiring link.</li>
+      <li>Toggle <b>👨‍⚕️ Doctor / 🧑‍💼 Assistant</b> — money (collections, bills, dues) hides for staff.</li>
+      <li>Tap <b>＋</b> on Calendar to book a slot (it lands on today's schedule), <b>＋</b> on Patients to add someone, or <b>📷</b> for the patient self-booking QR.</li>
+    </ol>
+  </div>
+
+  <div class="vs">
+    <div class="vscard"><span class="e">🦷</span><b>Interactive tooth chart</b><p>32 FDI teeth, tap any treated tooth for its full procedure history — the signature dental moment, in your pocket.</p></div>
+    <div class="vscard"><span class="e">📋</span><b>Platform-native sheets</b><p>iOS action sheets and Material bottom sheets for prescriptions and expiring share links — the flows your blueprint specifies.</p></div>
+    <div class="vscard"><span class="e">🎨</span><b>Theme engine everywhere</b><p>One brand colour drives app bars, FABs, tabs, charts and dark mode on both platforms. White-label, zero redesign.</p></div>
+  </div>
+</div>
+
+<script>
+/* ================= data ================= */
+const P={
+'Meera Shah':{ini:'MS',col:'#1b734a',file:'SC-1042',age:34,sex:'F',sub:'Root canal in progress · tooth 46',
+ flags:[['Penicillin allergy','red'],['Consent ✓','grn'],['RCT in progress','ind']],
+ teeth:{46:'rct',36:'treated',11:'treated',26:'watch',48:'planned',16:'planned'},
+ names:{46:'Lower right 1st molar',36:'Lower left 1st molar',11:'Upper right central',26:'Upper left 1st molar',48:'Lower right wisdom',16:'Upper right 1st molar'},
+ tx:{46:[['Root canal · sitting 3 (obturation)','3 Oct 26 · Dr. Patil · ₹8,500'],['Zirconia crown — planned','Est. 18 Oct · ₹14,000'],['Root canal · sittings 1–2','12–20 Sep 26']],
+     36:[['Composite filling (A2)','12 Sep 26 · Dr. Patil · ₹2,400']],
+     11:[['PFM crown','2 Aug 26 · Dr. Rao · ₹12,000']],
+     26:[['Early caries — watch','Flagged 3 Oct · review in 6 mo']],
+     48:[['Surgical extraction — planned','CBCT done 20 Sep · ₹6,000']],
+     16:[['Composite filling — planned','Occlusal pit caries']]},
+ visits:[['3 Oct 26','RCT sitting 3 — obturation, 46','Canals obturated, post-op IOPA satisfactory. Pain 2/10.'],
+         ['20 Sep 26','RCT sitting 2 — BMP, 46','Biomechanical prep done, medicament placed.'],
+         ['12 Sep 26','RCT sitting 1 + filling 36','Access 46; Class II composite on 36. Plan: 9 items, ₹48.5k.']],
+ rx:[['RX-1042-03','3 Oct 26',['Azithromycin 500mg — 1/day × 3d','Ibuprofen 400mg — as needed','Mouthwash 0.2% — 7d'],true],
+     ['RX-1042-02','12 Sep 26',['Ibuprofen 400mg — 2/day × 3d','Saline rinses — 7d'],true]],
+ bills:[['SC/26-27/000318','3 Oct 26','₹8,500','PAID'],['SC/26-27/000290','12 Sep 26','₹11,900','PAID'],['SC/26-27/000255','2 Aug 26','₹12,000','PAID']]},
+'Kavya Reddy':{ini:'KR',col:'#a86e0f',file:'SC-0871',age:16,sex:'F',sub:'Orthodontics · braces',
+ flags:[['₹4,200 due','amb'],['Consent ✓','grn']],
+ teeth:{14:'planned',24:'planned',11:'treated',21:'treated'},
+ names:{14:'Upper right 1st premolar',24:'Upper left 1st premolar',11:'Upper right central',21:'Upper left central'},
+ tx:{14:[['Extraction — planned','For ortho spacing']],24:[['Extraction — planned','For ortho spacing']],
+     11:[['Bracket bonded','Braces — MBT 022']],21:[['Bracket bonded','Braces — MBT 022']]},
+ visits:[['Today','Braces adjustment','Elastic compliance low — counselled.'],['5 Sep 26','Braces tightening','Wire 16 NiTi placed.']],
+ rx:[['RX-0871-01','5 Sep 26',['Ibuprofen 400mg — as needed × 2d'],true]],
+ bills:[['SC/26-27/000316','Today','₹4,200','DUE']]},
+'Rohan Iyer':{ini:'RI',col:'#136650',file:'SC-1560',age:41,sex:'M',sub:'Crown fitting today · Chair 1',
+ flags:[['Hypertension','amb'],['Lab work ready ✓','grn']],
+ teeth:{46:'planned',36:'treated'},
+ names:{46:'Lower right 1st molar',36:'Lower left 1st molar'},
+ tx:{46:[['Zirconia crown — today','Shade A2 · Precision Dental lab']],36:[['Composite filling','28 Sep 26 · ₹2,400']]},
+ visits:[['28 Sep 26','Crown trial','Shade + fit approved.'],['10 Sep 26','RCT sitting 2','Completed.']],
+ rx:[['RX-1560-02','28 Sep 26',['Ibuprofen 400mg — as needed'],true]],
+ bills:[['SC/26-27/000290','28 Sep 26','₹6,000','PAID']]},
+'Vikram Rao':{ini:'VR',col:'#0e7490',file:'SC-0934',age:60,sex:'M',sub:'Implant follow-up',
+ flags:[['Diabetic','amb'],['Consent ✓','grn']],teeth:{46:'watch'},
+ names:{46:'Lower right 1st molar'},tx:{46:[['Implant — watch','Stage 2 done 30 Aug · review today']]},
+ visits:[['20 Sep 26','Implant check','Healing satisfactory.']],rx:[],bills:[['SC/26-27/000315','20 Sep 26','₹3,800','DUE']]},
+'Sana Sheikh':{ini:'SS',col:'#7c3aed',file:'SC-1742',age:25,sex:'F',sub:'Cosmetic · whitening',
+ flags:[['Consent ✓','grn']],teeth:{},names:{},tx:{},
+ visits:[['26 Sep 26','Whitening','Single sitting · shade B1 → A1.']],rx:[],
+ bills:[['SC/26-27/000300','26 Sep 26','₹2,600','PARTIAL']]}
+};
+const UPPER=['18','17','16','15','14','13','12','11','21','22','23','24','25','26','27','28'];
+const LOWER=['48','47','46','45','44','43','42','41','31','32','33','34','35','36','37','38'];
+let cur={ios:null,and:null}, ptab={ios:'chart',and:'chart'};
+
+/* ================= helpers ================= */
+function $(id){return document.getElementById(id)}
+function phEl(w){return $(w==='ios'?'iosScreen':'andScreen')}
+function ptoast(w,m){const t=$('ptoast-'+w);t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),2200)}
+function gotoPage(w,p){
+  closeSheet(w);
+  const scr=phEl(w);
+  scr.querySelectorAll('.page').forEach(x=>x.classList.toggle('on',x.dataset.p===p));
+  scr.querySelectorAll('[data-goto]').forEach(t=>t.classList.toggle('on',t.dataset.goto===p));
+  scr.querySelector('.body').scrollTop=0;
+}
+function openSheet(w,html){
+  $('sheetBody-'+w).innerHTML=html;
+  $('sheet-'+w).classList.add('on'); $('drop-'+w).classList.add('on');
+}
+function closeSheet(w){var s=$('sheet-'+w),b=$('drop-'+w);if(s)s.classList.remove('on');if(b)b.classList.remove('on')}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeSheet('ios');closeSheet('and')}});
+
+/* ================= patient list + search ================= */
+function plistHTML(w){
+  return Object.keys(P).map(n=>{const p=P[n];
+    const due=p.bills.some(b=>b[3]==='DUE'||b[3]==='PARTIAL');
+    if(w==='ios')return `<div class="irow pressable" data-name="${n}" onclick="openPatient('ios','${n}')">
+      <div class="iav" style="background:${p.col}">${p.ini}</div>
+      <div><b>${n}</b><p>${p.file} · ${p.sub}</p></div>
+      ${due?'<span class="itag money" style="background:#f9efda;color:#a86e0f">DUE</span>':'<span class="ichev">›</span>'}</div>`;
+    return `<div class="irow pressable" style="padding:10px 4px" data-name="${n}" onclick="openPatient('and','${n}')">
+      <div class="iav" style="background:${p.col}">${p.ini}</div>
+      <div><b>${n}</b><p>${p.file} · ${p.sub}</p></div>
+      ${due?'<span class="mchip money" style="background:#f9efda;color:#a86e0f;margin-left:auto">DUE</span>':''}</div>`;
+  }).join('');
+}
+function renderPlist(w){$(w==='ios'?'iosPlist':'andPlist').innerHTML=plistHTML(w);applyFilters(w)}
+let chipF={ios:'all',and:'all'};
+function chipFilter(w,f,el){
+  chipF[w]=f;
+  el.parentElement.querySelectorAll('.chipf').forEach(c=>c.classList.toggle('on',c===el));
+  applyFilters(w);
+}
+function applyFilters(w){
+  const q=($(w==='ios'?'iosSearch':'andSearch').value||'').toLowerCase(), f=chipF[w];
+  const list=$(w==='ios'?'iosPlist':'andPlist');
+  list.querySelectorAll('[data-name]').forEach(r=>{
+    const p=P[r.dataset.name];
+    const okQ=r.dataset.name.toLowerCase().includes(q);
+    let okF=true;
+    if(f==='due')okF=p.bills.some(b=>b[3]==='DUE'||b[3]==='PARTIAL');
+    if(f==='recall')okF=Object.values(p.teeth).some(s=>s==='watch'||s==='planned');
+    r.style.display=(okQ&&okF)?'':'none';
+  });
+  const anyVisible=[...list.querySelectorAll('[data-name]')].some(r=>r.style.display!=='none');
+  let emp=list.querySelector('.pempty');
+  if(!anyVisible){
+    if(!emp){emp=document.createElement('div');emp.className='pempty';list.appendChild(emp)}
+    emp.style.display='';
+    emp.innerHTML='<p>🔍 No patients match.</p><span>Try a different search or filter.</span>';
+  }else if(emp){emp.style.display='none'}
+}
+function filterP(w){applyFilters(w)}
+renderPlist('ios'); renderPlist('and');
+
+/* ================= patient detail ================= */
+function openPatient(w,name){
+  cur[w]=name; ptab[w]='chart';
+  const p=P[name];
+  if(w==='ios'){
+    $('iosPAv').style.background=p.col; $('iosPAv').textContent=p.ini;
+    $('iosPName').textContent=name; $('iosPMeta').textContent=[p.file,(p.age&&p.age!=='—')?`${p.age}y ${p.sex}`.trim():null,p.sub].filter(Boolean).join(' · ');
+    $('iosPFlags').innerHTML=p.flags.map(f=>`<span class="fchip ${f[1]}">${f[0]}</span>`).join('');
+    $('iosSeg').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.ptab==='chart'));
+  }else{
+    $('andPAv').style.background=p.col; $('andPAv').textContent=p.ini;
+    $('andPName').textContent=name; $('andPMeta').textContent=[p.file,(p.age&&p.age!=='—')?`${p.age}y ${p.sex}`.trim():null,p.sub].filter(Boolean).join(' · ');
+    $('andPFlags').innerHTML=p.flags.map(f=>`<span class="fchip ${f[1]}">${f[0]}</span>`).join('');
+    $('andTabs').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.ptab==='chart'));
+  }
+  renderPBody(w); gotoPage(w,'patient');
+}
+function backToList(w){
+  gotoPage(w,'patients');
+  const scr=phEl(w);
+  scr.querySelectorAll('[data-goto]').forEach(t=>t.classList.toggle('on',t.dataset.goto==='patients'));
+}
+function setPtab(w,t,el){
+  ptab[w]=t;
+  const sel=w==='ios'?'#iosSeg button':'#andTabs button';
+  document.querySelectorAll(sel).forEach(b=>b.classList.toggle('on',b===el));
+  renderPBody(w);
+}
+document.querySelectorAll('#iosSeg button').forEach(b=>b.onclick=()=>setPtab('ios',b.dataset.ptab,b));
+document.querySelectorAll('#andTabs button').forEach(b=>b.onclick=()=>setPtab('and',b.dataset.ptab,b));
+
+function teethRowHTML(w,arr,p,sel){
+  return `<div class="teeth16">`+arr.map(n=>{
+    const st=p.teeth[n]||''; const s=sel===n?' sel':'';
+    return `<button class="mtooth ${st}${s}" onclick="selTooth('${w}','${n}')">${n}</button>`;
+  }).join('')+`</div>`;
+}
+let selT={ios:null,and:null};
+function renderPBody(w){
+  const p=P[cur[w]], t=ptab[w], host=$(w==='ios'?'iosPBody':'andPBody');
+  const cardCls=w==='ios'?'icard':'mcard';
+  if(t==='chart'){
+    const active=Object.keys(p.teeth).length;
+    host.innerHTML=`<div class="${cardCls}">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:14px">🦷 Dental chart</b>
+      <span style="font-size:11px;color:var(--pmut)">${active} of 32 need care</span></div>
+      <div class="archlbl">UPPER ARCH</div>${teethRowHTML(w,UPPER,p,selT[w])}
+      <div class="archlbl">LOWER ARCH</div>${teethRowHTML(w,LOWER,p,selT[w])}
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--pmut);font-weight:700">
+        <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--indigo);margin-right:4px"></i>Root canal</span>
+        <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--green);margin-right:4px"></i>Treated</span>
+        <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;border:1.5px dashed var(--amber);margin-right:4px"></i>Planned</span>
+        <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;border:1.5px solid var(--red);margin-right:4px"></i>Watch</span>
+      </div>
+      <div id="td-${w}">${toothDetailHTML(w,p,selT[w])}</div>
+    </div>
+    <div class="${cardCls}"><b style="font-size:13.5px">📷 Imaging</b>
+      <p style="font-size:12px;color:var(--pmut);margin:6px 0 0">OPG · IOPA 46 · Bitewing — tap to view in full viewer</p>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        ${['OPG','IOPA 46','Bitewing'].map(x=>`<span class="pressable" onclick="ptoast('${w}','Opening ${x} viewer…')" style="flex:1;background:var(--pinset);border-radius:10px;padding:16px 4px;text-align:center;font-size:11px;font-weight:700">◉<br>${x}</span>`).join('')}
+      </div></div>`;
+  }else if(t==='visits'){
+    host.innerHTML=`<div class="${cardCls}"><b style="font-size:14px">Visit timeline</b><div style="margin-top:6px">`+
+      p.visits.map(v=>`<div class="vrow"><span>${v[0]}</span><b>${v[1]}</b><p>${v[2]}</p></div>`).join('')+`</div></div>`;
+  }else if(t==='rx'){
+    host.innerHTML=p.rx.length? p.rx.map((r,i)=>`<div class="${cardCls}">
+      <div style="display:flex;justify-content:space-between"><b style="font-size:13.5px">℞ ${r[0]}</b><span style="font-size:11px;color:var(--pmut)">${r[1]}</span></div>
+      <ul style="margin:8px 0 0;padding-left:18px;font-size:12.5px">${r[2].map(x=>`<li>${x}</li>`).join('')}</ul>
+      ${r[3]?'<div style="margin-top:8px"><span class="fchip grn">✓ Allergy check passed</span></div>':''}
+      <button class="abtn gho pressable" style="margin-top:10px" onclick="rxSheet('${w}','${r[0]}')">↗ Send this prescription</button>
+    </div>`).join('')
+    :`<div class="${cardCls}"><p style="font-size:13px;color:var(--pmut)">No prescriptions yet.</p></div>`;
+  }else{
+    const tot=p.bills.reduce((s,b)=>s+parseInt(b[2].replace(/[^0-9]/g,'')||0),0);
+    host.innerHTML=`<div class="${cardCls}"><div style="display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:14px">Billing</b><span style="font-size:12px;color:var(--pmut)">Lifetime ₹${tot.toLocaleString('en-IN')}</span></div>
+      <div style="margin-top:6px">`+p.bills.map(b=>`<div class="vrow"><span style="font-family:monospace">${b[0]} · ${b[1]}</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px"><b>${b[2]}</b>
+      <span class="fchip ${b[3]==='PAID'?'grn':b[3]==='DUE'?'amb':'ind'}">${b[3]}</span></div></div>`).join('')+`</div></div>`;
+  }
+}
+function toothDetailHTML(w,p,fdi){
+  if(!fdi||!p.tx[fdi])return `<p style="font-size:12px;color:var(--pmut);margin:10px 0 0">Tap a highlighted tooth to see its treatments.</p>`;
+  return `<div style="margin-top:10px"><b style="font-size:13px">Tooth ${fdi} · ${p.names[fdi]||''}</b>`+
+    p.tx[fdi].map(x=>`<div class="txline"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')+`</div>`;
+}
+function selTooth(w,fdi){selT[w]=fdi;renderPBody(w);
+  const p=P[cur[w]];
+  if(p.tx[fdi])ptoast(w,`Tooth ${fdi} · ${p.tx[fdi].length} record${p.tx[fdi].length>1?'s':''}`);
+}
+
+/* ================= sheets: rx + share ================= */
+function rxSheet(w,rxId){
+  const p=P[cur[w]], id=rxId||(p.rx[0]?p.rx[0][0]:'RX-NEW');
+  openSheet(w,`<h3>℞ Send prescription</h3><div class="ssub">${id} · ${cur[w]} · OTP-gated link</div>
+    <div class="opt pressable" onclick="sendRx('${w}','WhatsApp')"><span class="e">✉</span><div>WhatsApp<small>Rich preview · delivery receipts</small></div></div>
+    <div class="opt pressable" onclick="sendRx('${w}','SMS')"><span class="e">💬</span><div>SMS<small>DLT template · fallback channel</small></div></div>
+    <div class="opt pressable" onclick="closeSheet('${w}')"><span class="e">✕</span><div>Cancel</div></div>`);
+}
+function sendRx(w,ch){closeSheet(w);ptoast(w,`Prescription sent via ${ch} ✓`)}
+let expSel={ios:'24 hours',and:'24 hours'};
+function shareSheet(w){
+  openSheet(w,`<h3>↗ Shareable report</h3><div class="ssub">Treatment summary + Rx + x-rays · one-time code · access logged</div>
+    <div style="font-size:12px;font-weight:700;margin-bottom:2px">Expires in</div>
+    <div class="expchips">${['24 hours','72 hours','7 days'].map(e=>`<button class="${expSel[w]===e?'on':''}" onclick="setExp('${w}','${e}')">${e}</button>`).join('')}</div>
+    <button class="abtn pri pressable" style="width:100%" onclick="genLink('${w}')">Generate secure link</button>
+    <div id="linkzone-${w}"></div>`);
+}
+function setExp(w,e){expSel[w]=e;shareSheet(w)}
+function genLink(w){
+  const code=Math.random().toString(36).slice(2,8);
+  $('linkzone-'+w).innerHTML=`<div class="linkbox">r.aarogyam.example/s/${code}</div>
+    <div style="display:flex;gap:8px">
+      <button class="abtn wa pressable" style="flex:1" onclick="closeSheet('${w}');ptoast('${w}','Report sent on WhatsApp ✓')">✉ WhatsApp</button>
+      <button class="abtn gho pressable" style="flex:1" onclick="closeSheet('${w}');ptoast('${w}','Report sent via SMS ✓')">SMS</button>
+    </div>
+    <p style="font-size:11px;color:var(--pmut)">Expires in ${expSel[w]} · revocable anytime · every opening is logged.</p>`;
+}
+
+/* ================= roles: doctor sees money, staff doesn't ================= */
+let ROLE='doctor';
+function setRole(r,el){
+  ROLE=r;
+  el.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el));
+  document.body.classList.toggle('staffmode',r==='staff');
+  if(cur.ios)openPatient('ios',cur.ios);
+  if(cur.and)openPatient('and',cur.and);
+  ptoast('ios',r==='doctor'?'👨‍⚕️ Doctor view — full access':'🧑‍💼 Assistant view — money hidden');
+}
+
+/* ================= booking sheet ================= */
+const BK_DAYS=['Today','Tomorrow','Mon 6 Oct'],BK_SLOTS=['10:00','10:30','11:00','11:30','12:00','4:00','4:30','5:00'];
+let bkSel={ios:{day:0,slot:2},and:{day:0,slot:2}};
+function bookSheet(w){
+  bkSel[w]={day:0,slot:2};
+  openSheet(w,`<h3>＋ Book appointment</h3><div class="ssub">Reception booking · confirmation goes on SMS + WhatsApp</div>
+    <div class="sfield"><label>Patient name</label><input id="bk-name-${w}" placeholder="Full name"></div>
+    <div class="sfield"><label>Phone</label><input id="bk-phone-${w}" placeholder="+91 …" inputmode="tel"></div>
+    <div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--pmut);margin:12px 0 6px">DAY</div>
+    <div class="expchips">${BK_DAYS.map((d,i)=>`<button class="${i===0?'on':''}" onclick="bkPick('${w}','day',${i},this)">${d}</button>`).join('')}</div>
+    <div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--pmut);margin:12px 0 6px">SLOT</div>
+    <div class="expchips">${BK_SLOTS.map((s,i)=>`<button class="${i===2?'on':''}" onclick="bkPick('${w}','slot',${i},this)">${s}</button>`).join('')}</div>
+    <button class="abtn pri pressable" style="width:100%;margin-top:14px" onclick="bookConfirm('${w}')">Confirm booking</button>`);
+}
+function bkPick(w,k,i,el){bkSel[w][k]=i;el.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el))}
+function bookConfirm(w){
+  const name=($('bk-name-'+w).value||'').trim()||'Walk-in patient';
+  const when=BK_DAYS[bkSel[w].day]+' · '+BK_SLOTS[bkSel[w].slot];
+  addSchedRow(w,{name:name,time:BK_SLOTS[bkSel[w].slot],desc:'Booked · '+BK_DAYS[bkSel[w].day]});
+  closeSheet(w);ptoast(w,'✓ '+name+' booked · '+when);
+}
+function addSchedRow(w,s){
+  const p=P[s.name]||{ini:s.name.split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase(),col:'#5d6b7a'};
+  const host=$(w==='ios'?'iosSched':'andSched');if(!host)return;
+  const div=document.createElement('div');
+  if(w==='ios'){
+    div.className='irow pressable';
+    div.innerHTML=`<div class="iav" style="background:${p.col}">${p.ini}</div><div><b>${s.name}</b><p>${s.time} · ${s.desc}</p></div><span class="itag" style="background:#e8e8fb;color:#4338ca">NEW</span>`;
+  }else{
+    div.className='irow pressable';div.style.padding='10px 4px';
+    div.innerHTML=`<div class="iav" style="background:${p.col}">${p.ini}</div><div><b>${s.name}</b><p>${s.time} · ${s.desc}</p></div><span class="mchip" style="background:#e8e8fb;color:#4338ca;margin-left:auto">NEW</span>`;
+  }
+  if(P[s.name])div.onclick=()=>openPatient(w,s.name);
+  host.prepend(div);
+}
+
+/* ================= add patient ================= */
+function addPatientSheet(w){
+  openSheet(w,`<h3>＋ New patient</h3><div class="ssub">Quick intake · full profile can be completed later</div>
+    <div class="sfield"><label>Full name</label><input id="np-name-${w}" placeholder="Patient name"></div>
+    <div class="sfield"><label>Phone</label><input id="np-phone-${w}" placeholder="+91 …" inputmode="tel"></div>
+    <button class="abtn pri pressable" style="width:100%;margin-top:6px" onclick="addPatientConfirm('${w}')">Add patient</button>`);
+}
+function addPatientConfirm(w){
+  const name=($('np-name-'+w).value||'').trim();
+  if(!name){ptoast(w,'Enter the patient name');return}
+  const ini=name.split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase();
+  P[name]={ini:ini,col:'#0e7490',file:'SC-'+Math.floor(1000+Math.random()*9000),age:'—',sex:'',sub:'New registration',
+    flags:[['New','ind']],teeth:{},names:{},tx:{},visits:[],rx:[],bills:[]};
+  renderPlist(w);closeSheet(w);ptoast(w,'✓ '+name+' added to patients');
+}
+
+/* ================= booking QR for patients ================= */
+function qrSheet(w){
+  openSheet(w,`<h3>📷 Patient self-booking</h3><div class="ssub">Show this to patients — they scan and book themselves</div>
+    <div style="text-align:center;padding:12px 8px">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=https://aarogyam.in/book/smile-catchers" width="220" height="220" alt="Booking QR" style="border-radius:16px;border:1px solid var(--prule);background:#fff">
+      <p style="font-size:12px;color:var(--pmut);margin:10px 0 0">aarogyam.in/book/smile-catchers</p>
+    </div>
+    <button class="abtn gho pressable" style="width:100%" onclick="closeSheet('${w}')">Close</button>`);
+}
+
+/* ================= calendars ================= */
+function calHTML(){const d=[['M',29],['T',30],['W',1],['T',2],['F',3],['S',4],['Su',5]];
+  return d.map((x,i)=>`<span class="${i===5?'':''}" ${i===5?'style="background:var(--brand);color:#fff;border-radius:12px;padding:4px 9px"':''}>${x[0]}<br><b>${x[1]}</b></span>`).join('')}
+$('iosCal').innerHTML=calHTML(); $('andCal').innerHTML=calHTML();
+
+/* ================= phone nav ================= */
+document.querySelectorAll('.phone').forEach(ph=>{
+  ph.addEventListener('click',e=>{
+    const b=e.target.closest('[data-goto]'); if(!b)return;
+    gotoPage(ph.classList.contains('ios')?'ios':'and', b.dataset.goto);
+  });
+});
+
+/* ================= theme engine ================= */
+const presets=[{n:'Tulsi',c:'#136650'},{n:'Haldi',c:'#a86e0f'},{n:'Indigo',c:'#4338ca'},{n:'Rose',c:'#be123c'},{n:'Ocean',c:'#0e7490'},{n:'Plum',c:'#7c3aed'}];
+function hx(h){const n=parseInt(h.slice(1),16);return [n>>16&255,n>>8&255,n&255]}
+function toHx(a){return '#'+a.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('')}
+function mix(a,b,w){const A=hx(a),B=hx(b);return toHx(A.map((v,i)=>v*(1-w)+B[i]*w))}
+function applyTheme(hex,name){
+  const r=document.documentElement.style;
+  r.setProperty('--brand',hex); r.setProperty('--brand2',mix(hex,'#000000',.32)); r.setProperty('--brand-soft',mix(hex,'#ffffff',.86));
+  $('tname').textContent=name; $('thex').textContent=hex;
+  document.querySelectorAll('.dot').forEach(d=>d.classList.toggle('on',d.dataset.c===hex));
+}
+const dots=$('dots');
+presets.forEach((p,i)=>{const b=document.createElement('button');
+  b.className='dot'+(i===0?' on':'');b.style.background=p.c;b.title=p.n;b.dataset.c=p.c;
+  b.onclick=()=>applyTheme(p.c,p.n);dots.appendChild(b)});
+$('customColor').addEventListener('input',e=>applyTheme(e.target.value,'Custom'));
+$('dice').onclick=()=>{const h='#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0');
+  $('customColor').value=h;applyTheme(h,'Lucky')};
+document.querySelectorAll('.darkbtn').forEach(b=>b.addEventListener('click',()=>{
+  const s=$(b.dataset.screen);s.classList.toggle('dark');const d=s.classList.contains('dark');
+  b.textContent=d?'☀️ Light':'🌙 Dark';b.classList.toggle('lit',d);
+}));
+applyTheme('#136650','Tulsi');
+</script>
+<style>.hd,.howto,.vs{display:none!important}.wrap{padding-top:12px}.phone{zoom:.86}.body{padding-bottom:4px;scrollbar-width:none}.body::-webkit-scrollbar{display:none}.card{margin-top:8px!important;margin-bottom:8px!important}.ios .ihero,.ios .icard{margin:6px 14px!important}.ios .secttl{padding-top:2px!important;padding-bottom:2px!important}</style>
+<script>
+(function(){
+var steps=[
+{t:'Today, at a glance',d:'Your OPD queue and reminders — the first thing every doctor sees in the morning.',run:function(){gotoPage('ios','today');gotoPage('and','today');}},
+{t:'Patients, searchable',d:'Live search across name, phone and file number — tap any row for the full record.',run:function(){gotoPage('ios','patients');gotoPage('and','patients');}},
+{t:'Patient 360',d:'Every visit, x-ray and payment on one timeline — allergy flags right up top.',run:function(){openPatient('ios','Meera Shah');}},
+{t:'Interactive tooth chart',d:'32 FDI teeth — tap any treated tooth for its full procedure history.',run:function(){openPatient('and','Kavya Reddy');}},
+{t:'Visits timeline',d:'Every sitting with treatment and amount — the complete clinical history.',run:function(){ptabGo('ios','visits');ptabGo('and','visits');}},
+{t:'E-prescriptions',d:'Allergy-checked and sent to the patient on WhatsApp or SMS in seconds.',run:function(){ptabGo('ios','rx');ptabGo('and','rx');}},
+{t:'Bills & payments',d:'Invoices, dues and collections per patient — always current.',run:function(){ptabGo('ios','bills');ptabGo('and','bills');}},
+{t:'Week calendar',d:'Chair-side week view — the full OPD at a glance.',run:function(){gotoPage('ios','cal');gotoPage('and','cal');}}
+];
+var i=0,paused=false,timer=null;
+function ptabGo(phone,t){try{var d=document.querySelector((phone==='ios'?'#iosSeg':'#andTabs')+' button[data-ptab="'+t+'"]');if(d)setPtab(phone,t,d);}catch(e){}}
+function send(){try{parent.postMessage({tourStep:{demo:'mobile',i:i,n:steps.length,t:steps[i].t,d:steps[i].d}},'*');}catch(e){}}
+function restart(){if(timer)clearInterval(timer);if(!paused)timer=setInterval(function(){show(i+1);},3600);}
+function show(n){i=(n+steps.length)%steps.length;try{steps[i].run();}catch(e){}send();restart();}
+window.addEventListener('message',function(e){var m=e.data;
+if(m==='tour-pause'){paused=true;restart();}
+else if(m==='tour-play'){paused=false;restart();}
+else if(m&&m.tourGo!=null){show(m.tourGo);}});
+setTimeout(function(){try{parent.postMessage({tourHeight:{demo:'mobile',h:Math.min(1250,document.body.scrollHeight+10)}},'*');}catch(e){}show(0);},700);
+})();
+</script>
+</body>
+</html>

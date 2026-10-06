@@ -4,10 +4,11 @@ import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/*.config.*", "target/**", "**/scripts/**/*.mjs"] },
-  js.configs.recommended,
-  ...tseslint.configs.strictTypeChecked,
+  { ignores: ["**/dist/**", "**/node_modules/**", "**/*.config.*", "target/**", "**/scripts/**/*.mjs", "web/apps/website/src/routeTree.gen.ts"] },
   {
+    // Every app and package except the public website follows the strict rules below.
+    ignores: ["web/apps/website/**"],
+    extends: [js.configs.recommended, ...tseslint.configs.strictTypeChecked],
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
@@ -23,6 +24,20 @@ export default tseslint.config(
         "error",
         { selector: "ExportDefaultDeclaration", message: "Use named exports." },
       ],
+    },
+  },
+  {
+    // web/apps/website is the Lovable-built marketing site (plain JSX views, default exports,
+    // generated route tree). Its own scope: recommended rules, no type-aware strictness, so
+    // the site keeps its design and structure instead of being rewritten to the app rules.
+    files: ["web/apps/website/**/*.{ts,tsx,js,jsx}"],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    plugins: { "react-hooks": reactHooks },
+    rules: {
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "warn",
     },
   },
 );

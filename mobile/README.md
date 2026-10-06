@@ -33,7 +33,20 @@ adb reverse tcp:5173 tcp:5173               # the emulator's localhost:5173 reac
 ./gradlew :androidApp:installLocalDebug
 ```
 
-Sign in with an invited email address and the emailed code. A person with one clinic goes straight to Today; pull down to refresh. Screenshots are blocked (`FLAG_SECURE`).
+Sign in with an invited email address and the emailed code. The local flavour's debug build also shows a development sign-in under the form: one button per seeded person (it mints a token from the local API's `POST /api/v1/dev/token`, which exists only when the API runs in the `local` environment). It is compiled into that build only: Android keeps it in `src/localDebug` (`./gradlew :androidApp:checkNoDevSignIn`, part of `check`, fails if any other variant contains it) and iOS behind `DEBUG && AARO_ENV_Local` (`ios-check.sh` greps the Demo build and, as a control, a Local build). A person with one clinic goes straight to Today; pull down to refresh. Screenshots are blocked (`FLAG_SECURE`).
+
+### Run against the local stack (seeded synthetic data)
+
+```sh
+DB=aarogyam_dev_qa scripts/dev-db.sh --seed      # then migrate with ARO_DB__OWNER_URL pointing at it, and
+psql postgres://aarogyam_owner@localhost:5432/aarogyam_dev_qa -f db/seed/demo-billing.sql
+ARO_DB__URL=postgres://aarogyam_api@localhost:5432/aarogyam_dev_qa ARO_DB__OWNER_URL=postgres://aarogyam_owner@localhost:5432/aarogyam_dev_qa cargo run -p aarogyam-server -- serve
+VITE_API_MODE=http pnpm dev:portal               # the apps reach the API through it
+cd mobile && adb reverse tcp:5173 tcp:5173
+AAROGYAM_SUPABASE_URL=https://unused.invalid AAROGYAM_SUPABASE_KEY=unused ./gradlew :androidApp:installLocalDebug
+```
+
+The app needs a Supabase URL and key to start; any placeholder works, because the dev sign-in never calls Supabase. Never point the local flavour at the demo or at Supabase data.
 
 ## Run in the iOS simulator
 
@@ -50,7 +63,7 @@ xcrun simctl install booted build/derived-data/Build/Products/Debug-iphonesimula
 xcrun simctl launch booted com.aarogyam.staff.demo
 ```
 
-`AAROGYAM_ENVIRONMENT=Local` on the `xcodebuild` line points a debug build at the Vite dev server (the simulator shares the Mac's localhost). The app hides its content in the app switcher and while the screen is recorded; strings live in `iosApp/AarogyamStaff/Localizable.xcstrings`.
+`AAROGYAM_ENVIRONMENT=Local` on the `xcodebuild` line points a debug build at the Vite dev server (the simulator shares the Mac's localhost) and adds the development sign-in. The app hides its content in the app switcher and while the screen is recorded; strings live in `iosApp/AarogyamStaff/Localizable.xcstrings`.
 
 ## Checks
 

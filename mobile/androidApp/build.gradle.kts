@@ -59,6 +59,13 @@ android {
             buildConfigField("String", "ENVIRONMENT", quoted("Prod"))
         }
     }
+    // The development sign-in exists in the local flavour's debug build only; every other variant
+    // gets an empty stand-in, and `checkNoDevSignIn` proves it.
+    sourceSets {
+        for (name in listOf("demo", "prod", "localRelease")) {
+            maybeCreate(name).kotlin.directories.add("src/noDevSignIn/kotlin")
+        }
+    }
     buildFeatures {
         compose = true
         buildConfig = true
@@ -89,3 +96,42 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
 }
+
+// Fails the build if any variant but the local flavour's debug build contains the development
+// sign-in (its class, or the local API's dev-token route). Part of `./gradlew check`.
+val devSignInVariants = listOf("DemoDebug", "DemoRelease", "ProdDebug", "ProdRelease", "LocalRelease")
+
+val checkNoDevSignIn =
+    tasks.register("checkNoDevSignIn") {
+        group = "verification"
+        description = "Proves demo, prod and release builds do not contain the development sign-in."
+        dependsOn((devSignInVariants + "LocalDebug").map { "compile${it}Kotlin" })
+        val classDirs =
+            (devSignInVariants + "LocalDebug").associateWith { variant ->
+                val dir = variant.replaceFirstChar(Char::lowercase)
+                layout.buildDirectory
+                    .dir("intermediates/built_in_kotlinc/$dir/compile${variant}Kotlin/classes")
+                    .get()
+                    .asFile
+            }
+        doLast {
+            val found =
+                classDirs.mapValues { (_, dir) ->
+                    dir
+                        .walkTopDown()
+                        .filter {
+                            it.isFile && (
+                                it.name.contains(
+                                    "SeededPerson",
+                                ) || it.readText().contains("dev/token")
+                            )
+                        }.map { it.path }
+                        .toList()
+                }
+            // Control: the check must see the sign-in where it exists, or it proves nothing.
+            check(found.getValue("LocalDebug").isNotEmpty()) { "checkNoDevSignIn cannot find the local debug sign-in" }
+            val offenders = found.filterKeys { it != "LocalDebug" }.values.flatten()
+            check(offenders.isEmpty()) { "Development sign-in found in: ${offenders.joinToString()}" }
+        }
+    }
+tasks.named("check") { dependsOn(checkNoDevSignIn) }

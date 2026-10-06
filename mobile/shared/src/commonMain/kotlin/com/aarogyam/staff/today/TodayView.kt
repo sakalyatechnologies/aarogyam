@@ -91,7 +91,7 @@ private fun Appointment.toItem(zone: TimeZone): ScheduleItem? {
     )
 }
 
-private fun parseInstant(text: String): Instant? = runCatching { Instant.parse(text) }.getOrNull()
+internal fun parseInstant(text: String): Instant? = runCatching { Instant.parse(text) }.getOrNull()
 
 internal fun visitStatus(text: String): VisitStatus =
     when (text) {

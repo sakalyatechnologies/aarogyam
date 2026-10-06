@@ -16,6 +16,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlin.io.encoding.Base64
 import kotlin.test.assertIs
@@ -158,3 +159,34 @@ fun todayBody(
        "counts":{"total":3,"booked":1,"arrived":1,"in_chair":0,"done":1,"no_shows":0,"cancelled":1,"waiting":2},
        "by_hour":[{"hour":9,"booked":1,"completed":1}],"chairs":[{"room_id":"r1","name":"Chair 1","kind":"chair","status":"free","current":null,"next":null}],
        "recent_patients":[],"team":[],"attention":[]}"""
+
+/** Opens the Sunrise clinic through the fake backend and returns its context. */
+suspend fun openClinic(
+    backend: FakeBackend,
+    graph: AppGraph,
+    scope: CoroutineScope,
+    permissions: List<String>,
+): com.aarogyam.staff.clinic.ClinicContext {
+    backend.on("$DEMO_APP/api/v1/me", { json(ME_TWO_CLINICS) })
+    backend.on("$SUNRISE/api/v1/session", { json(sessionBody(permissions)) })
+    signIn(graph, backend)
+    val picker = graph.clinicPicker(scope, autoOpenSingle = false)
+    picker.state.first { it is com.aarogyam.staff.clinic.ClinicPickerState.Choose }
+    picker.select("sunrise")
+    return graph.directory.current
+        .filterNotNull()
+        .first()
+}
+
+fun patientJson(
+    id: String,
+    name: String,
+    number: String = "SD-1042",
+    balance: Long? = 125000,
+    next: String? = """{"starts_at":"2026-10-12T04:30:00Z","practitioner":"Dr. Patil"}""",
+): String =
+    """{"id":"$id","number":"$number","full_name":"$name","sex":"female","age_years":34,"birth_date_estimated":false,
+       "preferred_language":"en-IN","status":"active","created_at":"2026-01-01T00:00:00Z","recall_due":true,
+       "phone":"+91******3210","balance_paise":${balance ?: "null"},"next_appointment":${next ?: "null"}}"""
+
+fun patientListJson(vararg patients: String): String = """{"items":${patients.joinToString(",", "[", "]")}}"""

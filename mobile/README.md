@@ -48,9 +48,3 @@ The pre-commit hook runs the gate when anything under `mobile/` is staged.
 ## API models
 
 `shared` generates models from `../docs/api/openapi.json` at build time (OpenAPI Generator, `kotlin` / `multiplatform`, models only) into `shared/build/generated/openapi`, so they never drift from the committed spec. Add a schema to `apiModels` in `shared/build.gradle.kts` when a screen needs it, and a wrapper in `api/AarogyamApi.kt` (one request per screen where the API offers it).
-
-## Known issues in sakalya-mobile 0.1.0
-
-- Every KMP module gets the namespace `com.sakalya.mobile.android`; `gradle.properties` sets `android.uniquePackageNames=false` until a fixed release is pinned.
-- The iOS `platformLogSink()` crashes (variadic `NSLog`); tests inject `MemoryLogSink`, and the iOS app needs a fixed sink before it logs anything.
-- The `v0.1.0` tag is not on GitHub yet, so `scripts/mobile-deps.sh` needs `SAKALYA_MOBILE_PATH` until it is pushed.

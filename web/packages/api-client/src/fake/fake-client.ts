@@ -32,6 +32,7 @@ import {
   type FakeLeave,
   type FakeMembership,
   type FakeNote,
+  type FakeSummaryNote,
   type FakeObservation,
   type FakePatient,
   type FakePayment,
@@ -1470,6 +1471,78 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           };
           state.conditions.push(record);
           return reply(wireCondition(record) satisfies C.Condition);
+        }),
+
+      getPatientNotes: (id, opts) =>
+        respond(S.patientNotes, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const stored = (state.summaryNotes ?? []).find((s) => s.clinic_id === caller.clinic.id && s.patient_id === id);
+          const visitNotes = state.notes
+            .filter((n) => n.clinic_id === caller.clinic.id)
+            .flatMap((n): C.VisitNote[] => {
+              const visit = state.visits.find((v) => v.id === n.visit_id && v.patient_id === id);
+              const author = memberRefOf(state, n.author_membership_id);
+              if (visit === undefined || author === undefined) {
+                return [];
+              }
+              return [
+                {
+                  id: n.id,
+                  visit_id: n.visit_id,
+                  visit_number: visit.number,
+                  kind: n.kind,
+                  status: n.status,
+                  sections: n.sections,
+                  author,
+                  signed_at: n.signed_at ?? null,
+                  created_at: n.created_at,
+                  updated_at: n.updated_at,
+                  row_version: 1,
+                  addenda_count: n.addenda.length,
+                },
+              ];
+            })
+            .sort((a, b) => b.created_at.localeCompare(a.created_at));
+          const summary = stored === undefined ? null : wireSummary(stored, state);
+          return reply({ summary, visit_notes: visitNotes } satisfies C.PatientNotes);
+        }),
+
+      savePatientSummaryNote: (id, content, expectedVersion, opts) =>
+        respond(S.summaryNote, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          if (/<[A-Za-z/!?]|!\[|\]\(|`/.test(content.body)) {
+            return refuse(400, "invalid_request", "body: use only headings, lists, bold and italic; no HTML, links, images or code");
+          }
+          const summaries = (state.summaryNotes ??= []);
+          const found = summaries.find((s) => s.clinic_id === caller.clinic.id && s.patient_id === id);
+          if (expectedVersion !== undefined && expectedVersion !== (found?.row_version ?? 0)) {
+            return refuse(412, "stale_version", "The note changed since you read it.");
+          }
+          const body = content.body.trim();
+          const now = clock().toISOString();
+          let record = found;
+          if (record === undefined) {
+            record = { clinic_id: caller.clinic.id, patient_id: id, body, row_version: 1, updated_at: now, updated_by_membership_id: caller.membership.id };
+            summaries.push(record);
+          } else if (record.body !== body) {
+            record.body = body;
+            record.row_version += 1;
+            record.updated_at = now;
+            record.updated_by_membership_id = caller.membership.id;
+          }
+          return reply(wireSummary(record, state) satisfies C.SummaryNote);
         }),
 
       getTimeline: (id, opts) =>
@@ -5072,6 +5145,15 @@ function wireVisit(v: FakeVisit, state: Fixtures): C.Visit | undefined {
     status: v.status,
     started_at: v.started_at,
     ended_at: v.ended_at ?? null,
+  };
+}
+
+function wireSummary(s: FakeSummaryNote, state: Fixtures): C.SummaryNote {
+  return {
+    body: s.body,
+    row_version: s.row_version,
+    updated_at: s.updated_at,
+    updated_by: memberRefOf(state, s.updated_by_membership_id)?.name ?? null,
   };
 }
 

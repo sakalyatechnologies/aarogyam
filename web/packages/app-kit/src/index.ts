@@ -16,3 +16,5 @@ export { createQueryClient, type QueryClientOptions } from "./query-client.js";
 export { RouterLinks, renderRouterLink } from "./router-links.js";
 export { useDebouncedValue } from "./use-debounced-value.js";
 export { lazyPage, reloadOnceForNewVersion } from "./lazy-page.js";
+export { Markdown } from "./markdown-view.js";
+export { applyFormat, parseInline, parseMarkdown, validateMarkdown, type Block, type FormatKind, type FormatResult, type Inline } from "./markdown.js";

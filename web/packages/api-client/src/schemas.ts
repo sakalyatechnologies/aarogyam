@@ -1083,6 +1083,41 @@ export const note = z.object({
 }) satisfies z.ZodType<C.Note>;
 export type Note = z.output<typeof note>;
 
+export const summaryNote = z.object({
+  /** A strict Markdown subset; render it with `Markdown`, never as HTML. */
+  body: z.string(),
+  /** Bumped on every change; sent back in `If-Match`. */
+  row_version: z.number().int(),
+  updated_at: timestamp,
+  updated_by: optionalText,
+}) satisfies z.ZodType<C.SummaryNote>;
+export type SummaryNote = z.output<typeof summaryNote>;
+
+export const visitNote = z.object({
+  id: noteId,
+  visit_id: visitId,
+  visit_number: z.string(),
+  kind: noteKind,
+  status: noteStatus,
+  sections: noteSections,
+  author: memberRef,
+  signed_at: optionalTimestamp,
+  created_at: timestamp,
+  updated_at: timestamp,
+  row_version: z.number().int(),
+  addenda_count: z.number().int(),
+}) satisfies z.ZodType<C.VisitNote>;
+export type VisitNote = z.output<typeof visitNote>;
+
+export const patientNotes = z.object({
+  summary: summaryNote.nullable().exactOptional(),
+  visit_notes: z.array(visitNote),
+}) satisfies z.ZodType<C.PatientNotes>;
+export type PatientNotes = z.output<typeof patientNotes>;
+
+/** Body of `PUT /api/v1/patients/{id}/summary-note`. */
+export type SummaryContent = C.SummaryContent;
+
 /** Body of `POST /api/v1/visits/{id}/notes` and `PATCH /api/v1/notes/{id}`. */
 export type NoteContent = C.NoteContent;
 /** Body of `POST /api/v1/notes/{id}/addenda`. */

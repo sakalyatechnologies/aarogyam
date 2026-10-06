@@ -1039,6 +1039,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patient's summary note and visit notes, for Patient 360. Reading writes the access record. */
+        get: operations["getPatientNotes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/prescriptions": {
         parameters: {
             query?: never;
@@ -1102,6 +1119,28 @@ export interface paths {
         put?: never;
         /** Plans a follow-up for a patient. */
         post: operations["createRecall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/summary-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Saves the patient's summary note: the first save creates it, later saves replace the text.
+         *     Anyone with `clinical.write` whose scope reaches the patient may, at any time. Send the
+         *     `row_version` you read in `If-Match` to refuse the edit (`412`) if the note changed since.
+         *     The change history records each change.
+         */
+        put: operations["savePatientSummaryNote"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4656,6 +4695,12 @@ export interface components {
             /** @description `sent` or `not_sent`. */
             status: string;
         };
+        /** @description A patient's notes. */
+        PatientNotes: {
+            summary?: components["schemas"]["SummaryNote"] | null;
+            /** @description Visit notes, newest first (up to 100), limited to those the caller's role reaches. */
+            visit_notes: components["schemas"]["VisitNote"][];
+        };
         /** @description A patient as a bill or payment names them. */
         PatientRef: {
             /** @description Identifier. */
@@ -6038,6 +6083,31 @@ export interface components {
             /** @description Every item, critical first, then low, expiring and ok; each group by name. */
             items: components["schemas"]["StockLevel"][];
         };
+        /** @description The summary note's new text. */
+        SummaryContent: {
+            /**
+             * @description The text, up to 20,000 characters, in the Markdown subset. Empty clears the note. HTML,
+             *     links, images and code are refused (`400`).
+             */
+            body: string;
+        };
+        /** @description A patient's summary note: formatted text kept up to date outside any single visit. */
+        SummaryNote: {
+            /**
+             * @description The text: a strict Markdown subset (headings `#` to `###`, `-` and `1.` lists, `**bold**`,
+             *     `*italic*`). Render it with a renderer that treats everything else as plain text.
+             */
+            body: string;
+            /**
+             * Format: int64
+             * @description Goes up when the text changes. Send it back in `If-Match` (it is also the `ETag`).
+             */
+            row_version: number;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+            /** @description Who last changed it. */
+            updated_by?: string | null;
+        };
         /** @description A supplier. */
         Supplier: {
             /** @description Still bought from. */
@@ -6310,6 +6380,39 @@ export interface components {
         VisitList: {
             /** @description The visits. */
             items: components["schemas"]["Visit"][];
+        };
+        /** @description A visit note as listed on the patient. Open the visit to edit it or add an addendum. */
+        VisitNote: {
+            /**
+             * Format: int64
+             * @description How many addenda it has.
+             */
+            addenda_count: number;
+            /** @description Who wrote it. */
+            author: components["schemas"]["MemberRef"];
+            /** @description When it was written (RFC 3339). */
+            created_at: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description `soap`, `progress`, `procedure`, `intake` or `front_desk`. */
+            kind: string;
+            /**
+             * Format: int64
+             * @description The note's version; send it in `If-Match` to `PATCH /notes/{id}` (drafts only).
+             */
+            row_version: number;
+            /** @description The sections (each a Markdown subset). */
+            sections: components["schemas"]["NoteSections"];
+            /** @description When it was signed (RFC 3339). */
+            signed_at?: string | null;
+            /** @description `draft`, `signed`, `conflict` or `entered_in_error`. */
+            status: string;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+            /** @description The visit. */
+            visit_id: string;
+            /** @description The visit's number, such as `V-318`. */
+            visit_number: string;
         };
         /** @description A walk-in. */
         WalkInBody: {
@@ -9869,6 +9972,49 @@ export interface operations {
             };
         };
     };
+    getPatientNotes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientNotes"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic, or out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listPatientPrescriptions: {
         parameters: {
             query?: never;
@@ -10099,6 +10245,72 @@ export interface operations {
             };
             /** @description No such patient in this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    savePatientSummaryNote: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the note changed since */
+                "If-Match"?: string | null;
+            };
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SummaryContent"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description The `row_version` in quotes; send it back in `If-Match` when editing */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SummaryNote"];
+                };
+            };
+            /** @description Too long, or outside the allowed Markdown subset */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic, or out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `stale_version`: the note changed since the `If-Match` version; the current version is in `ETag` */
+            412: {
                 headers: {
                     [name: string]: unknown;
                 };

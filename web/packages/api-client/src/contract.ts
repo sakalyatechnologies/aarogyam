@@ -285,6 +285,11 @@ export type Timeline = Schemas["Timeline"];
 export type TimelineEvent = Schemas["TimelineEvent"];
 export type TimelineEventKind = "visit" | "note" | "procedure" | "attachment";
 
+export type SummaryNote = Schemas["SummaryNote"];
+export type SummaryContent = Schemas["SummaryContent"];
+export type VisitNote = Schemas["VisitNote"];
+export type PatientNotes = Schemas["PatientNotes"];
+
 export type Note = Schemas["Note"];
 export type NoteContent = Schemas["NoteContent"];
 export type NoteSections = Schemas["NoteSections"];

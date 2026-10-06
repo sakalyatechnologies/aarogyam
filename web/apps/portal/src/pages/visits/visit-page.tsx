@@ -15,7 +15,7 @@ import {
   type Procedure,
   type VisitId,
 } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatDateTime, useDocumentTitle } from "@aarogyam/app-kit";
+import { ApiErrorNotice, Markdown, formatDateTime, useDocumentTitle } from "@aarogyam/app-kit";
 import { Button, Dialog, Field, PageHeader, Select, TextArea, TextInput, useToast } from "@sakalya/ui";
 import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
@@ -325,7 +325,7 @@ function NoteCard({
           <ul aria-label="Addenda" className="mt-1 flex flex-col gap-2">
             {note.addenda.map((a) => (
               <li key={a.id} className="text-sm">
-                <p className="text-text">{a.body}</p>
+                <Markdown text={a.body} />
                 <p className="text-xs text-muted">
                   {a.author.name} · {formatDateTime(a.created_at)}
                 </p>
@@ -527,7 +527,7 @@ function NoteSection({ label, value }: { label: string; value: string | null | u
   return (
     <div>
       <dt className="text-xs font-semibold text-muted">{label}</dt>
-      <dd className="text-text">{value == null || value === "" ? "—" : value}</dd>
+      <dd className="text-text">{value == null || value === "" ? "—" : <Markdown text={value} />}</dd>
     </div>
   );
 }

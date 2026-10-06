@@ -4,6 +4,7 @@ import { useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from
 import { apiErrorOf, type Note, type NoteContent, type PatientId, type VisitId } from "@aarogyam/api-client";
 import { Button, Field, TextArea, useToast } from "@sakalya/ui";
 
+import { MarkdownToolbar } from "../../components/markdown-toolbar.js";
 import { useEditNote, useUploadRecording } from "./queries.js";
 import { insertAt } from "./voice/dictation.js";
 import { VoiceRecorder } from "./voice/voice-recorder.js";
@@ -78,7 +79,7 @@ export function DraftNoteEditor({
   const boxes = useRef<Partial<Record<SectionKey, HTMLTextAreaElement | null>>>({});
   const focused = useRef<SectionKey>("subjective");
   const selection = useRef<Partial<Record<SectionKey, { start: number; end: number }>>>({});
-  const cursorAfterInsert = useRef<{ key: SectionKey; at: number } | undefined>(undefined);
+  const cursorAfterInsert = useRef<{ key: SectionKey; at: number; from?: number } | undefined>(undefined);
   const [counter, setCounter] = useState(0);
 
   const change = (key: SectionKey, value: string) => {
@@ -107,6 +108,14 @@ export function DraftNoteEditor({
     setCounter((n) => n + 1);
   };
 
+  /** A toolbar action: the new text goes in, and the selection it leaves is restored once rendered. */
+  const format = (key: SectionKey, result: { value: string; start: number; end: number }) => {
+    selection.current[key] = { start: result.start, end: result.end };
+    cursorAfterInsert.current = { key, at: result.end, from: result.start };
+    change(key, result.value);
+    setCounter((n) => n + 1);
+  };
+
   useLayoutEffect(() => {
     const pending = cursorAfterInsert.current;
     if (pending === undefined) {
@@ -114,8 +123,9 @@ export function DraftNoteEditor({
     }
     cursorAfterInsert.current = undefined;
     const box = boxes.current[pending.key];
-    if (box != null && document.activeElement === box) {
-      box.setSelectionRange(pending.at, pending.at);
+    if (box != null && (document.activeElement === box || pending.from !== undefined)) {
+      box.setSelectionRange(pending.from ?? pending.at, pending.at);
+      box.focus();
     }
   }, [counter]);
 
@@ -147,8 +157,17 @@ export function DraftNoteEditor({
       <div className="grid gap-3 sm:grid-cols-2">
         {SECTIONS.map(({ key, label }) => (
           <Field key={key} label={label}>
-            <TextArea
-              rows={3}
+            <div className="flex flex-col gap-1.5">
+              <MarkdownToolbar
+                label={label}
+                value={values[key]}
+                box={() => boxes.current[key]}
+                onApply={(result) => {
+                  format(key, result);
+                }}
+              />
+              <TextArea
+              rows={4}
               value={values[key]}
               ref={(element) => {
                 boxes.current[key] = element;
@@ -166,7 +185,8 @@ export function DraftNoteEditor({
               onBlur={() => {
                 remember(key);
               }}
-            />
+              />
+            </div>
           </Field>
         ))}
       </div>

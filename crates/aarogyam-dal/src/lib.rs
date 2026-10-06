@@ -27,6 +27,7 @@ pub mod invitations;
 pub mod json;
 pub mod lookups;
 pub mod outbox;
+pub mod patient_notes;
 pub mod patients;
 pub mod prescriptions;
 pub mod queue;

@@ -78,6 +78,8 @@ pub enum Event {
     NoteSigned,
     /// An addendum was added to a signed note.
     NoteAmended,
+    /// A patient's summary note was saved.
+    PatientNoteSaved,
     /// A clinical record was marked entered in error.
     RecordRetracted,
     /// A treatment plan was accepted.
@@ -144,6 +146,7 @@ impl Event {
             Self::VisitClosed => "visit.closed",
             Self::NoteSigned => "note.signed",
             Self::NoteAmended => "note.amended",
+            Self::PatientNoteSaved => "patient_note.saved",
             Self::RecordRetracted => "record.retracted",
             Self::TreatmentPlanAccepted => "treatment_plan.accepted",
             Self::ProcedureCompleted => "procedure.completed",

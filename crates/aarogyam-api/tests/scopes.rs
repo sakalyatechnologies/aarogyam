@@ -238,6 +238,7 @@ fn colleague_reads(w: &World) -> Vec<String> {
         format!("/api/v1/patients/{p}/treatment-plans"),
         format!("/api/v1/patients/{p}/prescriptions"),
         format!("/api/v1/patients/{p}/timeline"),
+        format!("/api/v1/patients/{p}/notes"),
         format!("/api/v1/visits/{}", w.visit_b),
         format!("/api/v1/prescriptions/{}", w.rx_b),
     ]
@@ -313,6 +314,11 @@ fn colleague_writes(w: &World) -> Vec<(Method, String, Value)> {
             Method::POST,
             format!("/api/v1/notes/{}/sign", w.note_b),
             json!({}),
+        ),
+        (
+            Method::PUT,
+            format!("/api/v1/patients/{}/summary-note", w.patient_b),
+            json!({ "body": "x" }),
         ),
         (
             Method::POST,

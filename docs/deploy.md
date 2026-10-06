@@ -103,6 +103,22 @@ curl -s -o /dev/null -w '%{http_code}\n' https://aarogyam-portal.aarogyam.worker
 `npx wrangler rollback --name <worker> <deployment-id>`. For the tunnel/local API, just stop and
 restart `scripts/tunnel-up.sh` and re-run `scripts/deploy-workers.sh` with the new URL.
 
+### Patient files (Supabase Storage)
+
+Cloud Run's disk is wiped when an instance stops, so deployed environments keep files in a
+private Supabase Storage bucket (free plan: 1 GB). One-time step: Supabase dashboard, Storage,
+New bucket `aarogyam-files`, **Public off**. The API reaches it with `SUPABASE_URL` and
+`SUPABASE_SECRET_KEY` (already mounted), and the service needs:
+
+```
+ARO_FILES__BACKEND=supabase
+ARO_FILES__BUCKET=aarogyam-files
+```
+
+Downloads still go through the API's permission-checked route, which streams the object.
+Objects are named `<clinic id>/<attachment id>`. Local development and tests keep
+`ARO_FILES__BACKEND=local` (the default). Files already on a laptop's disk are not copied.
+
 ### Costs
 
 Free: Workers (static assets + under 100k requests/day), a Cloudflare quick tunnel, and the local

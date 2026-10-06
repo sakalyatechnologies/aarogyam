@@ -8,7 +8,7 @@ Newest first. Change a decision by adding an entry that supersedes it.
 - **Final means frozen by trigger.** `app.freeze_when()` lets a signed note, a recorded reading, a chart entry or a done procedure only move to its allowed next status (entered in error, corrected, superseded); corrections are new rows. Every child of a visit carries `patient_id` with a composite key `(org_id, encounter_id, patient_id)`.
 - **Only a note's author edits or signs it;** any clinician may add an addendum or mark a signed note entered in error with a reason.
 - **Clinical flags need only `patients.read`:** everyone who can see the patient learns that flags exist and how many; substances and conditions need `clinical.read`.
-- **Files are typed by their content** (JPEG, PNG, PDF, DICOM), stored at `<clinic>/<file>` behind a `Storage` trait (local disk until Supabase Storage), and served through five-minute HMAC links that write the access record.
+- **Files are typed by their content** (JPEG, PNG, PDF, DICOM), stored at `<clinic>/<file>` behind a `Storage` trait (local disk in development, a private Supabase Storage bucket in the cloud), and served through five-minute HMAC links that write the access record.
 
 ## 2026-10-03: Fourth review (three independent principal engineers) and the build plan
 
@@ -179,3 +179,9 @@ Onboarding answers become a site configuration. A GitHub App creates the clinic'
 **Founder must enable in Supabase (not done in code).** Authentication, Providers, Email: keep "Enable email provider" and password sign-in on; set minimum password length to 12 and require letters and digits; keep "Confirm email" on; consider "Leaked password protection" (Pro plan only). Review the Auth rate-limit page ("Rate limit for sign-ups and sign-ins" defaults to 30 per 5 minutes per IP).
 
 **Follow-up (open, not built): require a second step for super admins.** A password alone is a weaker proof than a mailbox-held code for the console, which can see every clinic. Proposal: enrol super admins in Supabase TOTP MFA, have the API require `aal2` in the JWT (the claim is already parsed in `sakalya-auth`) on console routes, and make the console prompt for the authenticator code after either sign-in method. Until then, super admins should prefer the email code.
+
+## 2026-10-05: Supabase Storage for files, streamed through the API
+
+**Decision.** `ARO_FILES__BACKEND=supabase` keeps file bytes in a private bucket (`ARO_FILES__BUCKET`, default `aarogyam-files`) through Supabase's Storage REST API and the server key; `local` stays the default for development and tests. Downloads still go through our permission-checked route, which fetches the object and streams it. We do not redirect to a Supabase signed URL.
+
+**Why.** The route already checks the permission, writes the access record and enforces the five-minute link. A redirect would hand the browser a second bearer URL that outlives our check and sits in browser history and proxy logs, and would need an extra Storage call to mint it. Streaming adds no database trip and one hop inside Supabase's network; files are capped at `MAX_BYTES`, so memory is bounded. Objects are named `<clinic id>/<attachment id>`, so no patient data is in a key, URL or log. Revisit with redirects if files grow large.

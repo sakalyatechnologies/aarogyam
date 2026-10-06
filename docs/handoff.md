@@ -90,6 +90,9 @@ VITE_API_MODE=http pnpm dev:console     # http://console.localtest.me:5174 (sign
 VITE_API_MODE=http pnpm dev:portal      # http://sunrise.localtest.me:5173 (sign in as Asha, Dev or Farah)
 ```
 
+Demo data ages: `scripts/demo-refresh.sh` (dry run; `--apply` to change; `--exact` shifts by exact days, not whole weeks) moves the demo clinics' (sunrise, lotus, suhasyadental) dated rows forward to today, as the owner, never deleting.
+On Supabase: `set -a; . ./.env.supabase; set +a; scripts/demo-refresh.sh --apply` (reads `DB_OWNER_URL`); a shift of 0 days is a no-op, so it is safe to run daily.
+
 Seeded people (dev tokens use `auth_uid` as `sub`):
 
 | Person | `auth_uid` | Access |

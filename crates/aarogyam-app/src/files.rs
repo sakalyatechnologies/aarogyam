@@ -1,10 +1,14 @@
 //! Patient files: upload, list, and download through short-lived signed links.
 //!
-//! The bytes live behind [`Storage`]: local disk in development ([`LocalDisk`]), object storage
-//! (Supabase Storage) later. Keys are made by the server from ids (`<clinic>/<attachment>`),
+//! The bytes live behind [`Storage`]: local disk in development ([`LocalDisk`]), a private
+//! Supabase Storage bucket in the cloud ([`SupabaseStorage`]). Keys are made by the server from ids (`<clinic>/<attachment>`),
 //! never from a file name. A download link carries an HMAC over the clinic, the file, the
 //! member and an expiry five minutes ahead; opening it streams the file and writes the access
 //! record.
+
+mod supabase;
+
+pub use supabase::SupabaseStorage;
 
 use std::fmt::{self, Write as _};
 use std::future::Future;

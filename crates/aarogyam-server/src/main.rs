@@ -6,11 +6,11 @@ use std::sync::Arc;
 
 use aarogyam_api::{AppState, DevTokens, Hosts, TokenCheck};
 use aarogyam_app::accounts::{SignInAccounts as _, SupabaseAdmin};
-use aarogyam_app::files::{Files, LinkSigner, LocalDisk};
+use aarogyam_app::files::{Files, LinkSigner, LocalDisk, Storage, SupabaseStorage};
 use aarogyam_domain::access::PlatformRole;
 use aarogyam_domain::patient::Email;
 use aarogyam_notify::{Notifier, PortalLinks};
-use aarogyam_server::config::{AuthMode, Config};
+use aarogyam_server::config::{AuthMode, Config, FileBackend};
 use anyhow::Context;
 use axum::http::HeaderName;
 use clap::{Parser, Subcommand};
@@ -177,10 +177,28 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         LinkSigner::random()
     }
     .map_err(|error| anyhow::anyhow!("files.signing_key: {error}"))?;
-    if !local {
-        tracing::warn!("patient files are kept on local disk until object storage is set up");
-    }
-    let files = Files::new(Arc::new(LocalDisk::new(config.files.dir)), signer);
+    let storage: Arc<dyn Storage> = match config.files.backend {
+        FileBackend::Local => {
+            if !local {
+                tracing::warn!(
+                    "patient files are on local disk, which is lost when the instance stops"
+                );
+            }
+            Arc::new(LocalDisk::new(config.files.dir))
+        }
+        FileBackend::Supabase => {
+            let (Some(url), Some(key)) = (&config.supabase.url, &config.supabase.secret_key) else {
+                anyhow::bail!(
+                    "files.backend = supabase needs supabase.url and supabase.secret_key"
+                );
+            };
+            Arc::new(
+                SupabaseStorage::new(url, &config.files.bucket, key.clone())
+                    .map_err(|error| anyhow::anyhow!("files.bucket / supabase.*: {error}"))?,
+            )
+        }
+    };
+    let files = Files::new(storage, signer);
     let mut state = AppState::new(db, http, tokens, hosts).with_quality_dir(config.quality.dir);
     if let Some(admin) = accounts {
         state = state.with_accounts(Arc::new(admin));

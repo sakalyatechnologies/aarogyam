@@ -316,10 +316,26 @@ impl Default for EmailSettings {
     }
 }
 
+/// Which store keeps file bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FileBackend {
+    /// A directory on local disk: development and tests.
+    Local,
+    /// A private Supabase Storage bucket.
+    Supabase,
+}
+
 /// Where patient files are kept and how their download links are signed.
 #[derive(Debug, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FileSettings {
+    /// Where bytes live (`ARO_FILES__BACKEND`): `local` disk (default) or `supabase` Storage.
+    /// Cloud Run's disk is wiped when an instance stops, so deployed environments use
+    /// `supabase`, which needs `supabase.url` and `supabase.secret_key`.
+    pub backend: FileBackend,
+    /// The private Supabase Storage bucket (`ARO_FILES__BUCKET`). Default `aarogyam-files`.
+    pub bucket: String,
     /// Directory for files on local disk (`ARO_FILES__DIR`). Default `var/attachments`.
     pub dir: std::path::PathBuf,
     /// Secret for download links, at least 32 bytes (`ARO_FILES__SIGNING_KEY`). Required
@@ -331,6 +347,8 @@ pub struct FileSettings {
 impl Default for FileSettings {
     fn default() -> Self {
         Self {
+            backend: FileBackend::Local,
+            bucket: "aarogyam-files".to_owned(),
             dir: "var/attachments".into(),
             signing_key: None,
         }

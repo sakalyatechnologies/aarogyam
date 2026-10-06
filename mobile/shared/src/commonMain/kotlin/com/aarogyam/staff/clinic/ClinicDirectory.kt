@@ -30,6 +30,9 @@ class ClinicContext(
 
     /** Permission keys the role holds; anything missing is denied. */
     val permissions: Set<String> = session.membership.permissions.toSet()
+
+    /** Doctors and rooms, fetched once per clinic and reused by every screen. */
+    val reference: ReferenceData = ReferenceData(api)
 }
 
 /**

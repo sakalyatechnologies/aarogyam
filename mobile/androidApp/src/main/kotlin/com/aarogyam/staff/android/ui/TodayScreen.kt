@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,7 +60,7 @@ fun TodayScreen(
         PullToRefreshBox(
             isRefreshing = loaded?.refreshing == true,
             onRefresh = holder::refresh,
-            modifier = Modifier.weight(1f).navigationBarsPadding(),
+            modifier = Modifier.weight(1f),
         ) {
             when (val current = state) {
                 TodayState.Loading -> {

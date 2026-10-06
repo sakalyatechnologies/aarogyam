@@ -1,10 +1,13 @@
 package com.aarogyam.staff
 
+import com.aarogyam.staff.calendar.CalendarStateHolder
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicDirectory
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.Hosts
+import com.aarogyam.staff.patients.Patient360StateHolder
+import com.aarogyam.staff.patients.PatientsStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
 import com.sakalya.mobile.auth.PublishableKey
@@ -71,6 +74,22 @@ class AppGraph private constructor(
         clinic: ClinicContext,
         scope: CoroutineScope,
     ): TodayStateHolder = TodayStateHolder(clinic, scope, logger("aarogyam.today"))
+
+    fun patients(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): PatientsStateHolder = PatientsStateHolder(clinic, scope, logger("aarogyam.patients"))
+
+    fun patient360(
+        clinic: ClinicContext,
+        patientId: String,
+        scope: CoroutineScope,
+    ): Patient360StateHolder = Patient360StateHolder(clinic, patientId, scope, logger("aarogyam.patient360"))
+
+    fun calendar(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): CalendarStateHolder = CalendarStateHolder(clinic, scope, logger("aarogyam.calendar"))
 
     /** Restores the session again, after secure storage was unavailable. */
     fun restore() {

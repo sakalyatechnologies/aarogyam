@@ -1,5 +1,6 @@
 package com.aarogyam.staff.android.ui
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -29,7 +30,8 @@ import kotlinx.coroutines.flow.StateFlow
 private object Routes {
     const val SIGN_IN = "sign-in"
     const val CLINICS = "clinics"
-    const val TODAY = "today"
+    const val MAIN = "main"
+    const val PATIENT = "patient/{id}"
 }
 
 /** Themes the app from the open clinic's brand and shows the screen the session calls for. */
@@ -82,7 +84,7 @@ private fun Signed(graph: AppGraph) {
                     when {
                         session !is SessionState.SignedIn -> Routes.SIGN_IN
                         clinic == null -> Routes.CLINICS
-                        else -> Routes.TODAY
+                        else -> Routes.MAIN
                     }
                 val nav = rememberNavController()
                 // Each move replaces the stack, so a screen's state holder ends with it.
@@ -105,16 +107,23 @@ private fun Signed(graph: AppGraph) {
                             onSignOut = graph::signOut,
                         )
                     }
-                    composable(Routes.TODAY) {
+                    composable(Routes.MAIN) {
                         val open = clinic ?: return@composable
-                        TodayScreen(
-                            rememberHolder { graph.today(open, it) },
+                        MainScreen(
+                            graph,
+                            open,
+                            onOpenPatient = { nav.navigate("patient/${Uri.encode(it)}") },
                             onSwitchClinic = {
                                 chose = true
                                 graph.directory.leave()
                             },
                             onSignOut = graph::signOut,
                         )
+                    }
+                    composable(Routes.PATIENT) { entry ->
+                        val open = clinic ?: return@composable
+                        val id = entry.arguments?.getString("id") ?: return@composable
+                        Patient360Screen(rememberHolder { graph.patient360(open, id, it) }, onBack = nav::popBackStack)
                     }
                 }
             }

@@ -27,11 +27,13 @@ fun BarAction(
     text: String,
     color: Color,
     onClick: () -> Unit,
+    description: String? = null,
 ) {
     Box(
         Modifier
             .sizeIn(minWidth = Spacing.MIN_TOUCH_TARGET.dp, minHeight = Spacing.MIN_TOUCH_TARGET.dp)
-            .clickable(role = Role.Button, onClick = onClick),
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { if (description != null) contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
         Text(text, style = SkTypography.label, color = color)

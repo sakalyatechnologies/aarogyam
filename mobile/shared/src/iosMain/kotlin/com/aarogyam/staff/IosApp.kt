@@ -1,9 +1,12 @@
 package com.aarogyam.staff
 
+import com.aarogyam.staff.calendar.CalendarStateHolder
 import com.aarogyam.staff.clinic.ClinicBranding
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
+import com.aarogyam.staff.patients.Patient360StateHolder
+import com.aarogyam.staff.patients.PatientsStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
 import com.sakalya.mobile.design.ThemeMode
@@ -50,6 +53,25 @@ fun AppGraph.today(
     clinic: ClinicContext,
     screen: ScreenScope,
 ): TodayStateHolder = today(clinic, screen.scope)
+
+/** The Patients state holder for [clinic], living as long as [screen]. */
+fun AppGraph.patients(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): PatientsStateHolder = patients(clinic, screen.scope)
+
+/** The Patient 360 state holder for [patientId], living as long as [screen]. */
+fun AppGraph.patient360(
+    clinic: ClinicContext,
+    patientId: String,
+    screen: ScreenScope,
+): Patient360StateHolder = patient360(clinic, patientId, screen.scope)
+
+/** The Calendar state holder for [clinic], living as long as [screen]. */
+fun AppGraph.calendar(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): CalendarStateHolder = calendar(clinic, screen.scope)
 
 /** The palette for SakalyaUI's `SkPalette(tokens:)`, as `#rrggbb` text by token name. */
 fun ClinicBranding.paletteTokens(systemDark: Boolean): Map<String, String> = theme(systemDark).colors.toHexMap()

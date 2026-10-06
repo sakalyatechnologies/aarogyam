@@ -35,6 +35,22 @@ val apiModels =
         "QueueToken",
         "TeamMemberToday",
         "TodayShift",
+        "SearchRequest",
+        "PatientList",
+        "Patient",
+        "NextAppointment",
+        "ClinicalFlags",
+        "Allergy",
+        "Condition",
+        "Code",
+        "VisitList",
+        "Visit",
+        "MemberRef",
+        "AppointmentList",
+        "PractitionerList",
+        "Practitioner",
+        "RoomList",
+        "Room",
     )
 val generatedApi = layout.buildDirectory.dir("generated/openapi")
 

@@ -294,7 +294,10 @@ async fn the_outbox_drain_delivers_to_the_log_and_abandons_broken_messages() {
     assert_eq!(status, StatusCode::OK, "{report}");
     assert_eq!(
         report,
-        json!({ "email_provider": "log", "claimed": 2, "sent": 1, "retrying": 0, "failed": 1, "purged": 0 })
+        json!({ "email_provider": "log", "claimed": 2, "sent": 1, "retrying": 0, "failed": 1, "purged": 0,
+                // The two seeded clinics' portal addresses, made ready first (tests/addresses.rs).
+                "address_provider": "wildcard", "addresses_ready": 2, "addresses_retrying": 0,
+                "addresses_failed": 0 })
     );
     let rows: Vec<OutboxRow> = sqlx::query_as(
         "select event_key, status, provider, secret, last_error, attempts

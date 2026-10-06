@@ -27,6 +27,7 @@ function stubAuth(responses: { request?: AuthOutcome; verify?: AuthOutcome; pass
     completeRedirect: () => Promise.resolve({ ok: true }),
     signInWithPassword,
     setPassword,
+    verifyTokenHash: () => Promise.resolve({ ok: true as const }),
   };
   return { auth, requestCode, verifyCode, signInWithPassword, setPassword };
 }

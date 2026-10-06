@@ -41,6 +41,9 @@ pub struct MyClinic {
 pub struct Me {
     /// Clinics they are invited to or active in, by name.
     pub clinics: Vec<MyClinic>,
+    /// Whether they are active Sakalya staff who can open the console. Central sign-in sends
+    /// them there, or offers it first beside their clinics.
+    pub console_access: bool,
 }
 
 /// The signed-in person's clinics, for the clinic switcher.
@@ -56,8 +59,10 @@ pub(crate) async fn me(
     State(state): State<AppState>,
     signed_in: SignedIn,
 ) -> Result<Json<Me>, ApiFailure> {
-    let clinics = lookups::my_clinics(state.db().pool(), signed_in.claims.subject().uuid()).await?;
+    let (clinics, console_access) =
+        lookups::me(state.db().pool(), signed_in.claims.subject().uuid()).await?;
     Ok(Json(Me {
+        console_access,
         clinics: clinics
             .into_iter()
             .map(|clinic| MyClinic {

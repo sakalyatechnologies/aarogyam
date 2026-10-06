@@ -22,6 +22,18 @@ pub enum Event {
     MessageRetried,
     /// A queued message failed for the last time.
     MessageFailed,
+    /// A central sign-in handed a session over to a clinic or console host.
+    HandoffCreated,
+    /// A handoff code was redeemed for a session.
+    HandoffRedeemed,
+    /// A handoff code was refused (unknown, used, expired or for another host).
+    HandoffRefused,
+    /// A clinic's portal host is served at the edge.
+    AddressProvisioned,
+    /// Making a portal host work failed and will be tried again.
+    AddressRetried,
+    /// Making a portal host work failed for the last time.
+    AddressFailed,
     /// A bill was issued.
     InvoiceIssued,
     /// A bill was voided.
@@ -102,6 +114,12 @@ impl Event {
             Self::MessageSent => "message.sent",
             Self::MessageRetried => "message.retried",
             Self::MessageFailed => "message.failed",
+            Self::HandoffCreated => "handoff.created",
+            Self::HandoffRedeemed => "handoff.redeemed",
+            Self::HandoffRefused => "handoff.refused",
+            Self::AddressProvisioned => "address.provisioned",
+            Self::AddressRetried => "address.retried",
+            Self::AddressFailed => "address.failed",
             Self::InvoiceIssued => "invoice.issued",
             Self::InvoiceVoided => "invoice.voided",
             Self::PaymentReceived => "payment.received",

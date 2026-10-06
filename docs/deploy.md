@@ -207,10 +207,11 @@ build is the real test (see "If the first build fails").
    Cloud Build compiles Rust on Google's machines (about 15-25 minutes the first time, and
    every time: there is no build cache). It prints the service URL and runs two checks:
    `/healthz` must be 200, and `/api/v1/me` must be 401 (no edge secret, refused by design).
-7. **Point the Workers at it**, the portal and console and then one per clinic:
+7. **Point the Workers at it**, the portal and console. Clinic addresses are automatic (see
+   "Clinic addresses" below); run the backfill once for clinics made before migration 0160:
    ```bash
    scripts/deploy-workers.sh <service url>
-   scripts/deploy-workers.sh <service url> aarogyam-<clinic>
+   scripts/provision-hosts.sh
    ```
    The clinic host mapping (`org_domains`) is unchanged: see "Map the demo clinic's host"
    above. Stop `scripts/demo-api.sh` and the tunnel; they are no longer needed.
@@ -235,7 +236,8 @@ from your Mac as today (it needs `ARO_DB__OWNER_URL`, which is deliberately not 
   `aarogyam-files-signing-key` (generated once), and `aarogyam-resend-api-key` if
   `.env.supabase` has `RESEND_API_KEY`. Re-run the setup to rotate one after changing the
   file, then redeploy.
-- **Outbox sender**: a Cloud Run **job** (`aarogyam outbox drain`, once, then exit), started
+- **Outbox sender**: a Cloud Run **job** (`aarogyam outbox drain`, once, then exit; it also
+  makes new clinics' addresses work, see "Clinic addresses"), started
   by **Cloud Scheduler every 2 minutes**. The alternative, a loop inside the API, needs an
   instance that never sleeps (min-instances 1), which is never free. A job costs nothing
   between runs: about 4 seconds of CPU per run is roughly 90,000 of the 180,000 free
@@ -295,6 +297,83 @@ The older Cloud Build pipeline below (`cloudbuild.yaml`, `deploy/cloud-run/*.yam
 staging project once CI resumes (`docs/cicd.md`). It is not needed for the trial deploy.
 
 ---
+
+## Clinic addresses
+
+workers.dev has no wildcard subdomains, so each clinic's portal host
+(`<slug>-aarogyam.<subdomain>.workers.dev`) needs its own Worker. The outbox job makes it
+automatically, for clinics created in the console and for approved applications alike, within
+one run (every 2 minutes on Cloud Run, every 15 seconds under `scripts/demo-api.sh`). It runs
+before email is sent, so the owner's invitation link works when it arrives. The clinic's
+console page shows **Address ready / pending / failed**, with the reason for a failure. Why
+this design, and the wildcard-domain alternative: `docs/decisions.md`, "Automatic clinic
+addresses".
+
+- **What it creates.** A Worker named `<slug>-aarogyam` of two lines that hands every request
+  to `aarogyam-portal` through a service binding, and its workers.dev address. It holds no
+  secret, and portal releases reach every clinic without redeploying it. Nothing else in the
+  account is touched; `aarogyam-portal` and `aarogyam-console` can never be overwritten.
+- **The token.** Cloudflare dashboard, My Profile, API Tokens, Create Token, Custom token:
+  permission **Account, Workers Scripts, Edit**, account resources: only the Sakalya account,
+  no zone permissions. Use a new token for this, not one with wider rights. It goes in
+  git-ignored `.env.cloudflare` with the account and subdomain:
+  ```
+  CLOUDFLARE_API_TOKEN=...
+  CLOUDFLARE_ACCOUNT_ID=<32 hex digits>
+  CLOUDFLARE_WORKERS_SUBDOMAIN=spring-snow-130f
+  ```
+- **Where it is read.** `scripts/deploy-workers.sh`, `scripts/demo-api.sh` and
+  `scripts/provision-hosts.sh` read `.env.cloudflare` on this Mac. `scripts/cloud-run-setup.sh`
+  stores the token as the secret `aarogyam-cloudflare-token`, and `scripts/cloud-run-deploy.sh`
+  mounts it on the **outbox job only** (`ARO_EDGE__CLOUDFLARE_API_TOKEN`, with
+  `ARO_EDGE__HOSTS=workers_dev`), never on the API service, and never in a browser. Re-run the
+  setup after rotating it. It is the 7th secret: Secret Manager's free tier is 6 active
+  versions, so expect about $0.06 a month (covered by the trial credit).
+- **Backfill, once.** `scripts/provision-hosts.sh` queues every clinic's portal host again
+  and provisions it now, replacing hand-deployed clinic Workers with the forwarding ones.
+  `--clinic <slug>` does one clinic, the way to retry a failed address after fixing its cause.
+  The same from Cloud Run: `gcloud run jobs execute aarogyam-outbox --region asia-south1 --args
+  outbox,addresses`.
+- **Limits.** The free plan allows 100 Workers per account, so about 95 clinics on workers.dev.
+  Requests through the clinic Worker and the service binding cost nothing extra. A host that
+  doesn't match `<slug>-aarogyam.<subdomain>.workers.dev` (such as the old demo mapping to
+  `aarogyam-portal`) is marked failed, not deployed.
+- **Locally** `edge.hosts = "wildcard"` (`config/local.toml`): `*.localtest.me` already
+  resolves, so the drain marks addresses ready without calling Cloudflare.
+- **Moving to a wildcard domain** later needs no code change: see the next section.
+
+### Moving the domain to Cloudflare (the recommended path)
+
+`sakalyatechnologies.com` stays registered at GoDaddy; only its nameservers move to
+Cloudflare's free plan. Then one wildcard route serves every clinic and a new clinic needs no
+deploy. Decision and alternatives: `docs/decisions.md`, "Automatic clinic addresses".
+
+1. **Inventory first.** In GoDaddy, DNS, export or copy every record: MX (mail), TXT (SPF,
+   DKIM, DMARC, site verifications such as Google and Resend), CNAME and A records for the
+   company site and any other product or subdomain, CAA and SRV if present.
+2. **Add the site in Cloudflare** (Add a domain, Free plan). Cloudflare imports what it finds;
+   compare it line by line with the inventory and add anything missing. Mail records (MX, and
+   the mail host's A/CNAME) stay **DNS only** (grey cloud).
+3. **Verify before switching.** For each record, query Cloudflare's assigned nameserver
+   directly, for example `dig @<name>.ns.cloudflare.com sakalyatechnologies.com MX` and the
+   same for TXT and every subdomain, and compare with `dig @ns01.domaincontrol.com ...` (the
+   GoDaddy answers). Lower nothing yet; just make sure both answer the same.
+4. **Turn off DNSSEC at GoDaddy** if it is on (otherwise the domain stops resolving after the
+   switch); re-enable it in Cloudflare after activation.
+5. **Switch nameservers** at GoDaddy (Domain, Nameservers, "I'll use my own nameservers") to the
+   two Cloudflare names. Activation usually takes minutes to a few hours; mail and the site
+   keep working because the records were copied.
+6. **Add the Aarogyam records and routes.** A proxied `*` record (`AAAA` to `100::`) serves
+   every clinic host; explicit records (mail, the company site, other products) keep
+   overriding it. Worker routes: `*-aarogyam.sakalyatechnologies.com/*` to `aarogyam-portal`,
+   and the more specific `console-aarogyam.sakalyatechnologies.com/*` to `aarogyam-console`.
+   The public site takes `aarogyam.sakalyatechnologies.com`. Avoid the broad
+   `*.sakalyatechnologies.com/*` route: routes match by host name, so it would also capture
+   other products' proxied subdomains.
+7. **Point Aarogyam at it.** On the outbox job and the API: `ARO_EDGE__HOSTS=wildcard`,
+   `ARO_HOSTS__PORTAL_HOST_TEMPLATE={slug}-aarogyam.sakalyatechnologies.com`, and the console
+   and app hosts; add each existing clinic's new host to `org_domains` as its primary portal
+   host. Then remove `aarogyam-cloudflare-token` from the job and delete the per-clinic Workers.
 
 ## Cloud Run + Cloudflare Workers (staging)
 

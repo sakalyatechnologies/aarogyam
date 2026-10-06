@@ -330,6 +330,86 @@
         ]
       }
     },
+    "/api/v1/auth/handoff": {
+      "post": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Makes a one-time code that signs the caller in on another Aarogyam host.",
+        "operationId": "createHandoff",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewHandoff"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Handoff"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a host name"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a host this person may go to"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/handoff/redeem": {
+      "post": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Redeems a handoff code on this host for a session. Unknown, used, expired and other hosts'\ncodes all get `404`, and the first attempt uses a code up. Throttled per IP.",
+        "operationId": "redeemHandoff",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeemHandoff"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoffSession"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The code doesn't sign anyone in here"
+          },
+          "429": {
+            "description": "Too many attempts"
+          }
+        }
+      }
+    },
     "/api/v1/console/applications": {
       "get": {
         "tags": [
@@ -735,6 +815,66 @@
         ]
       }
     },
+    "/api/v1/console/slugs": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Checks a clinic address as it is typed, suggesting free ones (`<name>-<city>`, or a short\nsuffix) when it is taken. Sakalya staff only.",
+        "operationId": "checkSlug",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "description": "The clinic's name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "query",
+            "description": "The typed subdomain",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "description": "The clinic's city",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlugCheck"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not Sakalya staff"
+          },
+          "404": {
+            "description": "Not the console host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/dev/token": {
       "post": {
         "tags": [
@@ -859,7 +999,7 @@
         "tags": [
           "internal"
         ],
-        "summary": "Delivers due outbox messages across clinics (local development only; later Cloud\nScheduler with a Google-signed token).",
+        "summary": "Makes new portal hosts work, then delivers due outbox messages across clinics (local development only; later Cloud\nScheduler with a Google-signed token).",
         "operationId": "drainOutbox",
         "responses": {
           "200": {
@@ -8782,6 +8922,20 @@
             "format": "int64",
             "description": "Active members."
           },
+          "address_error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the last attempt to make the portal host work failed, without secrets."
+          },
+          "address_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Whether the edge serves the portal host yet: `pending`, `ready` or `failed`."
+          },
           "created_at": {
             "type": "string",
             "description": "When it was created (RFC 3339)."
@@ -9472,6 +9626,13 @@
             "format": "int64",
             "description": "Members with an active membership."
           },
+          "address_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Whether the edge serves the portal host yet: `pending`, `ready` or `failed`."
+          },
           "created_at": {
             "type": "string",
             "description": "When it was created (RFC 3339)."
@@ -9556,7 +9717,7 @@
           },
           "portal_host": {
             "type": "string",
-            "description": "Its portal host name."
+            "description": "Its portal host name. Its address starts `pending`; the outbox job makes it work\nwithin a couple of minutes (see `address_status` on the clinic)."
           },
           "slug": {
             "type": "string",
@@ -9712,9 +9873,32 @@
           "sent",
           "retrying",
           "failed",
-          "purged"
+          "purged",
+          "address_provider",
+          "addresses_ready",
+          "addresses_retrying",
+          "addresses_failed"
         ],
         "properties": {
+          "address_provider": {
+            "type": "string",
+            "description": "How portal hosts are made to work: `off`, `wildcard` or `workers_dev`."
+          },
+          "addresses_failed": {
+            "type": "integer",
+            "description": "Portal hosts that failed for the last time.",
+            "minimum": 0
+          },
+          "addresses_ready": {
+            "type": "integer",
+            "description": "Portal hosts made to work, run before the messages so invitation links work.",
+            "minimum": 0
+          },
+          "addresses_retrying": {
+            "type": "integer",
+            "description": "Portal hosts that failed and will be tried again.",
+            "minimum": 0
+          },
           "claimed": {
             "type": "integer",
             "description": "Messages claimed.",
@@ -9931,6 +10115,68 @@
               "$ref": "#/components/schemas/ExpiringBatch"
             },
             "description": "Earliest first; already expired batches come first."
+          }
+        }
+      },
+      "Handoff": {
+        "type": "object",
+        "description": "A one-time code for that host. Send the person to `redirect_url`: the code is in the URL\nfragment, which browsers never send to a server.",
+        "required": [
+          "code",
+          "host",
+          "expires_at",
+          "redirect_url"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The code; works once, on `host` only."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When it stops working (RFC 3339), at most 60 seconds away."
+          },
+          "host": {
+            "type": "string",
+            "description": "The host it is for."
+          },
+          "redirect_url": {
+            "type": "string",
+            "description": "`https://<host>/auth/handoff#code=<code>`."
+          }
+        }
+      },
+      "HandoffSession": {
+        "type": "object",
+        "description": "What signs the person in on this host. `kind` says which fields are set: `supabase` gives\n`email` and `token_hash` for `supabase.auth.verifyOtp({ type: \"magiclink\", token_hash })`;\n`dev` (local only) gives a development `access_token`.",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "access_token": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A development access token (`dev`)."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The person's sign-in address (`supabase`)."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`supabase` or `dev`."
+          },
+          "token_hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A one-time magic-link token hash (`supabase`)."
           }
         }
       },
@@ -11175,7 +11421,8 @@
         "type": "object",
         "description": "The signed-in person's clinics.",
         "required": [
-          "clinics"
+          "clinics",
+          "console_access"
         ],
         "properties": {
           "clinics": {
@@ -11184,6 +11431,10 @@
               "$ref": "#/components/schemas/MyClinic"
             },
             "description": "Clinics they are invited to or active in, by name."
+          },
+          "console_access": {
+            "type": "boolean",
+            "description": "Whether they are active Sakalya staff who can open the console. Central sign-in sends\nthem there, or offers it first beside their clinics."
           }
         }
       },
@@ -11674,6 +11925,19 @@
           "role_key": {
             "type": "string",
             "description": "A role of the clinic, such as `doctor` or `front_desk`."
+          }
+        }
+      },
+      "NewHandoff": {
+        "type": "object",
+        "description": "Where the signed-in person is going.",
+        "required": [
+          "host"
+        ],
+        "properties": {
+          "host": {
+            "type": "string",
+            "description": "A clinic portal host they are an active member of, or the console host for Sakalya\nstaff, such as `sunrise-aarogyam.sakalyatechnologies.com`."
           }
         }
       },
@@ -14355,6 +14619,19 @@
           }
         }
       },
+      "RedeemHandoff": {
+        "type": "object",
+        "description": "A code to redeem on the host it was made for.",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The code from the URL fragment."
+          }
+        }
+      },
       "RegistrationReceived": {
         "type": "object",
         "description": "The one answer to a valid application.",
@@ -15724,6 +16001,44 @@
               "type": "string"
             },
             "description": "Its palettes; the first is the default."
+          }
+        }
+      },
+      "SlugCheck": {
+        "type": "object",
+        "description": "Whether an address is free, with free alternatives when it isn't.",
+        "required": [
+          "slug",
+          "portal_host",
+          "available",
+          "suggestions"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "Free to use now (creating the clinic still checks)."
+          },
+          "portal_host": {
+            "type": "string",
+            "description": "Its portal host."
+          },
+          "problem": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it can't be used, when malformed or reserved."
+          },
+          "slug": {
+            "type": "string",
+            "description": "The subdomain checked."
+          },
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Free alternatives, best first."
           }
         }
       },

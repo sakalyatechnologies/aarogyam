@@ -7,6 +7,11 @@
 // Worker strips any client-sent copies of the three headers first, then sets its own from
 // values Cloudflare itself vouches for (the request's own `Host` and the real connecting IP),
 // never from anything the client could have set upstream of Cloudflare.
+//
+// Clinic addresses on workers.dev are small Workers made by the outbox job
+// (crates/aarogyam-notify/src/addresses.rs) that hand the request, unchanged, to the portal
+// Worker through a service binding. The request URL then carries the clinic's own host, which
+// only Cloudflare or a Worker in our account can set, so the same code serves every clinic.
 
 export interface Env {
   /** Workers static assets for this app's Vite build. */

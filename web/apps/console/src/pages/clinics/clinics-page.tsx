@@ -8,6 +8,7 @@ import { Button, Card, ChipFilterGroup, DataTable, Link, PageHeader, SearchInput
 
 import { useClinics } from "../../api.js";
 import { Tile } from "../../ui/tile.js";
+import { AddressStatusPill } from "./address-status.js";
 import { ClinicStatusPill } from "./clinic-status.js";
 import { countClinics, filterClinics, type ClinicSpecialtyFilter, type ClinicStatusFilter } from "./clinics-view.js";
 
@@ -21,6 +22,11 @@ const COLUMNS: readonly DataTableColumn<ConsoleClinic>[] = [
           {row.name}
         </Link>
         <span className="font-mono text-xs text-muted">{row.portal_host ?? `${row.slug} (no host yet)`}</span>
+        {row.address_status != null && row.address_status !== "ready" ? (
+          <span className="mt-1">
+            <AddressStatusPill status={row.address_status} />
+          </span>
+        ) : null}
       </span>
     ),
     sortValue: (row) => row.name,

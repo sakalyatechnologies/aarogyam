@@ -56,16 +56,56 @@ pub enum AccountsError {
 pub type AccountFuture<'a> =
     Pin<Box<dyn Future<Output = Result<AuthUid, AccountsError>> + Send + 'a>>;
 
+/// A one-time sign-in token for an existing account: the hashed token of a Supabase magic
+/// link, which the browser exchanges with `supabase.auth.verifyOtp({ token_hash, type:
+/// "magiclink" })` for a session of its own. Nothing is emailed.
+pub struct SignInToken(SecretString);
+
+impl SignInToken {
+    /// Wraps a token from Supabase (or a test).
+    #[must_use]
+    pub const fn new(token: SecretString) -> Self {
+        Self(token)
+    }
+
+    /// The token, for the one response that hands it to the browser.
+    #[must_use]
+    pub fn expose(&self) -> &str {
+        self.0.expose_secret()
+    }
+}
+
+impl fmt::Debug for SignInToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("SignInToken(..)")
+    }
+}
+
+/// A boxed future for [`SignInAccounts::sign_in_token`].
+pub type TokenFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<SignInToken, AccountsError>> + Send + 'a>>;
+
 /// Makes sure a person can sign in with an email address.
 pub trait SignInAccounts: Send + Sync + fmt::Debug {
     /// The account for `email`, created (confirmed) when there is none.
     fn ensure_user<'a>(&'a self, email: &'a Email) -> AccountFuture<'a>;
+
+    /// A one-time sign-in token for the existing account of `email`, for the session handoff.
+    /// Unsupported unless implemented.
+    fn sign_in_token<'a>(&'a self, _email: &'a Email) -> TokenFuture<'a> {
+        Box::pin(async {
+            Err(AccountsError::Configuration(
+                "these accounts can't issue sign-in tokens",
+            ))
+        })
+    }
 }
 
 /// The Supabase Auth Admin API.
 pub struct SupabaseAdmin {
     client: reqwest::Client,
     users_url: String,
+    link_url: String,
     secret_key: SecretString,
 }
 
@@ -81,6 +121,19 @@ impl fmt::Debug for SupabaseAdmin {
 struct User {
     id: Uuid,
     email: Option<String>,
+}
+
+/// The part of `generate_link`'s answer the handoff needs. Supabase Auth puts it at the top level;
+/// some versions nest it under `properties`.
+#[derive(Deserialize)]
+struct Link {
+    hashed_token: Option<String>,
+    properties: Option<LinkProperties>,
+}
+
+#[derive(Deserialize)]
+struct LinkProperties {
+    hashed_token: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -136,6 +189,7 @@ impl SupabaseAdmin {
         Ok(Self {
             client,
             users_url: format!("{base}/auth/v1/admin/users"),
+            link_url: format!("{base}/auth/v1/admin/generate_link"),
             secret_key,
         })
     }
@@ -206,6 +260,30 @@ impl SupabaseAdmin {
         Ok(None)
     }
 
+    /// A magic-link token for an existing account, through `generate_link`, which sends no
+    /// email.
+    async fn link_token(&self, email: &Email) -> Result<SignInToken, AccountsError> {
+        let response = self
+            .request(reqwest::Method::POST, &self.link_url)
+            .json(&serde_json::json!({ "type": "magiclink", "email": email.as_str() }))
+            .send()
+            .await
+            .map_err(|error| AccountsError::Upstream(transport(&error)))?;
+        let status = response.status();
+        if !status.is_success() {
+            return Err(AccountsError::Upstream(status.as_u16().to_string()));
+        }
+        let link: Link = response
+            .json()
+            .await
+            .map_err(|_| AccountsError::Upstream(format!("{status} with an unreadable body")))?;
+        link.hashed_token
+            .or_else(|| link.properties.and_then(|p| p.hashed_token))
+            .filter(|token| !token.is_empty())
+            .map(|token| SignInToken(SecretString::from(token)))
+            .ok_or_else(|| AccountsError::Upstream(format!("{status} without a token")))
+    }
+
     /// The account for `email`, if there is one; never creates one.
     ///
     /// # Errors
@@ -236,5 +314,9 @@ impl SignInAccounts for SupabaseAdmin {
                 AccountsError::Upstream("an existing account that could not be found".to_owned())
             })
         })
+    }
+
+    fn sign_in_token<'a>(&'a self, email: &'a Email) -> TokenFuture<'a> {
+        Box::pin(self.link_token(email))
     }
 }

@@ -3,6 +3,7 @@
 //! (Sakalya staff on the console host) or [`crate::extract::SignedIn`] (anyone signed in).
 
 pub(crate) mod appointments;
+pub(crate) mod auth;
 pub(crate) mod billing;
 pub(crate) mod chart;
 pub(crate) mod console;
@@ -60,6 +61,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/me/sessions", get(me::sessions))
         .route("/me/sessions/{id}/revoke", post(me::revoke_session))
         .route("/session", get(me::session))
+        // Central sign-in: a signed-in person asks for a one-time code for another host; that
+        // host redeems it, unauthenticated, throttled per IP (tests/handoff.rs).
+        .route("/auth/handoff", post(auth::create))
+        .route("/auth/handoff/redeem", post(auth::redeem))
         .route("/invitations/accept", post(invitations::accept))
         .route("/patients", get(patients::recent).post(patients::register))
         .route("/patients/search", post(patients::search))
@@ -238,6 +243,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/console/clinics/{id}/invitations",
             post(onboarding::invite),
         )
+        .route("/console/slugs", get(console::check_slug))
         .route("/console/applications", get(onboarding::applications))
         .route(
             "/console/applications/{id}/approve",

@@ -31,6 +31,22 @@ fn request_id(parts: &Parts) -> Option<Uuid> {
         .and_then(|text| Uuid::parse_str(text).ok())
 }
 
+/// The host the request was made to, as the edge vouches for it (or the `Host` header
+/// locally). For routes that check a host themselves, such as redeeming a sign-in handoff.
+#[derive(Debug)]
+pub(crate) struct RequestHost(pub(crate) String);
+
+impl FromRequestParts<AppState> for RequestHost {
+    type Rejection = ApiFailure;
+
+    fn from_request_parts(
+        parts: &mut Parts,
+        _state: &AppState,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> {
+        std::future::ready(edge(parts).map(|edge| Self(edge.host().as_str().to_owned())))
+    }
+}
+
 /// A signed-in person whose session wasn't revoked, on any host. For routes that don't belong
 /// to one clinic (`/me`).
 #[derive(Debug)]

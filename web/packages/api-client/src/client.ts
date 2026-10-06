@@ -1,6 +1,7 @@
 /** The one interface both the HTTP client and the fake client implement. */
 
 import type { ApiResult } from "./result.js";
+import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
 import type {
   AcceptInvitation,
   Acceptance,
@@ -207,6 +208,10 @@ export interface ApiClient {
   getMe(options?: RequestOptions): Promise<ApiResult<Me>>;
   /** Any host: joins the clinic an invitation is for. 404 when unknown, used or expired; 409 when the email differs. */
   acceptInvitation(input: AcceptInvitation, options?: RequestOptions): Promise<ApiResult<Joined>>;
+  /** Any host, signed in: a one-time code that signs the caller in on `host` (a clinic they are a member of, or the console for staff). 404 otherwise. */
+  createHandoff(input: NewHandoff, options?: RequestOptions): Promise<ApiResult<Handoff>>;
+  /** The target host, signed out: trades a handoff code for a session here. 404 when unknown, used, expired or for another host. */
+  redeemHandoff(input: RedeemHandoff, options?: RequestOptions): Promise<ApiResult<HandoffSession>>;
 
   /** Clinic host: the clinic, its branding, and the caller's role and permissions. */
   getSession(options?: RequestOptions): Promise<ApiResult<Session>>;
@@ -377,6 +382,8 @@ export interface ApiClient {
   /** Console host: applications, newest first. */
   listApplications(status: ApplicationStatus | undefined, options?: RequestOptions): Promise<ApiResult<Applications>>;
   /** Console host: approves an application, creating the clinic, the owner's account and invitation. */
+  /** Console host: whether a clinic address is free, with free suggestions when it isn't. Sakalya staff only. */
+  checkSlug(query: SlugQuery, options?: RequestOptions): Promise<ApiResult<SlugCheck>>;
   approveApplication(id: ApplicationId, input: ApproveApplication, options?: RequestOptions): Promise<ApiResult<ApprovedApplication>>;
   /** Console host: rejects an application with an optional reason. */
   rejectApplication(id: ApplicationId, input: RejectApplication, options?: RequestOptions): Promise<ApiResult<void>>;

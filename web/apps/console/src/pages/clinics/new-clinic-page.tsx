@@ -46,7 +46,7 @@ function InvitePanel({ created }: { created: CreatedClinic }) {
   const link = inviteLink(created);
   return (
     <>
-      <PageHeader title="Clinic created" subtitle={`${created.portal_host} is ready for its owner.`} />
+      <PageHeader title="Clinic created" subtitle={`${created.portal_host} is being set up for its owner, usually within two minutes (the clinic's page shows when its address is ready).`} />
       <Card className="max-w-2xl">
         <h2 className="text-lg font-bold text-text">Send the owner this invitation</h2>
         <p className="mt-1 text-sm text-muted">

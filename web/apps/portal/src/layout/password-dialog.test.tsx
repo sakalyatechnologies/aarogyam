@@ -20,6 +20,7 @@ function stubAuth(responses: { setPassword?: AuthOutcome } = {}) {
     completeRedirect: () => Promise.resolve({ ok: true }),
     signInWithPassword: () => Promise.resolve({ ok: true }),
     setPassword,
+    verifyTokenHash: () => Promise.resolve({ ok: true as const }),
   };
   return { auth, setPassword };
 }

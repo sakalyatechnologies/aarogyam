@@ -32,6 +32,11 @@ portal_host_template = "{slug}.localtest.me"
 console = "console.localtest.me"
 app = "app.localtest.me"
 
+[edge]
+# Every *.localtest.me host already resolves here, so the outbox drain marks new clinics'
+# portal addresses ready without calling Cloudflare.
+hosts = "wildcard"
+
 [website]
 # Placeholders shown in Settings -> Website -> Domain until the product domain exists.
 sites_target = "sites.aarogyam.example"

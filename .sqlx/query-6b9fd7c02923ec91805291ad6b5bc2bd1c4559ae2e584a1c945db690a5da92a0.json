@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.auth_handoff_create($1, $2, $3, $4, $5) as \"expires_at\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "expires_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "6b9fd7c02923ec91805291ad6b5bc2bd1c4559ae2e584a1c945db690a5da92a0"
+}

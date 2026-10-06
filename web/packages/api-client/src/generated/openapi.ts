@@ -102,6 +102,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/handoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Makes a one-time code that signs the caller in on another Aarogyam host. */
+        post: operations["createHandoff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/handoff/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeems a handoff code on this host for a session. Unknown, used, expired and other hosts'
+         *     codes all get `404`, and the first attempt uses a code up. Throttled per IP.
+         */
+        post: operations["redeemHandoff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/applications": {
         parameters: {
             query?: never;
@@ -245,6 +282,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/slugs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Checks a clinic address as it is typed, suggesting free ones (`<name>-<city>`, or a short
+         *     suffix) when it is taken. Sakalya staff only.
+         */
+        get: operations["checkSlug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dev/token": {
         parameters: {
             query?: never;
@@ -310,7 +367,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Delivers due outbox messages across clinics (local development only; later Cloud
+         * Makes new portal hosts work, then delivers due outbox messages across clinics (local development only; later Cloud
          *     Scheduler with a Google-signed token).
          */
         post: operations["drainOutbox"];
@@ -2737,6 +2794,10 @@ export interface components {
              * @description Active members.
              */
             active_members: number;
+            /** @description Why the last attempt to make the portal host work failed, without secrets. */
+            address_error?: string | null;
+            /** @description Whether the edge serves the portal host yet: `pending`, `ready` or `failed`. */
+            address_status?: string | null;
             /** @description When it was created (RFC 3339). */
             created_at: string;
             /** @description Host names, primary first. */
@@ -2988,6 +3049,8 @@ export interface components {
              * @description Members with an active membership.
              */
             active_members: number;
+            /** @description Whether the edge serves the portal host yet: `pending`, `ready` or `failed`. */
+            address_status?: string | null;
             /** @description When it was created (RFC 3339). */
             created_at: string;
             /** @description The clinic. */
@@ -3023,7 +3086,10 @@ export interface components {
             invite_expires_at: string;
             /** @description The invitation secret, for the link sent to the owner. */
             invite_token: string;
-            /** @description Its portal host name. */
+            /**
+             * @description Its portal host name. Its address starts `pending`; the outbox job makes it work
+             *     within a couple of minutes (see `address_status` on the clinic).
+             */
             portal_host: string;
             /** @description Its subdomain. */
             slug: string;
@@ -3092,6 +3158,14 @@ export interface components {
         };
         /** @description What one drain did. */
         DrainReport: {
+            /** @description How portal hosts are made to work: `off`, `wildcard` or `workers_dev`. */
+            address_provider: string;
+            /** @description Portal hosts that failed for the last time. */
+            addresses_failed: number;
+            /** @description Portal hosts made to work, run before the messages so invitation links work. */
+            addresses_ready: number;
+            /** @description Portal hosts that failed and will be tried again. */
+            addresses_retrying: number;
             /** @description Messages claimed. */
             claimed: number;
             /** @description `resend`, or `log` when no Resend key is configured. */
@@ -3186,6 +3260,35 @@ export interface components {
         ExpiringList: {
             /** @description Earliest first; already expired batches come first. */
             items: components["schemas"]["ExpiringBatch"][];
+        };
+        /**
+         * @description A one-time code for that host. Send the person to `redirect_url`: the code is in the URL
+         *     fragment, which browsers never send to a server.
+         */
+        Handoff: {
+            /** @description The code; works once, on `host` only. */
+            code: string;
+            /** @description When it stops working (RFC 3339), at most 60 seconds away. */
+            expires_at: string;
+            /** @description The host it is for. */
+            host: string;
+            /** @description `https://<host>/auth/handoff#code=<code>`. */
+            redirect_url: string;
+        };
+        /**
+         * @description What signs the person in on this host. `kind` says which fields are set: `supabase` gives
+         *     `email` and `token_hash` for `supabase.auth.verifyOtp({ type: "magiclink", token_hash })`;
+         *     `dev` (local only) gives a development `access_token`.
+         */
+        HandoffSession: {
+            /** @description A development access token (`dev`). */
+            access_token?: string | null;
+            /** @description The person's sign-in address (`supabase`). */
+            email?: string | null;
+            /** @description `supabase` or `dev`. */
+            kind: string;
+            /** @description A one-time magic-link token hash (`supabase`). */
+            token_hash?: string | null;
         };
         /** @description Appointments starting in one local hour. */
         HourBar: {
@@ -3695,6 +3798,11 @@ export interface components {
         Me: {
             /** @description Clinics they are invited to or active in, by name. */
             clinics: components["schemas"]["MyClinic"][];
+            /**
+             * @description Whether they are active Sakalya staff who can open the console. Central sign-in sends
+             *     them there, or offers it first beside their clinics.
+             */
+            console_access: boolean;
         };
         /** @description A member of staff. */
         Member: {
@@ -3891,6 +3999,14 @@ export interface components {
             email: string;
             /** @description A role of the clinic, such as `doctor` or `front_desk`. */
             role_key: string;
+        };
+        /** @description Where the signed-in person is going. */
+        NewHandoff: {
+            /**
+             * @description A clinic portal host they are an active member of, or the console host for Sakalya
+             *     staff, such as `sunrise-aarogyam.sakalyatechnologies.com`.
+             */
+            host: string;
         };
         /** @description An identifier to add. */
         NewIdentifier: {
@@ -4719,7 +4835,10 @@ export interface components {
             letterhead: Record<string, unknown>;
             /** @description Patient's name, number, age and sex at issue. */
             patient: Record<string, unknown>;
-            /** @description Path the QR code opens on the clinic's host. */
+            /**
+             * @description Path the QR code opens on the clinic's host: the portal's public verify page,
+             *     `/verify/prescriptions/{token}` (which reads `GET /api/v1/verify/prescriptions/{token}`).
+             */
             verify_path: string;
         };
         /**
@@ -4923,6 +5042,11 @@ export interface components {
              * @description Cost of one unit in paise; 0 by default.
              */
             unit_cost_paise?: number | null;
+        };
+        /** @description A code to redeem on the host it was made for. */
+        RedeemHandoff: {
+            /** @description The code from the URL fragment. */
+            code: string;
         };
         /** @description The one answer to a valid application. */
         RegistrationReceived: {
@@ -5515,6 +5639,19 @@ export interface components {
             id: string;
             /** @description Its palettes; the first is the default. */
             palettes: string[];
+        };
+        /** @description Whether an address is free, with free alternatives when it isn't. */
+        SlugCheck: {
+            /** @description Free to use now (creating the clinic still checks). */
+            available: boolean;
+            /** @description Its portal host. */
+            portal_host: string;
+            /** @description Why it can't be used, when malformed or reserved. */
+            problem?: string | null;
+            /** @description The subdomain checked. */
+            slug: string;
+            /** @description Free alternatives, best first. */
+            suggestions: string[];
         };
         /** @description The clinic's staff. */
         Staff: {
@@ -6368,6 +6505,87 @@ export interface operations {
             };
         };
     };
+    createHandoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewHandoff"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Handoff"];
+                };
+            };
+            /** @description Not a host name */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a host this person may go to */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    redeemHandoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedeemHandoff"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandoffSession"];
+                };
+            };
+            /** @description The code doesn't sign anyone in here */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many attempts */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listApplications: {
         parameters: {
             query?: {
@@ -6718,6 +6936,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QualityReport"];
+                };
+            };
+            /** @description Not Sakalya staff */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the console host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    checkSlug: {
+        parameters: {
+            query: {
+                /** @description The clinic's name */
+                name: string;
+                /** @description The typed subdomain */
+                slug?: string;
+                /** @description The clinic's city */
+                city?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlugCheck"];
                 };
             };
             /** @description Not Sakalya staff */

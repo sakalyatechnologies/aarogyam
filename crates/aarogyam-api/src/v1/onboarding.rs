@@ -313,6 +313,11 @@ pub struct ClinicDetail {
     pub created_at: String,
     /// Host names, primary first.
     pub hosts: Vec<String>,
+    /// Whether the edge serves the portal host yet: `pending`, `ready` or `failed`.
+    #[schema(value_type = Option<String>)]
+    pub address_status: Option<&'static str>,
+    /// Why the last attempt to make the portal host work failed, without secrets.
+    pub address_error: Option<String>,
     /// Active members.
     pub active_members: i64,
     /// Patients (a count only).
@@ -355,6 +360,8 @@ pub(crate) async fn clinic(
         timezone: clinic.timezone,
         created_at: rfc3339(clinic.created_at),
         hosts: clinic.hosts,
+        address_status: super::console::address_status(clinic.address_status.as_deref()),
+        address_error: clinic.address_error,
         active_members: clinic.active_members,
         patients: clinic.patients,
         pending_invitations: clinic.pending_invitations,

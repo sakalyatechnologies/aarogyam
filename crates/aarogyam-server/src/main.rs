@@ -9,8 +9,9 @@ use aarogyam_app::accounts::{SignInAccounts as _, SupabaseAdmin};
 use aarogyam_app::files::{Files, LinkSigner, LocalDisk, Storage, SupabaseStorage};
 use aarogyam_domain::access::PlatformRole;
 use aarogyam_domain::patient::Email;
-use aarogyam_notify::{Notifier, PortalLinks};
-use aarogyam_server::config::{AuthMode, Config, FileBackend};
+use aarogyam_notify::cloudflare::{API_BASE, AccountId, WorkersApi};
+use aarogyam_notify::{Notifier, PortalAddresses, PortalLinks, WorkersDev};
+use aarogyam_server::config::{AuthMode, Config, EdgeHosts, FileBackend};
 use anyhow::Context;
 use axum::http::HeaderName;
 use clap::{Parser, Subcommand};
@@ -57,12 +58,20 @@ enum Command {
 
 #[derive(Debug, Clone, Subcommand)]
 enum Outbox {
-    /// Delivers due messages once, or every --every seconds until Ctrl-C. A scheduler (cron,
-    /// a Cloud Run job) runs this where no HTTP scheduler calls the API.
+    /// Makes new clinics' portal addresses work, then delivers due messages, once or every
+    /// --every seconds until Ctrl-C. A scheduler (cron, a Cloud Run job) runs this where no
+    /// HTTP scheduler calls the API.
     Drain {
         /// Repeat every this many seconds instead of once.
         #[arg(long, value_name = "SECONDS")]
         every: Option<u64>,
+    },
+    /// Queues every clinic's portal address again (or one clinic's) and makes them work now:
+    /// the backfill for clinics created before this job, or a retry after fixing a failure.
+    Addresses {
+        /// Only this clinic, by slug.
+        #[arg(long)]
+        clinic: Option<String>,
     },
 }
 
@@ -118,6 +127,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Outbox {
             action: Outbox::Drain { every },
         } => drain(config, every).await,
+        Command::Outbox {
+            action: Outbox::Addresses { clinic },
+        } => addresses(config, clinic.as_deref()).await,
     }
 }
 
@@ -276,14 +288,117 @@ fn notifier(config: &Config, local: bool) -> anyhow::Result<Notifier> {
     })
 }
 
-/// Delivers due outbox messages over the API connection, once or on a fixed interval.
+/// How portal hosts are made to work, from `edge.*`. The Cloudflare token stays in this
+/// process: it is only ever sent to Cloudflare's API.
+fn portal_addresses(config: &Config) -> anyhow::Result<PortalAddresses> {
+    let edge = &config.edge;
+    Ok(match edge.hosts {
+        EdgeHosts::Off => PortalAddresses::Off,
+        EdgeHosts::Wildcard => PortalAddresses::Wildcard,
+        EdgeHosts::WorkersDev => {
+            let account = AccountId::parse(edge.cloudflare_account_id.as_deref().context(
+                "edge.cloudflare_account_id (CLOUDFLARE_ACCOUNT_ID) is required for workers_dev",
+            )?)
+            .context("edge.cloudflare_account_id")?;
+            let token = edge.cloudflare_api_token.clone().context(
+                "edge.cloudflare_api_token (CLOUDFLARE_API_TOKEN) is required for workers_dev",
+            )?;
+            let subdomain = edge.workers_subdomain.as_deref().context(
+                "edge.workers_subdomain (CLOUDFLARE_WORKERS_SUBDOMAIN) is required for workers_dev",
+            )?;
+            let api = WorkersApi::new(API_BASE, account, token)
+                .context("could not set up the Cloudflare API client")?;
+            PortalAddresses::WorkersDev(
+                WorkersDev::new(
+                    api,
+                    subdomain,
+                    &edge.worker_name_template,
+                    &edge.portal_worker,
+                )
+                .context("edge.* settings")?,
+            )
+        }
+    })
+}
+
+/// Queues portal addresses again and provisions them once: the backfill.
+async fn addresses(config: Config, clinic: Option<&str>) -> anyhow::Result<()> {
+    let addresses = portal_addresses(&config)?;
+    anyhow::ensure!(
+        !matches!(addresses, PortalAddresses::Off),
+        "edge.hosts is off: set ARO_EDGE__HOSTS=workers_dev (or wildcard)"
+    );
+    let slug = clinic
+        .map(|text| sakalya_types::Slug::parse(text.trim()))
+        .transpose()
+        .map_err(|_| anyhow::anyhow!("--clinic is not a valid slug"))?;
+    let db = Db::connect_lazy(&config.db.api_config())
+        .context("db.url is not a valid Postgres URL or the pool settings are invalid")?;
+    let queued =
+        aarogyam_dal::edge::requeue(db.pool(), slug.as_ref().map(sakalya_types::Slug::as_str))
+            .await
+            .context("could not queue the portal addresses")?;
+    tracing::info!(
+        queued,
+        provider = addresses.name(),
+        "portal addresses queued"
+    );
+    let mut total = aarogyam_notify::AddressReport::default();
+    // A run claims a batch at a time; keep going until nothing due is left.
+    loop {
+        let report = addresses
+            .provision(&db, time::OffsetDateTime::now_utc())
+            .await
+            .context("could not provision portal addresses")?;
+        total.ready += report.ready;
+        total.retrying += report.retrying;
+        total.failed += report.failed;
+        if report.claimed == 0 {
+            break;
+        }
+    }
+    tracing::info!(
+        ready = total.ready,
+        retrying = total.retrying,
+        failed = total.failed,
+        "portal addresses provisioned"
+    );
+    anyhow::ensure!(
+        total.retrying == 0 && total.failed == 0,
+        "some addresses failed: the console shows why; the outbox job retries the retrying ones"
+    );
+    Ok(())
+}
+
+/// Makes new portal hosts work, then delivers due outbox messages, over the API connection,
+/// once or on a fixed interval.
 async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
     let local = config.environment == Environment::Local;
     let notifier = notifier(&config, local)?;
+    let addresses = portal_addresses(&config)?;
+    if matches!(addresses, PortalAddresses::Off) && !local {
+        tracing::warn!("edge.hosts is off: new clinics' portal addresses stay pending");
+    }
     let db = Db::connect_lazy(&config.db.api_config())
         .context("db.url is not a valid Postgres URL or the pool settings are invalid")?;
     let interval = every.map(|seconds| std::time::Duration::from_secs(seconds.max(1)));
     loop {
+        // Addresses first, so the invitation emails sent next link to hosts that work.
+        match addresses
+            .provision(&db, time::OffsetDateTime::now_utc())
+            .await
+        {
+            Ok(report) if report.claimed > 0 => tracing::info!(
+                provider = addresses.name(),
+                claimed = report.claimed,
+                ready = report.ready,
+                retrying = report.retrying,
+                failed = report.failed,
+                "portal addresses provisioned"
+            ),
+            Ok(_) => {}
+            Err(error) => tracing::warn!(error = %error, "could not provision portal addresses"),
+        }
         match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) => tracing::info!(
                 provider = notifier.email_provider(),

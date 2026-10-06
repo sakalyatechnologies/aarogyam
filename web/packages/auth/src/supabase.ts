@@ -25,7 +25,7 @@ export interface SupabaseAuthApi {
     email: string;
     options: { shouldCreateUser: boolean; emailRedirectTo?: string };
   }): Promise<{ error: SupabaseError | null }>;
-  verifyOtp(params: { email: string; token: string; type: "email" }): Promise<{
+  verifyOtp(params: { email: string; token: string; type: "email" } | { token_hash: string; type: "magiclink" }): Promise<{
     data: { session: SupabaseSession | null };
     error: SupabaseError | null;
   }>;
@@ -183,6 +183,21 @@ export function createSupabaseAuth(api: SupabaseAuthApi, options: SupabaseAuthOp
           return failed("weak_password", "That is already your password. Choose a different one.");
         }
         return failed("rejected", AUTH_MESSAGES.passwordRejected);
+      } catch {
+        return failed("network", AUTH_MESSAGES.network);
+      }
+    },
+    verifyTokenHash: async (tokenHash) => {
+      try {
+        const { data, error } = await api.verifyOtp({ token_hash: tokenHash, type: "magiclink" });
+        if (error === null) {
+          store.set(fromSession(data.session));
+          return { ok: true };
+        }
+        if (isRateLimited(error)) {
+          return failed("rate_limited", AUTH_MESSAGES.rateLimited);
+        }
+        return isNetworkFailure(error) ? failed("network", AUTH_MESSAGES.network) : failed("invalid_code", EXPIRED_LINK);
       } catch {
         return failed("network", AUTH_MESSAGES.network);
       }

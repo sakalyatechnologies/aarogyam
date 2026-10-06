@@ -1,6 +1,6 @@
 [package]
 name = "aarogyam-notify"
-description = "Delivers the outbox: message templates, channels (email by Resend, or a local log), retries."
+description = "Delivers the outbox: message templates, channels (email by Resend, or a local log), retries, and clinic portal addresses at the edge."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,6 +12,7 @@ aarogyam-dal = { path = "../aarogyam-dal" }
 aarogyam-domain = { path = "../aarogyam-domain" }
 reqwest.workspace = true
 sakalya-db.workspace = true
+sakalya-types.workspace = true
 secrecy.workspace = true
 serde.workspace = true
 serde_json.workspace = true

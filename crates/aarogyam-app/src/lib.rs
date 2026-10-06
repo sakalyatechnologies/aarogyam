@@ -14,6 +14,7 @@ pub mod console;
 pub mod error;
 pub mod facts;
 pub mod files;
+pub mod handoff;
 pub mod identifiers;
 pub mod imports;
 pub mod inventory;

@@ -120,6 +120,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
   }
   /** Invitations made by createClinic or inviteStaff, by token. */
   const invitations = new Map<string, Invitation>();
+  /** Session handoffs by code: who, for which host, until when, and whether used. */
+  const handoffs = new Map<string, { personId: string; host: string; expiresAt: number; used: boolean }>();
   /** Payment ids already recorded for an `Idempotency-Key`, so a retry returns the first payment. */
   const paymentByIdempotencyKey = new Map<string, string>();
 
@@ -292,7 +294,47 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
                 ? []
                 : [{ org_id: clinic.id, slug: clinic.slug, name: clinic.name, role_key: m.role.key, role_name: m.role.name, host: clinic.host }];
             });
-          return reply({ clinics } satisfies C.Me);
+          return reply({ clinics, console_access: state.platformUsers.some((u) => u.id === user.id) } satisfies C.Me);
+        }),
+
+      createHandoff: (input, opts) =>
+        respond(S.handoff, opts?.signal, async () => {
+          const id = await subject();
+          const host = input.host.trim().toLowerCase();
+          const staff = state.platformUsers.some((u) => u.id === id);
+          const user = state.users.find((u) => u.id === id);
+          if (!staff && user === undefined) {
+            return signedOut;
+          }
+          const clinic = state.clinics.find((c) => c.host === host);
+          const member =
+            clinic !== undefined && user !== undefined && state.memberships.some((m) => m.user_id === user.id && m.clinic_id === clinic.id);
+          // The console for staff, or a clinic the caller belongs to; anything else looks unknown.
+          if (!(member || (staff && host.startsWith("console")))) {
+            return notFound;
+          }
+          const code = random.hex(32);
+          const now = clock();
+          handoffs.set(code, { personId: id ?? "", host, expiresAt: now.getTime() + 60_000, used: false });
+          return reply({
+            code,
+            host,
+            expires_at: new Date(now.getTime() + 60_000).toISOString(),
+            redirect_url: `https://${host}/auth/handoff#code=${code}`,
+          } satisfies C.Handoff);
+        }),
+
+      redeemHandoff: (input, opts) =>
+        respond(S.handoffSession, opts?.signal, () => {
+          const found = handoffs.get(input.code);
+          if (found === undefined || found.used) {
+            return notFound;
+          }
+          found.used = true;
+          if (found.host !== options.host || found.expiresAt <= clock().getTime()) {
+            return notFound;
+          }
+          return reply({ kind: "dev", access_token: fakeTokenFor({ id: found.personId }) } satisfies C.HandoffSession);
         }),
 
       acceptInvitation: (input, opts) =>
@@ -2355,6 +2397,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
                   status: c.status,
                   created_at: c.created_at,
                   portal_host: c.host,
+                  address_status: c.address_status ?? "ready",
                   active_members: state.memberships.filter((m) => m.clinic_id === c.id).length,
                   patients: state.patients.filter((p) => p.clinic_id === c.id).length,
                 })),
@@ -2382,6 +2425,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               status: "trial",
               created_at: now.toISOString(),
               number_prefix: slug.slice(0, 2).toUpperCase(),
+              address_status: "pending",
             };
             state.clinics.push(clinic);
             const inviteToken = random.hex(32);
@@ -2472,6 +2516,27 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }),
         ),
 
+      checkSlug: (query, opts) =>
+        respond(S.slugCheck, opts?.signal, () =>
+          inConsole(() => {
+            const typed = query.slug?.trim() ?? "";
+            const slug = typed === "" ? deriveSlug(query.name) : typed;
+            const host = `${slug}.localtest.me`;
+            if (!SLUG.test(slug) || slug.includes("--") || RESERVED_SLUGS.has(slug)) {
+              const problem = RESERVED_SLUGS.has(slug) ? "is reserved" : "use 3 to 30 lowercase letters, digits or single hyphens";
+              return reply({ slug, portal_host: host, available: false, problem, suggestions: [deriveSlug(query.name)] } satisfies C.SlugCheck);
+            }
+            const taken = (s: string) => state.clinics.some((c) => c.slug === s);
+            if (!taken(slug)) {
+              return reply({ slug, portal_host: host, available: true, problem: null, suggestions: [] } satisfies C.SlugCheck);
+            }
+            const city = query.city === undefined ? "" : deriveSlug(query.city);
+            const candidates = [city === "" ? "" : `${slug}-${city}`, `${slug}-${random.hex(3).slice(0, 3)}`, `${slug}-${random.hex(3).slice(0, 3)}`];
+            const suggestions = candidates.filter((s) => s !== "" && SLUG.test(s) && !taken(s));
+            return reply({ slug, portal_host: host, available: false, problem: null, suggestions } satisfies C.SlugCheck);
+          }),
+        ),
+
       approveApplication: (id, input, opts) =>
         respond(S.approvedApplication, opts?.signal, async () => {
           const callerId = await subject();
@@ -2501,6 +2566,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               status: "trial",
               created_at: now.toISOString(),
               number_prefix: slug.slice(0, 2).toUpperCase(),
+              address_status: "pending",
             };
             state.clinics.push(clinic);
             const invitationId = fakeUuid(random, now);
@@ -2581,6 +2647,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               timezone: clinic.timezone,
               created_at: clinic.created_at,
               hosts: [clinic.host],
+              address_status: clinic.address_status ?? "ready",
+              address_error: clinic.address_error ?? null,
               active_members: members.filter((m) => m.status === "active").length,
               patients: state.patients.filter((p) => p.clinic_id === clinic.id).length,
               pending_invitations: pending.length,

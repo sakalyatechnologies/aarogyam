@@ -9,7 +9,12 @@
 //! Email goes through Resend when an API key is configured; otherwise the log channel records
 //! the message as delivered and logs its ids only, which is what local development uses.
 //! Logs never carry addresses, names or link secrets.
+//!
+//! The same job makes new clinics' portal addresses work at the edge first ([`PortalAddresses`],
+//! in `addresses.rs`), so an invitation link works by the time its email arrives.
 
+mod addresses;
+pub mod cloudflare;
 mod resend;
 mod templates;
 
@@ -20,6 +25,7 @@ use sakalya_db::{Db, DbError};
 use secrecy::SecretString;
 use time::OffsetDateTime;
 
+pub use addresses::{AddressReport, PortalAddresses, WorkersDev};
 pub use resend::Resend;
 pub use templates::{Email, PortalLinks};
 

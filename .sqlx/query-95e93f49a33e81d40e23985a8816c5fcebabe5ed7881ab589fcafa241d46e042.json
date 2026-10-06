@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select auth_uid as \"auth_uid!\", email from app.auth_handoff_redeem($1, $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "auth_uid!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "email",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "95e93f49a33e81d40e23985a8816c5fcebabe5ed7881ab589fcafa241d46e042"
+}

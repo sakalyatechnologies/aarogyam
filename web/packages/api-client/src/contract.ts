@@ -26,9 +26,14 @@ export type ConsoleClinic = Schemas["ConsoleClinic"];
 export type ConsoleClinics = Schemas["ConsoleClinics"];
 export type NewClinic = Schemas["NewClinic"];
 export type CreatedClinic = Schemas["CreatedClinic"];
+export type SlugCheck = Schemas["SlugCheck"];
 export type DevTokenRequest = Schemas["DevTokenRequest"];
 export type AcceptInvitation = Schemas["AcceptInvitation"];
 export type Joined = Schemas["Joined"];
+export type NewHandoff = Schemas["NewHandoff"];
+export type Handoff = Schemas["Handoff"];
+export type RedeemHandoff = Schemas["RedeemHandoff"];
+export type HandoffSession = Schemas["HandoffSession"];
 export type DevTokenResponse = Schemas["DevTokenResponse"];
 export type PatientChanges = Schemas["PatientChanges"];
 

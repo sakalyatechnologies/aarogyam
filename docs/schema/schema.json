@@ -601,6 +601,64 @@
    "offline": "server_only"
   },
   {
+   "name": "auth_handoffs",
+   "domain": "platform",
+   "purpose": "Central sign-in: one-time codes that hand a session to one clinic or console host, valid 60 seconds.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Written and redeemed only through app.auth_handoff_create() and app.auth_handoff_redeem().",
+   "cols": [
+    {
+     "name": "code_hash",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique, SHA-256 of the code; the code is never stored"
+    },
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "target_host",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "the only host that may redeem it"
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "redeemed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "first attempt uses it up"
+    },
+    {
+     "name": "redeemed",
+     "type": "bool",
+     "nullable": true,
+     "ref": null,
+     "note": "whether that attempt gave a session"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
    "name": "clinic_applications",
    "domain": "platform",
    "purpose": "Clinics asking to join from the public landing page; staff approve or reject them in the console.",
@@ -964,6 +1022,7 @@
     }
    ],
    "referenced_by": [
+    "auth_handoffs.user_id",
     "clinic_applications.decided_by",
     "devices.user_id",
     "invitations.invited_by",
@@ -1278,7 +1337,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Read before the clinic is known, through app.resolve_clinic_host(); cached in memory for a short time.",
+   "notes": "Read before the clinic is known, through app.resolve_clinic_host(); cached in memory for a short time. New portal rows start pending (trigger); the outbox job makes them work (app.edge_hosts_claim).",
    "cols": [
     {
      "name": "org_id",
@@ -1321,6 +1380,41 @@
      "nullable": true,
      "ref": null,
      "note": "only verified hosts resolve"
+    },
+    {
+     "name": "edge_status",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "portal rows: pending, ready, failed (served at the edge yet?)"
+    },
+    {
+     "name": "edge_attempts",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "edge_next_attempt_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "when the outbox job tries next"
+    },
+    {
+     "name": "edge_error",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "short reason, no secrets"
+    },
+    {
+     "name": "edge_ready_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     }
    ],
    "referenced_by": [],

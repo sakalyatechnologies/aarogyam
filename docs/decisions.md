@@ -2,6 +2,35 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-05: Central sign-in and the session handoff
+
+- **People sign in once, on the public site** (`aarogyam.sakalyatechnologies.com/sign-in`). `/me` then decides: Sakalya staff to the console, one clinic to that clinic, several to a picker. Portals send signed-out visitors there with `?next=<host>` when `VITE_CENTRAL_SIGN_IN_URL` is set; their own sign-in keeps working until the site ships.
+- **A session belongs to one origin, so it is handed over, not shared.** `POST /api/v1/auth/handoff {host}` (signed in) returns a random 32-byte code valid 60 seconds, bound to the person and that host, only for an active member of that open clinic or staff for the console (otherwise `404`). The browser goes to `https://<host>/auth/handoff#code=…`; the fragment never reaches a server or log. `POST /api/v1/auth/handoff/redeem {code}` on that host uses the code up on the first attempt, right or wrong, and answers with a Supabase magic-link token hash (`generate_link`, nothing emailed) that the page trades with `verifyOtp` for a session of its own; locally, a development token. Only the code's SHA-256 is stored (`auth_handoffs`, migration 0161); both steps are in the change history and logged as `handoff.*` events; redeem is throttled to 20 per IP per 10 minutes.
+- **`/me` says `console_access`** for active Sakalya staff. Staff only: the console; staff with clinic memberships: the picker with "Sakalya console" first. **Super admin accounts should be separate from clinic accounts;** support access to a clinic goes through time-limited grants (planned).
+- **Slugs stay readable.** The approve form checks the address as it is typed (`GET /api/v1/console/slugs`) and offers `<name>-<city>` or a three-character suffix when it is taken; the unique constraint has the final say.
+
+## 2026-10-05: Automatic clinic addresses
+
+**Problem.** The clinic comes from the host name, and workers.dev has no wildcard subdomains, so every clinic needed its own Worker (`<slug>-aarogyam.<account>.workers.dev`) deployed by hand. A clinic the founder had just created or approved had no address, so its owner couldn't sign in.
+
+**Decided with the founder.** Addresses stay readable, host-based subdomains: `<slug>-aarogyam.spring-snow-130f.workers.dev` now, `<slug>-aarogyam.sakalyatechnologies.com` later, never UUIDs. Clinics' own domains map a host to the clinic id later (Cloudflare for SaaS).
+
+| Option | Cost | Security | Founder must |
+|---|---|---|---|
+| **B1. Recommended: one portal Worker on a wildcard route, `sakalyatechnologies.com` nameservers moved to Cloudflare's free plan** (GoDaddy stays registrar) | $0. Universal SSL covers one level (`*.sakalyatechnologies.com`), so `<slug>-aarogyam.` works; `<slug>.aarogyam.` would need Advanced Certificate Manager ($10 a month) | No per-clinic API calls and no token in the backend. DNS for the whole company domain moves, so every record must be copied first | Follow the checklist in `deploy.md` ("Moving the domain to Cloudflare"): copy records, verify, switch nameservers, add the wildcard record and route |
+| **A. Interim, built: a Worker per clinic through the Cloudflare API** | $0. Free plan allows 100 Workers per account, so about 95 clinics on workers.dev. Service bindings add no cost | The token ("Workers Scripts: Edit") can change any Worker in the account, so only the outbox job holds it, never the API service or a browser. Names come from a parsed `Slug` and must match the stored host. Platform Workers can't be overwritten | Create a dedicated token once; run the backfill once |
+| **B2. B1 on a separate cheap domain** | About $10 a year (Cloudflare Registrar, at cost) | As B1, and the company domain's DNS is untouched | Buy the domain. Breaks "zero spend" |
+| **C. Cloudflare for SaaS custom hostnames** | First 100 free | Each hostname is validated | Still needs a zone on Cloudflare, plus a CNAME per clinic in the hostname's own DNS (GoDaddy, by hand). Kept for clinics' own domains (`www.smilecatchers.in`), as planned |
+| **D. DNS records through GoDaddy's API** | Since 2024 the production Management and DNS APIs need 10 or more domains in the account or a paid Discount Domain Club plan | A GoDaddy key could change every DNS record of the company | Pay or hold 10 domains. It doesn't solve the problem anyway: a GoDaddy CNAME to workers.dev isn't served, because Workers only answer hostnames in Cloudflare zones |
+
+**Decision: B1 as the destination, A until the nameservers move.**
+
+- **B1: a new clinic needs no deploy at all.** A proxied wildcard DNS record and a Worker route send every clinic host to the portal Worker, which already forwards the request's own host. The route `*-aarogyam.sakalyatechnologies.com/*` is safer than `*.sakalyatechnologies.com/*`: a route matches by host name whatever the DNS says, so the broad one would also catch other products' proxied subdomains. More specific routes win, so `console-aarogyam.sakalyatechnologies.com/*` goes to the console Worker and `aarogyam.sakalyatechnologies.com/*` to the public site. Explicit DNS records (mail, the company site, other products) keep overriding the wildcard record.
+- **A is automatic today.** A new portal host is queued as `pending` by the database whatever path creates it (console, approved application, seed). The outbox job (`aarogyam outbox drain`, every 2 minutes) handles addresses before email, so the owner's invitation link works when it arrives. It uploads a tiny Worker named `{slug}-aarogyam` whose only job is to hand every request to `aarogyam-portal` through a service binding, then turns on its workers.dev address. Both calls are idempotent. Failures are retried with the outbox's backoff, then marked `failed` with a reason.
+- **The clinic Worker holds no secret.** The portal Worker reads the clinic's host from the request URL, which only Cloudflare or our own bindings can set, and forwards it with the edge secret as before. A portal release reaches every clinic without redeploying anything.
+- **Status lives on `org_domains`** (`edge_status`, migration 0160), not in the outbox. Outbox rows are messages and are purged after 30 days, but the console needs the status for good. The console shows "Address ready / pending / failed".
+- **Moving from A to B1 needs no code or console change.** Set `ARO_EDGE__HOSTS=wildcard` (the job then marks hosts ready without calling Cloudflare) and `ARO_HOSTS__PORTAL_HOST_TEMPLATE={slug}-aarogyam.sakalyatechnologies.com`, re-point existing hosts, remove the job's Cloudflare token, and delete the per-clinic Workers.
+
 ## 2026-10-04: The visit record (M4)
 
 - **Clinicians are memberships.** Visits, notes, procedures and plans point at `memberships`; a doctor's practitioner record (registration, fees) hangs off the same membership. `encounters.appointment_id` has no foreign key until the appointments table merges; a follow-up migration adds the composite key.

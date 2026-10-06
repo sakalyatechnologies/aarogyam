@@ -1,8 +1,8 @@
 import { Check, Copy, Inbox, Mail, MapPin, Phone, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import { apiErrorOf, type Application } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatDate, formatDateTime, useDocumentTitle } from "@aarogyam/app-kit";
+import { apiErrorOf, type Application, type SlugCheck } from "@aarogyam/api-client";
+import { ApiErrorNotice, formatDate, formatDateTime, useDebouncedValue, useDocumentTitle } from "@aarogyam/app-kit";
 import {
   Button,
   Card,
@@ -21,7 +21,7 @@ import {
   type Tone,
 } from "@sakalya/ui";
 
-import { useApplications, useApproveApplication, useRejectApplication } from "../../api.js";
+import { useApplications, useApproveApplication, useRejectApplication, useSlugCheck } from "../../api.js";
 import { StatusChip } from "../../ui/status-chip.js";
 import { Tile } from "../../ui/tile.js";
 import { slugify } from "../clinics/slug.js";
@@ -305,6 +305,13 @@ function ApproveDialog({ application, onClose }: { application: Application | un
   const approve = useApproveApplication();
   const toast = useToast();
   const [slug, setSlug] = useState("");
+  const typed = useDebouncedValue(slug.trim(), 300);
+  const check = useSlugCheck(
+    application === undefined ? undefined : { name: application.clinic_name, slug: typed === "" ? undefined : typed, city: application.city },
+  );
+  const address = check.data;
+  // A known-bad address can't be approved; the API checks again either way.
+  const blocked = address !== undefined && !address.available && !check.isPlaceholderData;
   const [error, setError] = useState<string>();
   const [created, setCreated] = useState<{ invite_link: string; portal_host: string; invite_expires_at: string }>();
 
@@ -338,7 +345,7 @@ function ApproveDialog({ application, onClose }: { application: Application | un
         if (!open) close();
       }}
       title={created === undefined ? "Approve this application" : "Clinic created"}
-      description={created === undefined ? application?.clinic_name : `${created.portal_host} is ready for its owner.`}
+      description={created === undefined ? application?.clinic_name : `${created.portal_host} is being set up for its owner, usually within two minutes.`}
       dismissOnOutsidePress={created === undefined}
       footer={
         created === undefined ? (
@@ -346,7 +353,7 @@ function ApproveDialog({ application, onClose }: { application: Application | un
             <Button variant="secondary" onClick={close}>
               Cancel
             </Button>
-            <Button icon={<Check aria-hidden="true" className="size-4" />} onClick={submit} disabled={approve.isPending}>
+            <Button icon={<Check aria-hidden="true" className="size-4" />} onClick={submit} disabled={approve.isPending || blocked}>
               {approve.isPending ? "Approving…" : "Approve"}
             </Button>
           </>
@@ -381,6 +388,12 @@ function ApproveDialog({ application, onClose }: { application: Application | un
               }}
             />
           </Field>
+          <SlugStatus
+            check={address}
+            onPick={(suggestion) => {
+              setSlug(suggestion);
+            }}
+          />
           {error === undefined ? null : (
             <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger-text">
               {error}
@@ -398,6 +411,49 @@ function ApproveDialog({ application, onClose }: { application: Application | un
         </div>
       )}
     </Dialog>
+  );
+}
+
+/** Whether the address is free, as it is typed; when it isn't, free ones to pick. */
+function SlugStatus({ check, onPick }: { check: SlugCheck | undefined; onPick: (slug: string) => void }) {
+  if (check === undefined) {
+    return null;
+  }
+  if (check.available) {
+    return (
+      <p role="status" className="-mt-2 text-xs text-success-text">
+        <span className="font-mono">{check.portal_host}</span> is free.
+      </p>
+    );
+  }
+  return (
+    <div role="status" className="-mt-2 flex flex-col gap-2 text-xs">
+      <p className="text-danger-text">
+        {check.problem == null ? (
+          <>
+            <span className="font-mono">{check.slug}</span> is taken.
+          </>
+        ) : (
+          `That address ${check.problem}.`
+        )}
+        {check.suggestions.length > 0 ? " Free instead:" : ""}
+      </p>
+      {check.suggestions.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {check.suggestions.map((suggestion) => (
+            <Button
+              key={suggestion}
+              variant="secondary"
+              onClick={() => {
+                onPick(suggestion);
+              }}
+            >
+              {`Use ${suggestion}`}
+            </Button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

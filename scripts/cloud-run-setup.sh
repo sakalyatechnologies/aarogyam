@@ -5,8 +5,9 @@
 #
 # What it does: enables the APIs; creates an Artifact Registry repo (scanning off, keeps the
 # last 3 images); creates three service accounts with only the roles they need; stores the
-# secrets in Secret Manager, read from the git-ignored .env.supabase and .env.edge (values are
-# never printed); and creates a $1 budget with email alerts at 50%, 90% and 100%.
+# secrets in Secret Manager, read from the git-ignored .env.supabase, .env.edge and
+# .env.cloudflare (values are never printed); and creates a $1 budget with email alerts at 50%,
+# 90% and 100%.
 #
 # Usage:  PROJECT_ID=<id> scripts/cloud-run-setup.sh [--yes] [--dry-run]
 #   --dry-run     print every change instead of making it (reads are still made)
@@ -53,6 +54,8 @@ if ! secret_exists "$SECRET_GIT_TOKEN"; then
 fi
 RESEND_SOURCE="not set (email is recorded as delivered and logged by id only)"
 [ -n "$(env_value .env.supabase RESEND_API_KEY)" ] && RESEND_SOURCE=".env.supabase"
+CLOUDFLARE_SOURCE="not set (new clinics' addresses stay pending until it is)"
+[ -n "$(env_value .env.cloudflare CLOUDFLARE_API_TOKEN)" ] && CLOUDFLARE_SOURCE=".env.cloudflare CLOUDFLARE_API_TOKEN"
 
 cat <<PLAN
 
@@ -72,6 +75,8 @@ Will do:
        $SECRET_EDGE            <- .env.edge
        $SECRET_FILES_KEY       <- generated once, never rotated by this script
        $SECRET_RESEND          <- $RESEND_SOURCE
+       $SECRET_CLOUDFLARE       <- $CLOUDFLARE_SOURCE
+                                  (Workers Scripts: Edit; mounted on the outbox job only)
        $SECRET_GIT_TOKEN       <- $GIT_TOKEN_SOURCE
   5. Budget '$BUDGET_AMOUNT' on this project, email alerts at 50%, 90%, 100%
      (an alert, not a cap: it cannot stop spending, only tell you)
@@ -164,6 +169,9 @@ fi
 if [ -n "$(env_value .env.supabase RESEND_API_KEY)" ]; then
   put_secret "$SECRET_RESEND" "$(env_value .env.supabase RESEND_API_KEY)"
 fi
+if [ -n "$(env_value .env.cloudflare CLOUDFLARE_API_TOKEN)" ]; then
+  put_secret "$SECRET_CLOUDFLARE" "$(env_value .env.cloudflare CLOUDFLARE_API_TOKEN)"
+fi
 if ! secret_exists "$SECRET_GIT_TOKEN"; then
   GIT_TOKEN="$(env_value .env.github SAKALYA_BACKEND_READ_TOKEN)"
   if [ -z "$GIT_TOKEN" ] && [ "$DRY_RUN" != "1" ]; then
@@ -184,7 +192,7 @@ grant_secret() { # secret member role
       --member "serviceAccount:$2" --role "$3" --quiet >/dev/null
   fi
 }
-for s in "$SECRET_DB_URL" "$SECRET_SUPABASE_KEY" "$SECRET_EDGE" "$SECRET_FILES_KEY" "$SECRET_RESEND"; do
+for s in "$SECRET_DB_URL" "$SECRET_SUPABASE_KEY" "$SECRET_EDGE" "$SECRET_FILES_KEY" "$SECRET_RESEND" "$SECRET_CLOUDFLARE"; do
   grant_secret "$s" "$RUN_SA" roles/secretmanager.secretAccessor
 done
 grant_secret "$SECRET_GIT_TOKEN" "$BUILD_SA" roles/secretmanager.secretAccessor

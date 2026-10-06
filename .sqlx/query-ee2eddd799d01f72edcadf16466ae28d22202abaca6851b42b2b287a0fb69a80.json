@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id as \"id!\", slug as \"slug!\", name as \"name!\", specialty as \"specialty!\", status as \"status!\",\n                  created_at as \"created_at!\", portal_host, active_members as \"active_members!\",\n                  patients as \"patients!\"\n           from app.console_clinics()",
+  "query": "select id as \"id!\", slug as \"slug!\", name as \"name!\", specialty as \"specialty!\", status as \"status!\",\n                  created_at as \"created_at!\", portal_host, address_status,\n                  active_members as \"active_members!\",\n                  patients as \"patients!\"\n           from app.console_clinics()",
   "describe": {
     "columns": [
       {
@@ -47,12 +47,18 @@
       },
       {
         "ordinal": 7,
+        "name": "address_status",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
         "name": "active_members!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "patients!",
         "type_info": "Int8",
         "origin": "Expression"
@@ -70,8 +76,9 @@
       null,
       null,
       null,
+      null,
       null
     ]
   },
-  "hash": "fd0e9868b4b1b6d694c1d9f2fdef21d2fe8e6bfad627e2e29a2716a7dfd7b9b9"
+  "hash": "ee2eddd799d01f72edcadf16466ae28d22202abaca6851b42b2b287a0fb69a80"
 }

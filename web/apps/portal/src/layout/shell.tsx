@@ -33,6 +33,7 @@ import { CommandPalette } from "./command-palette.js";
 import { useStoredFlag } from "./use-stored-flag.js";
 import { VoiceNoteButton } from "./voice-note-button.js";
 import { PeekProvider } from "./peek.js";
+import { ProgressBar } from "./progress-bar.js";
 
 interface NavItem {
   id: string;
@@ -370,6 +371,7 @@ function ShellFrame() {
 
   return (
     <div className={`mk-app ${collapsed ? "mk-collapsed" : ""}`}>
+      <ProgressBar />
       <a
         href={`#${mainId}`}
         className="mk-sr"

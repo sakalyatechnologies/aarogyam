@@ -7,7 +7,7 @@ use aarogyam_domain::clinical::{
 };
 use aarogyam_domain::ids::{AllergyId, ConditionId, EncounterId, MembershipId, PatientId};
 use aarogyam_domain::permission::Permission;
-use sakalya_db::{Db, DbErrorKind, ScopedTx};
+use sakalya_db::{Db, DbErrorKind};
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
@@ -198,14 +198,6 @@ impl Condition {
     }
 }
 
-/// Today in the clinic's time zone.
-async fn clinic_today_in(tx: &mut ScopedTx, now: OffsetDateTime) -> Result<Date, AppError> {
-    let profile = aarogyam_dal::clinic::profile(tx.conn())
-        .await?
-        .ok_or(AppError::NotFound("clinic"))?;
-    Ok(clinic_today(&profile.timezone, now))
-}
-
 /// Maps the composite-key failure of a visit link to a validation error.
 fn visit_link(error: sakalya_db::DbError) -> AppError {
     match error.kind() {
@@ -229,7 +221,7 @@ pub async fn add_condition(
 ) -> Result<ConditionView, AppError> {
     actor.require(Permission::ClinicalWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let condition = merge_condition(None, &input, clinic_today_in(tx, now).await?)?;
+        let condition = merge_condition(None, &input, clinic_today(&actor.timezone, now))?;
         let patient = require_patient(tx, patient_id).await?;
         let row = facts::insert_condition(
             tx.conn(),
@@ -261,7 +253,7 @@ pub async fn edit_condition(
 ) -> Result<ConditionView, AppError> {
     actor.require(Permission::ClinicalWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let today = clinic_today_in(tx, now).await?;
+        let today = clinic_today(&actor.timezone, now);
         let current =
             facts::get_condition_for_update(tx.conn(), patient_id.uuid(), condition_id.uuid())
                 .await?

@@ -326,6 +326,24 @@ fn hot_routes(
             "/api/v1/reports/pending".into(),
         ),
         Route::get("GET /roles", ALPHA, "/api/v1/roles".into()),
+        Route::get("GET /roles/{key}", ALPHA, "/api/v1/roles/doctor".into()),
+        Route::get("GET /permissions", ALPHA, "/api/v1/permissions".into()),
+        // The lock, the before and after lists, the writes and the change record: one statement.
+        Route {
+            method: Method::PUT,
+            body: Some(json!({ "permissions": [
+                { "key": "patients.read" }, { "key": "patients.write" },
+                { "key": "patients.contact" }, { "key": "appointments.read" },
+                { "key": "appointments.write" }, { "key": "clinical.read" },
+                { "key": "clinical.write" }, { "key": "prescriptions.issue" },
+                { "key": "inventory.read" }
+            ] })),
+            ..Route::get(
+                "PUT /roles/{key}/permissions",
+                ALPHA,
+                "/api/v1/roles/doctor/permissions".into(),
+            )
+        },
         Route::get(
             "GET /settings/clinic",
             ALPHA,

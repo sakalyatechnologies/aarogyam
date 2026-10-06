@@ -40,11 +40,13 @@ pub enum Permission {
     InventoryRead,
     /// Receive, use and adjust stock; edit items and suppliers.
     InventoryManage,
+    /// Choose what each role can see and do.
+    RolesManage,
 }
 
 impl Permission {
     /// Every permission, in catalogue order.
-    pub const ALL: [Self; 17] = [
+    pub const ALL: [Self; 18] = [
         Self::PatientsRead,
         Self::PatientsWrite,
         Self::PatientsContact,
@@ -62,6 +64,7 @@ impl Permission {
         Self::ReportsExport,
         Self::InventoryRead,
         Self::InventoryManage,
+        Self::RolesManage,
     ];
 
     /// The catalogue key, such as `patients.read`.
@@ -85,6 +88,7 @@ impl Permission {
             Self::ReportsExport => "reports.export",
             Self::InventoryRead => "inventory.read",
             Self::InventoryManage => "inventory.manage",
+            Self::RolesManage => "roles.manage",
         }
     }
 
@@ -94,6 +98,21 @@ impl Permission {
         Self::ALL
             .into_iter()
             .find(|permission| permission.key() == key)
+    }
+
+    /// The scopes this permission can be narrowed to; [`Scope::All`] always among them.
+    /// Matches the `scopes` column of the catalogue.
+    #[must_use]
+    pub const fn scopes(self) -> &'static [Scope] {
+        match self {
+            Self::PatientsRead
+            | Self::AppointmentsRead
+            | Self::AppointmentsWrite
+            | Self::ClinicalRead
+            | Self::ClinicalWrite
+            | Self::PrescriptionsIssue => &[Scope::All, Scope::Own, Scope::Assigned],
+            _ => &[Scope::All],
+        }
     }
 
     const fn bit(self) -> u32 {
@@ -214,6 +233,26 @@ impl PermissionSet {
         }
     }
 
+    /// Whether a grant of `permission` at `scope` is within what this set holds: held at
+    /// [`Scope::All`], or at exactly `scope`.
+    #[must_use]
+    pub const fn covers(self, permission: Permission, scope: Scope) -> bool {
+        let bit = permission.bit();
+        self.all & bit != 0
+            || match scope {
+                Scope::All => false,
+                Scope::Own => self.own & bit != 0,
+                Scope::Assigned => self.assigned & bit != 0,
+            }
+    }
+
+    /// Every permission held with its widest scope, in catalogue order.
+    pub fn grants(self) -> impl Iterator<Item = (Permission, Scope)> {
+        Permission::ALL
+            .into_iter()
+            .filter_map(move |permission| self.scope(permission).map(|scope| (permission, scope)))
+    }
+
     /// The permissions held, at any scope, in catalogue order.
     pub fn iter(self) -> impl Iterator<Item = Permission> {
         Permission::ALL
@@ -263,6 +302,7 @@ required!(
     ReportsExport,
     InventoryRead,
     InventoryManage,
+    RolesManage,
 );
 
 #[cfg(test)]

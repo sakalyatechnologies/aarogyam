@@ -103,7 +103,7 @@ export interface FakeMembership {
 }
 
 export interface FakePatient
-  extends Omit<C.Patient, "sex" | "status" | "age_years" | "next_appointment" | "balance_paise" | "lifetime_paid_paise" | "recall_due"> {
+  extends Omit<C.Patient, "sex" | "status" | "age_years" | "next_appointment" | "balance_paise" | "lifetime_paid_paise" | "recall_due" | "row_version"> {
   clinic_id: string;
   sex: C.Sex;
   status: "active" | "inactive" | "deceased" | "merged";
@@ -625,6 +625,9 @@ export const ROLES = {
       "finance.view",
       "settings.manage",
       "staff.manage",
+      "roles.manage",
+      "audit.view",
+      "reports.export",
       "inventory.read",
       "inventory.manage",
     ],
@@ -664,9 +667,31 @@ export const ROLES = {
   finance: {
     key: "finance",
     name: "Finance",
-    permissions: ["patients.read", "billing.read", "billing.write", "finance.view"],
+    permissions: ["patients.read", "billing.read", "billing.write", "finance.view", "reports.export"],
   },
 } as const satisfies Record<string, FakeRole>;
+
+/** The permission catalogue, as `aarogyam.permissions` seeds it. */
+export const PERMISSION_CATALOGUE: readonly { key: Permission; module: string; description: string; scopes: readonly ("all" | "own" | "assigned")[] }[] = [
+  { key: "appointments.read", module: "appointments", description: "See the calendar and queue", scopes: ["all", "own", "assigned"] },
+  { key: "appointments.write", module: "appointments", description: "Book, move and cancel appointments", scopes: ["all", "own", "assigned"] },
+  { key: "audit.view", module: "audit", description: "See the change history and access record", scopes: ["all"] },
+  { key: "billing.read", module: "billing", description: "See bills and payments", scopes: ["all"] },
+  { key: "billing.write", module: "billing", description: "Create bills and take payments", scopes: ["all"] },
+  { key: "clinical.read", module: "clinical", description: "See visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
+  { key: "clinical.write", module: "clinical", description: "Record visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
+  { key: "finance.view", module: "finance", description: "See revenue, expenses and salaries", scopes: ["all"] },
+  { key: "inventory.manage", module: "inventory", description: "Receive, use and adjust stock; edit items and suppliers", scopes: ["all"] },
+  { key: "inventory.read", module: "inventory", description: "See stock levels, suppliers and expiry dates", scopes: ["all"] },
+  { key: "patients.contact", module: "patients", description: "See full phone numbers and email addresses", scopes: ["all"] },
+  { key: "patients.read", module: "patients", description: "See patients and their records", scopes: ["all", "own", "assigned"] },
+  { key: "patients.write", module: "patients", description: "Register and edit patients", scopes: ["all"] },
+  { key: "prescriptions.issue", module: "prescriptions", description: "Issue and cancel prescriptions", scopes: ["all", "own", "assigned"] },
+  { key: "reports.export", module: "reports", description: "Export data to Excel", scopes: ["all"] },
+  { key: "roles.manage", module: "roles", description: "Choose what each role can see and do", scopes: ["all"] },
+  { key: "settings.manage", module: "settings", description: "Change clinic settings, branding and templates", scopes: ["all"] },
+  { key: "staff.manage", module: "staff", description: "Invite staff and change their roles", scopes: ["all"] },
+];
 
 /** Builds the full synthetic data set. Deterministic for a given seed and `now`. */
 export function createFixtures(options: FixtureOptions = {}): Fixtures {

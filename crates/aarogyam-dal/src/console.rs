@@ -298,7 +298,7 @@ pub async fn add_member(
     let role = sqlx::query!(
         r#"select r.org_id as "org_id!", r.id as "role_id!"
            from aarogyam.organizations o
-           join aarogyam.roles r on r.org_id = o.id and r.key = $2
+           join aarogyam.roles r on r.org_id = o.id and r.key = $2 and r.deleted_at is null
            where o.slug = $1"#,
         slug,
         role_key

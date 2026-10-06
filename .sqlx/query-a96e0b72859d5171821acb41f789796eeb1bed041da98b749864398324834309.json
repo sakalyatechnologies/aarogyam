@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with target as (\n             select r.org_id, r.id, r.is_template,\n                    exists (select 1 from aarogyam.memberships m\n                            where m.org_id = r.org_id and m.role_id = r.id\n                              and m.status in ('invited', 'active', 'suspended'))\n                    or exists (select 1 from aarogyam.invitations i\n                               where i.org_id = r.org_id and i.role_id = r.id\n                                 and i.accepted_at is null and i.expires_at > now()) as in_use\n             from aarogyam.roles r\n             where r.key = $1 and r.deleted_at is null\n             for update\n           ),\n           removed as (\n             update aarogyam.roles r set deleted_at = now()\n             from target t\n             where r.org_id = t.org_id and r.id = t.id and not t.is_template and not t.in_use\n             returning r.org_id, r.id\n           ),\n           logged as (\n             insert into aarogyam.role_changes (org_id, role_id, action, changed_by, before)\n             select d.org_id, d.id, 'deleted', $2,\n                    coalesce((select jsonb_agg(jsonb_build_object('key', rp.permission, 'scope', rp.scope)\n                                               order by rp.permission collate \"C\")\n                              from aarogyam.role_permissions rp\n                              where rp.org_id = d.org_id and rp.role_id = d.id), '[]')\n             from removed d\n             returning 1\n           )\n           select t.is_template, t.in_use as \"in_use!\",\n                  (select count(*) from logged) as \"deleted!\"\n           from target t",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "is_template",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "is_template"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "in_use!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "deleted!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "a96e0b72859d5171821acb41f789796eeb1bed041da98b749864398324834309"
+}

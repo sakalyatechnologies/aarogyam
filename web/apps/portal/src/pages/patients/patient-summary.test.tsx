@@ -32,13 +32,14 @@ describe("Patient summary", () => {
     expect(screen.getByText("Lifetime value").parentElement?.textContent).toMatch(/₹/);
   });
 
-  it("keeps the money as a dash without billing.read", async () => {
+  it("shows no money and no Billing tab without billing.read", async () => {
     const { path, backend } = billedPatient(["patients.read"]);
     renderPortal(path, { as: PEOPLE.farah, backend });
-    const outstanding = (await screen.findByText("Outstanding")).parentElement;
-    await waitFor(() => {
-      expect(outstanding?.textContent).toBe("Outstanding—");
-    });
+    await screen.findAllByText("Last visit");
+    expect(screen.queryByText("Outstanding")).toBeNull();
+    expect(screen.queryByText("Lifetime value")).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Billing" })).toBeNull();
+    expect(document.body.textContent).not.toMatch(/₹/);
   });
 
   it("lists balances and the With balance chip asks the server for them", async () => {

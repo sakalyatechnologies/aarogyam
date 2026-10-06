@@ -291,6 +291,8 @@ pub struct Role {
     pub is_template: bool,
     /// What it may do.
     pub permissions: Vec<RolePermission>,
+    /// Members who have it (invited, active or suspended).
+    pub member_count: i64,
 }
 
 /// The clinic's roles.
@@ -334,6 +336,7 @@ pub(crate) async fn roles(
                     .zip(row.scopes)
                     .map(|(key, scope)| RolePermission { key, scope })
                     .collect(),
+                member_count: row.members,
             })
             .collect(),
     }))

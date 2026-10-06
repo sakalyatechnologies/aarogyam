@@ -10,6 +10,8 @@ pub enum Event {
     StaffInvited,
     /// A member's role or status changed.
     MembershipChanged,
+    /// A role was created, removed, or its permissions changed.
+    RoleChanged,
     /// A clinic's settings changed.
     SettingsChanged,
     /// A first-run setup step was answered or the card dismissed.
@@ -108,6 +110,7 @@ impl Event {
             Self::PatientUpdated => "patient.updated",
             Self::StaffInvited => "staff.invited",
             Self::MembershipChanged => "membership.changed",
+            Self::RoleChanged => "role.changed",
             Self::SettingsChanged => "settings.changed",
             Self::SetupChanged => "setup.changed",
             Self::SessionRevoked => "session.revoked",

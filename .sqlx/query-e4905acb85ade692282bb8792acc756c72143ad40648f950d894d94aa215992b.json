@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with template as (\n             select t.id from aarogyam.role_templates t where t.key = $5\n           ),\n           grants as (\n             select tp.permission, tp.scope\n             from aarogyam.role_template_permissions tp join template t on tp.role_template_id = t.id\n           ),\n           created as (\n             insert into aarogyam.roles (id, key, name, description, is_template, template_id)\n             select $1, $2, $3, $4, false, t.id from template t\n             returning org_id, id\n           ),\n           granted as (\n             insert into aarogyam.role_permissions (org_id, role_id, permission, scope)\n             select c.org_id, c.id, g.permission, g.scope from created c, grants g\n             returning 1\n           ),\n           logged as (\n             insert into aarogyam.role_changes (org_id, role_id, action, changed_by, after)\n             select c.org_id, c.id, 'created', $6,\n                    coalesce((select jsonb_agg(jsonb_build_object('key', g.permission, 'scope', g.scope)\n                                               order by g.permission collate \"C\") from grants g), '[]')\n             from created c\n             returning 1\n           )\n           select (select count(*) from created) as \"created!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "created!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e4905acb85ade692282bb8792acc756c72143ad40648f950d894d94aa215992b"
+}

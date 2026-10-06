@@ -85,7 +85,7 @@ export function PatientsPage() {
           }}
         />
         <div role="group" aria-label="Filter patients" style={{ display: "contents" }}>
-          {FILTERS.map((f) => (
+          {FILTERS.filter((f) => f.value !== "with_balance" || can("billing.read")).map((f) => (
             <button
               key={f.value}
               type="button"
@@ -140,7 +140,7 @@ export function PatientsPage() {
                     <th scope="col">File no.</th>
                     <th scope="col">Last visit</th>
                     <th scope="col">Next</th>
-                    <th scope="col">Balance</th>
+                    {can("billing.read") ? <th scope="col">Balance</th> : null}
                     <th scope="col">Status</th>
                   </tr>
                 </thead>
@@ -163,10 +163,11 @@ export function PatientsPage() {
                           <span title={row.next_appointment.practitioner}>{formatDateTime(row.next_appointment.starts_at)}</span>
                         )}
                       </td>
-                      {/* Null without billing.read: a dash, not zero. */}
-                      <td>
-                        {row.balance_paise == null ? "—" : row.balance_paise > 0 ? <b style={{ color: "var(--red)" }}>{formatRupees(row.balance_paise)}</b> : formatRupees(0)}
-                      </td>
+                      {can("billing.read") ? (
+                        <td>
+                          {row.balance_paise == null ? "—" : row.balance_paise > 0 ? <b style={{ color: "var(--red)" }}>{formatRupees(row.balance_paise)}</b> : formatRupees(0)}
+                        </td>
+                      ) : null}
                       <td>
                         <Tag tone={row.status === "active" ? "done" : "wait"}>{row.status.toUpperCase()}</Tag>
                       </td>

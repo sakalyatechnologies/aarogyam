@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             (select coalesce(jsonb_agg(jsonb_build_object(\n                        'key', p.key, 'module', p.module, 'description', p.description,\n                        'scopes', p.scopes) order by p.module, p.key collate \"C\"), '[]')\n              from aarogyam.permissions p) as \"permissions!: Json<Vec<CatalogueRow>>\",\n             (select coalesce(jsonb_agg(jsonb_build_object(\n                        'key', t.key, 'name', t.name, 'description', t.description,\n                        'permissions', coalesce((\n                          select jsonb_agg(jsonb_build_object('key', tp.permission, 'scope', tp.scope)\n                                           order by tp.permission collate \"C\")\n                          from aarogyam.role_template_permissions tp\n                          where tp.role_template_id = t.id), '[]')) order by t.name), '[]')\n              from aarogyam.role_templates t) as \"templates!: Json<Vec<TemplateRow>>\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "permissions!: Json<Vec<CatalogueRow>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "templates!: Json<Vec<TemplateRow>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "c3f708bf05184f09cc30bae260bcc66b42e308750f771fe03262b54f5fe265e8"
+}

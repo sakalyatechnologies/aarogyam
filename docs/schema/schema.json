@@ -1031,6 +1031,7 @@
     "notifications.user_id",
     "patient_links.user_id",
     "platform_users.user_id",
+    "role_changes.changed_by",
     "sessions.user_id",
     "support_grants.granted_by"
    ],
@@ -1683,6 +1684,13 @@
      "nullable": false,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "scopes",
+     "type": "text[]",
+     "nullable": false,
+     "ref": null,
+     "note": "which of all, own, assigned it can be narrowed to; always all"
     }
    ],
    "referenced_by": [],
@@ -1723,7 +1731,8 @@
     }
    ],
    "referenced_by": [
-    "role_template_permissions.role_template_id"
+    "role_template_permissions.role_template_id",
+    "roles.template_id"
    ],
    "sensitivity": "internal",
    "offline": "server_only"
@@ -1772,9 +1781,9 @@
    "rls": "clinic",
    "star": true,
    "partitioned": false,
-   "lifecycle": "mutable",
+   "lifecycle": "soft_delete",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Key unique among live roles. Only unused custom roles are removed; standard roles never are.",
    "cols": [
     {
      "name": "key",
@@ -1803,15 +1812,74 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "template_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "role_templates",
+     "note": "the template a custom role started from"
     }
    ],
    "referenced_by": [
     "invitations.role_id",
     "memberships.role_id",
+    "role_changes.role_id",
     "role_permissions.role_id"
    ],
    "sensitivity": "internal",
    "offline": "read_only"
+  },
+  {
+   "name": "role_changes",
+   "domain": "tenancy",
+   "purpose": "Who changed a role's access and what it was before and after.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
+   "notes": "",
+   "cols": [
+    {
+     "name": "role_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "roles",
+     "note": ""
+    },
+    {
+     "name": "action",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "created, permissions_changed, deleted"
+    },
+    {
+     "name": "changed_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "users",
+     "note": ""
+    },
+    {
+     "name": "before",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "[{key, scope}] sorted by key"
+    },
+    {
+     "name": "after",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "[{key, scope}] sorted by key"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "role_permissions",

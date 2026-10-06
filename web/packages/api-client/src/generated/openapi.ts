@@ -39,7 +39,10 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Moves, reassigns or edits an appointment that isn't completed, cancelled or a no-show. */
+        /**
+         * Moves, reassigns or edits an appointment that isn't completed, cancelled or a no-show. Send
+         *     the `ETag` you read in `If-Match` to refuse the edit (`412`) if the appointment changed since.
+         */
         patch: operations["updateAppointment"];
         trace?: never;
     };
@@ -55,7 +58,8 @@ export interface paths {
         /**
          * Moves an appointment along: booked → confirmed → arrived → in the chair → completed, or
          *     cancelled (with a reason) or no-show before arrival. Arriving issues the branch's next queue
-         *     token for the clinic day.
+         *     token for the clinic day. Asking for the status it already has changes nothing (no second
+         *     history entry or token) and returns the appointment, so a retry after a lost answer is safe.
          */
         post: operations["setAppointmentStatus"];
         delete?: never;
@@ -692,6 +696,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The oldest and newest version of each phone app the API serves. Apps send
+         *     `x-client: <app>/<version>` with every request and are refused below the minimum; this
+         *     answers without a sign-in, and to apps that are already too old, so they can say so.
+         */
+        get: operations["getMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notes/{id}": {
         parameters: {
             query?: never;
@@ -705,7 +730,10 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Replaces a draft's sections. Only the author may, and only while it is a draft. */
+        /**
+         * Replaces a draft's sections. Only the author may, and only while it is a draft. Send the
+         *     `ETag` you read in `If-Match` to refuse the edit (`412`) if the draft changed since.
+         */
         patch: operations["updateNote"];
         trace?: never;
     };
@@ -755,7 +783,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Signs a draft. Only its author may; the note never changes afterwards. */
+        /**
+         * Signs a draft. Only its author may; the note never changes afterwards. Signing a note you
+         *     already signed changes nothing and returns it again, so a retry after a lost answer is safe.
+         */
         post: operations["signNote"];
         delete?: never;
         options?: never;
@@ -834,7 +865,8 @@ export interface paths {
         head?: never;
         /**
          * Edits a patient's details with the same rules as registration. Changing the phone or email
-         *     also needs `patients.contact`. The change history records each change.
+         *     also needs `patients.contact`. The change history records each change. Send the `ETag` you
+         *     read in `If-Match` to refuse the edit (`412`) if the patient changed since.
          */
         patch: operations["updatePatient"];
         trace?: never;
@@ -1190,6 +1222,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The permission catalogue, with plain-language descriptions and the scopes each permission
+         *     can take, and the standard roles' defaults.
+         */
+        get: operations["getAccessCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/practitioners": {
         parameters: {
             query?: never;
@@ -1510,7 +1562,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Moves a token along. A token with an appointment moves the appointment too. */
+        /**
+         * Moves a token along. A token with an appointment moves the appointment too. Asking for the
+         *     status the token already has changes nothing and returns it, so a retry after a lost answer
+         *     is safe.
+         */
         post: operations["setQueueTokenStatus"];
         delete?: never;
         options?: never;
@@ -1616,6 +1672,53 @@ export interface paths {
         /** The clinic's roles and the permissions each holds, for choosing a role. */
         get: operations["listRoles"];
         put?: never;
+        /**
+         * Creates a custom role as a copy of a standard role's defaults, then edit it with
+         *     `PUT /api/v1/roles/{key}/permissions`.
+         */
+        post: operations["createRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One role: what it may do, its defaults, how many people have it and who changed it last. */
+        get: operations["getRole"];
+        put?: never;
+        post?: never;
+        /**
+         * Removes a custom role nobody has or is invited with. Standard roles can be reset, not
+         *     removed.
+         */
+        delete: operations["deleteRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{key}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Sets what a role may do, replacing its permission list. Takes effect on the next request
+         *     of everyone with the role, and is recorded with who changed it and the list before and
+         *     after. The owner role can't be changed, nobody changes their own role, and nobody grants
+         *     a permission (or a wider scope) they don't hold.
+         */
+        put: operations["setRolePermissions"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2300,6 +2403,13 @@ export interface components {
             /** @description The accepted items; every proposed item when left out. The others are cancelled. */
             item_ids?: string[] | null;
         };
+        /** @description Every permission and the standard roles' defaults. */
+        AccessCatalogue: {
+            /** @description Every permission, by module, then key. */
+            permissions: components["schemas"]["CataloguePermission"][];
+            /** @description The standard roles, by name: presets for the roles editor. */
+            templates: components["schemas"]["RoleTemplate"][];
+        };
         /** @description An addendum to a signed note. */
         Addendum: {
             /** @description Who wrote it. */
@@ -2504,6 +2614,12 @@ export interface components {
             room?: string | null;
             /** @description Chair or room, if booked into one. */
             room_id?: string | null;
+            /**
+             * Format: int64
+             * @description Goes up when the appointment changes. Send it back in `If-Match` (it is also the `ETag`)
+             *     to edit only if the appointment is unchanged since you read it.
+             */
+            row_version: number;
             /** @description When they sat in the chair (RFC 3339). */
             seated_at?: string | null;
             /** @description `front_desk`, `phone`, `website`, `app` or `whatsapp`. */
@@ -2733,6 +2849,17 @@ export interface components {
             cancelled: components["schemas"]["Prescription"];
             draft?: components["schemas"]["Prescription"] | null;
         };
+        /** @description A permission in the catalogue. */
+        CataloguePermission: {
+            /** @description What it allows, in plain words, such as "See bills and payments". */
+            description: string;
+            /** @description Key, such as `billing.read`. */
+            key: string;
+            /** @description Module, such as `billing`. */
+            module: string;
+            /** @description The scopes it can be narrowed to: always `all`, sometimes `own` and `assigned`. */
+            scopes: string[];
+        };
         /** @description An appointment as a chair tile shows it. */
         ChairAppointment: {
             /** @description The appointment. */
@@ -2786,6 +2913,15 @@ export interface components {
             tooth: number;
             /** @description The visit that recorded it. */
             visit_id?: string | null;
+        };
+        /** @description The versions of one app the API serves. */
+        ClientVersions: {
+            /** @description The app's name as it appears in `x-client`, such as `aarogyam-staff`. */
+            app: string;
+            /** @description The newest released version, for asking people to update before the minimum moves. */
+            latest_version: string;
+            /** @description The oldest version still served; older ones get `426 client_upgrade_required`. */
+            min_version: string;
         };
         /** @description A clinic for the console: details, hosts, counts, staff and open invitations. */
         ClinicDetail: {
@@ -3225,6 +3361,13 @@ export interface components {
         EnteredInError: {
             /** @description 3 to 500 characters, such as "wrong patient". */
             reason: string;
+        };
+        /** @description What went wrong, as every error answer sends it. */
+        ErrorDetail: {
+            /** @description A stable code to branch on, such as `conflict`. */
+            code: string;
+            /** @description A message for people, without patient data. */
+            message: string;
         };
         /** @description A write-off. */
         ExpireBody: {
@@ -3848,6 +3991,11 @@ export interface components {
             /** @description Their display name. */
             name: string;
         };
+        /** @description What the API serves. */
+        Meta: {
+            /** @description Each app the server tracks versions of; empty when every version is served. */
+            clients: components["schemas"]["ClientVersions"][];
+        };
         /** @description Money received by one method. */
         MethodTotal: {
             /**
@@ -3882,6 +4030,16 @@ export interface components {
              * @description Share of all billed, in basis points.
              */
             share_bps: number;
+        };
+        /**
+         * @description The `409` answer to a move the record's state doesn't allow (an appointment that is already
+         *     cancelled can't arrive): the usual error and the record as it is, so the client can show it.
+         */
+        MoveRefused: {
+            /** @description The record as it is, in the shape the move returns when it succeeds. */
+            current: Record<string, unknown>;
+            /** @description The refusal. */
+            error: components["schemas"]["ErrorDetail"];
         };
         /** @description A clinic the person belongs to. */
         MyClinic: {
@@ -4183,6 +4341,17 @@ export interface components {
             /** @description `dental` (default) or `general`. */
             specialty?: string | null;
         };
+        /** @description A custom role to create. */
+        NewRole: {
+            /** @description What it is for. */
+            description?: string | null;
+            /** @description Its key, 2 to 40 lower-case letters and underscores; made from the name when left out. */
+            key?: string | null;
+            /** @description Its name, such as `Senior nurse`. */
+            name: string;
+            /** @description The standard role it starts as a copy of, such as `assistant` (not `owner`). */
+            template_key: string;
+        };
         /** @description A visit to start. */
         NewVisit: {
             /** @description The appointment the patient came for; a walk-in has none. One visit per appointment. */
@@ -4218,6 +4387,12 @@ export interface components {
             id: string;
             /** @description `soap`, `progress`, `procedure`, `intake` or `front_desk`. */
             kind: string;
+            /**
+             * Format: int64
+             * @description Goes up when the note changes. Send it back in `If-Match` (it is also the `ETag`) to edit
+             *     a draft only if it is unchanged since you read it.
+             */
+            row_version: number;
             /** @description The sections. */
             sections: components["schemas"]["NoteSections"];
             /** @description When it was signed (RFC 3339). */
@@ -4384,6 +4559,12 @@ export interface components {
             preferred_language: string;
             /** @description Whether an open recall is due on or before today. */
             recall_due: boolean;
+            /**
+             * Format: int64
+             * @description Goes up when the details change. Send it back in `If-Match` (it is also the `ETag`) to
+             *     edit only if the patient is unchanged since you read it.
+             */
+            row_version: number;
             /** @description `female`, `male`, `other` or `unknown`. */
             sex: string;
             /** @description `active`, `inactive`, `deceased` or `merged`. */
@@ -5070,10 +5251,60 @@ export interface components {
             is_template: boolean;
             /** @description Key, such as `doctor`. */
             key: string;
+            /**
+             * Format: int64
+             * @description Members who have it (invited, active or suspended).
+             */
+            member_count: number;
             /** @description Name, such as `Doctor`. */
             name: string;
             /** @description What it may do. */
             permissions: components["schemas"]["RolePermission"][];
+        };
+        /** @description A change to a role's access. */
+        RoleChange: {
+            /** @description `created`, `permissions_changed` or `deleted`. */
+            action: string;
+            /** @description The permissions after. */
+            after: components["schemas"]["RolePermission"][];
+            /** @description When (RFC 3339). */
+            at: string;
+            /** @description The permissions before. */
+            before: components["schemas"]["RolePermission"][];
+            /** @description The user who made it. */
+            changed_by: string;
+            /** @description Their name. */
+            changed_by_name?: string | null;
+            /** @description The change. */
+            id: string;
+        };
+        /** @description A role in detail. */
+        RoleDetail: {
+            /** @description What "reset to default" restores; empty without a template. */
+            default_permissions: components["schemas"]["RolePermission"][];
+            /** @description What it is for. */
+            description?: string | null;
+            /** @description Whether it can be changed: every role but the owner. */
+            editable: boolean;
+            /** @description The latest changes, newest first (at most 10). */
+            history: components["schemas"]["RoleChange"][];
+            /** @description The role. */
+            id: string;
+            /** @description Whether it is one of the standard roles. */
+            is_template: boolean;
+            /** @description Key, such as `doctor`. */
+            key: string;
+            /**
+             * Format: int64
+             * @description Members who have it (invited, active or suspended).
+             */
+            member_count: number;
+            /** @description Name, such as `Doctor`. */
+            name: string;
+            /** @description What it may do, sorted by key. */
+            permissions: components["schemas"]["RolePermission"][];
+            /** @description The standard role its defaults come from; its own key for a standard role. */
+            template_key?: string | null;
         };
         /** @description A permission a role holds. */
         RolePermission: {
@@ -5081,6 +5312,32 @@ export interface components {
             key: string;
             /** @description `all`, `own` or `assigned`. */
             scope: string;
+        };
+        /** @description A permission to grant. */
+        RolePermissionInput: {
+            /** @description Permission key, such as `billing.read`. */
+            key: string;
+            /**
+             * @description `all`, `own` or `assigned`; only scopes the catalogue lists for the permission.
+             *     Default `all`.
+             */
+            scope?: string | null;
+        };
+        /** @description A role's complete new permission list. Anything left out is taken away. */
+        RolePermissionsUpdate: {
+            /** @description Every permission the role will have, each once. */
+            permissions: components["schemas"]["RolePermissionInput"][];
+        };
+        /** @description A standard role and the permissions it starts with. */
+        RoleTemplate: {
+            /** @description What it is for. */
+            description: string;
+            /** @description Key, such as `front_desk`. */
+            key: string;
+            /** @description Name, such as `Front desk`. */
+            name: string;
+            /** @description Its default permissions, sorted by key. */
+            permissions: components["schemas"]["RolePermission"][];
         };
         /** @description The clinic's roles. */
         Roles: {
@@ -5174,6 +5431,23 @@ export interface components {
             appointment: components["schemas"]["Appointment"];
             /** @description Warnings; empty when all is well. */
             warnings: components["schemas"]["BookingWarning"][];
+        };
+        /** @description A role after its permissions were set. */
+        SavedRole: {
+            /** @description Whether anything changed; an unchanged list records nothing. */
+            changed: boolean;
+            /** @description What it is for. */
+            description?: string | null;
+            /** @description The role. */
+            id: string;
+            /** @description Whether it is one of the standard roles. */
+            is_template: boolean;
+            /** @description Key. */
+            key: string;
+            /** @description Name. */
+            name: string;
+            /** @description What it may do now, sorted by key. */
+            permissions: components["schemas"]["RolePermission"][];
         };
         /** @description What to search for. Sent in the body, never the URL: search terms are names and phone numbers. */
         SearchRequest: {
@@ -6266,6 +6540,8 @@ export interface operations {
         responses: {
             201: {
                 headers: {
+                    /** @description The `row_version` in quotes; send it back in `If-Match` when editing */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -6312,7 +6588,10 @@ export interface operations {
     updateAppointment: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the record changed since */
+                "If-Match"?: string | null;
+            };
             path: {
                 /** @description The appointment */
                 id: string;
@@ -6327,6 +6606,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description The `row_version` in quotes; send it back in `If-Match` when editing */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -6368,6 +6649,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description `stale_version`: the record changed since the `If-Match` version; the current version is in `ETag` */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     setAppointmentStatus: {
@@ -6388,13 +6676,15 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description The `row_version` in quotes; send it back in `If-Match` when editing */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["StatusChanged"];
                 };
             };
-            /** @description Unknown status, a move the table doesn't allow, or a cancel without a reason */
+            /** @description Unknown status, or a cancel without a reason */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6421,6 +6711,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description A move the table doesn't allow; `current` is the appointment as it is */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoveRefused"];
+                };
             };
         };
     };
@@ -8273,10 +8572,32 @@ export interface operations {
             };
         };
     };
-    updateNote: {
+    getMeta: {
         parameters: {
             query?: never;
             header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Meta"];
+                };
+            };
+        };
+    };
+    updateNote: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the record changed since */
+                "If-Match"?: string | null;
+            };
             path: {
                 /** @description The note */
                 id: string;
@@ -8291,6 +8612,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description The `row_version` in quotes; send it back in `If-Match` when editing */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -8327,6 +8650,13 @@ export interface operations {
             };
             /** @description The note is signed; add an addendum instead */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `stale_version`: the record changed since the `If-Match` version; the current version is in `ETag` */
+            412: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8497,12 +8827,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Not a draft, or every section is empty */
+            /** @description The note can't be signed (it is entered in error, someone else signed it, or every section is empty); `current` is the note as it is */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MoveRefused"];
+                };
             };
         };
     };
@@ -8629,6 +8961,8 @@ export interface operations {
         responses: {
             201: {
                 headers: {
+                    /** @description The `row_version` in quotes; send it back in `If-Match` when editing */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -8716,6 +9050,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description The `row_version` in quotes; send it back in `If-Match` when editing */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -8748,7 +9084,10 @@ export interface operations {
     updatePatient: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the record changed since */
+                "If-Match"?: string | null;
+            };
             path: {
                 /** @description The patient */
                 id: string;
@@ -8763,6 +9102,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description The `row_version` in quotes; send it back in `If-Match` when editing */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -8792,6 +9133,13 @@ export interface operations {
             };
             /** @description No such patient in this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `stale_version`: the record changed since the `If-Match` version; the current version is in `ETag` */
+            412: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10236,6 +10584,46 @@ export interface operations {
             };
         };
     };
+    getAccessCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessCatalogue"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks roles.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listPractitioners: {
         parameters: {
             query?: never;
@@ -11406,7 +11794,7 @@ export interface operations {
                     "application/json": components["schemas"]["QueueToken"];
                 };
             };
-            /** @description Unknown status or a move the table doesn't allow */
+            /** @description Unknown status */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -11433,6 +11821,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description A move the table doesn't allow; `current` is the token as it is */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoveRefused"];
+                };
             };
         };
     };
@@ -11678,6 +12075,217 @@ export interface operations {
             };
             /** @description Not a clinic, or not a member of it */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewRole"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleDetail"];
+                };
+            };
+            /** @description Bad name or key, or an unknown or owner template */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks roles.manage, or the template grants something the caller doesn't hold */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A role with that key exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The role's key, such as `front_desk` */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleDetail"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks roles.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such role in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The role's key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks roles.manage, or the owner role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such role in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A standard role, or people still have it */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setRolePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The role's key, such as `front_desk` */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolePermissionsUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedRole"];
+                };
+            };
+            /** @description Unknown permission or scope, or a permission listed twice */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks roles.manage, the owner role, or a permission the caller doesn't hold */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such role in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The caller's own role */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13580,6 +14188,8 @@ export interface operations {
         responses: {
             201: {
                 headers: {
+                    /** @description The `row_version` in quotes; send it back in `If-Match` when editing */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {

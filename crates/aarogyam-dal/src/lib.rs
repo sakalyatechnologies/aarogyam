@@ -31,6 +31,7 @@ pub mod patients;
 pub mod prescriptions;
 pub mod queue;
 pub mod recalls;
+pub mod roles;
 pub mod schedule;
 pub mod sessions;
 pub mod settings;

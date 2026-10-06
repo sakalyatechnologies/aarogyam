@@ -152,6 +152,8 @@ export const sessionResponse = z.object({
 export type Session = z.output<typeof sessionResponse>;
 
 export const patient = z.object({
+  /** Bumped on every edit; sent back in `If-Match`. */
+  row_version: z.number().int(),
   id: patientId,
   number: patientNumber,
   full_name: z.string(),
@@ -233,11 +235,65 @@ export const role = z.object({
   description: optionalText,
   is_template: z.boolean(),
   permissions: z.array(rolePermission),
+  member_count: z.number().int(),
 }) satisfies z.ZodType<C.Role>;
 export type Role = z.output<typeof role>;
 
 export const rolesResponse = z.object({ items: z.array(role) }) satisfies z.ZodType<C.Roles>;
 export type Roles = z.output<typeof rolesResponse>;
+
+const scope = z.enum(["all", "own", "assigned"]);
+export type PermissionScope = z.output<typeof scope>;
+
+export const accessCatalogue = z.object({
+  permissions: z.array(z.object({ key: z.string(), module: z.string(), description: z.string(), scopes: z.array(scope) })),
+  templates: z.array(z.object({ key: z.string(), name: z.string(), description: z.string(), permissions: z.array(rolePermission) })),
+}) satisfies z.ZodType<C.AccessCatalogue>;
+export type AccessCatalogue = z.output<typeof accessCatalogue>;
+export type CataloguePermission = AccessCatalogue["permissions"][number];
+export type RoleTemplate = AccessCatalogue["templates"][number];
+
+const roleChange = z.object({
+  id: z.string().min(1),
+  action: z.enum(["created", "permissions_changed", "deleted"]),
+  at: timestamp,
+  changed_by: z.string().min(1),
+  changed_by_name: optionalText,
+  before: z.array(rolePermission),
+  after: z.array(rolePermission),
+}) satisfies z.ZodType<C.RoleChange>;
+export type RoleChange = z.output<typeof roleChange>;
+
+export const roleDetail = z.object({
+  id: z.string().min(1),
+  key: z.string(),
+  name: z.string(),
+  description: optionalText,
+  is_template: z.boolean(),
+  template_key: optionalText,
+  editable: z.boolean(),
+  permissions: z.array(rolePermission),
+  default_permissions: z.array(rolePermission),
+  member_count: z.number().int(),
+  history: z.array(roleChange),
+}) satisfies z.ZodType<C.RoleDetail>;
+export type RoleDetail = z.output<typeof roleDetail>;
+
+export const savedRole = z.object({
+  id: z.string().min(1),
+  key: z.string(),
+  name: z.string(),
+  description: optionalText,
+  is_template: z.boolean(),
+  permissions: z.array(rolePermission),
+  changed: z.boolean(),
+}) satisfies z.ZodType<C.SavedRole>;
+export type SavedRole = z.output<typeof savedRole>;
+
+/** Body of `PUT /api/v1/roles/{key}/permissions`: the complete new list. */
+export type RolePermissionsUpdate = C.RolePermissionsUpdate;
+/** Body of `POST /api/v1/roles`. */
+export type NewRole = C.NewRole;
 
 /** Body of `POST /api/v1/staff/invitations`. */
 export type NewInvitation = C.NewInvitation;
@@ -399,6 +455,8 @@ export const practitionerBrief = z.object({
 export type PractitionerBrief = z.output<typeof practitionerBrief>;
 
 export const appointment = z.object({
+  /** Bumped on every edit; sent back in `If-Match`. */
+  row_version: z.number().int(),
   id: appointmentId,
   branch_id: z.string().min(1),
   starts_at: timestamp,
@@ -1007,6 +1065,8 @@ const addendum = z.object({ id: z.string().min(1), author: memberRef, body: z.st
 export type Addendum = z.output<typeof addendum>;
 
 export const note = z.object({
+  /** Bumped on every edit; sent back in `If-Match`. */
+  row_version: z.number().int(),
   id: noteId,
   visit_id: visitId,
   author: memberRef,

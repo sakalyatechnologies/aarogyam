@@ -114,6 +114,7 @@ describe("Patients search", () => {
     const patients: Patient[] = [
       {
         id: patientId.parse("11111111-1111-4111-8111-111111111111"),
+        row_version: 1,
         number: patientNumber.parse("SD-1"),
         full_name: "New This Month",
         sex: "female",
@@ -125,6 +126,7 @@ describe("Patients search", () => {
       },
       {
         id: patientId.parse("22222222-2222-4222-8222-222222222222"),
+        row_version: 1,
         number: patientNumber.parse("SD-2"),
         full_name: "Registered Long Ago",
         sex: "male",

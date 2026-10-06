@@ -26,6 +26,7 @@ pub(crate) mod queue;
 pub(crate) mod recalls;
 pub(crate) mod registrations;
 pub(crate) mod reports;
+pub(crate) mod roles;
 pub(crate) mod schedule;
 pub(crate) mod settings;
 pub(crate) mod setup;
@@ -40,7 +41,7 @@ use axum::Json;
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::http::{HeaderValue, header};
-use axum::routing::{delete, get, patch, post};
+use axum::routing::{delete, get, patch, post, put};
 use sakalya_http::ApiError;
 use sakalya_types::{Entity, Id};
 use time::format_description::well_known::Rfc3339;
@@ -184,7 +185,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route(
             "/settings/letterhead/images/{slot}",
-            axum::routing::put(letterhead::upload_image)
+            put(letterhead::upload_image)
                 .delete(letterhead::remove_image)
                 .layer(DefaultBodyLimit::max(letterhead::MAX_UPLOAD_BODY)),
         )
@@ -214,7 +215,18 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/staff", get(staff::list))
         .route("/staff/invitations", post(staff::invite))
         .route("/staff/{membership_id}", patch(staff::change))
-        .route("/roles", get(staff::roles).layer(from_fn(revalidate)))
+        .route(
+            "/roles",
+            get(staff::roles)
+                .layer(from_fn(revalidate))
+                .post(roles::create),
+        )
+        .route("/roles/{key}", get(roles::role).delete(roles::delete))
+        .route("/roles/{key}/permissions", put(roles::set_permissions))
+        .route(
+            "/permissions",
+            get(roles::catalogue).layer(from_fn(revalidate)),
+        )
         .route(
             "/settings/onboarding",
             get(setup::get_clinic_setup).patch(setup::update_clinic_setup),

@@ -7,7 +7,6 @@ import { formatDate, formatRupees } from "@aarogyam/app-kit";
 import { Empty, MkCard, MkDrawer } from "../components/mk/index.js";
 import { useClinic } from "../clinic.js";
 import { ageSex, patientPath } from "../lib/patients.js";
-import { usePendingReport } from "../pages/billing/queries.js";
 import { useClinicalFlags, usePatient, useVisits } from "../queries.js";
 
 export interface PeekRef {
@@ -60,8 +59,7 @@ function PeekBody({ patient, onNavigate }: { patient: PeekRef; onNavigate: () =>
   const clinical = can("clinical.read");
   const flags = useClinicalFlags(clinical ? patient.id : undefined);
   const visits = useVisits(clinical ? patient.id : undefined);
-  const pending = usePendingReport(can("billing.read"));
-  const owed = pending.data?.items.filter((item) => item.patient.id === patient.id).reduce((sum, item) => sum + item.balance_paise, 0);
+  const money = can("billing.read");
   const p = record.data;
   const flagText =
     !clinical || flags.data === undefined
@@ -89,14 +87,18 @@ function PeekBody({ patient, onNavigate }: { patient: PeekRef; onNavigate: () =>
         <span>Next appointment</span>
         <b>—</b>
       </div>
-      <div className="mk-kv">
-        <span>Lifetime value</span>
-        <b>—</b>
-      </div>
-      <div className="mk-kv">
-        <span>Outstanding</span>
-        <b>{owed === undefined ? "—" : owed === 0 ? "Nil" : formatRupees(owed)}</b>
-      </div>
+      {money ? (
+        <>
+          <div className="mk-kv">
+            <span>Lifetime value</span>
+            <b>{p?.lifetime_paid_paise == null ? "—" : formatRupees(p.lifetime_paid_paise)}</b>
+          </div>
+          <div className="mk-kv">
+            <span>Outstanding</span>
+            <b>{p?.balance_paise == null ? "—" : p.balance_paise === 0 ? "Nil" : formatRupees(p.balance_paise)}</b>
+          </div>
+        </>
+      ) : null}
       <div className="mk-kv" style={{ borderBottom: 0 }}>
         <span>Consent</span>
         <b>Not recorded</b>

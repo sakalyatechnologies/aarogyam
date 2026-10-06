@@ -1,0 +1,83 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with target as (\n             select r.org_id, r.id, r.name, r.description, r.is_template\n             from aarogyam.roles r\n             where r.key = $1 and r.deleted_at is null\n             for update\n           ),\n           current as (\n             select rp.permission, rp.scope\n             from aarogyam.role_permissions rp join target t on rp.org_id = t.org_id and rp.role_id = t.id\n           ),\n           before as (\n             select coalesce(jsonb_agg(jsonb_build_object('key', c.permission, 'scope', c.scope)\n                                       order by c.permission collate \"C\"), '[]') as grants\n             from current c\n           ),\n           wanted as (\n             select w.permission, w.scope from unnest($2::text[], $3::text[]) as w(permission, scope)\n           ),\n           after as (\n             select coalesce(jsonb_agg(jsonb_build_object('key', w.permission, 'scope', w.scope)\n                                       order by w.permission collate \"C\"), '[]') as grants\n             from wanted w\n           ),\n           check_held as (\n             select not exists (\n               select 1 from unnest($4::text[], $5::text[]) as k(permission, scope)\n               where not exists (select 1 from current c\n                                 where c.permission = k.permission\n                                   and (c.scope = k.scope or c.scope = 'all'))\n             ) as allowed\n           ),\n           go as (\n             select t.org_id, t.id, (b.grants <> a.grants) as changed, b.grants as before, a.grants as after\n             from target t, before b, after a, check_held h\n             where h.allowed\n           ),\n           removed as (\n             delete from aarogyam.role_permissions rp\n             using go\n             where go.changed and rp.org_id = go.org_id and rp.role_id = go.id\n               and not exists (select 1 from wanted w where w.permission = rp.permission)\n             returning 1\n           ),\n           upserted as (\n             insert into aarogyam.role_permissions (org_id, role_id, permission, scope)\n             select go.org_id, go.id, w.permission, w.scope from go, wanted w\n             where go.changed\n             on conflict (org_id, role_id, permission) do update set scope = excluded.scope\n               where aarogyam.role_permissions.scope is distinct from excluded.scope\n             returning 1\n           ),\n           logged as (\n             insert into aarogyam.role_changes (org_id, role_id, action, changed_by, before, after)\n             select go.org_id, go.id, 'permissions_changed', $6, go.before, go.after\n             from go where go.changed\n             returning 1\n           )\n           select t.id, t.name, t.description, t.is_template,\n                  (select h.allowed from check_held h) as \"allowed!\",\n                  coalesce((select go.changed from go), false) as \"changed!\"\n           from target t",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "is_template",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "is_template"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "allowed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "changed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "26b6fbf270bec88b4ce4c1f1ac4908056b38feb1627fdefae545dee62b1068dc"
+}

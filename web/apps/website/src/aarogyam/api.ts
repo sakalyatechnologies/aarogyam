@@ -14,7 +14,7 @@ export interface MyClinic {
 
 export interface Me {
   clinics: MyClinic[];
-  /** Not in the API yet; read when it arrives so Sakalya staff can be sent to the console. */
+  /** Active Sakalya staff, who can open the console. */
   console_access?: boolean;
 }
 
@@ -55,16 +55,17 @@ export async function fetchMe(token: string, f: Fetch = fetch): Promise<Result<M
 }
 
 /**
- * Asks the API for a one-time code the clinic's portal exchanges for a session
- * (`POST /api/v1/auth/handoff`, body `{ target_host }`, answer `{ code }`).
+ * Asks the API for a one-time code the clinic's portal (or the console) exchanges for a session
+ * (`POST /api/v1/auth/handoff`, body `{ host }`, answer `{ code, host, expires_at, redirect_url }`).
  */
 export async function requestHandoff(token: string, targetHost: string, f: Fetch = fetch): Promise<Result<string>> {
   try {
     const res = await f(`${API_BASE_URL}/api/v1/auth/handoff`, {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify({ target_host: targetHost }),
+      body: JSON.stringify({ host: targetHost }),
     });
+    if (res.status === 404) return { ok: false, message: "That clinic isn't open to this account. Choose another, or ask the clinic owner to invite you." };
     if (!res.ok) return { ok: false, message: await errorMessage(res, "We could not open that clinic. Try again.") };
     const body = (await res.json()) as { code?: unknown };
     return typeof body.code === "string" ? { ok: true, value: body.code } : { ok: false, message: "We could not open that clinic. Try again." };

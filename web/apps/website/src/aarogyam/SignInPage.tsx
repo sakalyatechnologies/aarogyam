@@ -30,18 +30,17 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
     }
     const dest = decideDestination(me.value, CONSOLE_URL);
     setToken(accessToken);
-    if (dest.kind === "console") window.location.assign(dest.url);
-    else if (dest.kind === "clinic") await openClinic(accessToken, dest.clinic.host);
+    if (dest.kind === "go") await openPlace(accessToken, dest.place.host);
     else if (dest.kind === "picker") setPicker(dest);
     else setNone(true);
   };
 
-  const openClinic = async (accessToken: string, host: string) => {
+  // A one-time code signs the person in on the clinic's (or the console's) own host.
+  const openPlace = async (accessToken: string, host: string) => {
+    setErr("");
     const handoff = await requestHandoff(accessToken, host);
     if (!handoff.ok) {
-      // Until the API offers the one-time handoff everywhere, fall back to the clinic's own
-      // sign-in page, which still works: one more sign-in instead of a dead end.
-      window.location.assign(`https://${host}/sign-in`);
+      setErr(handoff.message);
       return;
     }
     window.location.assign(handoffUrl(host, handoff.value));
@@ -139,15 +138,15 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
             </div>
           )}
 
-          {step === "routing" && !picker && !none && <p className="auth-sub" style={{ marginTop: 22 }}>Taking you to your clinic…</p>}
+          {step === "routing" && !picker && !none && <p className="auth-sub" style={{ marginTop: 22 }}>Taking you there…</p>}
 
           {picker && (
             <div className="field" style={{ marginTop: 22 }}>
-              <label>Choose a clinic</label>
-              {picker.clinics.map((c) => (
-                <button key={c.org_id} className="btn ghost" style={{ width: "100%", justifyContent: "space-between", marginTop: 10 }}
-                  onClick={() => void openClinic(token, c.host)}>
-                  <span>{c.name}</span><span style={{ opacity: 0.7 }}>{c.role_name}</span>
+              <label>Choose where to go</label>
+              {picker.places.map((p) => (
+                <button key={p.key} className="btn ghost" style={{ width: "100%", justifyContent: "space-between", marginTop: 10 }}
+                  onClick={() => void openPlace(token, p.host)}>
+                  <span>{p.name}</span><span style={{ opacity: 0.7 }}>{p.detail}</span>
                 </button>
               ))}
             </div>

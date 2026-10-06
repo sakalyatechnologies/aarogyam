@@ -10,8 +10,6 @@ import com.aarogyam.staff.patients.ClinicMoment
 import com.aarogyam.staff.patients.Severity
 import com.aarogyam.staff.today.parseInstant
 import com.sakalya.mobile.core.ApiError
-import com.sakalya.mobile.core.ApiErrorKind
-import com.sakalya.mobile.core.ErrorCode
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
@@ -54,6 +52,15 @@ data class RxLine(
     val frequency: String,
     val durationDays: Int,
     val timing: String?,
+)
+
+/**
+ * One alert from the clinic's own allergy check, as the server worded it: [message] names the
+ * medicine and the recorded allergy (clinical text: show it, never log it).
+ */
+data class ServerAlert(
+    val severity: Severity,
+    val message: String,
 )
 
 /** A medicine whose name matches a recorded allergy. */
@@ -102,6 +109,8 @@ data class RxSheetState(
     val warnings: List<AllergyWarning> = emptyList(),
     /** The clinic's own allergy check stopped the issue (it also knows drug classes). */
     val serverAlert: Boolean = false,
+    /** What the clinic's check said; empty when it stopped the issue without a readable body. */
+    val serverAlerts: List<ServerAlert> = emptyList(),
     val overrideReason: String = "",
     val phase: RxPhase = RxPhase.Composing,
     val error: ScreenError? = null,
@@ -265,11 +274,15 @@ class RxSheetStateHolder(
                 }
 
                 is Outcome.Failure -> {
-                    if (result.error.isAllergyBlock()) {
+                    val blocked = result.error.body
+                    if (blocked != null && blocked.code == ALLERGY_ALERTS) {
                         log.info("rxsheet.allergy_alert") { id("prescription", id) }
-                        mutableState.update { it.copy(phase = RxPhase.Composing, serverAlert = true) }
+                        val alerts = blocked.alerts.map { ServerAlert(severityOf(it.severity), it.message) }
+                        mutableState.update {
+                            it.copy(phase = RxPhase.Composing, serverAlert = true, serverAlerts = alerts)
+                        }
                     } else {
-                        fail(result.error)
+                        fail(result.error.error)
                     }
                 }
             }
@@ -420,9 +433,13 @@ internal fun warningsFor(
         }
     }
 
-/**
- * An allergy stop answers 409 with `{"code":"allergy_alerts","alerts":[…]}`, which is not the
- * standard error envelope, so the HTTP layer reports it as a conflict with an unexpected body.
- * Every other conflict (already issued, ...) uses the envelope and keeps its own code.
- */
-private fun ApiError.isAllergyBlock(): Boolean = kind == ApiErrorKind.Conflict && code == ErrorCode.UnexpectedResponse
+private const val ALLERGY_ALERTS = "allergy_alerts"
+
+/** The API's alert severity: `info`, `caution` or `serious`. */
+private fun severityOf(text: String): Severity =
+    when (text) {
+        "serious" -> Severity.Severe
+        "caution" -> Severity.Moderate
+        "info" -> Severity.Mild
+        else -> Severity.Unknown
+    }

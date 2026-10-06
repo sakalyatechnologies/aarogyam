@@ -44,6 +44,9 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         # Which API the build talks to: Local, Demo or Prod (as Android's flavours).
         AAROGYAM_ENVIRONMENT: Demo
+        # `AARO_ENV_Local`, `AARO_ENV_Demo` or `AARO_ENV_Prod`: only `DEBUG && AARO_ENV_Local` compiles
+        # the development sign-in in.
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) AARO_ENV_$(AAROGYAM_ENVIRONMENT)"
       configs:
         Debug:
           PRODUCT_BUNDLE_IDENTIFIER: com.aarogyam.staff.demo

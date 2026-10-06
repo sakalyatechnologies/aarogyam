@@ -44,6 +44,9 @@ struct RootView: View {
                 SignInScreen(holder: holder, state: state)
             }
             .onAppear { app.choseToLeave = false }
+            #if DEBUG && AARO_ENV_Local
+            .safeAreaInset(edge: .bottom) { DevSignInPanel(graph: graph) }
+            #endif
             .id("sign-in")
         case .signedIn:
             if let clinic = app.clinic {

@@ -53,6 +53,12 @@ struct Patient360Screen: View {
         }
         .navigationTitle(loaded?.view.name ?? String(localized: "patient.title"))
         .navigationBarTitleDisplayMode(.inline)
+        // A recorded payment changes the balance on the Overview, so reload the patient.
+        .onChange(of: receipt) { _, new in if new != nil { holder.refresh() } }
+    }
+
+    private var receipt: String? {
+        if case .loaded(let value) = onEnum(of: billingState) { value.receipt } else { nil }
     }
 
     @ViewBuilder private var chartTab: some View {

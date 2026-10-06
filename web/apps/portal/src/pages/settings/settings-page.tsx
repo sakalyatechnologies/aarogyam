@@ -1,6 +1,6 @@
 import { Mail, MoreVertical, UserPlus } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { apiErrorOf, type ClinicSettings, type MemberChanges, type MembershipId, type OnlineBookingChanges, type Role } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, useDocumentTitle } from "@aarogyam/app-kit";
@@ -37,6 +37,7 @@ import {
 import { ChairsDoctorsPanel } from "./chairs-doctors-panel.js";
 import { LetterheadThemePanel } from "./letterhead-theme-panel.js";
 import { PriceListPanel } from "./price-list-panel.js";
+import { RolesPanel } from "./roles-panel.js";
 import { WebsitePanel } from "./website/website-panel.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 
@@ -52,6 +53,7 @@ export function SettingsPage() {
     ...(can("settings.manage") ? [{ value: "website", label: "Website", content: <WebsitePanel /> }] : []),
     ...(can("billing.read") ? [{ value: "price-list", label: "Price list", content: <PriceListPanel /> }] : []),
     ...(can("staff.manage") ? [{ value: "staff", label: "Staff", content: <StaffPanel /> }] : []),
+    ...(can("roles.manage") ? [{ value: "roles", label: "Roles & access", content: <RolesPanel /> }] : []),
     { value: "sessions", label: "Sessions", content: <SessionsPanel /> },
   ];
   return (
@@ -321,7 +323,7 @@ function isProfileField(key: string): key is keyof ProfileValues {
 function StaffPanel() {
   const staff = useStaff();
   const roles = useRoles();
-  const { session } = useClinic();
+  const { session, can } = useClinic();
   const [inviteOpen, setInviteOpen] = useState(false);
 
   if (staff.isPending) {
@@ -342,7 +344,18 @@ function StaffPanel() {
         </span>
       ),
     },
-    { id: "role", header: "Role", cell: (member) => member.role_name },
+    {
+      id: "role",
+      header: "Role",
+      cell: (member) =>
+        can("roles.manage") ? (
+          <Link to={`/settings?tab=roles&role=${encodeURIComponent(member.role_key)}`} className="mk-link" title={`See what ${member.role_name} can do`}>
+            {member.role_name}
+          </Link>
+        ) : (
+          member.role_name
+        ),
+    },
     {
       id: "status",
       header: "Status",

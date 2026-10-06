@@ -2205,6 +2205,26 @@
         ]
       }
     },
+    "/api/v1/meta": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "The oldest and newest version of each phone app the API serves. Apps send\n`x-client: <app>/<version>` with every request and are refused below the minimum; this\nanswers without a sign-in, and to apps that are already too old, so they can say so.",
+        "operationId": "getMeta",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Meta"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/notes/{id}": {
       "patch": {
         "tags": [
@@ -9040,6 +9060,29 @@
           }
         }
       },
+      "ClientVersions": {
+        "type": "object",
+        "description": "The versions of one app the API serves.",
+        "required": [
+          "app",
+          "min_version",
+          "latest_version"
+        ],
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "The app's name as it appears in `x-client`, such as `aarogyam-staff`."
+          },
+          "latest_version": {
+            "type": "string",
+            "description": "The newest released version, for asking people to update before the minimum moves."
+          },
+          "min_version": {
+            "type": "string",
+            "description": "The oldest version still served; older ones get `426 client_upgrade_required`."
+          }
+        }
+      },
       "ClinicDetail": {
         "type": "object",
         "description": "A clinic for the console: details, hosts, counts, staff and open invitations.",
@@ -11704,6 +11747,22 @@
           "name": {
             "type": "string",
             "description": "Their display name."
+          }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "description": "What the API serves.",
+        "required": [
+          "clients"
+        ],
+        "properties": {
+          "clients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClientVersions"
+            },
+            "description": "Each app the server tracks versions of; empty when every version is served."
           }
         }
       },
@@ -17584,6 +17643,10 @@
     {
       "name": "health",
       "description": "Liveness for load balancers and Cloud Run"
+    },
+    {
+      "name": "meta",
+      "description": "Which versions of the phone apps the API serves; public"
     },
     {
       "name": "session",

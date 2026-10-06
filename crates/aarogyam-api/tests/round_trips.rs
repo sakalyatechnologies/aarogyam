@@ -299,6 +299,11 @@ fn hot_routes(
 ) -> Vec<Route> {
     vec![
         Route::get("GET /me", "app.localtest.me", "/api/v1/me".into()),
+        // Answered from configuration: no database trip at all.
+        Route {
+            signed_in: false,
+            ..Route::get("GET /meta", "app.localtest.me", "/api/v1/meta".into())
+        },
         Route::get("GET /session", ALPHA, "/api/v1/session".into()),
         Route::get("GET /today", ALPHA, "/api/v1/today".into()),
         Route::get(

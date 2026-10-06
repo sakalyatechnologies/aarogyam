@@ -15,6 +15,7 @@ pub(crate) mod inventory;
 pub(crate) mod invitations;
 pub(crate) mod letterhead;
 pub(crate) mod me;
+pub(crate) mod meta;
 pub(crate) mod onboarding;
 pub(crate) mod patients;
 pub(crate) mod payments;
@@ -59,6 +60,8 @@ use crate::revalidate::revalidate;
 )]
 pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
     let router = Router::new()
+        // Public: which app versions are served.
+        .route("/meta", get(meta::meta))
         .route("/me", get(me::me))
         .route("/me/sessions", get(me::sessions))
         .route("/me/sessions/{id}/revoke", post(me::revoke_session))

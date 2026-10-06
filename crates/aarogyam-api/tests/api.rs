@@ -487,6 +487,9 @@ async fn every_route_requires_sign_in_and_a_permission() {
             // Redeeming a handoff code: the code is the proof, single-use, a minute long, for
             // one host, throttled per IP (tests/handoff.rs).
             "/api/v1/auth/handoff/redeem",
+            // Which phone app versions are served: an app asks before it signs in, and an app
+            // that is too old must still be able to (tests/client_gate.rs).
+            "/api/v1/meta",
         ];
         if !path.starts_with("/api/v1/")
             || path.starts_with("/api/v1/dev/")

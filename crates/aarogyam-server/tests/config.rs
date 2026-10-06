@@ -8,6 +8,7 @@
 use std::net::SocketAddr;
 use std::path::Path;
 
+use aarogyam_domain::client::ClientPolicy;
 use aarogyam_server::config::{AuthMode, Config, EdgeHosts};
 use figment::Jail;
 use sakalya_config::Environment;
@@ -55,6 +56,31 @@ fn defaults_fill_in_what_the_environment_leaves_out() {
         assert_eq!(config.http.request_timeout_secs, 30);
         assert_eq!(config.http.body_limit_bytes, 1024 * 1024);
         assert!(config.db.owner_url.is_none());
+        Ok(())
+    });
+}
+
+#[test]
+fn every_app_version_is_served_until_the_environment_sets_a_minimum() {
+    Jail::expect_with(|jail| {
+        set_required(jail);
+        let config = load(NO_FILE);
+        assert_eq!(config.clients.min_versions, "");
+        assert_eq!(config.clients.latest_versions, "");
+        jail.set_env(
+            "ARO_CLIENTS__MIN_VERSIONS",
+            "aarogyam-staff=0.1.0,aarogyam-patient=1.0.0",
+        );
+        jail.set_env("ARO_CLIENTS__LATEST_VERSIONS", "aarogyam-staff=0.2.0");
+        let config = load(NO_FILE);
+        let policy = ClientPolicy::parse(
+            &config.clients.min_versions,
+            &config.clients.latest_versions,
+        )
+        .unwrap();
+        assert!(policy.is_below_minimum("aarogyam-staff/0.0.9"));
+        assert!(!policy.is_below_minimum("aarogyam-staff/0.1.0"));
+        assert!(policy.is_below_minimum("aarogyam-patient/0.9.0"));
         Ok(())
     });
 }

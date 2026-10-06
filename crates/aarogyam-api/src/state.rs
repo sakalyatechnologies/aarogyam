@@ -11,6 +11,7 @@ use aarogyam_app::prescriptions::{AllergySource, RecordedAllergies};
 use aarogyam_dal::lookups::{self, HostClinic};
 use aarogyam_dal::sessions;
 use aarogyam_domain::access::Authorization;
+use aarogyam_domain::client::ClientPolicy;
 use aarogyam_domain::ids::{ClinicId, MembershipId};
 use aarogyam_notify::{Notifier, PortalAddresses, PortalLinks};
 use axum::http::HeaderMap;
@@ -145,6 +146,7 @@ struct Inner {
     website: WebsiteLinks,
     accounts: Option<Arc<dyn SignInAccounts>>,
     quality_dir: PathBuf,
+    clients: Arc<ClientPolicy>,
 }
 
 /// Shared state; cheap to clone.
@@ -174,6 +176,7 @@ impl AppState {
                 website: WebsiteLinks::default(),
                 accounts: None,
                 quality_dir: PathBuf::from("var/quality"),
+                clients: Arc::new(ClientPolicy::default()),
             }),
         }
     }
@@ -258,6 +261,21 @@ impl AppState {
             inner.quality_dir = dir;
         }
         self
+    }
+
+    /// Sets which versions of the phone apps are served: older ones get `426`
+    /// (`client_upgrade_required`), and `GET /api/v1/meta` publishes the rest. By default every
+    /// version is served. Call before the state is shared (cloned).
+    #[must_use]
+    pub fn with_client_policy(mut self, policy: ClientPolicy) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.clients = Arc::new(policy);
+        }
+        self
+    }
+
+    pub(crate) fn client_policy(&self) -> &Arc<ClientPolicy> {
+        &self.inner.clients
     }
 
     pub(crate) fn quality_dir(&self) -> &Path {

@@ -63,6 +63,7 @@ val apiModels =
         "RxItem",
         "RxValues",
         "Alert",
+        "IssueBlocked",
         "PatientRef",
         "PrintData",
         "IssueRequest",

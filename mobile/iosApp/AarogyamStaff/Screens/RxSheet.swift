@@ -12,8 +12,9 @@ struct RxSheet: View {
     var body: some View {
         ScreenHost(make: { graph.rxSheet(clinic: clinic, patientId: patientId, allergies: allergies, screen: $0) }, state: { $0.state }) { holder, state in
             RxSheetContent(holder: holder, state: state)
+                // The issued sheet (PIN and share) is short; composing needs the room.
+                .presentationDetents(state.phase == .issued ? [.medium] : [.large])
         }
-        .presentationDetents([.large])
     }
 }
 
@@ -84,7 +85,10 @@ private struct RxComposer: View {
                 ForEach(Array(state.warnings.enumerated()), id: \.offset) { _, warning in
                     danger(warning.text)
                 }
-                if state.serverAlert { danger(String(localized: "rx.server_alert")) }
+                ForEach(Array(state.serverAlerts.enumerated()), id: \.offset) { _, alert in
+                    danger(alert.message)
+                }
+                if state.serverAlert, state.serverAlerts.isEmpty { danger(String(localized: "rx.server_alert")) }
                 SkTextField(
                     String(localized: "rx.override.label"),
                     text: Binding(get: { state.overrideReason }, set: { holder.setOverrideReason(text: $0) }),

@@ -13,6 +13,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,6 +61,9 @@ fun Patient360Screen(
     // Without billing.read the Billing tab does not exist.
     val tabCount = if (billingState == BillingState.Hidden) TAB_BILLING else TABS.size
     val loaded = state as? Patient360State.Loaded
+    // A recorded payment changes the balance on the Overview, so reload the patient.
+    val receipt = (billingState as? BillingState.Loaded)?.receipt
+    LaunchedEffect(receipt) { if (receipt != null) holder.refresh() }
     Column(Modifier.fillMaxSize()) {
         SkTopBar(
             title = loaded?.view?.name ?: stringResource(R.string.patient_title),

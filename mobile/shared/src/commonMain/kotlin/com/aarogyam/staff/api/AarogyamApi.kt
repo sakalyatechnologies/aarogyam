@@ -6,6 +6,7 @@ import com.aarogyam.staff.api.model.DentalChart
 import com.aarogyam.staff.api.model.DrugList
 import com.aarogyam.staff.api.model.DrugSearch
 import com.aarogyam.staff.api.model.InvoiceList
+import com.aarogyam.staff.api.model.IssueBlocked
 import com.aarogyam.staff.api.model.IssueRequest
 import com.aarogyam.staff.api.model.Me
 import com.aarogyam.staff.api.model.NewChartEntries
@@ -27,7 +28,9 @@ import com.aarogyam.staff.api.model.VisitList
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Outcome
+import com.sakalya.mobile.http.BodyFailure
 import com.sakalya.mobile.http.call
+import com.sakalya.mobile.http.callWithErrorBody
 import com.sakalya.mobile.http.idempotencyKey
 import io.ktor.client.HttpClient
 import io.ktor.client.request.parameter
@@ -35,6 +38,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.encodeURLPathPart
 
@@ -188,15 +192,15 @@ class ClinicApi(
 
     /**
      * `POST /api/v1/prescriptions/{id}/issue` (`issuePrescription`). Without an [overrideReason] an
-     * allergy alert answers 409; that body is not the standard error envelope, so it reaches the
-     * caller as a `Conflict` failure with code `unexpected_response` (see `RxSheetStateHolder`).
-     * The patient is not emailed: the app shares the link itself.
+     * allergy alert answers 409 with its own body (`IssueBlocked`, not the standard error
+     * envelope); it comes back as [BodyFailure.body] next to the `Conflict` error. The patient is
+     * not emailed: the app shares the link itself.
      */
     suspend fun issuePrescription(
         id: String,
         overrideReason: String?,
-    ): Outcome<Prescription, ApiError> =
-        client.call {
+    ): Outcome<Prescription, BodyFailure<IssueBlocked>> =
+        client.callWithErrorBody(HttpStatusCode.Conflict.value) {
             url("api/v1/prescriptions/${id.encodeURLPathPart()}/issue")
             method = HttpMethod.Post
             contentType(ContentType.Application.Json)

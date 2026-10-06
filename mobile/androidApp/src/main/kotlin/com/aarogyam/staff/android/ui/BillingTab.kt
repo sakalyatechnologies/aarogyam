@@ -147,14 +147,11 @@ private fun BillingContent(
             }
         } else {
             item {
-                SkCard {
-                    Text(
-                        stringResource(R.string.bills_title),
-                        style = SkTypography.headline,
-                        color = SkTheme.colors.text.color,
-                        modifier = Modifier.padding(bottom = Spacing.SM.dp),
-                    )
-                }
+                Text(
+                    stringResource(R.string.bills_title),
+                    style = SkTypography.headline,
+                    color = SkTheme.colors.text.color,
+                )
             }
             items(view.bills, key = { it.id }) { bill -> BillRow(bill, onPay = { holder.startPayment(bill.id) }) }
         }

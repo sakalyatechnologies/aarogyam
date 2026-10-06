@@ -196,7 +196,8 @@ private fun Warnings(
     if (!state.needsOverride) return
     SkCard(modifier = Modifier.padding(top = Spacing.M.dp)) {
         state.warnings.forEach { RxError(it.text()) }
-        if (state.serverAlert) RxError(stringResource(R.string.rx_server_alert))
+        state.serverAlerts.forEach { RxError(it.message) }
+        if (state.serverAlert && state.serverAlerts.isEmpty()) RxError(stringResource(R.string.rx_server_alert))
         SkTextField(
             value = state.overrideReason,
             onValueChange = holder::setOverrideReason,

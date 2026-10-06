@@ -240,7 +240,7 @@ class RxSheetStateHolderTest {
                 issue,
                 {
                     json(
-                        """{"code":"allergy_alerts","alerts":[{"kind":"allergy","severity":"serious","message":"x"}]}""",
+                        """{"code":"allergy_alerts","alerts":[{"kind":"allergy","severity":"serious","message":"AMOXICILLIN may cause a reaction: recorded allergy to Penicillin"}]}""",
                         HttpStatusCode.Conflict,
                     )
                 },
@@ -253,11 +253,30 @@ class RxSheetStateHolderTest {
             assertEquals(RxPhase.Composing, blocked.phase)
             assertTrue(blocked.needsOverride)
             assertFalse(blocked.canIssue)
+            assertEquals(
+                listOf(
+                    ServerAlert(Severity.Severe, "AMOXICILLIN may cause a reaction: recorded allergy to Penicillin"),
+                ),
+                blocked.serverAlerts,
+            )
             sheet.setOverrideReason("Tolerated last year")
             sheet.issue()
             sheet.state.first { it.phase == RxPhase.Issued }
             assertEquals(1, backend.count(patient), "the draft is reused")
             assertEquals(2, backend.count(issue))
+        }
+
+    @Test
+    fun another_conflict_keeps_its_own_error_and_is_not_an_allergy_stop() =
+        runTest {
+            val backend = FakeBackend().also { it.serve() }
+            backend.on(issue, { apiError(HttpStatusCode.Conflict, "already_issued") })
+            val sheet = holder(backend)
+            sheet.add(sheet.pick())
+            sheet.issue()
+            val failed = sheet.state.first { it.error != null }
+            assertFalse(failed.serverAlert)
+            assertTrue(failed.serverAlerts.isEmpty())
         }
 
     @Test

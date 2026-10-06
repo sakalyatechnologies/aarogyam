@@ -64,6 +64,7 @@ fun SignInScreen(holder: SignInStateHolder) {
                             keyboardOptions =
                                 KeyboardOptions(
                                     keyboardType = KeyboardType.Email,
+                                    autoCorrectEnabled = false,
                                     imeAction = ImeAction.Send,
                                 ),
                         )

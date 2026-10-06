@@ -136,7 +136,7 @@ pub struct DbSettings {
     /// The schema owner (`ARO_DB__OWNER_URL`), used only by `aarogyam migrate`: a local
     /// superuser, or Supabase's `postgres` user in the cloud.
     pub owner_url: Option<SecretString>,
-    /// Most connections (`ARO_DB__MAX_CONNECTIONS`). Default 5.
+    /// Most connections (`ARO_DB__MAX_CONNECTIONS`). Default 10.
     #[serde(default = "default_max_connections")]
     pub max_connections: u32,
     /// Connections kept open when idle (`ARO_DB__MIN_CONNECTIONS`). Default 2.
@@ -160,10 +160,10 @@ pub struct DbSettings {
 }
 
 impl DbSettings {
-    /// The API's pool settings: these limits on `db.url`. The defaults suit Supabase's session
-    /// pooler on the free plan: few connections per instance, a couple kept warm because a new
-    /// one costs several round trips, and none idle long enough for the pooler or a NAT gateway
-    /// to drop it unnoticed.
+    /// The API's pool settings: these limits on `db.url`. Ten connections fit under the
+    /// Supabase free plan session pooler alongside the outbox sender's own small pool,
+    /// a couple kept warm because a new one costs several round trips, and none idle
+    /// long enough for the pooler or a NAT gateway to drop it unnoticed.
     #[must_use]
     pub fn api_config(&self) -> DbConfig {
         DbConfig::new(self.url.clone())
@@ -177,7 +177,7 @@ impl DbSettings {
 }
 
 const fn default_max_connections() -> u32 {
-    5
+    10
 }
 
 const fn default_min_connections() -> u32 {

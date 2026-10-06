@@ -1,12 +1,13 @@
 //! The dental chart: current state per tooth, one tooth's history, and new findings.
 
 use aarogyam_app::chart::{
-    self as app, ChartEntryView, DentalChart as ChartView, EntryInput, RecordChart,
+    self as app, ChartEntryView, DentalChart as ChartView, EntryInput, RecordChart, TermView,
 };
 use aarogyam_domain::ids::{EncounterId, MembershipId, PatientId, SpecialtyRecordId};
 use aarogyam_domain::permission::require::{ClinicalRead, ClinicalWrite};
 use axum::Json;
 use axum::extract::State;
+use axum::http::StatusCode;
 use sakalya_http::{ApiJson, ApiPath, ApiQuery};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -33,6 +34,10 @@ pub struct ChartEntry {
     pub surface: Option<String>,
     /// `sound`, `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`.
     pub finding: String,
+    /// What was done, with its label.
+    pub procedure: Option<DentalTerm>,
+    /// What it was done with, with its label.
+    pub material: Option<DentalTerm>,
     /// The clinician's remark.
     pub note: Option<String>,
     /// `current`, `superseded` or `entered_in_error`.
@@ -55,11 +60,37 @@ impl From<ChartEntryView> for ChartEntry {
             tooth: view.tooth.number(),
             surface: view.surface.map(|s| s.as_str().to_owned()),
             finding: view.finding.as_str().to_owned(),
+            procedure: view.procedure.map(DentalTerm::from),
+            material: view.material.map(DentalTerm::from),
             note: view.note,
             status: view.status,
             supersedes_id: view.supersedes_id.map(SpecialtyRecordId::uuid),
             effective_at: rfc3339(view.effective_at),
             recorded_by: view.recorded_by.map(MembershipId::uuid),
+        }
+    }
+}
+
+/// A procedure or material: seeded (`zirconia`) or added by the clinic (a UUID id).
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DentalTerm {
+    /// The seeded id, such as `zirconia`, or the clinic term's UUID.
+    pub id: String,
+    /// `procedure` or `material`.
+    pub kind: String,
+    /// What the clinician reads.
+    pub label: String,
+    /// Added by the clinic rather than seeded.
+    pub own: bool,
+}
+
+impl From<TermView> for DentalTerm {
+    fn from(view: TermView) -> Self {
+        Self {
+            id: view.id,
+            kind: view.kind.as_str().to_owned(),
+            label: view.label,
+            own: view.own,
         }
     }
 }
@@ -71,6 +102,9 @@ pub struct DentalChart {
     pub current: Vec<ChartEntry>,
     /// Every entry of the requested tooth, newest first; empty unless `tooth` was given.
     pub history: Vec<ChartEntry>,
+    /// The procedures and materials to offer: the seeded vocabulary, then the clinic's own.
+    /// Filter it as the clinician types; it changes only when someone adds a term.
+    pub terms: Vec<DentalTerm>,
 }
 
 impl From<ChartView> for DentalChart {
@@ -78,6 +112,7 @@ impl From<ChartView> for DentalChart {
         Self {
             current: view.current.into_iter().map(ChartEntry::from).collect(),
             history: view.history.into_iter().map(ChartEntry::from).collect(),
+            terms: view.terms.into_iter().map(DentalTerm::from).collect(),
         }
     }
 }
@@ -134,6 +169,10 @@ pub struct NewChartEntry {
     pub surface: Option<String>,
     /// `sound` (clears an earlier finding), `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`.
     pub finding: String,
+    /// A procedure id from the chart's `terms`: seeded (`crown`) or the clinic's own. Not with `sound`.
+    pub procedure: Option<String>,
+    /// A material id from the chart's `terms`: seeded (`zirconia`) or the clinic's own. Not with `sound`.
+    pub material: Option<String>,
     /// A remark, up to 500 characters.
     pub note: Option<String>,
 }
@@ -161,7 +200,7 @@ pub struct NewChartEntries {
     security(("bearer" = [])),
     responses(
         (status = 200, body = DentalChart),
-        (status = 400, description = "A bad tooth, surface or finding, or a visit of another patient"),
+        (status = 400, description = "A bad tooth, surface, finding, procedure or material, or a visit of another patient"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
         (status = 404, description = "No such patient in this clinic"),
@@ -183,6 +222,8 @@ pub(crate) async fn record(
                 tooth: entry.tooth,
                 surface: entry.surface,
                 finding: entry.finding,
+                procedure: entry.procedure,
+                material: entry.material,
                 note: entry.note,
             })
             .collect(),
@@ -197,4 +238,53 @@ pub(crate) async fn record(
     )
     .await?;
     Ok(Json(view.into()))
+}
+
+/// A procedure or material to add to the clinic's list.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct NewDentalTerm {
+    /// `procedure` or `material`.
+    pub kind: String,
+    /// What the clinician reads, 1 to 80 characters.
+    pub label: String,
+}
+
+/// Adds a procedure or material to the clinic's list ("Add new" in the chart's dropdowns). A
+/// label matching a seeded term or one the clinic has (ignoring case) returns that term with
+/// `200`; a new one answers `201`.
+#[utoipa::path(
+    post,
+    path = "/api/v1/dental-terms",
+    operation_id = "addDentalTerm",
+    tag = "clinical",
+    request_body = NewDentalTerm,
+    security(("bearer" = [])),
+    responses(
+        (status = 201, body = DentalTerm, description = "Added"),
+        (status = 200, body = DentalTerm, description = "Already in the list"),
+        (status = 400, description = "An unknown list or a bad label"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write"),
+        (status = 409, description = "The same label was added at the same moment")
+    )
+)]
+pub(crate) async fn add_term(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiJson(body): ApiJson<NewDentalTerm>,
+) -> Result<(StatusCode, Json<DentalTerm>), ApiFailure> {
+    let (term, added) = app::add_term(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        &body.kind,
+        &body.label,
+    )
+    .await?;
+    let status = if added {
+        StatusCode::CREATED
+    } else {
+        StatusCode::OK
+    };
+    Ok((status, Json(term.into())))
 }

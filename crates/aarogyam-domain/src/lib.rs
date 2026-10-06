@@ -68,6 +68,7 @@ pub mod client_id;
 pub mod clinic;
 pub mod clinical;
 pub mod dental;
+pub mod dental_terms;
 pub mod edge;
 pub mod event;
 pub mod files;

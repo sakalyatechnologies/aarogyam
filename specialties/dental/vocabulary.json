@@ -1,0 +1,33 @@
+{
+  "$comment": "The dental module's seeded vocabulary: what was done on a tooth or surface, and the material. Ids are stable: chart entries store them, so never rename or reuse one; retire a term by adding \"retired\": true. Clinics add their own terms (aarogyam.dental_terms); those have UUID ids.",
+  "schema_version": 1,
+  "procedures": [
+    { "id": "filling", "label": "Filling" },
+    { "id": "inlay", "label": "Inlay" },
+    { "id": "onlay", "label": "Onlay" },
+    { "id": "veneer", "label": "Veneer" },
+    { "id": "crown", "label": "Crown" },
+    { "id": "bridge_abutment", "label": "Bridge abutment" },
+    { "id": "bridge_pontic", "label": "Bridge pontic" },
+    { "id": "root_canal", "label": "Root canal treatment" },
+    { "id": "post_core", "label": "Post and core" },
+    { "id": "core_build_up", "label": "Core build-up" },
+    { "id": "pulpotomy", "label": "Pulpotomy" },
+    { "id": "implant", "label": "Implant" },
+    { "id": "extraction", "label": "Extraction" },
+    { "id": "sealant", "label": "Pit and fissure sealant" },
+    { "id": "scaling", "label": "Scaling" }
+  ],
+  "materials": [
+    { "id": "zirconia", "label": "Zirconia" },
+    { "id": "pfm", "label": "PFM (porcelain fused to metal)" },
+    { "id": "cast_metal", "label": "Metal (cast)" },
+    { "id": "composite", "label": "Composite" },
+    { "id": "amalgam", "label": "Amalgam" },
+    { "id": "glass_ionomer", "label": "Glass ionomer" },
+    { "id": "emax", "label": "e.max (lithium disilicate)" },
+    { "id": "gold", "label": "Gold" },
+    { "id": "ceramic", "label": "Ceramic" },
+    { "id": "temporary", "label": "Temporary" }
+  ]
+}

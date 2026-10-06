@@ -32,6 +32,8 @@ struct Route {
     uri: String,
     signed_in: bool,
     body: Option<Value>,
+    /// Trips allowed over the budget, each with its reason in the route list.
+    extra: usize,
 }
 
 impl Route {
@@ -43,7 +45,14 @@ impl Route {
             uri,
             signed_in: true,
             body: None,
+            extra: 0,
         }
+    }
+
+    /// Allows `trips` more than the budget.
+    const fn allow_extra(mut self, trips: usize) -> Self {
+        self.extra = trips;
+        self
     }
 }
 
@@ -145,20 +154,15 @@ async fn measure(router: &Router, trips: &PgRoundTrips, route: &Route, token: &s
     trips.counts_since(mark)
 }
 
-#[tokio::test]
-#[ignore = "needs Postgres: DATABASE_URL=postgres://localhost:5432/postgres"]
-async fn hot_paths_stay_within_their_round_trip_budget() {
-    let app = TestApp::start().await;
-    let owner = app.token(ALPHA_OWNER);
-    let today = OffsetDateTime::now_utc()
-        .to_offset(UtcOffset::from_hms(5, 30, 0).unwrap())
-        .date();
-    let monday = today - Duration::days(i64::from(today.weekday().number_days_from_monday()));
-    let sunday = monday + Duration::days(6);
-    let tomorrow = today + Duration::days(1);
-    let (doctor, patient) = clinic_day(&app, &owner, tomorrow).await;
-
-    let routes = [
+/// The hot paths, with the days and records `clinic_day` created.
+fn hot_routes(
+    monday: Date,
+    sunday: Date,
+    tomorrow: Date,
+    doctor: &str,
+    patient: &str,
+) -> Vec<Route> {
+    vec![
         Route::get("GET /me", "app.localtest.me", "/api/v1/me".into()),
         Route::get("GET /session", ALPHA, "/api/v1/session".into()),
         Route::get("GET /today", ALPHA, "/api/v1/today".into()),
@@ -168,6 +172,25 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
             format!("/api/v1/appointments?from={monday}&to={sunday}"),
         ),
         Route::get("GET /patients", ALPHA, "/api/v1/patients".into()),
+        // Money figures in one statement, then the bills with a balance: one trip over.
+        Route::get("GET /today/money", ALPHA, "/api/v1/today/money".into()).allow_extra(1),
+        Route::get(
+            "GET /reports/collections",
+            ALPHA,
+            format!("/api/v1/reports/collections?from={monday}&to={sunday}"),
+        )
+        .allow_extra(1),
+        Route::get(
+            "GET /reports/pending",
+            ALPHA,
+            "/api/v1/reports/pending".into(),
+        ),
+        Route::get("GET /roles", ALPHA, "/api/v1/roles".into()),
+        Route::get(
+            "GET /settings/clinic",
+            ALPHA,
+            "/api/v1/settings/clinic".into(),
+        ),
         Route {
             method: Method::POST,
             body: Some(json!({ "q": "Ravi" })),
@@ -198,7 +221,23 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
                 format!("/api/v1/public/availability?date={tomorrow}&practitioner_id={doctor}"),
             )
         },
-    ];
+    ]
+}
+
+#[tokio::test]
+#[ignore = "needs Postgres: DATABASE_URL=postgres://localhost:5432/postgres"]
+async fn hot_paths_stay_within_their_round_trip_budget() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let today = OffsetDateTime::now_utc()
+        .to_offset(UtcOffset::from_hms(5, 30, 0).unwrap())
+        .date();
+    let monday = today - Duration::days(i64::from(today.weekday().number_days_from_monday()));
+    let sunday = monday + Duration::days(6);
+    let tomorrow = today + Duration::days(1);
+    let (doctor, patient) = clinic_day(&app, &owner, tomorrow).await;
+
+    let routes = hot_routes(monday, sunday, tomorrow, &doctor, &patient);
 
     let mut table = String::from(
         "\nroute                     cold  warm  (cold: prepares, new connections; warm: pings, release checks)\n",
@@ -228,7 +267,9 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
             warm.marked
         )
         .unwrap();
-        if warm.statements > WARM_BUDGET || cold.statements > COLD_BUDGET {
+        if warm.statements > WARM_BUDGET + route.extra
+            || cold.statements > COLD_BUDGET + route.extra
+        {
             over.push(route.name);
         }
     }

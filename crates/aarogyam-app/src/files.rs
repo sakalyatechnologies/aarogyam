@@ -446,7 +446,7 @@ pub struct Upload {
     pub language: Option<String>,
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     digest::digest(&digest::SHA256, bytes).as_ref().iter().fold(
         String::with_capacity(64),
         |mut hex, byte| {

@@ -30,6 +30,7 @@ pub(crate) mod roles;
 pub(crate) mod schedule;
 pub(crate) mod settings;
 pub(crate) mod setup;
+pub(crate) mod smart_import;
 pub(crate) mod staff;
 pub(crate) mod today;
 pub(crate) mod treatment;
@@ -87,6 +88,21 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/imports/patients",
             // 2 MB of CSV, plus JSON escaping.
             post(imports::import_patients).layer(DefaultBodyLimit::max(3 * 1024 * 1024)),
+        )
+        .route(
+            "/imports/sessions",
+            post(smart_import::upload).layer(DefaultBodyLimit::max(smart_import::MAX_UPLOAD_BODY)),
+        )
+        .route("/imports/sessions/{id}", delete(smart_import::discard))
+        .route(
+            "/imports/sessions/{id}/preview",
+            post(smart_import::preview),
+        )
+        .route("/imports/sessions/{id}/commit", post(smart_import::commit))
+        .route("/imports/incomplete", get(smart_import::incomplete))
+        .route(
+            "/imports/incomplete/{id}/dismiss",
+            post(smart_import::dismiss),
         )
         .route("/rooms", get(schedule::rooms).post(schedule::add_room))
         .route(

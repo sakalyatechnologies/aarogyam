@@ -39,6 +39,7 @@ pub mod sessions;
 pub mod settings;
 pub mod setup;
 pub mod share;
+pub mod smart_import;
 pub mod staff;
 pub mod tabular;
 pub mod today;

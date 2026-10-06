@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with created as (\n             insert into aarogyam.imports\n               (id, kind, source, mapping, total_rows, imported_rows, failed_rows, skipped_rows,\n                merged_rows, incomplete_rows, session_id, file_name, sheet_name)\n             values ($1, 'patients', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)\n             returning id\n           ), recorded as (\n             insert into aarogyam.import_rows (import_id, row_number, raw, status, error, patient_id)\n             select (select id from created), r.n, '{}'::jsonb, r.status, r.error, r.patient_id\n             from unnest($13::int[], $14::text[], $15::text[], $16::uuid[]) as r(n, status, error, patient_id)\n           ), gaps as (\n             insert into aarogyam.patient_gaps (patient_id, import_id, row_number, missing)\n             select g.patient_id, (select id from created), g.n, string_to_array(g.missing, ',')\n             from unnest($17::uuid[], $18::int[], $19::text[]) as g(patient_id, n, missing)\n           ), remembered as (\n             insert into aarogyam.import_column_memory (header_key, field)\n             select * from unnest($20::text[], $21::text[])\n             on conflict (org_id, header_key) do update set field = excluded.field\n           )\n           update aarogyam.import_sessions\n           set status = 'committed', cells = null, import_id = (select id from created)\n           where id = $10",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Jsonb",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4Array",
+        "TextArray",
+        "TextArray",
+        "UuidArray",
+        "UuidArray",
+        "Int4Array",
+        "TextArray",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9a2447eb14b21d27de6c7d98ff20300c270310d95c0e14a75ec6240b6bff1d2c"
+}

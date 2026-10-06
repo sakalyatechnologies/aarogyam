@@ -21,6 +21,7 @@ pub mod edge;
 pub mod facts;
 pub mod handoff;
 pub mod identifiers;
+pub mod import_sessions;
 pub mod imports;
 pub mod inventory;
 pub mod invitations;

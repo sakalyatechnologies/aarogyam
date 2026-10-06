@@ -37,6 +37,39 @@ final class MessagesTests: XCTestCase {
     }
 }
 
+final class PatientMappingTests: XCTestCase {
+    private func assertTranslated(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
+        let looksLikeKey = text.range(of: #"^[a-z_]+(\.[a-z_]+)+$"#, options: .regularExpression) != nil
+        XCTAssertFalse(text.isEmpty || looksLikeKey, "untranslated \(text)", file: file, line: line)
+    }
+
+    func test_every_severity_has_copy_and_severe_is_danger() {
+        for severity in Severity.allCases { assertTranslated(severity.label) }
+        XCTAssertEqual(Severity.severe.tone, .danger)
+        XCTAssertEqual(Severity.moderate.tone, .warning)
+    }
+
+    func test_known_sexes_have_copy_and_unknown_is_left_out() {
+        for sex in [Sex.female, .male, .other] { assertTranslated(sex.label ?? "") }
+        XCTAssertNil(Sex.unknown.label)
+    }
+
+    func test_the_patient_line_skips_what_is_missing() {
+        XCTAssertEqual(patientLine(number: "SD-1042", ageYears: 34, sex: .female), "SD-1042 · Age 34 · Female")
+        XCTAssertEqual(patientLine(number: "SD-1042", ageYears: nil, sex: .unknown), "SD-1042")
+    }
+
+    func test_money_uses_indian_grouping() {
+        XCTAssertEqual(ClinicFormat.rupees(paise: 125_000), "₹1,250")
+        XCTAssertEqual(ClinicFormat.rupees(paise: 12_345_600), "₹1,23,456")
+    }
+
+    func test_dates_read_as_clinic_wall_clock_days() {
+        XCTAssertEqual(ClinicFormat.date(iso: "2026-10-05", locale: Locale(identifier: "en_GB")), "5 Oct 2026")
+        XCTAssertEqual(ClinicFormat.date(iso: "bad"), "bad")
+    }
+}
+
 final class ThemeTests: XCTestCase {
     func test_the_default_brand_draws_the_tulsi_palette() {
         let light = ClinicBranding.companion.Default.skTheme(systemDark: false)

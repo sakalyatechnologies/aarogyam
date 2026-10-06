@@ -47,20 +47,15 @@ struct RootView: View {
             .id("sign-in")
         case .signedIn:
             if let clinic = app.clinic {
-                NavigationStack {
-                    ScreenHost(make: { graph.today(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
-                        TodayScreen(
-                            holder: holder,
-                            state: state,
-                            onSwitchClinic: {
-                                app.choseToLeave = true
-                                graph.directory.leave()
-                            },
-                            onSignOut: graph.signOut
-                        )
+                MainTabs(
+                    graph: graph,
+                    clinic: clinic,
+                    onSwitchClinic: {
+                        app.choseToLeave = true
+                        graph.directory.leave()
                     }
-                }
-                .id("today-\(clinic.slug)")
+                )
+                .id("main-\(clinic.slug)")
             } else {
                 let autoOpen = !app.choseToLeave
                 NavigationStack {

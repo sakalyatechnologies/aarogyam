@@ -67,11 +67,18 @@ pub enum ImportField {
     FileNumber,
     /// The old software's patient ID, kept as an identifier.
     LegacyId,
+    /// Postal address, kept as written.
+    Address,
+    /// The date of the last visit.
+    LastVisit,
+    /// An amount the patient owes; recognised so it isn't mistaken for another field, not
+    /// imported (opening balances are entered in billing).
+    Balance,
 }
 
 impl ImportField {
     /// Every field.
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 12] = [
         Self::FullName,
         Self::Sex,
         Self::DateOfBirth,
@@ -81,6 +88,9 @@ impl ImportField {
         Self::PreferredLanguage,
         Self::FileNumber,
         Self::LegacyId,
+        Self::Address,
+        Self::LastVisit,
+        Self::Balance,
     ];
 
     /// The field's name in a mapping.
@@ -96,6 +106,9 @@ impl ImportField {
             Self::PreferredLanguage => "preferred_language",
             Self::FileNumber => "file_number",
             Self::LegacyId => "legacy_id",
+            Self::Address => "address",
+            Self::LastVisit => "last_visit",
+            Self::Balance => "balance",
         }
     }
 
@@ -112,6 +125,58 @@ impl ImportField {
 /// # Errors
 /// [`ImportError::UnclosedQuote`].
 pub fn parse_csv(text: &str) -> Result<Vec<(usize, Vec<String>)>, ImportError> {
+    parse_delimited(text, ',')
+}
+
+/// The delimiter a text file most likely uses: comma, semicolon, tab or pipe, whichever splits
+/// the first lines (outside quotes) into the most columns, most consistently. Comma when none.
+#[must_use]
+pub fn sniff_delimiter(text: &str) -> char {
+    let lines: Vec<&str> = text
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .take(20)
+        .collect();
+    let count = |line: &str, delimiter: char| {
+        let mut quoted = false;
+        let mut n = 0_usize;
+        for c in line.chars() {
+            if c == '"' {
+                quoted = !quoted;
+            } else if c == delimiter && !quoted {
+                n += 1;
+            }
+        }
+        n
+    };
+    let mut best = (',', 0_usize);
+    for delimiter in [',', ';', '\t', '|'] {
+        let counts: Vec<usize> = lines.iter().map(|line| count(line, delimiter)).collect();
+        let Some(&first) = counts.first() else {
+            continue;
+        };
+        // Lines agreeing with the first, weighted by the columns they make.
+        let agreeing = counts.iter().filter(|n| **n == first).count();
+        let score = if first == 0 {
+            0
+        } else {
+            agreeing * 100 + first
+        };
+        if score > best.1 {
+            best = (delimiter, score);
+        }
+    }
+    best.0
+}
+
+/// [`parse_csv`] with another delimiter, such as `;` (European Excel) or a tab.
+///
+/// # Errors
+/// [`ImportError::UnclosedQuote`].
+pub fn parse_delimited(
+    text: &str,
+    delimiter: char,
+) -> Result<Vec<(usize, Vec<String>)>, ImportError> {
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let mut records = Vec::new();
     let mut record = Vec::new();
@@ -138,7 +203,7 @@ pub fn parse_csv(text: &str) -> Result<Vec<(usize, Vec<String>)>, ImportError> {
         }
         match c {
             '"' if field.is_empty() => quoted = true,
-            ',' => record.push(std::mem::take(&mut field)),
+            c if c == delimiter => record.push(std::mem::take(&mut field)),
             '\r' if chars.peek() == Some(&'\n') => {}
             '\n' | '\r' => {
                 record.push(std::mem::take(&mut field));
@@ -238,23 +303,58 @@ pub fn read_rows(
 }
 
 /// Reads the sex values spreadsheets use: `F`/`female`, `M`/`male`, `O`/`other`, `U`/`unknown`,
-/// in any case. Returns our value, or `None` when unreadable.
+/// in any case, plus common Hindi and Marathi words (`stri`, `mahila`, `purush`, `स्त्री`,
+/// `पुरुष`). Returns our value, or `None` when unreadable.
 #[must_use]
 pub fn loose_sex(text: &str) -> Option<&'static str> {
-    match text.trim().to_lowercase().as_str() {
-        "f" | "female" | "woman" => Some("female"),
-        "m" | "male" | "man" => Some("male"),
-        "o" | "other" => Some("other"),
+    let text = text.trim().trim_end_matches('.').to_lowercase();
+    match text.as_str() {
+        "f" | "female" | "woman" | "fem" | "girl" | "stri" | "stree" | "mahila" | "स्त्री"
+        | "स्री" | "महिला" | "औरत" => Some("female"),
+        "m" | "male" | "man" | "boy" | "purush" | "पुरुष" | "पु" | "आदमी" => {
+            Some("male")
+        }
+        "o" | "other" | "t" | "transgender" | "इतर" | "अन्य" => Some("other"),
         "u" | "unknown" => Some("unknown"),
         _ => None,
     }
 }
 
-/// Reads a date as `YYYY-MM-DD`, `DD/MM/YYYY`, `DD-MM-YYYY` or `DD.MM.YYYY` (Indian order).
+const MONTHS: [&str; 12] = [
+    "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+];
+
+fn month_number(text: &str) -> Option<u8> {
+    if let Ok(number) = text.parse::<u8>() {
+        return Some(number);
+    }
+    let text = text.to_lowercase();
+    let prefix = text.get(..3)?;
+    (1_u8..)
+        .zip(MONTHS)
+        .find_map(|(number, name)| (name == prefix).then_some(number))
+}
+
+/// Reads a date as `YYYY-MM-DD`, `DD/MM/YYYY`, `DD-MM-YYYY`, `DD.MM.YYYY` (Indian order, day
+/// first), or with the month as a word (`12-Apr-1990`, `12 April 1990`). A time after the date,
+/// as exports add (`12/04/1990 00:00`), is ignored. Two-digit years are refused: guessing the
+/// century would be inventing.
 #[must_use]
 pub fn loose_date(text: &str) -> Option<Date> {
     let text = text.trim();
-    let parts: Vec<&str> = text.split(['-', '/', '.']).collect();
+    let first = text.split(' ').next().unwrap_or(text);
+    // An ISO timestamp's time (`1990-04-12T00:00:00`), not the T of a month like OCT.
+    let first = match first.find('T') {
+        Some(at) if first[at + 1..].starts_with(|c: char| c.is_ascii_digit()) => &first[..at],
+        _ => first,
+    };
+    let parts: Vec<&str> = if first.contains(['-', '/', '.']) {
+        first.split(['-', '/', '.']).collect()
+    } else {
+        text.split([' ', ','])
+            .filter(|part| !part.is_empty())
+            .collect()
+    };
     let [a, b, c] = parts.as_slice() else {
         return None;
     };
@@ -266,9 +366,27 @@ pub fn loose_date(text: &str) -> Option<Date> {
         return None;
     };
     let year: i32 = year.parse().ok()?;
-    let month: u8 = month.parse().ok()?;
+    let month = month_number(month)?;
     let day: u8 = day.parse().ok()?;
     Date::from_calendar_date(year, Month::try_from(month).ok()?, day).ok()
+}
+
+/// Reads an age in years: `32`, `32 yrs`, `32Y`, `32 years`, `32 वर्ष`. Ages above 130 are
+/// refused.
+#[must_use]
+pub fn loose_age(text: &str) -> Option<u16> {
+    let text = text.trim().to_lowercase();
+    let digits_end = text
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(text.len());
+    let (digits, rest) = text.split_at(digits_end);
+    let rest = rest.trim().trim_end_matches('.');
+    let unit_ok = matches!(
+        rest,
+        "" | "y" | "yr" | "yrs" | "year" | "years" | "वर्ष" | "वर्षे" | "साल"
+    );
+    let age: u16 = digits.parse().ok()?;
+    (unit_ok && age <= 130).then_some(age)
 }
 
 #[cfg(test)]
@@ -339,6 +457,16 @@ mod tests {
     }
 
     #[test]
+    fn delimiters_are_sniffed() {
+        assert_eq!(sniff_delimiter("a;b;c\n1;2;3\n"), ';');
+        assert_eq!(sniff_delimiter("a\tb\n1\t\"x;y\"\n"), '\t');
+        assert_eq!(sniff_delimiter("name,phone\n\"Shah; M\",1\n"), ',');
+        assert_eq!(sniff_delimiter("name\nPriya\n"), ',');
+        let rows = parse_delimited("a;b\n\"x;y\";2\n", ';').unwrap();
+        assert_eq!(rows[1].1, vec!["x;y".to_owned(), "2".to_owned()]);
+    }
+
+    #[test]
     fn loose_values() {
         assert_eq!(loose_sex(" F "), Some("female"));
         assert_eq!(loose_sex("Male"), Some("male"));
@@ -348,5 +476,25 @@ mod tests {
         assert_eq!(loose_date("12.04.1990"), Some(date!(1990 - 04 - 12)));
         assert_eq!(loose_date("31/02/1990"), None);
         assert_eq!(loose_date("April 1990"), None);
+        assert_eq!(loose_date("12-Apr-1990"), Some(date!(1990 - 04 - 12)));
+        assert_eq!(loose_date("12 April 1990"), Some(date!(1990 - 04 - 12)));
+        assert_eq!(
+            loose_date("12/04/1990 00:00:00"),
+            Some(date!(1990 - 04 - 12))
+        );
+        assert_eq!(loose_date("12/04/90"), None);
+        assert_eq!(loose_date("01-OCT-1990"), Some(date!(1990 - 10 - 01)));
+        assert_eq!(
+            loose_date("1990-04-12T00:00:00"),
+            Some(date!(1990 - 04 - 12))
+        );
+        assert_eq!(loose_sex("स्त्री"), Some("female"));
+        assert_eq!(loose_sex("Purush"), Some("male"));
+        assert_eq!(loose_sex("M."), Some("male"));
+        assert_eq!(loose_age("32"), Some(32));
+        assert_eq!(loose_age("32 Yrs"), Some(32));
+        assert_eq!(loose_age("7y"), Some(7));
+        assert_eq!(loose_age("200"), None);
+        assert_eq!(loose_age("thirty"), None);
     }
 }

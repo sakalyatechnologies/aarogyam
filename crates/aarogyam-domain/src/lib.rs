@@ -73,6 +73,7 @@ pub mod event;
 pub mod files;
 pub mod ids;
 pub mod import;
+pub mod import_map;
 pub mod inventory;
 pub mod letterhead;
 pub mod onboarding;

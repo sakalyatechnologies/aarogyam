@@ -40,6 +40,9 @@ import {
   downloadLink,
   drugList,
   importResult,
+  importSession,
+  incompleteList,
+  smartImportResult,
   invoice,
   invoiceList,
   handoff,
@@ -283,6 +286,34 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     importPatients: (input, opts) =>
       call({ method: "POST", path: "/api/v1/imports/patients", schema: importResult, body: input, signal: opts?.signal }),
+    uploadImportFile: (form, opts) =>
+      call({ method: "POST", path: "/api/v1/imports/sessions", schema: importSession, body: form, signal: opts?.signal }),
+    previewImport: (id, choices, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/imports/sessions/${encodeURIComponent(id)}/preview`,
+        schema: smartImportResult,
+        body: choices,
+        signal: opts?.signal,
+      }),
+    commitImport: (id, choices, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/imports/sessions/${encodeURIComponent(id)}/commit`,
+        schema: smartImportResult,
+        body: choices,
+        signal: opts?.signal,
+      }),
+    discardImport: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/imports/sessions/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+    listIncompletePatients: (opts) => call({ method: "GET", path: "/api/v1/imports/incomplete", schema: incompleteList, signal: opts?.signal }),
+    dismissIncompletePatient: (id, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/imports/incomplete/${encodeURIComponent(id)}/dismiss`,
+        schema: voidResponse,
+        signal: opts?.signal,
+      }),
 
     getClinicalFlags: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/clinical-flags`, schema: clinicalFlags, signal: opts?.signal }),

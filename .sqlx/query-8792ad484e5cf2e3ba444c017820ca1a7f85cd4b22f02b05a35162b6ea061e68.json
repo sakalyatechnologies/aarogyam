@@ -1,0 +1,83 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select r.row_number, r.status, r.error, r.patient_id, p.number as \"number?\",\n                  exists (select 1 from aarogyam.patient_gaps g\n                          where g.import_id = r.import_id and g.row_number = r.row_number) as \"incomplete!\"\n           from aarogyam.import_rows r\n           left join aarogyam.patients p on p.org_id = r.org_id and p.id = r.patient_id\n           where r.import_id = $1\n           order by r.row_number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row_number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.import_rows",
+            "name": "row_number"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.import_rows",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "error",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.import_rows",
+            "name": "error"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.import_rows",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "number?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "incomplete!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "8792ad484e5cf2e3ba444c017820ca1a7f85cd4b22f02b05a35162b6ea061e68"
+}

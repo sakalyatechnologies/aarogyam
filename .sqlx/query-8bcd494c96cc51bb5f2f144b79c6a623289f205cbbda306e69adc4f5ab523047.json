@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select 'person' as \"kind!\", w.phone || '|' || w.name as \"value!\", p.id as \"patient_id!\",\n                  p.number as \"number!\"\n           from unnest($1::text[], $2::text[]) as w(phone, name)\n           join aarogyam.patients p on p.phone_e164 = w.phone and p.search_name = w.name\n           where p.deleted_at is null and p.status <> 'merged'\n           union all\n           select i.kind, i.value, i.patient_id, p.number\n           from aarogyam.patient_identifiers i\n           join aarogyam.patients p on p.org_id = i.org_id and p.id = i.patient_id\n           where i.deleted_at is null\n             and ((i.kind = 'file_number' and i.value = any($3))\n                  or (i.kind = 'legacy' and i.value = any($4)))",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "value!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "patient_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "number!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "8bcd494c96cc51bb5f2f144b79c6a623289f205cbbda306e69adc4f5ab523047"
+}

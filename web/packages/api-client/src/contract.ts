@@ -253,6 +253,15 @@ export type PatientImport = Schemas["PatientImport"];
 export type ImportResult = Schemas["ImportResult"];
 export type ImportRow = Schemas["ImportRow"];
 export type ImportMode = "preview" | "commit";
+export type ImportSession = Schemas["ImportSession"];
+export type ColumnSuggestion = Schemas["ColumnSuggestion"];
+export type ImportChoices = Schemas["ImportChoices"];
+export type RowDecision = Schemas["RowDecision"];
+export type SmartImportResult = Schemas["SmartImportResult"];
+export type SmartImportRow = Schemas["SmartImportRow"];
+export type DuplicateRef = Schemas["DuplicateRef"];
+export type IncompleteList = Schemas["IncompleteList"];
+export type IncompletePatient = Schemas["IncompletePatient"];
 
 // Clinical flags: allergies and conditions (M4) --------------------------------------------------
 

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with ended as (\n             update aarogyam.import_sessions set status = 'discarded', cells = null\n             where id = $1 and status = 'open'\n             returning id\n           )\n           select exists (select 1 from ended)\n               or exists (select 1 from aarogyam.import_sessions where id = $1) as \"found!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7cecf0bf7c7df4f340ef163d91955948f77aa50ee6da7f9c79ca90e5615f21ce"
+}

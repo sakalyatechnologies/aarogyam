@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.patients\n             (id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,\n              preferred_language, address, last_visit_at)\n           select * from unnest($1::uuid[], $2::text[], $3::text[], $4::text[], $5::date[],\n                                $6::bool[], $7::text[], $8::text[], $9::text[], $10::jsonb[],\n                                $11::timestamptz[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "DateArray",
+        "BoolArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "JsonbArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "65c0083d52eb2206368012d434dcda5affd5753f57e8293403a3cd5a82bb2d5f"
+}

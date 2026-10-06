@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with dismissed as (\n             update aarogyam.patient_gaps set dismissed_at = now(), dismissed_by = app.user_id()\n             where id = $1 and dismissed_at is null\n             returning id\n           )\n           select exists (select 1 from dismissed)\n               or exists (select 1 from aarogyam.patient_gaps where id = $1) as \"found!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "dfd20e710aa47b3d4098c254bf7c0a4e9298a14c4d3fa5df129ac272a85c5a12"
+}

@@ -2,6 +2,7 @@
 
 import type { ApiResult } from "./result.js";
 import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
+import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
 import type {
   AcceptInvitation,
   Acceptance,
@@ -281,6 +282,18 @@ export interface ApiClient {
 
   /** Clinic host: imports patients from CSV; `preview` saves nothing, `commit` saves the valid rows. Needs `patients.write`. */
   importPatients(input: PatientImport, options?: RequestOptions): Promise<ApiResult<ImportResult>>;
+  /** Clinic host: uploads a CSV or Excel file (form field `file`, optional `sheet`) and suggests a field per column. Needs `patients.write`. */
+  uploadImportFile(form: FormData, options?: RequestOptions): Promise<ApiResult<ImportSession>>;
+  /** Clinic host: checks every row of an uploaded file through the mapping; saves nothing. Needs `patients.write`. */
+  previewImport(id: ImportSessionId, choices: ImportChoices, options?: RequestOptions): Promise<ApiResult<SmartImportResult>>;
+  /** Clinic host: imports an uploaded file in one transaction; repeating it returns the same result. Needs `patients.write`. */
+  commitImport(id: ImportSessionId, choices: ImportChoices, options?: RequestOptions): Promise<ApiResult<SmartImportResult>>;
+  /** Clinic host: ends an import session without importing and clears its rows. Needs `patients.write`. */
+  discardImport(id: ImportSessionId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: imported patients still missing details, the front desk's to-do list. Needs `patients.read`. */
+  listIncompletePatients(options?: RequestOptions): Promise<ApiResult<IncompleteList>>;
+  /** Clinic host: takes a patient off the to-do list. Needs `patients.write`. */
+  dismissIncompletePatient(id: PatientGapId, options?: RequestOptions): Promise<ApiResult<void>>;
 
   /** Clinic host: members, their roles and status, and pending invitations. Needs `staff.manage`. */
   listStaff(options?: RequestOptions): Promise<ApiResult<Staff>>;

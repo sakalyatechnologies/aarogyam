@@ -1,0 +1,11 @@
+# Public marketing site on Cloudflare Pages (a CNAME from GoDaddy works with Pages custom domains).
+# Deployed by scripts/deploy-website.sh, which runs `wrangler pages deploy` from this directory so
+# `functions/` (the clinic application proxy) is picked up. API_ORIGIN and EDGE_SECRET are Pages
+# secrets, set by that script, never written here.
+name = "aarogyam-website"
+compatibility_date = "2026-09-01"
+pages_build_output_dir = "../../../web/apps/website/dist/client"
+
+# The API answers the site as its app host (ARO_HOSTS__APP); see functions/api/[[path]].ts.
+[vars]
+API_HOST = "aarogyam-portal.spring-snow-130f.workers.dev"

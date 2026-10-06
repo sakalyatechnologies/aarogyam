@@ -126,6 +126,42 @@ API's compute (the founder's Mac). No Google Cloud spend in this path.
 
 ---
 
+## Public website (Cloudflare Pages)
+
+The marketing site (`web/apps/website`, built in Lovable, kept here) is a static build served by
+the Cloudflare Pages project `aarogyam-website` at `https://aarogyam-website.pages.dev` and, once
+DNS is set, `https://aarogyam.sakalyatechnologies.com`. Free tier. Pages, not Workers, because a
+Pages custom domain works with DNS held elsewhere (a CNAME).
+
+```bash
+scripts/deploy-website.sh                  # build and deploy; keeps the API settings already stored
+scripts/deploy-website.sh <api-origin>     # also connects the site to that API
+```
+
+The site is the one sign-in for everyone: `/sign-in` (email code or password, through
+`@aarogyam/auth`) then `GET /api/v1/me` and `POST /api/v1/auth/handoff` decide where to send the
+person (console, their clinic, or a picker). "Request access" posts to
+`POST /api/v1/registrations` (lands in Console, Applications). The browser calls the API on the
+site's own origin; a Pages Function (`deploy/cloudflare/website/functions`) forwards exactly those
+three routes with the edge secret, so the calls work only after a deploy that passed
+`<api-origin>` (until then the site says it is not connected). Build-time settings
+(`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` from `.env.supabase`, `VITE_CONSOLE_URL`) are listed
+at the top of the script. The script also registers the custom domain with Pages.
+
+To bring in a new Lovable export, see `web/apps/website/IMPORT.md`.
+
+### Founder step: point GoDaddy at it
+
+In GoDaddy, DNS for `sakalyatechnologies.com`, add one record:
+
+| Type | Name | Value | TTL |
+|---|---|---|---|
+| CNAME | `aarogyam` | `aarogyam-website.pages.dev` | 1 hour (or default) |
+
+That is all. Cloudflare notices the CNAME, issues the certificate (usually within minutes, up to
+an hour) and the domain turns from `pending` to `active` in the Pages project, Custom domains tab.
+Check with `curl -I https://aarogyam.sakalyatechnologies.com/`.
+
 ## Cloud Run (free trial account)
 
 The API runs on Cloud Run in Mumbai (`asia-south1`, next to the Supabase database); the

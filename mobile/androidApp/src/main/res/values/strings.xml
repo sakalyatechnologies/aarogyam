@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aarogyam</string>
+
+    <!-- Start-up -->
+    <string name="loading">Loading</string>
+    <string name="not_configured_title">This build isn\'t set up</string>
+    <string name="not_configured_message">Add the Supabase URL and key to mobile/local.secrets.properties and rebuild.</string>
+    <string name="storage_unavailable_title">Unlock your phone to continue</string>
+    <string name="storage_unavailable_message">Your sign-in is stored securely and can\'t be read until the phone is unlocked.</string>
+    <string name="try_again">Try again</string>
+    <string name="sign_out">Sign out</string>
+
+    <!-- Sign-in -->
+    <string name="sign_in_title">Sign in</string>
+    <string name="sign_in_subtitle">Use the email address your clinic invited.</string>
+    <string name="email_label">Email</string>
+    <string name="send_code">Send code</string>
+    <string name="code_label">Code</string>
+    <string name="code_sent">We sent a code to %1$s.</string>
+    <string name="verify_code">Sign in</string>
+    <string name="change_email">Use a different email</string>
+    <string name="sign_in_error_invalid_email">Enter a valid email address.</string>
+    <string name="sign_in_error_invalid_code">Enter the code from the email.</string>
+    <string name="sign_in_error_email_not_accepted">We couldn\'t send a code to that address. Ask your clinic for an invitation.</string>
+    <string name="sign_in_error_code_rejected">That code didn\'t work or has expired. Check it, or ask for a new one.</string>
+    <string name="sign_in_error_too_many">Too many attempts. Wait a minute and try again.</string>
+
+    <!-- Clinic picker -->
+    <string name="clinics_title">Choose a clinic</string>
+    <string name="clinics_empty_title">No clinics yet</string>
+    <string name="clinics_empty_message">Ask your clinic\'s owner to invite you.</string>
+    <string name="clinic_opening">Opening</string>
+
+    <!-- Today -->
+    <string name="today_title">Today</string>
+    <string name="greeting_morning">Good morning, %1$s · %2$s</string>
+    <string name="greeting_afternoon">Good afternoon, %1$s · %2$s</string>
+    <string name="greeting_evening">Good evening, %1$s · %2$s</string>
+    <string name="stat_visits">Visits today</string>
+    <string name="stat_waiting">Waiting</string>
+    <string name="stat_done">Done</string>
+    <string name="hero_now">In the chair · %1$s</string>
+    <string name="hero_next">Up next · %1$s</string>
+    <string name="schedule">Schedule</string>
+    <string name="schedule_empty_title">No appointments today</string>
+    <string name="schedule_empty_message">New bookings will show here.</string>
+    <string name="today_not_allowed_title">Today isn\'t available</string>
+    <string name="today_not_allowed_message">Your role can\'t see the schedule at this clinic.</string>
+    <string name="switch_clinic">Switch clinic</string>
+    <string name="status_booked">Booked</string>
+    <string name="status_confirmed">Confirmed</string>
+    <string name="status_waiting">Waiting</string>
+    <string name="status_in_chair">In chair</string>
+    <string name="status_done">Done</string>
+    <string name="status_cancelled">Cancelled</string>
+    <string name="status_no_show">No-show</string>
+    <string name="status_unknown">Scheduled</string>
+
+    <!-- Errors -->
+    <string name="error_offline">You\'re offline. Check your connection.</string>
+    <string name="error_network">Couldn\'t reach Aarogyam. Try again.</string>
+    <string name="error_signed_out">Your session ended. Sign in again.</string>
+    <string name="error_not_allowed">Your role can\'t open this.</string>
+    <string name="error_not_found">This clinic isn\'t available to you.</string>
+    <string name="error_upgrade">Update the app to continue.</string>
+    <string name="error_server">Something went wrong on our side. Try again.</string>
+    <string name="error_not_configured">This build has no address for this environment.</string>
+    <string name="error_unknown">Something went wrong. Try again.</string>
+</resources>

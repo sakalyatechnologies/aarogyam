@@ -25,3 +25,4 @@ require(sakalyaMobile.resolve("settings.gradle.kts").isFile) {
 includeBuild(sakalyaMobile)
 
 include(":shared")
+include(":androidApp")

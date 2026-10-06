@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.kmp.library) apply false
     alias(libs.plugins.android.lint) apply false
+    alias(libs.plugins.openapi.generator) apply false
     alias(libs.plugins.spotless)
 }
 
@@ -15,7 +16,15 @@ allprojects {
     apply(plugin = "com.diffplug.spotless")
     extensions.configure<com.diffplug.gradle.spotless.SpotlessExtension> {
         kotlinGradle {
-            target(if (project == rootProject) files("build.gradle.kts", "settings.gradle.kts") else files("build.gradle.kts"))
+            target(
+                if (project ==
+                    rootProject
+                ) {
+                    files("build.gradle.kts", "settings.gradle.kts")
+                } else {
+                    files("build.gradle.kts")
+                },
+            )
             ktlint(ktlintVersion)
         }
         if (project != rootProject) {

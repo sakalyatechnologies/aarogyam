@@ -12,6 +12,7 @@ activity-compose = "1.13.0"
 lifecycle = "2.11.0"
 navigation = "2.10.2"
 spotless = "8.9.0"
+openapi-generator = "7.14.0"
 ktlint = "1.8.0"
 android-compileSdk = "37"
 android-targetSdk = "37"
@@ -48,3 +49,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 android-lint = { id = "com.android.lint", version.ref = "agp" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+openapi-generator = { id = "org.openapi.generator", version.ref = "openapi-generator" }

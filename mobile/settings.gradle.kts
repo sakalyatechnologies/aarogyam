@@ -23,3 +23,5 @@ require(sakalyaMobile.resolve("settings.gradle.kts").isFile) {
     "sakalya-mobile is missing: run ../scripts/mobile-deps.sh first"
 }
 includeBuild(sakalyaMobile)
+
+include(":shared")

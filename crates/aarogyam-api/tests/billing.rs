@@ -507,6 +507,53 @@ async fn payments_are_idempotent_and_never_overpay_a_bill() {
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
+async fn a_payment_larger_than_the_balance_due_is_refused() {
+    let app = TestApp::start().await;
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let owner = app.token(ALPHA_OWNER);
+    let patient = patient(&app, ALPHA, &owner).await;
+    // A bill of u20b91,000.00.
+    let bill = issued_bill(&app, &owner, &patient).await;
+    let bill_id = bill["id"].as_str().unwrap();
+
+    // More than the balance is refused, with the field "amount".
+    let over = json!({ "patient_id": patient, "method": "cash", "amount_paise": 400_000,
+                       "allocations": [{ "invoice_id": bill_id, "amount_paise": 100_000 }] });
+    let (status, body) = pay(&app, &desk, "key-over-0001", over).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(
+        body["error"]["message"],
+        "amount: must not be more than the balance due"
+    );
+    assert_eq!(body["error"]["code"], "invalid_request");
+
+    // Exactly the balance succeeds, and the bill becomes paid.
+    let exact = json!({ "patient_id": patient, "method": "upi", "amount_paise": 100_000,
+                        "allocations": [{ "invoice_id": bill_id, "amount_paise": 100_000 }] });
+    let (status, paid) = pay(&app, &desk, "key-exact-0002", exact).await;
+    assert_eq!(status, StatusCode::CREATED, "{paid}");
+    let path = format!("/api/v1/invoices/{bill_id}");
+    let (_, done) = app
+        .send(Method::GET, ALPHA, &path, Some(&owner), None)
+        .await;
+    assert_eq!(done["payment_state"], "paid");
+    assert_eq!(done["balance_paise"], 0);
+
+    // A second payment after the bill is fully paid is refused.
+    let second = json!({ "patient_id": patient, "method": "cash", "amount_paise": 50_000,
+                         "allocations": [{ "invoice_id": bill_id, "amount_paise": 50_000 }] });
+    let (status, body) = pay(&app, &desk, "key-second-0003", second).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(
+        body["error"]["message"],
+        "amount: must not be more than the balance due"
+    );
+
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
 async fn drafts_take_no_payments_and_advances_stay_unallocated() {
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);

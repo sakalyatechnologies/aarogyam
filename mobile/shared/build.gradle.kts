@@ -51,6 +51,10 @@ val apiModels =
         "Practitioner",
         "RoomList",
         "Room",
+        "DentalChart",
+        "ChartEntry",
+        "NewChartEntries",
+        "NewChartEntry",
     )
 val generatedApi = layout.buildDirectory.dir("generated/openapi")
 

@@ -248,7 +248,7 @@ class Patient360StateHolder(
     }
 }
 
-private fun moment(
+internal fun moment(
     text: String,
     zone: TimeZone,
 ): ClinicMoment? = parseInstant(text)?.toLocalDateTime(zone)?.let { ClinicMoment(it.date, it.time) }

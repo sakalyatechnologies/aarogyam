@@ -5,6 +5,9 @@
 #   scripts/mobile-deps.sh                                  # from GitHub
 #   SAKALYA_MOBILE_PATH=../sakalya-mobile scripts/mobile-deps.sh   # from a local clone
 set -eu
+# Inside a git hook, GIT_DIR and GIT_INDEX_FILE point at the aarogyam repository; `git -C` would
+# then check sakalya-mobile out over aarogyam's HEAD and index. Talk only to the checkout's own repo.
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 root=$(cd "$(dirname "$0")/.." && pwd)
 tag=$(sed -n 's/^tag=//p' "$root/mobile/sakalya-mobile.version")
 commit=$(sed -n 's/^commit=//p' "$root/mobile/sakalya-mobile.version")

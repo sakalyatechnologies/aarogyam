@@ -2204,6 +2204,13 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "row_version",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "starts at 1 and goes up when the record changes; sent as the ETag, checked against If-Match on edits"
     }
    ],
    "referenced_by": [
@@ -2818,6 +2825,13 @@
      "nullable": true,
      "ref": null,
      "note": "Supabase auth id of the patient who booked online; null for staff bookings"
+    },
+    {
+     "name": "row_version",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "starts at 1 and goes up when the record changes; sent as the ETag, checked against If-Match on edits"
     }
    ],
    "referenced_by": [
@@ -3309,6 +3323,13 @@
      "nullable": true,
      "ref": "memberships",
      "note": ""
+    },
+    {
+     "name": "row_version",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "starts at 1 and goes up when the record changes; sent as the ETag, checked against If-Match on edits"
     }
    ],
    "referenced_by": [

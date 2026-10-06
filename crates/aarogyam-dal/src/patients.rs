@@ -34,6 +34,8 @@ pub struct PatientRow {
     pub created_at: OffsetDateTime,
     /// The last visit, once visits exist.
     pub last_visit_at: Option<OffsetDateTime>,
+    /// Goes up when the details change; edits send it back to detect a stale copy.
+    pub row_version: i64,
 }
 
 /// Values for a new patient row. The caller has validated them in the domain layer.
@@ -84,7 +86,7 @@ pub async fn insert(
              (id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email, preferred_language)
            values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
            returning id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
-                     preferred_language, status, created_at, last_visit_at"#,
+                     preferred_language, status, created_at, last_visit_at, row_version"#,
         new.id,
         new.number,
         new.full_name,
@@ -108,7 +110,7 @@ pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<PatientRow>
     let row = sqlx::query_as!(
         PatientRow,
         r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
-                  preferred_language, status, created_at, last_visit_at
+                  preferred_language, status, created_at, last_visit_at, row_version
            from aarogyam.patients
            where id = $1 and deleted_at is null"#,
         id
@@ -130,7 +132,7 @@ pub async fn get_for_update(
     let row = sqlx::query_as!(
         PatientRow,
         r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
-                  preferred_language, status, created_at, last_visit_at
+                  preferred_language, status, created_at, last_visit_at, row_version
            from aarogyam.patients
            where id = $1 and deleted_at is null
            for update"#,
@@ -179,7 +181,7 @@ pub async fn update(
                phone_e164 = $6, email = $7, preferred_language = $8
            where id = $1 and deleted_at is null
            returning id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
-                     preferred_language, status, created_at, last_visit_at"#,
+                     preferred_language, status, created_at, last_visit_at, row_version"#,
         id,
         details.full_name,
         details.sex,
@@ -291,6 +293,8 @@ pub struct ListedPatient {
     pub created_at: OffsetDateTime,
     /// When last seen.
     pub last_visit_at: Option<OffsetDateTime>,
+    /// See [`PatientRow::row_version`].
+    pub row_version: i64,
     /// See [`SummaryRow::next_starts_at`].
     pub next_starts_at: Option<OffsetDateTime>,
     /// See [`SummaryRow::next_practitioner`].
@@ -321,6 +325,7 @@ impl ListedPatient {
                 status: self.status,
                 created_at: self.created_at,
                 last_visit_at: self.last_visit_at,
+                row_version: self.row_version,
             },
             SummaryRow {
                 next_starts_at: self.next_starts_at,
@@ -355,7 +360,7 @@ pub async fn recent(
     let rows = sqlx::query_as!(
         ListedPatient,
         r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
-                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
                   s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
            from (select * from aarogyam.patients
@@ -386,7 +391,7 @@ pub async fn recent_filtered(
     let rows = sqlx::query_as!(
         ListedPatient,
         r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
-                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
                   s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
            from (select p.* from aarogyam.patients p
@@ -431,7 +436,7 @@ pub async fn find_by_number(
     let row = sqlx::query_as!(
         ListedPatient,
         r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
-                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
                   s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
            from aarogyam.patients p
@@ -459,7 +464,7 @@ pub async fn search_phone(
     let rows = sqlx::query_as!(
         ListedPatient,
         r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
-                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
                   s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
            from (select * from aarogyam.patients
@@ -513,7 +518,7 @@ pub async fn search_name(
              select id, 1, position from close
            )
            select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
-                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
                   s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
            from picked
@@ -554,7 +559,7 @@ pub async fn open(
              select $2, $3, found.id, $4, $5, $6, $7 from found
            )
            select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
-                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
                   s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
            from found p
@@ -586,7 +591,7 @@ pub async fn find_by_email(
     let row = sqlx::query_as!(
         PatientRow,
         r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
-                  preferred_language, status, created_at, last_visit_at
+                  preferred_language, status, created_at, last_visit_at, row_version
            from aarogyam.patients
            where email = $1 and status = 'active' and deleted_at is null
            order by created_at, id
@@ -613,7 +618,7 @@ pub async fn insert_self_registered(
              (id, number, full_name, sex, phone_e164, email, preferred_language, tags)
            values ($1, $2, $3, $4, $5, $6, $7, array['self_registered'])
            returning id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
-                     preferred_language, status, created_at, last_visit_at"#,
+                     preferred_language, status, created_at, last_visit_at, row_version"#,
         new.id,
         new.number,
         new.full_name,

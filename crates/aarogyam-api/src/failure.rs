@@ -4,7 +4,7 @@
 use aarogyam_app::AppError;
 use aarogyam_domain::access::Denied;
 use axum::Json;
-use axum::http::StatusCode;
+use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use sakalya_auth::AuthError;
 use sakalya_db::DbError;
@@ -23,6 +23,11 @@ pub enum ApiFailure {
         message: String,
         /// The record, in the shape the move returns when it succeeds.
         current: serde_json::Value,
+    },
+    /// `412`: `If-Match` names a version the record no longer has.
+    Stale {
+        /// The record's version now, sent back as the `ETag`.
+        current: i64,
     },
 }
 
@@ -70,6 +75,19 @@ impl IntoResponse for ApiFailure {
                     current,
                 };
                 (StatusCode::CONFLICT, Json(body)).into_response()
+            }
+            Self::Stale { current } => {
+                tracing::debug!(code = "stale_version", "request rejected");
+                let body = serde_json::json!({ "error": {
+                    "code": "stale_version",
+                    "message": "The record changed since you read it; read it again before editing.",
+                } });
+                (
+                    StatusCode::PRECONDITION_FAILED,
+                    [(header::ETAG, format!("\"{current}\""))],
+                    Json(body),
+                )
+                    .into_response()
             }
         }
     }
@@ -124,6 +142,7 @@ impl From<AppError> for ApiFailure {
                 "id_conflict",
                 "That id is already used by a different record.",
             )),
+            AppError::Stale { current } => Self::Stale { current },
             AppError::Forbidden(message) => Self::Error(ApiError::forbidden("forbidden", message)),
             AppError::Db(error) => error.into(),
             AppError::Internal(what) => Self::Error(ApiError::internal(what)),

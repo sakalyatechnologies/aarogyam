@@ -23,6 +23,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     ),
     paths(
         healthz,
+        crate::v1::meta::meta,
         crate::v1::me::me,
         crate::v1::me::session,
         crate::v1::me::sessions,
@@ -186,6 +187,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     modifiers(&BearerAuth),
     tags(
         (name = "health", description = "Liveness for load balancers and Cloud Run"),
+        (name = "meta", description = "Which versions of the phone apps the API serves; public"),
         (name = "session", description = "Who is signed in, and where"),
         (name = "patients", description = "A clinic's patients; clinic host only"),
         (name = "schedule", description = "A clinic's chairs, doctors, working hours and leave; clinic host only"),

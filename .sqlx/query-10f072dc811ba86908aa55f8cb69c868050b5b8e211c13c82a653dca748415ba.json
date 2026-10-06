@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,\n                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,\n                  s.next_starts_at, s.next_practitioner, s.balance_paise as \"balance_paise!\",\n                  s.lifetime_paid_paise as \"lifetime_paid_paise!\", s.recall_due as \"recall_due!\"\n           from (select * from aarogyam.patients\n                 where deleted_at is null\n                 order by created_at desc\n                 limit $1) p\n           cross join lateral app.patient_summary(p.id, $2, $3) s\n           order by p.created_at desc",
+  "query": "insert into aarogyam.patients\n             (id, number, full_name, sex, phone_e164, email, preferred_language, tags)\n           values ($1, $2, $3, $4, $5, $6, $7, array['self_registered'])\n           returning id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,\n                     preferred_language, status, created_at, last_visit_at, row_version",
   "describe": {
     "columns": [
       {
@@ -137,40 +137,25 @@
       },
       {
         "ordinal": 12,
-        "name": "next_starts_at",
-        "type_info": "Timestamptz",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 13,
-        "name": "next_practitioner",
-        "type_info": "Text",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 14,
-        "name": "balance_paise!",
+        "name": "row_version",
         "type_info": "Int8",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 15,
-        "name": "lifetime_paid_paise!",
-        "type_info": "Int8",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 16,
-        "name": "recall_due!",
-        "type_info": "Bool",
-        "origin": "Expression"
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "row_version"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Int8",
-        "Timestamptz",
-        "Date"
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
       ]
     },
     "nullable": [
@@ -186,12 +171,8 @@
       false,
       false,
       true,
-      null,
-      null,
-      null,
-      null,
-      null
+      false
     ]
   },
-  "hash": "a6851e0f1d3b8eb7adc5fc606262c1fecedf20f85a1ea4fc5a3d94a5195f2aa3"
+  "hash": "10f072dc811ba86908aa55f8cb69c868050b5b8e211c13c82a653dca748415ba"
 }

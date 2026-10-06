@@ -28,6 +28,7 @@
 //! ```
 
 mod cache;
+mod client_gate;
 mod dev;
 mod extract;
 mod failure;
@@ -105,10 +106,16 @@ pub fn router(state: AppState) -> Router {
     let http = state.http().clone();
     let local_dev = state.dev_tokens().is_some();
     let metrics = std::sync::Arc::clone(state.metrics());
+    let clients = std::sync::Arc::clone(state.client_policy());
     let throttle = state.throttle().cloned();
     let mut routes = Router::new()
         .nest("/api/v1", v1::routes(local_dev))
-        .with_state(state);
+        .with_state(state)
+        // Old apps are told to update before anything else looks at their request.
+        .layer(axum::middleware::from_fn_with_state(
+            clients,
+            client_gate::client_gate,
+        ));
     if let Some(throttle) = throttle {
         // Inside the standard layers, so the edge has already established the client IP.
         routes = routes.layer(axum::middleware::from_fn_with_state(

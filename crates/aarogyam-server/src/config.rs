@@ -57,6 +57,9 @@ pub struct Config {
     /// How clinics' portal hosts are made to work at the edge (`ARO_EDGE__*`).
     #[serde(default)]
     pub edge: EdgeSettings,
+    /// Which versions of the phone apps are served (`ARO_CLIENTS__*`).
+    #[serde(default)]
+    pub clients: ClientSettings,
 }
 
 impl Config {
@@ -89,6 +92,19 @@ impl Config {
         }
         Ok(config)
     }
+}
+
+/// Which versions of the phone apps the API serves. Both lists are comma-separated
+/// `app=version` pairs, such as `aarogyam-staff=0.1.0`; apps that aren't listed are never refused.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ClientSettings {
+    /// The oldest version of each app still served (`ARO_CLIENTS__MIN_VERSIONS`). Older ones
+    /// get `426 client_upgrade_required`.
+    pub min_versions: String,
+    /// The newest released version of each app (`ARO_CLIENTS__LATEST_VERSIONS`), published at
+    /// `GET /api/v1/meta` so apps can ask people to update before the minimum moves.
+    pub latest_versions: String,
 }
 
 /// The HTTP listener and its limits.

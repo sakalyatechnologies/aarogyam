@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,\n                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at,\n                  s.next_starts_at, s.next_practitioner, s.balance_paise as \"balance_paise!\",\n                  s.lifetime_paid_paise as \"lifetime_paid_paise!\", s.recall_due as \"recall_due!\"\n           from (select * from aarogyam.patients\n                 where (phone_e164 = $1 or alt_phone_e164 = $1) and deleted_at is null\n                 order by full_name\n                 limit $2) p\n           cross join lateral app.patient_summary(p.id, $3, $4) s\n           order by p.full_name",
+  "query": "update aarogyam.patients\n           set full_name = $2, sex = $3, date_of_birth = $4, birth_date_estimated = $5,\n               phone_e164 = $6, email = $7, preferred_language = $8\n           where id = $1 and deleted_at is null\n           returning id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,\n                     preferred_language, status, created_at, last_visit_at, row_version",
   "describe": {
     "columns": [
       {
@@ -137,41 +137,26 @@
       },
       {
         "ordinal": 12,
-        "name": "next_starts_at",
-        "type_info": "Timestamptz",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 13,
-        "name": "next_practitioner",
-        "type_info": "Text",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 14,
-        "name": "balance_paise!",
+        "name": "row_version",
         "type_info": "Int8",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 15,
-        "name": "lifetime_paid_paise!",
-        "type_info": "Int8",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 16,
-        "name": "recall_due!",
-        "type_info": "Bool",
-        "origin": "Expression"
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "row_version"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Text",
-        "Int8",
-        "Timestamptz",
-        "Date"
+        "Text",
+        "Date",
+        "Bool",
+        "Text",
+        "Text",
+        "Text"
       ]
     },
     "nullable": [
@@ -187,12 +172,8 @@
       false,
       false,
       true,
-      null,
-      null,
-      null,
-      null,
-      null
+      false
     ]
   },
-  "hash": "f24d8972feb5549f8e35b3a0f140d574d96b6bb385c84135abc34743a1f51abe"
+  "hash": "17d9d30c55bac37183d57599c040c2c82d36df9532cda4389bbcc8014e8934af"
 }

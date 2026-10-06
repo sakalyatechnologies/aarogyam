@@ -461,10 +461,13 @@ fn rfc3339(at: OffsetDateTime) -> Value {
         .map_or(Value::Null, Value::String)
 }
 
-/// Moves, reassigns or edits an appointment that isn't finished.
+/// Moves, reassigns or edits an appointment that isn't finished. With `expected_version` (the
+/// `row_version` the client last saw), an edit of an appointment that has changed since is
+/// refused.
 ///
 /// # Errors
-/// [`AppError::NotFound`] when it isn't in this clinic; [`AppError::Invalid`] for bad input;
+/// [`AppError::NotFound`] when it isn't in this clinic; [`AppError::Stale`] when
+/// `expected_version` is out of date; [`AppError::Invalid`] for bad input;
 /// [`AppError::Conflict`] when it is finished or the chair is taken.
 pub async fn change(
     db: &Db,
@@ -472,6 +475,7 @@ pub async fn change(
     request_id: Option<Uuid>,
     appointment_id: AppointmentId,
     input: ChangeAppointment,
+    expected_version: Option<i64>,
     now: OffsetDateTime,
 ) -> Result<Saved, AppError> {
     actor.require(Permission::AppointmentsWrite)?;
@@ -492,11 +496,9 @@ pub async fn change(
         .map(|text| parse_notes(Some(text)))
         .transpose()?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let profile = clinic::profile(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
-        let today = clinic_today(&profile.timezone, now);
+        let today = clinic_today(&actor.timezone, now);
         let current = locked(tx, appointment_id).await?;
+        AppError::check_version(expected_version, current.row_version)?;
         let status = AppointmentStatus::parse(&current.status)
             .map_err(|_| AppError::Internal("unknown appointment status"))?;
         if status.is_finished() {
@@ -559,7 +561,7 @@ pub async fn change(
             )
             .await?;
         }
-        let warnings = warnings(tx, &profile.timezone, current.id, practitioner_id, slot).await?;
+        let warnings = warnings(tx, &actor.timezone, current.id, practitioner_id, slot).await?;
         Ok(Saved {
             appointment: reload(tx, current.id, today).await?,
             warnings,

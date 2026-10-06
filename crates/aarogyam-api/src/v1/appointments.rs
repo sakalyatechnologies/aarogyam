@@ -16,9 +16,9 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use super::{parse_day, parse_id, parse_instant, rfc3339};
+use super::{WithEtag, parse_day, parse_id, parse_instant, rfc3339, with_etag};
 use crate::AppState;
-use crate::extract::Require;
+use crate::extract::{IfMatch, Require};
 use crate::failure::{ApiFailure, MoveRefused};
 
 /// A patient as the calendar and queue show them.
@@ -89,6 +89,9 @@ pub struct Appointment {
     pub completed_at: Option<String>,
     /// The day's queue token number, once arrived.
     pub token_number: Option<i32>,
+    /// Goes up when the appointment changes. Send it back in `If-Match` (it is also the `ETag`)
+    /// to edit only if the appointment is unchanged since you read it.
+    pub row_version: i64,
     /// The patient.
     pub patient: PatientBrief,
     /// The doctor.
@@ -116,6 +119,7 @@ impl From<AppointmentView> for Appointment {
             seated_at: row.seated_at.map(rfc3339),
             completed_at: row.completed_at.map(rfc3339),
             token_number: row.token_number,
+            row_version: row.row_version,
             patient: PatientBrief {
                 id: row.patient_id,
                 number: row.patient_number,
@@ -278,7 +282,7 @@ fn optional_id(field: &str, text: Option<&str>) -> Result<Option<Uuid>, ApiFailu
     request_body = NewAppointmentBody,
     security(("bearer" = [])),
     responses(
-        (status = 201, body = SavedAppointment),
+        (status = 201, body = SavedAppointment, headers(("ETag" = String, description = "The `row_version` in quotes; send it back in `If-Match` when editing"))),
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks appointments.write"),
@@ -290,7 +294,7 @@ pub(crate) async fn book(
     State(state): State<AppState>,
     Require { request, .. }: Require<AppointmentsWrite>,
     ApiJson(body): ApiJson<NewAppointmentBody>,
-) -> Result<(StatusCode, Json<SavedAppointment>), ApiFailure> {
+) -> Result<(StatusCode, WithEtag<SavedAppointment>), ApiFailure> {
     let input = NewAppointment {
         patient_id: PatientId::from_uuid(parse_id("patient_id", &body.patient_id)?),
         practitioner_id: PractitionerId::from_uuid(parse_id(
@@ -320,7 +324,10 @@ pub(crate) async fn book(
         warnings = saved.warnings.len(),
         "appointment booked"
     );
-    Ok((StatusCode::CREATED, Json(saved.into())))
+    Ok((
+        StatusCode::CREATED,
+        with_etag(saved.appointment.row.row_version, saved.into()),
+    ))
 }
 
 /// Changes to an appointment. Fields left out stay as they are; an empty `room_id`, `reason`
@@ -343,30 +350,36 @@ pub struct AppointmentChanges {
     pub notes: Option<String>,
 }
 
-/// Moves, reassigns or edits an appointment that isn't completed, cancelled or a no-show.
+/// Moves, reassigns or edits an appointment that isn't completed, cancelled or a no-show. Send
+/// the `ETag` you read in `If-Match` to refuse the edit (`412`) if the appointment changed since.
 #[utoipa::path(
     patch,
     path = "/api/v1/appointments/{id}",
     operation_id = "updateAppointment",
     tag = "appointments",
-    params(("id" = String, Path, description = "The appointment")),
+    params(
+        ("id" = String, Path, description = "The appointment"),
+        ("If-Match" = Option<String>, Header, description = "The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the record changed since")
+    ),
     request_body = AppointmentChanges,
     security(("bearer" = [])),
     responses(
-        (status = 200, body = SavedAppointment),
+        (status = 200, body = SavedAppointment, headers(("ETag" = String, description = "The `row_version` in quotes; send it back in `If-Match` when editing"))),
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks appointments.write"),
         (status = 404, description = "No such appointment in this clinic"),
-        (status = 409, description = "The appointment is finished, or the chair is taken")
+        (status = 409, description = "The appointment is finished, or the chair is taken"),
+        (status = 412, description = "`stale_version`: the record changed since the `If-Match` version; the current version is in `ETag`")
     )
 )]
 pub(crate) async fn change(
     State(state): State<AppState>,
     Require { request, .. }: Require<AppointmentsWrite>,
     ApiPath(id): ApiPath<Uuid>,
+    IfMatch(expected): IfMatch,
     ApiJson(body): ApiJson<AppointmentChanges>,
-) -> Result<Json<SavedAppointment>, ApiFailure> {
+) -> Result<WithEtag<SavedAppointment>, ApiFailure> {
     let room_id = match body.room_id.as_deref().map(str::trim) {
         None => None,
         Some("") => Some(None),
@@ -396,6 +409,7 @@ pub(crate) async fn change(
         request.request_id,
         AppointmentId::from_uuid(id),
         input,
+        expected,
         OffsetDateTime::now_utc(),
     )
     .await?;
@@ -405,7 +419,7 @@ pub(crate) async fn change(
         warnings = saved.warnings.len(),
         "appointment changed"
     );
-    Ok(Json(saved.into()))
+    Ok(with_etag(saved.appointment.row.row_version, saved.into()))
 }
 
 /// A status change.
@@ -440,7 +454,7 @@ pub struct StatusChanged {
     request_body = StatusChange,
     security(("bearer" = [])),
     responses(
-        (status = 200, body = StatusChanged),
+        (status = 200, body = StatusChanged, headers(("ETag" = String, description = "The `row_version` in quotes; send it back in `If-Match` when editing"))),
         (status = 400, description = "Unknown status, or a cancel without a reason"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks appointments.write"),
@@ -453,7 +467,7 @@ pub(crate) async fn set_status(
     Require { request, .. }: Require<AppointmentsWrite>,
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<StatusChange>,
-) -> Result<Json<StatusChanged>, ApiFailure> {
+) -> Result<WithEtag<StatusChanged>, ApiFailure> {
     let outcome = app::set_status(
         state.db(),
         &request.actor,
@@ -472,9 +486,15 @@ pub(crate) async fn set_status(
                 status = %changed.appointment.row.status,
                 "appointment status changed"
             );
-            Ok(Json(changed.into()))
+            Ok(with_etag(
+                changed.appointment.row.row_version,
+                changed.into(),
+            ))
         }
-        Moved::AlreadyDone(changed) => Ok(Json(changed.into())),
+        Moved::AlreadyDone(changed) => Ok(with_etag(
+            changed.appointment.row.row_version,
+            changed.into(),
+        )),
         Moved::Refused { reason, current } => {
             Err(ApiFailure::refused(reason, &StatusChanged::from(current)))
         }

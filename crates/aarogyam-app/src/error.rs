@@ -29,6 +29,13 @@ pub enum AppError {
     /// the same content is a retry and succeeds; this is for anything else.
     #[error("that id is already used by a different record")]
     IdConflict,
+    /// The client's `If-Match` names an older version than the record has: it changed since the
+    /// client read it.
+    #[error("the record changed since it was read")]
+    Stale {
+        /// The record's version now.
+        current: i64,
+    },
     /// A rule beyond the permission forbids it (only owners may make owners).
     #[error("forbidden: {0}")]
     Forbidden(&'static str),
@@ -44,6 +51,17 @@ pub enum AppError {
 }
 
 impl AppError {
+    /// Fine unless the client named a `row_version` (in `If-Match`) and the record is at another.
+    ///
+    /// # Errors
+    /// [`AppError::Stale`] with the record's current version.
+    pub fn check_version(expected: Option<i64>, current: i64) -> Result<(), Self> {
+        match expected {
+            Some(seen) if seen != current => Err(Self::Stale { current }),
+            _ => Ok(()),
+        }
+    }
+
     /// A validation failure on `field`.
     pub fn invalid(field: &'static str, error: impl std::fmt::Display) -> Self {
         Self::Invalid {

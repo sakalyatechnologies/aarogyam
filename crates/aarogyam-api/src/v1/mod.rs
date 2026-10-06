@@ -15,6 +15,7 @@ pub(crate) mod inventory;
 pub(crate) mod invitations;
 pub(crate) mod letterhead;
 pub(crate) mod me;
+pub(crate) mod meta;
 pub(crate) mod onboarding;
 pub(crate) mod patients;
 pub(crate) mod payments;
@@ -35,8 +36,10 @@ pub(crate) mod visits;
 pub(crate) mod vitals;
 pub(crate) mod website;
 
+use axum::Json;
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
+use axum::http::{HeaderValue, header};
 use axum::routing::{delete, get, patch, post};
 use sakalya_http::ApiError;
 use sakalya_types::{Entity, Id};
@@ -57,6 +60,8 @@ use crate::revalidate::revalidate;
 )]
 pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
     let router = Router::new()
+        // Public: which app versions are served.
+        .route("/meta", get(meta::meta))
         .route("/me", get(me::me))
         .route("/me/sessions", get(me::sessions))
         .route("/me/sessions/{id}/revoke", post(me::revoke_session))
@@ -400,6 +405,17 @@ pub(crate) fn clock(at: Time) -> String {
 /// An identifier sent in a body.
 pub(crate) fn parse_id(field: &str, text: &str) -> Result<Uuid, ApiError> {
     Uuid::parse_str(text.trim()).map_err(|_| bad(field, "must be an id"))
+}
+
+/// A record's JSON with its `ETag`.
+pub(crate) type WithEtag<T> = ([(header::HeaderName, HeaderValue); 1], Json<T>);
+
+/// `body` with the `ETag` for a record at `row_version`: the version in quotes, which the client
+/// sends back in `If-Match` when it edits the record.
+pub(crate) fn with_etag<T>(row_version: i64, body: T) -> WithEtag<T> {
+    let value = HeaderValue::from_str(&format!("\"{row_version}\""))
+        .unwrap_or_else(|_| HeaderValue::from_static("\"0\""));
+    ([(header::ETAG, value)], Json(body))
 }
 
 /// An identifier the client chose for a record it creates: a version 7 UUID, so records made

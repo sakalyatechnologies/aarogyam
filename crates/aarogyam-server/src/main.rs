@@ -8,6 +8,7 @@ use aarogyam_api::{AppState, DevTokens, Hosts, TokenCheck};
 use aarogyam_app::accounts::{SignInAccounts as _, SupabaseAdmin};
 use aarogyam_app::files::{Files, LinkSigner, LocalDisk, Storage, SupabaseStorage};
 use aarogyam_domain::access::PlatformRole;
+use aarogyam_domain::client::ClientPolicy;
 use aarogyam_domain::patient::Email;
 use aarogyam_notify::cloudflare::{API_BASE, AccountId, WorkersApi};
 use aarogyam_notify::{Notifier, PortalAddresses, PortalLinks, WorkersDev};
@@ -181,6 +182,11 @@ async fn serve(config: Config) -> anyhow::Result<()> {
     config.throttle.ensure_allowed(config.environment)?;
     let throttle = aarogyam_api::standard_throttle_with(config.throttle.bypass_token)
         .context("invalid throttle settings (a bypass token needs at least 32 bytes)")?;
+    let clients = ClientPolicy::parse(
+        &config.clients.min_versions,
+        &config.clients.latest_versions,
+    )
+    .context("clients.min_versions and clients.latest_versions look like aarogyam-staff=0.1.0")?;
     let signer = if let Some(key) = config.files.signing_key {
         LinkSigner::new(key.expose_secret().as_bytes())
     } else {
@@ -220,6 +226,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         tracing::warn!("supabase.secret_key is not set: invited people get no sign-in account");
     }
     let state = state
+        .with_client_policy(clients)
         .with_throttle(throttle)
         .with_notifier(notifier)
         .with_files(files)

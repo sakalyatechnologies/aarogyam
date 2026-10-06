@@ -68,11 +68,15 @@ The earlier plan named `sakalya-android` and `sakalya-ios`; with Kotlin Multipla
 - Sign-out: unregister push (later), revoke the session on the API, clear secure storage and the cache.
 - App lock: biometric or device passcode after 5 minutes in the background, and on cold start when a session exists.
 
-## Backend prerequisites (before the app's outbox ships)
+## Backend prerequisites (done, 5 Oct 2026)
 
-1. Unique, descriptive `operationId`s (10 of 157 collide today) with a test, so the generated client is clean.
-2. Client-supplied ids, idempotent transitions and `row_version` + `If-Match` on the outbox kinds above, with replay and conflict tests.
-3. `x-client` version gate (`426`) and public `GET /api/v1/meta`.
+What the API guarantees the outbox, each with tests in `crates/aarogyam-api/tests/` (`openapi`, `client_ids`, `transitions`, `row_version`, `client_gate`).
+
+1. **Unique operationIds.** Every route has an explicit, unique `verbNoun` `operation_id` (`listPatients`, `setAppointmentStatus`); a test fails on a duplicate or on a route without one, so generated method names stay stable.
+2. **Client ids.** `startVisit`, `createNote`, `addNoteAddendum`, `recordObservations` (an `id` on each reading) and `uploadAttachment` (form field `id`) take an optional `id`, a UUID v7 (`400` otherwise); the server makes one when it is left out. Rows are keyed by `(org_id, id)`, so two clinics never collide. The same id with the same content returns the existing record with the usual `201`, even after the visit closed or the note was signed; the same id with other content is `409 id_conflict`. Compared: a visit's patient, clinician, appointment and complaint; a note's visit, author, kind and sections; an addendum's note, author and text; a reading's visit, kind, unit, value, correction target, recorder and `recorded_at` when sent (send it); a file's patient, SHA-256, kind, caption, tooth, visit, note, addendum, length and language.
+3. **Idempotent moves.** Signing a note you already signed, and `setAppointmentStatus` / `setQueueTokenStatus` to the status the record already has, return `200` with the record and write nothing (no second history entry, token or signature). A move the record's state does not allow is `409 conflict` with `{"error": {...}, "current": <the record as a success returns it>}`. Bad input stays `400`.
+4. **`row_version` and `If-Match`.** Patients, appointments and clinical notes carry `row_version`, also sent as the quoted `ETag` (`"3"`). `updatePatient`, `updateAppointment` and `updateNote` accept `If-Match: "3"`; a stale one is `412 stale_version` with the current `ETag`. Without `If-Match` (or with `*`) an edit is unconditional, as before. The version moves only when the record's content changes: not for a repeated move, an edit that changes nothing, a visit setting the patient's last visit, or a recording marking a note as voice.
+5. **Version gate.** Apps send `x-client: <app>/<semver>` (`aarogyam-staff/0.1.0`) on every request. `ARO_CLIENTS__MIN_VERSIONS=aarogyam-staff=0.1.0` (comma-separated `app=version` pairs) makes the API answer `426 client_upgrade_required` to a listed app below its minimum; requests without the header (browsers), from unlisted apps, or with a header that is not `<app>/<semver>` are never refused. Public `GET /api/v1/meta` returns `{"clients": [{"app", "min_version", "latest_version"}]}` (`ARO_CLIENTS__LATEST_VERSIONS` sets the latest) and is never gated, so an app that is too old can still read it.
 
 ## Screens and state
 

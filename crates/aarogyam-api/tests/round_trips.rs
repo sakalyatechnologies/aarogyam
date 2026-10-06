@@ -15,7 +15,7 @@ use axum::http::{Method, StatusCode};
 use sakalya_testkit::{PgRoundTrips, TripCounts};
 use serde_json::{Value, json};
 use support::people::ALPHA_OWNER;
-use support::{ALPHA, TestApp, send};
+use support::{ALPHA, TestApp, send_with_headers};
 use time::{Date, Duration, OffsetDateTime, UtcOffset};
 
 /// Most statement round trips a clinic hot path may take once the host and the member's
@@ -34,6 +34,8 @@ struct Route {
     body: Option<Value>,
     /// Trips allowed over the budget, each with its reason in the route list.
     extra: usize,
+    /// The `If-Match` header to send, for conditional edits.
+    if_match: Option<String>,
 }
 
 impl Route {
@@ -46,6 +48,7 @@ impl Route {
             signed_in: true,
             body: None,
             extra: 0,
+            if_match: None,
         }
     }
 
@@ -171,6 +174,76 @@ async fn repeatable_moves(
     ]
 }
 
+/// Edits sent with the `If-Match` version just read. Each repeats the record's own content, so
+/// the version stays put and the measured repeats succeed. Read-modify-write edits (read the
+/// record, check it, write it) take more trips than a read, each allowance below.
+async fn conditional_edits(
+    app: &TestApp,
+    owner: &str,
+    patient: &str,
+    appointment: &str,
+    starts_at: &str,
+) -> [Route; 3] {
+    let visit = created(
+        app,
+        owner,
+        &format!("/api/v1/patients/{patient}/visits"),
+        json!({ "chief_complaint": "Swelling" }),
+    )
+    .await;
+    let (status, headers, note) = app
+        .send_full(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}/notes"),
+            Some(owner),
+            Some(json!({ "sections": { "subjective": "Swelling, 46" } })),
+            &[],
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{note}");
+    let note_id = note["id"].as_str().unwrap().to_owned();
+    let note_etag = headers["etag"].to_str().unwrap().to_owned();
+    let version = async |uri: &str| -> String {
+        let (status, headers, body) = app
+            .send_full(Method::GET, ALPHA, uri, Some(owner), None, &[])
+            .await;
+        assert_eq!(status, StatusCode::OK, "GET {uri}: {body}");
+        headers["etag"].to_str().unwrap().to_owned()
+    };
+    let patient_uri = format!("/api/v1/patients/{patient}");
+    let patient_etag = version(&patient_uri).await;
+    let patch = |name: &'static str, uri: String, body: Value, etag: String, extra: usize| Route {
+        method: Method::PATCH,
+        body: Some(body),
+        if_match: Some(etag),
+        ..Route::get(name, ALPHA, uri).allow_extra(extra)
+    };
+    [
+        patch(
+            "PATCH /patients/{id}",
+            patient_uri,
+            json!({ "full_name": "Sunil Rao" }),
+            patient_etag,
+            1,
+        ),
+        patch(
+            "PATCH /notes/{id}",
+            format!("/api/v1/notes/{note_id}"),
+            json!({ "sections": { "subjective": "Swelling, 46" } }),
+            note_etag,
+            3,
+        ),
+        patch(
+            "PATCH /appointments/{id}",
+            format!("/api/v1/appointments/{appointment}"),
+            json!({ "starts_at": starts_at }),
+            "\"1\"".to_owned(),
+            5,
+        ),
+    ]
+}
+
 /// Round trips of one request, after the background release checks settle.
 #[expect(
     clippy::print_stderr,
@@ -179,13 +252,20 @@ async fn repeatable_moves(
 async fn measure(router: &Router, trips: &PgRoundTrips, route: &Route, token: &str) -> TripCounts {
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     let mark = trips.mark();
-    let (status, body) = send(
+    let headers: Vec<(&str, &str)> = route
+        .if_match
+        .as_deref()
+        .map(|v| ("If-Match", v))
+        .into_iter()
+        .collect();
+    let (status, body) = send_with_headers(
         router,
         route.method.clone(),
         route.host,
         &route.uri,
         route.signed_in.then_some(token),
         route.body.clone(),
+        &headers,
     )
     .await;
     assert!(
@@ -219,6 +299,11 @@ fn hot_routes(
 ) -> Vec<Route> {
     vec![
         Route::get("GET /me", "app.localtest.me", "/api/v1/me".into()),
+        // Answered from configuration: no database trip at all.
+        Route {
+            signed_in: false,
+            ..Route::get("GET /meta", "app.localtest.me", "/api/v1/meta".into())
+        },
         Route::get("GET /session", ALPHA, "/api/v1/session".into()),
         Route::get("GET /today", ALPHA, "/api/v1/today".into()),
         Route::get(
@@ -293,13 +378,15 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
     let (doctor, patient, appointment) = clinic_day(&app, &owner, tomorrow).await;
 
     let moves = repeatable_moves(&app, &owner, &patient, &appointment).await;
+    let starts_at = format!("{tomorrow}T12:00:00+05:30");
+    let edits = conditional_edits(&app, &owner, &patient, &appointment, &starts_at).await;
     let routes = hot_routes(monday, sunday, tomorrow, &doctor, &patient);
 
     let mut table = String::from(
         "\nroute                     cold  warm  (cold: prepares, new connections; warm: pings, release checks)\n",
     );
     let mut over = Vec::new();
-    for route in moves.iter().chain(&routes) {
+    for route in edits.iter().chain(&moves).chain(&routes) {
         // A state of its own warms the pool's connections and their statement caches, so
         // what is counted is the request, not connecting or preparing.
         let (db, trips) = app.counting_db().await;

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into aarogyam.patients\n             (id, number, full_name, sex, phone_e164, email, preferred_language, tags)\n           values ($1, $2, $3, $4, $5, $6, $7, array['self_registered'])\n           returning id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,\n                     preferred_language, status, created_at, last_visit_at",
+  "query": "select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,\n                  preferred_language, status, created_at, last_visit_at, row_version\n           from aarogyam.patients\n           where id = $1 and deleted_at is null",
   "describe": {
     "columns": [
       {
@@ -134,17 +134,22 @@
             "name": "last_visit_at"
           }
         }
+      },
+      {
+        "ordinal": 12,
+        "name": "row_version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "row_version"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Text",
-        "Text",
-        "Text",
-        "Text",
-        "Text",
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -159,8 +164,9 @@
       false,
       false,
       false,
-      true
+      true,
+      false
     ]
   },
-  "hash": "ef29c28b0ebd3dec70e301b3ad170758a9a3b4da626fbc25fa17bf6bc3887e76"
+  "hash": "d0216e1e3cb3720f966d48121a6bc483911719d119d52fc3375c24aa5d5fb9ad"
 }

@@ -255,6 +255,8 @@ pub struct NoteRow {
     pub created_at: OffsetDateTime,
     /// When it last changed.
     pub updated_at: OffsetDateTime,
+    /// Goes up when the note changes; edits send it back to detect a stale copy.
+    pub row_version: i64,
 }
 
 /// Values for a new draft note.
@@ -286,7 +288,7 @@ pub async fn insert_note(conn: &mut PgConnection, new: &NewNote<'_>) -> Result<N
         r#"insert into aarogyam.clinical_notes (id, encounter_id, patient_id, author_id, kind, source, body)
            values ($1, $2, $3, $4, $5, $6, $7)
            returning id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
-                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at"#,
+                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version"#,
         new.id,
         new.encounter_id,
         new.patient_id,
@@ -311,7 +313,7 @@ pub async fn get_note_for_update(
     let row = sqlx::query_as!(
         NoteRow,
         r#"select id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
-                  signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at
+                  signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version
            from aarogyam.clinical_notes where id = $1 for update"#,
         id
     )
@@ -345,7 +347,7 @@ pub async fn list_notes(
     let rows = sqlx::query_as!(
         NoteRow,
         r#"select id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
-                  signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at
+                  signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version
            from aarogyam.clinical_notes where encounter_id = $1
            order by created_at, id"#,
         encounter_id
@@ -369,7 +371,7 @@ pub async fn update_note_body(
         NoteRow,
         r#"update aarogyam.clinical_notes set kind = $2, body = $3 where id = $1
            returning id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
-                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at"#,
+                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version"#,
         id,
         kind,
         body
@@ -394,7 +396,7 @@ pub async fn sign_note(
         r#"update aarogyam.clinical_notes set status = 'signed', signed_at = $3, signed_by = $2
            where id = $1
            returning id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
-                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at"#,
+                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version"#,
         id,
         signed_by,
         at
@@ -421,7 +423,7 @@ pub async fn mark_note_in_error(
            set status = 'entered_in_error', error_reason = $3, error_at = $4, error_by = $2
            where id = $1
            returning id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
-                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at"#,
+                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version"#,
         id,
         by,
         reason,
@@ -587,7 +589,7 @@ pub async fn get_note_bundle(
     let row = sqlx::query!(
         r#"select n.id, n.encounter_id, n.patient_id, n.author_id, n.kind, n.body, n.source,
                   n.status, n.signed_at, n.signed_by, n.conflicts_with_id, n.error_reason,
-                  n.error_at, n.created_at, n.updated_at,
+                  n.error_at, n.created_at, n.updated_at, n.row_version,
                   (select coalesce(jsonb_agg(jsonb_build_object(
                               'id', a.id, 'note_id', a.note_id, 'author_id', a.author_id,
                               'body', a.body, 'created_at', a.created_at)
@@ -622,6 +624,7 @@ pub async fn get_note_bundle(
             error_at: row.error_at,
             created_at: row.created_at,
             updated_at: row.updated_at,
+            row_version: row.row_version,
         },
         addenda: row
             .addenda

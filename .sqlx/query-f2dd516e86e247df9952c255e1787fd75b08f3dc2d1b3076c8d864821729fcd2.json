@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update aarogyam.clinical_notes\n           set status = 'entered_in_error', error_reason = $3, error_at = $4, error_by = $2\n           where id = $1\n           returning id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,\n                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at",
+  "query": "select id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,\n                  signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version\n           from aarogyam.clinical_notes where id = $1 for update",
   "describe": {
     "columns": [
       {
@@ -167,14 +167,22 @@
             "name": "updated_at"
           }
         }
+      },
+      {
+        "ordinal": 15,
+        "name": "row_version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinical_notes",
+            "name": "row_version"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Uuid",
-        "Text",
-        "Timestamptz"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -192,8 +200,9 @@
       true,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "96e490957451c84c6141cd90fb2e1e38d136daaa6ebeb338e066a1b1b1fd60d9"
+  "hash": "f2dd516e86e247df9952c255e1787fd75b08f3dc2d1b3076c8d864821729fcd2"
 }

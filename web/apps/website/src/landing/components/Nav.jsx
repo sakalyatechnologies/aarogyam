@@ -18,7 +18,6 @@ export default function Nav({ accentName, onPick, onPickCustom, mode, onToggleMo
     ['Product', 'sec-feat'],
     ['Live demo', 'sec-demo'],
     ['Specialities', 'sec-spec'],
-    ['Pricing', 'sec-price'],
   ]
   const [open, setOpen] = useState(false)
   const [custom, setCustom] = useState('#10d9a0')

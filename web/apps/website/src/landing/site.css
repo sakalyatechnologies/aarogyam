@@ -243,7 +243,7 @@ footer{padding:46px 0 60px;color:var(--dim);font-size:13px;display:flex;justify-
 .deskprev-bar i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, .16); }
 .deskprev-bar span { font-size: 11px; color: #7d8a99; margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .deskprev-view { overflow: hidden; position: relative; }
-.deskprev-view iframe { border: 0; display: block; transform-origin: top left; pointer-events: none; }
+.deskprev-view iframe { border: 0; display: block; transform-origin: top left; }
 .deskprev-note { font-size: 12px; color: #7d8a99; text-align: center; padding: 13px 16px; margin: 0; }
 
 /* ---------- marketing sections ---------- */
@@ -421,3 +421,8 @@ footer.site-foot { margin-top: 90px; border-top: 1px solid var(--line); padding:
   .livechip .badge { font-size: 10px; letter-spacing: .8px; padding: 6px 11px; }
   .demoframe iframe { height: 760px; }
 }
+
+/* ---------- demo full screen (works on iPhone too) ---------- */
+.demoframe.is-fs { position: fixed !important; inset: 0; z-index: 9999; width: 100vw; height: 100dvh; max-width: none; margin: 0; border-radius: 0; overflow: auto; background: #070b10; }
+.demoframe.is-fs > iframe { height: calc(100dvh - 60px) !important; }
+body.demo-fs-lock { overflow: hidden; }

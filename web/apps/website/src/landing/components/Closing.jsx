@@ -51,7 +51,6 @@ export function Cta({ onRegister, onSignIn }) {
               <h5>PRODUCT</h5>
               <a href="#sec-feat">Features</a>
               <a href="#sec-spec">Specialities</a>
-              <a href="#sec-price">Pricing</a>
               <a href="#sec-demo">Live demo</a>
             </div>
             <div>

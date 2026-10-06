@@ -577,12 +577,13 @@ var steps=[
 ];
 var i=0,paused=false,timer=null;
 function send(){try{parent.postMessage({tourStep:{demo:'web',i:i,n:steps.length,t:steps[i].t,d:steps[i].d}},'*');}catch(e){}}
-function restart(){if(timer)clearInterval(timer);if(!paused)timer=setInterval(function(){show(i+1);},3600);}
+function restart(){if(timer)clearInterval(timer);if(!paused)timer=setInterval(function(){show(i+1);},2600);}
 function show(n){i=(n+steps.length)%steps.length;try{steps[i].run();}catch(e){}send();restart();}
 window.addEventListener('message',function(e){var m=e.data;
 if(m==='tour-pause'){paused=true;restart();}
 else if(m==='tour-play'){paused=false;restart();}
 else if(m&&m.tourGo!=null){show(m.tourGo);}});
+document.addEventListener('pointerdown',function(){if(!paused){paused=true;restart();try{parent.postMessage({tourUser:'web'},'*');}catch(e){}}},true);
 setTimeout(function(){try{parent.postMessage({tourHeight:{demo:'web',h:Math.min(1250,document.body.scrollHeight+10)}},'*');}catch(e){}show(0);},700);
 })();
 </script>

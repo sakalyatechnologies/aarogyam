@@ -14,6 +14,7 @@ export default function DemoSection() {
   const [step, setStep] = useState({ i: 0, n: STEP_COUNT.web, ...FIRST_STEP })
   const [isMobile, setIsMobile] = useState(false)
   const [deskScale, setDeskScale] = useState(0.3)
+  const [isFs, setIsFs] = useState(false)
   const mobileRef = useRef(null)
   const webRef = useRef(null)
   const deskWrapRef = useRef(null)
@@ -42,7 +43,7 @@ export default function DemoSection() {
       window.removeEventListener('resize', measure)
       clearTimeout(t)
     }
-  }, [tab, isMobile])
+  }, [tab, isMobile, isFs])
 
   const cmd = (m) => {
     try {
@@ -53,6 +54,11 @@ export default function DemoSection() {
 
   useEffect(() => {
     const onMsg = (e) => {
+      if (e.data && e.data.tourUser) {
+        pausedRef.current = true
+        setPaused(true)
+        return
+      }
       const s = e.data && e.data.tourStep
       if (s) {
         if (s.demo !== tabRef.current) return
@@ -91,6 +97,23 @@ export default function DemoSection() {
     setPaused(next)
     cmd(next ? 'tour-pause' : 'tour-play')
   }
+
+  const toggleFs = () => {
+    const el = document.getElementById('demoFrame')
+    if (document.fullscreenElement) { document.exitFullscreen(); return }
+    if (isFs) { setIsFs(false); return }
+    if (el && el.requestFullscreen && !isMobileRef.current) {
+      el.requestFullscreen().catch(() => setIsFs(true))
+    } else setIsFs(true)
+  }
+
+  useEffect(() => {
+    document.body.classList.toggle('demo-fs-lock', isFs)
+    if (!isFs) return
+    const key = (e) => { if (e.key === 'Escape') setIsFs(false) }
+    document.addEventListener('keydown', key)
+    return () => { document.removeEventListener('keydown', key); document.body.classList.remove('demo-fs-lock') }
+  }, [isFs])
 
   const webScaled = isMobile && tab === 'web'
 
@@ -137,10 +160,17 @@ export default function DemoSection() {
         </div>
 
         <div
-          className="demoframe rv"
+          className={'demoframe rv' + (isFs ? ' is-fs' : '')}
           id="demoFrame"
           onMouseEnter={() => { if (!pausedRef.current) cmd('tour-pause') }}
           onMouseLeave={() => { if (!pausedRef.current) cmd('tour-play') }}
+          onTouchStart={(e) => {
+            if (!pausedRef.current && !e.target.closest('.dbar')) {
+              pausedRef.current = true
+              setPaused(true)
+              cmd('tour-pause')
+            }
+          }}
         >
           <div className="dbar">
             <div className="url">🔒 preview.aarogyam.in/live-demo</div>
@@ -154,15 +184,8 @@ export default function DemoSection() {
               <button className="pill" onClick={togglePause}>
                 {paused ? '▶ Auto-play' : '⏸ Pause'}
               </button>
-              <button
-                className="pill"
-                onClick={() => {
-                  const el = document.getElementById('demoFrame')
-                  if (document.fullscreenElement) document.exitFullscreen()
-                  else if (el && el.requestFullscreen) el.requestFullscreen()
-                }}
-              >
-                ⛶ Full screen
+              <button className="pill" onClick={toggleFs}>
+                {isFs ? '✕ Exit full screen' : '⛶ Full screen'}
               </button>
             </div>
           </div>

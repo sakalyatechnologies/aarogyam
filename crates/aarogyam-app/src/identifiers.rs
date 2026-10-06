@@ -16,8 +16,17 @@ use crate::scope::staff_scope as scope;
 /// The message for a number another patient already has.
 pub const TAKEN: &str = "another patient already has this number";
 
-async fn require_patient(tx: &mut ScopedTx, patient_id: PatientId) -> Result<(), AppError> {
-    if patients::get(tx.conn(), patient_id.uuid()).await?.is_none() {
+/// The patient exists and the member can read them (`patients.read` reach).
+async fn require_patient(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    patient_id: PatientId,
+) -> Result<(), AppError> {
+    let reach = actor.reach(Permission::PatientsRead).member();
+    if patients::get(tx.conn(), patient_id.uuid(), reach)
+        .await?
+        .is_none()
+    {
         return Err(AppError::NotFound("patient"));
     }
     Ok(())
@@ -35,7 +44,7 @@ pub async fn list(
 ) -> Result<Vec<IdentifierRow>, AppError> {
     actor.require(Permission::PatientsRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        require_patient(tx, patient_id).await?;
+        require_patient(tx, actor, patient_id).await?;
         Ok(dal::list(tx.conn(), patient_id.uuid()).await?)
     })
     .await
@@ -58,7 +67,7 @@ pub async fn add(
     let kind = IdentifierKind::parse(kind).map_err(|error| AppError::invalid("kind", error))?;
     let value = parse_identifier(value).map_err(|error| AppError::invalid("value", error))?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        require_patient(tx, patient_id).await?;
+        require_patient(tx, actor, patient_id).await?;
         dal::insert(
             tx.conn(),
             PatientIdentifierId::new_v7().uuid(),

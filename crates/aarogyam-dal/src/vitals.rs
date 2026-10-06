@@ -105,13 +105,17 @@ pub async fn insert(
 pub async fn get_for_update(
     conn: &mut PgConnection,
     id: Uuid,
+    member: Option<Uuid>,
 ) -> Result<Option<ObservationRow>, DbError> {
     let row = sqlx::query_as!(
         ObservationRow,
         r#"select id, patient_id, encounter_id, kind, value_num::float8 as "value!", unit, code,
                   recorded_at, status, supersedes_id, error_reason, source, verified_by
-           from aarogyam.observations where id = $1 for update"#,
-        id
+           from aarogyam.observations
+           where id = $1 and app.clinical_in_reach(null, created_by, encounter_id, $2)
+           for update"#,
+        id,
+        member
     )
     .fetch_optional(conn)
     .await?;

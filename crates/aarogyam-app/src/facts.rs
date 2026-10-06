@@ -222,7 +222,8 @@ pub async fn add_condition(
     actor.require(Permission::ClinicalWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let condition = merge_condition(None, &input, clinic_today(&actor.timezone, now))?;
-        let patient = require_patient(tx, patient_id).await?;
+        let patient =
+            require_patient(tx, patient_id, actor.reach(Permission::ClinicalWrite)).await?;
         let row = facts::insert_condition(
             tx.conn(),
             ConditionId::new_v7().uuid(),
@@ -254,10 +255,14 @@ pub async fn edit_condition(
     actor.require(Permission::ClinicalWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let today = clinic_today(&actor.timezone, now);
-        let current =
-            facts::get_condition_for_update(tx.conn(), patient_id.uuid(), condition_id.uuid())
-                .await?
-                .ok_or(AppError::NotFound("condition"))?;
+        let current = facts::get_condition_for_update(
+            tx.conn(),
+            patient_id.uuid(),
+            condition_id.uuid(),
+            actor.reach(Permission::ClinicalWrite).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("condition"))?;
         let condition = merge_condition(Some(&current), &input, today)?;
         let row = facts::update_condition(
             tx.conn(),
@@ -282,7 +287,8 @@ pub async fn conditions(
 ) -> Result<Vec<ConditionView>, AppError> {
     actor.require(Permission::ClinicalRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
+        let patient =
+            require_patient(tx, patient_id, actor.reach(Permission::ClinicalRead)).await?;
         facts::list_conditions(tx.conn(), patient.id)
             .await?
             .into_iter()
@@ -431,7 +437,8 @@ pub async fn add_allergy(
     actor.require(Permission::ClinicalWrite)?;
     let allergy = merge_allergy(None, &input)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
+        let patient =
+            require_patient(tx, patient_id, actor.reach(Permission::ClinicalWrite)).await?;
         let row = facts::insert_allergy(
             tx.conn(),
             AllergyId::new_v7().uuid(),
@@ -459,10 +466,14 @@ pub async fn edit_allergy(
 ) -> Result<AllergyView, AppError> {
     actor.require(Permission::ClinicalWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let current =
-            facts::get_allergy_for_update(tx.conn(), patient_id.uuid(), allergy_id.uuid())
-                .await?
-                .ok_or(AppError::NotFound("allergy"))?;
+        let current = facts::get_allergy_for_update(
+            tx.conn(),
+            patient_id.uuid(),
+            allergy_id.uuid(),
+            actor.reach(Permission::ClinicalWrite).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("allergy"))?;
         let allergy = merge_allergy(Some(&current), &input)?;
         let row = facts::update_allergy(
             tx.conn(),
@@ -487,7 +498,8 @@ pub async fn allergies(
 ) -> Result<Vec<AllergyView>, AppError> {
     actor.require(Permission::ClinicalRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
+        let patient =
+            require_patient(tx, patient_id, actor.reach(Permission::ClinicalRead)).await?;
         facts::list_allergies(tx.conn(), patient.id)
             .await?
             .into_iter()
@@ -528,7 +540,8 @@ pub async fn flags(
     actor.require(Permission::PatientsRead)?;
     let details = actor.permissions.allows(Permission::ClinicalRead);
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
+        let patient =
+            require_patient(tx, patient_id, actor.reach(Permission::PatientsRead)).await?;
         let allergies: Vec<AllergyView> = facts::list_allergies(tx.conn(), patient.id)
             .await?
             .into_iter()

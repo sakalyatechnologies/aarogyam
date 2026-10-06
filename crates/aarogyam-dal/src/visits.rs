@@ -121,7 +121,8 @@ pub async fn lock_client_id(conn: &mut PgConnection, id: Uuid) -> Result<(), DbE
     Ok(())
 }
 
-/// The visit with `id` in this clinic; `lock` holds it until the transaction ends.
+/// The visit with `id` in this clinic; `lock` holds it until the transaction ends. `member`
+/// narrows to visits that member treats or started (`app.clinical_in_reach`); `None` reaches all.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -129,14 +130,18 @@ pub async fn get_encounter(
     conn: &mut PgConnection,
     id: Uuid,
     lock: bool,
+    member: Option<Uuid>,
 ) -> Result<Option<EncounterRow>, DbError> {
     let row = if lock {
         sqlx::query_as!(
             EncounterRow,
             r#"select id, number, patient_id, clinician_id, branch_id, appointment_id, status,
                       chief_complaint, started_at, ended_at
-               from aarogyam.encounters where id = $1 for update"#,
-            id
+               from aarogyam.encounters
+               where id = $1 and app.clinical_in_reach(clinician_id, created_by, null, $2)
+               for update"#,
+            id,
+            member
         )
         .fetch_optional(conn)
         .await?
@@ -145,8 +150,10 @@ pub async fn get_encounter(
             EncounterRow,
             r#"select id, number, patient_id, clinician_id, branch_id, appointment_id, status,
                       chief_complaint, started_at, ended_at
-               from aarogyam.encounters where id = $1"#,
-            id
+               from aarogyam.encounters
+               where id = $1 and app.clinical_in_reach(clinician_id, created_by, null, $2)"#,
+            id,
+            member
         )
         .fetch_optional(conn)
         .await?
@@ -162,15 +169,18 @@ pub async fn list_encounters(
     conn: &mut PgConnection,
     patient_id: Uuid,
     limit: i64,
+    member: Option<Uuid>,
 ) -> Result<Vec<EncounterRow>, DbError> {
     let rows = sqlx::query_as!(
         EncounterRow,
         r#"select id, number, patient_id, clinician_id, branch_id, appointment_id, status,
                   chief_complaint, started_at, ended_at
-           from aarogyam.encounters where patient_id = $1
+           from aarogyam.encounters
+           where patient_id = $1 and app.clinical_in_reach(clinician_id, created_by, null, $3)
            order by started_at desc, id desc limit $2"#,
         patient_id,
-        limit
+        limit,
+        member
     )
     .fetch_all(conn)
     .await?;
@@ -309,13 +319,17 @@ pub async fn insert_note(conn: &mut PgConnection, new: &NewNote<'_>) -> Result<N
 pub async fn get_note_for_update(
     conn: &mut PgConnection,
     id: Uuid,
+    member: Option<Uuid>,
 ) -> Result<Option<NoteRow>, DbError> {
     let row = sqlx::query_as!(
         NoteRow,
         r#"select id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
                   signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version
-           from aarogyam.clinical_notes where id = $1 for update"#,
-        id
+           from aarogyam.clinical_notes
+           where id = $1 and app.clinical_in_reach(author_id, created_by, encounter_id, $2)
+           for update"#,
+        id,
+        member
     )
     .fetch_optional(conn)
     .await?;
@@ -585,6 +599,7 @@ pub struct NoteBundle {
 pub async fn get_note_bundle(
     conn: &mut PgConnection,
     id: Uuid,
+    member: Option<Uuid>,
 ) -> Result<Option<NoteBundle>, DbError> {
     let row = sqlx::query!(
         r#"select n.id, n.encounter_id, n.patient_id, n.author_id, n.kind, n.body, n.source,
@@ -602,8 +617,10 @@ pub async fn get_note_bundle(
                       or m.id in (select a.author_id from aarogyam.note_addenda a
                                   where a.note_id = n.id)
                   ) as "names!: Json<Vec<(Uuid, String)>>"
-           from aarogyam.clinical_notes n where n.id = $1"#,
-        id
+           from aarogyam.clinical_notes n
+           where n.id = $1 and app.clinical_in_reach(n.author_id, n.created_by, n.encounter_id, $2)"#,
+        id,
+        member
     )
     .fetch_optional(conn)
     .await?;

@@ -1,0 +1,291 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select r.id, r.number, r.patient_id, p.full_name as patient_name, p.number as patient_number,\n                  r.encounter_id, r.diagnosis_text, r.advice, r.follow_up_on, r.language, r.status,\n                  r.issued_at, r.override_reason, r.verify_token, r.letterhead, r.doctor, r.recipient,\n                  r.footer, r.cancel_reason, r.cancelled_at, r.supersedes_id,\n                  (select n.id from aarogyam.prescriptions n\n                   where n.org_id = r.org_id and n.supersedes_id = r.id and n.patient_id = r.patient_id) as superseded_by,\n                  r.created_at\n           from aarogyam.prescriptions r\n           join aarogyam.patients p on p.org_id = r.org_id and p.id = r.patient_id\n           where ($1::uuid is null or r.id = $1)\n             and ($2::uuid is null or r.patient_id = $2)\n             and (not $3 or r.status = 'issued')\n             and app.clinical_in_reach(r.issued_by, r.created_by, r.encounter_id, $5)\n           order by coalesce(r.issued_at, r.created_at) desc, r.id desc\n           limit $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "patient_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "full_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "patient_number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "encounter_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "encounter_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "diagnosis_text",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "diagnosis_text"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "advice",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "advice"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "follow_up_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "follow_up_on"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "language",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "language"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "issued_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "issued_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "override_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "override_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "verify_token",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "verify_token"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "letterhead",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "letterhead"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "doctor",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "doctor"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "recipient",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "recipient"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "footer",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "footer"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "cancel_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "cancel_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "cancelled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "cancelled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "supersedes_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "supersedes_id"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "superseded_by",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 22,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Bool",
+        "Int8",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null,
+      false
+    ]
+  },
+  "hash": "88580066505931c14fe2e80110e149200861ad924151237a59536082ffbc1ce0"
+}

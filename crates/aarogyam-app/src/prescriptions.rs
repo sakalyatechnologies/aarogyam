@@ -296,12 +296,18 @@ fn item_view(row: RxItemRow) -> RxItemView {
     }
 }
 
-pub(crate) async fn load(tx: &mut ScopedTx, id: Uuid) -> Result<RxView, AppError> {
+/// The prescription, or not found: also when out of `member`'s reach (`None` reaches all).
+pub(crate) async fn load(
+    tx: &mut ScopedTx,
+    id: Uuid,
+    member: Option<Uuid>,
+) -> Result<RxView, AppError> {
     let row = dal::prescriptions(
         tx.conn(),
         &RxFilter {
             id: Some(id),
             limit: 1,
+            member,
             ..RxFilter::default()
         },
     )
@@ -471,9 +477,13 @@ pub async fn create(
 ) -> Result<RxView, AppError> {
     actor.require(Permission::PrescriptionsIssue)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = patients::get(tx.conn(), patient_id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("patient"))?;
+        let patient = patients::get(
+            tx.conn(),
+            patient_id.uuid(),
+            actor.reach(Permission::PrescriptionsIssue).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("patient"))?;
         let items = build_items(tx, input.items.unwrap_or_default()).await?;
         let diagnosis = rules::optional_text(input.diagnosis_text.as_deref(), 500)
             .map_err(rx("diagnosis_text"))?;
@@ -495,7 +505,7 @@ pub async fn create(
         )
         .await?;
         write_items(tx, id, &items).await?;
-        load(tx, id).await
+        load(tx, id, None).await
     })
     .await
 }
@@ -513,10 +523,14 @@ pub async fn edit(
 ) -> Result<RxView, AppError> {
     actor.require(Permission::PrescriptionsIssue)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        dal::lock(tx.conn(), id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("prescription"))?;
-        let current = load(tx, id.uuid()).await?;
+        dal::lock(
+            tx.conn(),
+            id.uuid(),
+            actor.reach(Permission::PrescriptionsIssue).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("prescription"))?;
+        let current = load(tx, id.uuid(), None).await?;
         if current.status != RxStatus::Draft {
             return Err(AppError::Conflict(
                 "an issued prescription never changes; cancel it and reissue",
@@ -548,7 +562,7 @@ pub async fn edit(
             dal::clear_draft_lines(tx.conn(), id.uuid()).await?;
             write_items(tx, id.uuid(), &items).await?;
         }
-        load(tx, id.uuid()).await
+        load(tx, id.uuid(), None).await
     })
     .await
 }
@@ -609,7 +623,7 @@ async fn share_with_patient(
     doctor_name: &str,
     now: OffsetDateTime,
 ) -> Result<Sharing, AppError> {
-    let patient = patients::get(tx.conn(), patient_id)
+    let patient = patients::get(tx.conn(), patient_id, None)
         .await?
         .ok_or(AppError::NotFound("patient"))?;
     let Some(email) = patient
@@ -678,7 +692,7 @@ async fn print_facts(
     let clinic = settings::get(tx.conn())
         .await?
         .ok_or(AppError::NotFound("clinic"))?;
-    let patient = patients::get(tx.conn(), patient_id)
+    let patient = patients::get(tx.conn(), patient_id, None)
         .await?
         .ok_or(AppError::NotFound("patient"))?;
     let today = clinic_today(&clinic.timezone, now);
@@ -774,9 +788,13 @@ pub async fn issue(
         Some(text) => Some(rules::reason(text).map_err(rx("override_reason"))?),
     };
     db.scoped(&scope(actor, request_id), async |tx| {
-        let (status, patient_id) = dal::lock(tx.conn(), id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("prescription"))?;
+        let (status, patient_id) = dal::lock(
+            tx.conn(),
+            id.uuid(),
+            actor.reach(Permission::PrescriptionsIssue).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("prescription"))?;
         if status != RxStatus::Draft.as_str() {
             return Err(AppError::Conflict(
                 "this prescription is already issued or cancelled",
@@ -851,7 +869,7 @@ pub async fn issue(
             Sharing::NotSent(NotSent::Declined)
         };
         Ok(IssueOutcome::Issued(
-            Box::new(load(tx, id.uuid()).await?),
+            Box::new(load(tx, id.uuid(), None).await?),
             sharing,
         ))
     })
@@ -899,7 +917,7 @@ async fn copy_as_draft(tx: &mut ScopedTx, from: &RxView) -> Result<RxView, AppEr
         })
         .collect();
     write_items(tx, id, &items).await?;
-    load(tx, id).await
+    load(tx, id, None).await
 }
 
 /// Cancels an issued prescription with a reason and, when `reissue`, starts a corrected draft
@@ -920,9 +938,13 @@ pub async fn cancel(
     actor.require(Permission::PrescriptionsIssue)?;
     let reason = rules::reason(reason).map_err(rx("reason"))?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let (status, _) = dal::lock(tx.conn(), id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("prescription"))?;
+        let (status, _) = dal::lock(
+            tx.conn(),
+            id.uuid(),
+            actor.reach(Permission::PrescriptionsIssue).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("prescription"))?;
         if status != RxStatus::Issued.as_str() {
             return Err(AppError::Conflict(
                 "only an issued prescription can be cancelled",
@@ -936,13 +958,13 @@ pub async fn cancel(
             actor.membership_id.uuid(),
         )
         .await?;
-        let cancelled = load(tx, id.uuid()).await?;
+        let cancelled = load(tx, id.uuid(), None).await?;
         let draft = if reissue {
             Some(copy_as_draft(tx, &cancelled).await?)
         } else {
             None
         };
-        let cancelled = load(tx, id.uuid()).await?;
+        let cancelled = load(tx, id.uuid(), None).await?;
         Ok((cancelled, draft))
     })
     .await
@@ -986,7 +1008,12 @@ pub async fn get(
 ) -> Result<RxView, AppError> {
     actor.require(Permission::ClinicalRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let view = load(tx, id.uuid()).await?;
+        let view = load(
+            tx,
+            id.uuid(),
+            actor.reach(Permission::ClinicalRead).member(),
+        )
+        .await?;
         record_view(tx, actor, request_id, &view, "view").await?;
         Ok(view)
     })
@@ -1006,13 +1033,15 @@ pub async fn for_patient(
 ) -> Result<Vec<RxView>, AppError> {
     actor.require(Permission::ClinicalRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        patients::get(tx.conn(), patient_id.uuid())
+        let reach = actor.reach(Permission::ClinicalRead).member();
+        patients::get(tx.conn(), patient_id.uuid(), reach)
             .await?
             .ok_or(AppError::NotFound("patient"))?;
         let rows = dal::prescriptions(
             tx.conn(),
             &RxFilter {
                 patient_id: Some(patient_id.uuid()),
+                member: reach,
                 issued_only: last_issued_only,
                 limit: if last_issued_only { 1 } else { 100 },
                 ..RxFilter::default()
@@ -1021,7 +1050,7 @@ pub async fn for_patient(
         .await?;
         let mut views = Vec::with_capacity(rows.len());
         for row in rows {
-            views.push(load(tx, row.id).await?);
+            views.push(load(tx, row.id, None).await?);
         }
         if let Some(view) = views.first().filter(|_| last_issued_only) {
             record_view(tx, actor, request_id, view, "view").await?;

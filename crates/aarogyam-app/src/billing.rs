@@ -746,7 +746,7 @@ pub async fn create(
     let place = place_of_supply(input.place_of_supply.as_deref())?;
     let notes = trimmed(input.notes.as_deref(), "notes", 1000)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        patients::get(tx.conn(), input.patient_id.uuid())
+        patients::get(tx.conn(), input.patient_id.uuid(), None)
             .await?
             .ok_or(AppError::NotFound("patient"))?;
         if let Some(replaced) = input.replaces_invoice_id {
@@ -889,7 +889,7 @@ pub async fn issue(
         let serial = u64::try_from(serial).map_err(|_| AppError::Internal("negative serial"))?;
         let number =
             serial_number(&supplier.number_prefix, year, serial).map_err(billing("number"))?;
-        let patient = patients::get(tx.conn(), locked.patient_id)
+        let patient = patients::get(tx.conn(), locked.patient_id, None)
             .await?
             .ok_or(AppError::NotFound("patient"))?;
         let gstin = supplier.branch_gstin.clone().or(supplier.org_gstin.clone());

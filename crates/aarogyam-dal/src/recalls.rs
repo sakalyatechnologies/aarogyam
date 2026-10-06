@@ -62,6 +62,7 @@ pub async fn list(
     id: Option<Uuid>,
     due_before: Option<Date>,
     limit: i64,
+    member: Option<Uuid>,
 ) -> Result<Vec<RecallRow>, DbError> {
     let rows = sqlx::query_as!(
         RecallRow,
@@ -69,14 +70,16 @@ pub async fn list(
                   r.kind, r.reason, r.due_on, r.status, r.done_at
            from aarogyam.recalls r
            join aarogyam.patients p on p.org_id = r.org_id and p.id = r.patient_id
-           where ($1::uuid is not null and r.id = $1)
-              or ($1::uuid is null and r.status in ('due', 'notified')
-                  and ($2::date is null or r.due_on < $2))
+           where (($1::uuid is not null and r.id = $1)
+                  or ($1::uuid is null and r.status in ('due', 'notified')
+                      and ($2::date is null or r.due_on < $2)))
+             and app.patient_in_reach(r.patient_id, $4)
            order by r.due_on, r.id
            limit $3"#,
         id,
         due_before,
-        limit
+        limit,
+        member
     )
     .fetch_all(conn)
     .await?;

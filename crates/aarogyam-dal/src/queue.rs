@@ -121,6 +121,7 @@ pub async fn list(
     conn: &mut PgConnection,
     day: Date,
     branch_id: Option<Uuid>,
+    member: Option<Uuid>,
 ) -> Result<Vec<TokenRow>, DbError> {
     let rows = sqlx::query_as!(
         TokenRow,
@@ -133,9 +134,11 @@ pub async fn list(
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
            left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
            where q.day = $1 and ($2::uuid is null or q.branch_id = $2)
+             and app.practitioner_in_reach(q.practitioner_id, $3)
            order by q.branch_id, q.token_number"#,
         day,
-        branch_id
+        branch_id,
+        member
     )
     .fetch_all(conn)
     .await?;
@@ -160,11 +163,15 @@ pub struct TokenState {
 pub async fn get_for_update(
     conn: &mut PgConnection,
     id: Uuid,
+    member: Option<Uuid>,
 ) -> Result<Option<TokenState>, DbError> {
     let row = sqlx::query_as!(
         TokenState,
-        r#"select id, status, appointment_id from aarogyam.queue_tokens where id = $1 for update"#,
-        id
+        r#"select id, status, appointment_id from aarogyam.queue_tokens
+           where id = $1 and app.practitioner_in_reach(practitioner_id, $2)
+           for update"#,
+        id,
+        member
     )
     .fetch_optional(conn)
     .await?;
@@ -220,7 +227,11 @@ pub async fn set_status(
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
-pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<TokenRow>, DbError> {
+pub async fn get(
+    conn: &mut PgConnection,
+    id: Uuid,
+    member: Option<Uuid>,
+) -> Result<Option<TokenRow>, DbError> {
     let row = sqlx::query_as!(
         TokenRow,
         r#"select q.id, q.branch_id, q.day, q.token_number, q.status, q.issued_at, q.called_at, q.done_at,
@@ -231,8 +242,9 @@ pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<TokenRow>, 
            from aarogyam.queue_tokens q
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
            left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
-           where q.id = $1"#,
-        id
+           where q.id = $1 and app.practitioner_in_reach(q.practitioner_id, $2)"#,
+        id,
+        member
     )
     .fetch_optional(conn)
     .await?;

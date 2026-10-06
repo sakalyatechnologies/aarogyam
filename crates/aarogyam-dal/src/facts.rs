@@ -137,14 +137,18 @@ pub async fn get_condition_for_update(
     conn: &mut PgConnection,
     patient_id: Uuid,
     id: Uuid,
+    member: Option<Uuid>,
 ) -> Result<Option<ConditionRow>, DbError> {
     let row = sqlx::query_as!(
         ConditionRow,
         r#"select id, patient_id, encounter_id, display_text, code_system, code, status, flagged,
                   onset, note, source, verified_by, created_at, updated_at
-           from aarogyam.conditions where id = $1 and patient_id = $2 for update"#,
+           from aarogyam.conditions
+           where id = $1 and patient_id = $2 and app.patient_in_reach(patient_id, $3)
+           for update"#,
         id,
-        patient_id
+        patient_id,
+        member
     )
     .fetch_optional(conn)
     .await?;
@@ -294,14 +298,18 @@ pub async fn get_allergy_for_update(
     conn: &mut PgConnection,
     patient_id: Uuid,
     id: Uuid,
+    member: Option<Uuid>,
 ) -> Result<Option<AllergyRow>, DbError> {
     let row = sqlx::query_as!(
         AllergyRow,
         r#"select id, patient_id, substance, code_system, code, reaction, severity, status, source,
                   verified_by, created_at, updated_at
-           from aarogyam.allergies where id = $1 and patient_id = $2 for update"#,
+           from aarogyam.allergies
+           where id = $1 and patient_id = $2 and app.patient_in_reach(patient_id, $3)
+           for update"#,
         id,
-        patient_id
+        patient_id,
+        member
     )
     .fetch_optional(conn)
     .await?;

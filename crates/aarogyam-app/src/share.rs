@@ -65,9 +65,13 @@ pub async fn create(
 ) -> Result<NewLink, AppError> {
     actor.require(Permission::PrescriptionsIssue)?;
     db.scoped(&staff_scope(actor, request_id), async |tx| {
-        let (status, patient_id) = dal::lock(tx.conn(), prescription_id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("prescription"))?;
+        let (status, patient_id) = dal::lock(
+            tx.conn(),
+            prescription_id.uuid(),
+            actor.reach(Permission::PrescriptionsIssue).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("prescription"))?;
         if status != RxStatus::Issued.as_str() {
             return Err(AppError::Conflict(
                 "only an issued prescription can be shared",
@@ -247,7 +251,7 @@ pub async fn open(
         )
         .await?;
         Ok(OpenOutcome::Opened(Box::new(
-            load(tx, prescription_id).await?,
+            load(tx, prescription_id, None).await?,
         )))
     })
     .await

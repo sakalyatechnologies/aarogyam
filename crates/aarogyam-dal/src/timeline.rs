@@ -37,6 +37,7 @@ pub async fn events(
     patient_id: Uuid,
     before: Option<OffsetDateTime>,
     limit: i64,
+    member: Option<Uuid>,
 ) -> Result<Vec<EventRow>, DbError> {
     let rows = sqlx::query_as!(
         EventRow,
@@ -46,19 +47,22 @@ pub async fn events(
              select 'visit' as kind, e.id, e.started_at as at, e.id as visit_id, e.number as title,
                     e.chief_complaint as detail, e.status, e.clinician_id as member_id,
                     null::bigint as amount_paise
-             from aarogyam.encounters e where e.patient_id = $1
+             from aarogyam.encounters e
+             where e.patient_id = $1 and app.clinical_in_reach(e.clinician_id, e.created_by, null, $4)
              union all
              select 'note', n.id, n.signed_at, n.encounter_id, n.kind,
                     coalesce(n.body ->> 'assessment', n.body ->> 'subjective', n.body ->> 'plan'),
                     n.status, n.author_id, null
              from aarogyam.clinical_notes n
              where n.patient_id = $1 and n.signed_at is not null
+               and app.clinical_in_reach(n.author_id, n.created_by, n.encounter_id, $4)
              union all
              select 'procedure', p.id, coalesce(p.performed_at, p.created_at), p.encounter_id, p.name,
                     case when p.tooth is not null then 'tooth ' || p.tooth end,
                     p.status, p.clinician_id, p.price_paise
              from aarogyam.procedures p
              where p.patient_id = $1 and p.status <> 'entered_in_error'
+               and app.clinical_in_reach(p.clinician_id, p.created_by, p.encounter_id, $4)
              union all
              select 'attachment', a.id, a.created_at, a.encounter_id, a.kind, a.caption, null, null, null
              from aarogyam.attachments a where a.patient_id = $1 and a.deleted_at is null
@@ -68,7 +72,8 @@ pub async fn events(
            limit $3"#,
         patient_id,
         before,
-        limit
+        limit,
+        member
     )
     .fetch_all(conn)
     .await?;

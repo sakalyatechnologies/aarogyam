@@ -102,18 +102,24 @@ pub async fn insert(
     Ok(row)
 }
 
-/// The patient with `id` in the current clinic, unless deleted.
+/// The patient with `id` in the current clinic, unless deleted or out of `member`'s reach
+/// (`app.patient_in_reach`; `None` reaches every patient).
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
-pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<PatientRow>, DbError> {
+pub async fn get(
+    conn: &mut PgConnection,
+    id: Uuid,
+    member: Option<Uuid>,
+) -> Result<Option<PatientRow>, DbError> {
     let row = sqlx::query_as!(
         PatientRow,
         r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
                   preferred_language, status, created_at, last_visit_at, row_version
            from aarogyam.patients
-           where id = $1 and deleted_at is null"#,
-        id
+           where id = $1 and deleted_at is null and app.patient_in_reach(id, $2)"#,
+        id,
+        member
     )
     .fetch_optional(conn)
     .await?;
@@ -121,22 +127,24 @@ pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<PatientRow>
 }
 
 /// The patient with `id` in the current clinic, unless deleted, locked until the transaction
-/// ends so a concurrent edit can't overwrite this one's changes.
+/// ends so a concurrent edit can't overwrite this one's changes. `member` as in [`get`].
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
 pub async fn get_for_update(
     conn: &mut PgConnection,
     id: Uuid,
+    member: Option<Uuid>,
 ) -> Result<Option<PatientRow>, DbError> {
     let row = sqlx::query_as!(
         PatientRow,
         r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
                   preferred_language, status, created_at, last_visit_at, row_version
            from aarogyam.patients
-           where id = $1 and deleted_at is null
+           where id = $1 and deleted_at is null and app.patient_in_reach(id, $2)
            for update"#,
-        id
+        id,
+        member
     )
     .fetch_optional(conn)
     .await?;
@@ -356,6 +364,7 @@ pub async fn recent(
     conn: &mut PgConnection,
     limit: i64,
     at: SummaryAt,
+    member: Option<Uuid>,
 ) -> Result<Vec<ListedPatient>, DbError> {
     let rows = sqlx::query_as!(
         ListedPatient,
@@ -364,14 +373,15 @@ pub async fn recent(
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
                   s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
            from (select * from aarogyam.patients
-                 where deleted_at is null
+                 where deleted_at is null and app.patient_in_reach(id, $4)
                  order by created_at desc
                  limit $1) p
            cross join lateral app.patient_summary(p.id, $2, $3) s
            order by p.created_at desc"#,
         limit,
         at.now,
-        at.today
+        at.today,
+        member
     )
     .fetch_all(conn)
     .await?;
@@ -387,6 +397,7 @@ pub async fn recent_filtered(
     filter: &ListFilter,
     limit: i64,
     at: SummaryAt,
+    member: Option<Uuid>,
 ) -> Result<Vec<ListedPatient>, DbError> {
     let rows = sqlx::query_as!(
         ListedPatient,
@@ -395,7 +406,7 @@ pub async fn recent_filtered(
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
                   s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
            from (select p.* from aarogyam.patients p
-                 where p.deleted_at is null
+                 where p.deleted_at is null and app.patient_in_reach(p.id, $7)
                    and ($4::timestamptz is null or p.created_at >= $4)
                    and (not $2 or exists (select 1 from aarogyam.recalls r
                                           where r.patient_id = p.id and r.status in ('due', 'notified')
@@ -417,7 +428,8 @@ pub async fn recent_filtered(
         at.today,
         filter.created_since,
         limit,
-        at.now
+        at.now,
+        member
     )
     .fetch_all(conn)
     .await?;
@@ -432,6 +444,7 @@ pub async fn find_by_number(
     conn: &mut PgConnection,
     number: &str,
     at: SummaryAt,
+    member: Option<Uuid>,
 ) -> Result<Option<ListedPatient>, DbError> {
     let row = sqlx::query_as!(
         ListedPatient,
@@ -441,10 +454,11 @@ pub async fn find_by_number(
                   s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
            from aarogyam.patients p
            cross join lateral app.patient_summary(p.id, $2, $3) s
-           where p.number = $1 and p.deleted_at is null"#,
+           where p.number = $1 and p.deleted_at is null and app.patient_in_reach(p.id, $4)"#,
         number,
         at.now,
-        at.today
+        at.today,
+        member
     )
     .fetch_optional(conn)
     .await?;
@@ -460,6 +474,7 @@ pub async fn search_phone(
     phone_e164: &str,
     limit: i64,
     at: SummaryAt,
+    member: Option<Uuid>,
 ) -> Result<Vec<ListedPatient>, DbError> {
     let rows = sqlx::query_as!(
         ListedPatient,
@@ -469,6 +484,7 @@ pub async fn search_phone(
                   s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
            from (select * from aarogyam.patients
                  where (phone_e164 = $1 or alt_phone_e164 = $1) and deleted_at is null
+                   and app.patient_in_reach(id, $5)
                  order by full_name
                  limit $2) p
            cross join lateral app.patient_summary(p.id, $3, $4) s
@@ -476,7 +492,8 @@ pub async fn search_phone(
         phone_e164,
         limit,
         at.now,
-        at.today
+        at.today,
+        member
     )
     .fetch_all(conn)
     .await?;
@@ -495,6 +512,7 @@ pub async fn search_name(
     limit: i64,
     fuzzy: bool,
     at: SummaryAt,
+    member: Option<Uuid>,
 ) -> Result<Vec<ListedPatient>, DbError> {
     let fuzzy_limit = i32::try_from(limit).unwrap_or(20);
     let rows = sqlx::query_as!(
@@ -503,6 +521,7 @@ pub async fn search_name(
              select id, row_number() over (order by search_name collate "C") as position
              from aarogyam.patients
              where (search_name collate "C") ^@ $1 and deleted_at is null
+               and app.patient_in_reach(id, $7)
              order by search_name collate "C"
              limit $2
            ), close as (
@@ -512,6 +531,7 @@ pub async fn search_name(
                        phone_e164, last_visit_at, similarity, position)
              where $4 and (select count(*) from by_prefix) < 3
                and f.id not in (select id from by_prefix)
+               and app.patient_in_reach(f.id, $7)
            ), picked as (
              select id, 0 as source, position from by_prefix
              union all
@@ -531,7 +551,8 @@ pub async fn search_name(
         fuzzy_limit,
         fuzzy,
         at.now,
-        at.today
+        at.today,
+        member
     )
     .fetch_all(conn)
     .await?;
@@ -548,11 +569,13 @@ pub async fn open(
     id: Uuid,
     access: &AccessEntry<'_>,
     at: SummaryAt,
+    member: Option<Uuid>,
 ) -> Result<Option<ListedPatient>, DbError> {
     let row = sqlx::query_as!(
         ListedPatient,
         r#"with found as (
-             select * from aarogyam.patients where id = $1 and deleted_at is null
+             select * from aarogyam.patients
+             where id = $1 and deleted_at is null and app.patient_in_reach(id, $10)
            ), recorded as (
              insert into audit.access_log
                (actor_user_id, actor_kind, patient_id, resource, action, purpose, request_id)
@@ -572,7 +595,8 @@ pub async fn open(
         access.purpose,
         access.request_id,
         at.now,
-        at.today
+        at.today,
+        member
     )
     .fetch_optional(conn)
     .await?;

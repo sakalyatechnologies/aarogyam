@@ -266,7 +266,7 @@ pub async fn record(
                     "this Idempotency-Key was used for a different payment",
                 ));
             }
-            patients::get(tx.conn(), input.patient_id.uuid())
+            patients::get(tx.conn(), input.patient_id.uuid(), None)
                 .await?
                 .ok_or(AppError::NotFound("patient"))?;
             let ids: Vec<Uuid> = input.allocations.iter().map(|(id, _)| id.uuid()).collect();

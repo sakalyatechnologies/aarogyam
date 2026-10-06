@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use aarogyam_dal::{patients, visits};
-use aarogyam_domain::access::ClinicActor;
+use aarogyam_domain::access::{ClinicActor, Reach};
 use aarogyam_domain::clinical::{
     ClinicalError, EncounterStatus, NoteBody, NoteKind, NoteRefusal, NoteSource, NoteState,
     NoteStatus, Signing, clinical_text, error_reason, optional_text,
@@ -96,22 +96,24 @@ pub(crate) async fn record_access(
     Ok(())
 }
 
-/// The patient, or not found.
+/// The patient, or not found: also when out of `reach` (the scope of the route's permission).
 pub(crate) async fn require_patient(
     tx: &mut ScopedTx,
     patient_id: PatientId,
+    reach: Reach,
 ) -> Result<patients::PatientRow, AppError> {
-    patients::get(tx.conn(), patient_id.uuid())
+    patients::get(tx.conn(), patient_id.uuid(), reach.member())
         .await?
         .ok_or(AppError::NotFound("patient"))
 }
 
-/// The visit, locked, which must still be open.
+/// The visit, locked, which must still be open; not found when out of `reach`.
 pub(crate) async fn require_open_visit(
     tx: &mut ScopedTx,
     visit_id: EncounterId,
+    reach: Reach,
 ) -> Result<visits::EncounterRow, AppError> {
-    let visit = visits::get_encounter(tx.conn(), visit_id.uuid(), true)
+    let visit = visits::get_encounter(tx.conn(), visit_id.uuid(), true, reach.member())
         .await?
         .ok_or(AppError::NotFound("visit"))?;
     if visit.status != EncounterStatus::Open.as_str() {
@@ -293,11 +295,15 @@ pub async fn start(
     actor.require(Permission::ClinicalWrite)?;
     let chief_complaint = optional_text(input.chief_complaint.as_deref(), 1000)
         .map_err(invalid("chief_complaint"))?;
+    let reach = actor.reach(Permission::ClinicalWrite);
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
+        // Starting a visit makes the patient the member's own, so it needs them in reach first.
+        let patient = require_patient(tx, patient_id, reach).await?;
         if let Some(id) = input.id {
             visits::lock_client_id(tx.conn(), id.uuid()).await?;
-            if let Some(row) = visits::get_encounter(tx.conn(), id.uuid(), false).await? {
+            if let Some(row) =
+                visits::get_encounter(tx.conn(), id.uuid(), false, reach.member()).await?
+            {
                 let same = row.patient_id == patient.id
                     && row.clinician_id == actor.membership_id.uuid()
                     && row.appointment_id == input.appointment_id
@@ -352,8 +358,10 @@ pub async fn list(
 ) -> Result<Vec<VisitView>, AppError> {
     actor.require(Permission::ClinicalRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
-        let rows = visits::list_encounters(tx.conn(), patient.id, MAX_VISITS).await?;
+        let reach = actor.reach(Permission::ClinicalRead);
+        let patient = require_patient(tx, patient_id, reach).await?;
+        let rows =
+            visits::list_encounters(tx.conn(), patient.id, MAX_VISITS, reach.member()).await?;
         let names = Names::load(tx, rows.iter().map(|r| r.clinician_id)).await?;
         rows.into_iter()
             .map(|row| visit_view(row, &names))
@@ -379,7 +387,8 @@ pub(crate) async fn open_in(
     request_id: Option<Uuid>,
     visit_id: EncounterId,
 ) -> Result<VisitWithNotes, AppError> {
-    let row = visits::get_encounter(tx.conn(), visit_id.uuid(), false)
+    let reach = actor.reach(Permission::ClinicalRead).member();
+    let row = visits::get_encounter(tx.conn(), visit_id.uuid(), false, reach)
         .await?
         .ok_or(AppError::NotFound("visit"))?;
     record_access(
@@ -414,7 +423,8 @@ pub async fn close(
 ) -> Result<VisitView, AppError> {
     actor.require(Permission::ClinicalWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let visit = require_open_visit(tx, visit_id).await?;
+        let visit =
+            require_open_visit(tx, visit_id, actor.reach(Permission::ClinicalWrite)).await?;
         let row = visits::close_encounter(tx.conn(), visit.id, now).await?;
         let names = Names::load(tx, [row.clinician_id]).await?;
         visit_view(row, &names)
@@ -497,7 +507,8 @@ pub async fn create_note(
     db.scoped(&scope(actor, request_id), async |tx| {
         if let Some(id) = id {
             visits::lock_client_id(tx.conn(), id.uuid()).await?;
-            if let Some(row) = visits::get_note_for_update(tx.conn(), id.uuid()).await? {
+            let reach = actor.reach(Permission::ClinicalWrite).member();
+            if let Some(row) = visits::get_note_for_update(tx.conn(), id.uuid(), reach).await? {
                 let same = row.encounter_id == visit_id.uuid()
                     && row.author_id == actor.membership_id.uuid()
                     && row.kind == kind.as_str()
@@ -509,7 +520,8 @@ pub async fn create_note(
                 };
             }
         }
-        let visit = require_open_visit(tx, visit_id).await?;
+        let visit =
+            require_open_visit(tx, visit_id, actor.reach(Permission::ClinicalWrite)).await?;
         let row = visits::insert_note(
             tx.conn(),
             &visits::NewNote {
@@ -530,9 +542,11 @@ pub async fn create_note(
 
 async fn note_for_change(
     tx: &mut ScopedTx,
+    actor: &ClinicActor,
     note_id: ClinicalNoteId,
 ) -> Result<(visits::NoteRow, NoteState), AppError> {
-    let row = visits::get_note_for_update(tx.conn(), note_id.uuid())
+    let reach = actor.reach(Permission::ClinicalWrite).member();
+    let row = visits::get_note_for_update(tx.conn(), note_id.uuid(), reach)
         .await?
         .ok_or(AppError::NotFound("note"))?;
     let state = NoteState {
@@ -567,7 +581,7 @@ pub async fn edit_note(
         .transpose()
         .map_err(invalid("kind"))?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let (row, state) = note_for_change(tx, note_id).await?;
+        let (row, state) = note_for_change(tx, actor, note_id).await?;
         AppError::check_version(expected_version, row.row_version)?;
         state.check_edit(actor.membership_id).map_err(refused)?;
         let kind = kind.map_or(row.kind.clone(), |k| k.as_str().to_owned());
@@ -594,7 +608,8 @@ pub async fn sign_note(
     actor.require(Permission::ClinicalWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
         // A retry of a signature that landed is answered from one read, without a lock.
-        if let Some(bundle) = visits::get_note_bundle(tx.conn(), note_id.uuid()).await?
+        let reach = actor.reach(Permission::ClinicalWrite).member();
+        if let Some(bundle) = visits::get_note_bundle(tx.conn(), note_id.uuid(), reach).await?
             && NoteStatus::parse(&bundle.note.status).is_ok_and(|s| s == NoteStatus::Signed)
             && bundle.note.author_id == actor.membership_id.uuid()
         {
@@ -611,7 +626,7 @@ pub async fn sign_note(
                 .collect();
             return Ok(Moved::AlreadyDone(note_view(bundle.note, addenda, &names)?));
         }
-        let (row, state) = note_for_change(tx, note_id).await?;
+        let (row, state) = note_for_change(tx, actor, note_id).await?;
         let body: NoteBody = serde_json::from_value(row.body.clone()).unwrap_or_default();
         match state.check_sign(actor.membership_id, &body) {
             Ok(Signing::Sign) => {
@@ -648,7 +663,7 @@ pub async fn add_addendum(
     actor.require(Permission::ClinicalWrite)?;
     let body = clinical_text(body, 1, 10_000).map_err(invalid("body"))?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let (row, state) = note_for_change(tx, note_id).await?;
+        let (row, state) = note_for_change(tx, actor, note_id).await?;
         if let Some(id) = id {
             visits::lock_client_id(tx.conn(), id.uuid()).await?;
             if let Some(existing) = visits::get_addendum(tx.conn(), id.uuid()).await? {
@@ -692,7 +707,7 @@ pub async fn mark_note_in_error(
     actor.require(Permission::ClinicalWrite)?;
     let reason = error_reason(reason).map_err(invalid("reason"))?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let (row, state) = note_for_change(tx, note_id).await?;
+        let (row, state) = note_for_change(tx, actor, note_id).await?;
         state
             .check_entered_in_error(actor.membership_id)
             .map_err(refused)?;

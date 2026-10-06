@@ -540,9 +540,10 @@ async fn replayed(
     tx: &mut sakalya_db::ScopedTx,
     id: AttachmentId,
     described: &Described<'_>,
+    member: Option<Uuid>,
 ) -> Result<Option<AttachmentView>, AppError> {
     aarogyam_dal::visits::lock_client_id(tx.conn(), id.uuid()).await?;
-    let Some(row) = attachments::get(tx.conn(), id.uuid()).await? else {
+    let Some(row) = attachments::get(tx.conn(), id.uuid(), member).await? else {
         return Ok(None);
     };
     if described.matches(&row) {
@@ -601,11 +602,12 @@ pub async fn upload(
     // Set once this attempt has stored the bytes, so a failure removes only what it wrote: with a
     // client-chosen id the key may already hold an earlier upload's file.
     let mut wrote = false;
+    let reach = actor.reach(Permission::ClinicalWrite);
     let stored = db
         .scoped(&scope(actor, request_id), async |tx| {
-            let patient = require_patient(tx, patient_id).await?;
+            let patient = require_patient(tx, patient_id, reach).await?;
             if input.id.is_some()
-                && let Some(existing) = replayed(tx, id, &described).await?
+                && let Some(existing) = replayed(tx, id, &described, reach.member()).await?
             {
                 return Ok(existing);
             }
@@ -678,7 +680,8 @@ async fn check_note_link(
     addendum_id: Option<Uuid>,
     visit_id: Option<Uuid>,
 ) -> Result<Uuid, AppError> {
-    let note = aarogyam_dal::visits::get_note_for_update(tx.conn(), note_id)
+    let reach = actor.reach(Permission::ClinicalWrite).member();
+    let note = aarogyam_dal::visits::get_note_for_update(tx.conn(), note_id, reach)
         .await?
         .filter(|note| note.patient_id == patient)
         .ok_or(AppError::NotFound("note"))?;
@@ -729,7 +732,8 @@ pub async fn list(
 ) -> Result<Vec<AttachmentView>, AppError> {
     actor.require(Permission::ClinicalRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
+        let patient =
+            require_patient(tx, patient_id, actor.reach(Permission::ClinicalRead)).await?;
         attachments::list(tx.conn(), patient.id)
             .await?
             .into_iter()
@@ -764,7 +768,8 @@ pub async fn link(
 ) -> Result<DownloadLink, AppError> {
     actor.require(Permission::ClinicalRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        attachments::get(tx.conn(), attachment_id.uuid())
+        let reach = actor.reach(Permission::ClinicalRead).member();
+        attachments::get(tx.conn(), attachment_id.uuid(), reach)
             .await?
             .ok_or(AppError::NotFound("attachment"))?;
         Ok::<_, AppError>(())
@@ -844,7 +849,8 @@ pub async fn download(
     }
     let row = db
         .scoped(&scope, async |tx| {
-            let row = attachments::get(tx.conn(), attachment_id.uuid())
+            // The link was issued within the member's reach; it stays valid for five minutes.
+            let row = attachments::get(tx.conn(), attachment_id.uuid(), None)
                 .await?
                 .ok_or(AppError::NotFound("attachment"))?;
             let request_text = request_id.map(|id| id.to_string());

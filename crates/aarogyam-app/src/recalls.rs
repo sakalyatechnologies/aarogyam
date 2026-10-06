@@ -47,8 +47,8 @@ fn view(row: dal::RecallRow) -> RecallView {
     }
 }
 
-async fn load(tx: &mut ScopedTx, id: Uuid) -> Result<RecallView, AppError> {
-    dal::list(tx.conn(), Some(id), None, 1)
+async fn load(tx: &mut ScopedTx, id: Uuid, member: Option<Uuid>) -> Result<RecallView, AppError> {
+    dal::list(tx.conn(), Some(id), None, 1, member)
         .await?
         .into_iter()
         .next()
@@ -83,12 +83,13 @@ pub async fn create(
         return Err(AppError::invalid("kind", "use lower-case letters and _"));
     }
     db.scoped(&scope(actor, request_id), async |tx| {
-        patients::get(tx.conn(), patient_id.uuid())
+        let reach = actor.reach(Permission::PatientsRead).member();
+        patients::get(tx.conn(), patient_id.uuid(), reach)
             .await?
             .ok_or(AppError::NotFound("patient"))?;
         let id = RecallId::new_v7().uuid();
         dal::insert(tx.conn(), id, patient_id.uuid(), kind, reason, due_on).await?;
-        load(tx, id).await
+        load(tx, id, reach).await
     })
     .await
 }
@@ -105,7 +106,14 @@ pub async fn due(
 ) -> Result<Vec<RecallView>, AppError> {
     actor.require(Permission::PatientsRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let rows = dal::list(tx.conn(), None, due_before, 500).await?;
+        let rows = dal::list(
+            tx.conn(),
+            None,
+            due_before,
+            500,
+            actor.reach(Permission::PatientsRead).member(),
+        )
+        .await?;
         Ok(rows.into_iter().map(view).collect())
     })
     .await
@@ -125,11 +133,12 @@ pub async fn done(
 ) -> Result<RecallView, AppError> {
     actor.require(Permission::PatientsWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        load(tx, id.uuid()).await?;
+        let reach = actor.reach(Permission::PatientsRead).member();
+        load(tx, id.uuid(), reach).await?;
         if !dal::done(tx.conn(), id.uuid(), now).await? {
             return Err(AppError::Conflict("this follow-up is already closed"));
         }
-        load(tx, id.uuid()).await
+        load(tx, id.uuid(), reach).await
     })
     .await
 }

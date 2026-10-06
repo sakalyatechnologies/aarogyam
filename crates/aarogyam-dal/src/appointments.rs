@@ -83,6 +83,7 @@ pub async fn list(
     to: OffsetDateTime,
     room_id: Option<Uuid>,
     practitioner_id: Option<Uuid>,
+    member: Option<Uuid>,
 ) -> Result<Vec<AppointmentRow>, DbError> {
     let rows = sqlx::query_as!(
         AppointmentRow,
@@ -102,11 +103,13 @@ pub async fn list(
            where a.deleted_at is null and a.starts_at >= $1 and a.starts_at < $2
              and ($3::uuid is null or a.room_id = $3)
              and ($4::uuid is null or a.practitioner_id = $4)
+             and app.practitioner_in_reach(a.practitioner_id, $5)
            order by a.starts_at, r.name, a.id"#,
         from,
         to,
         room_id,
-        practitioner_id
+        practitioner_id,
+        member
     )
     .fetch_all(conn)
     .await?;
@@ -117,7 +120,11 @@ pub async fn list(
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
-pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<AppointmentRow>, DbError> {
+pub async fn get(
+    conn: &mut PgConnection,
+    id: Uuid,
+    member: Option<Uuid>,
+) -> Result<Option<AppointmentRow>, DbError> {
     let row = sqlx::query_as!(
         AppointmentRow,
         r#"select a.id, a.branch_id, a.room_id, r.name as "room_name?", a.starts_at, a.ends_at,
@@ -133,8 +140,10 @@ pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<Appointment
            join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id
            left join aarogyam.rooms r on r.org_id = a.org_id and r.id = a.room_id
            left join aarogyam.queue_tokens q on q.org_id = a.org_id and q.appointment_id = a.id
-           where a.id = $1 and a.deleted_at is null"#,
-        id
+           where a.id = $1 and a.deleted_at is null
+             and app.practitioner_in_reach(a.practitioner_id, $2)"#,
+        id,
+        member
     )
     .fetch_optional(conn)
     .await?;
@@ -146,10 +155,17 @@ pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<Appointment
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
-pub async fn lock(conn: &mut PgConnection, id: Uuid) -> Result<bool, DbError> {
+pub async fn lock(
+    conn: &mut PgConnection,
+    id: Uuid,
+    member: Option<Uuid>,
+) -> Result<bool, DbError> {
     let found = sqlx::query_scalar!(
-        r#"select id from aarogyam.appointments where id = $1 and deleted_at is null for update"#,
-        id
+        r#"select id from aarogyam.appointments
+           where id = $1 and deleted_at is null and app.practitioner_in_reach(practitioner_id, $2)
+           for update"#,
+        id,
+        member
     )
     .fetch_optional(conn)
     .await?;

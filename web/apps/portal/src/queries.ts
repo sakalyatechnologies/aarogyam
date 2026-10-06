@@ -30,6 +30,9 @@ import {
   type PatientChanges,
   type PatientId,
   type PatientImport,
+  type ImportChoices,
+  type ImportSessionId,
+  type PatientGapId,
   type PractitionerFields,
   type PractitionerId,
   type Session,
@@ -536,6 +539,57 @@ export function useImportPatients() {
       if (result.mode === "commit") {
         void queryClient.invalidateQueries({ queryKey: ["patients", access.org_id] });
       }
+    },
+  });
+}
+
+// Smart import: the clinic's own CSV or Excel file, and the to-do list it leaves ----------------
+
+export function useUploadImportFile() {
+  const { api } = useClinic();
+  return useMutation({ mutationFn: (form: FormData) => unwrap(api.uploadImportFile(form)) });
+}
+
+export function usePreviewImport() {
+  const { api } = useClinic();
+  return useMutation({
+    mutationFn: ({ id, choices }: { id: ImportSessionId; choices: ImportChoices }) => unwrap(api.previewImport(id, choices)),
+  });
+}
+
+export function useCommitImport() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, choices }: { id: ImportSessionId; choices: ImportChoices }) => unwrap(api.commitImport(id, choices)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["patients", access.org_id] });
+      void queryClient.invalidateQueries({ queryKey: ["incomplete-patients", access.org_id] });
+    },
+  });
+}
+
+export function useDiscardImport() {
+  const { api } = useClinic();
+  return useMutation({ mutationFn: (id: ImportSessionId) => unwrap(api.discardImport(id)) });
+}
+
+/** Imported patients still missing details; kept fresh because the front desk works through it. */
+export function useIncompletePatients() {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["incomplete-patients", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.listIncompletePatients({ signal })),
+  });
+}
+
+export function useDismissIncomplete() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: PatientGapId) => unwrap(api.dismissIncompletePatient(id)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["incomplete-patients", access.org_id] });
     },
   });
 }

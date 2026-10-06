@@ -1,4 +1,4 @@
-import { Plus, Upload } from "lucide-react";
+import { ListTodo, Plus, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
@@ -112,6 +112,15 @@ export function PatientsPage() {
             <Upload aria-hidden="true" /> Import
           </button>
         ) : null}
+        <button
+          type="button"
+          className="mk-btn mk-btn-ghost"
+          onClick={() => {
+            void navigate("/patients/incomplete");
+          }}
+        >
+          <ListTodo aria-hidden="true" /> Missing details
+        </button>
         {register}
       </div>
       <MkCard

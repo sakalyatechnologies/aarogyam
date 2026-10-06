@@ -7,11 +7,15 @@
 #   5. dependency hygiene (cargo-deny, cargo-machete) when installed
 #   Web (when a web-relevant path is staged):
 #   6. pnpm check, from the repo root
+#   Mobile (when mobile/ or scripts/mobile-deps.sh is staged):
+#   7. ./gradlew check in mobile/ (tests, Android lint with warnings as errors, ktlint)
 # Bypass only in an emergency: git commit --no-verify
 staged=$(git diff --cached --name-only)
-rust_staged=$(printf '%s\n' "$staged" | grep -qE '\.(rs|toml|sql)$|Cargo\.lock$|^docs/(schema|api)/|^scripts/' && echo 1)
+rust_staged=$(printf '%s\n' "$staged" | grep -vE '^mobile/|^scripts/mobile-deps\.sh$' |
+  grep -qE '\.(rs|toml|sql)$|Cargo\.lock$|^docs/(schema|api)/|^scripts/' && echo 1)
 web_staged=$(printf '%s\n' "$staged" | grep -qE '^web/|^pnpm-lock\.yaml$|^package\.json$' && echo 1)
-if [ -z "$rust_staged" ] && [ -z "$web_staged" ]; then
+mobile_staged=$(printf '%s\n' "$staged" | grep -qE '^mobile/|^scripts/mobile-deps\.sh$' && echo 1)
+if [ -z "$rust_staged" ] && [ -z "$web_staged" ] && [ -z "$mobile_staged" ]; then
   exit 0
 fi
 export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH"
@@ -46,4 +50,12 @@ fi
 
 if [ -n "$web_staged" ]; then
   pnpm check || fail "fix the pnpm check findings above"
+fi
+
+if [ -n "$mobile_staged" ]; then
+  if [ ! -d mobile/.deps/sakalya-mobile ]; then
+    scripts/mobile-deps.sh || fail "could not fetch sakalya-mobile; set SAKALYA_MOBILE_PATH to a local clone"
+  fi
+  export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@17}"
+  (cd mobile && ./gradlew check --quiet) || fail "fix the mobile check findings above (cd mobile && ./gradlew check)"
 fi

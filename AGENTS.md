@@ -34,6 +34,7 @@ Scope every command to what you changed. See `docs/guidelines/build-speed.md`.
 | Web: install (needs `../sakalya-web`, installed) | `pnpm install` |
 | Web: dev servers | `pnpm dev:portal` (5173), `pnpm dev:console` (5174) |
 | Web: final check before commit | `pnpm check` |
+| Mobile: final check before commit (see `mobile/README.md`) | `cd mobile && ./gradlew check` |
 
 Settings come from `config/local.toml` (local defaults, not secret) and `ARO_*` environment variables, which win. `.env.example` lists every variable.
 
@@ -62,7 +63,7 @@ Follow the log budget in `docs/guidelines/observability.md`. Business events use
 
 ## Hooks
 
-Run `scripts/install-hooks.sh` once per clone. The pre-commit hook runs the final check and `cargo machete`, adds the database tests when Postgres answers on localhost, and fails if `docs/database.md` is stale after a change to `docs/schema/model.py`. Claude Code formats each Rust file it edits. CI is parked for now, so the hook is the gate.
+Run `scripts/install-hooks.sh` once per clone. The pre-commit hook runs the final check and `cargo machete`, adds the database tests when Postgres answers on localhost, and fails if `docs/database.md` is stale after a change to `docs/schema/model.py`. When `mobile/` is staged it runs `./gradlew check` there instead of the Rust checks. Claude Code formats each Rust file it edits. CI is parked for now, so the hook is the gate.
 
 ## Done means
 

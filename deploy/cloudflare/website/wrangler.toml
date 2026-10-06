@@ -5,3 +5,7 @@
 name = "aarogyam-website"
 compatibility_date = "2026-09-01"
 pages_build_output_dir = "../../../web/apps/website/dist/client"
+
+# The API answers the site as its app host (ARO_HOSTS__APP); see functions/api/[[path]].ts.
+[vars]
+API_HOST = "aarogyam-portal.spring-snow-130f.workers.dev"

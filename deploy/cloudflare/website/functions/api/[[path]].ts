@@ -7,7 +7,11 @@
 // API origin; without them the site shows an error instead of losing an application silently.
 import { proxyApi, type Env } from "../../../shared/api-proxy";
 
-type PagesEnv = Pick<Env, "API_ORIGIN" | "EDGE_SECRET">;
+type PagesEnv = Pick<Env, "API_ORIGIN" | "EDGE_SECRET"> & {
+  /** The API's app host (`ARO_HOSTS__APP`): the site speaks to the API as that host, because the
+   * API answers /me and registrations there and nowhere else. A var in wrangler.toml. */
+  API_HOST?: string;
+};
 
 const ALLOWED: Record<string, string> = {
   "/api/v1/registrations": "POST",
@@ -25,5 +29,9 @@ export const onRequest = async (context: { request: Request; env: PagesEnv }): P
     return new Response("The site is not connected to the API yet", { status: 503 });
   }
   // proxyApi never touches static assets; Pages serves those itself.
-  return proxyApi(request, { ...env, ASSETS: undefined as never });
+  // The edge proxy trusts the request's own host; present the app host instead of this site's.
+  const target = env.API_HOST
+    ? new Request(`https://${env.API_HOST}${new URL(request.url).pathname}`, request)
+    : request;
+  return proxyApi(target, { ...env, ASSETS: undefined as never });
 };

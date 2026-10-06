@@ -1,7 +1,6 @@
 //! The clinic's stock: items, suppliers, deliveries, use and corrections. A use takes from the
 //! batch that expires first; stock never goes below zero.
 
-use aarogyam_dal::clinic;
 use aarogyam_dal::inventory::{
     self as dal, BatchValues, ItemRow, ItemValues, StockRow, SupplierValues,
 };
@@ -415,7 +414,7 @@ pub async fn items(
 ) -> Result<Vec<StockItem>, AppError> {
     actor.require(Permission::InventoryRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let today = today_of(tx, now).await?;
+        let today = clinic_today(&actor.timezone, now);
         Ok(dal::stock(tx.conn())
             .await?
             .into_iter()
@@ -600,7 +599,7 @@ pub async fn item_detail(
 ) -> Result<ItemDetail, AppError> {
     actor.require(Permission::InventoryRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let today = today_of(tx, now).await?;
+        let today = clinic_today(&actor.timezone, now);
         item_detail_in(tx, id, today).await
     })
     .await
@@ -627,13 +626,6 @@ async fn item_detail_in(
         batches,
         movements,
     })
-}
-
-async fn today_of(tx: &mut ScopedTx, now: OffsetDateTime) -> Result<Date, AppError> {
-    let profile = clinic::profile(tx.conn())
-        .await?
-        .ok_or(AppError::NotFound("clinic"))?;
-    Ok(clinic_today(&profile.timezone, now))
 }
 
 async fn stock_item_in(
@@ -696,7 +688,7 @@ pub async fn receive(
     }
     let batch_no = trimmed(input.batch_no.as_deref(), "batch_no", 60)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let today = today_of(tx, now).await?;
+        let today = clinic_today(&actor.timezone, now);
         dal::item(tx.conn(), input.item_id.uuid())
             .await?
             .ok_or(AppError::NotFound("item"))?;
@@ -802,7 +794,7 @@ pub async fn use_stock(
     check_quantity(quantity).map_err(stock("quantity"))?;
     let reason = trimmed(reason, "reason", 300)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let today = today_of(tx, now).await?;
+        let today = clinic_today(&actor.timezone, now);
         dal::item(tx.conn(), item_id.uuid())
             .await?
             .ok_or(AppError::NotFound("item"))?;
@@ -861,7 +853,7 @@ pub async fn adjust(
     check_quantity(quantity.abs()).map_err(stock("quantity"))?;
     let reason = required(Some(&reason), "reason", 300)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let today = today_of(tx, now).await?;
+        let today = clinic_today(&actor.timezone, now);
         dal::item(tx.conn(), item_id.uuid())
             .await?
             .ok_or(AppError::NotFound("item"))?;
@@ -930,7 +922,7 @@ pub async fn expire_batch(
     actor.require(Permission::InventoryManage)?;
     let reason = trimmed(reason, "reason", 300)?.unwrap_or_else(|| "expired".to_owned());
     db.scoped(&scope(actor, request_id), async |tx| {
-        let today = today_of(tx, now).await?;
+        let today = clinic_today(&actor.timezone, now);
         let batch = dal::lock_batch(tx.conn(), batch_id.uuid())
             .await?
             .ok_or(AppError::NotFound("batch"))?;
@@ -988,7 +980,7 @@ pub async fn stock_levels(
 ) -> Result<Vec<StockItem>, AppError> {
     actor.require(Permission::InventoryRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let today = today_of(tx, now).await?;
+        let today = clinic_today(&actor.timezone, now);
         stock_levels_in(tx, today).await
     })
     .await
@@ -1049,7 +1041,7 @@ pub async fn low_stock(
 ) -> Result<Vec<StockItem>, AppError> {
     actor.require(Permission::InventoryRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let today = today_of(tx, now).await?;
+        let today = clinic_today(&actor.timezone, now);
         low_stock_in(tx, today).await
     })
     .await
@@ -1119,7 +1111,7 @@ pub async fn expiring(
         return Err(AppError::invalid("days", "must be between 0 and 3650"));
     }
     db.scoped(&scope(actor, request_id), async |tx| {
-        let today = today_of(tx, now).await?;
+        let today = clinic_today(&actor.timezone, now);
         let rows = dal::expiring(tx.conn(), today + Duration::days(days)).await?;
         Ok(rows
             .into_iter()

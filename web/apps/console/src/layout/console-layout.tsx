@@ -1,8 +1,8 @@
-import { Activity, Building2, CheckCircle2, Inbox, LogOut } from "lucide-react";
+import { Activity, Building2, CheckCircle2, Inbox, KeyRound, LogOut } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router";
 
 import { renderRouterLink } from "@aarogyam/app-kit";
-import { useAuth, useAuthState } from "@aarogyam/auth";
+import { PasswordDialog, supportsPassword, useAuth, useAuthState, usePasswordDialog } from "@aarogyam/auth";
 import { AppShell, IconButton, Skeleton, UserChip, type NavEntry } from "@sakalya/ui";
 
 import { ConsoleBrand } from "../brand.js";
@@ -35,6 +35,7 @@ export function ConsoleLayout() {
   const auth = useAuth();
   const state = useAuthState();
   const location = useLocation();
+  const password = usePasswordDialog();
   const user = state.status === "signed_in" ? state.user : undefined;
   const activeId = NAV.find((entry) => location.pathname.startsWith(entry.href))?.id ?? "";
   return (
@@ -46,6 +47,19 @@ export function ConsoleLayout() {
       topBarEnd={
         <>
           <UserChip name={user?.displayName ?? user?.email ?? "Signed in"} role="Sakalya team" />
+          {supportsPassword(auth) ? (
+            <>
+              <IconButton
+                label="Password"
+                onClick={() => {
+                  password.setOpen(true);
+                }}
+              >
+                <KeyRound aria-hidden="true" className="size-5" />
+              </IconButton>
+              <PasswordDialog auth={auth} open={password.open} onOpenChange={password.setOpen} />
+            </>
+          ) : null}
           <IconButton
             label="Sign out"
             onClick={() => {

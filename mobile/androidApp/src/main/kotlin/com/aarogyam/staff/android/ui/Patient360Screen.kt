@@ -1,6 +1,7 @@
 package com.aarogyam.staff.android.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -32,6 +36,7 @@ import com.sakalya.mobile.designcompose.SkChip
 import com.sakalya.mobile.designcompose.SkDivider
 import com.sakalya.mobile.designcompose.SkEmptyState
 import com.sakalya.mobile.designcompose.SkListRow
+import com.sakalya.mobile.designcompose.SkTabs
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTone
 import com.sakalya.mobile.designcompose.SkTopBar
@@ -44,6 +49,7 @@ import com.sakalya.mobile.designcompose.color
 fun Patient360Screen(
     holder: Patient360StateHolder,
     onBack: () -> Unit,
+    rxTab: @Composable (PatientView) -> Unit,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     val loaded = state as? Patient360State.Loaded
@@ -53,6 +59,18 @@ fun Patient360Screen(
             subtitle = loaded?.view?.let { header(it) },
             navigation = { BarAction(stringResource(R.string.back), SkTheme.colors.onBrandDark.color, onBack) },
         )
+        var tab by rememberSaveable { mutableIntStateOf(0) }
+        if (loaded != null) {
+            SkTabs(
+                titles = listOf(stringResource(R.string.patient_tab_overview), stringResource(R.string.patient_tab_rx)),
+                selectedIndex = tab,
+                onSelect = { tab = it },
+            )
+        }
+        if (loaded != null && tab == 1) {
+            Box(Modifier.weight(1f).navigationBarsPadding()) { rxTab(loaded.view) }
+            return@Column
+        }
         PullToRefreshBox(
             isRefreshing = loaded?.refreshing == true,
             onRefresh = holder::refresh,

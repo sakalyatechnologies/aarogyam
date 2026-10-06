@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists (select 1 from aarogyam.patients where id = $1) as \"found!\",\n                  coalesce((\n                    select jsonb_agg(to_jsonb(t) order by t.created_at desc, t.id desc)\n                    from (select p.id, p.patient_id, p.clinician_id, p.encounter_id, p.title,\n                                 p.status, p.accepted_at, p.created_at,\n                                 u.display_name as clinician_name,\n                                 coalesce((\n                                   select jsonb_agg(to_jsonb(x) order by x.phase, x.id)\n                                   from (select i.id, i.plan_id, i.patient_id, i.name,\n                                                i.code_system, i.code, i.tooth, i.surfaces,\n                                                i.phase, i.estimate_paise, i.status,\n                                                (select c.id from aarogyam.procedures c\n                                                 where c.treatment_plan_item_id = i.id\n                                                   and c.patient_id = i.patient_id\n                                                   and c.status <> 'entered_in_error'\n                                                 limit 1) as procedure_id\n                                         from aarogyam.treatment_plan_items i\n                                         where i.plan_id = p.id) x\n                                 ), '[]'::jsonb) as items\n                          from aarogyam.treatment_plans p\n                          left join aarogyam.memberships m\n                            on m.org_id = p.org_id and m.id = p.clinician_id\n                          left join aarogyam.users u on u.id = m.user_id\n                          where p.patient_id = $1) t\n                  ), '[]'::jsonb) as \"rows!: sqlx::types::Json<Vec<PlanEntry>>\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "rows!: sqlx::types::Json<Vec<PlanEntry>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "80a9176e6db4a92d2007b3d409c6aebb9939b1e8abe4f864aead24998a4615b4"
+}

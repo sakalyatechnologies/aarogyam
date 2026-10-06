@@ -53,8 +53,7 @@ pub async fn list(
 ) -> Result<StaffList, AppError> {
     actor.require(Permission::StaffManage)?;
     db.scoped(&staff_scope(actor, request_id), async |tx| {
-        let members = dal::members(tx.conn()).await?;
-        let invitations = dal::pending_invitations(tx.conn()).await?;
+        let (members, invitations) = dal::members_and_invitations(tx.conn()).await?;
         Ok(StaffList {
             members,
             invitations,

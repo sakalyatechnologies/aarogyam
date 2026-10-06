@@ -317,6 +317,11 @@ pub(crate) async fn load(
     .ok_or(AppError::NotFound("prescription"))?;
     let items = dal::items(tx.conn(), id).await?;
     let alerts = dal::alerts(tx.conn(), id).await?;
+    Ok(view_of(row, items, alerts))
+}
+
+/// A prescription as the API shows it, from its rows.
+fn view_of(row: dal::RxRow, items: Vec<RxItemRow>, alerts: Vec<dal::AlertRow>) -> RxView {
     let alerts = alerts
         .into_iter()
         .map(|alert| AlertView {
@@ -341,7 +346,7 @@ pub(crate) async fn load(
         }),
         _ => None,
     };
-    Ok(RxView {
+    RxView {
         id: PrescriptionId::from_uuid(row.id),
         number: row.number,
         patient: PatientRef {
@@ -365,7 +370,7 @@ pub(crate) async fn load(
         items: items.into_iter().map(item_view).collect(),
         alerts,
         print,
-    })
+    }
 }
 
 /// Builds the medicines, filling defaults from the catalogue.

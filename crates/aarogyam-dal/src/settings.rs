@@ -2,6 +2,8 @@
 //! Every function takes the connection of an open clinic transaction.
 
 use sakalya_db::DbError;
+
+use crate::schedule::PractitionerRow;
 use serde_json::Value;
 use sqlx::PgConnection;
 use uuid::Uuid;
@@ -52,6 +54,52 @@ pub async fn get(conn: &mut PgConnection) -> Result<Option<SettingsRow>, DbError
     .fetch_optional(conn)
     .await?;
     Ok(row)
+}
+
+/// The current clinic's settings and its active doctors by name, in one statement.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn get_with_doctors(
+    conn: &mut PgConnection,
+) -> Result<Option<(SettingsRow, Vec<PractitionerRow>)>, DbError> {
+    let row = sqlx::query!(
+        r#"select o.name, o.specialty, o.legal_name, o.gstin, o.timezone, s.branding, s.billing,
+                  s.prescription, s.booking, b.id as "branch_id?", b.address as "address?",
+                  b.phone_e164,
+                  coalesce((
+                    select jsonb_agg(to_jsonb(d) order by d.display_name)
+                    from (select p.id, p.membership_id, p.display_name, p.registration_number,
+                                 p.qualifications, p.specialty, p.calendar_color, p.active
+                          from aarogyam.practitioners p
+                          where p.deleted_at is null and p.active) d
+                  ), '[]'::jsonb) as "doctors!: sqlx::types::Json<Vec<PractitionerRow>>"
+           from aarogyam.organizations o
+           join aarogyam.org_settings s on s.org_id = o.id
+           left join aarogyam.branches b on b.org_id = o.id and b.is_default and b.deleted_at is null
+           where o.id = app.tenant_id()"#
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row.map(|row| {
+        (
+            SettingsRow {
+                name: row.name,
+                specialty: row.specialty,
+                legal_name: row.legal_name,
+                gstin: row.gstin,
+                timezone: row.timezone,
+                branding: row.branding,
+                billing: row.billing,
+                prescription: row.prescription,
+                booking: row.booking,
+                branch_id: row.branch_id,
+                address: row.address,
+                phone_e164: row.phone_e164,
+            },
+            row.doctors.0,
+        )
+    }))
 }
 
 /// The current clinic's settings, locked until the transaction ends so concurrent edits apply

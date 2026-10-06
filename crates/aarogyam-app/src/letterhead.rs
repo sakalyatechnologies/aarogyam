@@ -2,7 +2,7 @@
 //! images live in file storage under the clinic's folder; pages show them through signed links
 //! that need no sign-in, because a letterhead holds no patient data.
 
-use aarogyam_dal::{schedule as schedule_dal, settings as dal};
+use aarogyam_dal::settings as dal;
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::clinic::Address;
 use aarogyam_domain::ids::{AttachmentId, ClinicId};
@@ -217,12 +217,10 @@ async fn document_in(
     clinic: ClinicId,
     now: OffsetDateTime,
 ) -> Result<Document, AppError> {
-    let row = dal::get(tx.conn())
+    let (row, doctors) = dal::get_with_doctors(tx.conn())
         .await?
         .ok_or(AppError::NotFound("clinic"))?;
     let letterhead = read(&row.branding);
-    let mut doctors = schedule_dal::practitioners(tx.conn()).await?;
-    doctors.retain(|doctor| doctor.active);
     let chosen: Vec<_> = if letterhead.doctor_ids.is_empty() {
         doctors
     } else {

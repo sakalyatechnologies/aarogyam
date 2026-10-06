@@ -290,6 +290,10 @@ async fn measure(router: &Router, trips: &PgRoundTrips, route: &Route, token: &s
 }
 
 /// The hot paths, with the days and records `clinic_day` created.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one entry per route; splitting it hides the budget list"
+)]
 fn hot_routes(
     monday: Date,
     sunday: Date,
@@ -325,6 +329,41 @@ fn hot_routes(
             ALPHA,
             "/api/v1/reports/pending".into(),
         ),
+        Route::get("GET /invoices", ALPHA, "/api/v1/invoices".into()),
+        Route::get("GET /stock", ALPHA, "/api/v1/stock".into()),
+        Route::get(
+            "GET /stock/expiring",
+            ALPHA,
+            "/api/v1/stock/expiring".into(),
+        ),
+        Route::get("GET /recalls", ALPHA, "/api/v1/recalls".into()),
+        Route::get("GET /queue", ALPHA, "/api/v1/queue".into()),
+        Route::get("GET /staff", ALPHA, "/api/v1/staff".into()),
+        Route::get("GET /practitioners", ALPHA, "/api/v1/practitioners".into()),
+        Route::get("GET /rooms", ALPHA, "/api/v1/rooms".into()),
+        Route::get("GET /price-items", ALPHA, "/api/v1/price-items".into()),
+        Route::get("GET /letterhead", ALPHA, "/api/v1/letterhead".into()),
+        // Over budget since scope enforcement (the scoped visit list, then the authors' names); to fold into one statement.
+        Route::get(
+            "GET /patients/{id}/visits",
+            ALPHA,
+            format!("/api/v1/patients/{patient}/visits"),
+        )
+        .allow_extra(2),
+        // Over budget since scope enforcement (the scoped list, then the prescribers' names); to fold into one statement.
+        Route::get(
+            "GET /patients/{id}/prescriptions",
+            ALPHA,
+            format!("/api/v1/patients/{patient}/prescriptions"),
+        )
+        .allow_extra(1),
+        // Over budget since scope enforcement (plans, items and names, each scoped); to fold into one statement.
+        Route::get(
+            "GET /patients/{id}/treatment-plans",
+            ALPHA,
+            format!("/api/v1/patients/{patient}/treatment-plans"),
+        )
+        .allow_extra(3),
         Route::get("GET /roles", ALPHA, "/api/v1/roles".into()),
         Route::get("GET /roles/{key}", ALPHA, "/api/v1/roles/doctor".into()),
         Route::get("GET /permissions", ALPHA, "/api/v1/permissions".into()),

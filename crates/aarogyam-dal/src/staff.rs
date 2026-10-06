@@ -7,7 +7,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 /// A member of the clinic's staff.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct MemberRow {
     /// The membership.
     pub id: Uuid,
@@ -22,6 +22,7 @@ pub struct MemberRow {
     /// `invited`, `active`, `suspended` or `left`.
     pub status: String,
     /// When they joined.
+    #[serde(default, deserialize_with = "crate::json::optional_timestamp")]
     pub joined_at: Option<OffsetDateTime>,
     /// Branches they work at; empty means every branch.
     pub branch_ids: Vec<Uuid>,
@@ -229,7 +230,7 @@ pub async fn role_by_key(
 }
 
 /// An invitation not yet accepted or expired.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct InvitationRow {
     /// The invitation.
     pub id: Uuid,
@@ -238,9 +239,49 @@ pub struct InvitationRow {
     /// Role key they will get.
     pub role_key: String,
     /// When it expires.
+    #[serde(with = "crate::json::timestamp")]
     pub expires_at: OffsetDateTime,
     /// When it was sent.
+    #[serde(with = "crate::json::timestamp")]
     pub created_at: OffsetDateTime,
+}
+
+/// Every member (as [`members`]) and the pending invitations (as [`pending_invitations`]) in
+/// one statement.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn members_and_invitations(
+    conn: &mut PgConnection,
+) -> Result<(Vec<MemberRow>, Vec<InvitationRow>), DbError> {
+    let row = sqlx::query!(
+        r#"select coalesce((
+                    select jsonb_agg(to_jsonb(x) order by x.active desc, x.display_name, x.id)
+                    from (select m.id, m.user_id, u.display_name, r.key as role_key,
+                                 r.name as role_name, m.status, m.joined_at,
+                                 m.status = 'active' as active,
+                                 coalesce(array_agg(b.id order by b.name) filter (where b.id is not null), '{}') as branch_ids,
+                                 coalesce(array_agg(b.name order by b.name) filter (where b.id is not null), '{}') as branch_names
+                          from aarogyam.memberships m
+                          join aarogyam.users u on u.id = m.user_id
+                          join aarogyam.roles r on r.org_id = m.org_id and r.id = m.role_id
+                          left join aarogyam.membership_branches mb
+                            on mb.org_id = m.org_id and mb.membership_id = m.id
+                          left join aarogyam.branches b
+                            on b.org_id = mb.org_id and b.id = mb.branch_id and b.deleted_at is null
+                          group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at) x
+                  ), '[]'::jsonb) as "members!: sqlx::types::Json<Vec<MemberRow>>",
+                  coalesce((
+                    select jsonb_agg(to_jsonb(y) order by y.created_at desc)
+                    from (select i.id, i.email, r.key as role_key, i.expires_at, i.created_at
+                          from aarogyam.invitations i
+                          join aarogyam.roles r on r.org_id = i.org_id and r.id = i.role_id
+                          where i.accepted_at is null and i.expires_at > now()) y
+                  ), '[]'::jsonb) as "invitations!: sqlx::types::Json<Vec<InvitationRow>>""#
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok((row.members.0, row.invitations.0))
 }
 
 /// Invitations neither accepted nor expired, newest first.

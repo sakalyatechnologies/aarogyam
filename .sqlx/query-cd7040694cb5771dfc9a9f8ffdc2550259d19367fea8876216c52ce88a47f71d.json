@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists (select 1 from aarogyam.patients where id = $1) as \"found!\",\n                  coalesce((\n                    select jsonb_agg(to_jsonb(v) order by v.started_at desc, v.id desc)\n                    from (select e.id, e.number, e.patient_id, e.clinician_id, e.branch_id,\n                                 e.appointment_id, e.status, e.chief_complaint, e.started_at,\n                                 e.ended_at, u.display_name as clinician_name\n                          from aarogyam.encounters e\n                          left join aarogyam.memberships m\n                            on m.org_id = e.org_id and m.id = e.clinician_id\n                          left join aarogyam.users u on u.id = m.user_id\n                          where e.patient_id = $1\n                          order by e.started_at desc, e.id desc limit $2) v\n                  ), '[]'::jsonb) as \"rows!: sqlx::types::Json<Vec<VisitEntry>>\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "rows!: sqlx::types::Json<Vec<VisitEntry>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "cd7040694cb5771dfc9a9f8ffdc2550259d19367fea8876216c52ce88a47f71d"
+}

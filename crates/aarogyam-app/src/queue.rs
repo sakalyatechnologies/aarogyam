@@ -121,10 +121,7 @@ pub async fn list(
 ) -> Result<Queue, AppError> {
     actor.require(Permission::AppointmentsRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let profile = clinic::profile(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
-        let today = clinic_today(&profile.timezone, now);
+        let today = clinic_today(&actor.timezone, now);
         let date = date.unwrap_or(today);
         let rows = dal::list(
             tx.conn(),

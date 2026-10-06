@@ -482,33 +482,38 @@ async fn plan_views(tx: &mut ScopedTx, plans: Vec<PlanRow>) -> Result<Vec<PlanVi
     plans
         .into_iter()
         .map(|plan| {
-            let items: Vec<PlanItemView> = items
+            let own = items
                 .iter()
                 .filter(|item| item.plan_id == plan.id)
                 .cloned()
-                .map(item_view)
-                .collect::<Result<_, _>>()?;
-            let estimate = Paise::checked_sum(
-                items
-                    .iter()
-                    .filter(|item| item.status != PlanItemStatus::Cancelled)
-                    .map(|item| item.estimate),
-            )
-            .ok_or(AppError::Internal("plan estimate overflowed"))?;
-            Ok(PlanView {
-                id: TreatmentPlanId::from_uuid(plan.id),
-                patient_id: PatientId::from_uuid(plan.patient_id),
-                visit_id: plan.encounter_id.map(EncounterId::from_uuid),
-                clinician: names.member(plan.clinician_id),
-                title: plan.title,
-                status: PlanStatus::parse(&plan.status).map_err(invalid("status"))?,
-                accepted_at: plan.accepted_at,
-                created_at: plan.created_at,
-                estimate,
-                items,
-            })
+                .collect();
+            plan_view(plan, own, &names)
         })
         .collect()
+}
+
+/// A plan as the API shows it, from its rows.
+fn plan_view(plan: PlanRow, items: Vec<ItemRow>, names: &Names) -> Result<PlanView, AppError> {
+    let items: Vec<PlanItemView> = items.into_iter().map(item_view).collect::<Result<_, _>>()?;
+    let estimate = Paise::checked_sum(
+        items
+            .iter()
+            .filter(|item| item.status != PlanItemStatus::Cancelled)
+            .map(|item| item.estimate),
+    )
+    .ok_or(AppError::Internal("plan estimate overflowed"))?;
+    Ok(PlanView {
+        id: TreatmentPlanId::from_uuid(plan.id),
+        patient_id: PatientId::from_uuid(plan.patient_id),
+        visit_id: plan.encounter_id.map(EncounterId::from_uuid),
+        clinician: names.member(plan.clinician_id),
+        title: plan.title,
+        status: PlanStatus::parse(&plan.status).map_err(invalid("status"))?,
+        accepted_at: plan.accepted_at,
+        created_at: plan.created_at,
+        estimate,
+        items,
+    })
 }
 
 /// A plan item as received.

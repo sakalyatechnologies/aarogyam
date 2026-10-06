@@ -88,7 +88,7 @@ pub async fn drugs(conn: &mut PgConnection, ids: &[Uuid]) -> Result<Vec<DrugRow>
 }
 
 /// A prescription with its patient.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct RxRow {
     /// Identifier.
     pub id: Uuid,
@@ -107,12 +107,14 @@ pub struct RxRow {
     /// Advice.
     pub advice: Option<String>,
     /// Follow-up date.
+    #[serde(default, deserialize_with = "crate::json::optional_date")]
     pub follow_up_on: Option<Date>,
     /// Language of the instructions.
     pub language: String,
     /// `draft`, `issued` or `cancelled`.
     pub status: String,
     /// When issued.
+    #[serde(default, deserialize_with = "crate::json::optional_timestamp")]
     pub issued_at: Option<OffsetDateTime>,
     /// Why alerts were overridden.
     pub override_reason: Option<String>,
@@ -129,12 +131,14 @@ pub struct RxRow {
     /// Why it was cancelled.
     pub cancel_reason: Option<String>,
     /// When it was cancelled.
+    #[serde(default, deserialize_with = "crate::json::optional_timestamp")]
     pub cancelled_at: Option<OffsetDateTime>,
     /// The prescription it replaces.
     pub supersedes_id: Option<Uuid>,
     /// The prescription that replaces it.
     pub superseded_by: Option<Uuid>,
     /// When the draft was started.
+    #[serde(with = "crate::json::timestamp")]
     pub created_at: OffsetDateTime,
 }
 
@@ -187,6 +191,72 @@ pub async fn prescriptions(
     .fetch_all(conn)
     .await?;
     Ok(rows)
+}
+
+/// A listed prescription with its medicines and alerts.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct RxEntry {
+    /// The prescription.
+    #[serde(flatten)]
+    pub row: RxRow,
+    /// Its medicines in order.
+    pub items: Vec<RxItemRow>,
+    /// Its alerts, oldest first.
+    pub alerts: Vec<AlertRow>,
+}
+
+/// A patient's prescriptions, newest first, each with its medicines and alerts, and whether the
+/// patient is in this clinic: `None` when not. One statement instead of `2 + 2n`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn list_for_patient(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    issued_only: bool,
+    limit: i64,
+) -> Result<Option<Vec<RxEntry>>, DbError> {
+    let row = sqlx::query!(
+        r#"select exists (select 1 from aarogyam.patients where id = $1) as "found!",
+                  coalesce((
+                    select jsonb_agg(to_jsonb(t) order by coalesce(t.issued_at, t.created_at) desc, t.id desc)
+                    from (select r.id, r.number, r.patient_id, p.full_name as patient_name,
+                                 p.number as patient_number, r.encounter_id, r.diagnosis_text,
+                                 r.advice, r.follow_up_on, r.language, r.status, r.issued_at,
+                                 r.override_reason, r.verify_token, r.letterhead, r.doctor,
+                                 r.recipient, r.footer, r.cancel_reason, r.cancelled_at,
+                                 r.supersedes_id,
+                                 (select n.id from aarogyam.prescriptions n
+                                  where n.org_id = r.org_id and n.supersedes_id = r.id
+                                    and n.patient_id = r.patient_id) as superseded_by,
+                                 r.created_at,
+                                 coalesce((select jsonb_agg(to_jsonb(i) order by i.line_no)
+                                           from (select x.id, x.line_no, x.drug_id, x.drug_name,
+                                                        x.strength, x.form, x.dose, x.frequency,
+                                                        x.timing, x.duration_days, x.instructions
+                                                 from aarogyam.prescription_items x
+                                                 where x.prescription_id = r.id) i),
+                                          '[]'::jsonb) as items,
+                                 coalesce((select jsonb_agg(to_jsonb(a) order by a.created_at, a.id)
+                                           from (select y.id, y.created_at, y.prescription_item_id,
+                                                        y.kind, y.severity, y.message, y.action,
+                                                        y.override_reason
+                                                 from aarogyam.prescription_alerts y
+                                                 where y.prescription_id = r.id) a),
+                                          '[]'::jsonb) as alerts
+                          from aarogyam.prescriptions r
+                          join aarogyam.patients p on p.org_id = r.org_id and p.id = r.patient_id
+                          where r.patient_id = $1 and (not $2 or r.status = 'issued')
+                          order by coalesce(r.issued_at, r.created_at) desc, r.id desc
+                          limit $3) t
+                  ), '[]'::jsonb) as "rows!: sqlx::types::Json<Vec<RxEntry>>""#,
+        patient_id,
+        issued_only,
+        limit
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(row.found.then_some(row.rows.0))
 }
 
 /// A prescription's header values.
@@ -259,7 +329,7 @@ pub async fn update_draft(
 }
 
 /// A medicine on a prescription.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct RxItemRow {
     /// Identifier.
     pub id: Uuid,
@@ -454,7 +524,7 @@ pub async fn cancel(
 }
 
 /// A safety alert as stored.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct AlertRow {
     /// The medicine it concerns.
     pub prescription_item_id: Option<Uuid>,
@@ -739,4 +809,37 @@ pub async fn active_allergies(
     .fetch_all(conn)
     .await?;
     Ok(rows)
+}
+
+#[cfg(test)]
+mod entry_tests {
+    use super::RxEntry;
+
+    #[test]
+    fn reads_a_listed_prescription() {
+        let json = serde_json::json!({
+            "id": "0198a000-0000-7000-8000-000000000001", "number": "RX-1",
+            "patient_id": "0198a000-0000-7000-8000-000000000002", "patient_name": "A",
+            "patient_number": "SC-1", "encounter_id": null, "diagnosis_text": null,
+            "advice": null, "follow_up_on": null, "language": "en", "status": "issued",
+            "issued_at": "2026-10-06T02:30:00.123456+00:00", "override_reason": null,
+            "verify_token": "t", "letterhead": {"a": 1}, "doctor": {"b": 2}, "recipient": {},
+            "footer": null, "cancel_reason": null, "cancelled_at": null, "supersedes_id": null,
+            "superseded_by": null, "created_at": "2026-10-06T02:30:00+00:00",
+            "items": [{"id": "0198a000-0000-7000-8000-000000000003", "line_no": 1, "drug_id": null,
+                       "drug_name": "X", "strength": null, "form": null, "dose": "1",
+                       "frequency": "1-1-1", "timing": null, "duration_days": 3,
+                       "instructions": null}],
+            "alerts": [{"id": "0198a000-0000-7000-8000-000000000004", "created_at": "2026-10-06T02:30:00+00:00",
+                        "prescription_item_id": null, "kind": "allergy", "severity": "info",
+                        "message": "m", "action": "overridden", "override_reason": null}]
+        });
+        let mut dated = json.clone();
+        dated["follow_up_on"] = "2026-10-12".into();
+        let entry: RxEntry = serde_json::from_value(json).unwrap();
+        assert_eq!(entry.items.len(), 1);
+        assert!(entry.row.follow_up_on.is_none());
+        let entry: RxEntry = serde_json::from_value(dated).unwrap();
+        assert!(entry.row.follow_up_on.is_some());
+    }
 }

@@ -9,7 +9,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 /// A visit as stored.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct EncounterRow {
     /// Identifier.
     pub id: Uuid,
@@ -28,8 +28,10 @@ pub struct EncounterRow {
     /// Why the patient came.
     pub chief_complaint: Option<String>,
     /// When it started.
+    #[serde(with = "crate::json::timestamp")]
     pub started_at: OffsetDateTime,
     /// When it was closed.
+    #[serde(default, deserialize_with = "crate::json::optional_timestamp")]
     pub ended_at: Option<OffsetDateTime>,
 }
 
@@ -185,6 +187,48 @@ pub async fn list_encounters(
     .fetch_all(conn)
     .await?;
     Ok(rows)
+}
+
+/// A listed visit with the clinician's name.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct VisitEntry {
+    /// The visit.
+    #[serde(flatten)]
+    pub row: EncounterRow,
+    /// The clinician's display name.
+    pub clinician_name: Option<String>,
+}
+
+/// A patient's visits, newest first, with the clinicians' names, and whether the patient is in
+/// this clinic: `None` when not. One statement instead of three.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn list_for_patient(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    limit: i64,
+) -> Result<Option<Vec<VisitEntry>>, DbError> {
+    let row = sqlx::query!(
+        r#"select exists (select 1 from aarogyam.patients where id = $1) as "found!",
+                  coalesce((
+                    select jsonb_agg(to_jsonb(v) order by v.started_at desc, v.id desc)
+                    from (select e.id, e.number, e.patient_id, e.clinician_id, e.branch_id,
+                                 e.appointment_id, e.status, e.chief_complaint, e.started_at,
+                                 e.ended_at, u.display_name as clinician_name
+                          from aarogyam.encounters e
+                          left join aarogyam.memberships m
+                            on m.org_id = e.org_id and m.id = e.clinician_id
+                          left join aarogyam.users u on u.id = m.user_id
+                          where e.patient_id = $1
+                          order by e.started_at desc, e.id desc limit $2) v
+                  ), '[]'::jsonb) as "rows!: sqlx::types::Json<Vec<VisitEntry>>""#,
+        patient_id,
+        limit
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(row.found.then_some(row.rows.0))
 }
 
 /// Closes a visit.

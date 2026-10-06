@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce((\n                    select jsonb_agg(to_jsonb(x) order by x.active desc, x.display_name, x.id)\n                    from (select m.id, m.user_id, u.display_name, r.key as role_key,\n                                 r.name as role_name, m.status, m.joined_at,\n                                 m.status = 'active' as active,\n                                 coalesce(array_agg(b.id order by b.name) filter (where b.id is not null), '{}') as branch_ids,\n                                 coalesce(array_agg(b.name order by b.name) filter (where b.id is not null), '{}') as branch_names\n                          from aarogyam.memberships m\n                          join aarogyam.users u on u.id = m.user_id\n                          join aarogyam.roles r on r.org_id = m.org_id and r.id = m.role_id\n                          left join aarogyam.membership_branches mb\n                            on mb.org_id = m.org_id and mb.membership_id = m.id\n                          left join aarogyam.branches b\n                            on b.org_id = mb.org_id and b.id = mb.branch_id and b.deleted_at is null\n                          group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at) x\n                  ), '[]'::jsonb) as \"members!: sqlx::types::Json<Vec<MemberRow>>\",\n                  coalesce((\n                    select jsonb_agg(to_jsonb(y) order by y.created_at desc)\n                    from (select i.id, i.email, r.key as role_key, i.expires_at, i.created_at\n                          from aarogyam.invitations i\n                          join aarogyam.roles r on r.org_id = i.org_id and r.id = i.role_id\n                          where i.accepted_at is null and i.expires_at > now()) y\n                  ), '[]'::jsonb) as \"invitations!: sqlx::types::Json<Vec<InvitationRow>>\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "members!: sqlx::types::Json<Vec<MemberRow>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "invitations!: sqlx::types::Json<Vec<InvitationRow>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "f70482e83a64125202b748acda8228499dad5940465f0e02ff4387a0f3b8a36a"
+}

@@ -39,7 +39,9 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
   const openClinic = async (accessToken: string, host: string) => {
     const handoff = await requestHandoff(accessToken, host);
     if (!handoff.ok) {
-      setErr(handoff.message);
+      // Until the API offers the one-time handoff everywhere, fall back to the clinic's own
+      // sign-in page, which still works: one more sign-in instead of a dead end.
+      window.location.assign(`https://${host}/sign-in`);
       return;
     }
     window.location.assign(handoffUrl(host, handoff.value));

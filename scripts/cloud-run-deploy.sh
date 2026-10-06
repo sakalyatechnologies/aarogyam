@@ -151,12 +151,14 @@ echo "== Scheduler"
 JOB_URI="https://run.googleapis.com/v2/projects/${PROJECT_ID}/locations/${REGION}/jobs/${DRAIN_JOB}:run"
 if gcloud scheduler jobs describe "$DRAIN_JOB" --location "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
   SCHED_VERB=update
+  HEADERS_FLAG=--update-headers  # `update` rejects --headers
 else
   SCHED_VERB=create
+  HEADERS_FLAG=--headers
 fi
 mutate gcloud scheduler jobs "$SCHED_VERB" http "$DRAIN_JOB" --project "$PROJECT_ID" \
   --location "$REGION" --schedule "$DRAIN_SCHEDULE" --time-zone Etc/UTC \
-  --uri "$JOB_URI" --http-method POST --headers "Content-Type=application/json" \
+  --uri "$JOB_URI" --http-method POST "$HEADERS_FLAG" "Content-Type=application/json" \
   --message-body '{}' --oauth-service-account-email "$SCHED_SA"
 
 # ---- Result -------------------------------------------------------------------------------

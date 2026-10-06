@@ -6,7 +6,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 /// A treatment plan as stored.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct PlanRow {
     /// Identifier.
     pub id: Uuid,
@@ -21,13 +21,15 @@ pub struct PlanRow {
     /// `proposed`, `accepted`, `in_progress`, `completed` or `declined`.
     pub status: String,
     /// When the patient accepted it.
+    #[serde(default, deserialize_with = "crate::json::optional_timestamp")]
     pub accepted_at: Option<OffsetDateTime>,
     /// When it was proposed.
+    #[serde(with = "crate::json::timestamp")]
     pub created_at: OffsetDateTime,
 }
 
 /// A plan item as stored, with the live procedure that carries it out, if any.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct ItemRow {
     /// Identifier.
     pub id: Uuid,
@@ -53,6 +55,60 @@ pub struct ItemRow {
     pub status: String,
     /// The procedure carrying it out.
     pub procedure_id: Option<Uuid>,
+}
+
+/// A listed plan with its items and the clinician's name.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct PlanEntry {
+    /// The plan.
+    #[serde(flatten)]
+    pub plan: PlanRow,
+    /// The clinician's display name.
+    pub clinician_name: Option<String>,
+    /// The plan's items by phase.
+    pub items: Vec<ItemRow>,
+}
+
+/// A patient's plans, newest first, each with its items and the clinician's name, and whether
+/// the patient is in this clinic: `None` when not. One statement instead of four.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn list_for_patient(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+) -> Result<Option<Vec<PlanEntry>>, DbError> {
+    let row = sqlx::query!(
+        r#"select exists (select 1 from aarogyam.patients where id = $1) as "found!",
+                  coalesce((
+                    select jsonb_agg(to_jsonb(t) order by t.created_at desc, t.id desc)
+                    from (select p.id, p.patient_id, p.clinician_id, p.encounter_id, p.title,
+                                 p.status, p.accepted_at, p.created_at,
+                                 u.display_name as clinician_name,
+                                 coalesce((
+                                   select jsonb_agg(to_jsonb(x) order by x.phase, x.id)
+                                   from (select i.id, i.plan_id, i.patient_id, i.name,
+                                                i.code_system, i.code, i.tooth, i.surfaces,
+                                                i.phase, i.estimate_paise, i.status,
+                                                (select c.id from aarogyam.procedures c
+                                                 where c.treatment_plan_item_id = i.id
+                                                   and c.patient_id = i.patient_id
+                                                   and c.status <> 'entered_in_error'
+                                                 limit 1) as procedure_id
+                                         from aarogyam.treatment_plan_items i
+                                         where i.plan_id = p.id) x
+                                 ), '[]'::jsonb) as items
+                          from aarogyam.treatment_plans p
+                          left join aarogyam.memberships m
+                            on m.org_id = p.org_id and m.id = p.clinician_id
+                          left join aarogyam.users u on u.id = m.user_id
+                          where p.patient_id = $1) t
+                  ), '[]'::jsonb) as "rows!: sqlx::types::Json<Vec<PlanEntry>>""#,
+        patient_id
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(row.found.then_some(row.rows.0))
 }
 
 /// Inserts a plan.

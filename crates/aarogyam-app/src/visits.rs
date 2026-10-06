@@ -46,6 +46,16 @@ impl Names {
         Ok(Self(rows.into_iter().collect()))
     }
 
+    /// Names already read with the rows that carry them.
+    pub(crate) fn of(pairs: impl IntoIterator<Item = (Uuid, Option<String>)>) -> Self {
+        Self(
+            pairs
+                .into_iter()
+                .filter_map(|(id, name)| Some((id, name?)))
+                .collect(),
+        )
+    }
+
     pub(crate) fn member(&self, id: Uuid) -> Member {
         Member {
             id: MembershipId::from_uuid(id),
@@ -348,11 +358,17 @@ pub async fn list(
 ) -> Result<Vec<VisitView>, AppError> {
     actor.require(Permission::ClinicalRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
-        let rows = visits::list_encounters(tx.conn(), patient.id, MAX_VISITS).await?;
-        let names = Names::load(tx, rows.iter().map(|r| r.clinician_id)).await?;
-        rows.into_iter()
-            .map(|row| visit_view(row, &names))
+        let entries = visits::list_for_patient(tx.conn(), patient_id.uuid(), MAX_VISITS)
+            .await?
+            .ok_or(AppError::NotFound("patient"))?;
+        let names = Names::of(
+            entries
+                .iter()
+                .map(|e| (e.row.clinician_id, e.clinician_name.clone())),
+        );
+        entries
+            .into_iter()
+            .map(|entry| visit_view(entry.row, &names))
             .collect()
     })
     .await

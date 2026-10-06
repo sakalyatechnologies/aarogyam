@@ -6,6 +6,8 @@
     reason = "time's format_description! generates undocumented modules and functions"
 )]
 
+use time::{Date, OffsetDateTime};
+
 pub use time::serde::rfc3339 as timestamp;
 
 time::serde::format_description!(pub date, Date, "[year]-[month]-[day]");
@@ -15,6 +17,33 @@ time::serde::format_description!(
     Time,
     "[hour]:[minute]:[second][optional [.[subsecond]]]"
 );
+
+/// An optional date. Unlike `date::option`, it reads `null` inside a `#[serde(flatten)]` struct.
+///
+/// # Errors
+/// The deserializer's error for a value that is not a `YYYY-MM-DD` date or `null`.
+pub fn optional_date<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Date>, D::Error> {
+    #[derive(serde::Deserialize)]
+    struct Day(#[serde(with = "date")] Date);
+    let day: Option<Day> = serde::Deserialize::deserialize(deserializer)?;
+    Ok(day.map(|day| day.0))
+}
+
+/// An optional timestamp. Unlike `timestamp::option`, it reads `null` inside a
+/// `#[serde(flatten)]` struct.
+///
+/// # Errors
+/// The deserializer's error for a value that is not an RFC 3339 timestamp or `null`.
+pub fn optional_timestamp<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<OffsetDateTime>, D::Error> {
+    #[derive(serde::Deserialize)]
+    struct At(#[serde(with = "timestamp")] OffsetDateTime);
+    let at: Option<At> = serde::Deserialize::deserialize(deserializer)?;
+    Ok(at.map(|at| at.0))
+}
 
 #[cfg(test)]
 mod tests {

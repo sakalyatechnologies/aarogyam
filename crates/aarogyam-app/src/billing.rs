@@ -1051,15 +1051,8 @@ pub async fn list(
 ) -> Result<Vec<InvoiceView>, AppError> {
     actor.require(Permission::BillingRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let supplier = dal::supplier(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
-        let from = query
-            .from
-            .map(|day| day_range(&supplier.timezone, day, day).0);
-        let to = query
-            .to
-            .map(|day| day_range(&supplier.timezone, day, day).1);
+        let from = query.from.map(|day| day_range(&actor.timezone, day, day).0);
+        let to = query.to.map(|day| day_range(&actor.timezone, day, day).1);
         let rows = dal::invoices(
             tx.conn(),
             &InvoiceFilter {

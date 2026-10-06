@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists (select 1 from aarogyam.patients where id = $1) as \"found!\",\n                  coalesce((\n                    select jsonb_agg(to_jsonb(t) order by coalesce(t.issued_at, t.created_at) desc, t.id desc)\n                    from (select r.id, r.number, r.patient_id, p.full_name as patient_name,\n                                 p.number as patient_number, r.encounter_id, r.diagnosis_text,\n                                 r.advice, r.follow_up_on, r.language, r.status, r.issued_at,\n                                 r.override_reason, r.verify_token, r.letterhead, r.doctor,\n                                 r.recipient, r.footer, r.cancel_reason, r.cancelled_at,\n                                 r.supersedes_id,\n                                 (select n.id from aarogyam.prescriptions n\n                                  where n.org_id = r.org_id and n.supersedes_id = r.id\n                                    and n.patient_id = r.patient_id) as superseded_by,\n                                 r.created_at,\n                                 coalesce((select jsonb_agg(to_jsonb(i) order by i.line_no)\n                                           from (select x.id, x.line_no, x.drug_id, x.drug_name,\n                                                        x.strength, x.form, x.dose, x.frequency,\n                                                        x.timing, x.duration_days, x.instructions\n                                                 from aarogyam.prescription_items x\n                                                 where x.prescription_id = r.id) i),\n                                          '[]'::jsonb) as items,\n                                 coalesce((select jsonb_agg(to_jsonb(a) order by a.created_at, a.id)\n                                           from (select y.id, y.created_at, y.prescription_item_id,\n                                                        y.kind, y.severity, y.message, y.action,\n                                                        y.override_reason\n                                                 from aarogyam.prescription_alerts y\n                                                 where y.prescription_id = r.id) a),\n                                          '[]'::jsonb) as alerts\n                          from aarogyam.prescriptions r\n                          join aarogyam.patients p on p.org_id = r.org_id and p.id = r.patient_id\n                          where r.patient_id = $1 and (not $2 or r.status = 'issued')\n                          order by coalesce(r.issued_at, r.created_at) desc, r.id desc\n                          limit $3) t\n                  ), '[]'::jsonb) as \"rows!: sqlx::types::Json<Vec<RxEntry>>\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "rows!: sqlx::types::Json<Vec<RxEntry>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "f6b6f02b94218fc8040d14358bed21d3b880ceb6a62dcc5d1f21cd89b3ea89ae"
+}

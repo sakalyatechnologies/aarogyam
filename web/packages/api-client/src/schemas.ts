@@ -1460,6 +1460,14 @@ export type MethodTotal = z.output<typeof methodTotal>;
 export const mixItem = z.object({ category: z.string(), amount_paise: paise, share_bps: z.number().int() }) satisfies z.ZodType<C.MixItem>;
 export type MixItem = z.output<typeof mixItem>;
 
+export const monthCollections = z.object({
+  from: date,
+  collected_paise: paise,
+  payments: count,
+  by_method: z.array(methodTotal),
+}) satisfies z.ZodType<C.MonthCollections>;
+export type MonthCollections = z.output<typeof monthCollections>;
+
 export const collections = z.object({
   from: date,
   to: date,
@@ -1472,6 +1480,7 @@ export const collections = z.object({
   by_week: z.array(dayTotal),
   by_method: z.array(methodTotal),
   revenue_mix: z.array(mixItem),
+  month: monthCollections,
 }) satisfies z.ZodType<C.Collections>;
 export type Collections = z.output<typeof collections>;
 

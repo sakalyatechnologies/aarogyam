@@ -3401,6 +3401,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           const invoicesInRange = state.invoices.filter(
             (i) => i.clinic_id === caller.clinic.id && i.status === "issued" && (i.issued_at ?? "").slice(0, 10) >= from && (i.issued_at ?? "").slice(0, 10) <= to,
           );
+          const monthFrom = `${to.slice(0, 7)}-01` > from ? `${to.slice(0, 7)}-01` : from;
+          const monthPayments = clinicPayments.filter((p) => p.received_at.slice(0, 10) >= monthFrom);
           const outstanding = state.invoices
             .filter((i) => i.clinic_id === caller.clinic.id && i.status === "issued")
             .reduce((sum, i) => sum + wireInvoice(i, state, false).balance_paise, 0);
@@ -3416,6 +3418,12 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             by_week: buildWeekTotals(clinicPayments, from, to),
             by_method: buildMethodTotals(clinicPayments),
             revenue_mix: buildRevenueMix(invoicesInRange, state.priceItems.filter((p) => p.clinic_id === caller.clinic.id)),
+            month: {
+              from: monthFrom,
+              collected_paise: monthPayments.reduce((sum, p) => sum + p.amount_paise, 0),
+              payments: monthPayments.length,
+              by_method: buildMethodTotals(monthPayments),
+            },
           } satisfies C.Collections);
         }),
 

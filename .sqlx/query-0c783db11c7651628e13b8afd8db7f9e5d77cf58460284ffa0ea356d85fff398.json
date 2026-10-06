@@ -1,0 +1,165 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select o.name, o.specialty, o.legal_name, o.gstin, o.timezone, s.branding, s.billing,\n                  s.prescription, s.booking, b.id as \"branch_id?\", b.address as \"address?\",\n                  b.phone_e164,\n                  coalesce((\n                    select jsonb_agg(to_jsonb(d) order by d.display_name)\n                    from (select p.id, p.membership_id, p.display_name, p.registration_number,\n                                 p.qualifications, p.specialty, p.calendar_color, p.active\n                          from aarogyam.practitioners p\n                          where p.deleted_at is null and p.active) d\n                  ), '[]'::jsonb) as \"doctors!: sqlx::types::Json<Vec<PractitionerRow>>\"\n           from aarogyam.organizations o\n           join aarogyam.org_settings s on s.org_id = o.id\n           left join aarogyam.branches b on b.org_id = o.id and b.is_default and b.deleted_at is null\n           where o.id = app.tenant_id()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.organizations",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "specialty",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.organizations",
+            "name": "specialty"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "legal_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.organizations",
+            "name": "legal_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "gstin",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.organizations",
+            "name": "gstin"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "timezone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.organizations",
+            "name": "timezone"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "branding",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_settings",
+            "name": "branding"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "billing",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_settings",
+            "name": "billing"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "prescription",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_settings",
+            "name": "prescription"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "booking",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_settings",
+            "name": "booking"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "branch_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.branches",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "address?",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.branches",
+            "name": "address"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "phone_e164",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.branches",
+            "name": "phone_e164"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "doctors!: sqlx::types::Json<Vec<PractitionerRow>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "0c783db11c7651628e13b8afd8db7f9e5d77cf58460284ffa0ea356d85fff398"
+}

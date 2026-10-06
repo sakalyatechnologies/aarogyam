@@ -51,6 +51,17 @@ pub struct MethodTotal {
     pub share_bps: i64,
 }
 
+impl From<app::MethodTotal> for MethodTotal {
+    fn from(total: app::MethodTotal) -> Self {
+        Self {
+            method: total.method.as_str().to_owned(),
+            amount_paise: total.amount.get(),
+            payments: total.payments,
+            share_bps: total.share_bps,
+        }
+    }
+}
+
 /// Billed revenue in one price list category.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct MixItem {
@@ -70,6 +81,19 @@ impl From<MixTotal> for MixItem {
             share_bps: total.share_bps,
         }
     }
+}
+
+/// What came in during the calendar month of the range's last day.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MonthCollections {
+    /// First day counted: the 1st, or the range's first day if later.
+    pub from: String,
+    /// Everything received in the month, in paise.
+    pub collected_paise: i64,
+    /// Payments in the month.
+    pub payments: i64,
+    /// Every method in the month, for the UPI share.
+    pub by_method: Vec<MethodTotal>,
 }
 
 /// Collections over clinic days `from` to `to`.
@@ -97,6 +121,8 @@ pub struct Collections {
     pub invoices: i64,
     /// Left to pay on every issued bill, now.
     pub outstanding_paise: i64,
+    /// The month of `to`, so one request can feed both a month summary and a longer chart.
+    pub month: MonthCollections,
 }
 
 /// The range of a collections report.
@@ -161,17 +187,23 @@ pub(crate) async fn collections(
         by_method: report
             .by_method
             .into_iter()
-            .map(|m| MethodTotal {
-                method: m.method.as_str().to_owned(),
-                amount_paise: m.amount.get(),
-                payments: m.payments,
-                share_bps: m.share_bps,
-            })
+            .map(MethodTotal::from)
             .collect(),
         revenue_mix: report.revenue_mix.into_iter().map(MixItem::from).collect(),
         invoiced_paise: report.invoiced.get(),
         invoices: report.invoices,
         outstanding_paise: report.outstanding.get(),
+        month: MonthCollections {
+            from: report.month.from.to_string(),
+            collected_paise: report.month.collected.get(),
+            payments: report.month.payments,
+            by_method: report
+                .month
+                .by_method
+                .into_iter()
+                .map(MethodTotal::from)
+                .collect(),
+        },
     }))
 }
 

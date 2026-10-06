@@ -9223,7 +9223,8 @@
           "revenue_mix",
           "invoiced_paise",
           "invoices",
-          "outstanding_paise"
+          "outstanding_paise",
+          "month"
         ],
         "properties": {
           "by_day": {
@@ -9265,6 +9266,10 @@
             "type": "integer",
             "format": "int64",
             "description": "Bills issued in the range."
+          },
+          "month": {
+            "$ref": "#/components/schemas/MonthCollections",
+            "description": "The month of `to`, so one request can feed both a month summary and a longer chart."
           },
           "outstanding_paise": {
             "type": "integer",
@@ -11349,6 +11354,39 @@
             "type": "integer",
             "format": "int64",
             "description": "Share of all billed, in basis points."
+          }
+        }
+      },
+      "MonthCollections": {
+        "type": "object",
+        "description": "What came in during the calendar month of the range's last day.",
+        "required": [
+          "from",
+          "collected_paise",
+          "payments",
+          "by_method"
+        ],
+        "properties": {
+          "by_method": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MethodTotal"
+            },
+            "description": "Every method in the month, for the UPI share."
+          },
+          "collected_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Everything received in the month, in paise."
+          },
+          "from": {
+            "type": "string",
+            "description": "First day counted: the 1st, or the range's first day if later."
+          },
+          "payments": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Payments in the month."
           }
         }
       },

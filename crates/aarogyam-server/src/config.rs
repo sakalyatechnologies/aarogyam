@@ -136,7 +136,7 @@ pub struct DbSettings {
     /// The schema owner (`ARO_DB__OWNER_URL`), used only by `aarogyam migrate`: a local
     /// superuser, or Supabase's `postgres` user in the cloud.
     pub owner_url: Option<SecretString>,
-    /// Most connections (`ARO_DB__MAX_CONNECTIONS`). Default 5.
+    /// Most connections (`ARO_DB__MAX_CONNECTIONS`). Default 10.
     #[serde(default = "default_max_connections")]
     pub max_connections: u32,
     /// Connections kept open when idle (`ARO_DB__MIN_CONNECTIONS`). Default 2.
@@ -177,7 +177,7 @@ impl DbSettings {
 }
 
 const fn default_max_connections() -> u32 {
-    5
+    10
 }
 
 const fn default_min_connections() -> u32 {

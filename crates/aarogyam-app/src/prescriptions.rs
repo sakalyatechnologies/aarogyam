@@ -311,6 +311,11 @@ pub(crate) async fn load(tx: &mut ScopedTx, id: Uuid) -> Result<RxView, AppError
     .ok_or(AppError::NotFound("prescription"))?;
     let items = dal::items(tx.conn(), id).await?;
     let alerts = dal::alerts(tx.conn(), id).await?;
+    Ok(view_of(row, items, alerts))
+}
+
+/// A prescription as the API shows it, from its rows.
+fn view_of(row: dal::RxRow, items: Vec<RxItemRow>, alerts: Vec<dal::AlertRow>) -> RxView {
     let alerts = alerts
         .into_iter()
         .map(|alert| AlertView {
@@ -335,7 +340,7 @@ pub(crate) async fn load(tx: &mut ScopedTx, id: Uuid) -> Result<RxView, AppError
         }),
         _ => None,
     };
-    Ok(RxView {
+    RxView {
         id: PrescriptionId::from_uuid(row.id),
         number: row.number,
         patient: PatientRef {
@@ -359,7 +364,7 @@ pub(crate) async fn load(tx: &mut ScopedTx, id: Uuid) -> Result<RxView, AppError
         items: items.into_iter().map(item_view).collect(),
         alerts,
         print,
-    })
+    }
 }
 
 /// Builds the medicines, filling defaults from the catalogue.
@@ -1006,23 +1011,18 @@ pub async fn for_patient(
 ) -> Result<Vec<RxView>, AppError> {
     actor.require(Permission::ClinicalRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        patients::get(tx.conn(), patient_id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("patient"))?;
-        let rows = dal::prescriptions(
+        let entries = dal::list_for_patient(
             tx.conn(),
-            &RxFilter {
-                patient_id: Some(patient_id.uuid()),
-                issued_only: last_issued_only,
-                limit: if last_issued_only { 1 } else { 100 },
-                ..RxFilter::default()
-            },
+            patient_id.uuid(),
+            last_issued_only,
+            if last_issued_only { 1 } else { 100 },
         )
-        .await?;
-        let mut views = Vec::with_capacity(rows.len());
-        for row in rows {
-            views.push(load(tx, row.id).await?);
-        }
+        .await?
+        .ok_or(AppError::NotFound("patient"))?;
+        let views: Vec<RxView> = entries
+            .into_iter()
+            .map(|entry| view_of(entry.row, entry.items, entry.alerts))
+            .collect();
         if let Some(view) = views.first().filter(|_| last_issued_only) {
             record_view(tx, actor, request_id, view, "view").await?;
         }

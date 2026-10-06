@@ -468,33 +468,38 @@ async fn plan_views(tx: &mut ScopedTx, plans: Vec<PlanRow>) -> Result<Vec<PlanVi
     plans
         .into_iter()
         .map(|plan| {
-            let items: Vec<PlanItemView> = items
+            let own = items
                 .iter()
                 .filter(|item| item.plan_id == plan.id)
                 .cloned()
-                .map(item_view)
-                .collect::<Result<_, _>>()?;
-            let estimate = Paise::checked_sum(
-                items
-                    .iter()
-                    .filter(|item| item.status != PlanItemStatus::Cancelled)
-                    .map(|item| item.estimate),
-            )
-            .ok_or(AppError::Internal("plan estimate overflowed"))?;
-            Ok(PlanView {
-                id: TreatmentPlanId::from_uuid(plan.id),
-                patient_id: PatientId::from_uuid(plan.patient_id),
-                visit_id: plan.encounter_id.map(EncounterId::from_uuid),
-                clinician: names.member(plan.clinician_id),
-                title: plan.title,
-                status: PlanStatus::parse(&plan.status).map_err(invalid("status"))?,
-                accepted_at: plan.accepted_at,
-                created_at: plan.created_at,
-                estimate,
-                items,
-            })
+                .collect();
+            plan_view(plan, own, &names)
         })
         .collect()
+}
+
+/// A plan as the API shows it, from its rows.
+fn plan_view(plan: PlanRow, items: Vec<ItemRow>, names: &Names) -> Result<PlanView, AppError> {
+    let items: Vec<PlanItemView> = items.into_iter().map(item_view).collect::<Result<_, _>>()?;
+    let estimate = Paise::checked_sum(
+        items
+            .iter()
+            .filter(|item| item.status != PlanItemStatus::Cancelled)
+            .map(|item| item.estimate),
+    )
+    .ok_or(AppError::Internal("plan estimate overflowed"))?;
+    Ok(PlanView {
+        id: TreatmentPlanId::from_uuid(plan.id),
+        patient_id: PatientId::from_uuid(plan.patient_id),
+        visit_id: plan.encounter_id.map(EncounterId::from_uuid),
+        clinician: names.member(plan.clinician_id),
+        title: plan.title,
+        status: PlanStatus::parse(&plan.status).map_err(invalid("status"))?,
+        accepted_at: plan.accepted_at,
+        created_at: plan.created_at,
+        estimate,
+        items,
+    })
 }
 
 /// A plan item as received.
@@ -597,9 +602,16 @@ pub async fn plans(
 ) -> Result<Vec<PlanView>, AppError> {
     actor.require(Permission::ClinicalRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient = require_patient(tx, patient_id).await?;
-        let rows = treatment::list_plans(tx.conn(), patient.id).await?;
-        plan_views(tx, rows).await
+        let entries = treatment::list_for_patient(tx.conn(), patient_id.uuid())
+            .await?
+            .ok_or(AppError::NotFound("patient"))?;
+        entries
+            .into_iter()
+            .map(|entry| {
+                let names = Names::of([(entry.plan.clinician_id, entry.clinician_name)]);
+                plan_view(entry.plan, entry.items, &names)
+            })
+            .collect()
     })
     .await
 }

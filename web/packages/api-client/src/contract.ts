@@ -402,6 +402,7 @@ export type NewPayment = Schemas["NewPayment"];
 
 export type DayTotal = Schemas["DayTotal"];
 export type MethodTotal = Schemas["MethodTotal"];
+export type MonthCollections = Schemas["MonthCollections"];
 export type MixItem = Schemas["MixItem"];
 export type Collections = Schemas["Collections"];
 export type AgingBuckets = Schemas["AgingBuckets"];

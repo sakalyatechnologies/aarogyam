@@ -157,7 +157,7 @@ fn the_pool_keeps_two_warm_connections_unless_told_otherwise() {
                 pool.ping_after_idle_secs,
                 pool.statement_cache_capacity,
             ),
-            (5, 2, 300, 1800, 60, 512)
+            (10, 2, 300, 1800, 60, 512)
         );
         jail.set_env("ARO_DB__MIN_CONNECTIONS", "1");
         jail.set_env("ARO_DB__MAX_CONNECTIONS", "3");

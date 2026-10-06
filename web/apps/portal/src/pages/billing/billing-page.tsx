@@ -13,8 +13,13 @@ import { useCollections, useInvoices, usePendingReport } from "./queries.js";
 
 const plural = (n: number, word: string) => `${String(n)} ${word}${n === 1 ? "" : "s"}`;
 
-function monthStart(today: string): string {
-  return `${today.slice(0, 7)}-01`;
+/** The earlier of the 1st of this month and the start of the 8-week chart. */
+function rangeStart(today: string): string {
+  const eightWeeks = new Date(`${today}T00:00:00Z`);
+  eightWeeks.setUTCDate(eightWeeks.getUTCDate() - 55);
+  const first = `${today.slice(0, 7)}-01`;
+  const chart = eightWeeks.toISOString().slice(0, 10);
+  return first < chart ? first : chart;
 }
 
 const METHOD_LABEL: Readonly<Record<string, string>> = { upi: "UPI", cash: "Cash", card: "Card", bank_transfer: "Bank", cheque: "Cheque" };
@@ -49,13 +54,14 @@ export function BillingPage() {
   const { can } = useClinic();
   useDocumentTitle("Billing", "Aarogyam");
   const today = useTodayDate();
-  const month = useCollections({ from: monthStart(today), to: today });
-  const week = useCollections({});
+  // One request covers both the month's figures (the response's `month`) and the weekly chart.
+  const week = useCollections({ from: rangeStart(today), to: today });
+  const month = week.data?.month;
   const invoices = useInvoices();
   const pending = usePendingReport();
   const canWrite = can("billing.write");
   const monthName = new Date(`${today}T00:00:00Z`).toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
-  const upiShare = month.data?.by_method.find((m) => m.method === "upi")?.share_bps ?? 0;
+  const upiShare = month?.by_method.find((m) => m.method === "upi")?.share_bps ?? 0;
   const rows = invoices.data?.items ?? [];
   const weeks = (week.data?.by_week ?? []).slice(-8);
 
@@ -73,15 +79,15 @@ export function BillingPage() {
         ) : null}
       </div>
       <div className="mk-kpis">
-        <Kpi label={`Collected · ${monthName}`} value={month.isPending ? "—" : compactRupees(month.data?.collected_paise ?? 0)} pill={month.data === undefined ? undefined : plural(month.data.payments, "payment")} pillTone="up" />
+        <Kpi label={`Collected · ${monthName}`} value={month === undefined ? "—" : compactRupees(month.collected_paise)} pill={month === undefined ? undefined : plural(month.payments, "payment")} pillTone="up" />
         <Kpi
           label="Outstanding"
-          value={month.isPending ? "—" : compactRupees(month.data?.outstanding_paise ?? 0)}
+          value={week.data === undefined ? "—" : compactRupees(week.data.outstanding_paise)}
           pill={pending.data === undefined ? undefined : plural(pending.data.items.length, "bill")}
           pillTone="warn"
         />
         <Kpi label="Consulting payout" value="—" pill="not tracked yet" pillTone="info" />
-        <Kpi label="UPI share" value={month.isPending ? "—" : `${String(Math.round(upiShare / 100))}%`} />
+        <Kpi label="UPI share" value={month === undefined ? "—" : `${String(Math.round(upiShare / 100))}%`} />
       </div>
       <div className="mk-grid mk-g2r">
         <MkCard title="Weekly collections" hint="Last 8 weeks · ₹ thousands">

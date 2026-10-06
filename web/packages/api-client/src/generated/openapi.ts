@@ -2917,6 +2917,8 @@ export interface components {
              * @description Bills issued in the range.
              */
             invoices: number;
+            /** @description The month of `to`, so one request can feed both a month summary and a longer chart. */
+            month: components["schemas"]["MonthCollections"];
             /**
              * Format: int64
              * @description Left to pay on every issued bill, now.
@@ -3774,6 +3776,23 @@ export interface components {
              * @description Share of all billed, in basis points.
              */
             share_bps: number;
+        };
+        /** @description What came in during the calendar month of the range's last day. */
+        MonthCollections: {
+            /** @description Every method in the month, for the UPI share. */
+            by_method: components["schemas"]["MethodTotal"][];
+            /**
+             * Format: int64
+             * @description Everything received in the month, in paise.
+             */
+            collected_paise: number;
+            /** @description First day counted: the 1st, or the range's first day if later. */
+            from: string;
+            /**
+             * Format: int64
+             * @description Payments in the month.
+             */
+            payments: number;
         };
         /** @description A clinic the person belongs to. */
         MyClinic: {
@@ -4719,7 +4738,10 @@ export interface components {
             letterhead: Record<string, unknown>;
             /** @description Patient's name, number, age and sex at issue. */
             patient: Record<string, unknown>;
-            /** @description Path the QR code opens on the clinic's host. */
+            /**
+             * @description Path the QR code opens on the clinic's host: the portal's public verify page,
+             *     `/verify/prescriptions/{token}` (which reads `GET /api/v1/verify/prescriptions/{token}`).
+             */
             verify_path: string;
         };
         /**

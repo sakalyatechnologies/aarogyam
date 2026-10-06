@@ -54,6 +54,19 @@ pub struct MixTotal {
     pub share_bps: i64,
 }
 
+/// What came in during the calendar month of the range's last day, as far as the range covers it.
+#[derive(Debug, Clone)]
+pub struct MonthTotals {
+    /// First day counted: the 1st of the month, or the range's first day if later.
+    pub from: Date,
+    /// Everything received.
+    pub collected: Paise,
+    /// How many payments.
+    pub payments: i64,
+    /// By method, every method listed.
+    pub by_method: Vec<MethodTotal>,
+}
+
 /// Collections over a range of clinic days.
 #[derive(Debug, Clone)]
 pub struct Collections {
@@ -79,6 +92,8 @@ pub struct Collections {
     pub invoices: i64,
     /// Left to pay on every issued bill, now.
     pub outstanding: Paise,
+    /// The month of `to`, so a page can show both the month and a longer chart from one request.
+    pub month: MonthTotals,
 }
 
 fn share(part: i64, whole: i64) -> i64 {
@@ -205,6 +220,18 @@ pub async fn collections(
         .await?;
         let rows = overview.collections;
         let (by_day, by_week, by_method) = summarise(from, to, &rows);
+        let month_from = to.replace_day(1).map_or(from, |first| first.max(from));
+        let month_rows: Vec<dal::CollectionRow> = rows
+            .iter()
+            .filter(|row| row.day >= month_from)
+            .cloned()
+            .collect();
+        let month = MonthTotals {
+            from: month_from,
+            collected: Paise::new(month_rows.iter().map(|row| row.amount_paise).sum()),
+            payments: month_rows.iter().map(|row| row.payments).sum(),
+            by_method: summarise(month_from, to, &month_rows).2,
+        };
         let revenue_mix = mix(overview.mix);
         let (bill_count, billed) = overview.invoiced;
         let pending = pending_rows(tx).await?;
@@ -225,6 +252,7 @@ pub async fn collections(
                     .map(|row| row.total_paise - row.paid_paise)
                     .sum(),
             ),
+            month,
         })
     })
     .await

@@ -70,4 +70,9 @@ describe("TimeSlotPicker", () => {
     render(<TimeSlotPicker value="09:00" onChange={() => undefined} slots={[]} emptyNote="Choose a doctor first." />);
     expect(screen.getByText("Choose a doctor first.")).toBeTruthy();
   });
+
+  it("keeps the hint in normal flow as a block", () => {
+    render(<TimeSlotPicker value="09:00" onChange={() => undefined} slots={[]} />);
+    expect(screen.getByText(/No free times that day/).className).toBe("mk-ts-note");
+  });
 });

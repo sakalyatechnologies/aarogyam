@@ -32,6 +32,13 @@ describe("Sidebar", () => {
     expect(localStorage.getItem(KEY)).toBe("0");
   });
 
+  it("has no AI Scribe teaser", async () => {
+    renderPortal("/today", { as: PEOPLE.asha });
+    await screen.findByRole("link", { name: "Patients" });
+    expect(screen.queryByText(/AI Scribe/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Review notes" })).toBeNull();
+  });
+
   it("starts collapsed when the browser remembers it", async () => {
     localStorage.setItem(KEY, "1");
     renderPortal("/today", { as: PEOPLE.asha });
@@ -142,6 +149,14 @@ describe("Search", () => {
     if (option === undefined) throw new Error("expected a patient");
     await user.click(option);
     expect(await screen.findByRole("dialog", { name: /.+/, hidden: false })).toBeTruthy();
+  });
+
+  it("labels the Search button with its text and shortcut", async () => {
+    renderPortal("/today", { as: PEOPLE.asha });
+    const button = await screen.findByRole("button", { name: "Search" });
+    expect(within(button).getByText("Search")).toBeTruthy();
+    expect(within(button).getByText("⌘K")).toBeTruthy();
+    expect(button.getAttribute("aria-keyshortcuts")).toBe("Control+K Meta+K");
   });
 
   it("finds bills and prescriptions of a patient", async () => {

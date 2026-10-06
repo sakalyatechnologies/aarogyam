@@ -169,6 +169,8 @@ function SearchButton({ onOpen }: { onOpen: () => void }) {
   return (
     <button type="button" className="mk-iconbtn mk-searchbtn" aria-label="Search" aria-keyshortcuts="Control+K Meta+K" title="Search (⌘K)" onClick={onOpen}>
       <Search aria-hidden="true" />
+      <span className="mk-sb-txt">Search</span>
+      <kbd className="mk-sb-txt" aria-hidden="true">⌘K</kbd>
     </button>
   );
 }
@@ -455,15 +457,6 @@ function ShellFrame() {
             }}
           />
         </nav>
-        <div className="mk-side-foot">
-          <b>✦ AI Scribe</b>
-          <br />
-          Dictate into a draft note with Voice note. AI drafting from the
-          recording comes later and will never enter the record unsigned.
-          <button type="button" disabled>
-            Review notes
-          </button>
-        </div>
       </aside>
       <div className="mk-main">
         <div className="mk-topbar">

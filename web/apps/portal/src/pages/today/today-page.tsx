@@ -164,11 +164,6 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
         </div>
       </div>
 
-      <div className="mk-ai">
-        <b>✦ Aarogyam AI — morning brief</b>
-        <p>The morning brief (recalls, schedule gaps and stock forecasts) arrives with AI Scribe in a later release.</p>
-      </div>
-
       <div className="mk-kpis">
         <Kpi label="Appointments today" value={today.counts.total} pill={`${String(today.counts.done)} done`} pillTone="up" />
         <Kpi label="Patients waiting" value={today.counts.waiting} warn pill={today.attention.length === 0 ? "none urgent" : `${String(today.attention.length)} need attention`} pillTone="warn" />

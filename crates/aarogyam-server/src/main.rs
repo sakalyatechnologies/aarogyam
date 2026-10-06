@@ -50,11 +50,44 @@ enum Command {
         #[command(subcommand)]
         action: Admin,
     },
+    /// Sakalya super admins (platform staff), over the schema owner's connection. They can't
+    /// also belong to a clinic; support goes through support grants.
+    Platform {
+        #[command(subcommand)]
+        action: Platform,
+    },
     /// The outgoing-message queue.
     Outbox {
         #[command(subcommand)]
         action: Outbox,
     },
+}
+
+#[derive(Debug, Clone, Subcommand)]
+enum Platform {
+    /// Make someone platform staff (or change their role). Finds or creates their Supabase
+    /// sign-in account (needs the Supabase URL and secret key) unless --auth-uid is given, and
+    /// their user record. Refused for anyone with an active clinic membership.
+    Grant {
+        /// Their sign-in email address.
+        email: String,
+        /// Console role: owner, support, onboarding or analyst.
+        #[arg(long)]
+        role: String,
+        /// Their Supabase Auth user id, to skip the Supabase lookup.
+        #[arg(long)]
+        auth_uid: Option<uuid::Uuid>,
+        /// Their name as the console shows it; defaults to the part of the email before the @.
+        #[arg(long)]
+        name: Option<String>,
+    },
+    /// End someone's platform access. Refused for the last active owner.
+    Revoke {
+        /// Their sign-in email address.
+        email: String,
+    },
+    /// List platform staff.
+    List,
 }
 
 #[derive(Debug, Clone, Subcommand)]
@@ -78,22 +111,6 @@ enum Outbox {
 
 #[derive(Debug, Clone, Subcommand)]
 enum Admin {
-    /// Make someone Sakalya staff who can use the console. Finds or creates their Supabase
-    /// sign-in account (needs the Supabase URL and secret key) unless --auth-uid is given.
-    GrantPlatform {
-        /// Their sign-in email address.
-        #[arg(long)]
-        email: String,
-        /// Console role: owner, support, onboarding or analyst.
-        #[arg(long, default_value = "owner")]
-        role: String,
-        /// Their Supabase Auth user id, to skip the Supabase lookup.
-        #[arg(long)]
-        auth_uid: Option<uuid::Uuid>,
-        /// Their name as the console shows it; defaults to the part of the email before the @.
-        #[arg(long)]
-        name: Option<String>,
-    },
     /// Make someone an active member of a clinic, such as its first owner when the clinic was
     /// not created from the console. Finds or creates their Supabase sign-in account unless
     /// --auth-uid is given.
@@ -125,6 +142,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Serve => serve(config).await,
         Command::Migrate => migrate(config).await,
         Command::Admin { action } => admin(config, action).await,
+        Command::Platform { action } => platform(config, action).await,
         Command::Outbox {
             action: Outbox::Drain { every },
         } => drain(config, every).await,
@@ -444,27 +462,6 @@ fn accounts(config: &Config) -> anyhow::Result<Option<SupabaseAdmin>> {
 /// Runs an administration command over the owner connection.
 async fn admin(config: Config, action: Admin) -> anyhow::Result<()> {
     match action {
-        Admin::GrantPlatform {
-            email,
-            role,
-            auth_uid,
-            name,
-        } => {
-            let role = PlatformRole::parse(role.trim())
-                .context("--role must be owner, support, onboarding or analyst")?;
-            let person = Person::resolve(&config, &email, auth_uid, name).await?;
-            let db = owner_db(&config)?;
-            let user_id = aarogyam_dal::console::grant_platform(
-                db.pool(),
-                person.auth_uid,
-                person.email.as_str(),
-                &person.display_name,
-                role.as_str(),
-            )
-            .await
-            .context("could not grant console access")?;
-            tracing::info!(%user_id, auth_uid = %person.auth_uid, role = role.as_str(), "console access granted");
-        }
         Admin::AddMember {
             clinic,
             email,
@@ -486,6 +483,52 @@ async fn admin(config: Config, action: Admin) -> anyhow::Result<()> {
             .context("could not add the member")?
             .context("no clinic with that --clinic slug, or it has no role with that --role key")?;
             tracing::info!(%membership_id, auth_uid = %person.auth_uid, role = role.trim(), "member added");
+        }
+    }
+    Ok(())
+}
+
+/// Manages platform staff over the owner connection.
+async fn platform(config: Config, action: Platform) -> anyhow::Result<()> {
+    match action {
+        Platform::Grant {
+            email,
+            role,
+            auth_uid,
+            name,
+        } => {
+            let role = PlatformRole::parse(role.trim())
+                .context("--role must be owner, support, onboarding or analyst")?;
+            let person = Person::resolve(&config, &email, auth_uid, name).await?;
+            let db = owner_db(&config)?;
+            let user_id = aarogyam_dal::console::grant_platform(
+                db.pool(),
+                person.auth_uid,
+                person.email.as_str(),
+                &person.display_name,
+                role.as_str(),
+            )
+            .await?;
+            tracing::info!(%user_id, email = person.email.as_str(), role = role.as_str(), "platform access granted");
+        }
+        Platform::Revoke { email } => {
+            let email = Email::parse(&email)
+                .map_err(|_| anyhow::anyhow!("the email is not an email address"))?;
+            let db = owner_db(&config)?;
+            let user_id = aarogyam_dal::console::revoke_platform(db.pool(), email.as_str()).await?;
+            tracing::info!(%user_id, email = email.as_str(), "platform access revoked");
+        }
+        Platform::List => {
+            let db = owner_db(&config)?;
+            for staff in aarogyam_dal::console::list_platform(db.pool()).await? {
+                tracing::info!(
+                    role = staff.role,
+                    active = staff.active,
+                    email = staff.email.as_deref().unwrap_or("-"),
+                    name = staff.display_name,
+                    "platform staff"
+                );
+            }
         }
     }
     Ok(())

@@ -57,6 +57,9 @@ pub async fn accept(
         Acceptance::WrongEmail => Err(AppError::Conflict(
             "this invitation is for a different email address; sign in with the address it was sent to",
         )),
+        Acceptance::PlatformStaff => Err(AppError::Conflict(
+            "Sakalya staff accounts can't join a clinic; sign in with a different email address",
+        )),
         Acceptance::Disabled => Err(AppError::Denied(
             aarogyam_domain::access::Denied::UserDisabled,
         )),

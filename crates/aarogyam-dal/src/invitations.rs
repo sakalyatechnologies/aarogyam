@@ -20,6 +20,8 @@ pub enum Acceptance {
     WrongEmail,
     /// Their account is disabled.
     Disabled,
+    /// They are Sakalya platform staff, whose accounts are separate from clinic accounts.
+    PlatformStaff,
 }
 
 /// Accepts the invitation whose token hashes to `token_hash` for the signed-in person.
@@ -51,6 +53,7 @@ pub async fn accept(
             },
             ("wrong_email", _, _) => Acceptance::WrongEmail,
             ("disabled", _, _) => Acceptance::Disabled,
+            ("platform_staff", _, _) => Acceptance::PlatformStaff,
             _ => Acceptance::Invalid,
         },
     )

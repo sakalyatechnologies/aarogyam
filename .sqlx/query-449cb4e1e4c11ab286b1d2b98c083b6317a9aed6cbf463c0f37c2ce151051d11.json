@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.platform_users p set active = false\n           from aarogyam.users u\n           where u.id = p.user_id and u.email = lower($1) and p.active\n           returning p.user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.platform_users",
+            "name": "user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "449cb4e1e4c11ab286b1d2b98c083b6317a9aed6cbf463c0f37c2ce151051d11"
+}

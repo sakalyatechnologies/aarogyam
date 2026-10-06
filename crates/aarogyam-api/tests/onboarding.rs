@@ -419,7 +419,12 @@ async fn analysts_can_look_but_not_onboard() {
     let accounts = Arc::new(FakeAccounts::default());
     let app = start(&accounts).await;
     sqlx::raw_sql(
-        "update aarogyam.platform_users set role = 'analyst'
+        "insert into aarogyam.users (id, auth_uid, display_name, email)
+           values ('01900000-0000-7000-8000-0000000000c2', 'c0000000-0000-4000-8000-000000000002',
+                   'Second Owner', 'owner2@sakalya.test');
+         insert into aarogyam.platform_users (user_id, role)
+           values ('01900000-0000-7000-8000-0000000000c2', 'owner');
+         update aarogyam.platform_users set role = 'analyst'
          where user_id = '01900000-0000-7000-8000-0000000000c1'",
     )
     .execute(&app.owner)

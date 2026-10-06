@@ -7,6 +7,8 @@ plugins {
     alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.android.lint)
     alias(libs.plugins.openapi.generator)
+    // Swift sees flows as AsyncSequence, sealed types as enums and suspend functions as async.
+    alias(libs.plugins.skie)
 }
 
 // The models the screens use, generated from the committed OpenAPI document. Add a schema here
@@ -89,12 +91,17 @@ kotlin {
         }
         withHostTest { isReturnDefaultValues = true }
     }
-    // JVM runs commonTest fast; iOS targets are declared for the SwiftUI app (built later).
+    // JVM runs commonTest fast; the iOS targets build the framework the SwiftUI app links.
     jvm { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
         target.binaries.framework {
             baseName = "AarogyamShared"
             isStatic = true
+            binaryOption("bundleId", "com.aarogyam.staff.shared")
+            // Unprefixed Swift names for the sakalya-mobile types screens use (SessionState, AppTheme).
+            export(libs.sakalya.core)
+            export(libs.sakalya.auth)
+            export(libs.sakalya.design)
         }
     }
     sourceSets {

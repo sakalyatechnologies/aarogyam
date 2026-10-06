@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.android.kmp.library) apply false
     alias(libs.plugins.android.lint) apply false
     alias(libs.plugins.openapi.generator) apply false
+    alias(libs.plugins.skie) apply false
     alias(libs.plugins.spotless)
 }
 

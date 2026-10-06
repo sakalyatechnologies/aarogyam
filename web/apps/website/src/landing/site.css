@@ -210,7 +210,7 @@ footer{padding:46px 0 60px;color:var(--dim);font-size:13px;display:flex;justify-
   padding: 8px 16px; border-radius: 999px; font-size: 13px; cursor: pointer; transition: all .25s; white-space: nowrap;
 }
 .pill:hover { background: var(--ac); border-color: var(--ac); color: #06110c; }
-.livechip { position: absolute; top: 74px; left: 18px; z-index: 5; }
+.livechip { display: flex; align-items: center; }
 .badge { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; padding: 8px 14px; border-radius: 999px; }
 .b-ok { background: rgba(20, 220, 150, .14); color: #2ee6a4; border: 1px solid rgba(20, 220, 150, .35); }
 .queue-dot { width: 8px; height: 8px; border-radius: 50%; animation: sdot-pulse 1.4s infinite; }
@@ -384,7 +384,6 @@ footer.site-foot { margin-top: 90px; border-top: 1px solid var(--line); padding:
   .dbar { gap: 10px; }
   .seg button { padding: 8px 14px; font-size: 12.5px; }
   .pill { padding: 7px 12px; font-size: 12px; }
-  .livechip { top: auto; bottom: 14px; left: 12px; }
   .sh-title { font-size: 26px; }
   .auth-page { padding: 110px 14px 60px; }
   .rowflex { flex-wrap: wrap; }
@@ -408,3 +407,17 @@ footer.site-foot { margin-top: 90px; border-top: 1px solid var(--line); padding:
 .pprow .tdot{width:30px;height:30px}
 .ppcustom{display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600;color:var(--mut);cursor:pointer}
 .ppcustom .pick{width:30px;height:30px}
+
+/* ---------- phone-only hero fixes (desktop untouched) ---------- */
+@media (max-width: 700px) {
+  .hero { align-items: flex-start; }
+  .hero-inner { padding-top: 112px; padding-bottom: 40px; }
+  .hero .eyebrow { margin-bottom: 22px; letter-spacing: .16em; }
+  #heroCanvas { opacity: .5; }
+  .scroll-hint { display: none; }
+  .hero-note { margin-top: 20px; }
+  .trustbar { margin-top: 32px; }
+  .livechip { order: 3; width: 100%; }
+  .livechip .badge { font-size: 10px; letter-spacing: .8px; padding: 6px 11px; }
+  .demoframe iframe { height: 760px; }
+}

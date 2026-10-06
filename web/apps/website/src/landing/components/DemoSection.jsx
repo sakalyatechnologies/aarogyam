@@ -12,9 +12,7 @@ export default function DemoSection() {
   const [tab, setTab] = useState('web')
   const [paused, setPaused] = useState(false)
   const [step, setStep] = useState({ i: 0, n: STEP_COUNT.web, ...FIRST_STEP })
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== 'undefined' && window.innerWidth <= 720
-  )
+  const [isMobile, setIsMobile] = useState(false)
   const [deskScale, setDeskScale] = useState(0.3)
   const mobileRef = useRef(null)
   const webRef = useRef(null)
@@ -28,6 +26,7 @@ export default function DemoSection() {
 
   useEffect(() => {
     const onR = () => setIsMobile(window.innerWidth <= 720)
+    onR()
     window.addEventListener('resize', onR)
     return () => window.removeEventListener('resize', onR)
   }, [])
@@ -145,6 +144,12 @@ export default function DemoSection() {
         >
           <div className="dbar">
             <div className="url">🔒 preview.aarogyam.in/live-demo</div>
+              <div className="livechip">
+            <span className="badge b-ok">
+              <span className="queue-dot" style={{ background: 'var(--ok)' }}></span>
+              <span>{paused ? 'MANUAL · tap around, it’s all live' : 'AUTO-PLAY · tap anything, it’s live'}</span>
+            </span>
+          </div>
             <div className="dbar-actions">
               <button className="pill" onClick={togglePause}>
                 {paused ? '▶ Auto-play' : '⏸ Pause'}
@@ -160,12 +165,6 @@ export default function DemoSection() {
                 ⛶ Full screen
               </button>
             </div>
-          </div>
-          <div className="livechip">
-            <span className="badge b-ok">
-              <span className="queue-dot" style={{ background: 'var(--ok)' }}></span>
-              <span>{paused ? 'MANUAL · tap around, it’s all live' : 'AUTO-PLAY · tap anything, it’s live'}</span>
-            </span>
           </div>
           <iframe
             ref={mobileRef}

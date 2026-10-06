@@ -44,8 +44,10 @@ export class MorphEngine {
 
   // Horizontal anchor for the particle cloud: on desktop the hero text sits
   // left, so the anatomy floats in the right column (68%); centered on mobile.
-  pcx() { return this.W > 900 ? 0.68 : 0.5 }
-  psc() { return this.W > 900 ? 0.6 : 1 }
+  // Phones (<=700px): a compact, dimmed shape on the right so the text stays legible.
+  pcx() { return this.W > 900 ? 0.68 : this.W <= 700 ? 0.7 : 0.5 }
+  pcy() { return this.W <= 700 ? 0.56 : 0.5 }
+  psc() { return this.W > 900 ? 0.6 : this.W <= 700 ? 0.55 : 1 }
 
   seed() {
     const { W, H, tPts } = this
@@ -53,7 +55,7 @@ export class MorphEngine {
     this.parts = []
     for (let k = 0; k < this.count; k++) {
       const p = tPts[(Math.random() * tPts.length) | 0]
-      const px = (cx + p[0] * sc) * W, py = (0.5 + p[1] * sc) * H
+      const px = (cx + p[0] * sc) * W, py = (this.pcy() + p[1] * sc) * H
       this.parts.push({
         x: px + (Math.random() - 0.5) * 34,
         y: py + (Math.random() - 0.5) * 34,
@@ -88,7 +90,7 @@ export class MorphEngine {
     for (const p of this.parts) {
       const q = tPts[(Math.random() * tPts.length) | 0]
       p.tx = (cx + q[0] * sc) * W
-      p.ty = (0.5 + q[1] * sc) * H
+      p.ty = (this.pcy() + q[1] * sc) * H
     }
   }
 
@@ -146,7 +148,7 @@ export class MorphEngine {
       ctx.fill()
     }
     ctx.globalAlpha = 1
-    if (this.pulse) this.drawPulse()
+    if (this.pulse && this.W > 700) this.drawPulse()
   }
 
   destroy() {

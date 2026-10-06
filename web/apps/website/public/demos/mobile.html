@@ -777,5 +777,38 @@ else if(m&&m.tourGo!=null){show(m.tourGo);}});
 setTimeout(function(){try{parent.postMessage({tourHeight:{demo:'mobile',h:Math.min(1250,document.body.scrollHeight+10)}},'*');}catch(e){}show(0);},700);
 })();
 </script>
+<style>
+@media(max-width:700px){
+  body{padding:0 8px 16px}
+  .themebar{position:static;margin-top:6px;padding:10px 12px;gap:10px;border-radius:16px}
+  .themebar .custom,.themebar .tname,.themebar .dice,.themebar .live{display:none!important}
+  .dot{width:24px;height:24px;border-width:2px}
+  .plat{margin-top:16px;gap:0}
+  .phone{zoom:.74;max-width:none}
+  .phone:hover{transform:none}
+  .plat .pcol:nth-child(2){display:none}
+  body.show-and .plat .pcol:nth-child(1){display:none}
+  body.show-and .plat .pcol:nth-child(2){display:flex}
+  .platseg{display:flex!important}
+}
+.platseg{display:none;margin:12px auto 0;width:max-content;background:#fff;border:1px solid var(--rule);border-radius:999px;padding:3px;gap:2px}
+.platseg button{border:0;background:transparent;font:inherit;font-size:13px;font-weight:700;color:var(--muted);padding:8px 18px;border-radius:999px;cursor:pointer}
+.platseg button.on{background:var(--brand);color:#fff}
+</style>
+<script>
+(function(){
+  var plat=document.querySelector('.plat');if(!plat)return;
+  var seg=document.createElement('div');seg.className='platseg';
+  seg.innerHTML='<button class="on" data-p="ios">iPhone</button><button data-p="and">Android</button>';
+  plat.parentNode.insertBefore(seg,plat);
+  seg.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+    document.body.classList.toggle('show-and',b.dataset.p==='and');
+    seg.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b)});
+    report();});
+  function report(){try{parent.postMessage({tourHeight:{demo:'mobile',h:document.body.scrollHeight+10}},'*')}catch(e){}}
+  window.addEventListener('resize',function(){setTimeout(report,100)});
+  setTimeout(report,900);
+})();
+</script>
 </body>
 </html>

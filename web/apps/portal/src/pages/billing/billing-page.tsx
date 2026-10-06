@@ -11,6 +11,7 @@ import { compactRupees } from "../../lib/money.js";
 import { useTodayDate } from "../../lib/patients.js";
 import { useCollections, useInvoices, usePendingReport } from "./queries.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
+import { computeMonthFigures } from "./month-figures.js";
 
 const plural = (n: number, word: string) => `${String(n)} ${word}${n === 1 ? "" : "s"}`;
 
@@ -50,15 +51,16 @@ export function BillingPage() {
   const { can } = useClinic();
   useDocumentTitle("Billing", "Aarogyam");
   const today = useTodayDate();
-  const month = useCollections({ from: monthStart(today), to: today });
-  const week = useCollections({});
+  const ms = monthStart(today);
+  const collections = useCollections({ from: ms, to: today });
+  const monthFigures = collections.data ? computeMonthFigures(collections.data.by_day, collections.data.by_method, ms) : undefined;
   const invoices = useInvoices();
   const pending = usePendingReport();
   const canWrite = can("billing.write");
   const monthName = new Date(`${today}T00:00:00Z`).toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
-  const upiShare = month.data?.by_method.find((m) => m.method === "upi")?.share_bps ?? 0;
+  const upiShare = monthFigures?.by_method.find((m) => m.method === "upi")?.share_bps ?? 0;
   const rows = invoices.data?.items ?? [];
-  const weeks = (week.data?.by_week ?? []).slice(-8);
+  const weeks = (collections.data?.by_week ?? []).slice(-8);
 
   return (
     <div className="mk-panel">
@@ -74,14 +76,14 @@ export function BillingPage() {
         ) : null}
       </div>
       <div className="mk-kpis">
-        {month.isPending
+        {collections.isPending
           ? Array.from({ length: 4 }, (_, index) => <Skeleton key={index} shape="block" />)
           : [
-              <Kpi key="collected" label={`Collected · ${monthName}`} value={compactRupees(month.data?.collected_paise ?? 0)} pill={month.data === undefined ? undefined : plural(month.data.payments, "payment")} pillTone="up" />,
+              <Kpi key="collected" label={`Collected · ${monthName}`} value={compactRupees(monthFigures?.collected_paise ?? 0)} pill={monthFigures === undefined ? undefined : plural(monthFigures.payments, "payment")} pillTone="up" />,
               <Kpi
                 key="outstanding"
                 label="Outstanding"
-                value={compactRupees(month.data?.outstanding_paise ?? 0)}
+                value={compactRupees(collections.data?.outstanding_paise ?? 0)}
                 pill={pending.data === undefined ? undefined : plural(pending.data.items.length, "bill")}
                 pillTone="warn"
               />,
@@ -91,10 +93,10 @@ export function BillingPage() {
       </div>
       <div className="mk-grid mk-g2r">
         <MkCard title="Weekly collections" hint="Last 8 weeks · ₹ thousands">
-          {week.isPending ? (
+          {collections.isPending ? (
             <Skeleton shape="block" />
-          ) : week.isError ? (
-            <ApiErrorNotice title="Couldn't load collections" error={week.error} onRetry={() => void week.refetch()} />
+          ) : collections.isError ? (
+            <ApiErrorNotice title="Couldn't load collections" error={collections.error} onRetry={() => void collections.refetch()} />
           ) : weeks.every((w) => w.amount_paise === 0) ? (
             <Empty title="No collections yet">Issued bills and payments will show here.</Empty>
           ) : (

@@ -166,10 +166,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         console: config.hosts.console,
         app: config.hosts.app,
     };
-    anyhow::ensure!(
-        local || config.throttle.bypass_token.is_none(),
-        "throttle.bypass_token is allowed only when environment = local"
-    );
+    config.throttle.ensure_allowed(config.environment)?;
     let throttle = aarogyam_api::standard_throttle_with(config.throttle.bypass_token)
         .context("invalid throttle settings (a bypass token needs at least 32 bytes)")?;
     let signer = if let Some(key) = config.files.signing_key {

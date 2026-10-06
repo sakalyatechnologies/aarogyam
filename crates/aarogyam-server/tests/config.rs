@@ -174,3 +174,35 @@ fn the_pool_keeps_two_warm_connections_unless_told_otherwise() {
         Ok(())
     });
 }
+
+#[test]
+fn the_throttle_bypass_token_is_refused_outside_local() {
+    Jail::expect_with(|jail| {
+        set_required(jail);
+        jail.set_env("ARO_THROTTLE__BYPASS_TOKEN", "x".repeat(32));
+        let config = load(NO_FILE);
+        assert!(config.throttle.bypass_token.is_some());
+        for environment in [Environment::Staging, Environment::Production] {
+            let error = config.throttle.ensure_allowed(environment).unwrap_err();
+            assert!(error.to_string().contains("only when environment = local"));
+        }
+        config.throttle.ensure_allowed(Environment::Local).unwrap();
+        Ok(())
+    });
+}
+
+#[test]
+fn without_a_bypass_token_every_environment_is_allowed() {
+    Jail::expect_with(|jail| {
+        set_required(jail);
+        let config = load(NO_FILE);
+        for environment in [
+            Environment::Local,
+            Environment::Staging,
+            Environment::Production,
+        ] {
+            config.throttle.ensure_allowed(environment).unwrap();
+        }
+        Ok(())
+    });
+}

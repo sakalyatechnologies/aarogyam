@@ -390,3 +390,19 @@ pub struct ThrottleSettings {
     /// because a suite signs in far more often than a person. Refused outside `local`.
     pub bypass_token: Option<SecretString>,
 }
+
+impl ThrottleSettings {
+    /// Refuses a bypass token anywhere but the local environment: a deployed service must never
+    /// have a way around its limits that a leaked header could use.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when a token is set and `environment` is not [`Environment::Local`].
+    pub fn ensure_allowed(&self, environment: Environment) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            environment == Environment::Local || self.bypass_token.is_none(),
+            "throttle.bypass_token is allowed only when environment = local"
+        );
+        Ok(())
+    }
+}

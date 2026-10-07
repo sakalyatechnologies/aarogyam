@@ -2,10 +2,11 @@ import { Link } from "react-router";
 
 import { apiErrorOf, type IncompletePatient } from "@aarogyam/api-client";
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, Card, DataTable, EmptyState, PageHeader, Pill, useToast, type DataTableColumn } from "@sakalya/ui";
+import { Button, Card, DataTable, Pill, useToast, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { useDismissIncomplete, useIncompletePatients } from "../../queries.js";
+import { EmptyState, PageHeader } from "../../components/mk/index.js";
 
 const MISSING_LABELS: Readonly<Record<string, string>> = { phone: "Phone", sex: "Sex", date_of_birth: "Date of birth" };
 

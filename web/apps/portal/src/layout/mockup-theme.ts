@@ -7,39 +7,39 @@ const AA = 4.5;
 const WHITE = hex("#ffffff");
 
 /**
- * The mock-up's palette (aarogyam-dashboard-full.html) applied over the generated theme in light
- * mode. The brand colour still comes from the clinic's branding; neutrals, status colours and the
- * 18px radius are the mock-up's. Text colours are nudged just enough to stay AA readable (the
- * mock-up's muted grey and amber fall slightly short).
+ * The founder's V4 palette (aarogyam-doctor-staff-mockups.html) applied over the generated theme in
+ * light mode. The brand colour still comes from the clinic's branding; neutrals (sage page, white
+ * panels, green-grey ink), status colours (Ready green, Waiting amber, Confirmed blue, No-show red)
+ * and the 20px radius are V4's. Text colours are nudged just enough to stay AA readable.
  */
 export function mockupTheme(brand: HexColor, mode: ThemeMode): Theme {
-  const base = createTheme({ brand, mode, radius: 18, surface: "soft" });
+  const base = createTheme({ brand, mode, radius: 20, surface: "soft" });
   if (mode === "dark") {
     return base;
   }
   const status = (solid: string, soft: string) => ({ solid: hex(solid), soft: hex(soft), text: ensureContrast(hex(solid), hex(soft), AA) });
-  const amber = status("#a86e0f", "#f9efda");
-  const red = status("#b3261e", "#fbe9e7");
-  const green = status("#1b734a", "#ddf2e5");
-  const indigo = status("#4338ca", "#e8e8fb");
+  const amber = status("#a86e0f", "#fff1de");
+  const red = status("#b3261e", "#fdeceb");
+  const green = status("#1b734a", "#e6f3eb");
+  const blue = status("#345983", "#e7eefc");
   const surface = hex("#ffffff");
-  const bg = hex("#eef2ef");
+  const bg = hex("#f4f7f5");
   return {
     ...base,
     colors: {
       ...base.colors,
       background: bg,
       surface,
-      surfaceMuted: hex("#f6f9f7"),
-      border: hex("#dde5e0"),
-      text: hex("#14201b"),
-      textMuted: ensureContrast(hex("#71837a"), bg, AA),
+      surfaceMuted: hex("#f8faf9"),
+      border: hex("#e2eae5"),
+      text: hex("#172e27"),
+      textMuted: ensureContrast(hex("#4e6257"), bg, AA),
       primarySoft: lighten(base.colors.primary, 0.89),
       primaryText: ensureContrast(base.colors.primary, lighten(base.colors.primary, 0.89), AA),
       onWarning: readableOn(amber.solid),
       onDanger: readableOn(red.solid),
       onSuccess: readableOn(green.solid),
-      onInfo: readableOn(indigo.solid),
+      onInfo: readableOn(blue.solid),
       warning: amber.solid,
       warningSoft: amber.soft,
       warningText: amber.text,
@@ -49,9 +49,9 @@ export function mockupTheme(brand: HexColor, mode: ThemeMode): Theme {
       success: green.solid,
       successSoft: green.soft,
       successText: green.text,
-      info: indigo.solid,
-      infoSoft: indigo.soft,
-      infoText: indigo.text,
+      info: blue.solid,
+      infoSoft: blue.soft,
+      infoText: blue.text,
     },
   };
 }

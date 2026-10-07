@@ -104,7 +104,7 @@ function PaletteBody({ onClose, pages }: { onClose: () => void; pages: readonly 
             label: `Prescriptions for ${patient.full_name}`,
             hint: patient.number,
             icon: <Pill aria-hidden="true" />,
-            run: go(`${patientPath(patient)}/prescriptions`),
+            run: go(`${patientPath(patient)}?tab=prescriptions`),
           });
         }
       }

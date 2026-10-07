@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -57,18 +57,19 @@ describe("Sidebar", () => {
     expect(document.querySelector(".mk-side")?.classList.contains("open")).toBe(false);
   });
 
-  it("links to Staff for people who manage staff, and opens that tab", async () => {
-    const user = userEvent.setup();
+  it("no longer lists Prescriptions or Staff in the sidebar", async () => {
     renderPortal("/today", { as: PEOPLE.asha });
-    await user.click(await screen.findByRole("link", { name: "Staff" }));
-    expect(await screen.findByRole("tab", { name: "Staff", selected: true }, { timeout: 5000 })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Staff" }).getAttribute("aria-current")).toBe("page");
+    await screen.findByRole("link", { name: "Patients" });
+    expect(screen.queryByRole("link", { name: "Prescriptions" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Staff" })).toBeNull();
   });
 
-  it("has no Staff link for roles that cannot manage staff", async () => {
-    renderPortal("/today", { as: PEOPLE.farah });
-    await screen.findByRole("link", { name: "Patients" });
-    expect(screen.queryByRole("link", { name: "Staff" })).toBeNull();
+  it("redirects /prescriptions to Patients and /staff to the Team & roles tab", async () => {
+    const first = renderPortal("/prescriptions", { as: PEOPLE.asha });
+    await waitFor(() => { expect(first.router.state.location.pathname).toBe("/patients"); });
+    cleanup();
+    renderPortal("/staff", { as: PEOPLE.asha });
+    expect(await screen.findByRole("tab", { name: "Team & roles", selected: true }, { timeout: 5000 })).toBeTruthy();
   });
 });
 

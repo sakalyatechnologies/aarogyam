@@ -68,7 +68,7 @@ describe("Patient 360 files", () => {
     const user = userEvent.setup();
     const { path, backend } = withFiles();
     renderPortal(path, { as: PEOPLE.asha, backend });
-    await user.click(await screen.findByRole("tab", { name: "Dental chart" }));
+    await user.click(await screen.findByRole("tab", { name: "Chart" }));
     await user.click(await screen.findByRole("button", { name: /^Tooth 36,/ }));
     const files = await screen.findByRole("list", { name: "Files of tooth 36" });
     expect(within(files).getByText("Intraoral – upper")).toBeTruthy();

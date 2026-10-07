@@ -10,6 +10,7 @@ import { LetterheadSheet } from "../../components/letterhead/letterhead.js";
 import { plainLetterhead } from "../../components/letterhead/sample.js";
 import { QrCode } from "../../components/qr-code.js";
 import { useLetterhead } from "../../queries.js";
+import { joinParts } from "../../lib/text.js";
 import { usePrescription } from "./queries.js";
 
 /** `print.letterhead`/`print.doctor` arrive as untyped JSON; reads a field without a cast. */
@@ -126,8 +127,7 @@ export function PrescriptionPrintPage() {
                   {item.instructions == null || item.instructions === "" ? null : <p className="text-xs text-muted">{item.instructions}</p>}
                 </td>
                 <td className="py-2 align-top">
-                  {item.dose} · {item.frequency}
-                  {item.timing == null ? "" : ` · ${TIMING_LABEL[item.timing] ?? item.timing}`}
+                  {joinParts([item.dose, item.frequency, item.timing == null || item.timing === "" ? null : (TIMING_LABEL[item.timing] ?? item.timing)])}
                 </td>
                 <td className="py-2 align-top">{item.duration_days == null ? "—" : `${String(item.duration_days)} days`}</td>
               </tr>

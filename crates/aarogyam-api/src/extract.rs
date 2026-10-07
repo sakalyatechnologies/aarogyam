@@ -192,6 +192,33 @@ impl<P: Required> FromRequestParts<AppState> for Require<P> {
     }
 }
 
+/// A [`ClinicRequest`] whose role holds permission `A` or permission `B`; otherwise `403`. For the
+/// few reads two screens share, such as the list of roles (the team list and the roles editor).
+#[derive(Debug)]
+pub struct RequireEither<A: Required, B: Required> {
+    /// The checked request.
+    pub request: ClinicRequest,
+    permissions: PhantomData<(A, B)>,
+}
+
+impl<A: Required, B: Required> FromRequestParts<AppState> for RequireEither<A, B> {
+    type Rejection = ApiFailure;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let request = ClinicRequest::from_request_parts(parts, state).await?;
+        if request.actor.require(A::PERMISSION).is_err() {
+            request.actor.require(B::PERMISSION)?;
+        }
+        Ok(Self {
+            request,
+            permissions: PhantomData,
+        })
+    }
+}
+
 /// Active Sakalya staff on the console host. Other hosts get `404`; people who aren't staff get
 /// `403`.
 #[derive(Debug)]

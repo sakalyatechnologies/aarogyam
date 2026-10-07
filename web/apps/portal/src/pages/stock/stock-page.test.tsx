@@ -31,7 +31,7 @@ describe("Stock", () => {
       expect(within(cards).getAllByRole("heading", { level: 2 })).toHaveLength(3);
     });
     expect(within(cards).getByText("Composite A2")).toBeTruthy();
-    expect(within(cards).getByText("CRITICAL")).toBeTruthy();
+    expect(within(cards).getByText("Critical")).toBeTruthy();
     expect(within(cards).getByText(/Restorative · reorder at 40/)).toBeTruthy();
 
     const table = await screen.findByRole("table", { name: "Inventory" });
@@ -43,7 +43,7 @@ describe("Stock", () => {
     if (composite === undefined) return;
     expect(within(composite).getByText("4 / 40")).toBeTruthy();
     expect(within(composite).getByRole("progressbar", { name: "Composite A2 stock level" }).getAttribute("aria-valuenow")).toBe("10");
-    for (const status of ["CRITICAL", "LOW", "OK", "EXPIRING"]) {
+    for (const status of ["Critical", "Low", "OK", "Expiring"]) {
       expect(within(table).getAllByText(status).length).toBeGreaterThan(0);
     }
     expect(screen.getByRole("button", { name: "Purchase order" })).toBeTruthy();

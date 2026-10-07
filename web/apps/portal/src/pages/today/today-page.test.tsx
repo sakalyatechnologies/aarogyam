@@ -1,4 +1,5 @@
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PEOPLE, renderPortal } from "../../test/render.js";
@@ -68,7 +69,31 @@ describe("Team today", () => {
     renderPortal("/today", { as: PEOPLE.asha });
     const table = await screen.findByRole("table", { name: "Team today" });
     expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Name", "Role", "Status"]);
-    expect(within(table).getAllByText(/^(IN|ON LEAVE|ACTIVE)$/).length).toBeGreaterThan(0);
-    expect(await within(table).findAllByText("ACTIVE")).not.toHaveLength(0);
+    expect(within(table).getAllByText(/^(In|On leave|Active)$/).length).toBeGreaterThan(0);
+    expect(await within(table).findAllByText("Active")).not.toHaveLength(0);
+  });
+});
+
+describe("Today's hero", () => {
+  it("gives a clinician the next consultation with a progress ring and Open patient record", async () => {
+    renderPortal("/today", { as: PEOPLE.asha });
+    const hero = await screen.findByRole("region", { name: /(Next|Current) consultation/ });
+    expect(within(hero).getByRole("img", { name: /of \d+ appointments completed/ })).toBeTruthy();
+    expect(within(hero).getByRole("link", { name: /Open patient record/ }).getAttribute("href")).toMatch(/^\/patients\//);
+  });
+
+  it("gives the front desk the next arrival and checks them in", async () => {
+    const user = userEvent.setup();
+    renderPortal("/today", { as: PEOPLE.farah });
+    const hero = await screen.findByRole("region", { name: "Next arrival" });
+    await user.click(within(hero).getByRole("button", { name: /Check in patient/ }));
+    expect(await screen.findByText("Checked in")).toBeTruthy();
+  });
+
+  it("lists who is coming up with colour-coded status chips", async () => {
+    renderPortal("/today", { as: PEOPLE.farah });
+    const list = await screen.findByRole("list", { name: "Coming up" });
+    expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
+    expect(within(list).getAllByText(/^(Waiting|In chair|Booked|Confirmed|Requested)$/).length).toBeGreaterThan(0);
   });
 });

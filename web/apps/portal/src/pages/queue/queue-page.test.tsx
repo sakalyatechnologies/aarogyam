@@ -21,7 +21,7 @@ describe("Queue", () => {
 
     renderPortal("/queue", { as: PEOPLE.farah, backend });
     const waitingColumn = await screen.findByRole("heading", { name: /^Waiting/ });
-    const card = waitingColumn.closest("div");
+    const card = waitingColumn.closest("section");
     if (card === null) throw new Error("expected the waiting card");
     const row = within(card).getByText(waiting.patient.full_name).closest("li");
     if (row === null) throw new Error("expected the token's row");

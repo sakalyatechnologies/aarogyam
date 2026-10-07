@@ -1,15 +1,16 @@
-import { PackagePlus, ShoppingCart } from "lucide-react";
+import { Boxes, CalendarClock, CircleCheck, PackagePlus, ShoppingCart } from "lucide-react";
 import { useState } from "react";
 
 import type { StockLevel } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatNumber, useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, Card, DataTable, EmptyState, PageHeader, Skeleton, useToast, type DataTableColumn } from "@sakalya/ui";
+import { Button, DataTable, useToast, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { ItemDialog } from "./item-dialog.js";
 import { NewItemDialog } from "./new-item-dialog.js";
 import { LevelBar, StatusTag, categoryLabel, levelPercent } from "./level.js";
 import { useExpiring, useStock } from "./queries.js";
+import { AlertBanner, EmptyState, MkCard, PageHeader, Skeleton, StatTile } from "../../components/mk/index.js";
 
 /**
  * Stock: the three most urgent items as cards, every item with its level and status, and the
@@ -29,8 +30,10 @@ export function StockPage() {
   if (!allowed) {
     return (
       <>
-        <PageHeader title="Stock" subtitle="Material and medicine stock levels" />
-        <EmptyState title="Stock isn't available to your role" description="Ask the clinic owner for the inventory permission." icon={null} />
+        <PageHeader eyebrow="Inventory" title="Stock" subtitle="Material and medicine stock levels" />
+        <MkCard>
+          <EmptyState art="stock" title="Stock isn't available to your role" description="Ask the clinic owner for the inventory permission." />
+        </MkCard>
       </>
     );
   }
@@ -69,8 +72,9 @@ export function StockPage() {
   return (
     <>
       <PageHeader
+        eyebrow="Inventory"
         title="Stock"
-        subtitle="Material and medicine stock levels"
+        subtitle={stock.isPending ? "Material and medicine stock levels" : `${String(items.length)} items tracked · ${String(needOrder)} to reorder`}
         end={
           canManage ? (
             <Button
@@ -87,28 +91,70 @@ export function StockPage() {
       />
       <div className="flex flex-col gap-4">
         {stock.isError ? <ApiErrorNotice title="Couldn't load stock" error={stock.error} onRetry={() => void stock.refetch()} /> : null}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3" aria-label="Most urgent items">
-          {stock.isPending
-            ? [0, 1, 2].map((n) => <Skeleton key={n} shape="block" />)
-            : items.slice(0, 3).map((l) => (
-                <Card key={l.item.id}>
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-lg font-bold tracking-tight text-text">{l.item.name}</h2>
-                    <StatusTag status={l.status} />
-                  </div>
-                  <p className="mt-1 text-sm text-muted">
-                    {categoryLabel(l.item.category)} · reorder at {formatNumber(l.item.reorder_level)}
-                  </p>
-                  <p className="mt-3">
-                    <b className="text-3xl font-extrabold tracking-tight tabular-nums text-text">{formatNumber(l.on_hand)}</b>
-                    <span className="text-xs text-muted"> units</span>
-                  </p>
-                  <LevelBar name={l.item.name} percent={levelPercent(l)} />
-                </Card>
-              ))}
-        </div>
+        {!stock.isPending && items.length === 0 ? (
+          <MkCard>
+            <EmptyState
+              art="stock"
+              title="Start tracking your stock"
+              description="Add the materials and medicines the clinic keeps; low levels and expiry dates then show up on Today."
+              action={
+                canManage ? (
+                  <button
+                    type="button"
+                    className="mk-btn mk-btn-primary"
+                    onClick={() => {
+                      setAdding(true);
+                    }}
+                  >
+                    <PackagePlus aria-hidden="true" /> Add the first item
+                  </button>
+                ) : undefined
+              }
+            />
+          </MkCard>
+        ) : (
+          <>
+            <div className="mk-stats" style={{ marginBottom: 0 }}>
+              {stock.isPending ? (
+                [0, 1, 2, 3].map((n) => <Skeleton key={n} shape="stat" />)
+              ) : (
+                <>
+                  <StatTile label="Items tracked" value={items.filter((l) => l.item.active).length} icon={<Boxes />} />
+                  <StatTile label="To reorder" value={needOrder} tone="warn" icon={<ShoppingCart />} trend={needOrder > 0 ? { direction: "up", text: "Below reorder level", good: false } : { direction: "flat", text: "All stocked" }} />
+                  <StatTile label="Expiring soon" value={expiring.data?.items.length ?? "—"} icon={<CalendarClock />} />
+                  <StatTile label="Healthy" value={items.filter((l) => l.status === "ok").length} icon={<CircleCheck />} />
+                </>
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3" aria-label="Most urgent items">
+              {stock.isPending
+                ? [0, 1, 2].map((n) => <Skeleton key={n} shape="block" />)
+                : items.slice(0, 3).map((l) => (
+                    <section key={l.item.id} className="mk-card">
+                      <div className="mk-card-h">
+                        <h2>{l.item.name}</h2>
+                        <StatusTag status={l.status} />
+                      </div>
+                      <p className="mk-hint" style={{ marginBottom: 10 }}>
+                        {categoryLabel(l.item.category)} · reorder at {formatNumber(l.item.reorder_level)}
+                      </p>
+                      <p style={{ margin: "0 0 4px" }}>
+                        <b className="mk-stat-v">{formatNumber(l.on_hand)}</b>
+                        <span className="mk-hint"> units</span>
+                      </p>
+                      <LevelBar name={l.item.name} percent={levelPercent(l)} />
+                    </section>
+                  ))}
+            </div>
+          </>
+        )}
+        {expiring.data !== undefined && expiring.data.items.length > 0 ? (
+          <AlertBanner tone="info">
+            <b>Expiring soon:</b> {expiring.data.items.map((b) => `${b.item_name} (${formatDate(b.expiry)})`).join(", ")}
+          </AlertBanner>
+        ) : null}
 
-        <Card
+        <MkCard
           title="Inventory"
           action={
             <Button
@@ -122,11 +168,6 @@ export function StockPage() {
             </Button>
           }
         >
-          {expiring.data !== undefined && expiring.data.items.length > 0 ? (
-            <p className="mb-3 text-sm text-muted">
-              Expiring soon: {expiring.data.items.map((b) => `${b.item_name} (${formatDate(b.expiry)})`).join(", ")}
-            </p>
-          ) : null}
           <DataTable
             caption="Inventory"
             columns={columns}
@@ -136,7 +177,7 @@ export function StockPage() {
             pageSize={Infinity}
             empty={{ title: "No items yet", description: "Add the materials the clinic stocks to track them here.", icon: null }}
           />
-        </Card>
+        </MkCard>
       </div>
       <ItemDialog
         itemId={openItem}

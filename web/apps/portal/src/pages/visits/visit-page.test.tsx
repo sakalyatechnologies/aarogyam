@@ -58,6 +58,6 @@ describe("Visit screen", () => {
     await user.click(await screen.findByRole("tab", { name: "Clinical flags" }));
     await screen.findByText("No clinical flags recorded yet");
     expect(screen.queryByRole("tab", { name: "Visits" })).toBeNull();
-    expect(screen.queryByRole("tab", { name: "Dental chart" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Chart" })).toBeNull();
   });
 });

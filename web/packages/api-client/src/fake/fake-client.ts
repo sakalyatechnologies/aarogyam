@@ -2647,7 +2647,11 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
       listRoles: (opts) =>
         respond(S.rolesResponse, opts?.signal, async () => {
-          const caller = await inClinic("staff.manage");
+          // Both the team list (staff.manage) and the roles editor (roles.manage) need the list.
+          let caller = await inClinic("staff.manage");
+          if (!isCaller(caller) && !caller.ok && caller.status === 403) {
+            caller = await inClinic("roles.manage");
+          }
           if (!isCaller(caller)) {
             return caller;
           }
@@ -3998,6 +4002,16 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           if (allocatedTotal > input.amount_paise) {
             return invalid("allocations", "allocations can't exceed the payment");
+          }
+          // The API refuses a payment above the balance due on the bills it pays.
+          if (allocations.length > 0) {
+            const balanceDue = allocations.reduce((sum, a) => {
+              const bill = state.invoices.find((i) => i.id === a.invoice_id);
+              return sum + (bill === undefined ? 0 : wireInvoice(bill, state, false).balance_paise);
+            }, 0);
+            if (input.amount_paise > balanceDue) {
+              return invalid("amount", "must not be more than the balance due");
+            }
           }
           const now = clock();
           const paymentRecord: FakePayment = {

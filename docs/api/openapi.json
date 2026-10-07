@@ -6300,7 +6300,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks staff.manage"
+            "description": "The role lacks staff.manage and roles.manage"
           },
           "404": {
             "description": "Not a clinic, or not a member of it"

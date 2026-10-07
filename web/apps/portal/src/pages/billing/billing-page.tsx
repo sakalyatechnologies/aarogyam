@@ -1,11 +1,10 @@
-import { FileWarning, Plus } from "lucide-react";
+import { FileWarning, HandCoins, Plus, Smartphone, Stethoscope, Wallet } from "lucide-react";
 import { Link } from "react-router";
 
 import type { Invoice } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
-import { Skeleton } from "@sakalya/ui";
 
-import { Bars, Empty, Kpi, MkCard, Tag, type TagTone } from "../../components/mk/index.js";
+import { Bars, Empty, Initials, MkCard, PageHeader, Skeleton, StatTile, StatusChip, type ChipTone } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { compactRupees } from "../../lib/money.js";
 import { useTodayDate } from "../../lib/patients.js";
@@ -21,12 +20,12 @@ function monthStart(today: string): string {
 
 const METHOD_LABEL: Readonly<Record<string, string>> = { upi: "UPI", cash: "Cash", card: "Card", bank_transfer: "Bank", cheque: "Cheque" };
 
-function invoiceTag(invoice: Invoice): { label: string; tone: TagTone } {
-  if (invoice.status === "void") return { label: "VOID", tone: "down" };
-  if (invoice.status !== "issued") return { label: "DRAFT", tone: "neutral" };
-  if (invoice.payment_state === "paid") return { label: "PAID", tone: "done" };
-  if (invoice.paid_paise > 0) return { label: "PARTIAL", tone: "info" };
-  return { label: "DUE", tone: "wait" };
+function invoiceTag(invoice: Invoice): { label: string; tone: ChipTone } {
+  if (invoice.status === "void") return { label: "Void", tone: "noshow" };
+  if (invoice.status !== "issued") return { label: "Draft", tone: "done" };
+  if (invoice.payment_state === "paid") return { label: "Paid", tone: "ready" };
+  if (invoice.paid_paise > 0) return { label: "Partial", tone: "confirmed" };
+  return { label: "Due", tone: "waiting" };
 }
 
 const modeOf = (invoice: Invoice): string => (invoice.methods.length === 0 ? "—" : invoice.methods.map((m) => METHOD_LABEL[m] ?? m).join(", "));
@@ -65,48 +64,59 @@ export function BillingPage() {
 
   return (
     <div className="mk-panel">
-      <h1 className="mk-sr">Billing</h1>
-      <div className="mk-ptools">
-        {finance ? (
-          <Link to="/billing/pending" className="mk-btn mk-btn-ghost mk-spacer">
-            <FileWarning aria-hidden="true" /> Pending payments
-          </Link>
-        ) : (
-          <span className="mk-spacer" />
-        )}
-        {canWrite ? (
-          <Link to="/billing/invoices/new" className="mk-btn mk-btn-primary">
-            <Plus aria-hidden="true" /> New bill
-          </Link>
-        ) : null}
-      </div>
+      <PageHeader
+        eyebrow={`Billing · ${new Date(`${today}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })}`}
+        title="Billing"
+        subtitle="Bills, payments and what is still owed."
+        actions={
+          <>
+            {finance ? (
+              <Link to="/billing/pending" className="mk-btn mk-btn-ghost">
+                <FileWarning aria-hidden="true" /> Pending payments
+              </Link>
+            ) : null}
+            {canWrite ? (
+              <Link to="/billing/invoices/new" className="mk-btn mk-btn-primary">
+                <Plus aria-hidden="true" /> New bill
+              </Link>
+            ) : null}
+          </>
+        }
+      />
       {finance ? (
-      <div className="mk-kpis">
-        {collections.isPending
-          ? Array.from({ length: 4 }, (_, index) => <Skeleton key={index} shape="block" />)
-          : [
-              <Kpi key="collected" label={`Collected · ${monthName}`} value={compactRupees(monthFigures?.collected_paise ?? 0)} pill={monthFigures === undefined ? undefined : plural(monthFigures.payments, "payment")} pillTone="up" />,
-              <Kpi
-                key="outstanding"
-                label="Outstanding"
-                value={compactRupees(collections.data?.outstanding_paise ?? 0)}
-                pill={pending.data === undefined ? undefined : plural(pending.data.items.length, "bill")}
-                pillTone="warn"
-              />,
-              <Kpi key="payout" label="Consulting payout" value="—" pill="not tracked yet" pillTone="info" />,
-              <Kpi key="upi" label="UPI share" value={`${String(Math.round(upiShare / 100))}%`} />,
-            ]}
-      </div>
+        <div className="mk-stats">
+          {collections.isPending
+            ? Array.from({ length: 4 }, (_, index) => <Skeleton key={index} shape="stat" />)
+            : [
+                <StatTile
+                  key="collected"
+                  label={`Collected · ${monthName}`}
+                  value={compactRupees(monthFigures?.collected_paise ?? 0)}
+                  icon={<Wallet />}
+                  trend={monthFigures === undefined ? undefined : { direction: "up", text: plural(monthFigures.payments, "payment"), good: true }}
+                />,
+                <StatTile
+                  key="outstanding"
+                  label="Outstanding"
+                  tone="warn"
+                  value={compactRupees(collections.data?.outstanding_paise ?? 0)}
+                  icon={<HandCoins />}
+                  trend={pending.data === undefined ? undefined : { direction: pending.data.items.length > 0 ? "up" : "flat", text: plural(pending.data.items.length, "bill"), good: pending.data.items.length === 0 }}
+                />,
+                <StatTile key="payout" label="Consulting payout" value="—" icon={<Stethoscope />} trend={{ direction: "flat", text: "Not tracked yet" }} />,
+                <StatTile key="upi" label="UPI share" value={`${String(Math.round(upiShare / 100))}%`} icon={<Smartphone />} />,
+              ]}
+        </div>
       ) : null}
       <div className="mk-grid mk-g2r">
         {finance ? (
         <MkCard title="Weekly collections" hint="Last 8 weeks · ₹ thousands">
           {collections.isPending ? (
-            <Skeleton shape="block" />
+            <Skeleton shape="block" style={{ height: 170 }} />
           ) : collections.isError ? (
             <ApiErrorNotice title="Couldn't load collections" error={collections.error} onRetry={() => void collections.refetch()} />
           ) : weeks.every((w) => w.amount_paise === 0) ? (
-            <Empty title="No collections yet">Issued bills and payments will show here.</Empty>
+            <Empty art="chart" title="No collections yet">Issued bills and payments will show here week by week.</Empty>
           ) : (
             <Bars
               data={weeks.map((w, i) => ({ label: `W${String(i + 1)}`, value: w.amount_paise / 100, tip: `${compactRupees(w.amount_paise)} · week of ${w.date}` }))}
@@ -135,7 +145,19 @@ export function BillingPage() {
           ) : invoices.isPending ? (
             <SkeletonRows count={5} tall label="Loading bills" />
           ) : rows.length === 0 ? (
-            <Empty title="No bills yet">Issue the first bill to see it here.</Empty>
+            <Empty
+              art="bill"
+              title="No bills yet"
+              action={
+                canWrite ? (
+                  <Link to="/billing/invoices/new" className="mk-btn mk-btn-primary">
+                    <Plus aria-hidden="true" /> New bill
+                  </Link>
+                ) : undefined
+              }
+            >
+              Bills you issue after a visit show here with their payment status.
+            </Empty>
           ) : (
             <div className="mk-tablewrap">
               <table className="mk-table">
@@ -160,11 +182,16 @@ export function BillingPage() {
                           <th scope="row" className="mk-mono">
                             <Link to={`/billing/invoices/${i.id}`}>{i.number ?? "Draft"}</Link>
                           </th>
-                          <td>{i.patient.name}</td>
+                          <td>
+                            <span className="mk-pname">
+                              <Initials name={i.patient.name} size="sm" />
+                              {i.patient.name}
+                            </span>
+                          </td>
                           <td>{formatRupees(i.total_paise)}</td>
                           <td>{modeOf(i)}</td>
                           <td>
-                            <Tag tone={tag.tone}>{tag.label}</Tag>
+                            <StatusChip tone={tag.tone}>{tag.label}</StatusChip>
                           </td>
                         </tr>
                       );

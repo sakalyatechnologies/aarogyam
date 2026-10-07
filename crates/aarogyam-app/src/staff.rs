@@ -65,13 +65,16 @@ pub async fn list(
 /// The clinic's roles and their permissions.
 ///
 /// # Errors
-/// [`AppError::Denied`] without `staff.manage`; [`AppError::Db`] on database failures.
+/// [`AppError::Denied`] without `staff.manage` or `roles.manage` (the roles editor lists roles
+/// too); [`AppError::Db`] on database failures.
 pub async fn roles(
     db: &Db,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
 ) -> Result<Vec<RoleRow>, AppError> {
-    actor.require(Permission::StaffManage)?;
+    if actor.require(Permission::StaffManage).is_err() {
+        actor.require(Permission::RolesManage)?;
+    }
     db.scoped(&staff_scope(actor, request_id), async |tx| {
         Ok(dal::roles(tx.conn()).await?)
     })

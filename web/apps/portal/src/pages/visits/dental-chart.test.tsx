@@ -21,7 +21,7 @@ async function openChart(prepare?: (fixtures: Fixtures) => void, as: string = PE
   const user = userEvent.setup();
   const { path, backend } = patientPath(prepare);
   renderPortal(path, { as, backend });
-  await user.click(await screen.findByRole("tab", { name: "Dental chart" }));
+  await user.click(await screen.findByRole("tab", { name: "Chart" }));
   await screen.findByRole("group", { name: "Upper arch" });
   return user;
 }
@@ -139,7 +139,7 @@ describe("Dental chart tab", () => {
         },
       }),
     });
-    await user.click(await screen.findByRole("tab", { name: "Dental chart" }));
+    await user.click(await screen.findByRole("tab", { name: "Chart" }));
     await screen.findByRole("group", { name: "Upper arch" });
 
     await user.click(screen.getByRole("button", { name: "Select several" }));

@@ -3,25 +3,7 @@ import { useState } from "react";
 
 import { apiErrorOf, type Leave, type Practitioner, type PractitionerId, type Room, type WorkingHours } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDateTime } from "@aarogyam/app-kit";
-import {
-  Button,
-  Card,
-  DataTable,
-  DateInput,
-  Dialog,
-  EmptyState,
-  Field,
-  Menu,
-  Pill,
-  Select,
-  Skeleton,
-  Switch,
-  TextArea,
-  TextInput,
-  useToast,
-  type DataTableColumn,
-  type MenuItem,
-} from "@sakalya/ui";
+import { Button, Card, DataTable, DateInput, Dialog, Field, Menu, Pill, Select, Skeleton, Switch, TextArea, TextInput, useToast, type DataTableColumn, type MenuItem } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { useTodayDate } from "../../lib/patients.js";
@@ -41,6 +23,7 @@ import {
   useWorkingHours,
   usePractitioners,
 } from "../../queries.js";
+import { EmptyState } from "../../components/mk/index.js";
 
 const ROOM_KINDS = [
   { value: "chair", label: "Chair" },

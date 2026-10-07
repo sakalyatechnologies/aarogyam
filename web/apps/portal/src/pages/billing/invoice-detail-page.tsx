@@ -4,25 +4,11 @@ import { useNavigate, useParams } from "react-router";
 
 import { apiErrorOf, randomUuid, invoiceId as invoiceIdSchema, type Invoice, type InvoiceLineInput, type PaymentMethod } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
-import {
-  Button,
-  Card,
-  DataTable,
-  Dialog,
-  Field,
-  Link,
-  PageHeader,
-  Pill,
-  Select,
-  Skeleton,
-  TextArea,
-  TextInput,
-  useToast,
-  type DataTableColumn,
-} from "@sakalya/ui";
+import { Button, Card, DataTable, Dialog, Field, Link, Pill, Select, Skeleton, TextArea, TextInput, useToast, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { useEditInvoice, useInvoice, useIssueInvoice, usePayments, usePriceItems, useRecordPayment, useVoidInvoice } from "./queries.js";
+import { PageHeader } from "../../components/mk/index.js";
 
 const STATUS_TONE: Readonly<Record<string, "neutral" | "success" | "warning" | "danger">> = {
   draft: "neutral",
@@ -439,6 +425,7 @@ function PaymentDialog({ open, invoice, onClose }: { open: boolean; invoice: Inv
   const close = () => {
     onClose();
     setMethod("cash");
+    setRupees((invoice.balance_paise / 100).toString());
     setReference("");
     setError(undefined);
     setIdempotencyKey(randomUuid());
@@ -452,13 +439,17 @@ function PaymentDialog({ open, invoice, onClose }: { open: boolean; invoice: Inv
       return;
     }
     const amountPaise = Math.round(amount * 100);
+    if (amountPaise > invoice.balance_paise) {
+      setError(`That is more than the balance of ${formatRupees(invoice.balance_paise)}. Enter ${formatRupees(invoice.balance_paise)} or less.`);
+      return;
+    }
     record.mutate(
       {
         input: {
           patient_id: invoice.patient.id,
           method,
           amount_paise: amountPaise,
-          allocations: [{ invoice_id: invoice.id, amount_paise: Math.min(amountPaise, invoice.balance_paise) }],
+          allocations: [{ invoice_id: invoice.id, amount_paise: amountPaise }],
           reference: reference.trim() === "" ? null : reference.trim(),
         },
         idempotencyKey,

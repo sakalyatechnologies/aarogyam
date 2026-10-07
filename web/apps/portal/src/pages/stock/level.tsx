@@ -1,19 +1,18 @@
 import type { StockLevel } from "@aarogyam/api-client";
-import { Pill } from "@sakalya/ui";
 
-type Tone = "success" | "warning" | "danger" | "info";
+import { StatusChip, type ChipTone } from "../../components/mk/index.js";
 
-const STATUS: Readonly<Record<string, { label: string; tone: Tone }>> = {
-  ok: { label: "OK", tone: "success" },
-  low: { label: "LOW", tone: "warning" },
-  critical: { label: "CRITICAL", tone: "danger" },
-  expiring: { label: "EXPIRING", tone: "info" },
+const STATUS: Readonly<Record<string, { label: string; tone: ChipTone }>> = {
+  ok: { label: "OK", tone: "ready" },
+  low: { label: "Low", tone: "waiting" },
+  critical: { label: "Critical", tone: "noshow" },
+  expiring: { label: "Expiring", tone: "confirmed" },
 };
 
-/** The status tag: green OK, amber LOW, red CRITICAL, blue EXPIRING. */
+/** The status chip: green OK, amber Low, red Critical, blue Expiring. */
 export function StatusTag({ status }: { status: string }) {
-  const known = STATUS[status] ?? { label: status.toUpperCase(), tone: "warning" as const };
-  return <Pill tone={known.tone}>{known.label}</Pill>;
+  const known = STATUS[status] ?? { label: status, tone: "waiting" as const };
+  return <StatusChip tone={known.tone}>{known.label}</StatusChip>;
 }
 
 /** How full the shelf is against the reorder level, 0 to 100. */

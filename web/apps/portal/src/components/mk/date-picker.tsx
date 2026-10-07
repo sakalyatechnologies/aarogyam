@@ -1,6 +1,6 @@
 // moves to sakalya-web
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 
 import { addDays, addMonths, monthWeeks } from "../../lib/time.js";
 
@@ -35,6 +35,8 @@ export function DatePicker({ value, onChange, min, today, id, className = "" }: 
   const trigger = useRef<HTMLButtonElement>(null);
   const grid = useRef<HTMLDivElement>(null);
   const gridId = useId();
+  const pop = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<CSSProperties>();
   const disabled = (date: string) => min !== undefined && date < min;
 
   useEffect(() => {
@@ -45,6 +47,28 @@ export function DatePicker({ value, onChange, min, today, id, className = "" }: 
     document.addEventListener("pointerdown", away);
     return () => {
       document.removeEventListener("pointerdown", away);
+    };
+  }, [open]);
+
+  // The month grid is placed against the viewport, so a dialog's scrolling body can't clip it.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const put = () => {
+      const button = trigger.current?.getBoundingClientRect();
+      const height = pop.current?.offsetHeight ?? 340;
+      if (button === undefined) return;
+      const width = Math.min(280, window.innerWidth - 16);
+      const left = Math.max(8, Math.min(button.left, window.innerWidth - width - 8));
+      const below = button.bottom + 6;
+      const top = below + height <= window.innerHeight - 8 ? below : Math.max(8, button.top - 6 - height);
+      setPlace({ position: "fixed", top, left, width });
+    };
+    put();
+    window.addEventListener("resize", put);
+    window.addEventListener("scroll", put, true);
+    return () => {
+      window.removeEventListener("resize", put);
+      window.removeEventListener("scroll", put, true);
     };
   }, [open]);
 
@@ -98,7 +122,7 @@ export function DatePicker({ value, onChange, min, today, id, className = "" }: 
         <span>{longDate(value)}</span>
       </button>
       {open ? (
-        <div id={gridId} className="mk-dp-pop" role="dialog" aria-label="Choose a date">
+        <div ref={pop} id={gridId} className="mk-dp-pop" style={place} role="dialog" aria-label="Choose a date">
           <div className="mk-dp-head">
             <button type="button" className="mk-dp-nav" aria-label="Previous month" onClick={() => { setCursor(addMonths(cursor, -1)); }}>
               <ChevronLeft aria-hidden="true" className="size-4" />

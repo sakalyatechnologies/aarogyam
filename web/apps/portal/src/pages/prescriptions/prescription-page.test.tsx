@@ -76,6 +76,6 @@ describe("Prescriptions", () => {
 
     await user.click(await screen.findByRole("button", { name: "Quick Rx" }));
     expect(await screen.findByText("draft")).toBeTruthy();
-    expect(screen.getByDisplayValue(/amoxicillin/i)).toBeTruthy();
+    expect(await screen.findByDisplayValue(/amoxicillin/i)).toBeTruthy();
   });
 });

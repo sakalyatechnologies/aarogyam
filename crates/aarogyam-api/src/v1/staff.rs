@@ -3,7 +3,7 @@
 use aarogyam_app::staff::{self as app, ChangeMember, InviteStaff, MemberRow};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::MembershipId;
-use aarogyam_domain::permission::require::StaffManage;
+use aarogyam_domain::permission::require::{RolesManage, StaffManage};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use super::rfc3339;
 use crate::AppState;
-use crate::extract::Require;
+use crate::extract::{Require, RequireEither};
 use crate::failure::ApiFailure;
 
 /// A branch a member works at.
@@ -312,13 +312,13 @@ pub struct Roles {
     responses(
         (status = 200, body = Roles),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks staff.manage"),
+        (status = 403, description = "The role lacks staff.manage and roles.manage"),
         (status = 404, description = "Not a clinic, or not a member of it")
     )
 )]
 pub(crate) async fn roles(
     State(state): State<AppState>,
-    Require { request, .. }: Require<StaffManage>,
+    RequireEither { request, .. }: RequireEither<StaffManage, RolesManage>,
 ) -> Result<Json<Roles>, ApiFailure> {
     let rows = app::roles(state.db(), &request.actor, request.request_id).await?;
     Ok(Json(Roles {

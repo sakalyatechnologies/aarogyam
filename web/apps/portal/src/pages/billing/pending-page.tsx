@@ -2,9 +2,10 @@ import { FileWarning } from "lucide-react";
 
 import type { PendingItem } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
-import { Card, DataTable, Link, PageHeader, Skeleton, StatCard, type DataTableColumn } from "@sakalya/ui";
+import { Card, DataTable, Link, Skeleton, StatCard, type DataTableColumn } from "@sakalya/ui";
 
 import { usePendingReport } from "./queries.js";
+import { PageHeader } from "../../components/mk/index.js";
 
 const BUCKET_LABEL: Readonly<Record<string, string>> = { "0_30": "0–30 days", "31_60": "31–60 days", "61_90": "61–90 days", "90_plus": "Over 90 days" };
 

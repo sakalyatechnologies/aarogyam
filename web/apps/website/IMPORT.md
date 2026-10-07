@@ -17,6 +17,7 @@ in separate files, so a new export can be dropped in.
    renames `src/netlify` to `src/landing`.
 2. Keeps ours: `src/aarogyam/` (API client, sign-in page, routing, tests), `src/routes/sign-in.tsx`,
    `src/vite-env.d.ts`, `src/routeTree.gen.ts` (generated).
+   Also ours: `src/aarogyam/Showcase.tsx` and `v4.css` (sign-in showcase and request-access polish).
 3. Re-applies `lovable-edits.patch`: the only edits inside Lovable's files.
 
 Never replaced by an import (ours): `package.json`, `vite.config.ts`, `tsconfig.json`,
@@ -29,7 +30,7 @@ imports a package we lack, add it (use the repo's versions).
 |---|---|
 | `src/routes/__root.tsx` | drop `reportLovableError` and the `console.error` in the error component |
 | `src/routes/index.tsx` | "Sign in" goes to `/sign-in` |
-| `src/routes/register.tsx` | back and "sign in" go to `/` and `/sign-in`; no `onTrack` |
+| `src/routes/register.tsx` | loads our `v4.css`; back and "sign in" go to `/` and `/sign-in`; no `onTrack` |
 | `src/landing/Shell.jsx` | nav "Sign in" goes to `/sign-in` |
 | `src/landing/views/RegisterView.jsx` | submit calls `submitRegistration` (real API), shows its error inline, drops the fake reference ID and tracker links |
 

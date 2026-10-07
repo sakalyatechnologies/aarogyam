@@ -37,7 +37,12 @@
  }
 --- a/src/routes/register.tsx
 +++ b/src/routes/register.tsx
-@@ -5,7 +5,7 @@
+@@ -1,11 +1,12 @@
+ import { createFileRoute, useNavigate } from "@tanstack/react-router";
++import "@/aarogyam/v4.css";
+ import RegisterView from "@/landing/views/RegisterView.jsx";
+ 
+ export const Route = createFileRoute("/register")({
    head: () => ({
      meta: [
        { title: "Request access — Aarogyam" },
@@ -46,7 +51,7 @@
        { property: "og:title", content: "Request access — Aarogyam" },
        { property: "og:description", content: "Apply for Aarogyam for your clinic." },
        { property: "og:type", content: "website" },
-@@ -19,9 +19,8 @@
+@@ -19,9 +20,8 @@
    const navigate = useNavigate();
    return (
      <RegisterView

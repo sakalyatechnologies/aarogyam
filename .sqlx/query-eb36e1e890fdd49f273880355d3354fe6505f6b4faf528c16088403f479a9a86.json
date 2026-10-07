@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.patient_consents\n           set status = 'withdrawn', withdrawn_at = now(), withdrawn_by = $3, withdrawn_method = $2,\n               withdrawal_note = $4\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eb36e1e890fdd49f273880355d3354fe6505f6b4faf528c16088403f479a9a86"
+}

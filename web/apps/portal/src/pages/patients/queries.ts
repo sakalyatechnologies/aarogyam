@@ -1,7 +1,16 @@
 /** Patient 360 mutations that have no home in the shared `queries.ts`, kept here so this work never touches it. */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { unwrap, type AllergyFields, type AllergyId, type PatientFilter, type PatientId } from "@aarogyam/api-client";
+import {
+  unwrap,
+  type AllergyFields,
+  type AllergyId,
+  type ConsentId,
+  type PatientFilter,
+  type PatientId,
+  type RecordConsent,
+  type WithdrawConsent,
+} from "@aarogyam/api-client";
 
 import { useClinic } from "../../clinic.js";
 
@@ -46,5 +55,34 @@ export function useSaveSummaryNote(patientId: PatientId) {
     mutationFn: ({ body, expectedVersion }: { body: string; expectedVersion: number | undefined }) =>
       unwrap(api.savePatientSummaryNote(patientId, { body }, expectedVersion)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["patient-notes", access.org_id, patientId] }),
+  });
+}
+
+/** A patient's consent records (DPDP), newest first. */
+export function useConsents(patientId: PatientId) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["patient-consents", access.org_id, patientId],
+    queryFn: ({ signal }) => unwrap(api.listConsents(patientId, { signal })),
+  });
+}
+
+/** Records that the patient was shown the clinic's notice and agreed. */
+export function useRecordConsent(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: RecordConsent) => unwrap(api.recordConsent(patientId, input)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["patient-consents", access.org_id, patientId] }),
+  });
+}
+
+/** Records that the patient withdrew a consent. */
+export function useWithdrawConsent(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: ConsentId; input: WithdrawConsent }) => unwrap(api.withdrawConsent(id, input)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["patient-consents", access.org_id, patientId] }),
   });
 }

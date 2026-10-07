@@ -299,6 +299,16 @@ export type SummaryContent = Schemas["SummaryContent"];
 export type VisitNote = Schemas["VisitNote"];
 export type PatientNotes = Schemas["PatientNotes"];
 
+// Notice and consent records (DPDP) ---------------------------------------------------------------
+
+export type Consent = Schemas["Consent"];
+export type ConsentList = Schemas["ConsentList"];
+export type RecordConsent = Schemas["RecordConsent"];
+export type WithdrawConsent = Schemas["WithdrawConsent"];
+export type ConsentPurpose = "care" | "reminders" | "promotional" | "sharing" | "research";
+export type ConsentMethod = "paper" | "verbal" | "app";
+export type ConsentStatus = "given" | "withdrawn";
+
 export type Note = Schemas["Note"];
 export type NoteContent = Schemas["NoteContent"];
 export type NoteSections = Schemas["NoteSections"];

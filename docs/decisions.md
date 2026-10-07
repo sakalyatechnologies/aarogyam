@@ -255,3 +255,11 @@ What `own` means, per record:
 
 **Consequences.** Starting a visit or prescribing needs the patient in reach first, so a narrowed doctor can't make any patient their own; booking a patient with themselves (at `appointments.write` `own`) does, and that is how a patient becomes theirs. Clinic set-up stays visible to anyone who can see the calendar (rooms, doctors, hours, leave, letterhead, the drug list). A patient's header still shows their next appointment even if it is with a colleague. Editing a patient (`patients.write`, which is `all` only) still needs the patient within `patients.read` reach, because the answer shows the record. The consultant template, which was `assigned` from the start, is now narrowed as intended.
 
+
+## 2026-10-07: Notice and consent records (DPDP)
+
+**Decision.** `aarogyam.patient_consents` (migration 0280) records, per patient and purpose (`care`, `reminders`, `promotional`, `sharing`, `research`): the clinic's notice version the patient was shown (a free label such as `v1 2026-10`), when they agreed, how (`paper`, `verbal`, `app`) and which staff member recorded it. A withdrawal fills `withdrawn_*` once and the row is then final (`freeze_when_final`); consenting again adds a new row. At most one active consent per patient and purpose. The routes are `GET`/`POST /patients/{id}/consents` and `POST /consents/{id}/withdraw`, under `patients.read` and `patients.write` (so reception can record them, and scopes apply). Every change is in the change history. Patient 360 shows them in a Consent tab, and the header and quick look say whether consent to care is recorded; this replaces the earlier "consent form on file" label, which only looked at a Files item.
+
+**Why.** The clinic is the data fiduciary and must be able to show a notice was given and consent taken, and when it was withdrawn (DPDP sections 5 to 6). The notice text itself is the clinic's document (see `web/apps/website` legal pages for a template); we record the version, not the text, until clinics need to author notices in the product.
+
+**Not done.** Withdrawal does not yet switch off messages (the outbox still uses `consent_channels`): wire promotional and reminder withdrawals to it when messaging ships. Patient self-service consent (app) comes with the patient app.

@@ -143,6 +143,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/consents/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Records that the patient withdrew a consent. The record stays as history. */
+        post: operations["withdrawPatientConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/applications": {
         parameters: {
             query?: never;
@@ -1138,6 +1155,27 @@ export interface paths {
         head?: never;
         /** Edits a condition: resolve it, flag it, correct it, or mark it entered in error. */
         patch: operations["updateCondition"];
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patient's consent records, newest first. */
+        get: operations["listPatientConsents"];
+        put?: never;
+        /**
+         * Records that the patient was shown the clinic's notice and agreed to a purpose. The change
+         *     history records who entered it.
+         */
+        post: operations["recordPatientConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/patients/{id}/dental-chart": {
@@ -3395,6 +3433,38 @@ export interface components {
             /** @description The conditions. */
             items: components["schemas"]["Condition"][];
         };
+        /** @description One consent a patient gave, and whether it still stands. */
+        Consent: {
+            /** @description When the patient agreed (RFC 3339). */
+            given_at: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description `paper`, `verbal` or `app`. */
+            method: string;
+            /** @description A short remark. */
+            note?: string | null;
+            /** @description The clinic's label for the notice text the patient was shown. */
+            notice_version: string;
+            /** @description `care`, `reminders`, `promotional`, `sharing` or `research`. */
+            purpose: string;
+            /** @description The staff member who recorded it. */
+            recorded_by: string;
+            /** @description `given` or `withdrawn`. */
+            status: string;
+            /** @description A short remark about the withdrawal. */
+            withdrawal_note?: string | null;
+            /** @description When it was withdrawn (RFC 3339). */
+            withdrawn_at?: string | null;
+            /** @description The staff member who recorded the withdrawal. */
+            withdrawn_by?: string | null;
+            /** @description `paper`, `verbal` or `app`. */
+            withdrawn_method?: string | null;
+        };
+        /** @description A patient's consents, newest first. */
+        ConsentList: {
+            /** @description The consents, given and withdrawn. */
+            items: components["schemas"]["Consent"][];
+        };
         /** @description A clinic, with counts only. */
         ConsoleClinic: {
             /**
@@ -5570,6 +5640,19 @@ export interface components {
              */
             unit_cost_paise?: number | null;
         };
+        /** @description A consent to record. */
+        RecordConsent: {
+            /** @description When the patient agreed (RFC 3339); now when absent. Not in the future. */
+            given_at?: string | null;
+            /** @description How: `paper`, `verbal` or `app`. */
+            method: string;
+            /** @description A short remark, up to 500 characters. No clinical detail. */
+            note?: string | null;
+            /** @description The clinic's label for the notice text shown, 1 to 40 characters, such as `v1 2026-10`. */
+            notice_version: string;
+            /** @description `care`, `reminders`, `promotional`, `sharing` or `research`. */
+            purpose: string;
+        };
         /** @description A code to redeem on the host it was made for. */
         RedeemHandoff: {
             /** @description The code from the URL fragment. */
@@ -6917,6 +7000,13 @@ export interface components {
             /** @description The designs and their palettes. */
             templates: components["schemas"]["SiteTemplate"][];
         };
+        /** @description A withdrawal to record. */
+        WithdrawConsent: {
+            /** @description How the patient withdrew: `paper`, `verbal` or `app`. */
+            method: string;
+            /** @description A short remark, up to 500 characters. */
+            note?: string | null;
+        };
         /** @description What is done and where. */
         WorkFields: {
             code?: components["schemas"]["Code"] | null;
@@ -7360,6 +7450,67 @@ export interface operations {
             };
             /** @description Too many attempts */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    withdrawPatientConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The consent */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WithdrawConsent"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Consent"];
+                };
+            };
+            /** @description An unknown method, or a bad note */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such consent in this clinic, or its patient is out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description That consent was already withdrawn */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10497,6 +10648,110 @@ export interface operations {
             };
         };
     };
+    listPatientConsents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic, or out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    recordPatientConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordConsent"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Consent"];
+                };
+            };
+            /** @description An unknown purpose or method, a bad version or note, or a time in the future */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic, or out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The patient already has an active consent for that purpose; withdraw it first */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getDentalChart: {
         parameters: {
             query?: {
@@ -13065,7 +13320,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks staff.manage */
+            /** @description The role lacks staff.manage and roles.manage */
             403: {
                 headers: {
                     [name: string]: unknown;

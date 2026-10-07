@@ -80,6 +80,10 @@ pub enum Event {
     NoteAmended,
     /// A patient's summary note was saved.
     PatientNoteSaved,
+    /// A patient's consent was recorded.
+    ConsentRecorded,
+    /// A patient withdrew a consent.
+    ConsentWithdrawn,
     /// A clinical record was marked entered in error.
     RecordRetracted,
     /// A treatment plan was accepted.
@@ -147,6 +151,8 @@ impl Event {
             Self::NoteSigned => "note.signed",
             Self::NoteAmended => "note.amended",
             Self::PatientNoteSaved => "patient_note.saved",
+            Self::ConsentRecorded => "consent.recorded",
+            Self::ConsentWithdrawn => "consent.withdrawn",
             Self::RecordRetracted => "record.retracted",
             Self::TreatmentPlanAccepted => "treatment_plan.accepted",
             Self::ProcedureCompleted => "procedure.completed",

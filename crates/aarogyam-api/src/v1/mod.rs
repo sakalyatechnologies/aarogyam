@@ -6,6 +6,7 @@ pub(crate) mod appointments;
 pub(crate) mod auth;
 pub(crate) mod billing;
 pub(crate) mod chart;
+pub(crate) mod consents;
 pub(crate) mod console;
 pub(crate) mod facts;
 pub(crate) mod files;
@@ -141,6 +142,11 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(visits::list).post(visits::start),
         )
         .route("/patients/{id}/timeline", get(visits::timeline))
+        .route(
+            "/patients/{id}/consents",
+            get(consents::list).post(consents::record),
+        )
+        .route("/consents/{id}/withdraw", post(consents::withdraw))
         .route("/patients/{id}/notes", get(patient_notes::get))
         .route(
             "/patients/{id}/summary-note",

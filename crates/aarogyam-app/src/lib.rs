@@ -10,6 +10,7 @@ pub mod appointments;
 pub mod billing;
 pub mod chart;
 pub mod clock;
+pub mod consents;
 pub mod console;
 pub mod error;
 pub mod facts;

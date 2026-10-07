@@ -1,6 +1,6 @@
 import { Check, Lock, MessageSquarePlus, Mic, Plus } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { useLocation, useParams, useSearchParams } from "react-router";
+import { useRef, useState } from "react";
+import { useParams } from "react-router";
 
 import {
   apiErrorOf,
@@ -173,30 +173,6 @@ function NotesCard({
   const createNote = useCreateNote(visitId);
   const [drafting, setDrafting] = useState(false);
   const toast = useToast();
-  const { session } = useClinic();
-  const location = useLocation();
-  const [params] = useSearchParams();
-  // The top bar's "Voice note" lands here with ?voice=1: record into the member's draft, starting one when
-  // there is none. Each visit to the address has its own key, so asking again reopens a closed recorder.
-  const voiceRequest = params.get("voice") === "1" ? location.key : undefined;
-  const myDraft = notes.find((n) => n.status === "draft" && n.author.id === session.membership.id);
-  const handled = useRef<string | undefined>(undefined);
-
-  useEffect(() => {
-    if (voiceRequest === undefined || !canWrite || myDraft !== undefined || handled.current === voiceRequest) {
-      return;
-    }
-    handled.current = voiceRequest;
-    createNote.mutate(
-      { kind: "soap" },
-      {
-        onError: (thrown) => {
-          toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't start a note.", tone: "danger" });
-        },
-      },
-    );
-  }, [voiceRequest, canWrite, myDraft, createNote, toast]);
-
   return (
     <MkCard
       title="Notes"
@@ -240,7 +216,6 @@ function NotesCard({
               recordings={recordings.filter((file) => file.note_id === note.id)}
               canEdit={canWrite}
               canAddend={canAddend}
-              openRecorder={myDraft?.id === note.id ? voiceRequest : undefined}
             />
           ))}
         </div>
@@ -256,7 +231,6 @@ function NoteCard({
   recordings,
   canEdit,
   canAddend,
-  openRecorder,
 }: {
   patientId: PatientId;
   visitId: VisitId;
@@ -264,8 +238,6 @@ function NoteCard({
   recordings: readonly Attachment[];
   canEdit: boolean;
   canAddend: boolean;
-  /** Changes with each request to open the recorder, so asking again reopens it. */
-  openRecorder: string | undefined;
 }) {
   const sign = useSignNote(visitId);
   const { session } = useClinic();
@@ -303,7 +275,7 @@ function NoteCard({
         <Tag tone={statusTone(note.status === "signed" ? "success" : note.status === "draft" ? "neutral" : "danger")}>{note.status}</Tag>
       </div>
       {editing ? (
-        <DraftNoteEditor patientId={patientId} visitId={visitId} note={note} openRecorder={openRecorder} handle={draft} />
+        <DraftNoteEditor patientId={patientId} visitId={visitId} note={note} handle={draft} />
       ) : (
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
           <NoteSection label="Subjective" value={sections.subjective} />

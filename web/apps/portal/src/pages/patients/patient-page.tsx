@@ -6,10 +6,11 @@ import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
 import { Tabs } from "@sakalya/ui";
 
+import { AppointmentActionButton, isOpenAppointment } from "../../components/appointment-action.js";
 import { AlertBanner, Empty, Initials, ListRow, MkCard, Skeleton, StatusChip, Timeline } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { ageSex, formatPhone, languageLabel, maskEmail, maskPhone, patientPath } from "../../lib/patients.js";
-import { useAttachments, useClinicalFlags, usePatient, useTimeline } from "../../queries.js";
+import { useAttachments, useClinicalFlags, usePatient, useTimeline, useToday } from "../../queries.js";
 import { rememberPatient } from "../../lib/recent-patients.js";
 import { usePlans } from "../treatment-plans/queries.js";
 import { NotFoundPage } from "../not-found-page.js";
@@ -105,6 +106,9 @@ function PatientView({ patient }: { patient: Patient }) {
   // Without patients.contact the API sends contact details already masked: show them as they are.
   const revealable = can("patients.contact");
   const age = patient.age_years ?? null;
+  // Today's appointment for this patient that can still move along: the desk or the doctor takes the next step from here.
+  const today = useToday(can("appointments.read"));
+  const todayAppointment = today.data?.appointments.find((a) => a.patient.id === patient.id && isOpenAppointment(a.status));
   useEffect(() => {
     rememberPatient(access.org_id, patient.id);
   }, [access.org_id, patient.id]);
@@ -127,6 +131,7 @@ function PatientView({ patient }: { patient: Patient }) {
           </div>
         </div>
         <div className="mk-p360-actions">
+          {todayAppointment === undefined ? null : <AppointmentActionButton appointment={todayAppointment} />}
           {can("patients.write") ? (
             <button
               type="button"

@@ -320,7 +320,10 @@
 /* sidebar: collapsible rail (wide screens) and drawer (phones) */
 .mk-logo { position: relative; }
 .mk-logo-t { min-width: 0; flex: 1; }
-.mk-logo-t b, .mk-logo-t small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mk-logo-t b, .mk-logo-t small { display: block; white-space: nowrap; }
+.mk-logo-t b { font-size: 15px; }
+.mk-clinic > button { overflow-wrap: anywhere; }
+.mk-clinic b { white-space: normal; line-height: 1.25; }
 .mk-logo-mark { flex: none; overflow: hidden; }
 .mk-logo-mark.has-img { background: #fff; padding: 3px; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
 .mk-logo-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -331,11 +334,15 @@
 .mk-side { transition: width .2s; }
 .mk-app { transition: grid-template-columns .2s; }
 @media (min-width: 1121px) {
-  .mk-app.mk-collapsed { grid-template-columns: 76px minmax(0, 1fr); }
-  .mk-collapsed .mk-side { padding: 22px 10px; align-items: stretch; overflow-x: hidden; }
-  .mk-collapsed .mk-logo { flex-direction: column; padding: 4px 0 14px; gap: 10px; }
-  .mk-collapsed .mk-logo-t, .mk-collapsed .mk-navlbl, .mk-collapsed .mk-nav-t, .mk-collapsed .mk-clinic, .mk-collapsed   .mk-collapsed .mk-nav a { justify-content: center; padding: 11px 0; }
+  .mk-app.mk-collapsed { grid-template-columns: 72px minmax(0, 1fr); }
+  .mk-collapsed .mk-side { padding: 18px 10px; align-items: stretch; overflow: hidden auto; }
+  .mk-collapsed .mk-logo { flex-direction: column; align-items: center; padding: 2px 0 10px; gap: 10px; }
+  .mk-collapsed .mk-logo-t, .mk-collapsed .mk-navlbl, .mk-collapsed .mk-nav-t, .mk-collapsed .mk-clinic { display: none; }
+  .mk-collapsed nav::before { content: ""; display: block; height: 1px; background: rgba(255,255,255,.12); margin: 0 6px 8px; }
   .mk-collapsed .mk-nav { align-items: stretch; }
+  .mk-collapsed .mk-nav a { justify-content: center; padding: 0; height: 44px; width: 100%; position: relative; }
+  .mk-collapsed .mk-nav a[aria-current="page"] { box-shadow: none; background: color-mix(in srgb, #fff 18%, transparent); }
+  .mk-collapsed .mk-nav .mk-bdg { position: absolute; top: 2px; right: 4px; margin: 0; padding: 0 5px; font-size: 10px; line-height: 16px; min-width: 16px; text-align: center; }
 }
 @media (max-width: 1120px) {
   .mk-collapse { display: none; }
@@ -666,3 +673,17 @@ a.mk-lrow:hover, button.mk-lrow:hover { background: var(--hover); }
 /* Dialogs, drawers and menus portal to <body> outside .mk-app: lift them above the sticky sidebar (60) and topbar (30), below toasts (200). */
 body > [data-base-ui-portal] { position: relative; z-index: 150; }
 .mk-qrow > .min-w-0 { flex: 1 1 140px; }
+
+.mk-palette-foot { margin: 0; padding: 9px 18px; border-top: 1px solid var(--rule); font-size: 12px; color: var(--muted); }
+.mk-palette-foot kbd { background: var(--bg); border: 1px solid var(--rule); border-radius: 5px; padding: 0 5px; font: inherit; font-size: 11px; font-weight: 700; color: var(--ink2); }
+
+.mk-crumbs { margin: -4px 0 10px; font-size: 12.5px; color: var(--muted); }
+.mk-crumbs ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.mk-crumbs li + li::before { content: "/"; margin-right: 4px; opacity: .6; }
+.mk-crumbs a { color: var(--muted); text-decoration: none; }
+.mk-crumbs a:hover { color: var(--brand-text); text-decoration: underline; }
+.mk-crumbs [aria-current="page"] { color: var(--ink); font-weight: 600; }
+
+.mk-alert-actions { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: flex-end; flex: none; max-width: 45%; }
+.mk-alert button.mk-link { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; cursor: pointer; }
+.mk-alert button.mk-link:disabled { opacity: .5; cursor: default; }

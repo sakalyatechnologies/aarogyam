@@ -1,6 +1,6 @@
-import { Copy, Pill, Printer, RotateCcw, Share2, Trash2 } from "lucide-react";
+import { ChevronLeft, Copy, Pill, Printer, RotateCcw, Share2, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 
 import {
   apiErrorOf,
@@ -23,6 +23,7 @@ import {
   usePrescription,
 } from "./queries.js";
 import { PageHeader } from "../../components/mk/index.js";
+import { patientPath } from "../../lib/patients.js";
 import { joinParts } from "../../lib/text.js";
 
 const TIMINGS = [
@@ -66,8 +67,26 @@ function PrescriptionBody({ rx }: { rx: Prescription }) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [sent, setSent] = useState<PatientMessage>();
 
+  const rxTab = `${patientPath(rx.patient)}?tab=prescriptions`;
   return (
     <>
+      <Link to={rxTab} className="mk-back">
+        <ChevronLeft aria-hidden="true" /> {rx.patient.name} · Rx
+      </Link>
+      <nav aria-label="Breadcrumb" className="mk-crumbs">
+        <ol>
+          <li>
+            <Link to="/patients">Patients</Link>
+          </li>
+          <li>
+            <Link to={patientPath(rx.patient)}>{rx.patient.name}</Link>
+          </li>
+          <li>
+            <Link to={rxTab}>Rx</Link>
+          </li>
+          <li aria-current="page">{rx.number ?? "Draft"}</li>
+        </ol>
+      </nav>
       <PageHeader
         title={rx.number ?? "Draft prescription"}
         subtitle={`${rx.patient.name} · ${rx.patient.number}`}

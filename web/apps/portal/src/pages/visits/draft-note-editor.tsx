@@ -51,14 +51,11 @@ export function DraftNoteEditor({
   patientId,
   visitId,
   note,
-  openRecorder,
   handle,
 }: {
   patientId: PatientId;
   visitId: VisitId;
   note: Note;
-  /** A token that changes with each request to open the recorder, so asking again reopens it after it was closed. */
-  openRecorder?: string | undefined;
   handle?: Ref<DraftHandle>;
 }) {
   const edit = useEditNote(visitId);
@@ -69,13 +66,6 @@ export function DraftNoteEditor({
   const saved = useRef<Values>(valuesOf(note));
   const [dirty, setDirty] = useState(false);
   const [recording, setRecording] = useState(false);
-  const [seenRequest, setSeenRequest] = useState<string | undefined>(undefined);
-  if (openRecorder !== seenRequest) {
-    setSeenRequest(openRecorder);
-    if (openRecorder !== undefined) {
-      setRecording(true);
-    }
-  }
   const boxes = useRef<Partial<Record<SectionKey, HTMLTextAreaElement | null>>>({});
   const focused = useRef<SectionKey>("subjective");
   const selection = useRef<Partial<Record<SectionKey, { start: number; end: number }>>>({});

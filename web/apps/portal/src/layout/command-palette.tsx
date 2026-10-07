@@ -216,6 +216,9 @@ function PaletteBody({ onClose, pages }: { onClose: () => void; pages: readonly 
             </li>
           ) : null}
         </ul>
+        <p className="mk-palette-foot">
+          Open this search anywhere with <kbd>Ctrl</kbd> + <kbd>K</kbd> or <kbd>⌘</kbd> + <kbd>K</kbd>. <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open.
+        </p>
       </div>
     </div>
   );

@@ -27,6 +27,8 @@ describe("Sidebar", () => {
     expect(localStorage.getItem(KEY)).toBe("1");
     // Links keep their names for screen readers and show them as tooltips.
     expect(screen.getByRole("link", { name: "Patients" }).getAttribute("title")).toBe("Patients");
+    // The rail shows the logo mark only: the clinic's name is not repeated under it.
+    expect(document.querySelector(".mk-logo-t")?.textContent).not.toContain("Sunrise");
     await user.click(screen.getByRole("button", { name: "Expand sidebar" }));
     expect(app?.classList.contains("mk-collapsed")).toBe(false);
     expect(localStorage.getItem(KEY)).toBe("0");
@@ -108,31 +110,40 @@ describe("Clinic logo", () => {
   });
 });
 
-describe("Search", () => {
-  it("replaces the big search bar with a compact button", async () => {
-    renderPortal("/today", { as: PEOPLE.asha });
-    const button = await screen.findByRole("button", { name: "Search" });
-    expect(button.className).toContain("mk-iconbtn");
-    expect(screen.queryByRole("searchbox")).toBeNull();
-    expect(document.querySelector(".mk-cmdk")).toBeNull();
-  });
+/** Opens the command palette the way the product intends: with the keyboard. */
+async function openPalette(user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByRole("navigation", { name: "Main" });
+  await user.keyboard("{Control>}k{/Control}");
+  return screen.findByRole("dialog", { name: "Search" });
+}
 
-  it("opens the command palette from the button or with Ctrl+K, and closes it on Escape", async () => {
+describe("Top bar", () => {
+  it("has no Search or Voice note button: search is Ctrl+K and dictation lives in the visit", async () => {
+    renderPortal("/today", { as: PEOPLE.asha });
+    await screen.findByRole("button", { name: "Notifications" });
+    expect(screen.queryByRole("button", { name: "Search" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Voice note" })).toBeNull();
+    expect(document.querySelector(".mk-topbar")?.querySelector(".mk-searchbtn")).toBeNull();
+  });
+});
+
+describe("Search", () => {
+  it("opens the command palette with Ctrl+K or Cmd+K, closes it on Escape, and says so in its footer", async () => {
     const user = userEvent.setup();
     renderPortal("/today", { as: PEOPLE.asha });
-    await user.click(await screen.findByRole("button", { name: "Search" }));
-    const dialog = await screen.findByRole("dialog", { name: "Search" });
+    const dialog = await openPalette(user);
     expect(document.activeElement).toBe(within(dialog).getByRole("combobox"));
+    expect(within(dialog).getByText(/Open this search anywhere with/)).toBeTruthy();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "Search" })).toBeNull();
-    await user.keyboard("{Control>}k{/Control}");
+    await user.keyboard("{Meta>}k{/Meta}");
     expect(await screen.findByRole("dialog", { name: "Search" })).toBeTruthy();
   });
 
   it("jumps to a page", async () => {
     const user = userEvent.setup();
     const { router } = renderPortal("/today", { as: PEOPLE.asha });
-    await user.click(await screen.findByRole("button", { name: "Search" }));
+    await openPalette(user);
     await user.type(await screen.findByRole("combobox"), "bill");
     await user.keyboard("{Enter}");
     await waitFor(() => {
@@ -143,7 +154,7 @@ describe("Search", () => {
   it("finds a patient and opens the quick look", async () => {
     const user = userEvent.setup();
     renderPortal("/today", { as: PEOPLE.asha });
-    await user.click(await screen.findByRole("button", { name: "Search" }));
+    await openPalette(user);
     await user.type(await screen.findByRole("combobox"), "SD-5");
     const options = await screen.findAllByRole("option", { name: /SD-5/ }, { timeout: 3000 });
     const option = options[0];
@@ -152,18 +163,10 @@ describe("Search", () => {
     expect(await screen.findByRole("dialog", { name: /.+/, hidden: false })).toBeTruthy();
   });
 
-  it("labels the Search button with its text and shortcut", async () => {
-    renderPortal("/today", { as: PEOPLE.asha });
-    const button = await screen.findByRole("button", { name: "Search" });
-    expect(within(button).getByText("Search")).toBeTruthy();
-    expect(within(button).getByText("⌘K")).toBeTruthy();
-    expect(button.getAttribute("aria-keyshortcuts")).toBe("Control+K Meta+K");
-  });
-
   it("finds bills and prescriptions of a patient", async () => {
     const user = userEvent.setup();
     renderPortal("/today", { as: PEOPLE.asha });
-    await user.click(await screen.findByRole("button", { name: "Search" }));
+    await openPalette(user);
     await user.type(await screen.findByRole("combobox"), "SD-");
     await screen.findAllByRole("option", { name: /Prescriptions for/ }, { timeout: 3000 });
     expect(screen.getAllByRole("option").length).toBeGreaterThan(1);

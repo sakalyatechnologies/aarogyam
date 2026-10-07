@@ -1,4 +1,4 @@
-import { Armchair, ArrowUpRight, CalendarDays, CircleCheck, Clock, ListOrdered, Plus, UserCheck } from "lucide-react";
+import { Armchair, ArrowUpRight, CalendarDays, CircleCheck, Clock, ListOrdered, Plus } from "lucide-react";
 import { Link } from "react-router";
 
 import { apiErrorOf, type LowStockAlert, type Member, type PendingItem, type Today, type TodayMoney } from "@aarogyam/api-client";
@@ -22,6 +22,7 @@ import {
   StatTile,
   StatusChip,
 } from "../../components/mk/index.js";
+import { AppointmentActionButton, nextAction } from "../../components/appointment-action.js";
 import { APPOINTMENT_CHIP } from "../../lib/appointment-status.js";
 import { useClinic } from "../../clinic.js";
 import { usePatientPeek } from "../../layout/peek.js";
@@ -29,7 +30,7 @@ import { DayTimeline } from "./day-timeline.js";
 import { FinishSetupCard } from "../setup/finish-card.js";
 import { patientPath } from "../../lib/patients.js";
 import { compactRupees } from "../../lib/money.js";
-import { useSetAppointmentStatus, useStaff, useToday } from "../../queries.js";
+import { usePatient, useSetAppointmentStatus, useStaff, useToday } from "../../queries.js";
 import { useTodayMoney } from "../billing/queries.js";
 
 const MINUTE = 60_000;
@@ -120,8 +121,10 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
   const waiting = booked.filter((a) => a.status === "arrived").sort((a, b) => (a.arrived_at ?? "").localeCompare(b.arrived_at ?? ""));
   const upcoming = booked.filter((a) => a.status === "requested" || a.status === "booked" || a.status === "confirmed");
   const now = booked.find((a) => a.status === "in_chair") ?? waiting[0];
-  const nextUp = now === undefined ? upcoming[0] : [...waiting.filter((a) => a !== now), ...upcoming][0];
-  const target = frontDesk ? upcoming[0] : (nextUp ?? now);
+  // The hero follows the day: whoever is in the chair, else the next person waiting, else the next arrival.
+  // Completing a visit drops the patient from this list, so the hero moves on by itself.
+  const nextUp = [...waiting.filter((a) => a !== now), ...upcoming][0];
+  const target = frontDesk ? upcoming[0] : (now ?? upcoming[0]);
   const hours = today.by_hour.map((bar) => {
     const h12 = bar.hour % 12 === 0 ? 12 : bar.hour % 12;
     const label = `${String(h12)}${bar.hour >= 12 ? "p" : "a"}`;
@@ -262,7 +265,7 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
 
         <div className="mk-today-side">
           <SectionHeader title="Alerts" />
-          <AttentionSection items={today.attention} lowStock={today.low_stock ?? []} />
+          <AttentionSection items={today.attention} lowStock={today.low_stock ?? []} appointments={today.appointments} timeZone={timeZone} />
 
           <SectionHeader title="Chair status" />
           <MkCard>
@@ -315,8 +318,6 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
  */
 function NextCard({ target, frontDesk, current, today, timeZone }: { target: TodayAppointment | undefined; frontDesk: boolean; current: boolean; today: Today; timeZone: string }) {
   const { can } = useClinic();
-  const toast = useToast();
-  const setStatus = useSetAppointmentStatus();
   const ring = (
     <ProgressRing
       value={today.counts.done}
@@ -341,7 +342,7 @@ function NextCard({ target, frontDesk, current, today, timeZone }: { target: Tod
       />
     );
   }
-  const canCheckIn = frontDesk && can("appointments.write") && (target.status === "booked" || target.status === "confirmed");
+  const step = nextAction(target.status);
   return (
     <HeroCard
       label={frontDesk ? "Next arrival" : current ? "Current consultation" : "Next consultation"}
@@ -351,59 +352,42 @@ function NextCard({ target, frontDesk, current, today, timeZone }: { target: Tod
       meta={`${target.patient.number} · ${APPOINTMENT_CHIP[target.status].label}`}
       ring={ring}
       action={
-        canCheckIn ? (
-          <button
-            type="button"
-            className="mk-btn mk-btn-primary"
-            disabled={setStatus.isPending}
-            onClick={() => {
-              setStatus.mutate(
-                { id: target.id, change: { status: "arrived" } },
-                {
-                  onSuccess: () => {
-                    toast.show({ title: "Checked in", tone: "success" });
-                  },
-                  onError: (thrown) => {
-                    toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't check in. Please try again.", tone: "danger" });
-                  },
-                },
-              );
-            }}
-          >
-            <UserCheck aria-hidden="true" /> Check in patient
-          </button>
-        ) : can("patients.read") ? (
-          <Link to={patientPath(target.patient)} className="mk-btn mk-btn-primary">
-            <ArrowUpRight aria-hidden="true" /> Open patient record
-          </Link>
-        ) : undefined
+        <>
+          {step !== undefined && can("appointments.write") ? <AppointmentActionButton appointment={target} /> : null}
+          {can("patients.read") ? (
+            <Link to={patientPath(target.patient)} className={step !== undefined && can("appointments.write") ? "mk-btn mk-btn-ghost" : "mk-btn mk-btn-primary"}>
+              <ArrowUpRight aria-hidden="true" /> Open patient record
+            </Link>
+          ) : null}
+        </>
       }
     />
   );
 }
 
-function AttentionSection({ items, lowStock }: { items: readonly TodayAttentionItem[]; lowStock: readonly LowStockAlert[] }) {
+/** Whether a phone number from the API is a real, dialable one (without `patients.contact` it arrives masked). */
+function dialable(phone: string | null | undefined): string | undefined {
+  const digits = (phone ?? "").replace(/[\s-]/g, "");
+  return /^\+?\d{7,15}$/.test(digits) ? digits : undefined;
+}
+
+function AttentionSection({ items, lowStock, appointments, timeZone }: { items: readonly TodayAttentionItem[]; lowStock: readonly LowStockAlert[]; appointments: Today["appointments"]; timeZone: string }) {
   if (items.length === 0 && lowStock.length === 0) {
     return (
       <div className="mk-list">
-        <EmptyState compact art="clear" title="Nothing needs attention" description="Late arrivals, long waits and low stock appear here." />
+        <EmptyState compact art="clear" title="Nothing needs attention" description="Patients who are late, waiting too long, or items running low will show here." />
       </div>
     );
   }
   return (
     <div>
       {items.map((item, index) => (
-        <AlertBanner
+        <AttentionRow
           key={item.appointment_id ?? item.queue_token_id ?? `attention-${String(index)}`}
-          tone={item.kind === "long_wait" ? "danger" : "warn"}
-          action={
-            <Link to={patientPath(item.patient)} className="mk-link">
-              Review
-            </Link>
-          }
-        >
-          <b>{item.patient.full_name}</b> · {item.message}
-        </AlertBanner>
+          item={item}
+          appointment={appointments.find((a) => a.id === item.appointment_id)}
+          timeZone={timeZone}
+        />
       ))}
       {lowStock.slice(0, 3).map((alert) => (
         <AlertBanner
@@ -411,14 +395,103 @@ function AttentionSection({ items, lowStock }: { items: readonly TodayAttentionI
           tone="info"
           action={
             <Link to="/stock" className="mk-link">
-              Stock
+              Open stock
             </Link>
           }
         >
-          <b>{alert.name}</b> · {alert.on_hand} {alert.unit} left (reorder at {alert.reorder_level})
+          <b>{alert.name}</b> is running low: {alert.on_hand} {alert.unit} left, reorder at {alert.reorder_level}
         </AlertBanner>
       ))}
     </div>
+  );
+}
+
+function plural(count: number, one: string, many: string): string {
+  return `${String(count)} ${count === 1 ? one : many}`;
+}
+
+/** One alert in plain words, with the actions that settle it. */
+function AttentionRow({ item, appointment, timeZone }: { item: TodayAttentionItem; appointment: TodayAppointment | undefined; timeZone: string }) {
+  const { can } = useClinic();
+  const toast = useToast();
+  const setStatus = useSetAppointmentStatus();
+  const readable = can("patients.read");
+  const patient = usePatient(item.kind === "late_arrival" && readable ? item.patient.id : undefined);
+  const phone = dialable(patient.data?.phone);
+  const name = item.patient.full_name;
+  const settle = (status: "arrived" | "no_show", done: string) => {
+    if (appointment === undefined) {
+      return;
+    }
+    setStatus.mutate(
+      { id: appointment.id, change: { status } },
+      {
+        onSuccess: () => {
+          toast.show({ title: done, tone: "success" });
+        },
+        onError: (thrown) => {
+          toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't update the appointment. Please try again.", tone: "danger" });
+        },
+      },
+    );
+  };
+  if (item.kind === "long_wait") {
+    return (
+      <AlertBanner
+        tone="danger"
+        action={
+          readable ? (
+            <Link to={patientPath(item.patient)} className="mk-link">
+              Open record
+            </Link>
+          ) : undefined
+        }
+      >
+        <b>{name}</b> has been waiting {plural(item.minutes, "minute", "minutes")}
+      </AlertBanner>
+    );
+  }
+  const slot = appointment === undefined ? "" : ` — appointment ${formatTime(appointment.starts_at, timeZone)},`;
+  const canWrite = can("appointments.write") && appointment !== undefined && (appointment.status === "booked" || appointment.status === "confirmed");
+  return (
+    <AlertBanner
+      tone="warn"
+      action={
+        <span className="mk-alert-actions">
+          {canWrite ? (
+            <>
+              <button
+                type="button"
+                className="mk-link"
+                disabled={setStatus.isPending}
+                onClick={() => {
+                  settle("arrived", `${name} marked as arrived`);
+                }}
+              >
+                Mark arrived
+              </button>
+              <button
+                type="button"
+                className="mk-link"
+                disabled={setStatus.isPending}
+                onClick={() => {
+                  settle("no_show", `${name} marked as no-show`);
+                }}
+              >
+                No-show
+              </button>
+            </>
+          ) : null}
+          {phone === undefined ? null : (
+            <a className="mk-link" href={`tel:${phone}`} aria-label={`Call ${name}`}>
+              Call
+            </a>
+          )}
+        </span>
+      }
+    >
+      <b>{name}</b> hasn&apos;t arrived{slot} {item.minutes} min late
+    </AlertBanner>
   );
 }
 

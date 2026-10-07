@@ -38,9 +38,11 @@ app = "app.localtest.me"
 hosts = "wildcard"
 
 [website]
-# Placeholders shown in Settings -> Website -> Domain until the product domain exists.
-sites_target = "sites.aarogyam.example"
-address_template = "{slug}-site.aarogyam.example"
+# *.localtest.me resolves to 127.0.0.1 (the site app's dev server answers `<slug>-site.localtest.me:5175`);
+# the outbox drain marks site hosts ready like portal hosts. Deployed environments set both
+# (docs/deploy.md "Clinic websites").
+sites_target = "sites.localtest.me"
+address_template = "{slug}-site.localtest.me"
 
 [email]
 # No Resend key locally: email from the outbox is recorded as delivered and logged by id.

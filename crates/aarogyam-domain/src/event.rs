@@ -36,6 +36,8 @@ pub enum Event {
     AddressRetried,
     /// Making a portal host work failed for the last time.
     AddressFailed,
+    /// A taken-down clinic site's address was removed from the edge.
+    AddressRemoved,
     /// A bill was issued.
     InvoiceIssued,
     /// A bill was voided.
@@ -125,6 +127,7 @@ impl Event {
             Self::AddressProvisioned => "address.provisioned",
             Self::AddressRetried => "address.retried",
             Self::AddressFailed => "address.failed",
+            Self::AddressRemoved => "address.removed",
             Self::InvoiceIssued => "invoice.issued",
             Self::InvoiceVoided => "invoice.voided",
             Self::PaymentReceived => "payment.received",

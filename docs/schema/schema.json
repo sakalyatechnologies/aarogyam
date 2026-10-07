@@ -1332,13 +1332,13 @@
   {
    "name": "org_domains",
    "domain": "tenancy",
-   "purpose": "Host names that resolve to a clinic: its portal and its website.",
+   "purpose": "Host names that resolve to a clinic: its portal, its free website address (site) and its own domain (website).",
    "rls": "global",
    "star": true,
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Read before the clinic is known, through app.resolve_clinic_host(); cached in memory for a short time. New portal rows start pending (trigger); the outbox job makes them work (app.edge_hosts_claim).",
+   "notes": "Read before the clinic is known, through app.resolve_clinic_host(); cached in memory for a short time. New portal rows start pending (trigger); publishing a site writes its site row (app.site_host_publish); the outbox job makes hosts work and removes taken-down sites (app.edge_hosts_work).",
    "cols": [
     {
      "name": "org_id",
@@ -1359,7 +1359,7 @@
      "type": "domain_kind",
      "nullable": false,
      "ref": null,
-     "note": "portal, website"
+     "note": "portal, website, site"
     },
     {
      "name": "is_primary",
@@ -1387,7 +1387,7 @@
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "portal rows: pending, ready, failed (served at the edge yet?)"
+     "note": "portal and site rows: pending, ready, failed, removing (a taken-down site)"
     },
     {
      "name": "edge_attempts",

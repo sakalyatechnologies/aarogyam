@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select org_id as \"org_id!\", domain_id as \"domain_id!\", slug as \"slug!\",\n                  hostname as \"hostname!\", attempts as \"attempts!\"\n           from app.edge_hosts_claim($1, $2)",
+  "query": "select org_id as \"org_id!\", domain_id as \"domain_id!\", slug as \"slug!\",\n                  hostname as \"hostname!\", attempts as \"attempts!\",\n                  kind as \"kind!\", removing as \"removing!\"\n           from app.edge_hosts_work($1, $2)",
   "describe": {
     "columns": [
       {
@@ -32,6 +32,18 @@
         "name": "attempts!",
         "type_info": "Int4",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "kind!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "removing!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -45,8 +57,10 @@
       null,
       null,
       null,
+      null,
+      null,
       null
     ]
   },
-  "hash": "dcbd72772bc3a8d1403912a0e9db4841b3679068b6f5282f4dd7947cac848314"
+  "hash": "5d73e9810dae7dbffcce04593895132b1a8634434d054f324eeb027fcf5af337"
 }

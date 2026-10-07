@@ -63,6 +63,10 @@ ENV_VARS="${ENV_VARS}#ARO_AUTH__DEV_TOKENS=false"
 ENV_VARS="${ENV_VARS}#ARO_HOSTS__PORTAL_HOST_TEMPLATE={slug}-aarogyam.${WORKERS}"
 ENV_VARS="${ENV_VARS}#ARO_HOSTS__APP=aarogyam-portal.${WORKERS}"
 ENV_VARS="${ENV_VARS}#ARO_HOSTS__CONSOLE=aarogyam-console.${WORKERS}"
+# Published clinic sites: <slug>-site.<account>.workers.dev (the outbox job makes each Worker),
+# later <slug>-site.sakalyatechnologies.com with only this value changed.
+ENV_VARS="${ENV_VARS}#ARO_WEBSITE__ADDRESS_TEMPLATE={slug}-site.${WORKERS}"
+ENV_VARS="${ENV_VARS}#ARO_WEBSITE__SITES_TARGET=aarogyam-site.${WORKERS}"
 ENV_VARS="${ENV_VARS}#ARO_EMAIL__PORTAL_LINK=https://{host}"
 ENV_VARS="${ENV_VARS}#ARO_EMAIL__FROM=${ARO_EMAIL__FROM:-Aarogyam <noreply@aarogyam.sakalyatechnologies.com>}"
 ENV_VARS="${ENV_VARS}#ARO_FILES__BACKEND=supabase#ARO_FILES__BUCKET=aarogyam-files"
@@ -74,7 +78,7 @@ ENV_VARS="${ENV_VARS}#ARO_TELEMETRY__FILTER=info"
 # (and every other secret) stays out of this job.
 MIGRATE_SECRETS="ARO_DB__OWNER_URL=${SECRET_DB_OWNER_URL}:latest,ARO_DB__URL=${SECRET_DB_OWNER_URL}:latest"
 
-# The outbox job also gives new clinics their portal address (one Worker each on workers.dev),
+# The outbox job also gives new clinics their portal address and published sites their site address (one Worker each on workers.dev),
 # so only it gets the Cloudflare token; the API service never sees it.
 JOB_ENV_VARS="$ENV_VARS"
 JOB_SECRETS="$SECRETS"
@@ -105,7 +109,7 @@ Image:     $IMAGE $([ "$DO_BUILD" = 1 ] && echo "(Cloud Build, as $BUILD_SA_NAME
 Service:   $SERVICE  min 0 / max 1 instance, concurrency 40, 512Mi, CPU only during requests
 Migrate:   job $MIGRATE_JOB runs 'migrate' as $MIGRATE_SA_NAME before the service is updated
 Job:       $DRAIN_JOB  runs 'outbox drain' on schedule '$DRAIN_SCHEDULE' (UTC)
-Hosts:     portal {slug}-aarogyam.$WORKERS, app/console on $WORKERS
+Hosts:     portal {slug}-aarogyam.$WORKERS, site {slug}-site.$WORKERS, app/console on $WORKERS
 Addresses: $ADDRESSES
 Source:    this checkout (.gcloudignore keeps .env files, docs and web out of the upload)
 PLAN

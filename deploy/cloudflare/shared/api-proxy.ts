@@ -24,7 +24,7 @@ export interface Env {
 
 const STRIPPED_REQUEST_HEADERS = ["x-forwarded-host", "x-sakalya-host", "cf-connecting-ip", "x-sakalya-edge"];
 
-export async function proxyApi(request: Request, env: Env): Promise<Response> {
+export async function proxyApi(request: Request, env: Env, options: { publicContent?: boolean } = {}): Promise<Response> {
   if (!env.API_ORIGIN) {
     return new Response("API_ORIGIN is not configured", { status: 502 });
   }
@@ -55,8 +55,10 @@ export async function proxyApi(request: Request, env: Env): Promise<Response> {
   });
 
   const responseHeaders = new Headers(upstream.headers);
-  // Patient data must never be cached at the edge, regardless of what the API sends.
-  responseHeaders.set("cache-control", "no-store");
+  // Patient data must never be cached at the edge, regardless of what the API sends. Only the
+  // site Worker, which forwards nothing but a clinic's published public content, keeps the
+  // API's own cache headers (`publicContent`).
+  if (!options.publicContent) responseHeaders.set("cache-control", "no-store");
   return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
 }
 

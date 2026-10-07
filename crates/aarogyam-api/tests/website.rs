@@ -119,11 +119,8 @@ async fn the_owner_edits_the_design_and_content_with_checks() {
     assert_eq!(site["palette"], "gold");
     assert_eq!(site["published"], false);
     assert_eq!(site["domain"]["status"], "none");
-    assert_eq!(
-        site["domain"]["default_address"],
-        "alpha-site.aarogyam.example"
-    );
-    assert_eq!(site["domain"]["sites_target"], "sites.aarogyam.example");
+    assert_eq!(site["domain"]["default_address"], "alpha-site.localtest.me");
+    assert_eq!(site["domain"]["sites_target"], "sites.localtest.me");
     assert!(site["templates"].as_array().unwrap().len() >= 4);
     assert_eq!(site["preview"]["clinic"]["name"], "Alpha Dental");
 

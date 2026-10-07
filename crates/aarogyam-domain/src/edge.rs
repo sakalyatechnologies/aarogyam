@@ -1,7 +1,7 @@
-//! A clinic's portal address at the edge: whether Cloudflare serves its host yet.
+//! A clinic's portal or site address at the edge: whether Cloudflare serves its host yet.
 
 text_value! {
-    /// Whether a portal host is served: the console shows it as "address ready / pending /
+    /// Whether a portal or site host is served: the console shows it as "address ready / pending /
     /// failed".
     AddressStatus ("address_status") {
         /// Queued: the outbox job hasn't made the host work yet, or will try again.
@@ -10,6 +10,8 @@ text_value! {
         Ready => "ready",
         /// The last attempt failed; the reason is kept, and the backfill script queues it again.
         Failed => "failed",
+        /// A taken-down site waiting for the job to remove its Worker; never shown to owners.
+        Removing => "removing",
     }
 }
 

@@ -246,3 +246,51 @@ pub async fn delete_kind(conn: &mut PgConnection, kind: &str) -> Result<Vec<Uuid
     .await?;
     Ok(ids)
 }
+
+/// Where the clinic's free website address stands at the edge.
+#[derive(Debug, Clone)]
+pub struct SiteHostRow {
+    /// The host name.
+    pub hostname: String,
+    /// `pending`, `ready`, `failed` or `removing`.
+    pub edge_status: String,
+    /// A short reason when the last attempt failed.
+    pub edge_error: Option<String>,
+}
+
+/// The current clinic's free site address, if it has been published.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn site_host(conn: &mut PgConnection) -> Result<Option<SiteHostRow>, DbError> {
+    let row = sqlx::query_as!(
+        SiteHostRow,
+        r#"select hostname, edge_status as "edge_status!", edge_error
+           from aarogyam.org_domains where kind = 'site' and is_primary"#
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// Queues the clinic's free site address, or keeps it when it is already served.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn publish_site_host(conn: &mut PgConnection, hostname: &str) -> Result<(), DbError> {
+    sqlx::query!(r#"select app.site_host_publish($1)"#, hostname)
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
+/// Stops the clinic's free site address resolving and queues its Worker for removal.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn take_down_site_host(conn: &mut PgConnection) -> Result<(), DbError> {
+    sqlx::query!(r#"select app.site_host_take_down()"#)
+        .execute(conn)
+        .await?;
+    Ok(())
+}

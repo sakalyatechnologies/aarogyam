@@ -541,7 +541,7 @@ Referenced by: `appointments.branch_id`, `daily_closings.branch_id`, `encounters
 
 ### `org_domains` (★ foundation)
 
-Host names that resolve to a clinic: its portal and its website.
+Host names that resolve to a clinic: its portal, its free website address (site) and its own domain (website).
 
 *Platform-wide: no tenant, written by Sakalya or the system · sensitivity: internal · offline: server only · lifecycle: mutable*
 
@@ -549,17 +549,17 @@ Host names that resolve to a clinic: its portal and its website.
 |---|---|---|
 | `org_id` | `uuid` | → `organizations` |
 | `hostname` | `text` | unique, lower case: smilecatchers.aarogyam.example, smilecatchers.in |
-| `kind` | `domain_kind` | portal, website |
+| `kind` | `domain_kind` | portal, website, site |
 | `is_primary` | `bool` |  |
 | `cloudflare_hostname_id` | `text?` |  |
 | `verified_at` | `timestamptz?` | only verified hosts resolve |
-| `edge_status` | `text?` | portal rows: pending, ready, failed (served at the edge yet?) |
+| `edge_status` | `text?` | portal and site rows: pending, ready, failed, removing (a taken-down site) |
 | `edge_attempts` | `int` |  |
 | `edge_next_attempt_at` | `timestamptz?` | when the outbox job tries next |
 | `edge_error` | `text?` | short reason, no secrets |
 | `edge_ready_at` | `timestamptz?` |  |
 
-Read before the clinic is known, through app.resolve_clinic_host(); cached in memory for a short time. New portal rows start pending (trigger); the outbox job makes them work (app.edge_hosts_claim).
+Read before the clinic is known, through app.resolve_clinic_host(); cached in memory for a short time. New portal rows start pending (trigger); publishing a site writes its site row (app.site_host_publish); the outbox job makes hosts work and removes taken-down sites (app.edge_hosts_work).
 
 ### `slug_history`
 

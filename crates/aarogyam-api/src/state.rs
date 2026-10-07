@@ -44,22 +44,22 @@ pub struct Hosts {
     pub app: String,
 }
 
-/// Where clinic websites are served, for the domain step in Settings. Placeholders until the
-/// product domain exists.
+/// Where clinic websites are served, for the domain step in Settings. Local defaults;
+/// deployed environments set both.
 #[derive(Debug, Clone)]
 pub struct WebsiteLinks {
-    /// What a clinic's `www` CNAME record points to, such as `sites.aarogyam.example`.
+    /// What a clinic's `www` CNAME record points to, such as `aarogyam-site.spring-snow-130f.workers.dev`.
     pub sites_target: String,
     /// Builds the free address from a slug: `{slug}` is replaced, such as
-    /// `{slug}-site.aarogyam.example`.
+    /// `{slug}-site.spring-snow-130f.workers.dev`.
     pub address_template: String,
 }
 
 impl Default for WebsiteLinks {
     fn default() -> Self {
         Self {
-            sites_target: "sites.aarogyam.example".to_owned(),
-            address_template: "{slug}-site.aarogyam.example".to_owned(),
+            sites_target: "sites.localtest.me".to_owned(),
+            address_template: "{slug}-site.localtest.me".to_owned(),
         }
     }
 }

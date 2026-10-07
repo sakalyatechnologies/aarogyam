@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds and deploys the clinic portal and Sakalya console to Cloudflare Workers, pointed at
+# Builds and deploys the clinic portal, Sakalya console and clinic website (aarogyam-site) to Cloudflare Workers, pointed at
 # <api-origin> (a scripts/tunnel-up.sh tunnel today, a Cloud Run URL later). Reads credentials
 # from git-ignored .env files and never echoes their values.
 #
@@ -92,6 +92,7 @@ deploy_app() {
     VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
     VITE_PORTAL_HOST_TEMPLATE="$PORTAL_HOST_TEMPLATE" \
     VITE_CENTRAL_SIGNIN_URL="$CENTRAL_SIGNIN_URL" \
+    VITE_BOOKING_URL_TEMPLATE="https://${PORTAL_HOST_TEMPLATE}/book" \
       pnpm build
   )
 
@@ -113,8 +114,12 @@ fi
 
 deploy_app "web/apps/portal" "deploy/cloudflare/portal" "aarogyam-portal"
 deploy_app "web/apps/console" "deploy/cloudflare/console" "aarogyam-console"
+# Clinic websites: every published site's address is a small Worker (made by the outbox job)
+# that hands requests to this one, so deploy it before the first site is published.
+deploy_app "web/apps/site" "deploy/cloudflare/site" "aarogyam-site"
 
 echo ""
 echo "Deployed. API origin: ${API_ORIGIN}"
 echo "  Portal:  https://aarogyam-portal.${SUBDOMAIN}.workers.dev"
 echo "  Console: https://aarogyam-console.${SUBDOMAIN}.workers.dev"
+echo "  Site:    https://aarogyam-site.${SUBDOMAIN}.workers.dev (clinic sites: <slug>-site.${SUBDOMAIN}.workers.dev)"

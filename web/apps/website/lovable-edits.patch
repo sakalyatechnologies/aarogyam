@@ -44,7 +44,11 @@
  }
 --- a/src/routes/register.tsx
 +++ b/src/routes/register.tsx
-@@ -5,7 +5,7 @@
+@@ -1,2 +1,3 @@
+ import { createFileRoute, useNavigate } from "@tanstack/react-router";
++import "@/aarogyam/v4.css";
+ import RegisterView from "@/landing/views/RegisterView.jsx";
+@@ -5,7 +6,7 @@
    head: () => ({
      meta: [
        { title: "Request access — Aarogyam" },
@@ -53,7 +57,7 @@
        { property: "og:title", content: "Request access — Aarogyam" },
        { property: "og:description", content: "Apply for Aarogyam for your clinic." },
        { property: "og:type", content: "website" },
-@@ -19,9 +19,8 @@
+@@ -19,9 +20,8 @@
    const navigate = useNavigate();
    return (
      <RegisterView
@@ -67,7 +71,7 @@
  }
 --- a/src/landing/Shell.jsx
 +++ b/src/landing/Shell.jsx
-@@ -44,7 +44,7 @@
+@@ -44,7 +45,7 @@
          onToggleMode={() => { const m = mode === 'dark' ? 'light' : 'dark'; setMode(m); applyMode(m); localStorage.setItem('ag-mode', m) }}
          onLogo={() => navigate({ to: '/' })}
          onLink={goSection}
@@ -78,7 +82,7 @@
        {children}
 --- a/src/landing/views/RegisterView.jsx
 +++ b/src/landing/views/RegisterView.jsx
-@@ -1,29 +1,31 @@
+@@ -1,29 +2,31 @@
  import { useState } from 'react'
 +import { submitRegistration } from '../../aarogyam/api.ts'
  
@@ -121,7 +125,7 @@
      return (
        <div className="auth-page">
          <div className="wrap">
-@@ -31,11 +33,9 @@
+@@ -31,11 +34,9 @@
            <div className="auth-card rv in" style={{ textAlign: 'center' }}>
              <div className="done-ic" style={{ margin: '0 auto' }}>🎉</div>
              <h2 className="font-d" style={{ marginTop: 16 }}>Application sent</h2>
@@ -135,7 +139,7 @@
                <button className="btn ghost" onClick={onBack}>← Back to site</button>
              </div>
            </div>
-@@ -46,7 +46,7 @@
+@@ -46,7 +47,7 @@
    return (
      <div className="auth-page">
        <div className="wrap">
@@ -144,7 +148,7 @@
          <div className="auth-card rv in">
            <div className="eyebrow">Request access</div>
            <h2 className="font-d">Application form 📝</h2>
-@@ -61,15 +61,15 @@
+@@ -61,15 +62,15 @@
              <div className="field"><label>Speciality</label>
                <select value={f.spec} onChange={set('spec')}>{SPECS.map((r) => <option key={r}>{r}</option>)}</select>
              </div>

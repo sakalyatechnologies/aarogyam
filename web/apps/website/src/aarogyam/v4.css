@@ -97,3 +97,14 @@
 .auth-page .fgrid2 .field input,.auth-page .fgrid2 .field select{min-height:44px}
 .auth-page .auth-card{box-shadow:0 30px 80px -40px rgba(10,63,55,.7)}
 .auth-page .btn{background:#f0b64a;color:#2a1c00;box-shadow:0 8px 24px -8px rgba(240,182,74,.6)}
+/* sign-in form side: V4 paper, fixed regardless of the theme picker, so it matches the showcase and landing tour */
+.v4-auth-right{background:var(--v4-paper);--txt:#10302a;--mut:#3f5a54;--dim:#4a6660;--card:#fff;--line:#c5d6d1;--ac:#0f6f62;--acg:rgba(15,111,98,.25);color:var(--v4-ink)}
+.v4-auth-right .auth-card{box-shadow:0 20px 50px -30px rgba(10,63,55,.5)}
+.v4-auth-right .field input,.v4-auth-right .field select{background:#fff;color:var(--v4-ink);border-color:#9fb7b0}
+.v4-auth-right .auth-err{color:#a32a1c}
+.v4-auth-right .auth-card .eyebrow{color:#8a5a00}
+.v4-auth-right .backlink{background:#fff;color:var(--v4-ink)}
+.v4-auth-right .auth-note a{color:#0b5a4f}
+.v4-auth-right .btn{background:#f0b64a;color:#2a1c00}
+.v4-auth-right .btn.ghost{background:#fff;color:var(--v4-ink);border-color:#9fb7b0}
+.v4-auth-right .routed-chip{color:var(--v4-ink)}

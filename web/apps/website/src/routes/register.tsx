@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import "@/aarogyam/v4.css";
 import RegisterView from "@/landing/views/RegisterView.jsx";
 
 export const Route = createFileRoute("/register")({

@@ -2495,6 +2495,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return invalid("kind", "unknown file kind");
           }
           const captionRaw = form.get("caption");
+          const labelRaw = form.get("label");
           const toothRaw = form.get("tooth");
           const visitRaw = form.get("visit_id");
           const noteRaw = form.get("note_id");
@@ -2520,6 +2521,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (linkedNote?.status === "draft") {
             linkedNote.source = "voice";
           }
+          if (typeof labelRaw === "string" && labelRaw.trim().length > 60) {
+            return invalid("label", "must be at most 60 characters");
+          }
           const toothParsed = typeof toothRaw === "string" && toothRaw !== "" ? Number.parseInt(toothRaw, 10) : undefined;
           const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : `blob:fake/${fakeUuid(random, clock())}`;
           const record: FakeAttachment = {
@@ -2536,6 +2540,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             size_bytes: file.size,
             sha256: random.hex(64),
             caption: typeof captionRaw === "string" && captionRaw !== "" ? captionRaw : null,
+            label: typeof labelRaw === "string" && labelRaw.trim() !== "" ? labelRaw.trim() : null,
             tooth: toothParsed ?? null,
             taken_at: null,
             created_at: clock().toISOString(),
@@ -5593,6 +5598,7 @@ function wireAttachment(a: FakeAttachment): C.Attachment {
     size_bytes: a.size_bytes,
     sha256: a.sha256,
     caption: a.caption ?? null,
+    label: a.label ?? null,
     tooth: a.tooth ?? null,
     taken_at: a.taken_at ?? null,
     visit_id: a.visit_id ?? null,

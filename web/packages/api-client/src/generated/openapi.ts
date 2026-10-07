@@ -2895,6 +2895,8 @@ export interface components {
             id: string;
             /** @description `photo`, `xray`, `report`, `document`, `audio` or `consent`. */
             kind: string;
+            /** @description Its label, such as `OPG`, `Intraoral - upper`, `X-ray`, `Consent` or the clinic's own. */
+            label?: string | null;
             /** @description A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`. */
             language?: string | null;
             /**
@@ -6680,6 +6682,8 @@ export interface components {
             id?: string | null;
             /** @description `photo`, `xray`, `report`, `document` (default), `audio` or `consent`. */
             kind?: string | null;
+            /** @description A label, 1 to 60 characters: `OPG`, `Intraoral - upper`, `X-ray`, `Consent` or your own. */
+            label?: string | null;
             /** @description A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`. */
             language?: string | null;
             /** @description A recording's note (a draft of the uploader, or a signed note together with `addendum_id`). */

@@ -352,6 +352,7 @@ export interface FakeAttachment {
   size_bytes: number;
   sha256: string;
   caption?: string | null;
+  label?: string | null;
   tooth?: number | null;
   taken_at?: string | null;
   created_at: string;

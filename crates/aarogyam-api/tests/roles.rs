@@ -282,6 +282,16 @@ async fn the_owner_role_stays_whole_and_nobody_grants_what_they_lack() {
     .await
     .unwrap();
     let manager = app.token(ALPHA_NOTHING);
+    // roles.manage without staff.manage still lists the roles: the editor needs the list.
+    let (status, listed) = app
+        .send(Method::GET, ALPHA, "/api/v1/roles", Some(&manager), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    // ...but not the staff list, which stays behind staff.manage.
+    let (status, _) = app
+        .send(Method::GET, ALPHA, "/api/v1/staff", Some(&manager), None)
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
     let (status, _) = set(
         &app,
         &manager,

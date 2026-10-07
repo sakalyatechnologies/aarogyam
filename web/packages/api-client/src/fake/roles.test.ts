@@ -55,3 +55,33 @@ describe("fake client: roles and access", () => {
     expect(status(await owner.deleteRole("senior_nurse"))).toBe(200);
   });
 });
+
+describe("fake client: QA fixes", () => {
+  it("lists roles for roles.manage without staff.manage, but not the staff", async () => {
+    const fixtures = createFixtures({ now: NOW });
+    const farah = fixtures.memberships.find((m) => m.user_id === FARAH);
+    if (farah === undefined) throw new Error("no membership");
+    farah.role = { key: "reader", name: "Reader", permissions: ["roles.manage"] };
+    const backend = createFakeBackend(fixtures);
+    const desk = backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: FARAH }), now: () => NOW });
+    expect(status(await desk.listRoles())).toBe(200);
+    expect(status(await desk.listStaff())).toBe(403);
+  });
+
+  it("refuses a payment above the balance due, as the API does", async () => {
+    const { as } = setup();
+    const owner = as(ASHA, SUNRISE);
+    const bills = value(await owner.listInvoices({}));
+    const bill = bills.items.find((i) => i.balance_paise > 0);
+    if (bill === undefined) throw new Error("the fixtures have no bill with a balance");
+    const pay = (amount: number, key: string) =>
+      owner.recordPayment(
+        { patient_id: bill.patient.id, method: "cash", amount_paise: amount, allocations: [{ invoice_id: bill.id, amount_paise: Math.min(amount, bill.balance_paise) }] },
+        key,
+      );
+    const over = await pay(bill.balance_paise + 100, "key-over-0001");
+    expect(over.ok ? 200 : over.error.status).toBe(400);
+    expect(over.ok ? "" : over.error.message).toMatch(/more than the balance due/);
+    expect(status(await pay(bill.balance_paise, "key-exact-0002"))).toBe(200);
+  });
+});

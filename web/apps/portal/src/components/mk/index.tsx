@@ -2,6 +2,10 @@
 import { X } from "lucide-react";
 import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
 
+import { EmptyState, initials, type Art } from "./kit.js";
+
+export * from "./kit.js";
+
 export type MkTone = "up" | "down" | "warn" | "info";
 export type TagTone = "wait" | "done" | "next" | "info" | "down" | "neutral";
 
@@ -16,10 +20,6 @@ export function avatarColour(seed: string): string {
   return AVATAR_COLOURS[hash % AVATAR_COLOURS.length] ?? AVATAR_COLOURS[0];
 }
 
-export function initials(name: string): string {
-  const words = name.replace(/^(dr|mr|mrs|ms)\.?\s+/i, "").split(/\s+/).filter((word) => word !== "");
-  return (words.length > 1 ? `${words[0]?.charAt(0) ?? ""}${words[words.length - 1]?.charAt(0) ?? ""}` : (words[0] ?? "").slice(0, 2)).toUpperCase();
-}
 
 export function Tag({ tone = "neutral", children }: { tone?: TagTone; children: ReactNode }) {
   return <span className={`mk-tag ${tone === "neutral" ? "" : tone}`}>{children}</span>;
@@ -34,9 +34,10 @@ export function MkPill({ tone, children }: { tone?: MkTone | undefined; children
   return <span className={`mk-pill ${tone ?? ""}`}>{children}</span>;
 }
 
+/** V4 initials avatar: soft brand tint with brand-coloured initials. */
 export function MkAvatar({ name, size = "pav" }: { name: string; size?: "pav" | "pa" }) {
   return (
-    <span aria-hidden="true" className={size === "pa" ? "mk-pa" : "mk-pav"} style={{ background: avatarColour(name) }}>
+    <span aria-hidden="true" className={`mk-ini ${size === "pa" ? "md" : "sm"}`}>
       {initials(name)}
     </span>
   );
@@ -213,13 +214,9 @@ export function rowLink(open: () => void): { className: string; onClick: (event:
   };
 }
 
-export function Empty({ title, children }: { title: string; children?: ReactNode }) {
-  return (
-    <p className="mk-empty">
-      <b>{title}</b>
-      {children}
-    </p>
-  );
+/** A compact illustrated empty state for inside cards: what is empty, and what to do next. */
+export function Empty({ title, children, art, action }: { title: string; children?: ReactNode; art?: Art; action?: ReactNode }) {
+  return <EmptyState compact art={art ?? "clear"} title={title} description={children} action={action} />;
 }
 
 export interface MkDrawerProps {

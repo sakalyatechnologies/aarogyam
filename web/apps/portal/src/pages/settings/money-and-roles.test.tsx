@@ -18,7 +18,7 @@ describe("money stays hidden without the permission", () => {
   it("Today shows no money tiles or collected total without finance.view", async () => {
     renderPortal("/today", { as: PEOPLE.farah });
     await screen.findByRole("region", { name: /Today's schedule/ });
-    expect(screen.queryByText("collected today")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Money today" })).toBeNull();
     expect(screen.queryByText("Revenue today")).toBeNull();
     expect(screen.queryByText("Revenue mix")).toBeNull();
     expect(screen.queryByText("Pending payments")).toBeNull();
@@ -26,8 +26,9 @@ describe("money stays hidden without the permission", () => {
 
   it("Today shows the money to the owner", async () => {
     renderPortal("/today", { as: PEOPLE.asha });
-    expect(await screen.findByText("collected today")).toBeTruthy();
-    expect(screen.getByText("Revenue today")).toBeTruthy();
+    const money = await screen.findByRole("group", { name: "Money today" });
+    expect(within(money).getByText("Revenue today")).toBeTruthy();
+    expect(within(money).getByText("Outstanding")).toBeTruthy();
   });
 
   it("Billing shows bills but no revenue figures or reports to billing.read without finance.view", async () => {

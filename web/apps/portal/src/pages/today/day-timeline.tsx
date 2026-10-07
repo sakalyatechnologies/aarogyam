@@ -1,9 +1,10 @@
 import { useLayoutEffect, useRef } from "react";
 
-import type { AppointmentStatus, Today } from "@aarogyam/api-client";
+import type { Today } from "@aarogyam/api-client";
 import { formatTime } from "@aarogyam/app-kit";
 
-import { MkAvatar, Tag, type TagTone } from "../../components/mk/index.js";
+import { MkAvatar, StatusChip } from "../../components/mk/index.js";
+import { APPOINTMENT_CHIP } from "../../lib/appointment-status.js";
 import { clockLabel, gridHours, nowMinutes, packColumns, placementOf } from "../../lib/time-grid.js";
 
 type TodayAppointment = Today["appointments"][number];
@@ -17,16 +18,6 @@ const GUTTER = 58;
 /** A visit shorter than this still takes this much room, so its name can be read and clicked. */
 const MIN_EVENT_MIN = 30;
 
-const TAGS: Readonly<Record<AppointmentStatus, { label: string; tone: TagTone }>> = {
-  requested: { label: "REQUESTED", tone: "wait" },
-  booked: { label: "BOOKED", tone: "next" },
-  confirmed: { label: "CONFIRMED", tone: "info" },
-  arrived: { label: "WAITING", tone: "wait" },
-  in_chair: { label: "IN CHAIR", tone: "next" },
-  completed: { label: "DONE", tone: "done" },
-  cancelled: { label: "CANCELLED", tone: "neutral" },
-  no_show: { label: "NO-SHOW", tone: "down" },
-};
 
 /** Where the schedule scrolls to so that `nowMin` sits in the middle of a viewport `viewport` tall. */
 export function scrollTopForNow(nowMin: number, startHour: number, viewport: number, contentHeight: number): number {
@@ -38,7 +29,7 @@ export interface DayTimelineProps {
   appointments: readonly TodayAppointment[];
   asOf: string;
   timeZone: string;
-  /** The appointment tagged NEXT. */
+  /** The appointment tagged Next. */
   nextId: string | undefined;
   waitingMinutes: (appointment: TodayAppointment) => number;
   onOpen: (appointment: TodayAppointment) => void;
@@ -90,7 +81,7 @@ export function DayTimeline({ appointments, asOf, timeZone, nextId, waitingMinut
           ))}
           {packed.map(({ item, column, columns }) => {
             const a = item.appointment;
-            const tag = a.id === nextId ? { label: "NEXT", tone: "next" as const } : TAGS[a.status];
+            const tag = a.id === nextId ? { label: "Next", tone: "brand" as const } : APPOINTMENT_CHIP[a.status];
             const minutes = Math.round((Date.parse(a.ends_at) - Date.parse(a.starts_at)) / 60_000);
             const state = a.status === "completed" ? "done" : a.status === "arrived" ? "wait" : "";
             return (
@@ -119,7 +110,7 @@ export function DayTimeline({ appointments, asOf, timeZone, nextId, waitingMinut
                       {a.status === "arrived" ? ` · waiting ${String(waitingMinutes(a))} min` : ""}
                     </p>
                   </div>
-                  <Tag tone={tag.tone}>{tag.label}</Tag>
+                  <StatusChip tone={tag.tone}>{tag.label}</StatusChip>
                 </button>
               </li>
             );

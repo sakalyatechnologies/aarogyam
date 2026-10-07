@@ -23,6 +23,7 @@ import {
   usePrescription,
 } from "./queries.js";
 import { PageHeader } from "../../components/mk/index.js";
+import { joinParts } from "../../lib/text.js";
 
 const TIMINGS = [
   { value: "", label: "Not set" },
@@ -160,8 +161,12 @@ function ReadOnlyView({ rx }: { rx: Prescription }) {
               {item.drug_name} {item.strength}
             </p>
             <p className="text-muted">
-              {item.dose} · {item.frequency} · {TIMINGS.find((t) => t.value === item.timing)?.label ?? item.timing} ·{" "}
-              {item.duration_days == null ? "" : `${String(item.duration_days)} days`}
+              {joinParts([
+                item.dose,
+                item.frequency,
+                item.timing == null || item.timing === "" ? null : (TIMINGS.find((t) => t.value === item.timing)?.label ?? item.timing),
+                item.duration_days == null ? null : `${String(item.duration_days)} days`,
+              ])}
             </p>
             {item.instructions == null || item.instructions === "" ? null : <p className="text-xs text-muted">{item.instructions}</p>}
           </li>

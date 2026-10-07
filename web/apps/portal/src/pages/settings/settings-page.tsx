@@ -410,7 +410,7 @@ function StaffPanel() {
                   {invitation.email ?? "Invited"}
                 </span>
                 <span className="text-muted">
-                  {invitation.role_key} · expires {formatDate(invitation.expires_at)}
+                  {roles.data?.items.find((role) => role.key === invitation.role_key)?.name ?? invitation.role_key} · expires {formatDate(invitation.expires_at)}
                 </span>
               </li>
             ))}

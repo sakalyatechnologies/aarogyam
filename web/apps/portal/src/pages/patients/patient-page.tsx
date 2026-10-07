@@ -155,6 +155,7 @@ function PatientView({ patient }: { patient: Patient }) {
       </section>
       <AllergyBanner patientId={patient.id} />
       <Tabs
+        key={requestedTab}
         className="mk-tabs4"
         label="Patient record"
         defaultValue={requestedTab}

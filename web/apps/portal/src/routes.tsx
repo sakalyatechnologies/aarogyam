@@ -2,6 +2,7 @@ import { Navigate, Outlet, useParams, type RouteObject } from "react-router";
 
 import { lazyPage, RouterLinks } from "@aarogyam/app-kit";
 
+import { RequireCan } from "./components/require-can.js";
 import { ClinicGate, RequireAuth } from "./layout/portal-layout.js";
 
 /** Shown while the first page's code loads. */
@@ -55,12 +56,27 @@ export const routes: RouteObject[] = [
               { path: "prescriptions", element: <Navigate to="/patients" replace /> },
               { path: "prescriptions/:id", lazy: lazyPage(() => import("./pages/prescriptions/prescription-page.js"), (m) => m.PrescriptionPage) },
               { path: "prescriptions/:id/print", lazy: lazyPage(() => import("./pages/prescriptions/print-page.js"), (m) => m.PrescriptionPrintPage) },
-              { path: "billing", lazy: lazyPage(() => import("./pages/billing/billing-page.js"), (m) => m.BillingPage) },
-              { path: "billing/pending", lazy: lazyPage(() => import("./pages/billing/pending-page.js"), (m) => m.PendingPaymentsPage) },
-              { path: "billing/invoices/new", lazy: lazyPage(() => import("./pages/billing/new-invoice-page.js"), (m) => m.NewInvoicePage) },
-              { path: "billing/invoices/:id", lazy: lazyPage(() => import("./pages/billing/invoice-detail-page.js"), (m) => m.InvoiceDetailPage) },
-              { path: "billing/invoices/:id/print", lazy: lazyPage(() => import("./pages/billing/invoice-print-page.js"), (m) => m.InvoicePrintPage) },
-              { path: "billing/payments/:id/receipt", lazy: lazyPage(() => import("./pages/billing/receipt-print-page.js"), (m) => m.ReceiptPrintPage) },
+              {
+                element: <RequireCan permission="billing.read" what="Billing" />,
+                children: [
+                  { path: "billing", lazy: lazyPage(() => import("./pages/billing/billing-page.js"), (m) => m.BillingPage) },
+                  { path: "billing/invoices/:id", lazy: lazyPage(() => import("./pages/billing/invoice-detail-page.js"), (m) => m.InvoiceDetailPage) },
+                  { path: "billing/invoices/:id/print", lazy: lazyPage(() => import("./pages/billing/invoice-print-page.js"), (m) => m.InvoicePrintPage) },
+                  { path: "billing/payments/:id/receipt", lazy: lazyPage(() => import("./pages/billing/receipt-print-page.js"), (m) => m.ReceiptPrintPage) },
+                ],
+              },
+              {
+                element: <RequireCan permission="finance.view" what="Pending payments" />,
+                children: [
+                  { path: "billing/pending", lazy: lazyPage(() => import("./pages/billing/pending-page.js"), (m) => m.PendingPaymentsPage) },
+                ],
+              },
+              {
+                element: <RequireCan permission="billing.write" what="New bill" />,
+                children: [
+                  { path: "billing/invoices/new", lazy: lazyPage(() => import("./pages/billing/new-invoice-page.js"), (m) => m.NewInvoicePage) },
+                ],
+              },
               { path: "stock", lazy: lazyPage(() => import("./pages/stock/stock-page.js"), (m) => m.StockPage) },
               { path: "messages", lazy: lazyPage(() => import("./pages/messages/messages-page.js"), (m) => m.MessagesPage) },
               { path: "staff", element: <Navigate to="/settings?tab=team" replace /> },

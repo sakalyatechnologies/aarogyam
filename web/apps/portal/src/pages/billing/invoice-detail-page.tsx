@@ -425,6 +425,7 @@ function PaymentDialog({ open, invoice, onClose }: { open: boolean; invoice: Inv
   const close = () => {
     onClose();
     setMethod("cash");
+    setRupees((invoice.balance_paise / 100).toString());
     setReference("");
     setError(undefined);
     setIdempotencyKey(randomUuid());
@@ -438,13 +439,17 @@ function PaymentDialog({ open, invoice, onClose }: { open: boolean; invoice: Inv
       return;
     }
     const amountPaise = Math.round(amount * 100);
+    if (amountPaise > invoice.balance_paise) {
+      setError(`That is more than the balance of ${formatRupees(invoice.balance_paise)}. Enter ${formatRupees(invoice.balance_paise)} or less.`);
+      return;
+    }
     record.mutate(
       {
         input: {
           patient_id: invoice.patient.id,
           method,
           amount_paise: amountPaise,
-          allocations: [{ invoice_id: invoice.id, amount_paise: Math.min(amountPaise, invoice.balance_paise) }],
+          allocations: [{ invoice_id: invoice.id, amount_paise: amountPaise }],
           reference: reference.trim() === "" ? null : reference.trim(),
         },
         idempotencyKey,

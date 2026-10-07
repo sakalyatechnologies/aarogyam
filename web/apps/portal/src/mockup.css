@@ -687,3 +687,6 @@ body > [data-base-ui-portal] { position: relative; z-index: 150; }
 .mk-alert-actions { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: flex-end; flex: none; max-width: 45%; }
 .mk-alert button.mk-link { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; cursor: pointer; }
 .mk-alert button.mk-link:disabled { opacity: .5; cursor: default; }
+
+.mk-phone-search { display: none; }
+@media (max-width: 640px) { .mk-phone-search { display: grid; } }

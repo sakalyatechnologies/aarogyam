@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Package,
   Plus,
+  Search,
   Settings,
   Menu as MenuIcon,
   PanelLeftClose,
@@ -160,6 +161,15 @@ function ClinicSwitch() {
         </ul>
       ) : null}
     </div>
+  );
+}
+
+/** Phones have no keyboard shortcut: an icon-only search button, shown under 640px, opens the same palette. */
+function PhoneSearchButton({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button type="button" className="mk-iconbtn mk-phone-search" aria-label="Search" onClick={onOpen}>
+      <Search aria-hidden="true" />
+    </button>
   );
 }
 
@@ -439,6 +449,11 @@ function ShellFrame() {
             <MenuIcon aria-hidden="true" />
           </button>
           <div className="mk-top-actions">
+            <PhoneSearchButton
+              onOpen={() => {
+                setPaletteOpen(true);
+              }}
+            />
             {can("appointments.write") ? (
               <button
                 type="button"

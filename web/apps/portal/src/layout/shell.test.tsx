@@ -118,12 +118,21 @@ async function openPalette(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("Top bar", () => {
-  it("has no Search or Voice note button: search is Ctrl+K and dictation lives in the visit", async () => {
+  it("has no text Search or Voice note button: search is Ctrl+K and dictation lives in the visit", async () => {
     renderPortal("/today", { as: PEOPLE.asha });
     await screen.findByRole("button", { name: "Notifications" });
-    expect(screen.queryByRole("button", { name: "Search" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Voice note" })).toBeNull();
     expect(document.querySelector(".mk-topbar")?.querySelector(".mk-searchbtn")).toBeNull();
+  });
+
+  it("has an icon-only Search button for phones (CSS shows it under 640px) that opens the palette", async () => {
+    const user = userEvent.setup();
+    renderPortal("/today", { as: PEOPLE.asha });
+    const button = await screen.findByRole("button", { name: "Search" });
+    expect(button.className).toContain("mk-phone-search");
+    expect(button.textContent).toBe("");
+    await user.click(button);
+    expect(await screen.findByRole("dialog", { name: "Search" })).toBeTruthy();
   });
 });
 

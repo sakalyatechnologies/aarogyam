@@ -34,7 +34,7 @@ describe("Patient 360 bills and prescriptions", () => {
     const user = userEvent.setup();
     const { path, backend } = billedPatient();
     const { router } = renderPortal(path, { as: PEOPLE.asha, backend });
-    await user.click(await screen.findByRole("tab", { name: "Prescriptions" }));
+    await user.click(await screen.findByRole("tab", { name: "Rx" }));
     await user.click(await screen.findByRole("button", { name: "New prescription" }));
     await waitFor(() => {
       expect(router.state.location.pathname).toMatch(/^\/prescriptions\/.+/);

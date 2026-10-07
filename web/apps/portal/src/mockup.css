@@ -622,3 +622,37 @@ a.mk-lrow:hover, button.mk-lrow:hover { background: var(--hover); }
   .mk-stat:hover, .mk-kpi:hover, .mk-iconbtn:hover, .mk-btn-primary:not([disabled]):hover { transform: none; }
 }
 .mk-tl-ev .mk-ev p, .mk-tl-ev .mk-ev b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* patient directory */
+.mk-dir-tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.mk-dir-search { flex: 1 1 320px; width: auto; font-size: 15px; padding: 12px 16px; box-shadow: var(--sh); border-color: color-mix(in srgb, var(--rule) 70%, transparent); }
+.mk-sort { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.mk-sort select { width: auto; padding: 9px 12px; }
+.mk-dir td, .mk-dir th[scope="row"] { padding-top: 12px; padding-bottom: 12px; vertical-align: middle; }
+.mk-dir-name { display: flex; flex-direction: column; min-width: 0; }
+.mk-dir-name a { font-weight: 600; color: var(--ink); }
+.mk-dir-name small { font-size: 12px; color: var(--muted); font-weight: 400; }
+.mk-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.mk-recent { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.mk-recent-card { display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--surface); border-radius: 17px; box-shadow: var(--sh); border: 1px solid color-mix(in srgb, var(--rule) 55%, transparent); text-decoration: none; color: inherit; transition: transform .2s, box-shadow .2s; min-width: 0; }
+.mk-recent-card:hover { transform: translateY(-2px); box-shadow: var(--sh-lift); }
+.mk-recent-card:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.mk-recent-card > span:not(.mk-ini) { display: flex; flex-direction: column; min-width: 0; }
+.mk-recent-card strong { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mk-recent-card small { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Patient 360 */
+.mk-back { display: inline-flex; align-items: center; gap: 4px; color: var(--brand-text); font-weight: 600; font-size: 13.5px; text-decoration: none; margin: 4px 0 12px; }
+.mk-back svg { width: 18px; height: 18px; }
+.mk-back:hover { text-decoration: underline; }
+.mk-p360 { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; background: var(--surface); border-radius: 24px; padding: 22px 24px; box-shadow: var(--sh); border: 1px solid color-mix(in srgb, var(--rule) 55%, transparent); margin-bottom: 4px; }
+.mk-p360-who { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.mk-p360 h1 { font-size: clamp(24px, 2.4vw, 30px); font-weight: 600; letter-spacing: -0.8px; line-height: 1.15; margin: 4px 0 2px; color: var(--ink); }
+.mk-p360 p { margin: 0; color: var(--muted); font-size: 13.5px; }
+.mk-p360-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.mk-consent { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 12.5px; color: var(--amber); font-weight: 500; }
+.mk-consent.ok { color: var(--green); }
+.mk-consent svg { width: 15px; height: 15px; }
+.mk-tabs4 { margin-top: 16px; }
+.mk-p360-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .mk-p360-grid { grid-template-columns: minmax(0, 1fr); } }

@@ -3,8 +3,10 @@ package com.aarogyam.staff.chart
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.model.ChartEntry
 import com.aarogyam.staff.api.model.DentalChart
+import com.aarogyam.staff.api.model.DentalTerm
 import com.aarogyam.staff.api.model.NewChartEntries
 import com.aarogyam.staff.api.model.NewChartEntry
+import com.aarogyam.staff.api.model.NewDentalTerm
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.moment
 import com.sakalya.mobile.core.Logger
@@ -35,6 +37,18 @@ sealed interface ChartState {
         /** Teeth of the shown dentition with a finding other than sound. */
         val needsCare: Int,
         val selected: ToothSelection?,
+        /** "Select several" is on: taps add and remove teeth from [group]. */
+        val several: Boolean,
+        /** The teeth picked with "Select several", in FDI order; a finding is recorded on all of them. */
+        val group: List<Int>,
+        /** Procedures and materials to offer, loaded with the chart: seeded, then the clinic's own. */
+        val terms: List<TermView>,
+        /** A new term is on its way to the server. */
+        val addingTerm: Boolean,
+        /** The term just added (or found) for "Add new"; the record sheet picks it, then calls `consumeAddedTerm`. */
+        val addedTerm: TermView?,
+        /** The last "Add new" failed. */
+        val termError: ScreenError?,
         /** The role holds `clinical.write`; without it the record actions are hidden. */
         val canRecord: Boolean,
         /** A finding is on its way to the server (and already drawn). */
@@ -66,6 +80,12 @@ class ChartStateHolder(
         val selected: Int? = null,
         val surface: Surface? = null,
         val history: HistoryState = HistoryState.Loading,
+        val several: Boolean = false,
+        val group: List<Int> = emptyList(),
+        val terms: List<TermView> = emptyList(),
+        val addingTerm: Boolean = false,
+        val addedTerm: TermView? = null,
+        val termError: ScreenError? = null,
         val saving: Boolean = false,
         val recordError: ScreenError? = null,
         val refreshing: Boolean = false,
@@ -99,7 +119,7 @@ class ChartStateHolder(
                 is Outcome.Success -> {
                     val base = model ?: Model(emptyMap(), defaultDentition(result.value.current))
                     val teeth = if (base.saving) base.teeth else teethOf(result.value.current)
-                    val next = base.copy(teeth = teeth, refreshing = false)
+                    val next = base.copy(teeth = teeth, terms = termsOf(result.value.terms), refreshing = false)
                     publish(if (tooth != null && next.selected == tooth) next.withHistory(result.value) else next)
                 }
 
@@ -121,16 +141,49 @@ class ChartStateHolder(
     fun showDentition(dentition: Dentition) {
         val current = model ?: return
         val keep = current.selected?.takeIf { Dentition.of(it) == dentition }
-        publish(current.copy(dentition = dentition, selected = keep, surface = current.surface.takeIf { keep != null }))
+        publish(
+            current.copy(
+                dentition = dentition,
+                selected = keep,
+                surface = current.surface.takeIf { keep != null },
+                group = current.group.filter { Dentition.of(it) == dentition },
+            ),
+        )
     }
 
-    /** Picks [tooth] (with [surface], or the whole tooth) and fetches its history. */
+    /** Turns "Select several" on (starting from the picked tooth) or off. */
+    fun setSeveral(on: Boolean) {
+        val current = model ?: return
+        publish(current.copy(several = on, group = if (on) listOfNotNull(current.selected) else emptyList()))
+    }
+
+    /**
+     * Picks [tooth] (with [surface], or the whole tooth) and fetches its history. With "Select
+     * several" on, a tap on a picked tooth removes it from the group and any other tap adds it.
+     */
     fun select(
         tooth: Int,
         surface: Surface? = null,
     ) {
         val current = model ?: return
         if (Dentition.of(tooth) == null) return
+        if (current.several) {
+            if (surface == null && tooth in current.group) {
+                val group = current.group - tooth
+                val last = group.lastOrNull()
+                publish(current.copy(group = group, selected = last, surface = null, history = HistoryState.Loading))
+                if (last != null) loadHistory(last)
+                return
+            }
+            val grouped = if (tooth in current.group) current.group else current.group + tooth
+            if (current.selected == tooth) {
+                publish(current.copy(group = grouped, surface = surface))
+                return
+            }
+            publish(current.copy(group = grouped, selected = tooth, surface = surface, history = HistoryState.Loading))
+            loadHistory(tooth)
+            return
+        }
         if (current.selected == tooth) {
             publish(current.copy(surface = surface))
             return
@@ -148,35 +201,66 @@ class ChartStateHolder(
     fun clearSelection() {
         val current = model ?: return
         historyJob?.cancel()
-        publish(current.copy(selected = null, surface = null))
+        publish(current.copy(selected = null, surface = null, group = emptyList()))
     }
 
     /**
-     * Records [finding] on the picked tooth: on [surface], or the whole tooth (always, for a
-     * whole-tooth finding). It shows at once; a refusal puts the chart back and sets `recordError`.
+     * Records [finding] on the picked tooth, or on every tooth of the group with "Select several":
+     * on each of [surfaces], or the whole tooth (always, for a whole-tooth finding), with the
+     * [procedure] and [material] (ignored for sound). It shows at once; a refusal puts the chart
+     * back and sets `recordError`.
      */
     fun record(
         finding: Finding,
-        surface: Surface?,
+        surfaces: List<Surface>,
+        procedure: TermView? = null,
+        material: TermView? = null,
         note: String? = null,
     ) {
         val current = model ?: return
-        val tooth = current.selected ?: return
-        if (!canRecord || current.saving) return
-        val on = if (finding.wholeTooth) null else surface
+        val teeth =
+            if (current.several &&
+                current.group.isNotEmpty()
+            ) {
+                current.group
+            } else {
+                listOfNotNull(current.selected)
+            }
+        if (teeth.isEmpty() || !canRecord || current.saving) return
+        val on: List<Surface?> = if (finding.wholeTooth || surfaces.isEmpty()) listOf(null) else surfaces.distinct()
+        val detail = finding != Finding.Sound
+        val text = note?.trim()?.takeIf { it.isNotEmpty() }
         val before = current.teeth
-        val drawn = (before[tooth] ?: ToothView(tooth)).with(finding, on).copy(pending = true)
-        publish(current.copy(teeth = before + (tooth to drawn), saving = true, recordError = null))
-        val body =
-            NewChartEntries(
-                listOf(NewChartEntry(finding.wire, tooth.toLong(), note?.trim()?.takeIf { it.isNotEmpty() }, on?.name)),
-            )
+        var drawn = before
+        val entries = mutableListOf<NewChartEntry>()
+        for (tooth in teeth) {
+            for (surface in on) {
+                drawn =
+                    drawn + (tooth to (drawn[tooth] ?: ToothView(tooth)).with(finding, surface).copy(pending = true))
+                entries +=
+                    NewChartEntry(
+                        finding = finding.wire,
+                        tooth = tooth.toLong(),
+                        material = material?.id?.takeIf { detail },
+                        note = text,
+                        procedure = procedure?.id?.takeIf { detail },
+                        surface = surface?.name,
+                    )
+            }
+        }
+        publish(current.copy(teeth = drawn, saving = true, recordError = null))
         scope.launch {
-            when (val result = clinic.api.recordDentalChart(patientId, body)) {
+            when (val result = clinic.api.recordDentalChart(patientId, NewChartEntries(entries))) {
                 is Outcome.Success -> {
                     val now = model ?: return@launch
-                    publish(now.copy(teeth = teethOf(result.value.current), saving = false))
-                    if (now.selected == tooth) loadHistory(tooth)
+                    publish(
+                        now.copy(
+                            teeth = teethOf(result.value.current),
+                            terms = termsOf(result.value.terms),
+                            saving = false,
+                        ),
+                    )
+                    now.selected?.takeIf { it in teeth }?.let { loadHistory(it) }
                 }
 
                 is Outcome.Failure -> {
@@ -186,6 +270,42 @@ class ChartStateHolder(
                 }
             }
         }
+    }
+
+    /**
+     * "Add new" in the procedure or material list: saves [label] for the clinic. The answer (a new
+     * term, or the one already there) joins `terms` and shows as `addedTerm` for the sheet to pick.
+     */
+    fun addTerm(
+        kind: TermKind,
+        label: String,
+    ) {
+        val current = model ?: return
+        val text = label.trim()
+        if (!canRecord || current.addingTerm || text.isEmpty()) return
+        publish(current.copy(addingTerm = true, addedTerm = null, termError = null))
+        scope.launch {
+            val result = clinic.api.addDentalTerm(NewDentalTerm(kind = kind.wire, label = text))
+            val now = model ?: return@launch
+            when (result) {
+                is Outcome.Success -> {
+                    val term = termOf(result.value)
+                    val terms = if (term == null || now.terms.any { it.id == term.id }) now.terms else now.terms + term
+                    publish(now.copy(terms = terms, addingTerm = false, addedTerm = term))
+                }
+
+                is Outcome.Failure -> {
+                    logFailure("chart.term_failed", result.error.code.value)
+                    publish(now.copy(addingTerm = false, termError = ScreenError.of(result.error)))
+                }
+            }
+        }
+    }
+
+    /** The sheet has picked the added term, or seen the error. */
+    fun consumeAddedTerm() {
+        val current = model ?: return
+        publish(current.copy(addedTerm = null, termError = null))
     }
 
     /** The person has seen the record error. */
@@ -205,7 +325,7 @@ class ChartStateHolder(
                     is Outcome.Success -> {
                         // The answer also carries the current chart; keep a pending change on screen.
                         val teeth = if (now.saving) now.teeth else teethOf(result.value.current)
-                        publish(now.copy(teeth = teeth).withHistory(result.value))
+                        publish(now.copy(teeth = teeth, terms = termsOf(result.value.terms)).withHistory(result.value))
                     }
 
                     is Outcome.Failure -> {
@@ -228,7 +348,16 @@ class ChartStateHolder(
                 "entered_in_error" -> EntryStatus.EnteredInError
                 else -> return null
             }
-        return HistoryEntryView(id, finding, Surface.of(surface), status, moment(effectiveAt, clinic.timeZone), note)
+        return HistoryEntryView(
+            id,
+            finding,
+            Surface.of(surface),
+            status,
+            moment(effectiveAt, clinic.timeZone),
+            note,
+            procedure = procedure?.label,
+            material = material?.label,
+        )
     }
 
     private fun publish(next: Model) {
@@ -243,6 +372,12 @@ class ChartStateHolder(
                 lower = lower,
                 needsCare = (upper + lower).count { it.needsCare },
                 selected = next.selected?.let { ToothSelection(view(it), next.surface, next.history) },
+                several = next.several,
+                group = next.group.sorted(),
+                terms = next.terms,
+                addingTerm = next.addingTerm,
+                addedTerm = next.addedTerm,
+                termError = next.termError,
                 canRecord = canRecord,
                 saving = next.saving,
                 recordError = next.recordError,
@@ -279,6 +414,14 @@ private fun teethOf(current: List<ChartEntry>): Map<Int, ToothView> {
     }
     return teeth
 }
+
+/** The chart's procedures and materials; unknown lists are left out. */
+private fun termsOf(terms: List<DentalTerm>): List<TermView> = terms.mapNotNull(::termOf)
+
+private fun termOf(term: DentalTerm): TermView? =
+    TermKind.of(term.kind)?.let {
+        TermView(term.id, it, term.label, term.own)
+    }
 
 /** Children's charts open on the primary teeth: a chart with only primary-tooth entries. */
 private fun defaultDentition(current: List<ChartEntry>): Dentition {

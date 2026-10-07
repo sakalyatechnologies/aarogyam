@@ -59,10 +59,12 @@ struct ChartTab: View {
                         .skTextStyle(SkTypeScale.caption).foregroundStyle(p.textMuted.color)
                 }
                 SkSegmentedControl(Dentition.allCases.map(\.label), selection: dentitionBinding(state))
+                Pill(text: chartText("chart.several"), selected: state.several) { holder.setSeveral(on: !state.several) }
                 ToothChartView(
                     upper: state.upper,
                     lower: state.lower,
                     selected: state.selected?.tooth.number,
+                    group: group(state),
                     selectedSurface: state.selected?.surface,
                     scale: $scale
                 ) { tooth, surface in holder.select(tooth: tooth, surface: surface) }
@@ -73,20 +75,44 @@ struct ChartTab: View {
                 }
             }
         }
-        if let selection = state.selected {
+        if state.several && state.group.count > 1 {
+            GroupPanel(group: group(state), canRecord: state.canRecord, saving: state.saving) { recording = true }
+        } else if let selection = state.selected {
             ToothPanel(selection: selection, canRecord: state.canRecord, saving: state.saving, onSurface: { holder.selectSurface(surface: $0) }) {
                 recording = true
-            }
-            .sheet(isPresented: Binding(get: { recording && state.canRecord }, set: { recording = $0 })) {
-                RecordFindingSheet(tooth: selection.tooth, initialSurface: selection.surface) { finding, surface, note in
-                    holder.record(finding: finding, surface: surface, note: note)
-                    recording = false
-                }
             }
         } else {
             Text(chartText("chart.pick_tooth")).skTextStyle(SkTypeScale.footnote).foregroundStyle(p.textMuted.color)
         }
         legend
+            .sheet(isPresented: Binding(get: { recording && state.canRecord && state.selected != nil }, set: { recording = $0 })) {
+                if let selection = state.selected { recordSheet(state, selection: selection) }
+            }
+    }
+
+    /// The "Select several" group as FDI numbers.
+    private func group(_ state: ChartStateLoaded) -> [Int32] {
+        state.group.map { $0.int32Value }
+    }
+
+    private func recordSheet(_ state: ChartStateLoaded, selection: ToothSelection) -> some View {
+        let numbers = state.several && !state.group.isEmpty ? group(state) : [selection.tooth.number]
+        let all = state.upper + state.lower
+        return RecordFindingSheet(
+            teeth: numbers.compactMap { n in all.first { $0.number == n } },
+            initialSurface: numbers.count == 1 ? selection.surface : nil,
+            choices: TermChoices(
+                terms: state.terms,
+                adding: state.addingTerm,
+                added: state.addedTerm,
+                error: state.termError,
+                onAdd: { kind, label in holder.addTerm(kind: kind, label: label) },
+                onConsumed: holder.consumeAddedTerm
+            )
+        ) { finding, surfaces, procedure, material, note in
+            holder.record(finding: finding, surfaces: surfaces, procedure: procedure, material: material, note: note)
+            recording = false
+        }
     }
 
     private func dentitionBinding(_ state: ChartStateLoaded) -> Binding<Int> {

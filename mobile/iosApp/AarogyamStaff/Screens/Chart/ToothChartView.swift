@@ -8,6 +8,7 @@ struct ToothChartView: View {
     let upper: [ToothView]
     let lower: [ToothView]
     let selected: Int32?
+    var group: [Int32] = []
     let selectedSurface: Surface?
     @Binding var scale: CGFloat
     let onSelect: (Int32, Surface?) -> Void
@@ -51,7 +52,7 @@ struct ToothChartView: View {
                 ForEach(teeth, id: \.number) { tooth in
                     ToothCell(
                         tooth: tooth,
-                        selected: tooth.number == selected,
+                        selected: tooth.number == selected || group.contains(tooth.number),
                         selectedSurface: tooth.number == selected ? selectedSurface : nil,
                         zoomed: zoomed,
                         onSelect: { onSelect(tooth.number, $0) }

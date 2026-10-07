@@ -94,7 +94,7 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
       <div className="v4-auth-right">
       <div className="auth-page">
       <div className="wrap">
-        <button className="backlink" onClick={onBack}>← aarogyam.in</button>
+        <button className="backlink" onClick={onBack}>← Back to home</button>
         <div className="auth-card rv in">
           <div className="eyebrow">Sign in</div>
           <h2 className="font-d">One portal. Every role, routed.</h2>

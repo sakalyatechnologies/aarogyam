@@ -2,7 +2,7 @@ import AarogyamShared
 import SakalyaUI
 import SwiftUI
 
-/// Patient 360: Overview (banner, contact, upcoming, visits and, with `billing.read`, the balance), Chart, Rx and Billing tabs.
+/// Patient 360: Overview (banner, contact, upcoming, visits and, with `billing.read`, the balance), Chart, Rx, Notes and Billing tabs.
 struct Patient360Screen: View {
     let holder: Patient360StateHolder
     let state: Patient360State
@@ -20,6 +20,7 @@ struct Patient360Screen: View {
         String(localized: "patient.tab.overview"),
         chartText("patient.tab.chart"),
         String(localized: "patient.tab.rx"),
+        String(localized: "patient.tab.notes"),
         chartText("patient.tab.billing"),
     ]
 
@@ -39,6 +40,8 @@ struct Patient360Screen: View {
             } else if let loaded, tab == 2 {
                 RxTab(graph: graph, clinic: clinic, patientId: patientId, allergies: loaded.view.flags.allergies)
             } else if loaded != nil, tab == 3 {
+                NotesTab(graph: graph, clinic: clinic, patientId: patientId)
+            } else if loaded != nil, tab == 4 {
                 BillingTab(holder: billing, state: billingState)
             } else {
                 ScrollView {

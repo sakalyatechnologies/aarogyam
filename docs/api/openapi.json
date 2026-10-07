@@ -3922,6 +3922,51 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/notes": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The patient's summary note and visit notes, for Patient 360. Reading writes the access record.",
+        "operationId": "getPatientNotes",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientNotes"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic, or out of the role's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/prescriptions": {
       "get": {
         "tags": [
@@ -4162,6 +4207,87 @@
           },
           "404": {
             "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/summary-note": {
+      "put": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Saves the patient's summary note: the first save creates it, later saves replace the text.\nAnyone with `clinical.write` whose scope reaches the patient may, at any time. Send the\n`row_version` you read in `If-Match` to refuse the edit (`412`) if the note changed since.\nThe change history records each change.",
+        "operationId": "savePatientSummaryNote",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the note changed since",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SummaryContent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The `row_version` in quotes; send it back in `If-Match` when editing"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Too long, or outside the allowed Markdown subset"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic, or out of the role's reach"
+          },
+          "412": {
+            "description": "`stale_version`: the note changed since the `If-Match` version; the current version is in `ETag`"
           }
         },
         "security": [
@@ -14307,6 +14433,33 @@
           }
         }
       },
+      "PatientNotes": {
+        "type": "object",
+        "description": "A patient's notes.",
+        "required": [
+          "visit_notes"
+        ],
+        "properties": {
+          "summary": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SummaryNote",
+                "description": "The summary note; absent until someone writes it."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visit_notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitNote"
+            },
+            "description": "Visit notes, newest first (up to 100), limited to those the caller's role reaches."
+          }
+        }
+      },
       "PatientRef": {
         "type": "object",
         "description": "A patient as a bill or payment names them.",
@@ -17931,6 +18084,50 @@
           }
         }
       },
+      "SummaryContent": {
+        "type": "object",
+        "description": "The summary note's new text.",
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The text, up to 20,000 characters, in the Markdown subset. Empty clears the note. HTML,\nlinks, images and code are refused (`400`)."
+          }
+        }
+      },
+      "SummaryNote": {
+        "type": "object",
+        "description": "A patient's summary note: formatted text kept up to date outside any single visit.",
+        "required": [
+          "body",
+          "row_version",
+          "updated_at"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The text: a strict Markdown subset (headings `#` to `###`, `-` and `1.` lists, `**bold**`,\n`*italic*`). Render it with a renderer that treats everything else as plain text."
+          },
+          "row_version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Goes up when the text changes. Send it back in `If-Match` (it is also the `ETag`)."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          },
+          "updated_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who last changed it."
+          }
+        }
+      },
       "Supplier": {
         "type": "object",
         "description": "A supplier.",
@@ -18648,6 +18845,78 @@
               "$ref": "#/components/schemas/Visit"
             },
             "description": "The visits."
+          }
+        }
+      },
+      "VisitNote": {
+        "type": "object",
+        "description": "A visit note as listed on the patient. Open the visit to edit it or add an addendum.",
+        "required": [
+          "id",
+          "visit_id",
+          "visit_number",
+          "kind",
+          "status",
+          "sections",
+          "author",
+          "created_at",
+          "updated_at",
+          "row_version",
+          "addenda_count"
+        ],
+        "properties": {
+          "addenda_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many addenda it has."
+          },
+          "author": {
+            "$ref": "#/components/schemas/MemberRef",
+            "description": "Who wrote it."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was written (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`soap`, `progress`, `procedure`, `intake` or `front_desk`."
+          },
+          "row_version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The note's version; send it in `If-Match` to `PATCH /notes/{id}` (drafts only)."
+          },
+          "sections": {
+            "$ref": "#/components/schemas/NoteSections",
+            "description": "The sections (each a Markdown subset)."
+          },
+          "signed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was signed (RFC 3339)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`draft`, `signed`, `conflict` or `entered_in_error`."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          },
+          "visit_id": {
+            "type": "string",
+            "description": "The visit."
+          },
+          "visit_number": {
+            "type": "string",
+            "description": "The visit's number, such as `V-318`."
           }
         }
       },

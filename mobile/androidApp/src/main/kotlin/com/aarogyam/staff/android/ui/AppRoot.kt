@@ -134,6 +134,7 @@ private fun Signed(graph: AppGraph) {
                             onBack = nav::popBackStack,
                             chartTab = { ChartTab(rememberHolder { graph.chart(open, id, it) }) },
                             rxTab = { RxTab(graph, open, id, it.flags.allergies) },
+                            notesTab = { NotesTab(rememberHolder { graph.patientNotes(open, id, it) }) },
                             billing = rememberHolder { graph.billing(open, id, it) },
                         )
                     }

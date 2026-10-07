@@ -14,6 +14,7 @@ import { NotFoundPage } from "../not-found-page.js";
 import { ClinicalFlagsPanel } from "./clinical-flags-panel.js";
 import { DentalChartPanel } from "./dental-chart-panel.js";
 import { FilesPanel } from "./files-panel.js";
+import { NotesPanel } from "./notes-panel.js";
 import { BillsPanel, PrescriptionsPanel } from "./records-panels.js";
 import { VisitsPanel } from "./visits-panel.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
@@ -191,6 +192,7 @@ function PatientView({ patient }: { patient: Patient }) {
             ...(canSeeClinical
               ? [
                   { value: "visits", label: "Visits", content: <VisitsPanel patientId={patient.id} /> },
+                  { value: "notes", label: "Notes", content: <NotesPanel patientId={patient.id} /> },
                   { value: "dental-chart", label: "Dental chart", content: <DentalChartPanel patientId={patient.id} /> },
                   { value: "prescriptions", label: "Prescriptions", content: <PrescriptionsPanel patientId={patient.id} /> },
                   { value: "files", label: "Files", content: <FilesPanel patientId={patient.id} /> },

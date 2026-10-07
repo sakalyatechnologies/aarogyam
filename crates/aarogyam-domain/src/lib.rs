@@ -81,6 +81,7 @@ pub mod outbox;
 pub mod patient;
 pub mod permission;
 pub mod prescription;
+pub mod richtext;
 pub mod roles;
 pub mod schedule;
 pub mod search;

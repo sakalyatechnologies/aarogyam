@@ -257,6 +257,15 @@ export interface FakeNote {
   updated_at: string;
 }
 
+export interface FakeSummaryNote {
+  clinic_id: string;
+  patient_id: string;
+  body: string;
+  row_version: number;
+  updated_at: string;
+  updated_by_membership_id: string;
+}
+
 export interface FakeObservation {
   id: string;
   clinic_id: string;
@@ -575,6 +584,8 @@ export interface Fixtures {
   conditions: FakeCondition[];
   visits: FakeVisit[];
   notes: FakeNote[];
+  /** Patient summary notes, made on first save. */
+  summaryNotes?: FakeSummaryNote[];
   observations: FakeObservation[];
   procedures: FakeProcedure[];
   chartEntries: FakeChartEntry[];

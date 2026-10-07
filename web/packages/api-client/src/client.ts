@@ -159,6 +159,9 @@ import type {
   StatusChanged,
   FinishedItemStatus,
   Joined,
+  PatientNotes,
+  SummaryContent,
+  SummaryNote,
   Timeline,
   TodayMoney,
   TokenStatusChange,
@@ -355,6 +358,14 @@ export interface ApiClient {
 
   /** Clinic host: a patient's visits, notes, procedures and files, newest first. Needs `clinical.read`. */
   getTimeline(id: PatientId, options?: RequestOptions): Promise<ApiResult<Timeline>>;
+  /** Clinic host: a patient's summary note and visit notes, for Patient 360. Needs `clinical.read`. */
+  getPatientNotes(id: PatientId, options?: RequestOptions): Promise<ApiResult<PatientNotes>>;
+  /**
+   * Clinic host: saves the patient's summary note (the first save creates it). Pass the
+   * `row_version` you read as `expectedVersion` to refuse the save (`412`) if it changed since.
+   * Needs `clinical.write`.
+   */
+  savePatientSummaryNote(id: PatientId, content: SummaryContent, expectedVersion?: number, options?: RequestOptions): Promise<ApiResult<SummaryNote>>;
   /** Clinic host: a patient's visits, newest first. Needs `clinical.read`. */
   listVisits(id: PatientId, options?: RequestOptions): Promise<ApiResult<VisitPage>>;
   /** Clinic host: everything recorded in one visit. Needs `clinical.read`. */

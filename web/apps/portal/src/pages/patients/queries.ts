@@ -28,3 +28,23 @@ export function usePatientList(q: string, filter: PatientFilter) {
     placeholderData: keepPreviousData,
   });
 }
+
+/** A patient's summary note and visit notes, for the Notes tab. */
+export function usePatientNotes(patientId: PatientId) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["patient-notes", access.org_id, patientId],
+    queryFn: ({ signal }) => unwrap(api.getPatientNotes(patientId, { signal })),
+  });
+}
+
+/** Saves the summary note; `expectedVersion` is what the editor read, so a change made meanwhile is refused (`412`). */
+export function useSaveSummaryNote(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ body, expectedVersion }: { body: string; expectedVersion: number | undefined }) =>
+      unwrap(api.savePatientSummaryNote(patientId, { body }, expectedVersion)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["patient-notes", access.org_id, patientId] }),
+  });
+}

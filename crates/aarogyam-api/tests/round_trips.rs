@@ -183,7 +183,7 @@ async fn conditional_edits(
     patient: &str,
     appointment: &str,
     starts_at: &str,
-) -> [Route; 3] {
+) -> [Route; 4] {
     let visit = created(
         app,
         owner,
@@ -213,6 +213,19 @@ async fn conditional_edits(
     };
     let patient_uri = format!("/api/v1/patients/{patient}");
     let patient_etag = version(&patient_uri).await;
+    let summary_uri = format!("/api/v1/patients/{patient}/summary-note");
+    let (status, summary_headers, saved) = app
+        .send_full(
+            Method::PUT,
+            ALPHA,
+            &summary_uri,
+            Some(owner),
+            Some(json!({ "body": "## History\n- **Diabetic**" })),
+            &[],
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    let summary_etag = summary_headers["etag"].to_str().unwrap().to_owned();
     let patch = |name: &'static str, uri: String, body: Value, etag: String, extra: usize| Route {
         method: Method::PATCH,
         body: Some(body),
@@ -220,6 +233,13 @@ async fn conditional_edits(
         ..Route::get(name, ALPHA, uri).allow_extra(extra)
     };
     [
+        // Read-modify-write: the patient (reach), the note's lock, the write: two over.
+        Route {
+            method: Method::PUT,
+            body: Some(json!({ "body": "## History\n- **Diabetic**" })),
+            if_match: Some(summary_etag),
+            ..Route::get("PUT /patients/{id}/summary-note", ALPHA, summary_uri).allow_extra(2)
+        },
         patch(
             "PATCH /patients/{id}",
             patient_uri,
@@ -351,6 +371,13 @@ fn hot_routes(
         )
         .allow_extra(2),
         // Over budget since scope enforcement (the scoped list, then the prescribers' names); to fold into one statement.
+        // The summary note and the visit notes in one statement, then the access record: one over.
+        Route::get(
+            "GET /patients/{id}/notes",
+            ALPHA,
+            format!("/api/v1/patients/{patient}/notes"),
+        )
+        .allow_extra(1),
         Route::get(
             "GET /patients/{id}/prescriptions",
             ALPHA,

@@ -96,6 +96,8 @@ import {
   sharedPreview,
   staffResponse,
   statusChanged,
+  patientNotes,
+  summaryNote,
   timeline,
   todayMoney,
   todayResponse,
@@ -336,6 +338,17 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     getTimeline: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/timeline`, schema: timeline, signal: opts?.signal }),
+    getPatientNotes: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/notes`, schema: patientNotes, signal: opts?.signal }),
+    savePatientSummaryNote: (id, content, expectedVersion, opts) =>
+      call({
+        method: "PUT",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/summary-note`,
+        schema: summaryNote,
+        body: content,
+        ...(expectedVersion === undefined ? {} : { headers: { "If-Match": `"${String(expectedVersion)}"` } }),
+        signal: opts?.signal,
+      }),
     listVisits: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/visits`, schema: visitList, signal: opts?.signal }),
     getVisit: (id, opts) => call({ method: "GET", path: `/api/v1/visits/${encodeURIComponent(id)}`, schema: visitDetail, signal: opts?.signal }),

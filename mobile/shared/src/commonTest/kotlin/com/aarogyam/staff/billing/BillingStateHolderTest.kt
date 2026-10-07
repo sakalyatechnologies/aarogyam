@@ -73,6 +73,7 @@ class BillingStateHolderTest {
 
     private fun FakeBackend.postKeys() =
         requests
+            .toList()
             .filter {
                 it.method == HttpMethod.Post && it.url.encodedPath.endsWith("/payments")
             }.map { it.headers["Idempotency-Key"] }

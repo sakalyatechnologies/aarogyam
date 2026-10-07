@@ -17,6 +17,7 @@ pub(crate) mod letterhead;
 pub(crate) mod me;
 pub(crate) mod meta;
 pub(crate) mod onboarding;
+pub(crate) mod patient_notes;
 pub(crate) mod patients;
 pub(crate) mod payments;
 pub(crate) mod prescriptions;
@@ -140,6 +141,11 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(visits::list).post(visits::start),
         )
         .route("/patients/{id}/timeline", get(visits::timeline))
+        .route("/patients/{id}/notes", get(patient_notes::get))
+        .route(
+            "/patients/{id}/summary-note",
+            put(patient_notes::save_summary),
+        )
         .route("/visits/{id}", get(visits::open))
         .route("/visits/{id}/close", post(visits::close))
         .route("/visits/{id}/notes", post(visits::create_note))

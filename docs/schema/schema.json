@@ -2304,6 +2304,7 @@
     "patient_gaps.patient_id",
     "patient_identifiers.patient_id",
     "patient_links.patient_id",
+    "patient_notes.patient_id",
     "patients.merged_into_id",
     "patients.referred_by_patient_id",
     "payment_allocations.patient_id",
@@ -3409,6 +3410,43 @@
    ],
    "sensitivity": "health",
    "offline": "read_write"
+  },
+  {
+   "name": "patient_notes",
+   "domain": "clinical",
+   "purpose": "One summary note per patient, kept up to date by clinicians outside any single visit.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Edited by any member with clinical.write whose scope reaches the patient; every change is audited. Visit notes stay in clinical_notes and signed ones change only through addenda.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": "unique: one summary note per patient"
+    },
+    {
+     "name": "body",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "a strict Markdown subset (headings, lists, bold, italic), validated on save"
+    },
+    {
+     "name": "row_version",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "starts at 1 and goes up when the text changes; sent as the ETag, checked against If-Match on edits"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "note_addenda",

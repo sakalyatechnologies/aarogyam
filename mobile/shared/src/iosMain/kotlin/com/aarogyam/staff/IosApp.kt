@@ -7,6 +7,7 @@ import com.aarogyam.staff.clinic.ClinicBranding
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
+import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
 import com.aarogyam.staff.patients.PatientsStateHolder
@@ -78,6 +79,13 @@ fun AppGraph.chart(
     patientId: String,
     screen: ScreenScope,
 ): ChartStateHolder = chart(clinic, patientId, screen.scope)
+
+/** The Notes tab's state holder for [patientId], living as long as [screen]. */
+fun AppGraph.patientNotes(
+    clinic: ClinicContext,
+    patientId: String,
+    screen: ScreenScope,
+): PatientNotesStateHolder = patientNotes(clinic, patientId, screen.scope)
 
 /** The Rx tab's state holder for [patientId], living as long as [screen]. */
 fun AppGraph.rxList(

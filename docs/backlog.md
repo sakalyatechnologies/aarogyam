@@ -25,7 +25,9 @@ Requests from the founder and clinics that are not built yet. Read this before d
 - **To build:** take a photo in the mobile apps (camera) and upload from the gallery; X-rays and other files from a laptop; name or label each file (e.g. "OPG", "Intraoral – upper"); show them on Patient 360 and per tooth.
 - **Design notes:** uploads go through the API (never a public bucket URL); images are resized on the device before upload; no patient names in file keys (ids only, as today).
 
-## Patient notes on Patient 360 (6 Oct 2026)
+## Patient notes on Patient 360 (6 Oct 2026, built on feat/patient-notes)
+- **Built:** `GET /api/v1/patients/{id}/notes` (summary note plus the visit notes, newest first) and `PUT /api/v1/patients/{id}/summary-note` (`If-Match`, audited); a Notes tab on Patient 360 web and mobile. Text is a strict Markdown subset (`#` to `###`, `-` and `1.` lists, `**bold**`, `*italic*`): validated on save (`aarogyam-domain/src/richtext.rs`, mirrored by the editors), rendered by trees (React elements, Compose text, SwiftUI attributed text), never as HTML. Visit note sections and addenda use the same format; older plain text is still valid.
+- **Rules kept:** drafts are edited by their author, signed notes change only through addenda; the summary note is edited by anyone with `clinical.write` whose scope reaches the patient (`own`/`assigned` narrow it like other patient-level records).
 - Show the patient's notes on Patient 360 (web and mobile), and let the doctor edit them during an ongoing visit or at any time they're allowed to.
 - **Formatted** text: headings, bullet lists, bold; stored as a safe, structured format (e.g. Markdown with a strict renderer, or a small JSON document model), never raw HTML.
 - **Design notes:** signed notes are immutable and change through addenda (already the rule: `/notes/{id}/addenda`); "edit" applies to drafts and to a patient-level summary note that is versioned (row_version / If-Match).

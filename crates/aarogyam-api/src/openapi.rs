@@ -71,6 +71,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::visits::list,
         crate::v1::visits::open,
         crate::v1::visits::timeline,
+        crate::v1::patient_notes::get,
+        crate::v1::patient_notes::save_summary,
         crate::v1::visits::close,
         crate::v1::visits::create_note,
         crate::v1::visits::edit_note,

@@ -1972,6 +1972,7 @@
     "clinical_notes.signed_by",
     "conditions.verified_by",
     "daily_closings.closed_by",
+    "dental_terms.added_by",
     "document_extractions.confirmed_by",
     "encounters.clinician_id",
     "invoices.issued_by",
@@ -2301,8 +2302,10 @@
     "medical_history_items.patient_id",
     "messages.patient_id",
     "observations.patient_id",
+    "patient_gaps.patient_id",
     "patient_identifiers.patient_id",
     "patient_links.patient_id",
+    "patient_notes.patient_id",
     "patients.merged_into_id",
     "patients.referred_by_patient_id",
     "payment_allocations.patient_id",
@@ -3408,6 +3411,43 @@
    ],
    "sensitivity": "health",
    "offline": "read_write"
+  },
+  {
+   "name": "patient_notes",
+   "domain": "clinical",
+   "purpose": "One summary note per patient, kept up to date by clinicians outside any single visit.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Edited by any member with clinical.write whose scope reaches the patient; every change is audited. Visit notes stay in clinical_notes and signed ones change only through addenda.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": "unique: one summary note per patient"
+    },
+    {
+     "name": "body",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "a strict Markdown subset (headings, lists, bold, italic), validated on save"
+    },
+    {
+     "name": "row_version",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "starts at 1 and goes up when the text changes; sent as the ETag, checked against If-Match on edits"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "note_addenda",
@@ -4619,7 +4659,7 @@
      "type": "jsonb",
      "nullable": false,
      "ref": null,
-     "note": "validated against the module's schema on write; dental: tooth, surface, finding, note"
+     "note": "validated against the module's schema on write; dental: tooth, surface, finding, procedure, material, note (procedure and material are term ids: seeded or dental_terms)"
     },
     {
      "name": "tooth",
@@ -4690,6 +4730,43 @@
    ],
    "sensitivity": "health",
    "offline": "read_write"
+  },
+  {
+   "name": "dental_terms",
+   "domain": "clinical",
+   "purpose": "A clinic's own dental procedures and materials, beside the seeded vocabulary in specialties/dental/vocabulary.json.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
+   "notes": "Chart entries name a term by id: a seeded id such as zirconia, or one of these UUIDs. The list arrives with the chart and clients filter it as the clinician types.",
+   "cols": [
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "procedure, material"
+    },
+    {
+     "name": "label",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique per list ignoring case"
+    },
+    {
+     "name": "added_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "document_templates",
@@ -8406,13 +8483,13 @@
   {
    "name": "imports",
    "domain": "onboarding",
-   "purpose": "A data import from Excel or old software.",
+   "purpose": "A data import from a CSV or Excel file.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
    "lifecycle": "append_only",
    "schema": "aarogyam",
-   "notes": "M3 imports CSV text sent in the request and records only committed imports; uploads from files, appointments and invoices are planned.",
+   "notes": "Smart import (CSV or .xlsx via import_sessions) records file, sheet and each row; the older CSV-text endpoint records only the mapping. Appointments and invoices are planned.",
    "cols": [
     {
      "name": "kind",
@@ -8426,7 +8503,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "csv"
+     "note": "csv, xlsx"
     },
     {
      "name": "mapping",
@@ -8462,10 +8539,54 @@
      "nullable": false,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "skipped_rows",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "duplicates left out"
+    },
+    {
+     "name": "merged_rows",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "duplicates merged into an existing record"
+    },
+    {
+     "name": "incomplete_rows",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "imported with details missing"
+    },
+    {
+     "name": "session_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "import_sessions",
+     "note": "unique: committing a session twice finds this import"
+    },
+    {
+     "name": "file_name",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "as uploaded"
+    },
+    {
+     "name": "sheet_name",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the workbook sheet read"
     }
    ],
    "referenced_by": [
-    "import_rows.import_id"
+    "import_rows.import_id",
+    "import_sessions.import_id",
+    "patient_gaps.import_id"
    ],
    "sensitivity": "personal",
    "offline": "server_only"
@@ -8473,7 +8594,7 @@
   {
    "name": "import_rows",
    "domain": "onboarding",
-   "purpose": "Each row of an import with its result, so failures can be fixed and retried.",
+   "purpose": "Each row of an import with its result: the source reference (file and sheet on the import, row here) of every imported record.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
@@ -8493,34 +8614,231 @@
      "type": "int",
      "nullable": false,
      "ref": null,
-     "note": "line in the file, header is 1"
+     "note": "row in the file, header row counted"
     },
     {
      "name": "raw",
      "type": "jsonb",
      "nullable": false,
      "ref": null,
-     "note": "the row's mapped values"
+     "note": "the row's mapped values (CSV-text imports); empty for smart imports, whose rows live only in the session"
     },
     {
      "name": "status",
      "type": "row_status",
      "nullable": false,
      "ref": null,
-     "note": "imported, failed"
+     "note": "imported, failed, skipped, merged"
     },
     {
      "name": "error",
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": ""
+     "note": "why it failed or was skipped"
     },
     {
      "name": "patient_id",
      "type": "uuid",
      "nullable": true,
      "ref": "patients",
+     "note": "the patient it became or was merged into"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
+   "name": "import_sessions",
+   "domain": "onboarding",
+   "purpose": "An uploaded file being mapped and previewed before import. Holds the parsed rows, never the file.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Expired sessions are ended, and their cells cleared, when the clinic next uploads.",
+   "cols": [
+    {
+     "name": "file_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "file_kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "csv, xlsx"
+    },
+    {
+     "name": "file_sha256",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "size_bytes",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "at most 5 MB"
+    },
+    {
+     "name": "sheet_names",
+     "type": "text[]",
+     "nullable": false,
+     "ref": null,
+     "note": "a workbook's sheets"
+    },
+    {
+     "name": "sheet_name",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "header_row",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "found automatically below any title rows"
+    },
+    {
+     "name": "headers",
+     "type": "text[]",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cells",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "the data rows; cleared on commit, discard or expiry, excluded from the audit log"
+    },
+    {
+     "name": "row_count",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "at most 5,000"
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "open, committed, discarded, expired"
+    },
+    {
+     "name": "import_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "imports",
+     "note": ""
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": "24 hours after upload"
+    }
+   ],
+   "referenced_by": [
+    "imports.session_id"
+   ],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
+   "name": "import_column_memory",
+   "domain": "onboarding",
+   "purpose": "Which field each column header meant last time, so the clinic's next file maps itself.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "",
+   "cols": [
+    {
+     "name": "header_key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique per clinic: the header in lower case, punctuation as spaces"
+    },
+    {
+     "name": "field",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "full_name, sex, date_of_birth, age_years, phone, email, preferred_language, file_number, legacy_id, address, last_visit, balance"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
+   "name": "patient_gaps",
+   "domain": "onboarding",
+   "purpose": "The front desk's to-do list: patients imported without some details.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "What is still missing is worked out from the patient's current record, so filling a detail clears it; dismissing says the details can't be had.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "import_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "imports",
+     "note": ""
+    },
+    {
+     "name": "row_number",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "their row in the file"
+    },
+    {
+     "name": "missing",
+     "type": "text[]",
+     "nullable": false,
+     "ref": null,
+     "note": "phone, sex, date_of_birth, as imported"
+    },
+    {
+     "name": "dismissed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "dismissed_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
      "note": ""
     }
    ],
@@ -8577,12 +8895,15 @@
     {
      "actor": "Import",
      "tables": [
+      "import_sessions",
+      "import_column_memory",
       "imports",
       "import_rows",
       "patients",
-      "patient_identifiers"
+      "patient_identifiers",
+      "patient_gaps"
      ],
-     "what": "Patients brought in from the old software, keeping file numbers."
+     "what": "The clinic's CSV or Excel file mapped automatically, previewed and imported, keeping file numbers; patients missing details go on the front desk's to-do list."
     }
    ]
   },

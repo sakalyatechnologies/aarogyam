@@ -66,6 +66,10 @@ entities! {
     PatientIdentifier, PatientIdentifierId;
     /// A data import.
     Import, ImportId;
+    /// An uploaded file being mapped and checked before it is imported.
+    ImportSession, ImportSessionId;
+    /// A patient imported without some details, on the front desk's to-do list.
+    PatientGap, PatientGapId;
     /// Where the clinic buys materials.
     Supplier, SupplierId;
     /// A material or medicine the clinic keeps in stock.
@@ -89,6 +93,8 @@ entities! {
     Allergy, AllergyId;
     /// A specialty record, such as a dental chart entry.
     SpecialtyRecord, SpecialtyRecordId;
+    /// A clinic's own dental term: a procedure or material it added to the seeded list.
+    DentalTerm, DentalTermId;
     /// A procedure planned or done in a visit.
     Procedure, ProcedureId;
     /// A treatment plan.

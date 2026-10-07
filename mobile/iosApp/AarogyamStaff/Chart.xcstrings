@@ -68,6 +68,28 @@
         }
       }
     },
+    "chart.group_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap more teeth to add them, or a picked tooth to remove it."
+          }
+        }
+      }
+    },
+    "chart.group_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld teeth selected"
+          }
+        }
+      }
+    },
     "chart.history": {
       "extractionState": "manual",
       "localizations": {
@@ -119,6 +141,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "LOWER ARCH"
+          }
+        }
+      }
+    },
+    "chart.material": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Material"
           }
         }
       }
@@ -189,6 +222,17 @@
         }
       }
     },
+    "chart.procedure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Procedure"
+          }
+        }
+      }
+    },
     "chart.record": {
       "extractionState": "manual",
       "localizations": {
@@ -211,6 +255,17 @@
         }
       }
     },
+    "chart.record_group": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record for %lld teeth"
+          }
+        }
+      }
+    },
     "chart.record_title": {
       "extractionState": "manual",
       "localizations": {
@@ -218,6 +273,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Record a finding · tooth %d"
+          }
+        }
+      }
+    },
+    "chart.record_title_group": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record a finding · teeth %@"
           }
         }
       }
@@ -255,6 +321,17 @@
         }
       }
     },
+    "chart.several": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select several"
+          }
+        }
+      }
+    },
     "chart.superseded": {
       "extractionState": "manual",
       "localizations": {
@@ -273,6 +350,61 @@
           "stringUnit": {
             "state": "translated",
             "value": "Surface"
+          }
+        }
+      }
+    },
+    "chart.surfaces": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surfaces"
+          }
+        }
+      }
+    },
+    "chart.term_add": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add “%@”"
+          }
+        }
+      }
+    },
+    "chart.term_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't add that. %@"
+          }
+        }
+      }
+    },
+    "chart.term_none": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing matches."
+          }
+        }
+      }
+    },
+    "chart.term_own": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · this clinic"
           }
         }
       }
@@ -306,6 +438,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tooth %d, %@"
+          }
+        }
+      }
+    },
+    "chart.type_material": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type to find a material"
+          }
+        }
+      }
+    },
+    "chart.type_procedure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type to find a procedure"
           }
         }
       }
@@ -541,6 +695,17 @@
         }
       }
     },
+    "surface.buccal_labial": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buccal / labial"
+          }
+        }
+      }
+    },
     "surface.distal": {
       "extractionState": "manual",
       "localizations": {
@@ -585,6 +750,17 @@
         }
       }
     },
+    "surface.lingual_palatal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lingual / palatal"
+          }
+        }
+      }
+    },
     "surface.mesial": {
       "extractionState": "manual",
       "localizations": {
@@ -603,6 +779,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Occlusal"
+          }
+        }
+      }
+    },
+    "surface.occlusal_incisal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Occlusal / incisal"
           }
         }
       }

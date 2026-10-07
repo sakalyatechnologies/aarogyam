@@ -1,6 +1,6 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderConsole } from "../../test/render-console.js";
 
@@ -71,5 +71,64 @@ describe("Clinic address status", () => {
     expect(within(addresses).getByText("Address failed")).toBeTruthy();
     expect(within(addresses).getByText("Last attempt: cloudflare answered 403 (code 10000)")).toBeTruthy();
     expect(within(addresses).getByText(/scripts\/provision-hosts\.sh/)).toBeTruthy();
+  });
+});
+
+describe("Address status polling", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("polls the clinic list every 10 seconds while a clinic address is pending", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderConsole("/clinics/new");
+    await user.type(await screen.findByLabelText(/clinic name/i), "Asha Dental Care");
+    await user.type(screen.getByLabelText(/owner's email/i), "asha@example.com");
+    await user.click(screen.getByRole("button", { name: "Create clinic" }));
+    expect(await screen.findByText(/is being set up for its owner/)).toBeTruthy();
+
+    await user.click(screen.getByRole("link", { name: /^Clinics$/ }));
+    const table = await screen.findByRole("table", { name: "Clinics" });
+
+    // The new clinic appears with Address pending.
+    expect(within(table).getByText("Address pending")).toBeTruthy();
+
+    // After 10 s the query refetches but the fake backend still returns pending; polling continues.
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(within(table).getByText("Address pending")).toBeTruthy();
+  });
+
+  it("stops polling the clinic detail once the address is ready", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderConsole("/clinics", {
+      override: (client) => {
+        let calls = 0;
+        const orig = client.getClinicDetail.bind(client);
+        return {
+          ...client,
+          getClinicDetail: async (id, options) => {
+            calls += 1;
+            const result = await orig(id, options);
+            if (!result.ok) return result;
+            // First call: pending. Second call onward: ready.
+            return calls === 1
+              ? { ok: true as const, value: { ...result.value, address_status: "pending" } }
+              : { ok: true as const, value: { ...result.value, address_status: "ready" } };
+          },
+        };
+      },
+    });
+    const table = await screen.findByRole("table", { name: "Clinics" });
+    await user.click(firstOf(await within(table).findAllByRole("link", { name: "Sunrise Dental" })));
+    expect(await screen.findByText("Address pending")).toBeTruthy();
+
+    // Advance 10 s: polling should refetch and flip to ready.
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(await screen.findByText("Address ready")).toBeTruthy();
+    expect(screen.queryByText("Address pending")).toBeNull();
   });
 });

@@ -1,12 +1,14 @@
 //! The dental chart: the current state of each tooth, its history, and recording findings.
 
 use aarogyam_dal::chart::{self, ChartRow, NewChartRow};
+use aarogyam_dal::dental_terms::{self as terms, TermRow};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::clinical::{EncounterStatus, NoteRefusal, RecordSource};
 use aarogyam_domain::dental::{
-    ChartData, ChartEntry, Finding, KIND, MODULE, SCHEMA_VERSION, Surface, Tooth,
+    ChartData, ChartEntry, Detail, Finding, KIND, MODULE, SCHEMA_VERSION, Surface, Tooth,
 };
-use aarogyam_domain::ids::{EncounterId, MembershipId, PatientId, SpecialtyRecordId};
+use aarogyam_domain::dental_terms::{TermKind, TermRef, seeded, seeded_match, term_label};
+use aarogyam_domain::ids::{DentalTermId, EncounterId, MembershipId, PatientId, SpecialtyRecordId};
 use aarogyam_domain::permission::Permission;
 use sakalya_db::{Db, DbErrorKind, ScopedTx};
 use time::OffsetDateTime;
@@ -33,6 +35,10 @@ pub struct ChartEntryView {
     pub surface: Option<Surface>,
     /// The finding.
     pub finding: Finding,
+    /// What was done.
+    pub procedure: Option<TermView>,
+    /// What it was done with.
+    pub material: Option<TermView>,
     /// The clinician's remark.
     pub note: Option<String>,
     /// `current`, `superseded` or `entered_in_error`.
@@ -45,7 +51,68 @@ pub struct ChartEntryView {
     pub recorded_by: Option<MembershipId>,
 }
 
-fn view(row: ChartRow) -> Result<ChartEntryView, AppError> {
+/// A procedure or material: seeded, or one the clinic added.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TermView {
+    /// The seeded id (`zirconia`) or the clinic term's UUID.
+    pub id: String,
+    /// Which list.
+    pub kind: TermKind,
+    /// What the clinician reads.
+    pub label: String,
+    /// Added by the clinic rather than seeded.
+    pub own: bool,
+}
+
+impl TermView {
+    fn seeded(term: &aarogyam_domain::dental_terms::SeedTerm) -> Self {
+        Self {
+            id: term.id.clone(),
+            kind: term.kind,
+            label: term.label.clone(),
+            own: false,
+        }
+    }
+
+    fn own(row: TermRow) -> Result<Self, AppError> {
+        Ok(Self {
+            id: row.id.to_string(),
+            kind: TermKind::parse(&row.kind)
+                .map_err(|_| AppError::Internal("a stored dental term is malformed"))?,
+            label: row.label,
+            own: true,
+        })
+    }
+}
+
+/// The ids of the clinic terms a stored entry names.
+fn clinic_ids(data: &ChartData) -> impl Iterator<Item = Uuid> + '_ {
+    [data.procedure.as_deref(), data.material.as_deref()]
+        .into_iter()
+        .flatten()
+        .filter_map(|id| Uuid::try_parse(id).ok())
+}
+
+fn resolve(
+    kind: TermKind,
+    id: Option<&str>,
+    own: &[TermView],
+) -> Result<Option<TermView>, AppError> {
+    let stored = || AppError::Internal("a stored chart entry names an unknown term");
+    match id.map(|id| TermRef::stored(kind, id)) {
+        None => Ok(None),
+        Some(None) => Err(stored()),
+        Some(Some(TermRef::Seeded(term))) => Ok(Some(TermView::seeded(term))),
+        Some(Some(TermRef::Clinic(id))) => own
+            .iter()
+            .find(|t| t.kind == kind && t.id == id.uuid().to_string())
+            .cloned()
+            .map(Some)
+            .ok_or_else(stored),
+    }
+}
+
+fn view(row: ChartRow, own: &[TermView]) -> Result<ChartEntryView, AppError> {
     let stored = || AppError::Internal("a stored chart entry is malformed");
     let data: ChartData = serde_json::from_value(row.data).map_err(|_| stored())?;
     Ok(ChartEntryView {
@@ -59,6 +126,8 @@ fn view(row: ChartRow) -> Result<ChartEntryView, AppError> {
             .transpose()
             .map_err(|_| stored())?,
         finding: Finding::parse(&data.finding).map_err(|_| stored())?,
+        procedure: resolve(TermKind::Procedure, data.procedure.as_deref(), own)?,
+        material: resolve(TermKind::Material, data.material.as_deref(), own)?,
         note: data.note,
         status: row.status,
         supersedes_id: row.supersedes_id.map(SpecialtyRecordId::from_uuid),
@@ -67,16 +136,36 @@ fn view(row: ChartRow) -> Result<ChartEntryView, AppError> {
     })
 }
 
+/// Rows as views, reading the clinic terms they name in one query (none when they name only
+/// seeded terms).
+async fn views(tx: &mut ScopedTx, rows: Vec<ChartRow>) -> Result<Vec<ChartEntryView>, AppError> {
+    let mut ids: Vec<Uuid> = Vec::new();
+    for row in &rows {
+        if let Ok(data) = serde_json::from_value::<ChartData>(row.data.clone()) {
+            ids.extend(clinic_ids(&data));
+        }
+    }
+    let own = if ids.is_empty() {
+        Vec::new()
+    } else {
+        ids.sort_unstable();
+        ids.dedup();
+        terms::some(tx.conn(), &ids)
+            .await?
+            .into_iter()
+            .map(TermView::own)
+            .collect::<Result<Vec<_>, _>>()?
+    };
+    rows.into_iter().map(|row| view(row, &own)).collect()
+}
+
 /// The chart entries recorded in a visit.
 pub(crate) async fn of_visit(
     tx: &mut ScopedTx,
     encounter_id: Uuid,
 ) -> Result<Vec<ChartEntryView>, AppError> {
-    chart::of_encounter(tx.conn(), encounter_id)
-        .await?
-        .into_iter()
-        .map(view)
-        .collect()
+    let rows = chart::of_encounter(tx.conn(), encounter_id).await?;
+    views(tx, rows).await
 }
 
 /// A patient's chart: the current entries of every tooth that has any, by tooth and surface,
@@ -87,6 +176,9 @@ pub struct DentalChart {
     pub current: Vec<ChartEntryView>,
     /// Every entry of the requested tooth, newest first; empty when no tooth was asked for.
     pub history: Vec<ChartEntryView>,
+    /// The procedures and materials to offer: the seeded vocabulary, then the clinic's own.
+    /// Clients filter it as the clinician types; nothing is asked per keystroke.
+    pub terms: Vec<TermView>,
 }
 
 async fn load(
@@ -94,20 +186,35 @@ async fn load(
     patient_id: Uuid,
     tooth: Option<Tooth>,
 ) -> Result<DentalChart, AppError> {
+    let own = terms::list(tx.conn())
+        .await?
+        .into_iter()
+        .map(TermView::own)
+        .collect::<Result<Vec<_>, _>>()?;
     let current = chart::current(tx.conn(), patient_id)
         .await?
         .into_iter()
-        .map(view)
+        .map(|row| view(row, &own))
         .collect::<Result<_, _>>()?;
     let history = match tooth {
         Some(tooth) => chart::history(tx.conn(), patient_id, i16::from(tooth.number()))
             .await?
             .into_iter()
-            .map(view)
+            .map(|row| view(row, &own))
             .collect::<Result<_, _>>()?,
         None => Vec::new(),
     };
-    Ok(DentalChart { current, history })
+    let terms = seeded()
+        .iter()
+        .filter(|t| !t.retired)
+        .map(TermView::seeded)
+        .chain(own)
+        .collect();
+    Ok(DentalChart {
+        current,
+        history,
+        terms,
+    })
 }
 
 /// A patient's dental chart, with one tooth's history when `tooth` is given.
@@ -144,6 +251,10 @@ pub struct EntryInput {
     pub surface: Option<String>,
     /// The finding, such as `caries`.
     pub finding: String,
+    /// A procedure id: seeded (`crown`) or a clinic term's UUID.
+    pub procedure: Option<String>,
+    /// A material id: seeded (`zirconia`) or a clinic term's UUID.
+    pub material: Option<String>,
     /// A remark.
     pub note: Option<String>,
 }
@@ -155,6 +266,50 @@ pub struct RecordChart {
     pub visit_id: Option<Uuid>,
     /// The entries, applied in order.
     pub entries: Vec<EntryInput>,
+}
+
+/// The surface of a stored entry.
+fn stored_surface(row: &ChartRow) -> Result<Option<Surface>, AppError> {
+    let stored = || AppError::Internal("a stored chart entry is malformed");
+    row.data
+        .get("surface")
+        .and_then(serde_json::Value::as_str)
+        .map(Surface::parse)
+        .transpose()
+        .map_err(|_| stored())
+}
+
+/// Refuses entries naming a clinic term this clinic doesn't have, or one of the wrong list.
+async fn check_own_terms(tx: &mut ScopedTx, entries: &[ChartEntry]) -> Result<(), AppError> {
+    let wanted: Vec<(TermKind, DentalTermId)> = entries
+        .iter()
+        .flat_map(|e| {
+            [
+                (TermKind::Procedure, e.procedure()),
+                (TermKind::Material, e.material()),
+            ]
+        })
+        .filter_map(|(kind, term)| term.and_then(TermRef::clinic).map(|id| (kind, id)))
+        .collect();
+    if wanted.is_empty() {
+        return Ok(());
+    }
+    let mut ids: Vec<Uuid> = wanted.iter().map(|(_, id)| id.uuid()).collect();
+    ids.sort_unstable();
+    ids.dedup();
+    let found = terms::some(tx.conn(), &ids).await?;
+    for (kind, id) in wanted {
+        if !found
+            .iter()
+            .any(|row| row.id == id.uuid() && row.kind == kind.as_str())
+        {
+            return Err(AppError::invalid(
+                "entries",
+                format!("unknown {}", kind.as_str()),
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Records chart entries. Each supersedes the current entry for its tooth and surface; a
@@ -188,7 +343,11 @@ pub async fn record(
                 entry.tooth,
                 entry.surface.as_deref(),
                 &entry.finding,
-                entry.note.as_deref(),
+                Detail {
+                    procedure: entry.procedure.as_deref(),
+                    material: entry.material.as_deref(),
+                    note: entry.note.as_deref(),
+                },
             )
         })
         .collect::<Result<Vec<_>, _>>()
@@ -210,15 +369,16 @@ pub async fn record(
                 return Err(AppError::Conflict(NoteRefusal::VisitClosed.message()));
             }
         }
+        check_own_terms(tx, &entries).await?;
         for entry in &entries {
             let tooth = i16::from(entry.tooth().number());
             let mut replaced = None;
             for row in chart::current_for_tooth(tx.conn(), patient.id, tooth).await? {
-                let current = view(row)?;
-                if entry.replaces(current.surface) {
-                    chart::supersede(tx.conn(), current.id.uuid()).await?;
-                    if current.surface == entry.surface() {
-                        replaced = Some(current.id.uuid());
+                let surface = stored_surface(&row)?;
+                if entry.replaces(surface) {
+                    chart::supersede(tx.conn(), row.id).await?;
+                    if surface == entry.surface() {
+                        replaced = Some(row.id);
                     }
                 }
             }
@@ -249,6 +409,48 @@ pub async fn record(
             })?;
         }
         load(tx, patient.id, None).await
+    })
+    .await
+}
+
+/// Adds a procedure or material to the clinic's list, for "Add new" in the chart. A label that
+/// matches a seeded term or one the clinic already has (ignoring case) returns that term
+/// instead, so the list never holds the same thing twice. Returns the term and whether it was
+/// added.
+///
+/// # Errors
+/// [`AppError::Invalid`] for an unknown list or a bad label; [`AppError::Conflict`] when the
+/// same label was added at the same moment.
+pub async fn add_term(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    kind: &str,
+    label: &str,
+) -> Result<(TermView, bool), AppError> {
+    actor.require(Permission::ClinicalWrite)?;
+    let kind = TermKind::parse(kind.trim())
+        .map_err(|_| AppError::invalid("kind", "must be procedure or material"))?;
+    let label = term_label(label).map_err(|error| AppError::invalid("label", error))?;
+    if let Some(term) = seeded_match(kind, &label).filter(|t| !t.retired) {
+        return Ok((TermView::seeded(term), false));
+    }
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let (row, added) = terms::add(
+            tx.conn(),
+            DentalTermId::new_v7().uuid(),
+            kind.as_str(),
+            &label,
+            actor.membership_id.uuid(),
+        )
+        .await
+        .map_err(|error| match error.kind() {
+            DbErrorKind::NotFound | DbErrorKind::Conflict => {
+                AppError::Conflict("the same term was added at the same moment; try again")
+            }
+            _ => AppError::Db(error),
+        })?;
+        Ok((TermView::own(row)?, added))
     })
     .await
 }

@@ -207,7 +207,10 @@ export interface paths {
         /** Lists every clinic with member and patient counts. */
         get: operations["listClinics"];
         put?: never;
-        /** Creates a clinic and invites its owner. Owner and onboarding staff only. */
+        /**
+         * Creates a clinic and invites its owner: the invitation is emailed and its secret returned once
+         *     for the console to show. Owner and onboarding staff only.
+         */
         post: operations["createClinic"];
         delete?: never;
         options?: never;
@@ -246,6 +249,26 @@ export interface paths {
          *     and emails it.
          */
         post: operations["inviteClinicStaff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/clinics/{id}/owner-invitation/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sends a clinic's owner invitation again, for an owner who hasn't joined: a new link replaces
+         *     the old one and is emailed.
+         */
+        post: operations["resendOwnerInvitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -306,6 +329,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dental-terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adds a procedure or material to the clinic's list ("Add new" in the chart's dropdowns). A
+         *     label matching a seeded term or one the clinic has (ignoring case) returns that term with
+         *     `200`; a new one answers `201`.
+         */
+        post: operations["addDentalTerm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dev/token": {
         parameters: {
             query?: never;
@@ -340,6 +384,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/imports/incomplete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Imported patients still missing details, for the front desk to complete. */
+        get: operations["listIncompletePatients"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/incomplete/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Takes a patient off the to-do list, when the missing details can't be had. */
+        post: operations["dismissIncompletePatient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/imports/patients": {
         parameters: {
             query?: never;
@@ -355,6 +433,86 @@ export interface paths {
          *     `file_number` and `legacy_id` as identifiers, and records the import and each row's result.
          */
         post: operations["importPatients"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Uploads a clinic's patient file (`multipart/form-data`, field `file`, optional `sheet`).
+         *     The header row is found automatically and each column gets a suggested field from its
+         *     header (English, Hindi or Marathi), its values, and what the clinic chose last time.
+         */
+        post: operations["uploadImportFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Ends an import session without importing, and clears its rows. */
+        delete: operations["discardImport"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/sessions/{id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Imports the session in one transaction: new patients numbered from the clinic's sequence,
+         *     duplicates skipped or merged (filling only empty details), each row recorded with its file,
+         *     sheet and row, and patients missing details put on the to-do list. The mapping is
+         *     remembered for the next file. Sending it again returns the same result.
+         */
+        post: operations["commitImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/sessions/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Checks every row through the mapping and choices, and saves nothing. Unreadable values are
+         *     reported and left empty; only a row without a usable name can't be imported.
+         */
+        post: operations["previewImport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1039,6 +1197,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patient's summary note and visit notes, for Patient 360. Reading writes the access record. */
+        get: operations["getPatientNotes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/prescriptions": {
         parameters: {
             query?: never;
@@ -1102,6 +1277,28 @@ export interface paths {
         put?: never;
         /** Plans a follow-up for a patient. */
         post: operations["createRecall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/summary-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Saves the patient's summary note: the first save creates it, later saves replace the text.
+         *     Anyone with `clinical.write` whose scope reaches the patient may, at any time. Send the
+         *     `row_version` you read in `If-Match` to refuse the edit (`412`) if the note changed since.
+         *     The change history records each change.
+         */
+        put: operations["savePatientSummaryNote"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2896,8 +3093,10 @@ export interface components {
             finding: string;
             /** @description Identifier. */
             id: string;
+            material?: components["schemas"]["DentalTerm"] | null;
             /** @description The clinician's remark. */
             note?: string | null;
+            procedure?: components["schemas"]["DentalTerm"] | null;
             /** @description The member who recorded it. */
             recorded_by?: string | null;
             /** @description `current`, `superseded` or `entered_in_error`. */
@@ -3129,6 +3328,22 @@ export interface components {
             /** @description Last day, included. */
             to: string;
         };
+        /** @description A suggested field for one column. */
+        ColumnSuggestion: {
+            /** @description `saved` (mapped this way last time), `header_and_values`, `header`, `values` or `none`. */
+            basis: string;
+            /** @description Column index, from 0. */
+            column: number;
+            /**
+             * Format: int32
+             * @description How sure, 0 to 100.
+             */
+            confidence: number;
+            /** @description Our field, or null when nothing matched. */
+            field?: string | null;
+            /** @description The column's header. */
+            header: string;
+        };
         /** @description A condition on the problem list. */
         Condition: {
             code?: components["schemas"]["Code"] | null;
@@ -3267,6 +3482,22 @@ export interface components {
             current: components["schemas"]["ChartEntry"][];
             /** @description Every entry of the requested tooth, newest first; empty unless `tooth` was given. */
             history: components["schemas"]["ChartEntry"][];
+            /**
+             * @description The procedures and materials to offer: the seeded vocabulary, then the clinic's own.
+             *     Filter it as the clinician types; it changes only when someone adds a term.
+             */
+            terms: components["schemas"]["DentalTerm"][];
+        };
+        /** @description A procedure or material: seeded (`zirconia`) or added by the clinic (a UUID id). */
+        DentalTerm: {
+            /** @description The seeded id, such as `zirconia`, or the clinic term's UUID. */
+            id: string;
+            /** @description `procedure` or `material`. */
+            kind: string;
+            /** @description What the clinician reads. */
+            label: string;
+            /** @description Added by the clinic rather than seeded. */
+            own: boolean;
         };
         /** @description Who to sign in as. */
         DevTokenRequest: {
@@ -3356,6 +3587,15 @@ export interface components {
             limit?: number | null;
             /** @description Part of a name or strength, such as `amox` or `500`. */
             q?: string;
+        };
+        /** @description The record a row duplicates. */
+        DuplicateRef: {
+            /** @description Their number. */
+            number?: string | null;
+            /** @description An existing patient with the same phone and name. */
+            patient_id?: string | null;
+            /** @description Or an earlier row of the file. */
+            row?: number | null;
         };
         /** @description Why a record is being marked entered in error. */
         EnteredInError: {
@@ -3453,6 +3693,25 @@ export interface components {
              */
             file: string;
         };
+        /** @description The clinic's mapping and choices. */
+        ImportChoices: {
+            /**
+             * @description For rows with the same phone and name as an existing patient or an earlier row: `skip`
+             *     (the default) or `merge`.
+             */
+            duplicates?: string | null;
+            /**
+             * @description Our field to the column index (from 0). `full_name` is required. Fields: `full_name`,
+             *     `sex`, `date_of_birth`, `age_years`, `phone`, `email`, `preferred_language`,
+             *     `file_number`, `legacy_id`, `address`, `last_visit`, `balance` (recognised, not
+             *     imported).
+             */
+            mapping: {
+                [key: string]: number;
+            };
+            /** @description Choices for particular rows, overriding `duplicates`. */
+            rows?: components["schemas"]["RowDecision"][];
+        };
         /** @description An import's result. */
         ImportResult: {
             /** @description The recorded import, on commit. */
@@ -3480,6 +3739,74 @@ export interface components {
             patient_id?: string | null;
             /** @description Whether the row is (or was) imported. */
             valid: boolean;
+        };
+        /**
+         * @description An uploaded file ready to map. Its rows live only in this session: they are cleared on
+         *     import, on discard, or after 24 hours.
+         */
+        ImportSession: {
+            /** @description When the session ends unless imported (RFC 3339). */
+            expires_at: string;
+            /** @description The file's name. */
+            file_name: string;
+            /** @description Row of the file holding the headers (found automatically, below any title rows). */
+            header_row: number;
+            /** @description The headers; blank ones are named `Column N`. */
+            headers: string[];
+            /** @description The session. */
+            id: string;
+            /** @description `csv` or `xlsx`. */
+            kind: string;
+            /** @description Data rows under the header. */
+            row_count: number;
+            /**
+             * @description The first rows, one value per column; phones and emails hidden without
+             *     `patients.contact`.
+             */
+            sample: string[][];
+            /** @description The sheet read. */
+            sheet?: string | null;
+            /** @description A workbook's sheets, in order; empty for CSV. */
+            sheets: string[];
+            /** @description A suggestion for every column, in column order. */
+            suggestions: components["schemas"]["ColumnSuggestion"][];
+        };
+        /** @description The upload form, for the OpenAPI document. */
+        ImportUploadForm: {
+            /**
+             * Format: binary
+             * @description The file: CSV (any delimiter; UTF-8, UTF-16 or Windows-1252) or Excel `.xlsx`, up to
+             *     5 MB and 5,000 rows.
+             */
+            file: string;
+            /** @description The workbook sheet to read; the first when left out. */
+            sheet?: string | null;
+        };
+        /** @description The front desk's to-do list. */
+        IncompleteList: {
+            /** @description Oldest import first, at most 500. */
+            items: components["schemas"]["IncompletePatient"][];
+        };
+        /** @description A patient imported without some details. */
+        IncompletePatient: {
+            /** @description The file they came from. */
+            file_name?: string | null;
+            /** @description Their name. */
+            full_name: string;
+            /** @description The to-do entry. */
+            id: string;
+            /** @description When they were imported (RFC 3339). */
+            imported_at: string;
+            /** @description Still missing: `phone`, `sex`, `date_of_birth`. Filling a detail removes it. */
+            missing: string[];
+            /** @description Their number. */
+            number: string;
+            /** @description The patient. */
+            patient_id: string;
+            /** @description Their row in it. */
+            row: number;
+            /** @description Its sheet. */
+            sheet?: string | null;
         };
         /** @description A stock item. */
         InventoryItem: {
@@ -4130,8 +4457,12 @@ export interface components {
         NewChartEntry: {
             /** @description `sound` (clears an earlier finding), `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`. */
             finding: string;
+            /** @description A material id from the chart's `terms`: seeded (`zirconia`) or the clinic's own. Not with `sound`. */
+            material?: string | null;
             /** @description A remark, up to 500 characters. */
             note?: string | null;
+            /** @description A procedure id from the chart's `terms`: seeded (`crown`) or the clinic's own. Not with `sound`. */
+            procedure?: string | null;
             /** @description `M`, `O`, `D`, `B` or `L`; leave out for the whole tooth (crown, missing, implant, root canal and bridge are whole-tooth only). */
             surface?: string | null;
             /**
@@ -4157,6 +4488,13 @@ export interface components {
             email: string;
             /** @description A role of the clinic, such as `doctor` or `front_desk`. */
             role_key: string;
+        };
+        /** @description A procedure or material to add to the clinic's list. */
+        NewDentalTerm: {
+            /** @description `procedure` or `material`. */
+            kind: string;
+            /** @description What the clinician reads, 1 to 80 characters. */
+            label: string;
         };
         /** @description Where the signed-in person is going. */
         NewHandoff: {
@@ -4655,6 +4993,12 @@ export interface components {
             reason?: string | null;
             /** @description `sent` or `not_sent`. */
             status: string;
+        };
+        /** @description A patient's notes. */
+        PatientNotes: {
+            summary?: components["schemas"]["SummaryNote"] | null;
+            /** @description Visit notes, newest first (up to 100), limited to those the caller's role reaches. */
+            visit_notes: components["schemas"]["VisitNote"][];
         };
         /** @description A patient as a bill or payment names them. */
         PatientRef: {
@@ -5241,6 +5585,20 @@ export interface components {
             /** @description A short reason, for the console only. */
             reason?: string | null;
         };
+        /**
+         * @description An owner invitation sent again. `invite_link` is shown once; it was also emailed, and the
+         *     previous link no longer works.
+         */
+        ResentOwnerInvitation: {
+            /** @description The owner's address. */
+            email: string;
+            /** @description When it expires (RFC 3339). */
+            expires_at: string;
+            /** @description The invitation. */
+            id: string;
+            /** @description The invitation link, with its new one-time secret. */
+            invite_link: string;
+        };
         /** @description A role. */
         Role: {
             /** @description What it is for. */
@@ -5382,6 +5740,16 @@ export interface components {
         RoomList: {
             /** @description In list order. */
             items: components["schemas"]["Room"][];
+        };
+        /** @description A choice for one row. */
+        RowDecision: {
+            /**
+             * @description `skip` (leave it out), `merge` (fill the matching record's empty details) or `import`
+             *     (a different person).
+             */
+            choice: string;
+            /** @description The row in the file. */
+            row: number;
         };
         /** @description A medicine on a prescription. */
         RxItem: {
@@ -5927,6 +6295,58 @@ export interface components {
             /** @description Free alternatives, best first. */
             suggestions: string[];
         };
+        /** @description A preview's or import's result. */
+        SmartImportResult: {
+            /** @description Can't be imported. */
+            failed: number;
+            /** @description The import, on commit. */
+            import_id?: string | null;
+            /** @description New patients. */
+            imported: number;
+            /** @description Of those, missing some details. */
+            incomplete: number;
+            /** @description Merged into another record. */
+            merged: number;
+            /** @description Notes about the whole file. */
+            notes: string[];
+            /** @description Every row, in file order. */
+            rows: components["schemas"]["SmartImportRow"][];
+            /** @description Left out. */
+            skipped: number;
+            /** @description Rows read. */
+            total: number;
+        };
+        /** @description One row's result. */
+        SmartImportRow: {
+            /**
+             * @description Preview: `import`, `merge`, `skip` or `fail`. Commit: `imported`, `merged`, `skipped`
+             *     or `failed`.
+             */
+            action: string;
+            duplicate_of?: components["schemas"]["DuplicateRef"] | null;
+            /** @description Why it can't be imported or was skipped, as `field: problem`. Never echoes values. */
+            errors: string[];
+            /**
+             * @description Details missing from a new patient (`phone`, `sex`, `date_of_birth`): they go on the
+             *     front desk's to-do list.
+             */
+            missing: string[];
+            /** @description Their number, on commit. */
+            number?: string | null;
+            /** @description The patient it became or was merged into, on commit. */
+            patient_id?: string | null;
+            /** @description Row in the file. */
+            row: number;
+            /**
+             * @description Preview only: the values as they will be saved, by field (contact details hidden
+             *     without `patients.contact`).
+             */
+            values: {
+                [key: string]: string;
+            };
+            /** @description Values left empty because they couldn't be read, as `field: problem`. */
+            warnings: string[];
+        };
         /** @description The clinic's staff. */
         Staff: {
             /** @description Invitations neither accepted nor expired, newest first. */
@@ -6037,6 +6457,31 @@ export interface components {
             counts: components["schemas"]["StockCountsResponse"];
             /** @description Every item, critical first, then low, expiring and ok; each group by name. */
             items: components["schemas"]["StockLevel"][];
+        };
+        /** @description The summary note's new text. */
+        SummaryContent: {
+            /**
+             * @description The text, up to 20,000 characters, in the Markdown subset. Empty clears the note. HTML,
+             *     links, images and code are refused (`400`).
+             */
+            body: string;
+        };
+        /** @description A patient's summary note: formatted text kept up to date outside any single visit. */
+        SummaryNote: {
+            /**
+             * @description The text: a strict Markdown subset (headings `#` to `###`, `-` and `1.` lists, `**bold**`,
+             *     `*italic*`). Render it with a renderer that treats everything else as plain text.
+             */
+            body: string;
+            /**
+             * Format: int64
+             * @description Goes up when the text changes. Send it back in `If-Match` (it is also the `ETag`).
+             */
+            row_version: number;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+            /** @description Who last changed it. */
+            updated_by?: string | null;
         };
         /** @description A supplier. */
         Supplier: {
@@ -6310,6 +6755,39 @@ export interface components {
         VisitList: {
             /** @description The visits. */
             items: components["schemas"]["Visit"][];
+        };
+        /** @description A visit note as listed on the patient. Open the visit to edit it or add an addendum. */
+        VisitNote: {
+            /**
+             * Format: int64
+             * @description How many addenda it has.
+             */
+            addenda_count: number;
+            /** @description Who wrote it. */
+            author: components["schemas"]["MemberRef"];
+            /** @description When it was written (RFC 3339). */
+            created_at: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description `soap`, `progress`, `procedure`, `intake` or `front_desk`. */
+            kind: string;
+            /**
+             * Format: int64
+             * @description The note's version; send it in `If-Match` to `PATCH /notes/{id}` (drafts only).
+             */
+            row_version: number;
+            /** @description The sections (each a Markdown subset). */
+            sections: components["schemas"]["NoteSections"];
+            /** @description When it was signed (RFC 3339). */
+            signed_at?: string | null;
+            /** @description `draft`, `signed`, `conflict` or `entered_in_error`. */
+            status: string;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+            /** @description The visit. */
+            visit_id: string;
+            /** @description The visit's number, such as `V-318`. */
+            visit_number: string;
         };
         /** @description A walk-in. */
         WalkInBody: {
@@ -7096,6 +7574,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Supabase could not create the owner's sign-in account */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     getClinic: {
@@ -7174,6 +7659,56 @@ export interface operations {
             };
             /** @description No such clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Supabase could not create the sign-in account */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resendOwnerInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clinic */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResentOwnerInvitation"];
+                };
+            };
+            /** @description Not allowed to onboard clinics */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such clinic, or it has no owner invitation */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The owner has already joined */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7293,6 +7828,67 @@ export interface operations {
             };
         };
     };
+    addDentalTerm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDentalTerm"];
+            };
+        };
+        responses: {
+            /** @description Already in the list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DentalTerm"];
+                };
+            };
+            /** @description Added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DentalTerm"];
+                };
+            };
+            /** @description An unknown list or a bad label */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The same label was added at the same moment */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     createDevToken: {
         parameters: {
             query?: never;
@@ -7354,6 +7950,81 @@ export interface operations {
             };
         };
     };
+    listIncompletePatients: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncompleteList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    dismissIncompletePatient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The to-do entry */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dismissed (or already dismissed) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such entry in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     importPatients: {
         parameters: {
             query?: never;
@@ -7398,6 +8069,221 @@ export interface operations {
             };
             /** @description The request is too large */
             413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    uploadImportFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImportUploadForm"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportSession"];
+                };
+            };
+            /** @description The file can't be read, has no rows, or the workbook has no such sheet */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 5 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    discardImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The import session */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ended (or already ended) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such import session in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    commitImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The import session */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportChoices"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmartImportResult"];
+                };
+            };
+            /** @description The mapping or a choice can't be used; the message says why */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such import session in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The session has ended */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    previewImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The import session */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportChoices"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmartImportResult"];
+                };
+            };
+            /** @description The mapping or a choice can't be used; the message says why */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such import session in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The session has ended or was already imported */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9684,7 +10570,7 @@ export interface operations {
                     "application/json": components["schemas"]["DentalChart"];
                 };
             };
-            /** @description A bad tooth, surface or finding, or a visit of another patient */
+            /** @description A bad tooth, surface, finding, procedure or material, or a visit of another patient */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9861,6 +10747,49 @@ export interface operations {
                 content?: never;
             };
             /** @description No such identifier in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getPatientNotes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientNotes"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic, or out of the role's reach */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -10099,6 +11028,72 @@ export interface operations {
             };
             /** @description No such patient in this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    savePatientSummaryNote: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the note changed since */
+                "If-Match"?: string | null;
+            };
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SummaryContent"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description The `row_version` in quotes; send it back in `If-Match` when editing */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SummaryNote"];
+                };
+            };
+            /** @description Too long, or outside the allowed Markdown subset */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic, or out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `stale_version`: the note changed since the `If-Match` version; the current version is in `ETag` */
+            412: {
                 headers: {
                     [name: string]: unknown;
                 };

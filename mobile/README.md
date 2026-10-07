@@ -2,7 +2,7 @@
 
 Kotlin Multiplatform shared code (`shared/`), the Compose Android app (`androidApp/`) and the SwiftUI iOS app (`iosApp/`, iOS 17+, which links `shared` as the static `AarogyamShared` framework through SKIE). Design: `../docs/mobile-architecture.md`. Rules for agents: `AGENTS.md`.
 
-What runs today: email-code sign-in (Supabase), the clinic picker (`GET /api/v1/me` on the app host, `GET /api/v1/session` on the clinic host), Today (`GET /api/v1/today`), Patients, Calendar and Patient 360 (Overview, Chart, Rx and Billing tabs); the Chart tab loads the dental chart in one request (`GET /api/v1/patients/{id}/dental-chart`) and records findings optimistically. Everything is themed from the clinic's brand colour.
+What runs today: email-code sign-in (Supabase), the clinic picker (`GET /api/v1/me` on the app host, `GET /api/v1/session` on the clinic host), Today (`GET /api/v1/today`), Patients, Calendar and Patient 360 (Overview, Chart, Rx, Notes and Billing tabs); the Chart tab loads the dental chart in one request (`GET /api/v1/patients/{id}/dental-chart`) and records findings optimistically. Everything is themed from the clinic's brand colour.
 
 ## Setup (once)
 

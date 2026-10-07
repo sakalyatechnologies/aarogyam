@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select row_version from aarogyam.patient_notes where patient_id = $1 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row_version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patient_notes",
+            "name": "row_version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6553ef025b0d08033f92dbfb89e851f6171b1b28e847e3615a392b28abfcb0e6"
+}

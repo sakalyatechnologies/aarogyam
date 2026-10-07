@@ -257,6 +257,15 @@ export interface FakeNote {
   updated_at: string;
 }
 
+export interface FakeSummaryNote {
+  clinic_id: string;
+  patient_id: string;
+  body: string;
+  row_version: number;
+  updated_at: string;
+  updated_by_membership_id: string;
+}
+
 export interface FakeObservation {
   id: string;
   clinic_id: string;
@@ -322,6 +331,9 @@ export interface FakeChartEntry {
   tooth: number;
   surface?: C.ToothSurface | null;
   finding: C.ChartFinding;
+  /** Term ids: seeded or a FakeDentalTerm's. */
+  procedure?: string | null;
+  material?: string | null;
   note?: string | null;
   status: C.ChartEntryStatus;
   recorded_by?: string | null;
@@ -575,9 +587,13 @@ export interface Fixtures {
   conditions: FakeCondition[];
   visits: FakeVisit[];
   notes: FakeNote[];
+  /** Patient summary notes, made on first save. */
+  summaryNotes?: FakeSummaryNote[];
   observations: FakeObservation[];
   procedures: FakeProcedure[];
   chartEntries: FakeChartEntry[];
+  /** Procedures and materials clinics added, made on first use. */
+  dentalTerms?: import("./dental-terms.js").FakeDentalTerm[];
   plans: FakePlan[];
   attachments: FakeAttachment[];
   sessions: FakeSession[];
@@ -1010,6 +1026,8 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
             tooth: 46,
             surface: "D",
             finding: "filled",
+            procedure: "filling",
+            material: "composite",
             status: "current",
             recorded_by: sunriseDoctorMembership.id,
             visit_id: pastVisit.id,

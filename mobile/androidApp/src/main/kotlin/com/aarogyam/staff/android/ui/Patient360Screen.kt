@@ -54,6 +54,7 @@ fun Patient360Screen(
     onBack: () -> Unit,
     chartTab: @Composable () -> Unit,
     rxTab: @Composable (PatientView) -> Unit,
+    notesTab: @Composable () -> Unit,
     billing: BillingStateHolder,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
@@ -83,6 +84,7 @@ fun Patient360Screen(
                 when (tab) {
                     TAB_CHART -> chartTab()
                     TAB_RX -> rxTab(loaded.view)
+                    TAB_NOTES -> notesTab()
                     else -> BillingTab(billing)
                 }
             }
@@ -128,12 +130,14 @@ private val TABS =
         R.string.patient_tab_overview,
         R.string.patient_tab_chart,
         R.string.patient_tab_rx,
+        R.string.patient_tab_notes,
         R.string.patient_tab_billing,
     )
 private const val TAB_OVERVIEW = 0
 private const val TAB_CHART = 1
 private const val TAB_RX = 2
-private const val TAB_BILLING = 3
+private const val TAB_NOTES = 3
+private const val TAB_BILLING = 4
 
 @Composable
 private fun header(view: PatientView): String {

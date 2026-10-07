@@ -3,6 +3,7 @@ package com.aarogyam.staff.api
 import com.aarogyam.staff.api.model.AppointmentList
 import com.aarogyam.staff.api.model.ClinicalFlags
 import com.aarogyam.staff.api.model.DentalChart
+import com.aarogyam.staff.api.model.DentalTerm
 import com.aarogyam.staff.api.model.DrugList
 import com.aarogyam.staff.api.model.DrugSearch
 import com.aarogyam.staff.api.model.InvoiceList
@@ -10,9 +11,11 @@ import com.aarogyam.staff.api.model.IssueBlocked
 import com.aarogyam.staff.api.model.IssueRequest
 import com.aarogyam.staff.api.model.Me
 import com.aarogyam.staff.api.model.NewChartEntries
+import com.aarogyam.staff.api.model.NewDentalTerm
 import com.aarogyam.staff.api.model.NewPayment
 import com.aarogyam.staff.api.model.Patient
 import com.aarogyam.staff.api.model.PatientList
+import com.aarogyam.staff.api.model.PatientNotes
 import com.aarogyam.staff.api.model.Payment
 import com.aarogyam.staff.api.model.PractitionerList
 import com.aarogyam.staff.api.model.Prescription
@@ -22,6 +25,8 @@ import com.aarogyam.staff.api.model.RxValues
 import com.aarogyam.staff.api.model.SearchRequest
 import com.aarogyam.staff.api.model.Session
 import com.aarogyam.staff.api.model.ShareLink
+import com.aarogyam.staff.api.model.SummaryContent
+import com.aarogyam.staff.api.model.SummaryNote
 import com.aarogyam.staff.api.model.TodayMoney
 import com.aarogyam.staff.api.model.TodayResponse
 import com.aarogyam.staff.api.model.VisitList
@@ -33,6 +38,7 @@ import com.sakalya.mobile.http.call
 import com.sakalya.mobile.http.callWithErrorBody
 import com.sakalya.mobile.http.idempotencyKey
 import io.ktor.client.HttpClient
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
@@ -116,6 +122,28 @@ class ClinicApi(
     suspend fun visits(id: String): Outcome<VisitList, ApiError> =
         client.call { url("api/v1/patients/${id.encodeURLPathPart()}/visits") }
 
+    /** `GET /api/v1/patients/{id}/notes` (`getPatientNotes`): the summary note and the visit notes, newest first. */
+    suspend fun patientNotes(id: String): Outcome<PatientNotes, ApiError> =
+        client.call { url("api/v1/patients/${id.encodeURLPathPart()}/notes") }
+
+    /**
+     * `PUT /api/v1/patients/{id}/summary-note` (`savePatientSummaryNote`): saves the summary note. With
+     * [expectedVersion] (the `row_version` the editor started from) the API refuses with 412 when the note
+     * changed since; null for the first save.
+     */
+    suspend fun saveSummaryNote(
+        id: String,
+        body: String,
+        expectedVersion: Long?,
+    ): Outcome<SummaryNote, ApiError> =
+        client.call {
+            method = HttpMethod.Put
+            url("api/v1/patients/${id.encodeURLPathPart()}/summary-note")
+            if (expectedVersion != null) header("If-Match", "\"$expectedVersion\"")
+            contentType(ContentType.Application.Json)
+            setBody(SummaryContent(body = body))
+        }
+
     /**
      * `GET /api/v1/patients/{id}/dental-chart` (`getDentalChart`): every tooth's current findings in
      * one request, plus the full history of [tooth] when given.
@@ -139,6 +167,18 @@ class ClinicApi(
             url("api/v1/patients/${id.encodeURLPathPart()}/dental-chart")
             contentType(ContentType.Application.Json)
             setBody(entries)
+        }
+
+    /**
+     * `POST /api/v1/dental-terms` (`addDentalTerm`): adds a procedure or material for the clinic;
+     * a label already there (or seeded) returns that term.
+     */
+    suspend fun addDentalTerm(term: NewDentalTerm): Outcome<DentalTerm, ApiError> =
+        client.call {
+            method = HttpMethod.Post
+            url("api/v1/dental-terms")
+            contentType(ContentType.Application.Json)
+            setBody(term)
         }
 
     /** `GET /api/v1/appointments` (`listAppointments`): the clinic's local days [from] to [to] (`YYYY-MM-DD`). */

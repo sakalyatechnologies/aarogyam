@@ -11,12 +11,14 @@ import {
   type ClinicSettingsChanges,
   type ConditionFields,
   type DateRange,
+  type DentalChart,
   type LeaveId,
   type LetterheadSlot,
   type MemberChanges,
   type MembershipId,
   type NewAppointmentBody,
   type NewChartEntries,
+  type NewDentalTerm,
   type NewInvitation,
   type NewLeave,
   type NewPatient,
@@ -30,6 +32,9 @@ import {
   type PatientChanges,
   type PatientId,
   type PatientImport,
+  type ImportChoices,
+  type ImportSessionId,
+  type PatientGapId,
   type PractitionerFields,
   type PractitionerId,
   type Session,
@@ -540,6 +545,57 @@ export function useImportPatients() {
   });
 }
 
+// Smart import: the clinic's own CSV or Excel file, and the to-do list it leaves ----------------
+
+export function useUploadImportFile() {
+  const { api } = useClinic();
+  return useMutation({ mutationFn: (form: FormData) => unwrap(api.uploadImportFile(form)) });
+}
+
+export function usePreviewImport() {
+  const { api } = useClinic();
+  return useMutation({
+    mutationFn: ({ id, choices }: { id: ImportSessionId; choices: ImportChoices }) => unwrap(api.previewImport(id, choices)),
+  });
+}
+
+export function useCommitImport() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, choices }: { id: ImportSessionId; choices: ImportChoices }) => unwrap(api.commitImport(id, choices)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["patients", access.org_id] });
+      void queryClient.invalidateQueries({ queryKey: ["incomplete-patients", access.org_id] });
+    },
+  });
+}
+
+export function useDiscardImport() {
+  const { api } = useClinic();
+  return useMutation({ mutationFn: (id: ImportSessionId) => unwrap(api.discardImport(id)) });
+}
+
+/** Imported patients still missing details; kept fresh because the front desk works through it. */
+export function useIncompletePatients() {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["incomplete-patients", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.listIncompletePatients({ signal })),
+  });
+}
+
+export function useDismissIncomplete() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: PatientGapId) => unwrap(api.dismissIncompletePatient(id)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["incomplete-patients", access.org_id] });
+    },
+  });
+}
+
 // Clinical: flags, timeline, visits, notes, vitals, procedures, dental chart, files (M4) ---------
 
 export function useClinicalFlags(patientId: PatientId | undefined) {
@@ -693,6 +749,20 @@ export function useDentalChart(patientId: PatientId | undefined) {
     queryKey: ["dental-chart", access.org_id, patientId],
     queryFn: ({ signal }) => (patientId === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.getDentalChart(patientId, undefined, { signal }))),
     enabled: patientId !== undefined,
+  });
+}
+
+/** Adds a procedure or material for the clinic and puts it in every cached chart's list, so the dropdowns offer it at once without a reload. */
+export function useAddDentalTerm() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NewDentalTerm) => unwrap(api.addDentalTerm(input)),
+    onSuccess: (term) => {
+      queryClient.setQueriesData<DentalChart>({ queryKey: ["dental-chart", access.org_id] }, (chart) =>
+        chart === undefined || chart.terms.some((t) => t.id === term.id) ? chart : { ...chart, terms: [...chart.terms, term] },
+      );
+    },
   });
 }
 

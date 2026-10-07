@@ -642,7 +642,7 @@
         "tags": [
           "console"
         ],
-        "summary": "Creates a clinic and invites its owner. Owner and onboarding staff only.",
+        "summary": "Creates a clinic and invites its owner: the invitation is emailed and its secret returned once\nfor the console to show. Owner and onboarding staff only.",
         "operationId": "createClinic",
         "requestBody": {
           "content": {
@@ -672,6 +672,9 @@
           },
           "409": {
             "description": "The subdomain is taken"
+          },
+          "503": {
+            "description": "Supabase could not create the owner's sign-in account"
           }
         },
         "security": [
@@ -769,6 +772,54 @@
           },
           "404": {
             "description": "No such clinic"
+          },
+          "503": {
+            "description": "Supabase could not create the sign-in account"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/console/clinics/{id}/owner-invitation/resend": {
+      "post": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Sends a clinic's owner invitation again, for an owner who hasn't joined: a new link replaces\nthe old one and is emailed.",
+        "operationId": "resendOwnerInvitation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The clinic",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResentOwnerInvitation"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed to onboard clinics"
+          },
+          "404": {
+            "description": "No such clinic, or it has no owner invitation"
+          },
+          "409": {
+            "description": "The owner has already joined"
           },
           "503": {
             "description": "Supabase could not create the sign-in account"
@@ -924,6 +975,64 @@
         ]
       }
     },
+    "/api/v1/dental-terms": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Adds a procedure or material to the clinic's list (\"Add new\" in the chart's dropdowns). A\nlabel matching a seeded term or one the clinic has (ignoring case) returns that term with\n`200`; a new one answers `201`.",
+        "operationId": "addDentalTerm",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewDentalTerm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Already in the list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DentalTerm"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DentalTerm"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown list or a bad label"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "409": {
+            "description": "The same label was added at the same moment"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/dev/token": {
       "post": {
         "tags": [
@@ -996,6 +1105,76 @@
         ]
       }
     },
+    "/api/v1/imports/incomplete": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Imported patients still missing details, for the front desk to complete.",
+        "operationId": "listIncompletePatients",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncompleteList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/imports/incomplete/{id}/dismiss": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Takes a patient off the to-do list, when the missing details can't be had.",
+        "operationId": "dismissIncompletePatient",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The to-do entry",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Dismissed (or already dismissed)"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such entry in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/imports/patients": {
       "post": {
         "tags": [
@@ -1034,6 +1213,214 @@
           },
           "413": {
             "description": "The request is too large"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/imports/sessions": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Uploads a clinic's patient file (`multipart/form-data`, field `file`, optional `sheet`).\nThe header row is found automatically and each column gets a suggested field from its\nheader (English, Hindi or Marathi), its values, and what the clinic chose last time.",
+        "operationId": "uploadImportFile",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportUploadForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The file can't be read, has no rows, or the workbook has no such sheet"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "413": {
+            "description": "Larger than 5 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/imports/sessions/{id}": {
+      "delete": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Ends an import session without importing, and clears its rows.",
+        "operationId": "discardImport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The import session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Ended (or already ended)"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such import session in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/imports/sessions/{id}/commit": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Imports the session in one transaction: new patients numbered from the clinic's sequence,\nduplicates skipped or merged (filling only empty details), each row recorded with its file,\nsheet and row, and patients missing details put on the to-do list. The mapping is\nremembered for the next file. Sending it again returns the same result.",
+        "operationId": "commitImport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The import session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportChoices"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The mapping or a choice can't be used; the message says why"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such import session in this clinic"
+          },
+          "409": {
+            "description": "The session has ended"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/imports/sessions/{id}/preview": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Checks every row through the mapping and choices, and saves nothing. Unreadable values are\nreported and left empty; only a row without a usable name can't be imported.",
+        "operationId": "previewImport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The import session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportChoices"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The mapping or a choice can't be used; the message says why"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such import session in this clinic"
+          },
+          "409": {
+            "description": "The session has ended or was already imported"
           }
         },
         "security": [
@@ -3419,7 +3806,7 @@
             }
           },
           "400": {
-            "description": "A bad tooth, surface or finding, or a visit of another patient"
+            "description": "A bad tooth, surface, finding, procedure or material, or a visit of another patient"
           },
           "401": {
             "description": "Not signed in"
@@ -3584,6 +3971,51 @@
           },
           "404": {
             "description": "No such identifier in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/notes": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The patient's summary note and visit notes, for Patient 360. Reading writes the access record.",
+        "operationId": "getPatientNotes",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientNotes"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic, or out of the role's reach"
           }
         },
         "security": [
@@ -3833,6 +4265,87 @@
           },
           "404": {
             "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/summary-note": {
+      "put": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Saves the patient's summary note: the first save creates it, later saves replace the text.\nAnyone with `clinical.write` whose scope reaches the patient may, at any time. Send the\n`row_version` you read in `If-Match` to refuse the edit (`412`) if the note changed since.\nThe change history records each change.",
+        "operationId": "savePatientSummaryNote",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the note changed since",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SummaryContent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The `row_version` in quotes; send it back in `If-Match` when editing"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Too long, or outside the allowed Markdown subset"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic, or out of the role's reach"
+          },
+          "412": {
+            "description": "`stale_version`: the note changed since the `If-Match` version; the current version is in `ETag`"
           }
         },
         "security": [
@@ -9303,12 +9816,34 @@
             "type": "string",
             "description": "Identifier."
           },
+          "material": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DentalTerm",
+                "description": "What it was done with, with its label."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "note": {
             "type": [
               "string",
               "null"
             ],
             "description": "The clinician's remark."
+          },
+          "procedure": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DentalTerm",
+                "description": "What was done, with its label."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "recorded_by": {
             "type": [
@@ -9918,6 +10453,44 @@
           }
         }
       },
+      "ColumnSuggestion": {
+        "type": "object",
+        "description": "A suggested field for one column.",
+        "required": [
+          "column",
+          "header",
+          "confidence",
+          "basis"
+        ],
+        "properties": {
+          "basis": {
+            "type": "string",
+            "description": "`saved` (mapped this way last time), `header_and_values`, `header`, `values` or `none`."
+          },
+          "column": {
+            "type": "integer",
+            "description": "Column index, from 0.",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How sure, 0 to 100.",
+            "minimum": 0
+          },
+          "field": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Our field, or null when nothing matched."
+          },
+          "header": {
+            "type": "string",
+            "description": "The column's header."
+          }
+        }
+      },
       "Condition": {
         "type": "object",
         "description": "A condition on the problem list.",
@@ -10263,7 +10836,8 @@
         "description": "A patient's dental chart. Teeth without entries are absent: draw them as sound.",
         "required": [
           "current",
-          "history"
+          "history",
+          "terms"
         ],
         "properties": {
           "current": {
@@ -10279,6 +10853,41 @@
               "$ref": "#/components/schemas/ChartEntry"
             },
             "description": "Every entry of the requested tooth, newest first; empty unless `tooth` was given."
+          },
+          "terms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DentalTerm"
+            },
+            "description": "The procedures and materials to offer: the seeded vocabulary, then the clinic's own.\nFilter it as the clinician types; it changes only when someone adds a term."
+          }
+        }
+      },
+      "DentalTerm": {
+        "type": "object",
+        "description": "A procedure or material: seeded (`zirconia`) or added by the clinic (a UUID id).",
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "own"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The seeded id, such as `zirconia`, or the clinic term's UUID."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`procedure` or `material`."
+          },
+          "label": {
+            "type": "string",
+            "description": "What the clinician reads."
+          },
+          "own": {
+            "type": "boolean",
+            "description": "Added by the clinic rather than seeded."
           }
         }
       },
@@ -10499,6 +11108,34 @@
           }
         }
       },
+      "DuplicateRef": {
+        "type": "object",
+        "description": "The record a row duplicates.",
+        "properties": {
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their number."
+          },
+          "patient_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An existing patient with the same phone and name."
+          },
+          "row": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Or an earlier row of the file.",
+            "minimum": 0
+          }
+        }
+      },
       "EnteredInError": {
         "type": "object",
         "description": "Why a record is being marked entered in error.",
@@ -10714,6 +11351,40 @@
           }
         }
       },
+      "ImportChoices": {
+        "type": "object",
+        "description": "The clinic's mapping and choices.",
+        "required": [
+          "mapping"
+        ],
+        "properties": {
+          "duplicates": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "For rows with the same phone and name as an existing patient or an earlier row: `skip`\n(the default) or `merge`."
+          },
+          "mapping": {
+            "type": "object",
+            "description": "Our field to the column index (from 0). `full_name` is required. Fields: `full_name`,\n`sex`, `date_of_birth`, `age_years`, `phone`, `email`, `preferred_language`,\n`file_number`, `legacy_id`, `address`, `last_visit`, `balance` (recognised, not\nimported).",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RowDecision"
+            },
+            "description": "Choices for particular rows, overriding `duplicates`."
+          }
+        }
+      },
       "ImportResult": {
         "type": "object",
         "description": "An import's result.",
@@ -10798,6 +11469,186 @@
           "valid": {
             "type": "boolean",
             "description": "Whether the row is (or was) imported."
+          }
+        }
+      },
+      "ImportSession": {
+        "type": "object",
+        "description": "An uploaded file ready to map. Its rows live only in this session: they are cleared on\nimport, on discard, or after 24 hours.",
+        "required": [
+          "id",
+          "file_name",
+          "kind",
+          "sheets",
+          "header_row",
+          "headers",
+          "row_count",
+          "sample",
+          "suggestions",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "description": "When the session ends unless imported (RFC 3339)."
+          },
+          "file_name": {
+            "type": "string",
+            "description": "The file's name."
+          },
+          "header_row": {
+            "type": "integer",
+            "description": "Row of the file holding the headers (found automatically, below any title rows).",
+            "minimum": 0
+          },
+          "headers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The headers; blank ones are named `Column N`."
+          },
+          "id": {
+            "type": "string",
+            "description": "The session."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`csv` or `xlsx`."
+          },
+          "row_count": {
+            "type": "integer",
+            "description": "Data rows under the header.",
+            "minimum": 0
+          },
+          "sample": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "The first rows, one value per column; phones and emails hidden without\n`patients.contact`."
+          },
+          "sheet": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The sheet read."
+          },
+          "sheets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "A workbook's sheets, in order; empty for CSV."
+          },
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ColumnSuggestion"
+            },
+            "description": "A suggestion for every column, in column order."
+          }
+        }
+      },
+      "ImportUploadForm": {
+        "type": "object",
+        "description": "The upload form, for the OpenAPI document.",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "The file: CSV (any delimiter; UTF-8, UTF-16 or Windows-1252) or Excel `.xlsx`, up to\n5 MB and 5,000 rows."
+          },
+          "sheet": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The workbook sheet to read; the first when left out."
+          }
+        }
+      },
+      "IncompleteList": {
+        "type": "object",
+        "description": "The front desk's to-do list.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncompletePatient"
+            },
+            "description": "Oldest import first, at most 500."
+          }
+        }
+      },
+      "IncompletePatient": {
+        "type": "object",
+        "description": "A patient imported without some details.",
+        "required": [
+          "id",
+          "patient_id",
+          "number",
+          "full_name",
+          "missing",
+          "row",
+          "imported_at"
+        ],
+        "properties": {
+          "file_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The file they came from."
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Their name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The to-do entry."
+          },
+          "imported_at": {
+            "type": "string",
+            "description": "When they were imported (RFC 3339)."
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Still missing: `phone`, `sex`, `date_of_birth`. Filling a detail removes it."
+          },
+          "number": {
+            "type": "string",
+            "description": "Their number."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "row": {
+            "type": "integer",
+            "description": "Their row in it.",
+            "minimum": 0
+          },
+          "sheet": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its sheet."
           }
         }
       },
@@ -12384,12 +13235,26 @@
             "type": "string",
             "description": "`sound` (clears an earlier finding), `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`."
           },
+          "material": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A material id from the chart's `terms`: seeded (`zirconia`) or the clinic's own. Not with `sound`."
+          },
           "note": {
             "type": [
               "string",
               "null"
             ],
             "description": "A remark, up to 500 characters."
+          },
+          "procedure": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A procedure id from the chart's `terms`: seeded (`crown`) or the clinic's own. Not with `sound`."
           },
           "surface": {
             "type": [
@@ -12452,6 +13317,24 @@
           "role_key": {
             "type": "string",
             "description": "A role of the clinic, such as `doctor` or `front_desk`."
+          }
+        }
+      },
+      "NewDentalTerm": {
+        "type": "object",
+        "description": "A procedure or material to add to the clinic's list.",
+        "required": [
+          "kind",
+          "label"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "`procedure` or `material`."
+          },
+          "label": {
+            "type": "string",
+            "description": "What the clinician reads, 1 to 80 characters."
           }
         }
       },
@@ -13702,6 +14585,33 @@
           "status": {
             "type": "string",
             "description": "`sent` or `not_sent`."
+          }
+        }
+      },
+      "PatientNotes": {
+        "type": "object",
+        "description": "A patient's notes.",
+        "required": [
+          "visit_notes"
+        ],
+        "properties": {
+          "summary": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SummaryNote",
+                "description": "The summary note; absent until someone writes it."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visit_notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitNote"
+            },
+            "description": "Visit notes, newest first (up to 100), limited to those the caller's role reaches."
           }
         }
       },
@@ -15234,6 +16144,34 @@
           }
         }
       },
+      "ResentOwnerInvitation": {
+        "type": "object",
+        "description": "An owner invitation sent again. `invite_link` is shown once; it was also emailed, and the\nprevious link no longer works.",
+        "required": [
+          "id",
+          "email",
+          "invite_link",
+          "expires_at"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "The owner's address."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When it expires (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The invitation."
+          },
+          "invite_link": {
+            "type": "string",
+            "description": "The invitation link, with its new one-time secret."
+          }
+        }
+      },
       "Role": {
         "type": "object",
         "description": "A role.",
@@ -15606,6 +16544,25 @@
               "$ref": "#/components/schemas/Room"
             },
             "description": "In list order."
+          }
+        }
+      },
+      "RowDecision": {
+        "type": "object",
+        "description": "A choice for one row.",
+        "required": [
+          "row",
+          "choice"
+        ],
+        "properties": {
+          "choice": {
+            "type": "string",
+            "description": "`skip` (leave it out), `merge` (fill the matching record's empty details) or `import`\n(a different person)."
+          },
+          "row": {
+            "type": "integer",
+            "description": "The row in the file.",
+            "minimum": 0
           }
         }
       },
@@ -16862,6 +17819,152 @@
           }
         }
       },
+      "SmartImportResult": {
+        "type": "object",
+        "description": "A preview's or import's result.",
+        "required": [
+          "total",
+          "imported",
+          "incomplete",
+          "merged",
+          "skipped",
+          "failed",
+          "notes",
+          "rows"
+        ],
+        "properties": {
+          "failed": {
+            "type": "integer",
+            "description": "Can't be imported.",
+            "minimum": 0
+          },
+          "import_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The import, on commit."
+          },
+          "imported": {
+            "type": "integer",
+            "description": "New patients.",
+            "minimum": 0
+          },
+          "incomplete": {
+            "type": "integer",
+            "description": "Of those, missing some details.",
+            "minimum": 0
+          },
+          "merged": {
+            "type": "integer",
+            "description": "Merged into another record.",
+            "minimum": 0
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Notes about the whole file."
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SmartImportRow"
+            },
+            "description": "Every row, in file order."
+          },
+          "skipped": {
+            "type": "integer",
+            "description": "Left out.",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "description": "Rows read.",
+            "minimum": 0
+          }
+        }
+      },
+      "SmartImportRow": {
+        "type": "object",
+        "description": "One row's result.",
+        "required": [
+          "row",
+          "action",
+          "missing",
+          "errors",
+          "warnings",
+          "values"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Preview: `import`, `merge`, `skip` or `fail`. Commit: `imported`, `merged`, `skipped`\nor `failed`."
+          },
+          "duplicate_of": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DuplicateRef",
+                "description": "The record it duplicates."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Why it can't be imported or was skipped, as `field: problem`. Never echoes values."
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Details missing from a new patient (`phone`, `sex`, `date_of_birth`): they go on the\nfront desk's to-do list."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their number, on commit."
+          },
+          "patient_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The patient it became or was merged into, on commit."
+          },
+          "row": {
+            "type": "integer",
+            "description": "Row in the file.",
+            "minimum": 0
+          },
+          "values": {
+            "type": "object",
+            "description": "Preview only: the values as they will be saved, by field (contact details hidden\nwithout `patients.contact`).",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Values left empty because they couldn't be read, as `field: problem`."
+          }
+        }
+      },
       "Staff": {
         "type": "object",
         "description": "The clinic's staff.",
@@ -17133,6 +18236,50 @@
               "$ref": "#/components/schemas/StockLevel"
             },
             "description": "Every item, critical first, then low, expiring and ok; each group by name."
+          }
+        }
+      },
+      "SummaryContent": {
+        "type": "object",
+        "description": "The summary note's new text.",
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The text, up to 20,000 characters, in the Markdown subset. Empty clears the note. HTML,\nlinks, images and code are refused (`400`)."
+          }
+        }
+      },
+      "SummaryNote": {
+        "type": "object",
+        "description": "A patient's summary note: formatted text kept up to date outside any single visit.",
+        "required": [
+          "body",
+          "row_version",
+          "updated_at"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The text: a strict Markdown subset (headings `#` to `###`, `-` and `1.` lists, `**bold**`,\n`*italic*`). Render it with a renderer that treats everything else as plain text."
+          },
+          "row_version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Goes up when the text changes. Send it back in `If-Match` (it is also the `ETag`)."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          },
+          "updated_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who last changed it."
           }
         }
       },
@@ -17860,6 +19007,78 @@
               "$ref": "#/components/schemas/Visit"
             },
             "description": "The visits."
+          }
+        }
+      },
+      "VisitNote": {
+        "type": "object",
+        "description": "A visit note as listed on the patient. Open the visit to edit it or add an addendum.",
+        "required": [
+          "id",
+          "visit_id",
+          "visit_number",
+          "kind",
+          "status",
+          "sections",
+          "author",
+          "created_at",
+          "updated_at",
+          "row_version",
+          "addenda_count"
+        ],
+        "properties": {
+          "addenda_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many addenda it has."
+          },
+          "author": {
+            "$ref": "#/components/schemas/MemberRef",
+            "description": "Who wrote it."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was written (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`soap`, `progress`, `procedure`, `intake` or `front_desk`."
+          },
+          "row_version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The note's version; send it in `If-Match` to `PATCH /notes/{id}` (drafts only)."
+          },
+          "sections": {
+            "$ref": "#/components/schemas/NoteSections",
+            "description": "The sections (each a Markdown subset)."
+          },
+          "signed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was signed (RFC 3339)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`draft`, `signed`, `conflict` or `entered_in_error`."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          },
+          "visit_id": {
+            "type": "string",
+            "description": "The visit."
+          },
+          "visit_number": {
+            "type": "string",
+            "description": "The visit's number, such as `V-318`."
           }
         }
       },

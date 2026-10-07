@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { membershipId, patientId, type ApiClient, type ApiResult, type LetterheadChanges } from "../index.js";
+import { clinicId, membershipId, patientId, type ApiClient, type ApiResult, type LetterheadChanges } from "../index.js";
 import { createFakeBackend, createFixtures, fakeTokenFor } from "./index.js";
 
 // 11:00 in Pune: mid-morning clinic hours.
@@ -184,6 +184,22 @@ describe("fake client: console", () => {
     expect(joined.org_id).toBe(created.id);
     expect(value(await newcomer("asha@example.com").getMe()).clinics.map((c) => c.host)).toEqual([created.portal_host]);
     expect(errorOf(await newcomer("asha@example.com").acceptInvitation({ token: created.invite_token }))?.status).toBe(404);
+  });
+
+  it("resends the owner's invitation with a new link until the owner joins", async () => {
+    const { backend, as } = setup();
+    const admin = as(PEOPLE.admin);
+    const created = value(await admin.createClinic({ name: "Asha Dental Care", owner_email: "asha@example.com" }));
+    const newcomer = backend.client({ getToken: () => fakeTokenFor({ id: "d1d1d1d1-0000-4000-8000-000000000009", email: "asha@example.com" }), now: () => NOW });
+
+    expect(errorOf(await admin.resendOwnerInvitation(clinicId.parse("not-a-clinic")))?.status).toBe(404);
+    const resent = value(await admin.resendOwnerInvitation(created.id));
+    expect(resent.email).toBe("asha@example.com");
+    const token = resent.invite_link.split("#")[1] ?? "";
+    expect(token).not.toBe(created.invite_token);
+    expect(errorOf(await newcomer.acceptInvitation({ token: created.invite_token }))?.status).toBe(404);
+    value(await newcomer.acceptInvitation({ token, display_name: "Dr Asha Rane" }));
+    expect(errorOf(await admin.resendOwnerInvitation(created.id))?.status).toBe(409);
   });
 
   it("serves metrics per range", async () => {

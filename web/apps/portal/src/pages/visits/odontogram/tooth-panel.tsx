@@ -8,16 +8,44 @@ import { EMPTY_STATE, FINDING_STYLE, SURFACES, TREATMENT_LABEL, headline, kindNa
 
 export interface ToothPanelProps {
   patientId: PatientId;
+  /** Teeth picked with "Select several"; empty otherwise. */
+  group: readonly number[];
   tooth: number | undefined;
   surface: ToothSurface | null;
   state: ToothState | undefined;
   onSurface: (surface: ToothSurface | null) => void;
-  onRecord: ((tooth: number, surface: ToothSurface | null) => void) | undefined;
+  onRecord: ((teeth: readonly number[], surface: ToothSurface | null) => void) | undefined;
+}
+
+/** Procedure and material of a history entry, as "Inlay · Composite". */
+export function detailText(entry: { procedure?: { label: string } | null; material?: { label: string } | null }): string {
+  return [entry.procedure?.label, entry.material?.label].filter((part) => part !== undefined).join(" · ");
 }
 
 /** The selected tooth: what is on it now, planned and done treatment, a surface picker and its full history. */
-export function ToothPanel({ patientId, tooth, surface, state, onSurface, onRecord }: ToothPanelProps) {
+export function ToothPanel({ patientId, group, tooth, surface, state, onSurface, onRecord }: ToothPanelProps) {
   const history = useToothHistory(patientId, tooth);
+  if (group.length > 1) {
+    const sorted = [...group].sort((a, b) => a - b);
+    return (
+      <aside className="odo-panel" aria-label="Selected teeth" aria-live="polite">
+        <div>
+          <h3>{`${String(sorted.length)} teeth selected`}</h3>
+          <p className="odo-muted">{sorted.join(", ")}</p>
+        </div>
+        <p className="odo-muted">Tap more teeth to add them, or a selected one to remove it.</p>
+        {onRecord === undefined ? null : (
+          <Button
+            onClick={() => {
+              onRecord(sorted, null);
+            }}
+          >
+            {`Record for ${String(sorted.length)} teeth`}
+          </Button>
+        )}
+      </aside>
+    );
+  }
   if (tooth === undefined) {
     return (
       <aside className="odo-panel" aria-label="Selected tooth">
@@ -102,7 +130,7 @@ export function ToothPanel({ patientId, tooth, surface, state, onSurface, onReco
       {onRecord === undefined ? null : (
         <Button
           onClick={() => {
-            onRecord(tooth, surface);
+            onRecord([tooth], surface);
           }}
           aria-label={`Record a finding for tooth ${String(tooth)} (now ${FINDING_STYLE[headFinding].label})`}
         >
@@ -128,6 +156,12 @@ export function ToothPanel({ patientId, tooth, surface, state, onSurface, onReco
                   <b>{FINDING_STYLE[entry.finding].label}</b>
                   {entry.surface == null ? "" : `, ${surfaceLabel(tooth, entry.surface).toLowerCase()}`}
                   {entry.status === "current" ? "" : entry.status === "superseded" ? " (superseded)" : " (entered in error)"}
+                  {detailText(entry) === "" ? null : (
+                    <>
+                      <br />
+                      <span className="odo-detail">{detailText(entry)}</span>
+                    </>
+                  )}
                   <br />
                   <time dateTime={entry.effective_at}>{formatDate(entry.effective_at)}</time>
                   {entry.note == null || entry.note === "" ? null : ` · ${entry.note}`}

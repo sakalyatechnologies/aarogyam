@@ -32,6 +32,7 @@ import {
   type FakeLeave,
   type FakeMembership,
   type FakeNote,
+  type FakeSummaryNote,
   type FakeObservation,
   type FakePatient,
   type FakePayment,
@@ -53,11 +54,13 @@ import {
   type FakeVisit,
   type Fixtures,
 } from "./fixtures.js";
+import { clinicTerms } from "./dental-terms.js";
 import { createMetrics } from "./metrics.js";
 import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photosOf, siteOf, wirePhoto, wireSettings, type FakePhoto } from "./website.js";
 import { createRandom, fakeUuid } from "./random.js";
 import { CLINIC_STEPS, MEMBER_STEPS, applySetup, setupOf, wireSetup } from "./setup.js";
 import { MAX_MOVEMENT, addDays, byUrgency, daysBetween, isExpired, isStockUnit, levelOf, pickFefo, wireItem } from "./stock.js";
+import { readCsv, readRow, suggestColumns, type CsvTable } from "./smart-import.js";
 import { atLocalTime, localClock } from "./zoned-time.js";
 
 const TOKEN_PREFIX = "fake:";
@@ -125,6 +128,13 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
   const handoffs = new Map<string, { personId: string; host: string; expiresAt: number; used: boolean }>();
   /** Payment ids already recorded for an `Idempotency-Key`, so a retry returns the first payment. */
   const paymentByIdempotencyKey = new Map<string, string>();
+  /** Smart import sessions by id: the file's rows until imported or discarded. */
+  const importSessions = new Map<
+    string,
+    { clinicId: string; fileName: string; table: CsvTable | undefined; status: "open" | "committed" | "discarded"; result?: C.SmartImportResult }
+  >();
+  /** Patients imported without some details: the to-do list. */
+  const patientGaps: { id: string; clinicId: string; patientId: string; fileName: string; row: number; missing: C.IncompletePatient["missing"]; importedAt: string; dismissed: boolean }[] = [];
 
   /** A clinic's own copy of a role: editable, with its change record. */
   interface ClinicRole {
@@ -233,6 +243,128 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
     async function subject(): Promise<string | undefined> {
       return (await claims())?.id;
+    }
+
+    /** Preview or commit of a fake import session. */
+    async function smartImport(id: string, choices: C.ImportChoices, commit: boolean): Promise<Outcome> {
+      const caller = await inClinic("patients.write");
+      if (!isCaller(caller)) {
+        return caller;
+      }
+      const session = importSessions.get(id);
+      if (session?.clinicId !== caller.clinic.id) {
+        return notFound;
+      }
+      if (session.result !== undefined) {
+        return commit ? reply(session.result) : refuse(409, "conflict", "this file has already been imported");
+      }
+      if (session.table === undefined) {
+        return refuse(409, "conflict", "this import session has ended; upload the file again");
+      }
+      if (choices.mapping.full_name === undefined) {
+        return invalid("mapping", "choose the column with the patient's name");
+      }
+      const now = clock();
+      const decisions = new Map((choices.rows ?? []).map((d) => [d.row, d.choice]));
+      const firstOf = new Map<string, number>();
+      const rows: C.SmartImportRow[] = [];
+      const existingNumbers = state.patients.filter((p) => p.clinic_id === caller.clinic.id).map((p) => Number(p.number.split("-")[1] ?? 0));
+      let nextNumber = 1 + Math.max(0, ...existingNumbers);
+      for (const { line, cells } of session.table.rows) {
+        const read = readRow(line, cells, choices.mapping, now);
+        const row: C.SmartImportRow = { row: line, action: "import", missing: [], errors: read.errors, warnings: read.warnings, duplicate_of: null, values: {} };
+        rows.push(row);
+        if (read.name === undefined) {
+          row.action = commit ? "failed" : "fail";
+          continue;
+        }
+        const key = read.phone === null ? undefined : `${read.phone}|${read.name.toLowerCase()}`;
+        const existing =
+          key === undefined
+            ? undefined
+            : state.patients.find((p) => p.clinic_id === caller.clinic.id && `${p.phone ?? ""}|${p.full_name.toLowerCase()}` === key);
+        const earlier = key === undefined ? undefined : firstOf.get(key);
+        const choice = decisions.get(line) ?? (existing !== undefined || earlier !== undefined ? (choices.duplicates ?? "skip") : "import");
+        if (existing !== undefined) row.duplicate_of = { patient_id: existing.id, number: existing.number, row: null };
+        else if (earlier !== undefined) row.duplicate_of = { patient_id: null, number: null, row: earlier };
+        if (choice === "skip") {
+          row.action = commit ? "skipped" : "skip";
+          row.errors = [row.duplicate_of == null ? "skipped by choice" : "same phone and name as another record"];
+          continue;
+        }
+        if (choice === "merge" && row.duplicate_of != null) {
+          row.action = commit ? "merged" : "merge";
+          if (commit && existing !== undefined) {
+            if (existing.sex === "unknown") existing.sex = read.sex;
+            existing.date_of_birth ??= read.dateOfBirth;
+            existing.email ??= read.email;
+            row.patient_id = existing.id;
+            row.number = existing.number;
+          }
+          continue;
+        }
+        if (key !== undefined && !firstOf.has(key)) firstOf.set(key, line);
+        row.action = commit ? "imported" : "import";
+        row.missing = read.missing;
+        row.values = commit
+          ? {}
+          : Object.fromEntries(
+              Object.entries({ full_name: read.name, phone: read.phone, sex: read.sex === "unknown" ? null : read.sex, date_of_birth: read.dateOfBirth }).filter(
+                (entry): entry is [string, string] => entry[1] !== null,
+              ),
+            );
+        if (commit) {
+          const record: FakePatient = {
+            clinic_id: caller.clinic.id,
+            id: fakeUuid(random, now),
+            number: `${caller.clinic.number_prefix}-${String(nextNumber)}`,
+            full_name: read.name,
+            sex: read.sex,
+            date_of_birth: read.dateOfBirth,
+            birth_date_estimated: read.estimated,
+            phone: read.phone,
+            email: read.email,
+            preferred_language: "en-IN",
+            status: "active",
+            created_at: now.toISOString(),
+            last_visit_at: null,
+          };
+          nextNumber += 1;
+          state.patients.push(record);
+          row.patient_id = record.id;
+          row.number = record.number;
+          if (read.missing.length > 0) {
+            patientGaps.push({
+              id: fakeUuid(random, now),
+              clinicId: caller.clinic.id,
+              patientId: record.id,
+              fileName: session.fileName,
+              row: line,
+              missing: read.missing,
+              importedAt: now.toISOString(),
+              dismissed: false,
+            });
+          }
+        }
+      }
+      const count = (...actions: C.SmartImportRow["action"][]) => rows.filter((r) => actions.includes(r.action)).length;
+      const result: C.SmartImportResult = {
+        import_id: commit ? fakeUuid(random, now) : null,
+        total: rows.length,
+        imported: count("import", "imported"),
+        incomplete: rows.filter((r) => r.missing.length > 0).length,
+        merged: count("merge", "merged"),
+        skipped: count("skip", "skipped"),
+        failed: count("fail", "failed"),
+        notes: choices.mapping.balance === undefined ? [] : ["balance: amounts owed are not imported; record opening balances in Billing"],
+        rows,
+      };
+      if (commit) {
+        session.result = result;
+        session.status = "committed";
+        session.table = undefined;
+      }
+      return reply(result);
     }
 
     const signedOut = refuse(401, "unauthenticated", "sign in to continue");
@@ -1302,6 +1434,110 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           } satisfies C.ImportResult);
         }),
 
+      uploadImportFile: (form, opts) =>
+        respond(S.importSession, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const file = form.get("file");
+          if (!(file instanceof File)) {
+            return invalid("file", "is required");
+          }
+          if (file.size > 5 * 1024 * 1024) {
+            return refuse(413, "too_large", "file: must be at most 5 MB");
+          }
+          if (/\.xlsx?$/i.test(file.name)) {
+            return invalid("file", "the demo reads CSV files only");
+          }
+          const table = readCsv(await file.text());
+          if (table === undefined || table.rows.length === 0) {
+            return invalid("file", "the file has no rows under its header");
+          }
+          const now = clock();
+          const id = fakeUuid(random, now);
+          importSessions.set(id, { clinicId: caller.clinic.id, fileName: file.name, table, status: "open" });
+          return reply({
+            id,
+            file_name: file.name,
+            kind: "csv",
+            sheets: [],
+            sheet: null,
+            header_row: (table.rows[0]?.line ?? 2) - 1,
+            headers: table.headers,
+            row_count: table.rows.length,
+            sample: table.rows.slice(0, 5).map((r) => table.headers.map((_, i) => r.cells[i] ?? "")),
+            suggestions: suggestColumns(table.headers),
+            expires_at: new Date(now.getTime() + 24 * 3600 * 1000).toISOString(),
+          } satisfies C.ImportSession);
+        }),
+
+      previewImport: (id, choices, opts) =>
+        respond(S.smartImportResult, opts?.signal, async () => smartImport(id, choices, false)),
+
+      commitImport: (id, choices, opts) =>
+        respond(S.smartImportResult, opts?.signal, async () => smartImport(id, choices, true)),
+
+      discardImport: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const session = importSessions.get(id);
+          if (session?.clinicId !== caller.clinic.id) {
+            return notFound;
+          }
+          if (session.status === "open") {
+            session.status = "discarded";
+            session.table = undefined;
+          }
+          return reply(undefined);
+        }),
+
+      listIncompletePatients: (opts) =>
+        respond(S.incompleteList, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const items: C.IncompletePatient[] = [];
+          for (const gap of patientGaps) {
+            const patient = state.patients.find((p) => p.id === gap.patientId);
+            if (gap.clinicId !== caller.clinic.id || gap.dismissed || patient === undefined) continue;
+            const missing = gap.missing.filter((m) =>
+              m === "phone" ? patient.phone == null : m === "sex" ? patient.sex === "unknown" : patient.date_of_birth == null,
+            );
+            if (missing.length === 0) continue;
+            items.push({
+              id: gap.id,
+              patient_id: patient.id,
+              number: patient.number,
+              full_name: patient.full_name,
+              missing,
+              file_name: gap.fileName,
+              sheet: null,
+              row: gap.row,
+              imported_at: gap.importedAt,
+            });
+          }
+          return reply({ items } satisfies C.IncompleteList);
+        }),
+
+      dismissIncompletePatient: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const gap = patientGaps.find((g) => g.id === id && g.clinicId === caller.clinic.id);
+          if (gap === undefined) {
+            return notFound;
+          }
+          gap.dismissed = true;
+          return reply(undefined);
+        }),
+
       getClinicalFlags: (id, opts) =>
         respond(S.clinicalFlags, opts?.signal, async () => {
           const caller = await inClinic("patients.read");
@@ -1472,6 +1708,78 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(wireCondition(record) satisfies C.Condition);
         }),
 
+      getPatientNotes: (id, opts) =>
+        respond(S.patientNotes, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const stored = (state.summaryNotes ?? []).find((s) => s.clinic_id === caller.clinic.id && s.patient_id === id);
+          const visitNotes = state.notes
+            .filter((n) => n.clinic_id === caller.clinic.id)
+            .flatMap((n): C.VisitNote[] => {
+              const visit = state.visits.find((v) => v.id === n.visit_id && v.patient_id === id);
+              const author = memberRefOf(state, n.author_membership_id);
+              if (visit === undefined || author === undefined) {
+                return [];
+              }
+              return [
+                {
+                  id: n.id,
+                  visit_id: n.visit_id,
+                  visit_number: visit.number,
+                  kind: n.kind,
+                  status: n.status,
+                  sections: n.sections,
+                  author,
+                  signed_at: n.signed_at ?? null,
+                  created_at: n.created_at,
+                  updated_at: n.updated_at,
+                  row_version: 1,
+                  addenda_count: n.addenda.length,
+                },
+              ];
+            })
+            .sort((a, b) => b.created_at.localeCompare(a.created_at));
+          const summary = stored === undefined ? null : wireSummary(stored, state);
+          return reply({ summary, visit_notes: visitNotes } satisfies C.PatientNotes);
+        }),
+
+      savePatientSummaryNote: (id, content, expectedVersion, opts) =>
+        respond(S.summaryNote, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          if (/<[A-Za-z/!?]|!\[|\]\(|`/.test(content.body)) {
+            return refuse(400, "invalid_request", "body: use only headings, lists, bold and italic; no HTML, links, images or code");
+          }
+          const summaries = (state.summaryNotes ??= []);
+          const found = summaries.find((s) => s.clinic_id === caller.clinic.id && s.patient_id === id);
+          if (expectedVersion !== undefined && expectedVersion !== (found?.row_version ?? 0)) {
+            return refuse(412, "stale_version", "The note changed since you read it.");
+          }
+          const body = content.body.trim();
+          const now = clock().toISOString();
+          let record = found;
+          if (record === undefined) {
+            record = { clinic_id: caller.clinic.id, patient_id: id, body, row_version: 1, updated_at: now, updated_by_membership_id: caller.membership.id };
+            summaries.push(record);
+          } else if (record.body !== body) {
+            record.body = body;
+            record.row_version += 1;
+            record.updated_at = now;
+            record.updated_by_membership_id = caller.membership.id;
+          }
+          return reply(wireSummary(record, state) satisfies C.SummaryNote);
+        }),
+
       getTimeline: (id, opts) =>
         respond(S.timeline, opts?.signal, async () => {
           const caller = await inClinic("clinical.read");
@@ -1593,7 +1901,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               const wired = wireProcedure(p, state);
               return wired === undefined ? [] : [wired];
             });
-          const chart_entries = state.chartEntries.filter((c) => c.visit_id === id).map(wireChartEntry);
+          const chart_entries = state.chartEntries.filter((c) => c.visit_id === id).map((c) => wireChartEntry(c, state));
           const attachments = state.attachments.filter((a) => a.visit_id === id).map(wireAttachment);
           return reply({ visit: wiredVisit, notes, observations, procedures, chart_entries, attachments } satisfies C.VisitDetail);
         }),
@@ -2060,7 +2368,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               : state.chartEntries
                   .filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.tooth === tooth)
                   .sort((a, b) => b.effective_at.localeCompare(a.effective_at));
-          return reply({ current: current.map(wireChartEntry), history: history.map(wireChartEntry) } satisfies C.DentalChart);
+          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: history.map((c) => wireChartEntry(c, state)), terms: clinicTerms(state.dentalTerms, caller.clinic.id) } satisfies C.DentalChart);
         }),
 
       recordChartEntries: (id, input, opts) =>
@@ -2081,6 +2389,16 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             if (!findingParsed.success) {
               return invalid("finding", "unknown finding");
             }
+            const terms = clinicTerms(state.dentalTerms, caller.clinic.id);
+            for (const kind of ["procedure", "material"] as const) {
+              const wanted = entry[kind];
+              if (wanted != null && !terms.some((t) => t.kind === kind && t.id === wanted)) {
+                return invalid("entries", `unknown ${kind}`);
+              }
+            }
+            if (findingParsed.data === "sound" && (entry.procedure != null || entry.material != null)) {
+              return invalid("entries", "sound clears the tooth; leave the procedure and material out");
+            }
             const surface = entry.surface ?? null;
             const existing = state.chartEntries.find(
               (c) =>
@@ -2100,6 +2418,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               tooth: entry.tooth,
               surface: parseSurface(surface),
               finding: findingParsed.data,
+              procedure: entry.procedure ?? null,
+              material: entry.material ?? null,
               note: entry.note ?? null,
               status: "current",
               recorded_by: caller.membership.id,
@@ -2110,7 +2430,32 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             state.chartEntries.push(record);
           }
           const current = state.chartEntries.filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.status === "current");
-          return reply({ current: current.map(wireChartEntry), history: [] } satisfies C.DentalChart);
+          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: [], terms: clinicTerms(state.dentalTerms, caller.clinic.id) } satisfies C.DentalChart);
+        }),
+
+      addDentalTerm: (input, opts) =>
+        respond(S.dentalTerm, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const kind = S.dentalTermKind.safeParse(input.kind);
+          if (!kind.success) {
+            return invalid("kind", "must be procedure or material");
+          }
+          const label = input.label.split(/\s+/).filter((w) => w !== "").join(" ");
+          if (label.length < 1 || label.length > 80) {
+            return invalid("label", "label must be 1 to 80 characters");
+          }
+          const found = clinicTerms(state.dentalTerms, caller.clinic.id).find(
+            (t) => t.kind === kind.data && (t.id === label || t.label.toLowerCase() === label.toLowerCase()),
+          );
+          if (found !== undefined) {
+            return reply(found satisfies C.DentalTerm);
+          }
+          const term = { id: fakeUuid(random, clock()), clinic_id: caller.clinic.id, kind: kind.data, label };
+          (state.dentalTerms ??= []).push(term);
+          return reply({ id: term.id, kind: term.kind, label, own: true } satisfies C.DentalTerm);
         }),
 
       listAttachments: (id, opts) =>
@@ -2905,6 +3250,36 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               expires_at: expiresAt,
               account_ready: true,
             } satisfies C.ClinicInvited);
+          }),
+        ),
+
+      resendOwnerInvitation: (id, opts) =>
+        respond(S.resentOwnerInvitation, opts?.signal, () =>
+          inConsole(() => {
+            const clinic = state.clinics.find((c) => c.id === id);
+            if (clinic === undefined) {
+              return notFound;
+            }
+            const owner = [...invitations.entries()]
+              .filter(([, inv]) => inv.clinicId === clinic.id && inv.roleKey === "owner")
+              .sort(([, a], [, b]) => a.createdAt.localeCompare(b.createdAt))[0];
+            if (owner === undefined) {
+              return notFound;
+            }
+            const [oldToken, invitation] = owner;
+            if (invitation.used) {
+              return refuse(409, "conflict", "The owner has already joined.");
+            }
+            invitations.delete(oldToken);
+            const token = random.hex(32);
+            const expiresAt = new Date(clock().getTime() + 7 * 86_400_000).toISOString();
+            invitations.set(token, { ...invitation, expiresAt });
+            return reply({
+              id: invitation.id,
+              email: invitation.email,
+              invite_link: `https://${clinic.host}/invite#${token}`,
+              expires_at: expiresAt,
+            } satisfies C.ResentOwnerInvitation);
           }),
         ),
 
@@ -5075,6 +5450,15 @@ function wireVisit(v: FakeVisit, state: Fixtures): C.Visit | undefined {
   };
 }
 
+function wireSummary(s: FakeSummaryNote, state: Fixtures): C.SummaryNote {
+  return {
+    body: s.body,
+    row_version: s.row_version,
+    updated_at: s.updated_at,
+    updated_by: memberRefOf(state, s.updated_by_membership_id)?.name ?? null,
+  };
+}
+
 function wireNote(n: FakeNote, state: Fixtures): C.Note | undefined {
   const author = memberRefOf(state, n.author_membership_id);
   if (author === undefined) {
@@ -5182,12 +5566,16 @@ function wireProcedure(p: FakeProcedure, state: Fixtures): C.Procedure | undefin
   };
 }
 
-function wireChartEntry(c: FakeChartEntry): C.ChartEntry {
+function wireChartEntry(c: FakeChartEntry, state: Fixtures): C.ChartEntry {
+  const terms = clinicTerms(state.dentalTerms, c.clinic_id);
+  const term = (id: string | null | undefined) => (id == null ? null : (terms.find((t) => t.id === id) ?? null));
   return {
     id: c.id,
     tooth: c.tooth,
     surface: c.surface ?? null,
     finding: c.finding,
+    procedure: term(c.procedure),
+    material: term(c.material),
     note: c.note ?? null,
     status: c.status,
     recorded_by: c.recorded_by ?? null,

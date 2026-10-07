@@ -24,6 +24,7 @@ import {
   cancelled,
   clinicDetail,
   clinicInvited,
+  resentOwnerInvitation,
   clinicSettings,
   letterhead,
   letterheadDocument,
@@ -35,10 +36,14 @@ import {
   createdClinic,
   createdInvitation,
   dentalChart,
+  dentalTerm,
   devTokenResponse,
   downloadLink,
   drugList,
   importResult,
+  importSession,
+  incompleteList,
+  smartImportResult,
   invoice,
   invoiceList,
   handoff,
@@ -92,6 +97,8 @@ import {
   sharedPreview,
   staffResponse,
   statusChanged,
+  patientNotes,
+  summaryNote,
   timeline,
   todayMoney,
   todayResponse,
@@ -282,6 +289,34 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     importPatients: (input, opts) =>
       call({ method: "POST", path: "/api/v1/imports/patients", schema: importResult, body: input, signal: opts?.signal }),
+    uploadImportFile: (form, opts) =>
+      call({ method: "POST", path: "/api/v1/imports/sessions", schema: importSession, body: form, signal: opts?.signal }),
+    previewImport: (id, choices, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/imports/sessions/${encodeURIComponent(id)}/preview`,
+        schema: smartImportResult,
+        body: choices,
+        signal: opts?.signal,
+      }),
+    commitImport: (id, choices, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/imports/sessions/${encodeURIComponent(id)}/commit`,
+        schema: smartImportResult,
+        body: choices,
+        signal: opts?.signal,
+      }),
+    discardImport: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/imports/sessions/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+    listIncompletePatients: (opts) => call({ method: "GET", path: "/api/v1/imports/incomplete", schema: incompleteList, signal: opts?.signal }),
+    dismissIncompletePatient: (id, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/imports/incomplete/${encodeURIComponent(id)}/dismiss`,
+        schema: voidResponse,
+        signal: opts?.signal,
+      }),
 
     getClinicalFlags: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/clinical-flags`, schema: clinicalFlags, signal: opts?.signal }),
@@ -304,6 +339,17 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     getTimeline: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/timeline`, schema: timeline, signal: opts?.signal }),
+    getPatientNotes: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/notes`, schema: patientNotes, signal: opts?.signal }),
+    savePatientSummaryNote: (id, content, expectedVersion, opts) =>
+      call({
+        method: "PUT",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/summary-note`,
+        schema: summaryNote,
+        body: content,
+        ...(expectedVersion === undefined ? {} : { headers: { "If-Match": `"${String(expectedVersion)}"` } }),
+        signal: opts?.signal,
+      }),
     listVisits: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/visits`, schema: visitList, signal: opts?.signal }),
     getVisit: (id, opts) => call({ method: "GET", path: `/api/v1/visits/${encodeURIComponent(id)}`, schema: visitDetail, signal: opts?.signal }),
@@ -367,6 +413,7 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         body: input,
         signal: opts?.signal,
       }),
+    addDentalTerm: (input, opts) => call({ method: "POST", path: "/api/v1/dental-terms", schema: dentalTerm, body: input, signal: opts?.signal }),
 
     listAttachments: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/attachments`, schema: attachmentList, signal: opts?.signal }),
@@ -454,6 +501,13 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         path: `/api/v1/console/clinics/${encodeURIComponent(id)}/invitations`,
         schema: clinicInvited,
         body: input,
+        signal: opts?.signal,
+      }),
+    resendOwnerInvitation: (id, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/console/clinics/${encodeURIComponent(id)}/owner-invitation/resend`,
+        schema: resentOwnerInvitation,
         signal: opts?.signal,
       }),
 

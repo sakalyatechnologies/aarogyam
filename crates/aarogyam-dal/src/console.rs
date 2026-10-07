@@ -72,6 +72,21 @@ pub struct NewClinic<'a> {
     pub invite_expires_at: OffsetDateTime,
     /// The Sakalya staff member creating it.
     pub created_by: Uuid,
+    /// The invitation email's outbox message.
+    pub message: &'a InviteMessage<'a>,
+}
+
+/// The invitation email to queue with the invitation, in the same transaction.
+#[derive(Debug, Clone)]
+pub struct InviteMessage<'a> {
+    /// The outbox message id.
+    pub id: Uuid,
+    /// The message kind (`staff.invited`).
+    pub event: &'a str,
+    /// The template's values; the invitation id is added by the database.
+    pub payload: &'a serde_json::Value,
+    /// The invitation token, kept until the email is sent.
+    pub secret: &'a str,
 }
 
 /// The clinic and owner invitation just created.
@@ -83,14 +98,15 @@ pub struct CreatedClinic {
     pub invitation_id: Uuid,
 }
 
-/// Creates a clinic with its portal host, branch, settings, template roles and an owner invitation.
+/// Creates a clinic with its portal host, branch, settings, template roles, an owner invitation
+/// and the invitation's email, in one transaction.
 ///
 /// # Errors
 /// [`DbError`] on a database failure; a taken slug or host is a conflict.
 pub async fn create_clinic(pool: &PgPool, new: &NewClinic<'_>) -> Result<CreatedClinic, DbError> {
     let row = sqlx::query!(
         r#"select org_id as "org_id!", invitation_id as "invitation_id!"
-           from app.console_create_clinic($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
+           from app.console_create_clinic_invited($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)"#,
         new.slug,
         new.name,
         new.number_prefix,
@@ -99,13 +115,80 @@ pub async fn create_clinic(pool: &PgPool, new: &NewClinic<'_>) -> Result<Created
         new.owner_email,
         new.invite_token_hash,
         new.invite_expires_at,
-        new.created_by
+        new.created_by,
+        new.message.id,
+        new.message.event,
+        new.message.payload,
+        new.message.secret
     )
     .fetch_one(pool)
     .await?;
     Ok(CreatedClinic {
         org_id: row.org_id,
         invitation_id: row.invitation_id,
+    })
+}
+
+/// What sending a clinic's owner invitation again needs.
+#[derive(Debug, Clone)]
+pub struct ResendOwnerInvitation<'a> {
+    /// The clinic.
+    pub org_id: Uuid,
+    /// SHA-256 (hex) of the new token.
+    pub token_hash: &'a str,
+    /// When the invitation now expires.
+    pub expires_at: OffsetDateTime,
+    /// The Sakalya staff member resending.
+    pub resent_by: Uuid,
+    /// The new email.
+    pub message: &'a InviteMessage<'a>,
+}
+
+/// The outcome of resending an owner invitation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Resent {
+    /// A new token and email; the owner's address.
+    Resent {
+        /// The invitation, with its token replaced.
+        invitation_id: Uuid,
+        /// The owner's address.
+        email: String,
+    },
+    /// The owner already joined.
+    Accepted,
+    /// The clinic has no owner invitation (or doesn't exist).
+    None,
+}
+
+/// Replaces the owner invitation's token and queues the email again, unless the owner joined.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn resend_owner_invitation(
+    pool: &PgPool,
+    resend: &ResendOwnerInvitation<'_>,
+) -> Result<Resent, DbError> {
+    let row = sqlx::query!(
+        r#"select invitation_id, email, outcome as "outcome!"
+           from app.console_resend_owner_invitation($1, $2, $3, $4, $5, $6, $7, $8)"#,
+        resend.org_id,
+        resend.token_hash,
+        resend.expires_at,
+        resend.resent_by,
+        resend.message.id,
+        resend.message.event,
+        resend.message.payload,
+        resend.message.secret
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(match (row.outcome.as_str(), row.invitation_id, row.email) {
+        ("resent", Some(invitation_id), Some(email)) => Resent::Resent {
+            invitation_id,
+            email,
+        },
+        ("accepted", ..) => Resent::Accepted,
+        _ => Resent::None,
     })
 }
 

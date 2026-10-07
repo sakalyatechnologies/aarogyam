@@ -11,13 +11,13 @@ use aarogyam_domain::outbox::MessageKind;
 use aarogyam_domain::patient::{Email, NumberPrefix};
 use sakalya_db::{ActorKind, Db, Scope};
 use sakalya_types::{CallingCode, PhoneE164, Slug};
-use serde_json::json;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::accounts::SignInAccounts;
-use crate::clock::clinic_offset;
-use crate::console::{INVITE_VALID_FOR, number_prefix, slug_for};
+use crate::console::{
+    DEFAULT_TIMEZONE, INVITE_VALID_FOR, number_prefix, owner_invite_payload, slug_for,
+};
 use crate::error::AppError;
 use crate::staff::{InviteStaff, Invited, invite_in_scope};
 
@@ -26,9 +26,6 @@ const SUPPORT: ActorKind = match ActorKind::new("support") {
     Ok(kind) => kind,
     Err(_) => panic!("invalid actor kind"),
 };
-
-/// The time zone new clinics start in.
-const DEFAULT_TIMEZONE: &str = "Asia/Kolkata";
 
 /// An application from the public form, as received.
 #[derive(Debug, Clone, Default)]
@@ -155,11 +152,6 @@ pub struct ApprovedClinic {
     pub account_ready: bool,
 }
 
-fn expires_on(at: OffsetDateTime, timezone: &str) -> String {
-    let day = at.to_offset(clinic_offset(timezone)).date();
-    format!("{} {} {}", day.day(), day.month(), day.year())
-}
-
 /// Approves a pending application: makes sure the contact can sign in, then creates the
 /// clinic with its owner's invitation and queues the invitation email, in one transaction.
 ///
@@ -196,12 +188,12 @@ pub async fn approve(
     let portal_host = portal_host_template.replace("{slug}", slug.as_str());
     let (token, token_hash) = crate::tokens::new_token()?;
     let expires_at = now + INVITE_VALID_FOR;
-    let payload = json!({
-        "clinic_name": application.clinic_name,
-        "role_name": "Owner",
-        "portal_host": portal_host,
-        "expires_on": expires_on(expires_at, DEFAULT_TIMEZONE),
-    });
+    let payload = owner_invite_payload(
+        &application.clinic_name,
+        &portal_host,
+        expires_at,
+        DEFAULT_TIMEZONE,
+    );
     let outcome = dal::approve(
         db.pool(),
         &Approval {

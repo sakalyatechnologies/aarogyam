@@ -17,6 +17,7 @@ pub(crate) mod letterhead;
 pub(crate) mod me;
 pub(crate) mod meta;
 pub(crate) mod onboarding;
+pub(crate) mod patient_notes;
 pub(crate) mod patients;
 pub(crate) mod payments;
 pub(crate) mod prescriptions;
@@ -30,6 +31,7 @@ pub(crate) mod roles;
 pub(crate) mod schedule;
 pub(crate) mod settings;
 pub(crate) mod setup;
+pub(crate) mod smart_import;
 pub(crate) mod staff;
 pub(crate) mod today;
 pub(crate) mod treatment;
@@ -88,6 +90,21 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             // 2 MB of CSV, plus JSON escaping.
             post(imports::import_patients).layer(DefaultBodyLimit::max(3 * 1024 * 1024)),
         )
+        .route(
+            "/imports/sessions",
+            post(smart_import::upload).layer(DefaultBodyLimit::max(smart_import::MAX_UPLOAD_BODY)),
+        )
+        .route("/imports/sessions/{id}", delete(smart_import::discard))
+        .route(
+            "/imports/sessions/{id}/preview",
+            post(smart_import::preview),
+        )
+        .route("/imports/sessions/{id}/commit", post(smart_import::commit))
+        .route("/imports/incomplete", get(smart_import::incomplete))
+        .route(
+            "/imports/incomplete/{id}/dismiss",
+            post(smart_import::dismiss),
+        )
         .route("/rooms", get(schedule::rooms).post(schedule::add_room))
         .route(
             "/rooms/{id}",
@@ -124,6 +141,11 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(visits::list).post(visits::start),
         )
         .route("/patients/{id}/timeline", get(visits::timeline))
+        .route("/patients/{id}/notes", get(patient_notes::get))
+        .route(
+            "/patients/{id}/summary-note",
+            put(patient_notes::save_summary),
+        )
         .route("/visits/{id}", get(visits::open))
         .route("/visits/{id}/close", post(visits::close))
         .route("/visits/{id}/notes", post(visits::create_note))
@@ -157,6 +179,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/patients/{id}/dental-chart",
             get(chart::get).post(chart::record),
         )
+        .route("/dental-terms", post(chart::add_term))
         .route("/visits/{id}/procedures", post(treatment::record_procedure))
         .route("/patients/{id}/procedures", get(treatment::procedures))
         .route("/procedures/{id}/complete", post(treatment::complete))
@@ -259,6 +282,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route(
             "/console/clinics/{id}/invitations",
             post(onboarding::invite),
+        )
+        .route(
+            "/console/clinics/{id}/owner-invitation/resend",
+            post(onboarding::resend_owner_invitation),
         )
         .route("/console/slugs", get(console::check_slug))
         .route("/console/applications", get(onboarding::applications))

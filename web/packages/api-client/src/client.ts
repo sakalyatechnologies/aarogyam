@@ -2,6 +2,7 @@
 
 import type { ApiResult } from "./result.js";
 import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
+import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
 import type {
   AcceptInvitation,
   Acceptance,
@@ -34,6 +35,7 @@ import type {
   ClinicDetail,
   ClinicId,
   ClinicInvited,
+  ResentOwnerInvitation,
   ClinicSettings,
   ClinicSettingsChanges,
   Letterhead,
@@ -47,6 +49,7 @@ import type {
   CreatedClinic,
   CreatedInvitation,
   DentalChart,
+  DentalTerm,
   DownloadLink,
   DrugList,
   DrugSearch,
@@ -70,6 +73,7 @@ import type {
   NewBooking,
   NewAddendum,
   NewChartEntries,
+  NewDentalTerm,
   NewPlan,
   NewClinic,
   NewClinicInvitation,
@@ -157,6 +161,9 @@ import type {
   StatusChanged,
   FinishedItemStatus,
   Joined,
+  PatientNotes,
+  SummaryContent,
+  SummaryNote,
   Timeline,
   TodayMoney,
   TokenStatusChange,
@@ -280,6 +287,18 @@ export interface ApiClient {
 
   /** Clinic host: imports patients from CSV; `preview` saves nothing, `commit` saves the valid rows. Needs `patients.write`. */
   importPatients(input: PatientImport, options?: RequestOptions): Promise<ApiResult<ImportResult>>;
+  /** Clinic host: uploads a CSV or Excel file (form field `file`, optional `sheet`) and suggests a field per column. Needs `patients.write`. */
+  uploadImportFile(form: FormData, options?: RequestOptions): Promise<ApiResult<ImportSession>>;
+  /** Clinic host: checks every row of an uploaded file through the mapping; saves nothing. Needs `patients.write`. */
+  previewImport(id: ImportSessionId, choices: ImportChoices, options?: RequestOptions): Promise<ApiResult<SmartImportResult>>;
+  /** Clinic host: imports an uploaded file in one transaction; repeating it returns the same result. Needs `patients.write`. */
+  commitImport(id: ImportSessionId, choices: ImportChoices, options?: RequestOptions): Promise<ApiResult<SmartImportResult>>;
+  /** Clinic host: ends an import session without importing and clears its rows. Needs `patients.write`. */
+  discardImport(id: ImportSessionId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: imported patients still missing details, the front desk's to-do list. Needs `patients.read`. */
+  listIncompletePatients(options?: RequestOptions): Promise<ApiResult<IncompleteList>>;
+  /** Clinic host: takes a patient off the to-do list. Needs `patients.write`. */
+  dismissIncompletePatient(id: PatientGapId, options?: RequestOptions): Promise<ApiResult<void>>;
 
   /** Clinic host: members, their roles and status, and pending invitations. Needs `staff.manage`. */
   listStaff(options?: RequestOptions): Promise<ApiResult<Staff>>;
@@ -341,6 +360,14 @@ export interface ApiClient {
 
   /** Clinic host: a patient's visits, notes, procedures and files, newest first. Needs `clinical.read`. */
   getTimeline(id: PatientId, options?: RequestOptions): Promise<ApiResult<Timeline>>;
+  /** Clinic host: a patient's summary note and visit notes, for Patient 360. Needs `clinical.read`. */
+  getPatientNotes(id: PatientId, options?: RequestOptions): Promise<ApiResult<PatientNotes>>;
+  /**
+   * Clinic host: saves the patient's summary note (the first save creates it). Pass the
+   * `row_version` you read as `expectedVersion` to refuse the save (`412`) if it changed since.
+   * Needs `clinical.write`.
+   */
+  savePatientSummaryNote(id: PatientId, content: SummaryContent, expectedVersion?: number, options?: RequestOptions): Promise<ApiResult<SummaryNote>>;
   /** Clinic host: a patient's visits, newest first. Needs `clinical.read`. */
   listVisits(id: PatientId, options?: RequestOptions): Promise<ApiResult<VisitPage>>;
   /** Clinic host: everything recorded in one visit. Needs `clinical.read`. */
@@ -383,6 +410,8 @@ export interface ApiClient {
   getDentalChart(id: PatientId, tooth?: number, options?: RequestOptions): Promise<ApiResult<DentalChart>>;
   /** Clinic host: records chart findings. Needs `clinical.write`. */
   recordChartEntries(id: PatientId, input: NewChartEntries, options?: RequestOptions): Promise<ApiResult<DentalChart>>;
+  /** Clinic host: adds a procedure or material to the clinic's list; a label already there (or seeded) returns that term. Needs `clinical.write`. */
+  addDentalTerm(input: NewDentalTerm, options?: RequestOptions): Promise<ApiResult<DentalTerm>>;
 
   /** Clinic host: a patient's files, newest first. Needs `clinical.read`. */
   listAttachments(id: PatientId, options?: RequestOptions): Promise<ApiResult<AttachmentPage>>;
@@ -406,6 +435,8 @@ export interface ApiClient {
   getClinicDetail(id: ClinicId, options?: RequestOptions): Promise<ApiResult<ClinicDetail>>;
   /** Console host: invites a doctor or other staff member to a clinic, by email and role. */
   inviteToClinic(id: ClinicId, input: NewClinicInvitation, options?: RequestOptions): Promise<ApiResult<ClinicInvited>>;
+  /** Sends the owner's invitation again (new link, old one stops working) while the owner hasn't joined. */
+  resendOwnerInvitation(id: ClinicId, options?: RequestOptions): Promise<ApiResult<ResentOwnerInvitation>>;
 
   /** Clinic host: finds medicines in the shared catalogue. Needs `prescriptions.issue`. */
   searchDrugs(input: DrugSearch, options?: RequestOptions): Promise<ApiResult<DrugList>>;

@@ -26,6 +26,10 @@ pub enum ClinicalError {
         /// Most characters.
         max: usize,
     },
+    /// Formatted text uses something outside the allowed Markdown subset (HTML, links, images,
+    /// code, deep headings).
+    #[error("use only headings, lists, bold and italic; no HTML, links, images or code")]
+    Format,
     /// A note can't be signed with every section empty.
     #[error("write at least one section before signing")]
     EmptyNote,
@@ -328,18 +332,26 @@ impl NoteBody {
     /// Validates each section; empty sections become none.
     ///
     /// # Errors
-    /// [`ClinicalError::Text`] when a section is too long or contains control characters.
+    /// [`ClinicalError::Text`] when a section is too long or contains control characters;
+    /// [`ClinicalError::Format`] when it leaves the Markdown subset.
     pub fn new(
         subjective: Option<&str>,
         objective: Option<&str>,
         assessment: Option<&str>,
         plan: Option<&str>,
     ) -> Result<Self, ClinicalError> {
+        let section = |text: Option<&str>| -> Result<Option<String>, ClinicalError> {
+            let text = optional_text(text, Self::MAX_SECTION)?;
+            if let Some(text) = &text {
+                crate::richtext::validate(text)?;
+            }
+            Ok(text)
+        };
         Ok(Self {
-            subjective: optional_text(subjective, Self::MAX_SECTION)?,
-            objective: optional_text(objective, Self::MAX_SECTION)?,
-            assessment: optional_text(assessment, Self::MAX_SECTION)?,
-            plan: optional_text(plan, Self::MAX_SECTION)?,
+            subjective: section(subjective)?,
+            objective: section(objective)?,
+            assessment: section(assessment)?,
+            plan: section(plan)?,
         })
     }
 

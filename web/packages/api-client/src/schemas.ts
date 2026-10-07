@@ -727,6 +727,118 @@ export type ImportResult = z.output<typeof importResult>;
 /** Body of `POST /api/v1/imports/patients`. */
 export type PatientImport = C.PatientImport;
 
+// Smart import: a clinic's own CSV or Excel file ---------------------------------------------
+
+/** Our fields a column can map to, in the order the mapping step shows them. */
+export const importFieldKey = z.enum([
+  "full_name",
+  "phone",
+  "sex",
+  "date_of_birth",
+  "age_years",
+  "email",
+  "address",
+  "last_visit",
+  "file_number",
+  "legacy_id",
+  "preferred_language",
+  "balance",
+]);
+export type ImportFieldKey = z.output<typeof importFieldKey>;
+
+export const suggestionBasis = z.enum(["saved", "header_and_values", "header", "values", "none"]);
+export type SuggestionBasis = z.output<typeof suggestionBasis>;
+
+const columnSuggestion = z.object({
+  column: count,
+  header: z.string(),
+  field: importFieldKey.nullable().exactOptional(),
+  confidence: z.number().int().min(0).max(100),
+  basis: suggestionBasis,
+}) satisfies z.ZodType<C.ColumnSuggestion>;
+export type ColumnSuggestion = z.output<typeof columnSuggestion>;
+
+export const importSessionId = z.uuid().brand<"ImportSessionId">();
+export type ImportSessionId = z.output<typeof importSessionId>;
+
+export const importSession = z.object({
+  id: importSessionId,
+  file_name: z.string(),
+  kind: z.enum(["csv", "xlsx"]),
+  sheets: z.array(z.string()),
+  sheet: z.string().nullable().exactOptional(),
+  header_row: z.number().int().positive(),
+  headers: z.array(z.string()),
+  row_count: count,
+  sample: z.array(z.array(z.string())),
+  suggestions: z.array(columnSuggestion),
+  expires_at: timestamp,
+}) satisfies z.ZodType<C.ImportSession>;
+export type ImportSession = z.output<typeof importSession>;
+
+export const rowChoice = z.enum(["skip", "merge", "import"]);
+export type RowChoice = z.output<typeof rowChoice>;
+
+/** Body of the preview and commit of an import session. */
+export type ImportChoices = C.ImportChoices;
+
+export const smartImportAction = z.enum(["import", "merge", "skip", "fail", "imported", "merged", "skipped", "failed"]);
+export type SmartImportAction = z.output<typeof smartImportAction>;
+
+export const missingDetail = z.enum(["phone", "sex", "date_of_birth"]);
+export type MissingDetail = z.output<typeof missingDetail>;
+
+const duplicateRef = z.object({
+  patient_id: patientId.nullable().exactOptional(),
+  number: patientNumber.nullable().exactOptional(),
+  row: z.number().int().positive().nullable().exactOptional(),
+}) satisfies z.ZodType<C.DuplicateRef>;
+
+const smartImportRow = z.object({
+  row: z.number().int().positive(),
+  action: smartImportAction,
+  missing: z.array(missingDetail),
+  errors: z.array(z.string()),
+  warnings: z.array(z.string()),
+  duplicate_of: duplicateRef.nullable().exactOptional(),
+  values: z.record(z.string(), z.string()),
+  patient_id: patientId.nullable().exactOptional(),
+  number: patientNumber.nullable().exactOptional(),
+}) satisfies z.ZodType<C.SmartImportRow>;
+export type SmartImportRow = z.output<typeof smartImportRow>;
+
+export const smartImportResult = z.object({
+  import_id: z.string().min(1).nullable().exactOptional(),
+  total: count,
+  imported: count,
+  incomplete: count,
+  merged: count,
+  skipped: count,
+  failed: count,
+  notes: z.array(z.string()),
+  rows: z.array(smartImportRow),
+}) satisfies z.ZodType<C.SmartImportResult>;
+export type SmartImportResult = z.output<typeof smartImportResult>;
+
+export const patientGapId = z.uuid().brand<"PatientGapId">();
+export type PatientGapId = z.output<typeof patientGapId>;
+
+const incompletePatient = z.object({
+  id: patientGapId,
+  patient_id: patientId,
+  number: patientNumber,
+  full_name: z.string(),
+  missing: z.array(missingDetail),
+  file_name: z.string().nullable().exactOptional(),
+  sheet: z.string().nullable().exactOptional(),
+  row: z.number().int().positive(),
+  imported_at: timestamp,
+}) satisfies z.ZodType<C.IncompletePatient>;
+export type IncompletePatient = z.output<typeof incompletePatient>;
+
+export const incompleteList = z.object({ items: z.array(incompletePatient) }) satisfies z.ZodType<C.IncompleteList>;
+export type IncompleteList = z.output<typeof incompleteList>;
+
 // Console host -------------------------------------------------------------------------------
 
 export const clinicStatus = z.enum(["trial", "active", "suspended", "churned"]);
@@ -1083,6 +1195,41 @@ export const note = z.object({
 }) satisfies z.ZodType<C.Note>;
 export type Note = z.output<typeof note>;
 
+export const summaryNote = z.object({
+  /** A strict Markdown subset; render it with `Markdown`, never as HTML. */
+  body: z.string(),
+  /** Bumped on every change; sent back in `If-Match`. */
+  row_version: z.number().int(),
+  updated_at: timestamp,
+  updated_by: optionalText,
+}) satisfies z.ZodType<C.SummaryNote>;
+export type SummaryNote = z.output<typeof summaryNote>;
+
+export const visitNote = z.object({
+  id: noteId,
+  visit_id: visitId,
+  visit_number: z.string(),
+  kind: noteKind,
+  status: noteStatus,
+  sections: noteSections,
+  author: memberRef,
+  signed_at: optionalTimestamp,
+  created_at: timestamp,
+  updated_at: timestamp,
+  row_version: z.number().int(),
+  addenda_count: z.number().int(),
+}) satisfies z.ZodType<C.VisitNote>;
+export type VisitNote = z.output<typeof visitNote>;
+
+export const patientNotes = z.object({
+  summary: summaryNote.nullable().exactOptional(),
+  visit_notes: z.array(visitNote),
+}) satisfies z.ZodType<C.PatientNotes>;
+export type PatientNotes = z.output<typeof patientNotes>;
+
+/** Body of `PUT /api/v1/patients/{id}/summary-note`. */
+export type SummaryContent = C.SummaryContent;
+
 /** Body of `POST /api/v1/visits/{id}/notes` and `PATCH /api/v1/notes/{id}`. */
 export type NoteContent = C.NoteContent;
 /** Body of `POST /api/v1/notes/{id}/addenda`. */
@@ -1225,6 +1372,22 @@ export const attachment = z.object({
 }) satisfies z.ZodType<C.Attachment>;
 export type Attachment = z.output<typeof attachment>;
 
+export const dentalTermKind = z.enum(["procedure", "material"]) satisfies z.ZodType<C.DentalTermKind>;
+export type DentalTermKind = z.output<typeof dentalTermKind>;
+
+/** A procedure or material: seeded (`zirconia`) or the clinic's own (a UUID id, `own`). */
+export const dentalTerm = z.object({
+  id: z.string().min(1),
+  kind: dentalTermKind,
+  label: z.string().min(1),
+  own: z.boolean(),
+}) satisfies z.ZodType<C.DentalTerm>;
+export type DentalTerm = z.output<typeof dentalTerm>;
+const dentalTermRef = dentalTerm.nullable().exactOptional();
+
+/** Body of `POST /api/v1/dental-terms`. */
+export type NewDentalTerm = C.NewDentalTerm;
+
 export const visitDetail = z.object({
   visit,
   notes: z.array(note),
@@ -1236,6 +1399,8 @@ export const visitDetail = z.object({
       tooth: count,
       surface: toothSurface.nullable().exactOptional(),
       finding: z.string(),
+      procedure: dentalTermRef,
+      material: dentalTermRef,
       status: z.string(),
       note: optionalText,
       effective_at: timestamp,
@@ -1272,6 +1437,8 @@ export const chartEntry = z.object({
   tooth: count,
   surface: toothSurface.nullable().exactOptional(),
   finding: chartFinding,
+  procedure: dentalTermRef,
+  material: dentalTermRef,
   note: optionalText,
   status: chartEntryStatus,
   recorded_by: membershipId.nullable().exactOptional(),
@@ -1281,7 +1448,11 @@ export const chartEntry = z.object({
 }) satisfies z.ZodType<C.ChartEntry>;
 export type ChartEntry = z.output<typeof chartEntry>;
 
-export const dentalChart = z.object({ current: z.array(chartEntry), history: z.array(chartEntry) }) satisfies z.ZodType<C.DentalChart>;
+export const dentalChart = z.object({
+  current: z.array(chartEntry),
+  history: z.array(chartEntry),
+  terms: z.array(dentalTerm),
+}) satisfies z.ZodType<C.DentalChart>;
 export type DentalChart = z.output<typeof dentalChart>;
 
 /** Body of `POST /api/v1/patients/{id}/dental-chart`. */
@@ -1404,6 +1575,14 @@ export const clinicInvited = z.object({
   account_ready: z.boolean(),
 }) satisfies z.ZodType<C.ClinicInvited>;
 export type ClinicInvited = z.output<typeof clinicInvited>;
+
+export const resentOwnerInvitation = z.object({
+  id: invitationId,
+  email: z.string(),
+  invite_link: z.string().min(1),
+  expires_at: timestamp,
+}) satisfies z.ZodType<C.ResentOwnerInvitation>;
+export type ResentOwnerInvitation = z.output<typeof resentOwnerInvitation>;
 
 // Billing (M5) --------------------------------------------------------------------------------
 

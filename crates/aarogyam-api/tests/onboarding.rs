@@ -443,6 +443,10 @@ async fn analysts_can_look_but_not_onboard() {
             "/api/v1/console/clinics/{}/invitations",
             app.clinic_id("alpha").await
         ),
+        format!(
+            "/api/v1/console/clinics/{}/owner-invitation/resend",
+            app.clinic_id("alpha").await
+        ),
     ] {
         let (status, _) = app
             .send(
@@ -537,5 +541,180 @@ async fn the_approve_form_checks_addresses_and_suggests_free_ones() {
         )
         .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
+    app.finish().await;
+}
+
+async fn create_gamma(app: &TestApp, staff: &str) -> Value {
+    let (status, created) = app
+        .send(
+            Method::POST,
+            CONSOLE,
+            "/api/v1/console/clinics",
+            Some(staff),
+            Some(json!({ "name": "Gamma Dental Care", "owner_email": "Owner@Gamma.test" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    created
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn creating_a_clinic_in_the_console_queues_the_owners_invitation_email() {
+    let accounts = Arc::new(FakeAccounts::default());
+    let app = start(&accounts).await;
+    let staff = app.token(STAFF);
+    let before = count(&app, "select count(*) from aarogyam.outbox_events").await;
+
+    let created = create_gamma(&app, &staff).await;
+    let token = created["invite_token"].as_str().unwrap();
+    assert_eq!(*accounts.emails.lock().unwrap(), ["owner@gamma.test"]);
+
+    // Exactly one message was queued, in the new clinic, for the owner.
+    assert_eq!(
+        count(&app, "select count(*) from aarogyam.outbox_events").await,
+        before + 1
+    );
+    let org = created["id"].as_str().unwrap();
+    let row: (String, String, Value, Option<String>) = sqlx::query_as(
+        "select event_key, recipient, payload, secret from aarogyam.outbox_events
+         where org_id = $1::uuid",
+    )
+    .bind(org)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(row.0, "staff.invited");
+    assert_eq!(row.1, "owner@gamma.test");
+    let invitation_id = created["invitation_id"].as_str().unwrap();
+    assert_eq!(
+        row.2,
+        json!({
+            "clinic_name": "Gamma Dental Care",
+            "role_name": "Owner",
+            "portal_host": "gamma-dental-care.localtest.me",
+            "expires_on": row.2["expires_on"],
+            "invitation_id": invitation_id,
+        })
+    );
+    assert!(row.2["expires_on"].as_str().is_some_and(|d| !d.is_empty()));
+    // The token is only the secret, never in the payload.
+    assert!(!row.2.to_string().contains(token));
+    assert_eq!(row.3.as_deref(), Some(token));
+
+    // The other clinics' outboxes are untouched.
+    assert_eq!(
+        count(
+            &app,
+            &format!("select count(*) from aarogyam.outbox_events where org_id <> '{org}'")
+        )
+        .await,
+        before
+    );
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn resending_the_owner_invitation_replaces_the_link_until_the_owner_joins() {
+    let accounts = Arc::new(FakeAccounts::default());
+    let app = start(&accounts).await;
+    let staff = app.token(STAFF);
+    let created = create_gamma(&app, &staff).await;
+    let old_token = created["invite_token"].as_str().unwrap().to_owned();
+    let org = created["id"].as_str().unwrap().to_owned();
+    let path = format!("/api/v1/console/clinics/{org}/owner-invitation/resend");
+
+    // Not staff, not the console host, no such clinic, and a clinic with no owner invitation.
+    let (status, _) = app
+        .send(
+            Method::POST,
+            CONSOLE,
+            &path,
+            Some(&app.token(ALPHA_OWNER)),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = app
+        .send(Method::POST, ALPHA, &path, Some(&staff), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    for id in [Uuid::now_v7(), app.clinic_id("alpha").await] {
+        let (status, _) = app
+            .send(
+                Method::POST,
+                CONSOLE,
+                &format!("/api/v1/console/clinics/{id}/owner-invitation/resend"),
+                Some(&staff),
+                None,
+            )
+            .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    let (status, resent) = app
+        .send(Method::POST, CONSOLE, &path, Some(&staff), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{resent}");
+    assert_eq!(resent["id"], created["invitation_id"]);
+    assert_eq!(resent["email"], "owner@gamma.test");
+    let link = resent["invite_link"].as_str().unwrap();
+    assert!(
+        link.starts_with("https://gamma-dental-care.localtest.me/invite#"),
+        "{link}"
+    );
+    let new_token = link.split_once('#').unwrap().1.to_owned();
+    assert_ne!(new_token, old_token);
+
+    // One email waits, with the new secret; the first was abandoned and its secret cleared.
+    let waiting: Vec<(String, Option<String>)> = sqlx::query_as(
+        "select status, secret from aarogyam.outbox_events where org_id = $1::uuid
+         order by created_at",
+    )
+    .bind(&org)
+    .fetch_all(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(
+        waiting,
+        [
+            ("failed".to_owned(), None),
+            ("pending".to_owned(), Some(new_token.clone()))
+        ]
+    );
+    assert_eq!(
+        count(
+            &app,
+            &format!("select count(*) from aarogyam.invitations where org_id = '{org}'")
+        )
+        .await,
+        1
+    );
+
+    // The old link stops working; the new one joins the owner.
+    let owner = app
+        .tokens
+        .mint_with_email(Uuid::now_v7(), Some("owner@gamma.test"))
+        .unwrap();
+    let accept = |token: String| {
+        app.send(
+            Method::POST,
+            PUBLIC,
+            "/api/v1/invitations/accept",
+            Some(&owner),
+            Some(json!({ "token": token })),
+        )
+    };
+    let (status, _) = accept(old_token).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, joined) = accept(new_token).await;
+    assert_eq!(status, StatusCode::OK, "{joined}");
+
+    // Once the owner has joined there is nothing to resend.
+    let (status, _) = app
+        .send(Method::POST, CONSOLE, &path, Some(&staff), None)
+        .await;
+    assert_eq!(status, StatusCode::CONFLICT);
     app.finish().await;
 }

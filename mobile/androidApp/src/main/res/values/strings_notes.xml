@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="patient_tab_notes">Notes</string>
+    <string name="notes_not_allowed">Your role can\'t see notes at this clinic.</string>
+    <string name="notes_summary_title">Summary note</string>
+    <string name="notes_summary_empty">No summary yet. Keep the patient\'s long-running picture here: history, preferences, what to watch.</string>
+    <string name="notes_write">Write summary</string>
+    <string name="notes_edit">Edit summary</string>
+    <string name="notes_save">Save</string>
+    <string name="notes_cancel">Cancel</string>
+    <string name="notes_preview">Preview</string>
+    <string name="notes_updated">Updated %1$s</string>
+    <string name="notes_updated_by">Updated %1$s by %2$s</string>
+    <string name="notes_visits_title">Visit notes</string>
+    <string name="notes_visits_none">No visit notes yet.</string>
+    <plurals name="notes_addenda">
+        <item quantity="one">%1$d addendum: open the visit to read it.</item>
+        <item quantity="other">%1$d addenda: open the visit to read them.</item>
+    </plurals>
+    <string name="notes_fmt_heading">Heading</string>
+    <string name="notes_fmt_bold">Bold</string>
+    <string name="notes_fmt_italic">Italic</string>
+    <string name="notes_fmt_bullets">Bulleted list</string>
+    <string name="notes_fmt_numbers">Numbered list</string>
+    <string name="notes_problem_html">HTML isn\'t allowed. Use the buttons for headings, lists, bold and italic.</string>
+    <string name="notes_problem_link">Links and images aren\'t allowed.</string>
+    <string name="notes_problem_code">Code formatting isn\'t allowed.</string>
+    <string name="notes_problem_heading">Headings go down to three levels (###).</string>
+    <string name="notes_problem_changed">Someone else changed this note while you were editing. Copy your text, cancel and open it again to see their version.</string>
+    <string name="notes_kind_soap">SOAP note</string>
+    <string name="notes_kind_progress">Progress note</string>
+    <string name="notes_kind_procedure">Procedure note</string>
+    <string name="notes_kind_intake">Intake note</string>
+    <string name="notes_kind_front_desk">Front desk note</string>
+    <string name="notes_section_subjective">Subjective</string>
+    <string name="notes_section_objective">Objective</string>
+    <string name="notes_section_assessment">Assessment</string>
+    <string name="notes_section_plan">Plan</string>
+    <string name="notes_status_draft">Draft</string>
+    <string name="notes_status_signed">Signed</string>
+    <string name="notes_status_conflict">Conflict</string>
+    <string name="notes_status_error">Entered in error</string>
+    <string name="notes_status_unknown">Note</string>
+</resources>

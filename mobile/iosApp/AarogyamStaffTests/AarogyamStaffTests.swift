@@ -228,7 +228,66 @@ final class ChartMappingTests: XCTestCase {
     }
 
     func test_history_details_skip_what_is_missing() {
-        let entry = HistoryEntryView(id: "e1", finding: .caries, surface: .o, status: .superseded, at: nil, note: nil)
+        let entry = HistoryEntryView(id: "e1", finding: .caries, surface: .o, status: .superseded, at: nil, note: nil, procedure: nil, material: nil)
         XCTAssertEqual(entry.detailText, EntryStatus.superseded.label)
+        XCTAssertEqual(entry.treatmentText, "")
+        let crowned = HistoryEntryView(id: "e2", finding: .crown, surface: nil, status: .current, at: nil, note: nil, procedure: "Crown", material: "Zirconia")
+        XCTAssertEqual(crowned.treatmentText, "Crown · Zirconia")
+    }
+
+    func test_terms_are_matched_on_the_phone() {
+        let terms = [
+            TermView(id: "zirconia", kind: .material, label: "Zirconia", own: false),
+            TermView(id: "cast_metal", kind: .material, label: "Metal (cast)", own: false),
+            TermView(id: "pfm", kind: .material, label: "PFM (porcelain fused to metal)", own: false),
+        ]
+        XCTAssertEqual(ChartModelKt.matchTerms(terms: terms, kind: .material, text: "z").map(\.id), ["zirconia"])
+        XCTAssertEqual(ChartModelKt.matchTerms(terms: terms, kind: .material, text: "metal").map(\.id), ["cast_metal", "pfm"])
+        XCTAssertTrue(ChartModelKt.hasLabel(terms: terms, kind: .material, text: " zirconia "))
+        XCTAssertEqual(Surface.o.genericLabel, "Occlusal / incisal")
+    }
+}
+
+final class NotesMessagesTests: XCTestCase {
+    private func assertTranslated(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertFalse(text.isEmpty, file: file, line: line)
+        let looksLikeKey = text.range(of: #"^[a-z_]+(\.[a-z_]+)+$"#, options: .regularExpression) != nil
+        XCTAssertFalse(looksLikeKey, "untranslated key \(text)", file: file, line: line)
+    }
+
+    func test_every_note_status_section_format_and_problem_has_copy() {
+        for status in NoteStatus.allCases { assertTranslated(status.label) }
+        XCTAssertEqual(NoteStatus.signed.tone, .success)
+        for section in NoteSection.allCases { assertTranslated(section.label) }
+        for format in Format.allCases {
+            assertTranslated(format.label)
+            XCTAssertFalse(format.symbol.isEmpty)
+        }
+        for problem in RichTextProblem.allCases { assertTranslated(problem.message) }
+    }
+
+    func test_the_shared_parser_reaches_swift_and_markup_stays_text() {
+        let blocks = RichText.shared.parse(source: "## Plan\n- **RCT** on 36\n<script>alert(1)</script>")
+        XCTAssertEqual(blocks.count, 3)
+        guard case .paragraph(let paragraph) = onEnum(of: blocks[2]) else { return XCTFail("expected a paragraph") }
+        XCTAssertEqual(String(RichTextView.attributed(paragraph.children).characters), "<script>alert(1)</script>")
+        guard case .bullets(let bullets) = onEnum(of: blocks[1]) else { return XCTFail("expected bullets") }
+        let item = RichTextView.attributed(bullets.items[0])
+        XCTAssertEqual(String(item.characters), "RCT on 36")
+        XCTAssertEqual(item.runs.first?.inlinePresentationIntent, .stronglyEmphasized)
+    }
+
+    func test_the_toolbar_formats_the_selection() {
+        let bold = RichTextKt.applyFormat(value: "take rest now", start: 5, end: 9, format: .bold)
+        XCTAssertEqual(bold.value, "take **rest** now")
+        let list = RichTextKt.applyFormat(value: "one\ntwo", start: 0, end: 7, format: .numbers)
+        XCTAssertEqual(list.value, "1. one\n2. two")
+        XCTAssertEqual(RichText.shared.problem(text: "<b>x</b>"), .html)
+        XCTAssertNil(RichText.shared.problem(text: "## ok\n- **fine**"))
+    }
+
+    func test_addenda_are_plural_aware() {
+        XCTAssertTrue(String(localized: "notes.addenda \(1)").contains("1 addendum"))
+        XCTAssertTrue(String(localized: "notes.addenda \(3)").contains("3 addenda"))
     }
 }

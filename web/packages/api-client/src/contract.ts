@@ -253,6 +253,15 @@ export type PatientImport = Schemas["PatientImport"];
 export type ImportResult = Schemas["ImportResult"];
 export type ImportRow = Schemas["ImportRow"];
 export type ImportMode = "preview" | "commit";
+export type ImportSession = Schemas["ImportSession"];
+export type ColumnSuggestion = Schemas["ColumnSuggestion"];
+export type ImportChoices = Schemas["ImportChoices"];
+export type RowDecision = Schemas["RowDecision"];
+export type SmartImportResult = Schemas["SmartImportResult"];
+export type SmartImportRow = Schemas["SmartImportRow"];
+export type DuplicateRef = Schemas["DuplicateRef"];
+export type IncompleteList = Schemas["IncompleteList"];
+export type IncompletePatient = Schemas["IncompletePatient"];
 
 // Clinical flags: allergies and conditions (M4) --------------------------------------------------
 
@@ -284,6 +293,11 @@ export type VisitStatus = "open" | "closed";
 export type Timeline = Schemas["Timeline"];
 export type TimelineEvent = Schemas["TimelineEvent"];
 export type TimelineEventKind = "visit" | "note" | "procedure" | "attachment";
+
+export type SummaryNote = Schemas["SummaryNote"];
+export type SummaryContent = Schemas["SummaryContent"];
+export type VisitNote = Schemas["VisitNote"];
+export type PatientNotes = Schemas["PatientNotes"];
 
 export type Note = Schemas["Note"];
 export type NoteContent = Schemas["NoteContent"];
@@ -336,6 +350,9 @@ export type ChartEntry = Schemas["ChartEntry"];
 export type DentalChart = Schemas["DentalChart"];
 export type NewChartEntry = Schemas["NewChartEntry"];
 export type NewChartEntries = Schemas["NewChartEntries"];
+export type DentalTermKind = "procedure" | "material";
+export type DentalTerm = Omit<Schemas["DentalTerm"], "kind"> & { kind: DentalTermKind };
+export type NewDentalTerm = Omit<Schemas["NewDentalTerm"], "kind"> & { kind: DentalTermKind };
 
 // Patient files (M4) ------------------------------------------------------------------------------
 
@@ -361,6 +378,7 @@ export type ClinicInvitation = Schemas["ClinicInvitation"];
 export type ClinicDetail = Schemas["ClinicDetail"];
 export type NewClinicInvitation = Schemas["NewClinicInvitation"];
 export type ClinicInvited = Schemas["ClinicInvited"];
+export type ResentOwnerInvitation = Schemas["ResentOwnerInvitation"];
 
 // Billing (M5) --------------------------------------------------------------------------------
 

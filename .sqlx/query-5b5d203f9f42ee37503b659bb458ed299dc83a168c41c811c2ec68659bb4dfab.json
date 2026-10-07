@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.patients p set\n             sex = case when p.sex = 'unknown' then w.sex else p.sex end,\n             birth_date_estimated = case when p.date_of_birth is null and w.date_of_birth is not null\n                                         then w.estimated else p.birth_date_estimated end,\n             date_of_birth = coalesce(p.date_of_birth, w.date_of_birth),\n             email = coalesce(p.email, w.email),\n             address = coalesce(p.address, w.address),\n             last_visit_at = coalesce(p.last_visit_at, w.last_visit)\n           from unnest($1::uuid[], $2::text[], $3::date[], $4::bool[], $5::text[], $6::jsonb[],\n                       $7::timestamptz[])\n                as w(id, sex, date_of_birth, estimated, email, address, last_visit)\n           where p.id = w.id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "TextArray",
+        "DateArray",
+        "BoolArray",
+        "TextArray",
+        "JsonbArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5b5d203f9f42ee37503b659bb458ed299dc83a168c41c811c2ec68659bb4dfab"
+}

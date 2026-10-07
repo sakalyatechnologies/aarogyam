@@ -8787,6 +8787,13 @@
             "type": "string",
             "description": "`photo`, `xray`, `report`, `document`, `audio` or `consent`."
           },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its label, such as `OPG`, `Intraoral - upper`, `X-ray`, `Consent` or the clinic's own."
+          },
           "language": {
             "type": [
               "string",
@@ -17631,6 +17638,13 @@
               "null"
             ],
             "description": "`photo`, `xray`, `report`, `document` (default), `audio` or `consent`."
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A label, 1 to 60 characters: `OPG`, `Intraoral - upper`, `X-ray`, `Consent` or your own."
           },
           "language": {
             "type": [

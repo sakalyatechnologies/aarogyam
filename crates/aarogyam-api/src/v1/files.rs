@@ -44,6 +44,8 @@ pub struct Attachment {
     pub sha256: String,
     /// A caption.
     pub caption: Option<String>,
+    /// Its label, such as `OPG`, `Intraoral - upper`, `X-ray`, `Consent` or the clinic's own.
+    pub label: Option<String>,
     /// FDI number of the tooth it shows.
     pub tooth: Option<u8>,
     /// When it was taken (RFC 3339).
@@ -72,6 +74,7 @@ impl From<AttachmentView> for Attachment {
             size_bytes: view.size_bytes,
             sha256: view.sha256,
             caption: view.caption,
+            label: view.label,
             tooth: view.tooth.map(aarogyam_domain::dental::Tooth::number),
             taken_at: view.taken_at.map(rfc3339),
             created_at: rfc3339(view.created_at),
@@ -111,6 +114,8 @@ pub struct UploadForm {
     visit_id: Option<String>,
     /// A caption, up to 300 characters.
     caption: Option<String>,
+    /// A label, 1 to 60 characters: `OPG`, `Intraoral - upper`, `X-ray`, `Consent` or your own.
+    label: Option<String>,
     /// FDI number of the tooth it shows.
     tooth: Option<i64>,
     /// A recording's note (a draft of the uploader, or a signed note together with `addendum_id`).
@@ -169,6 +174,7 @@ async fn read_form(mut form: Multipart) -> Result<Upload, ApiFailure> {
             }
             "kind" => upload.kind = Some(text.to_owned()),
             "caption" => upload.caption = Some(text.to_owned()),
+            "label" => upload.label = Some(text.to_owned()),
             "visit_id" => {
                 upload.visit_id =
                     Some(Uuid::try_parse(text).map_err(|_| bad_form("visit_id: must be a UUID"))?);

@@ -1419,6 +1419,7 @@ Patient files: photos, X-rays, reports, documents, audio, signed consent.
 | `size_bytes` | `bigint` | at most 10 MB |
 | `sha256` | `text` |  |
 | `caption` | `text?` |  |
+| `label` | `text?` | OPG, Intraoral - upper, X-ray, Consent or the clinic's own, up to 60 characters |
 | `tooth` | `smallint?` | FDI: 11-48 permanent, 51-85 primary |
 | `taken_at` | `timestamptz?` |  |
 | `source` | `record_source` | clinician, assistant, patient, import, device, ai_draft, abdm |

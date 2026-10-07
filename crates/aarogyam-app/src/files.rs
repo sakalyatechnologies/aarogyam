@@ -372,6 +372,8 @@ pub struct AttachmentView {
     pub sha256: String,
     /// A caption.
     pub caption: Option<String>,
+    /// Its label, such as `OPG`.
+    pub label: Option<String>,
     /// The tooth it shows.
     pub tooth: Option<Tooth>,
     /// When it was taken.
@@ -398,6 +400,7 @@ fn view(row: AttachmentRow) -> Result<AttachmentView, AppError> {
         size_bytes: row.size_bytes,
         sha256: row.sha256,
         caption: row.caption,
+        label: row.label,
         tooth: row.tooth.and_then(|n| Tooth::new(i64::from(n)).ok()),
         taken_at: row.taken_at,
         created_at: row.created_at,
@@ -434,6 +437,8 @@ pub struct Upload {
     pub visit_id: Option<Uuid>,
     /// A caption.
     pub caption: Option<String>,
+    /// A label, up to 60 characters.
+    pub label: Option<String>,
     /// The tooth it shows.
     pub tooth: Option<i64>,
     /// The note a recording belongs to; its visit is the recording's visit.
@@ -508,6 +513,7 @@ struct Described<'a> {
     size: i64,
     sha256: &'a str,
     caption: Option<&'a str>,
+    label: Option<&'a str>,
     tooth: Option<i16>,
     language: Option<VoiceLanguage>,
 }
@@ -521,6 +527,7 @@ impl Described<'_> {
             && row.size_bytes == self.size
             && row.sha256 == self.sha256
             && row.caption.as_deref() == self.caption
+            && row.label.as_deref() == self.label
             && row.tooth == self.tooth
             && row.note_id == input.note_id
             && row.addendum_id == input.addendum_id
@@ -553,6 +560,41 @@ async fn replayed(
     }
 }
 
+/// An upload's fields once checked.
+struct Checked {
+    file_type: FileType,
+    kind: AttachmentKind,
+    language: Option<VoiceLanguage>,
+    caption: Option<String>,
+    label: Option<String>,
+    tooth: Option<Tooth>,
+}
+
+fn check_fields(input: &Upload) -> Result<Checked, AppError> {
+    if input.bytes.is_empty() || input.bytes.len() > MAX_BYTES {
+        return Err(AppError::invalid("file", "must be 1 byte to 10 MB"));
+    }
+    let file_type = FileType::sniff(&input.bytes).ok_or_else(|| {
+        AppError::invalid("file", "must be a JPEG, PNG, PDF, DICOM or audio recording")
+    })?;
+    let (kind, language) = check_kind_and_recording(input, file_type)?;
+    let caption = optional_text(input.caption.as_deref(), 300).map_err(invalid("caption"))?;
+    let label = optional_text(input.label.as_deref(), 60).map_err(invalid("label"))?;
+    let tooth = input
+        .tooth
+        .map(Tooth::new)
+        .transpose()
+        .map_err(|error| AppError::invalid("tooth", error))?;
+    Ok(Checked {
+        file_type,
+        kind,
+        language,
+        caption,
+        label,
+        tooth,
+    })
+}
+
 /// Stores a patient file. Its type comes from its content: JPEG, PNG, PDF, DICOM or a `WebM`,
 /// `MP4` or `Ogg` recording. A recording may be linked to a note of the same visit: a draft only by its
 /// author, a signed note only through one of the uploader's own addenda. A retry with the same
@@ -571,19 +613,14 @@ pub async fn upload(
     input: Upload,
 ) -> Result<AttachmentView, AppError> {
     actor.require(Permission::ClinicalWrite)?;
-    if input.bytes.is_empty() || input.bytes.len() > MAX_BYTES {
-        return Err(AppError::invalid("file", "must be 1 byte to 10 MB"));
-    }
-    let file_type = FileType::sniff(&input.bytes).ok_or_else(|| {
-        AppError::invalid("file", "must be a JPEG, PNG, PDF, DICOM or audio recording")
-    })?;
-    let (kind, language) = check_kind_and_recording(&input, file_type)?;
-    let caption = optional_text(input.caption.as_deref(), 300).map_err(invalid("caption"))?;
-    let tooth = input
-        .tooth
-        .map(Tooth::new)
-        .transpose()
-        .map_err(|error| AppError::invalid("tooth", error))?;
+    let Checked {
+        file_type,
+        kind,
+        language,
+        caption,
+        label,
+        tooth,
+    } = check_fields(&input)?;
     let size = i64::try_from(input.bytes.len()).map_err(|_| AppError::Internal("file size"))?;
     let sha256 = sha256_hex(&input.bytes);
     let described = Described {
@@ -594,6 +631,7 @@ pub async fn upload(
         size,
         sha256: &sha256,
         caption: caption.as_deref(),
+        label: label.as_deref(),
         tooth: tooth.map(|t| i16::from(t.number())),
         language,
     };
@@ -643,6 +681,7 @@ pub async fn upload(
                     size_bytes: size,
                     sha256: &sha256,
                     caption: caption.as_deref(),
+                    label: label.as_deref(),
                     tooth: tooth.map(|t| i16::from(t.number())),
                     source: RecordSource::Clinician.as_str(),
                     note_id: input.note_id,

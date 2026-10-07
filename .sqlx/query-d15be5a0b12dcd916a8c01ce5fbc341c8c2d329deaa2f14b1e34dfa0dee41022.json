@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,\n                  taken_at, created_at, note_id, addendum_id, duration_seconds, language\n           from aarogyam.attachments\n           where id = $1 and deleted_at is null and app.patient_in_reach(patient_id, $2)",
+  "query": "select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,\n                  taken_at, created_at, note_id, addendum_id, duration_seconds, language\n           from aarogyam.attachments where encounter_id = $1 and deleted_at is null\n           order by created_at, id",
   "describe": {
     "columns": [
       {
@@ -93,6 +93,17 @@
       },
       {
         "ordinal": 8,
+        "name": "label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "label"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "tooth",
         "type_info": "Int2",
         "origin": {
@@ -103,7 +114,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "taken_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -125,7 +136,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "note_id",
         "type_info": "Uuid",
         "origin": {
@@ -136,7 +147,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "addendum_id",
         "type_info": "Uuid",
         "origin": {
@@ -147,7 +158,7 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "duration_seconds",
         "type_info": "Int4",
         "origin": {
@@ -158,7 +169,7 @@
         }
       },
       {
-        "ordinal": 14,
+        "ordinal": 15,
         "name": "language",
         "type_info": "Text",
         "origin": {
@@ -171,7 +182,6 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Uuid"
       ]
     },
@@ -186,6 +196,7 @@
       true,
       true,
       true,
+      true,
       false,
       true,
       true,
@@ -193,5 +204,5 @@
       true
     ]
   },
-  "hash": "aa909f5551ccc4441eac9ecce1bce391debd480a8b1e005d787bae494581cb02"
+  "hash": "d15be5a0b12dcd916a8c01ce5fbc341c8c2d329deaa2f14b1e34dfa0dee41022"
 }

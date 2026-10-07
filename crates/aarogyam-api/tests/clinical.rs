@@ -1151,6 +1151,95 @@ async fn fetch(app: &TestApp, host: &str, path: &str) -> (StatusCode, String, Ve
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
+async fn files_carry_a_label_and_tooth_and_stay_inside_their_clinic() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let beta = app.token(BETA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let mut jpeg = vec![0xFF_u8, 0xD8, 0xFF, 0xE0];
+    jpeg.extend_from_slice(&[3_u8; 512]);
+
+    let (status, file) = upload(
+        &app,
+        ALPHA,
+        &owner,
+        &patient,
+        &jpeg,
+        &[
+            ("kind", "photo"),
+            ("label", "  Intraoral \u{2013} upper "),
+            ("tooth", "11"),
+        ],
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{file}");
+    assert_eq!(file["label"], "Intraoral \u{2013} upper");
+    assert_eq!(file["tooth"], 11);
+    let (_, plain) = upload(&app, ALPHA, &owner, &patient, &jpeg, &[("label", "OPG")]).await;
+    assert_eq!(plain["label"], "OPG");
+    assert!(plain["tooth"].is_null());
+
+    // Too long a label is refused; the files list carries the labels.
+    let long = "x".repeat(61);
+    let (status, _) = upload(&app, ALPHA, &owner, &patient, &jpeg, &[("label", &long)]).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    // A retry with the same id but another label is a different file.
+    let id = "0192f1c4-7b3a-7c2e-8f10-3a5d9e1b2c4d";
+    let fields = [("id", id), ("label", "X-ray")];
+    assert_eq!(
+        upload(&app, ALPHA, &owner, &patient, &jpeg, &fields)
+            .await
+            .0,
+        StatusCode::CREATED
+    );
+    assert_eq!(
+        upload(&app, ALPHA, &owner, &patient, &jpeg, &fields)
+            .await
+            .0,
+        StatusCode::CREATED
+    );
+    let changed = [("id", id), ("label", "Consent")];
+    assert_eq!(
+        upload(&app, ALPHA, &owner, &patient, &jpeg, &changed)
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    let path = format!("/api/v1/patients/{patient}/attachments");
+    let (_, listed) = app
+        .send(Method::GET, ALPHA, &path, Some(&owner), None)
+        .await;
+    let mut labels: Vec<&str> = listed["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|f| f["label"].as_str())
+        .collect();
+    labels.sort_unstable();
+    assert_eq!(labels, ["Intraoral \u{2013} upper", "OPG", "X-ray"]);
+
+    // Writing needs clinical.write; another clinic sees nothing.
+    assert_eq!(
+        upload(
+            &app,
+            ALPHA,
+            &assistant,
+            &patient,
+            &jpeg,
+            &[("label", "OPG")]
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let (status, _) = app.send(Method::GET, BETA, &path, Some(&beta), None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
 async fn files_upload_by_content_and_download_through_short_lived_links() {
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);

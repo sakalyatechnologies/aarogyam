@@ -8,7 +8,11 @@ import { MkCard, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { useAttachments, useDownloadLink, useUploadAttachment } from "../../queries.js";
+import { NO_LABEL, PRESET_LABELS, groupByLabel, parseTooth } from "./file-labels.js";
+import { FileThumb } from "./file-thumb.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
+
+const OTHER = "__other__";
 
 const KINDS = [
   { value: "photo", label: "Photo" },
@@ -59,31 +63,40 @@ export function FilesPanel({ patientId }: { patientId: PatientId }) {
       ) : attachments.data.items.length === 0 ? (
         <Empty title="No files yet">Photos, x-rays, reports and consents will show here.</Empty>
       ) : (
-        <MkCard>
-          <ul className="divide-y divide-border">
-            {attachments.data.items.map((file) => (
-              <li key={file.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-text">{file.caption ?? KINDS.find((k) => k.value === file.kind)?.label ?? file.kind}</p>
-                  <p className="text-xs text-muted">
-                    {formatDateTime(file.created_at)} · {formatBytes(file.size_bytes)}
-                    {file.tooth == null ? "" : ` · Tooth ${String(file.tooth)}`}
-                  </p>
-                </div>
-                <Button
-                  variant="secondary"
-                  icon={<Download aria-hidden="true" className="size-4" />}
-                  disabled={downloadLink.isPending}
-                  onClick={() => {
-                    onDownload(file.id);
-                  }}
-                >
-                  Open
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </MkCard>
+        <div className="flex flex-col gap-4">
+          {groupByLabel(attachments.data.items).map((group) => (
+            <MkCard key={group.label}>
+              <h3 className="text-sm font-bold text-text">
+                {group.label} <span className="font-normal text-muted">({String(group.files.length)})</span>
+              </h3>
+              <ul aria-label={group.label} className="mt-2 divide-y divide-border">
+                {group.files.map((file) => (
+                  <li key={file.id} className="flex items-center gap-3 py-3">
+                    <FileThumb file={file} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-text">{file.caption ?? KINDS.find((k) => k.value === file.kind)?.label ?? file.kind}</p>
+                      <p className="text-xs text-muted">
+                        {formatDateTime(file.created_at)} · {formatBytes(file.size_bytes)}
+                        {file.tooth == null ? "" : ` · Tooth ${String(file.tooth)}`}
+                      </p>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      icon={<Download aria-hidden="true" className="size-4" />}
+                      disabled={downloadLink.isPending}
+                      aria-label={`Open ${file.caption ?? group.label}`}
+                      onClick={() => {
+                        onDownload(file.id);
+                      }}
+                    >
+                      Open
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </MkCard>
+          ))}
+        </div>
       )}
       {uploading ? (
         <UploadDialog
@@ -101,6 +114,9 @@ function UploadDialog({ patientId, onOpenChange }: { patientId: PatientId; onOpe
   const fileInput = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState<(typeof KINDS)[number]["value"]>("document");
   const [caption, setCaption] = useState("");
+  const [preset, setPreset] = useState<string>("");
+  const [custom, setCustom] = useState("");
+  const [toothText, setToothText] = useState("");
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
   const upload = useUploadAttachment(patientId);
@@ -112,11 +128,23 @@ function UploadDialog({ patientId, onOpenChange }: { patientId: PatientId; onOpe
       setError("Choose a file first.");
       return;
     }
+    const label = (preset === OTHER ? custom : preset).trim();
+    if (label.length > 60) {
+      setError("A label can be at most 60 characters.");
+      return;
+    }
+    const tooth = toothText.trim() === "" ? undefined : parseTooth(toothText);
+    if (toothText.trim() !== "" && tooth === undefined) {
+      setError("Tooth must be an FDI number such as 11 to 48, or 51 to 85 for baby teeth.");
+      return;
+    }
     setError(undefined);
     const form = new FormData();
     form.set("file", file);
     form.set("kind", kind);
     if (caption.trim() !== "") form.set("caption", caption.trim());
+    if (label !== "") form.set("label", label);
+    if (tooth !== undefined) form.set("tooth", String(tooth));
     upload.mutate(form, {
       onSuccess: () => {
         toast.show({ title: "File uploaded", tone: "success" });
@@ -149,6 +177,7 @@ function UploadDialog({ patientId, onOpenChange }: { patientId: PatientId; onOpe
         <Field label="File" required>
           <input
             ref={fileInput}
+            aria-label="File"
             type="file"
             accept="image/jpeg,image/png,application/pdf,application/dicom"
             onChange={(event) => {
@@ -158,6 +187,34 @@ function UploadDialog({ patientId, onOpenChange }: { patientId: PatientId; onOpe
         </Field>
         <Field label="Kind">
           <Select options={KINDS} value={kind} onValueChange={setKind} />
+        </Field>
+        <Field label="Label">
+          <Select
+            options={[{ value: "", label: NO_LABEL }, ...PRESET_LABELS.map((l) => ({ value: l, label: l })), { value: OTHER, label: "Other…" }]}
+            value={preset}
+            onValueChange={setPreset}
+          />
+        </Field>
+        {preset === OTHER ? (
+          <Field label="Your label">
+            <TextInput
+              value={custom}
+              maxLength={60}
+              onChange={(event) => {
+                setCustom(event.target.value);
+              }}
+            />
+          </Field>
+        ) : null}
+        <Field label="Tooth (optional)">
+          <TextInput
+            inputMode="numeric"
+            value={toothText}
+            placeholder="36"
+            onChange={(event) => {
+              setToothText(event.target.value);
+            }}
+          />
         </Field>
         <Field label="Caption">
           <TextInput

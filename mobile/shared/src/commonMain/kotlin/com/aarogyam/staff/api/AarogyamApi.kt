@@ -1,9 +1,12 @@
 package com.aarogyam.staff.api
 
 import com.aarogyam.staff.api.model.AppointmentList
+import com.aarogyam.staff.api.model.Attachment
+import com.aarogyam.staff.api.model.AttachmentList
 import com.aarogyam.staff.api.model.ClinicalFlags
 import com.aarogyam.staff.api.model.DentalChart
 import com.aarogyam.staff.api.model.DentalTerm
+import com.aarogyam.staff.api.model.DownloadLink
 import com.aarogyam.staff.api.model.DrugList
 import com.aarogyam.staff.api.model.DrugSearch
 import com.aarogyam.staff.api.model.InvoiceList
@@ -38,11 +41,15 @@ import com.sakalya.mobile.http.call
 import com.sakalya.mobile.http.callWithErrorBody
 import com.sakalya.mobile.http.idempotencyKey
 import io.ktor.client.HttpClient
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -117,6 +124,57 @@ class ClinicApi(
     /** `GET /api/v1/patients/{id}/clinical-flags` (`getClinicalFlags`): the allergy and condition banner. */
     suspend fun clinicalFlags(id: String): Outcome<ClinicalFlags, ApiError> =
         client.call { url("api/v1/patients/${id.encodeURLPathPart()}/clinical-flags") }
+
+    /** `GET /api/v1/patients/{id}/attachments` (`listAttachments`): the patient's files, newest first; needs `clinical.read`. */
+    suspend fun attachments(patientId: String): Outcome<AttachmentList, ApiError> =
+        client.call { url("api/v1/patients/${patientId.encodeURLPathPart()}/attachments") }
+
+    /**
+     * `POST /api/v1/patients/{id}/attachments` (`uploadAttachment`): a JPEG already resized on the
+     * device, with its optional [label] and FDI [tooth]. [id] is the client's UUID v7, so a retry
+     * returns the stored file instead of making another. The file goes through the API, never to a
+     * bucket address, and carries a fixed name: nothing about the patient is in the form.
+     */
+    suspend fun uploadAttachment(
+        patientId: String,
+        id: String,
+        kind: String,
+        jpeg: ByteArray,
+        label: String?,
+        tooth: Int?,
+    ): Outcome<Attachment, ApiError> =
+        client.call {
+            method = HttpMethod.Post
+            url("api/v1/patients/${patientId.encodeURLPathPart()}/attachments")
+            setBody(
+                MultiPartFormDataContent(
+                    formData {
+                        append("id", id)
+                        append("kind", kind)
+                        if (label != null) append("label", label)
+                        if (tooth != null) append("tooth", tooth.toString())
+                        append(
+                            "file",
+                            jpeg,
+                            Headers.build {
+                                append(HttpHeaders.ContentType, "image/jpeg")
+                                append(HttpHeaders.ContentDisposition, "filename=\"photo.jpg\"")
+                            },
+                        )
+                    },
+                ),
+            )
+        }
+
+    /**
+     * A file's bytes: asks `GET /api/v1/attachments/{id}/download` for a five-minute link, then
+     * opens it on the same clinic host (the link is the proof of access).
+     */
+    suspend fun attachmentBytes(id: String): Outcome<ByteArray, ApiError> =
+        when (val link = client.call<DownloadLink> { url("api/v1/attachments/${id.encodeURLPathPart()}/download") }) {
+            is Outcome.Failure -> link
+            is Outcome.Success -> client.call { url(link.value.url.trimStart('/')) }
+        }
 
     /** `GET /api/v1/patients/{id}/visits` (`listVisits`): newest first. */
     suspend fun visits(id: String): Outcome<VisitList, ApiError> =

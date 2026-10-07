@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,\n                  taken_at, created_at, note_id, addendum_id, duration_seconds, language\n           from aarogyam.attachments where patient_id = $1 and deleted_at is null\n           order by created_at desc, id desc",
+  "query": "insert into aarogyam.attachments\n             (id, patient_id, encounter_id, kind, storage_key, mime_type, size_bytes, sha256, caption,\n              label, tooth, source, note_id, addendum_id, duration_seconds, language)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)\n           returning id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,\n                     taken_at, created_at, note_id, addendum_id, duration_seconds, language",
   "describe": {
     "columns": [
       {
@@ -93,6 +93,17 @@
       },
       {
         "ordinal": 8,
+        "name": "label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "label"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "tooth",
         "type_info": "Int2",
         "origin": {
@@ -103,7 +114,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "taken_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -125,7 +136,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "note_id",
         "type_info": "Uuid",
         "origin": {
@@ -136,7 +147,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "addendum_id",
         "type_info": "Uuid",
         "origin": {
@@ -147,7 +158,7 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "duration_seconds",
         "type_info": "Int4",
         "origin": {
@@ -158,7 +169,7 @@
         }
       },
       {
-        "ordinal": 14,
+        "ordinal": 15,
         "name": "language",
         "type_info": "Text",
         "origin": {
@@ -171,7 +182,22 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Int2",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Text"
       ]
     },
     "nullable": [
@@ -185,6 +211,7 @@
       true,
       true,
       true,
+      true,
       false,
       true,
       true,
@@ -192,5 +219,5 @@
       true
     ]
   },
-  "hash": "9a140519f4496df2e2749bd27d31dc9f96dfbd28b3f55771f50bfe8f72305bf4"
+  "hash": "415578355b464da37ae870edac5a9cc138a54ab8d47aa5a1b9c2fb1dc081a6ec"
 }

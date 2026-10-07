@@ -2,6 +2,9 @@ import { Button } from "@sakalya/ui";
 import { formatDate } from "@aarogyam/app-kit";
 import type { PatientId, ToothSurface } from "@aarogyam/api-client";
 
+import { useClinic } from "../../../clinic.js";
+import { FileThumb } from "../../patients/file-thumb.js";
+import { useAttachments } from "../../../queries.js";
 import { useToothHistory } from "../queries.js";
 import { FindingSwatch, StatusGlyph } from "./tooth-svg.js";
 import { EMPTY_STATE, FINDING_STYLE, SURFACES, TREATMENT_LABEL, headline, kindName, surfaceCode, surfaceLabel, type ToothState } from "./model.js";
@@ -25,6 +28,9 @@ export function detailText(entry: { procedure?: { label: string } | null; materi
 /** The selected tooth: what is on it now, planned and done treatment, a surface picker and its full history. */
 export function ToothPanel({ patientId, group, tooth, surface, state, onSurface, onRecord }: ToothPanelProps) {
   const history = useToothHistory(patientId, tooth);
+  const { can } = useClinic();
+  const attachments = useAttachments(can("clinical.read") ? patientId : undefined);
+  const toothFiles = attachments.data?.items.filter((file) => file.tooth === tooth) ?? [];
   if (group.length > 1) {
     const sorted = [...group].sort((a, b) => a - b);
     return (
@@ -136,6 +142,23 @@ export function ToothPanel({ patientId, group, tooth, surface, state, onSurface,
         >
           Record a finding
         </Button>
+      )}
+      {toothFiles.length === 0 ? null : (
+        <div>
+          <p className="odo-hint">Files</p>
+          <ul className="odo-history" aria-label={`Files of tooth ${String(tooth)}`}>
+            {toothFiles.map((file) => (
+              <li key={file.id}>
+                <FileThumb file={file} size={40} />
+                <span>
+                  <b>{file.label ?? file.caption ?? "File"}</b>
+                  <br />
+                  <time dateTime={file.created_at}>{formatDate(file.created_at)}</time>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       <div>
         <p className="odo-hint">History</p>

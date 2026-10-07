@@ -4478,6 +4478,13 @@
      "note": ""
     },
     {
+     "name": "label",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "OPG, Intraoral - upper, X-ray, Consent or the clinic's own, up to 60 characters"
+    },
+    {
      "name": "tooth",
      "type": "smallint",
      "nullable": true,

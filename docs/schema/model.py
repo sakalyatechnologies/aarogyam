@@ -458,7 +458,7 @@ TABLES = [
       cols=["patient_id uuid -> patients", "encounter_id uuid? -> encounters",
             "kind attachment_kind | photo, xray, report, document, audio, consent",
             "storage_key text | <org_id>/<id>, never from a file name", "mime_type text | from the content: JPEG, PNG, PDF, DICOM, or WebM, MP4, Ogg audio",
-            "size_bytes bigint | at most 10 MB", "sha256 text", "caption text?", "tooth smallint? | FDI: 11-48 permanent, 51-85 primary", "taken_at timestamptz?",
+            "size_bytes bigint | at most 10 MB", "sha256 text", "caption text?", "label text? | OPG, Intraoral - upper, X-ray, Consent or the clinic's own, up to 60 characters", "tooth smallint? | FDI: 11-48 permanent, 51-85 primary", "taken_at timestamptz?",
             "source record_source | clinician, assistant, patient, import, device, ai_draft, abdm",
             "note_id uuid? -> clinical_notes | a voice recording's note, in the same visit", "addendum_id uuid? -> note_addenda | how a recording joins a signed note",
             "duration_seconds int? | a recording, 1 to 600", "language text? | a recording: en-IN, hi-IN, mr-IN"],

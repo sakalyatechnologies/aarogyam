@@ -1357,6 +1357,8 @@ export const attachment = z.object({
   size_bytes: count,
   sha256: z.string(),
   caption: optionalText,
+  /** `OPG`, `Intraoral – upper`, `X-ray`, `Consent` or the clinic's own. */
+  label: optionalText,
   tooth: count.nullable().exactOptional(),
   taken_at: optionalTimestamp,
   visit_id: visitId.nullable().exactOptional(),

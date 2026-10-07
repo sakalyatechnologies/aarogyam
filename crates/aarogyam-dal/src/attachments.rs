@@ -24,6 +24,8 @@ pub struct AttachmentRow {
     pub sha256: String,
     /// A caption.
     pub caption: Option<String>,
+    /// Its label, such as `OPG`.
+    pub label: Option<String>,
     /// The tooth it shows.
     pub tooth: Option<i16>,
     /// When it was taken.
@@ -61,6 +63,8 @@ pub struct NewAttachment<'a> {
     pub sha256: &'a str,
     /// A caption.
     pub caption: Option<&'a str>,
+    /// Its label.
+    pub label: Option<&'a str>,
     /// The tooth it shows.
     pub tooth: Option<i16>,
     /// Source value.
@@ -87,9 +91,9 @@ pub async fn insert(
         AttachmentRow,
         r#"insert into aarogyam.attachments
              (id, patient_id, encounter_id, kind, storage_key, mime_type, size_bytes, sha256, caption,
-              tooth, source, note_id, addendum_id, duration_seconds, language)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-           returning id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,
+              label, tooth, source, note_id, addendum_id, duration_seconds, language)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+           returning id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,
                      taken_at, created_at, note_id, addendum_id, duration_seconds, language"#,
         new.id,
         new.patient_id,
@@ -100,6 +104,7 @@ pub async fn insert(
         new.size_bytes,
         new.sha256,
         new.caption,
+        new.label,
         new.tooth,
         new.source,
         new.note_id,
@@ -123,7 +128,7 @@ pub async fn get(
 ) -> Result<Option<AttachmentRow>, DbError> {
     let row = sqlx::query_as!(
         AttachmentRow,
-        r#"select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,
+        r#"select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,
                   taken_at, created_at, note_id, addendum_id, duration_seconds, language
            from aarogyam.attachments
            where id = $1 and deleted_at is null and app.patient_in_reach(patient_id, $2)"#,
@@ -145,7 +150,7 @@ pub async fn list(
 ) -> Result<Vec<AttachmentRow>, DbError> {
     let rows = sqlx::query_as!(
         AttachmentRow,
-        r#"select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,
+        r#"select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,
                   taken_at, created_at, note_id, addendum_id, duration_seconds, language
            from aarogyam.attachments where patient_id = $1 and deleted_at is null
            order by created_at desc, id desc"#,
@@ -166,7 +171,7 @@ pub async fn of_encounter(
 ) -> Result<Vec<AttachmentRow>, DbError> {
     let rows = sqlx::query_as!(
         AttachmentRow,
-        r#"select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, tooth,
+        r#"select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,
                   taken_at, created_at, note_id, addendum_id, duration_seconds, language
            from aarogyam.attachments where encounter_id = $1 and deleted_at is null
            order by created_at, id"#,

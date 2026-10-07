@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Where the camera app writes a photo before it is resized and sent; emptied after each one. -->
+<paths>
+    <cache-path name="photos" path="photos/" />
+</paths>

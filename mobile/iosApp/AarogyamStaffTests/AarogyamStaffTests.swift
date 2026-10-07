@@ -291,3 +291,44 @@ final class NotesMessagesTests: XCTestCase {
         XCTAssertTrue(String(localized: "notes.addenda \(3)").contains("3 addenda"))
     }
 }
+
+final class PhotoPrepTests: XCTestCase {
+    private func photo(width: CGFloat, height: CGFloat) -> Data {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: CGSize(width: width, height: height), format: format).image { context in
+            UIColor.red.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        }
+        return image.pngData() ?? Data()
+    }
+
+    func test_a_large_photo_is_shrunk_to_the_longest_side_limit_as_a_jpeg() throws {
+        let jpeg = try XCTUnwrap(PhotoPrep.jpeg(from: photo(width: 4000, height: 3000)))
+        XCTAssertEqual(Array(jpeg.prefix(3)), [0xFF, 0xD8, 0xFF])
+        let image = try XCTUnwrap(UIImage(data: jpeg))
+        XCTAssertEqual(max(image.size.width, image.size.height), CGFloat(PhotoLimits.shared.MAX_EDGE))
+        XCTAssertEqual(image.size.width / image.size.height, 4.0 / 3.0, accuracy: 0.01)
+    }
+
+    func test_a_small_photo_is_not_enlarged() throws {
+        let image = try XCTUnwrap(UIImage(data: try XCTUnwrap(PhotoPrep.jpeg(from: photo(width: 800, height: 600)))))
+        XCTAssertEqual(image.size.width, 800)
+    }
+
+    func test_something_that_is_not_a_picture_is_refused() {
+        XCTAssertNil(PhotoPrep.jpeg(from: Data("not an image".utf8)))
+    }
+
+    func test_bytes_survive_the_trip_to_the_shared_array() {
+        let bytes = Data([0, 127, 128, 255])
+        XCTAssertEqual(bytes.kotlinBytes.data, bytes)
+    }
+
+    func test_every_upload_problem_has_copy() {
+        for problem in UploadProblem.allCases {
+            XCTAssertFalse(problem.message.isEmpty)
+            XCTAssertNil(problem.message.range(of: #"^[a-z_]+(\.[a-z_]+)+$"#, options: .regularExpression))
+        }
+    }
+}

@@ -19,5 +19,13 @@ export const ADDRESS_STATUS: Readonly<Record<AddressStatus, { label: string; ton
 };
 
 export function AddressStatusPill({ status }: { status: AddressStatus }) {
+  if (status === "pending") {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <StatusChip tone={ADDRESS_STATUS[status].tone}>{ADDRESS_STATUS[status].label}</StatusChip>
+        <span className="size-3 animate-spin rounded-full border-2 border-warning border-b-transparent" aria-label="Checking address status" />
+      </span>
+    );
+  }
   return <StatusChip tone={ADDRESS_STATUS[status].tone}>{ADDRESS_STATUS[status].label}</StatusChip>;
 }

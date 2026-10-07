@@ -153,6 +153,76 @@ data class ToothView(
 
 enum class EntryStatus { Current, Superseded, EnteredInError }
 
+/** Which list a dental term belongs to. */
+enum class TermKind(
+    internal val wire: String,
+) {
+    Procedure("procedure"),
+    Material("material"),
+    ;
+
+    companion object {
+        internal fun of(wire: String): TermKind? = entries.firstOrNull { it.wire == wire }
+    }
+}
+
+/** A procedure or material: seeded (`zirconia`) or added by the clinic ([own], a UUID id). */
+data class TermView(
+    val id: String,
+    val kind: TermKind,
+    val label: String,
+    val own: Boolean,
+)
+
+/**
+ * Terms of [kind] matching [text], filtered on the phone (the list arrives with the chart, so
+ * nothing is asked per keystroke): labels starting with it first ("Z" offers Zirconia), then
+ * labels with a word starting with it, then labels containing it; ties keep the list's order.
+ */
+fun matchTerms(
+    terms: List<TermView>,
+    kind: TermKind,
+    text: String,
+): List<TermView> {
+    val wanted = text.trim().lowercase()
+    val ofKind = terms.filter { it.kind == kind }
+    if (wanted.isEmpty()) return ofKind
+
+    fun rank(label: String): Int {
+        val folded = label.lowercase()
+        return when {
+            folded.startsWith(wanted) -> 0
+            folded.split(WORD_BREAK).any { it.startsWith(wanted) } -> 1
+            wanted in folded -> 2
+            else -> NO_MATCH
+        }
+    }
+    return ofKind
+        .map { it to rank(it.label) }
+        .filter { it.second < NO_MATCH }
+        .sortedBy { it.second }
+        .map { it.first }
+}
+
+/** Whether a term of [kind] already has this label (ignoring case and spacing): then "Add new" is not offered. */
+fun hasLabel(
+    terms: List<TermView>,
+    kind: TermKind,
+    text: String,
+): Boolean {
+    val wanted =
+        text
+            .trim()
+            .split(SPACES)
+            .joinToString(" ")
+            .lowercase()
+    return terms.any { it.kind == kind && it.label.lowercase() == wanted }
+}
+
+private val WORD_BREAK = Regex("[\\s(/.-]+")
+private val SPACES = Regex("\\s+")
+private const val NO_MATCH = 3
+
 /** One entry of a tooth's history; [at] is in the clinic's time zone. */
 data class HistoryEntryView(
     val id: String,
@@ -161,6 +231,10 @@ data class HistoryEntryView(
     val status: EntryStatus,
     val at: ClinicMoment?,
     val note: String?,
+    /** The procedure's label, if recorded. */
+    val procedure: String? = null,
+    /** The material's label, if recorded. */
+    val material: String? = null,
 )
 
 /** The selected tooth's full history, fetched when the tooth is picked. */

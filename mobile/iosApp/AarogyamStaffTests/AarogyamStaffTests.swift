@@ -228,8 +228,23 @@ final class ChartMappingTests: XCTestCase {
     }
 
     func test_history_details_skip_what_is_missing() {
-        let entry = HistoryEntryView(id: "e1", finding: .caries, surface: .o, status: .superseded, at: nil, note: nil)
+        let entry = HistoryEntryView(id: "e1", finding: .caries, surface: .o, status: .superseded, at: nil, note: nil, procedure: nil, material: nil)
         XCTAssertEqual(entry.detailText, EntryStatus.superseded.label)
+        XCTAssertEqual(entry.treatmentText, "")
+        let crowned = HistoryEntryView(id: "e2", finding: .crown, surface: nil, status: .current, at: nil, note: nil, procedure: "Crown", material: "Zirconia")
+        XCTAssertEqual(crowned.treatmentText, "Crown · Zirconia")
+    }
+
+    func test_terms_are_matched_on_the_phone() {
+        let terms = [
+            TermView(id: "zirconia", kind: .material, label: "Zirconia", own: false),
+            TermView(id: "cast_metal", kind: .material, label: "Metal (cast)", own: false),
+            TermView(id: "pfm", kind: .material, label: "PFM (porcelain fused to metal)", own: false),
+        ]
+        XCTAssertEqual(ChartModelKt.matchTerms(terms: terms, kind: .material, text: "z").map(\.id), ["zirconia"])
+        XCTAssertEqual(ChartModelKt.matchTerms(terms: terms, kind: .material, text: "metal").map(\.id), ["cast_metal", "pfm"])
+        XCTAssertTrue(ChartModelKt.hasLabel(terms: terms, kind: .material, text: " zirconia "))
+        XCTAssertEqual(Surface.o.genericLabel, "Occlusal / incisal")
     }
 }
 

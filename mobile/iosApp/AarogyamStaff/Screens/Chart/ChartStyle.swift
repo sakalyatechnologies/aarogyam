@@ -116,8 +116,26 @@ extension ToothView {
 }
 
 extension HistoryEntryView {
+    /// "Crown · Zirconia": the procedure and material, leaving out what is missing.
+    var treatmentText: String {
+        [procedure, material].compactMap { $0 }.joined(separator: " · ")
+    }
+
     /// "20 Sept 2026 · Superseded · Pulp exposed", leaving out what is missing.
     var detailText: String {
         [at.map { ClinicFormat.date(iso: $0.date.isoText) }, status.label, note].compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
+extension Surface {
+    /// The surface's name for several teeth at once, front and back: "Occlusal / incisal".
+    var genericLabel: String {
+        switch self {
+        case .m: String(localized: "surface.mesial", table: "Chart")
+        case .d: String(localized: "surface.distal", table: "Chart")
+        case .o: String(localized: "surface.occlusal_incisal", table: "Chart")
+        case .b: String(localized: "surface.buccal_labial", table: "Chart")
+        case .l: String(localized: "surface.lingual_palatal", table: "Chart")
+        }
     }
 }

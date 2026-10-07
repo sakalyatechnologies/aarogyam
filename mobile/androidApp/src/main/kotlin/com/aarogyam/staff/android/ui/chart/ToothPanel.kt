@@ -19,27 +19,36 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.display
+import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.chart.EntryStatus
 import com.aarogyam.staff.chart.Finding
 import com.aarogyam.staff.chart.HistoryEntryView
 import com.aarogyam.staff.chart.HistoryState
 import com.aarogyam.staff.chart.Surface
 import com.aarogyam.staff.chart.SurfaceFinding
+import com.aarogyam.staff.chart.TermKind
+import com.aarogyam.staff.chart.TermView
 import com.aarogyam.staff.chart.ToothSelection
 import com.aarogyam.staff.chart.ToothView
+import com.aarogyam.staff.chart.hasLabel
+import com.aarogyam.staff.chart.matchTerms
 import com.sakalya.mobile.design.Spacing
 import com.sakalya.mobile.designcompose.SkBottomSheet
 import com.sakalya.mobile.designcompose.SkButton
@@ -96,8 +105,43 @@ fun ToothPanel(
     }
 }
 
+/** The teeth picked with "Select several", and the action that records one finding on all of them. */
 @Composable
-private fun Caption(text: Int) =
+fun GroupPanel(
+    group: List<Int>,
+    canRecord: Boolean,
+    saving: Boolean,
+    onRecord: () -> Unit,
+) {
+    SkCard {
+        Text(
+            pluralStringResource(R.plurals.chart_group_title, group.size, group.size),
+            style = SkTypography.headline,
+            color = SkTheme.colors.text.color,
+        )
+        Text(group.joinToString(", "), style = SkTypography.footnote, color = SkTheme.colors.text.color)
+        Text(
+            stringResource(R.string.chart_group_hint),
+            style = SkTypography.footnote,
+            color = SkTheme.colors.textMuted.color,
+        )
+        if (canRecord) {
+            SkButton(
+                if (saving) {
+                    stringResource(R.string.chart_saving)
+                } else {
+                    pluralStringResource(R.plurals.chart_record_group, group.size, group.size)
+                },
+                onRecord,
+                enabled = !saving,
+                modifier = Modifier.padding(top = Spacing.M.dp),
+            )
+        }
+    }
+}
+
+@Composable
+internal fun Caption(text: Int) =
     Text(
         stringResource(text).uppercase(),
         style = SkTypography.overline,
@@ -196,6 +240,8 @@ private fun HistoryLine(
                 style = SkTypography.bodyStrong,
                 color = if (current) colors.text.color else colors.textMuted.color,
             )
+            val treatment = listOfNotNull(entry.procedure, entry.material).joinToString(" · ")
+            if (treatment.isNotEmpty()) Text(treatment, style = SkTypography.footnote, color = colors.text.color)
             val details = listOfNotNull(entry.at?.date?.display(), status, entry.note).joinToString(" · ")
             if (details.isNotEmpty()) Text(details, style = SkTypography.footnote, color = colors.textMuted.color)
         }
@@ -236,54 +282,3 @@ fun Pill(
         )
     }
 }
-
-/** Records one finding on [tooth]; whole-tooth findings lock the surface to the whole tooth. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun RecordFindingSheet(
-    tooth: ToothView,
-    initialSurface: Surface?,
-    onSave: (Finding, Surface?, String?) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var finding by rememberSaveable { mutableStateOf(Finding.Caries) }
-    var surface by rememberSaveable { mutableStateOf(initialSurface) }
-    var note by rememberSaveable { mutableStateOf("") }
-    val chosen = if (finding.wholeTooth) null else surface
-    SkBottomSheet(stringResource(R.string.chart_record_title, tooth.number), onDismiss) {
-        Caption(R.string.chart_finding)
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(Spacing.S.dp),
-            verticalArrangement = Arrangement.spacedBy(Spacing.S.dp),
-        ) {
-            Finding.entries.forEach { f -> Pill(stringResource(f.label()), f == finding) { finding = f } }
-        }
-        Caption(R.string.chart_surface)
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(Spacing.S.dp),
-            verticalArrangement = Arrangement.spacedBy(Spacing.S.dp),
-        ) {
-            Pill(stringResource(R.string.chart_whole_tooth), chosen == null) { surface = null }
-            Surface.entries.forEach { s ->
-                Pill(stringResource(tooth.surfaceName(s).label()), chosen == s, enabled = !finding.wholeTooth) {
-                    surface =
-                        s
-                }
-            }
-        }
-        SkTextField(note, {
-            if (it.length <=
-                NOTE_LIMIT
-            ) {
-                note = it
-            }
-        }, stringResource(R.string.chart_note), Modifier.padding(top = Spacing.M.dp))
-        SkButton(
-            stringResource(R.string.chart_save),
-            { onSave(finding, chosen, note) },
-            modifier = Modifier.fillMaxWidth().padding(top = Spacing.L.dp),
-        )
-    }
-}
-
-private const val NOTE_LIMIT = 500

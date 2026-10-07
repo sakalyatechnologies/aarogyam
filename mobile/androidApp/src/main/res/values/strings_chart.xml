@@ -33,6 +33,26 @@
     <string name="chart_saving">Saving…</string>
     <string name="chart_record_failed">Couldn\'t save that finding, so the chart is back as it was. %1$s</string>
     <string name="chart_dismiss">Dismiss</string>
+    <string name="chart_several">Select several</string>
+    <plurals name="chart_group_title">
+        <item quantity="one">%1$d tooth selected</item>
+        <item quantity="other">%1$d teeth selected</item>
+    </plurals>
+    <string name="chart_group_hint">Tap more teeth to add them, or a picked tooth to remove it.</string>
+    <plurals name="chart_record_group">
+        <item quantity="one">Record for %1$d tooth</item>
+        <item quantity="other">Record for %1$d teeth</item>
+    </plurals>
+    <string name="chart_record_title_group">Record a finding · teeth %1$s</string>
+    <string name="chart_surfaces">Surfaces</string>
+    <string name="chart_procedure">Procedure</string>
+    <string name="chart_material">Material</string>
+    <string name="chart_type_procedure">Type to find a procedure</string>
+    <string name="chart_type_material">Type to find a material</string>
+    <string name="chart_term_add">Add “%1$s”</string>
+    <string name="chart_term_own">%1$s · this clinic</string>
+    <string name="chart_term_none">Nothing matches.</string>
+    <string name="chart_term_failed">Couldn\'t add that. %1$s</string>
     <string name="finding_sound">Sound</string>
     <string name="finding_caries">Caries</string>
     <string name="finding_filled">Filled</string>
@@ -51,6 +71,9 @@
     <string name="surface_facial">Facial</string>
     <string name="surface_lingual">Lingual</string>
     <string name="surface_palatal">Palatal</string>
+    <string name="surface_occlusal_incisal">Occlusal / incisal</string>
+    <string name="surface_buccal_labial">Buccal / labial</string>
+    <string name="surface_lingual_palatal">Lingual / palatal</string>
     <string name="kind_incisor">incisor</string>
     <string name="kind_canine">canine</string>
     <string name="kind_premolar">premolar</string>

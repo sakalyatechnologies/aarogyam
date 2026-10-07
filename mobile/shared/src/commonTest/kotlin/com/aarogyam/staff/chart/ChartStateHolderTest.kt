@@ -35,13 +35,22 @@ class ChartStateHolderTest {
         surface: String? = null,
         status: String = "current",
         note: String? = null,
+        material: String? = null,
     ) = """{"id":"$id","tooth":$tooth,"finding":"$finding","status":"$status","effective_at":"2026-09-20T04:30:00Z",
-           "surface":${surface?.let { "\"$it\"" } ?: "null"},"note":${note?.let { "\"$it\"" } ?: "null"}}"""
+           "surface":${surface?.let { "\"$it\"" } ?: "null"},"note":${note?.let { "\"$it\"" } ?: "null"},
+           "material":${material ?: "null"}}"""
+
+    private val zirconia = """{"id":"zirconia","kind":"material","label":"Zirconia","own":false}"""
+    private val crown = """{"id":"crown","kind":"procedure","label":"Crown","own":false}"""
+    private val terms =
+        listOf(crown, zirconia, """{"id":"emax","kind":"material","label":"e.max (lithium disilicate)","own":false}""")
 
     private fun chart(
         current: List<String>,
         history: List<String> = emptyList(),
-    ) = """{"current":${current.joinToString(",", "[", "]")},"history":${history.joinToString(",", "[", "]")}}"""
+        terms: List<String> = this.terms,
+    ) = """{"current":${current.joinToString(",", "[", "]")},"history":${history.joinToString(",", "[", "]")},
+           "terms":${terms.joinToString(",", "[", "]")}}"""
 
     private val current =
         listOf(entry("e1", 46, "root_canal"), entry("e2", 36, "caries", "O"), entry("e3", 36, "filled", "M"))
@@ -58,7 +67,7 @@ class ChartStateHolderTest {
             val history =
                 if (request.url.parameters["tooth"] == "46") {
                     listOf(
-                        entry("e1", 46, "root_canal", note = "Pulp exposed"),
+                        entry("e1", 46, "root_canal", note = "Pulp exposed", material = zirconia),
                         entry("e0", 46, "caries", "O", status = "superseded"),
                     )
                 } else {
@@ -144,6 +153,7 @@ class ChartStateHolderTest {
             assertEquals(listOf(EntryStatus.Current, EntryStatus.Superseded), history.map { it.status })
             assertEquals(Surface.O, history[1].surface)
             assertEquals("Pulp exposed", history[0].note)
+            assertEquals("Zirconia", history[0].material)
             assertEquals(LocalDate(2026, 9, 20), history[0].at?.date)
             assertEquals(LocalTime(10, 0), history[0].at?.time)
         }
@@ -160,7 +170,7 @@ class ChartStateHolderTest {
             val holder = holder(backend)
             holder.loaded()
             holder.select(11, Surface.B)
-            holder.record(Finding.Fractured, Surface.B, note = "  Chipped  ")
+            holder.record(Finding.Fractured, listOf(Surface.B), note = "  Chipped  ")
             val optimistic = holder.state.value as ChartState.Loaded
             assertTrue(optimistic.saving)
             assertTrue(optimistic.tooth(11).pending)
@@ -177,6 +187,80 @@ class ChartStateHolderTest {
         }
 
     @Test
+    fun several_teeth_and_surfaces_are_recorded_in_one_request_with_procedure_and_material() =
+        runTest {
+            val backend = FakeBackend()
+            var posted: String? = null
+            backend.serve(onPost = { request ->
+                posted = (request.body as TextContent).text
+                HttpStatusCode.OK to chart(current)
+            })
+            val holder = holder(backend)
+            val loaded = holder.loaded()
+            assertEquals(listOf("Crown"), matchTerms(loaded.terms, TermKind.Procedure, "").map { it.label })
+            holder.setSeveral(true)
+            holder.select(16)
+            holder.select(26)
+            holder.select(17)
+            holder.select(17) // a second tap removes it
+            val picked = holder.loaded { it.group == listOf(16, 26) }
+            assertEquals(26, picked.selected?.tooth?.number)
+            val material = matchTerms(picked.terms, TermKind.Material, "z").first()
+            val procedure = picked.terms.first { it.id == "crown" }
+            holder.record(Finding.Filled, listOf(Surface.O, Surface.M), procedure, material)
+            val optimistic = holder.state.value as ChartState.Loaded
+            assertEquals(Finding.Filled, optimistic.tooth(16).finding(Surface.M))
+            assertEquals(Finding.Filled, optimistic.tooth(26).finding(Surface.O))
+            holder.loaded { !it.saving }
+            val body = posted.orEmpty()
+            assertEquals(4, Regex("\"finding\":\"filled\"").findAll(body).count(), body)
+            assertEquals(4, Regex("\"material\":\"zirconia\"").findAll(body).count(), body)
+            assertEquals(4, Regex("\"procedure\":\"crown\"").findAll(body).count(), body)
+            // Sound clears the tooth: no procedure or material is sent.
+            holder.setSeveral(false)
+            holder.select(11)
+            holder.record(Finding.Sound, emptyList(), procedure, material)
+            holder.loaded { !it.saving }
+            assertFalse("material" in posted.orEmpty(), posted)
+        }
+
+    @Test
+    fun add_new_saves_a_term_for_the_clinic_and_offers_it_without_reloading_the_chart() =
+        runTest {
+            val backend = FakeBackend()
+            backend.serve()
+            var posted: String? = null
+            backend.on("$SUNRISE/api/v1/dental-terms", { request ->
+                posted = (request.body as TextContent).text
+                json(
+                    """{"id":"0190a7c2-0000-7000-8000-000000000001","kind":"material","label":"Lithium silicate","own":true}""",
+                )
+            })
+            val holder = holder(backend)
+            holder.loaded()
+            val reads = backend.count(route)
+            holder.addTerm(TermKind.Material, "  Lithium silicate ")
+            val added = holder.loaded { it.addedTerm != null }
+            assertEquals("Lithium silicate", added.addedTerm?.label)
+            assertTrue(added.addedTerm?.own == true)
+            assertTrue(""""kind":"material"""" in posted.orEmpty(), posted)
+            assertTrue(""""label":"Lithium silicate"""" in posted.orEmpty(), posted)
+            assertEquals(
+                listOf(
+                    "Lithium silicate",
+                    "e.max (lithium disilicate)",
+                ),
+                matchTerms(added.terms, TermKind.Material, "lith").map {
+                    it.label
+                },
+            )
+            assertTrue(hasLabel(added.terms, TermKind.Material, "LITHIUM  silicate"))
+            assertEquals(reads, backend.count(route))
+            holder.consumeAddedTerm()
+            assertNull(holder.loaded().addedTerm)
+        }
+
+    @Test
     fun a_refused_finding_is_rolled_back() =
         runTest {
             val backend = FakeBackend()
@@ -189,7 +273,7 @@ class ChartStateHolderTest {
             holder.loaded()
             holder.select(36, Surface.O)
             // A crown covers the whole tooth: no surface is sent, and the surfaces are cleared on screen.
-            holder.record(Finding.Crown, Surface.O)
+            holder.record(Finding.Crown, listOf(Surface.O))
             val optimistic = holder.state.value as ChartState.Loaded
             assertEquals(Finding.Crown, optimistic.tooth(36).whole)
             assertNull(optimistic.tooth(36).finding(Surface.O))
@@ -212,7 +296,7 @@ class ChartStateHolderTest {
             assertFalse(holder.loaded().canRecord)
             holder.select(11)
             holder.loaded { it.selected?.history is HistoryState.Loaded }
-            holder.record(Finding.Caries, Surface.O)
+            holder.record(Finding.Caries, listOf(Surface.O))
             assertFalse((holder.state.value as ChartState.Loaded).saving)
             assertTrue(
                 backend.requests.none {

@@ -55,6 +55,8 @@ val apiModels =
         "ChartEntry",
         "NewChartEntries",
         "NewChartEntry",
+        "DentalTerm",
+        "NewDentalTerm",
         "Drug",
         "DrugList",
         "DrugSearch",

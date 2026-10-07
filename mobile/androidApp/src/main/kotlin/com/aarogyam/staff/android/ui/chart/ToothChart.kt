@@ -90,6 +90,7 @@ fun ToothChart(
     selected: Int?,
     selectedSurface: Surface?,
     zoom: ChartZoom,
+    group: List<Int>,
     onSelect: (Int, Surface?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -125,9 +126,9 @@ fun ToothChart(
             },
         ) {
             ArchLabel(stringResource(R.string.chart_upper))
-            Arch(upper, selected, selectedSurface, zoom.zoomed, onSelect)
+            Arch(upper, selected, group, selectedSurface, zoom.zoomed, onSelect)
             ArchLabel(stringResource(R.string.chart_lower))
-            Arch(lower, selected, selectedSurface, zoom.zoomed, onSelect)
+            Arch(lower, selected, group, selectedSurface, zoom.zoomed, onSelect)
         }
     }
 }
@@ -145,6 +146,7 @@ private fun ArchLabel(text: String) =
 private fun Arch(
     teeth: List<ToothView>,
     selected: Int?,
+    group: List<Int>,
     selectedSurface: Surface?,
     zoomed: Boolean,
     onSelect: (Int, Surface?) -> Unit,
@@ -154,7 +156,7 @@ private fun Arch(
             val isSelected = tooth.number == selected
             Tooth(
                 tooth = tooth,
-                selected = isSelected,
+                selected = isSelected || tooth.number in group,
                 selectedSurface = selectedSurface.takeIf { isSelected },
                 zoomed = zoomed,
                 onSelect = { onSelect(tooth.number, it) },

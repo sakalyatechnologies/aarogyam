@@ -3,6 +3,7 @@ package com.aarogyam.staff.api
 import com.aarogyam.staff.api.model.AppointmentList
 import com.aarogyam.staff.api.model.ClinicalFlags
 import com.aarogyam.staff.api.model.DentalChart
+import com.aarogyam.staff.api.model.DentalTerm
 import com.aarogyam.staff.api.model.DrugList
 import com.aarogyam.staff.api.model.DrugSearch
 import com.aarogyam.staff.api.model.InvoiceList
@@ -10,6 +11,7 @@ import com.aarogyam.staff.api.model.IssueBlocked
 import com.aarogyam.staff.api.model.IssueRequest
 import com.aarogyam.staff.api.model.Me
 import com.aarogyam.staff.api.model.NewChartEntries
+import com.aarogyam.staff.api.model.NewDentalTerm
 import com.aarogyam.staff.api.model.NewPayment
 import com.aarogyam.staff.api.model.Patient
 import com.aarogyam.staff.api.model.PatientList
@@ -165,6 +167,18 @@ class ClinicApi(
             url("api/v1/patients/${id.encodeURLPathPart()}/dental-chart")
             contentType(ContentType.Application.Json)
             setBody(entries)
+        }
+
+    /**
+     * `POST /api/v1/dental-terms` (`addDentalTerm`): adds a procedure or material for the clinic;
+     * a label already there (or seeded) returns that term.
+     */
+    suspend fun addDentalTerm(term: NewDentalTerm): Outcome<DentalTerm, ApiError> =
+        client.call {
+            method = HttpMethod.Post
+            url("api/v1/dental-terms")
+            contentType(ContentType.Application.Json)
+            setBody(term)
         }
 
     /** `GET /api/v1/appointments` (`listAppointments`): the clinic's local days [from] to [to] (`YYYY-MM-DD`). */

@@ -124,9 +124,11 @@ private fun LoadedChart(
                     holder.showDentition(Dentition.entries[it])
                 },
             )
+            Pill(stringResource(R.string.chart_several), state.several) { holder.setSeveral(!state.several) }
             ToothChart(
                 upper = state.upper,
                 lower = state.lower,
+                group = state.group,
                 selected = state.selected?.tooth?.number,
                 selectedSurface = state.selected?.surface,
                 zoom = zoom,
@@ -151,7 +153,9 @@ private fun LoadedChart(
             }
         }
         val selected = state.selected
-        if (selected == null) {
+        if (state.several && state.group.size > 1) {
+            GroupPanel(state.group, state.canRecord, state.saving) { recording = true }
+        } else if (selected == null) {
             Text(stringResource(R.string.chart_pick_tooth), style = SkTypography.footnote, color = muted)
         } else {
             ToothPanel(
@@ -166,11 +170,22 @@ private fun LoadedChart(
     }
     val selected = state.selected
     if (recording && selected != null && state.canRecord) {
+        val numbers = if (state.several && state.group.isNotEmpty()) state.group else listOf(selected.tooth.number)
+        val all = state.upper + state.lower
         RecordFindingSheet(
-            tooth = selected.tooth,
-            initialSurface = selected.surface,
-            onSave = { finding, surface, note ->
-                holder.record(finding, surface, note)
+            teeth = numbers.mapNotNull { n -> all.firstOrNull { it.number == n } },
+            initialSurface = selected.surface.takeIf { numbers.size == 1 },
+            choices =
+                TermChoices(
+                    terms = state.terms,
+                    adding = state.addingTerm,
+                    added = state.addedTerm,
+                    error = state.termError,
+                    onAdd = holder::addTerm,
+                    onConsumed = holder::consumeAddedTerm,
+                ),
+            onSave = { recorded ->
+                holder.record(recorded.finding, recorded.surfaces, recorded.procedure, recorded.material, recorded.note)
                 recording = false
             },
             onDismiss = { recording = false },

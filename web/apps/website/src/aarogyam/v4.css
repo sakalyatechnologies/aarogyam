@@ -1,4 +1,4 @@
-/* Aarogyam-owned styles for the sign-in showcase, landing sections and request form. Prefix: v4-.
+/* Aarogyam-owned styles for the sign-in showcase and the request and sign-out forms. Prefix: v4-.
    Palette from the portal's V4 look; independent of the Lovable theme picker. */
 :root{--v4-deep:#0a3f37;--v4-green:#0f6f62;--v4-mint:#d9eee8;--v4-paper:#f4f7f5;--v4-ink:#10302a;--v4-mut:#4a6660;--v4-amber:#c98a1d;--v4-amber-soft:#fbf0d8;--v4-line:#d7e3df;--v4-red:#a32a1c}
 .v4-show{display:flex;flex-direction:column;gap:22px;color:#e9f5f1}
@@ -62,37 +62,6 @@
 .field input:focus-visible,.field select:focus-visible,.btn:focus-visible,.backlink:focus-visible,.auth-note a:focus-visible,.v4-cta:focus-visible{outline:3px solid #e0a93b;outline-offset:2px}
 .auth-note a{text-decoration:underline;text-underline-offset:3px}
 
-/* landing hero and product section */
-.v4-hero{position:relative;background:radial-gradient(1000px 520px at 85% 0%,#17665a,transparent 62%),radial-gradient(700px 400px at 0% 100%,rgba(224,169,59,.14),transparent 60%),var(--v4-deep);color:#fff;padding:130px 0 80px;overflow:hidden}
-.v4-hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:clamp(24px,4vw,64px);align-items:center}
-.v4-hero h1{font-family:'Sora',sans-serif;font-size:clamp(36px,5.4vw,68px);font-weight:800;line-height:1.04;letter-spacing:-.025em;margin:0}
-.v4-hero h1 em{font-style:normal;color:#f0b64a}
-.v4-hero p.v4-lede{font-size:clamp(16px,1.5vw,19px);line-height:1.65;color:#cfe5df;max-width:46ch;margin:22px 0 28px}
-.v4-eyebrow-pill{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#f6d38a;border:1px solid rgba(246,211,138,.4);border-radius:999px;padding:6px 14px;margin-bottom:20px}
-.v4-cta-row{display:flex;gap:12px;flex-wrap:wrap}
-.v4-cta{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:13px 26px;font-weight:700;font-size:15px;cursor:pointer;border:1px solid transparent;font-family:inherit}
-.v4-cta.primary{background:#f0b64a;color:#2a1c00}.v4-cta.primary:hover{background:#f6c668}
-.v4-cta.ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.45)}.v4-cta.ghost:hover{background:rgba(255,255,255,.1)}
-.v4-trust{margin-top:26px;font-size:13.5px;color:#a9cbc3}
-.v4-shot{margin:0;border-radius:18px;overflow:hidden;background:var(--v4-paper);box-shadow:0 40px 90px -30px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.12)}
-.v4-shot img{display:block;width:100%;height:auto}
-.v4-hero .v4-shot{max-height:560px}
-.v4-hero .v4-shot img{object-fit:cover;object-position:top;max-height:560px}
-.v4-tour{padding:90px 0;background:var(--v4-paper);color:var(--v4-ink)}
-.v4-tour h2{font-family:'Sora',sans-serif;font-size:clamp(28px,4vw,46px);letter-spacing:-.02em;line-height:1.1;margin:0 0 12px;max-width:20ch}
-.v4-tour .v4-sub{color:var(--v4-mut);font-size:17px;max-width:56ch;line-height:1.6;margin:0 0 40px}
-.v4-tour-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
-.v4-card{background:#fff;border:1px solid var(--v4-line);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 10px 30px -18px rgba(10,63,55,.4)}
-.v4-card .v4-shot{border-radius:0;box-shadow:none;border-bottom:1px solid var(--v4-line);aspect-ratio:4/3}
-.v4-card .v4-shot img{height:100%;object-fit:cover;object-position:top}
-.v4-card div.v4-card-t{padding:18px 20px 22px}
-.v4-card h3{font-family:'Sora',sans-serif;font-size:19px;margin:0 0 6px;color:var(--v4-ink)}
-.v4-card p{margin:0;color:var(--v4-mut);font-size:14.5px;line-height:1.6}
-@media(max-width:900px){
-  .v4-hero{padding:104px 0 56px}.v4-hero-grid{grid-template-columns:1fr}
-  .v4-tour{padding:60px 0}.v4-tour-grid{grid-template-columns:1fr}
-}
-[data-theme="light"] .auth-card .eyebrow{color:#8a5a00}
 /* request-access form */
 .auth-page .fgrid2 .field input,.auth-page .fgrid2 .field select{min-height:44px}
 .auth-page .auth-card{box-shadow:0 30px 80px -40px rgba(10,63,55,.7)}

@@ -21,6 +21,7 @@ struct Patient360Screen: View {
         chartText("patient.tab.chart"),
         String(localized: "patient.tab.rx"),
         String(localized: "patient.tab.notes"),
+        String(localized: "patient.tab.files"),
         chartText("patient.tab.billing"),
     ]
 
@@ -42,6 +43,8 @@ struct Patient360Screen: View {
             } else if loaded != nil, tab == 3 {
                 NotesTab(graph: graph, clinic: clinic, patientId: patientId)
             } else if loaded != nil, tab == 4 {
+                FilesTab(graph: graph, clinic: clinic, patientId: patientId)
+            } else if loaded != nil, tab == 5 {
                 BillingTab(holder: billing, state: billingState)
             } else {
                 ScrollView {

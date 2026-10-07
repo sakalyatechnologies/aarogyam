@@ -8,6 +8,7 @@ import com.aarogyam.staff.clinic.ClinicDirectory
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.Hosts
+import com.aarogyam.staff.files.FilesStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
@@ -91,6 +92,12 @@ class AppGraph private constructor(
         patientId: String,
         scope: CoroutineScope,
     ): Patient360StateHolder = Patient360StateHolder(clinic, patientId, scope, logger("aarogyam.patient360"))
+
+    fun files(
+        clinic: ClinicContext,
+        patientId: String,
+        scope: CoroutineScope,
+    ): FilesStateHolder = FilesStateHolder(clinic, patientId, scope, logger("aarogyam.files"))
 
     fun chart(
         clinic: ClinicContext,

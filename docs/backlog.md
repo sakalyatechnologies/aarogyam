@@ -13,10 +13,10 @@ Requests from the founder and clinics that are not built yet. Read this before d
 - Patient mix: by age band, new vs returning, and by doctor.
 - **Design note:** computed by one report query per tile in the existing round-trip budget (see `crates/aarogyam-api/tests/round_trips.rs`); no per-chart request fan-out.
 
-## Photos and files from the phone and laptop (6 Oct 2026)
-- **Exists:** patient attachments (`/api/v1/patients/{id}/attachments`, stored in the private Supabase bucket, permission-checked downloads) and the web upload.
-- **To build:** take a photo in the mobile apps (camera) and upload from the gallery; X-rays and other files from a laptop; name or label each file (e.g. "OPG", "Intraoral – upper"); show them on Patient 360 and per tooth.
-- **Design notes:** uploads go through the API (never a public bucket URL); images are resized on the device before upload; no patient names in file keys (ids only, as today).
+## Photos and files from the phone and laptop (6 Oct 2026) - built
+- **Built:** an optional `label` (up to 60 characters; presets OPG, Intraoral - upper/lower, X-ray, Consent, or the clinic's own) and the existing `tooth` on each attachment (migration 0190); the web Files tab uploads with both and shows a gallery grouped by label, and the chart's tooth panel lists that tooth's files; the apps take a photo (system camera, no permission on Android) or pick one (photo picker, `PhotosPicker`), choose label and tooth, shrink it on the device (longest side 2048 px, JPEG 85, EXIF dropped) and send it through the API with a client id, so a retry never duplicates it.
+- **Rules kept:** uploads need `clinical.write`; viewing follows own/assigned scopes; previews use five-minute signed links, never a bucket address; storage keys are ids; screenshots stay blocked.
+- **Not yet:** DICOM and PDF from the phone, an offline upload queue, annotations.
 
 ## Patient notes on Patient 360 (6 Oct 2026, built on feat/patient-notes)
 - **Built:** `GET /api/v1/patients/{id}/notes` (summary note plus the visit notes, newest first) and `PUT /api/v1/patients/{id}/summary-note` (`If-Match`, audited); a Notes tab on Patient 360 web and mobile. Text is a strict Markdown subset (`#` to `###`, `-` and `1.` lists, `**bold**`, `*italic*`): validated on save (`aarogyam-domain/src/richtext.rs`, mirrored by the editors), rendered by trees (React elements, Compose text, SwiftUI attributed text), never as HTML. Visit note sections and addenda use the same format; older plain text is still valid.

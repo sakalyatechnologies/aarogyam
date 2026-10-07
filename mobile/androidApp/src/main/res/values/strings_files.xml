@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="patient_tab_files">Files</string>
+    <string name="files_not_allowed">Your role can\'t view patient files.</string>
+    <string name="files_empty_title">No files yet</string>
+    <string name="files_empty_message">Photos and X-rays will show here.</string>
+    <string name="files_take_photo">Take photo</string>
+    <string name="files_choose_photo">Choose from gallery</string>
+    <string name="files_unlabelled">Unlabelled</string>
+    <string name="files_tooth">Tooth %1$d</string>
+    <string name="files_not_image">File</string>
+    <string name="files_label_title">Label this photo</string>
+    <string name="files_label_custom">Or type your own label</string>
+    <string name="files_tooth_field">Tooth (optional, such as 36)</string>
+    <string name="files_send">Send</string>
+    <string name="files_cancel">Cancel</string>
+    <string name="files_uploading">Sending…</string>
+    <string name="files_problem_label">A label can be at most 60 characters.</string>
+    <string name="files_problem_tooth">Tooth must be a number such as 11 to 48, or 51 to 85 for baby teeth.</string>
+    <string name="files_problem_large">That photo is too large to send.</string>
+    <string name="files_problem_failed">Couldn\'t send the photo. Try again.</string>
+    <string name="files_problem_read">Couldn\'t read that photo.</string>
+</resources>

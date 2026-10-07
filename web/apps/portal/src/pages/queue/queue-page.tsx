@@ -3,13 +3,13 @@ import { useState } from "react";
 
 import { apiErrorOf, type Patient, type QueueToken } from "@aarogyam/api-client";
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
-import { Avatar, Button, Card, Dialog, EmptyState, Field, PageHeader, Pill, Select, useToast } from "@sakalya/ui";
+import { Avatar, Button, Dialog, Field, Select, useToast } from "@sakalya/ui";
 
 import { PatientPicker } from "../../components/patient-picker.js";
 import { useClinic } from "../../clinic.js";
 import { ageSex, patientPath } from "../../lib/patients.js";
 import { useAddWalkIn, usePractitioners, useQueue, useSetQueueStatus } from "../../queries.js";
-import { SkeletonRows } from "../../components/skeleton-rows.js";
+import { Empty, EmptyState, MkCard, PageHeader, Skeleton, StatTile, StatusChip } from "../../components/mk/index.js";
 
 /** Today's waiting room: wait times, walk-ins and moving tokens along. Built for a tablet at the counter. */
 export function QueuePage() {
@@ -29,8 +29,9 @@ export function QueuePage() {
   return (
     <>
       <PageHeader
+        eyebrow={queue.data === undefined ? "Waiting room" : `Waiting room · ${new Date(`${queue.data.date}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}`}
         title="Queue"
-        {...(queue.data === undefined ? {} : { subtitle: `Today, ${queue.data.date}` })}
+        subtitle={queue.data === undefined ? "Wait times, walk-ins and who is in the chair." : `${String(waiting.length)} waiting · ${String(inChair.length)} in the chair · ${String(resolved.length)} seen today`}
         end={
           canWrite ? (
             <Button
@@ -45,19 +46,42 @@ export function QueuePage() {
         }
       />
       {queue.isPending ? (
-        <SkeletonRows count={5} tall label="Loading the queue" />
+        <div role="status" aria-label="Loading the queue" className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {Array.from({ length: 3 }, (_, index) => (
+            <Skeleton key={index} shape="block" style={{ height: 260 }} />
+          ))}
+        </div>
       ) : queue.isError ? (
         apiErrorOf(queue.error)?.status === 404 ? (
-          <EmptyState title="The queue isn't connected yet" description="Tokens appear here once the API serves the queue." />
+          <EmptyState art="queue" title="The queue isn't connected yet" description="Tokens appear here once the API serves the queue." />
         ) : (
           <ApiErrorNotice title="Couldn't load the queue" error={queue.error} onRetry={() => void queue.refetch()} />
         )
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <QueueColumn title="Waiting" tone="warning" tokens={waiting} canWrite={canWrite} empty="Nobody is waiting." />
-          <QueueColumn title="In the chair" tone="primary" tokens={inChair} canWrite={canWrite} empty="No chairs in use." />
-          <QueueColumn title="Done today" tone="success" tokens={resolved.slice(0, 15)} canWrite={false} empty="Nobody has been seen yet." />
-        </div>
+        <>
+          <div className="mk-stats">
+            <StatTile label="Waiting" value={waiting.length} tone="warn" icon={<Clock3 />} />
+            <StatTile label="In the chair" value={inChair.length} icon={<Armchair />} />
+            <StatTile label="Seen today" value={resolved.filter((t) => t.status === "done").length} icon={<CheckCircle2 />} />
+            <StatTile
+              label="Longest wait"
+              value={waiting.length === 0 ? "—" : `${String(Math.max(...waiting.map((t) => t.wait_minutes)))} min`}
+              icon={<Clock3 />}
+              trend={waiting.some((t) => t.wait_minutes >= 30) ? { direction: "up", text: "Over 30 min", good: false } : undefined}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <QueueColumn
+              title="Waiting"
+              tone="warning"
+              tokens={waiting}
+              canWrite={canWrite}
+              empty={{ title: "Nobody is waiting", text: canWrite ? "Add a walk-in, or check people in from Today." : "Arrivals show here as they check in." }}
+            />
+            <QueueColumn title="In the chair" tone="primary" tokens={inChair} canWrite={canWrite} empty={{ title: "No chairs in use", text: "Seat a waiting patient to start their visit." }} />
+            <QueueColumn title="Done today" tone="success" tokens={resolved.slice(0, 15)} canWrite={false} empty={{ title: "Nobody has been seen yet", text: "Finished visits collect here through the day." }} />
+          </div>
+        </>
       )}
       <WalkInDialog open={walkInOpen} onOpenChange={setWalkInOpen} practitioners={practitioners.data?.items ?? []} />
     </>
@@ -75,20 +99,22 @@ function QueueColumn({
   tone: "warning" | "primary" | "success";
   tokens: readonly QueueToken[];
   canWrite: boolean;
-  empty: string;
+  empty: { title: string; text: string };
 }) {
   return (
-    <Card title={`${title} (${String(tokens.length)})`}>
+    <MkCard title={`${title} (${String(tokens.length)})`}>
       {tokens.length === 0 ? (
-        <EmptyState title={empty} icon={null} />
+        <Empty art={tone === "success" ? "clear" : "queue"} title={empty.title}>
+          {empty.text}
+        </Empty>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-3" style={{ marginTop: 12 }}>
           {tokens.map((token) => (
             <QueueRow key={token.id} token={token} tone={tone} canWrite={canWrite} />
           ))}
         </ul>
       )}
-    </Card>
+    </MkCard>
   );
 }
 
@@ -108,8 +134,8 @@ function QueueRow({ token, tone, canWrite }: { token: QueueToken; tone: "warning
   };
 
   return (
-    <li className="flex items-center gap-3 rounded-2xl border border-border p-3">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-muted text-sm font-extrabold text-text">
+    <li className="mk-qrow">
+      <span className="mk-qtok" aria-label={`Token ${String(token.token_number)}`}>
         #{token.token_number}
       </span>
       <div className="min-w-0 flex-1">
@@ -120,9 +146,12 @@ function QueueRow({ token, tone, canWrite }: { token: QueueToken; tone: "warning
           {token.patient.number} · {ageSex(token.patient.age_years, token.patient.sex)}
           {token.practitioner == null ? "" : ` · ${token.practitioner.display_name}`}
         </p>
-        <Pill tone={tone} icon={<Clock3 aria-hidden="true" className="size-3.5" />}>
-          {token.status === "done" ? "Completed" : token.status === "left" ? "Left" : `Waiting ${String(token.wait_minutes)} min`}
-        </Pill>
+        <span style={{ display: "inline-block", marginTop: 4 }}>
+          <StatusChip tone={token.status === "done" || token.status === "left" ? "done" : tone === "primary" ? "ready" : token.wait_minutes >= 30 ? "noshow" : "waiting"}>
+            <Clock3 aria-hidden="true" className="size-3.5" />
+            {token.status === "done" ? "Completed" : token.status === "left" ? "Left" : `Waiting ${String(token.wait_minutes)} min`}
+          </StatusChip>
+        </span>
       </div>
       {canWrite ? (
         <div className="flex shrink-0 flex-col gap-1.5">

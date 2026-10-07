@@ -656,3 +656,6 @@ a.mk-lrow:hover, button.mk-lrow:hover { background: var(--hover); }
 .mk-tabs4 { margin-top: 16px; }
 .mk-p360-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 1100px) { .mk-p360-grid { grid-template-columns: minmax(0, 1fr); } }
+.mk-card-h .mk-legend { flex-direction: row; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.mk-qrow { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: var(--field); border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); }
+.mk-qtok { width: 42px; height: 42px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand-text); font-weight: 700; font-size: 14px; }

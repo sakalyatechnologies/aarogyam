@@ -1,14 +1,15 @@
+import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import "./calendar.css";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { apiErrorOf, type AppointmentStatus } from "@aarogyam/api-client";
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
-import { EmptyState, Select } from "@sakalya/ui";
+import { Select } from "@sakalya/ui";
 
 import { DatePicker } from "../../components/mk/date-picker.js";
-import { MkCard } from "../../components/mk/index.js";
+import { MkCard, EmptyState, PageHeader } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { gridHours, nowMinutes, placementOf } from "../../lib/time-grid.js";
 import { shiftsOn } from "../../lib/slots.js";
@@ -203,7 +204,24 @@ export function CalendarPage() {
 
   return (
     <div className="mk-panel">
-      <h1 className="mk-sr">Calendar</h1>
+      <PageHeader
+        eyebrow={`Schedule · ${new Date(`${anchor}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })}`}
+        title="Calendar"
+        subtitle={`${session.clinic.name} · ${appointments.isPending ? "loading the schedule" : `${String(items.filter((a) => a.status !== "cancelled").length)} booked in view`}`}
+        actions={
+          canWrite ? (
+            <button
+              type="button"
+              className="mk-btn mk-btn-primary"
+              onClick={() => {
+                setBookingOpen(true);
+              }}
+            >
+              <Plus aria-hidden="true" /> Book appointment
+            </button>
+          ) : undefined
+        }
+      />
       <div className="mk-ptools">
         <button
           type="button"
@@ -235,12 +253,11 @@ export function CalendarPage() {
         >
           Today
         </button>
-        <span role="group" aria-label="View" style={{ display: "inline-flex", gap: 6, marginLeft: 8 }}>
+        <span role="group" aria-label="View" className="mk-seg" style={{ marginLeft: 8 }}>
           {(["day", "week", "month"] as const).map((v) => (
             <button
               key={v}
               type="button"
-              className="mk-chipf"
               aria-pressed={view === v}
               onClick={() => {
                 setView(v);
@@ -270,7 +287,7 @@ export function CalendarPage() {
           <SkeletonRows count={8} tall label="Loading the schedule" />
         ) : appointments.isError ? (
           apiErrorOf(appointments.error)?.status === 404 ? (
-            <EmptyState title="Appointments aren't connected yet" description="The schedule will appear here once the API serves appointments." />
+            <EmptyState art="calendar" title="Appointments aren't connected yet" description="The schedule will appear here once the API serves appointments." />
           ) : (
             <ApiErrorNotice title="Couldn't load the schedule" error={appointments.error} onRetry={() => void appointments.refetch()} />
           )
@@ -289,8 +306,14 @@ export function CalendarPage() {
           </div>
         ) : columns.length === 0 ? (
           <EmptyState
+            art={lane === "chair" ? "queue" : "team"}
             title={lane === "chair" ? "No chairs set up yet" : "No doctors set up yet"}
             description="Add them in Settings to see the schedule here."
+            action={
+              <Link to="/settings" className="mk-btn mk-btn-ghost">
+                Open Settings
+              </Link>
+            }
           />
         ) : (
           <TimeGrid

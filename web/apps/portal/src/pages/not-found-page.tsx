@@ -1,5 +1,6 @@
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import { CardLink, EmptyState } from "@sakalya/ui";
+import { CardLink } from "@sakalya/ui";
+import { EmptyState } from "../components/mk/index.js";
 
 export function NotFoundPage({ title = "There's nothing here" }: { title?: string }) {
   useDocumentTitle("Not found", "Aarogyam");

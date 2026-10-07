@@ -10,7 +10,8 @@ export function initials(name: string): string {
 }
 
 /** V4 page header: small uppercase eyebrow, large title, one-line subtitle, actions on the right. */
-export function PageHeader({ eyebrow, title, subtitle, actions }: { eyebrow?: ReactNode; title: string; subtitle?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({ eyebrow, title, subtitle, actions, end }: { eyebrow?: ReactNode; title: string; subtitle?: ReactNode; actions?: ReactNode; end?: ReactNode }) {
+  actions ??= end;
   return (
     <header className="mk-ph">
       <div className="mk-ph-t">

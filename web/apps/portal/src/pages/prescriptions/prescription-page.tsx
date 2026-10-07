@@ -11,21 +11,7 @@ import {
   type RxItem,
 } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, useDebouncedValue, useDocumentTitle } from "@aarogyam/app-kit";
-import {
-  Button,
-  Card,
-  DateInput,
-  Dialog,
-  Field,
-  FormActions,
-  PageHeader,
-  Pill as StatusPill,
-  Select,
-  Skeleton,
-  TextArea,
-  TextInput,
-  useToast,
-} from "@sakalya/ui";
+import { Button, Card, DateInput, Dialog, Field, FormActions, Pill as StatusPill, Select, Skeleton, TextArea, TextInput, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import {
@@ -36,6 +22,7 @@ import {
   useIssuePrescription,
   usePrescription,
 } from "./queries.js";
+import { PageHeader } from "../../components/mk/index.js";
 
 const TIMINGS = [
   { value: "", label: "Not set" },

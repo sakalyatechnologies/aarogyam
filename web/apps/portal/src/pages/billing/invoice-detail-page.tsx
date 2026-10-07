@@ -4,25 +4,11 @@ import { useNavigate, useParams } from "react-router";
 
 import { apiErrorOf, randomUuid, invoiceId as invoiceIdSchema, type Invoice, type InvoiceLineInput, type PaymentMethod } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
-import {
-  Button,
-  Card,
-  DataTable,
-  Dialog,
-  Field,
-  Link,
-  PageHeader,
-  Pill,
-  Select,
-  Skeleton,
-  TextArea,
-  TextInput,
-  useToast,
-  type DataTableColumn,
-} from "@sakalya/ui";
+import { Button, Card, DataTable, Dialog, Field, Link, Pill, Select, Skeleton, TextArea, TextInput, useToast, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { useEditInvoice, useInvoice, useIssueInvoice, usePayments, usePriceItems, useRecordPayment, useVoidInvoice } from "./queries.js";
+import { PageHeader } from "../../components/mk/index.js";
 
 const STATUS_TONE: Readonly<Record<string, "neutral" | "success" | "warning" | "danger">> = {
   draft: "neutral",

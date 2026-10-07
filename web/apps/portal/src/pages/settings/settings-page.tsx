@@ -22,7 +22,7 @@ import {
   type TabItem,
 } from "@sakalya/ui";
 
-import { MkCard, Toggle } from "../../components/mk/index.js";
+import { Initials, MkCard, PageHeader, Toggle } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import {
   useChangeStaffMember,
@@ -71,7 +71,7 @@ export function SettingsPage() {
   ];
   return (
     <div className="mk-panel">
-      <h1 className="mk-sr">Settings</h1>
+      <PageHeader eyebrow={session.clinic.name} title="Settings" subtitle="Clinic profile, team and roles, website, prices and your signed-in devices." />
       <div className="mk-grid mk-g2">
         {can("settings.manage") ? (
           <MkCard title="Clinic profile" hint="Shown on website, bills & prescriptions">
@@ -79,10 +79,13 @@ export function SettingsPage() {
           </MkCard>
         ) : (
           <MkCard title="Your account" hint="Signed in as">
-            <p className="mk-empty">
-              <b>{session.user.display_name}</b>
-              Only the clinic owner can change the clinic profile.
-            </p>
+            <div className="mk-pname" style={{ padding: "8px 0" }}>
+              <Initials name={session.user.display_name} size="md" />
+              <span>
+                <b style={{ display: "block" }}>{session.user.display_name}</b>
+                <span className="mk-hint">Only the clinic owner can change the clinic profile.</span>
+              </span>
+            </div>
           </MkCard>
         )}
         <div className="mk-stack">
@@ -116,7 +119,7 @@ export function SettingsPage() {
       </div>
       {can("settings.manage") ? <LetterheadThemePanel /> : null}
       <MkCard title="Clinic administration" hint="Chairs, doctors, prices, team and your signed-in devices">
-        <Tabs key={requested ?? ""} label="Settings" items={items} {...(items.some((item) => item.value === requested) && requested !== null ? { defaultValue: requested } : {})} />
+        <Tabs key={requested ?? ""} className="mk-tabs4" label="Settings" items={items} {...(items.some((item) => item.value === requested) && requested !== null ? { defaultValue: requested } : {})} />
       </MkCard>
     </div>
   );

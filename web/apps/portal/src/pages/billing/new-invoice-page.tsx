@@ -4,11 +4,12 @@ import { useNavigate } from "react-router";
 
 import { apiErrorOf, randomUuid, type InvoiceLineInput, type Patient } from "@aarogyam/api-client";
 import { formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
-import { Avatar, Button, Card, Field, FormActions, PageHeader, Select, TextInput } from "@sakalya/ui";
+import { Avatar, Button, Card, Field, FormActions, Select, TextInput } from "@sakalya/ui";
 
 import { PatientPicker } from "../../components/patient-picker.js";
 import { ageSex } from "../../lib/patients.js";
 import { useCreateInvoice, usePriceItems } from "./queries.js";
+import { PageHeader } from "../../components/mk/index.js";
 
 interface DraftLine {
   key: string;

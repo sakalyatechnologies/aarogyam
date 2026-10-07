@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import { EmptyState, PageHeader } from "@sakalya/ui";
 
 import { useClinic } from "../clinic.js";
+import { EmptyState, PageHeader } from "../components/mk/index.js";
 
 export interface ComingSoonPageProps {
   title: string;

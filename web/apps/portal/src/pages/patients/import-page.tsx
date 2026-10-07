@@ -14,25 +14,11 @@ import {
   type SmartImportRow,
 } from "@aarogyam/api-client";
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import {
-  Button,
-  Card,
-  DataTable,
-  EmptyState,
-  Field,
-  PageHeader,
-  Pill,
-  RadioGroup,
-  Select,
-  StatCard,
-  TextArea,
-  useToast,
-  type DataTableColumn,
-  type Tone,
-} from "@sakalya/ui";
+import { Button, Card, DataTable, Field, Pill, RadioGroup, Select, StatCard, TextArea, useToast, type DataTableColumn, type Tone } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { useCommitImport, useDiscardImport, usePreviewImport, useUploadImportFile } from "../../queries.js";
+import { EmptyState, PageHeader } from "../../components/mk/index.js";
 
 /** Our fields, as the mapping step names them. */
 export const FIELD_LABELS: Readonly<Record<ImportFieldKey, string>> = {

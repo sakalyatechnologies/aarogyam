@@ -659,3 +659,6 @@ a.mk-lrow:hover, button.mk-lrow:hover { background: var(--hover); }
 .mk-card-h .mk-legend { flex-direction: row; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
 .mk-qrow { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: var(--field); border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); }
 .mk-qtok { width: 42px; height: 42px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand-text); font-weight: 700; font-size: 14px; }
+.mk-tl-ev .mk-ev { flex-wrap: nowrap; }
+.mk-tl-ev .mk-ev > div { flex: 1 1 auto; }
+@media (max-width: 520px) { .mk-tl-ev .mk-ev .mk-chip { display: none; } .mk-tl-ev .mk-ev .mk-ini { display: none; } }

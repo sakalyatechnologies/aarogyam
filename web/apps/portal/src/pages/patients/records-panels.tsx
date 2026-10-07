@@ -1,17 +1,19 @@
-import { Plus } from "lucide-react";
+import { Plus, RotateCw } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 
-import type { Invoice, PatientId, Prescription } from "@aarogyam/api-client";
+import type { Invoice, PatientId, Prescription, RxValues } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatRupees } from "@aarogyam/app-kit";
 import { Button, Link, useToast } from "@sakalya/ui";
 import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { useInvoices } from "../billing/queries.js";
-import { useCreatePrescription, usePrescriptions } from "../prescriptions/queries.js";
+import { useCreatePrescription, useLastPrescription, usePrescriptions } from "../prescriptions/queries.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 const RECENT = 5;
+const RX_PAGE = 10;
 
 /** The patient's latest bills, with a way to start a new one and a link to all of them. */
 export function BillsPanel({ patientId }: { patientId: PatientId }) {
@@ -63,47 +65,54 @@ export function BillsPanel({ patientId }: { patientId: PatientId }) {
   );
 }
 
-/** The patient's latest prescriptions, with a way to start a new one and a link to all of them. */
+/** The patient's prescription history, newest first, ten at a time, with New prescription and Quick Rx. */
 export function PrescriptionsPanel({ patientId }: { patientId: PatientId }) {
   const { can } = useClinic();
   const navigate = useNavigate();
   const toast = useToast();
   const prescriptions = usePrescriptions(patientId);
+  const last = useLastPrescription(patientId);
   const create = useCreatePrescription(patientId);
-  const items: readonly Prescription[] = prescriptions.data?.items.slice(0, RECENT) ?? [];
+  const [shown, setShown] = useState(RX_PAGE);
+  const all: readonly Prescription[] = [...(prescriptions.data?.items ?? [])].sort((a, b) => (b.issued_at ?? b.created_at).localeCompare(a.issued_at ?? a.created_at));
+  const items = all.slice(0, shown);
+  const start = (input: RxValues, failure: string) => {
+    create.mutate(input, {
+      onSuccess: (draft) => {
+        void navigate(`/prescriptions/${draft.id}`);
+      },
+      onError: () => {
+        toast.show({ title: failure, tone: "danger" });
+      },
+    });
+  };
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2">
-        {can("prescriptions.issue") ? (
+      {can("prescriptions.issue") ? (
+        <div className="flex flex-wrap gap-2">
           <Button
             icon={<Plus aria-hidden="true" className="size-4" />}
             disabled={create.isPending}
             onClick={() => {
-              create.mutate(
-                {},
-                {
-                  onSuccess: (draft) => {
-                    void navigate(`/prescriptions/${draft.id}`);
-                  },
-                  onError: () => {
-                    toast.show({ title: "Couldn't start a prescription.", tone: "danger" });
-                  },
-                },
-              );
+              start({}, "Couldn't start a prescription.");
             }}
           >
             New prescription
           </Button>
-        ) : null}
-        <Button
-          variant="secondary"
-          onClick={() => {
-            void navigate(`/patients/${patientId}/prescriptions`);
-          }}
-        >
-          All prescriptions
-        </Button>
-      </div>
+          {last.data === undefined ? null : (
+            <Button
+              variant="secondary"
+              icon={<RotateCw aria-hidden="true" className="size-4" />}
+              disabled={create.isPending}
+              onClick={() => {
+                start({ items: last.data.items, diagnosis_text: last.data.diagnosis_text ?? null, advice: last.data.advice ?? null }, "Couldn't start Quick Rx.");
+              }}
+            >
+              Quick Rx
+            </Button>
+          )}
+        </div>
+      ) : null}
       {prescriptions.isPending ? (
         <SkeletonRows label="Loading" />
       ) : prescriptions.isError ? (
@@ -112,7 +121,7 @@ export function PrescriptionsPanel({ patientId }: { patientId: PatientId }) {
         <Empty title="No prescriptions yet">Drafts and issued prescriptions will appear here.</Empty>
       ) : (
         <MkCard>
-          <ul aria-label="Recent prescriptions" className="flex flex-col gap-2">
+          <ul aria-label="Prescriptions" className="flex flex-col gap-2">
             {items.map((rx) => (
               <li key={rx.id} className="flex flex-wrap items-center gap-2 text-sm">
                 <Link href={`/prescriptions/${rx.id}`} className="font-mono text-xs font-semibold text-primary-text hover:underline">
@@ -124,6 +133,16 @@ export function PrescriptionsPanel({ patientId }: { patientId: PatientId }) {
               </li>
             ))}
           </ul>
+          {all.length > shown ? (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShown((n) => n + RX_PAGE);
+              }}
+            >
+              Load more
+            </Button>
+          ) : null}
         </MkCard>
       )}
     </div>

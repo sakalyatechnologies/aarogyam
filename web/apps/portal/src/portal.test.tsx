@@ -208,7 +208,7 @@ describe("Permissions", () => {
     if (nav === undefined) throw new Error("no main navigation");
     await user.click(within(nav).getByRole("link", { name: "Settings" }));
     expect(await screen.findByRole("heading", { name: "Clinic profile" })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "Staff" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Team & roles" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Sessions" })).toBeTruthy();
   });
 
@@ -216,7 +216,7 @@ describe("Permissions", () => {
     renderPortal("/settings", { as: PEOPLE.farah });
     expect(await screen.findByRole("tab", { name: "Sessions" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Clinic profile" })).toBeNull();
-    expect(screen.queryByRole("tab", { name: "Staff" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Team & roles" })).toBeNull();
   });
 });
 
@@ -327,11 +327,11 @@ describe("Settings", () => {
   it("invites a staff member, who appears as a pending invitation", async () => {
     const user = userEvent.setup();
     renderPortal("/settings", { as: PEOPLE.asha });
-    await user.click(await screen.findByRole("tab", { name: "Staff" }));
+    await user.click(await screen.findByRole("tab", { name: "Team & roles" }));
     await user.click(await screen.findByRole("button", { name: "Invite" }));
-    await user.type(await screen.findByLabelText(/email/i), "new.doctor@example.com");
+    await user.type(await within(await screen.findByRole("dialog")).findByLabelText(/^email/i), "new.doctor@example.com");
     await screen.findByRole("option", { name: "Doctor" });
-    await user.selectOptions(screen.getByLabelText(/role/i), "doctor");
+    await user.selectOptions(within(screen.getByRole("dialog")).getByLabelText(/^role/i), "doctor");
     await user.click(screen.getByRole("button", { name: "Send invite" }));
     expect(await screen.findByText("new.doctor@example.com")).toBeTruthy();
   });

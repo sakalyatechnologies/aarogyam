@@ -6,7 +6,6 @@ import {
   LogOut,
   MessageSquare,
   Package,
-  Pill,
   Plus,
   Search,
   Settings,
@@ -20,7 +19,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Link, Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
+import { Link, Outlet, useLocation, useNavigate } from "react-router";
 
 import { PasswordDialog, signOutToSite, supportsPassword, useAuth, usePasswordDialog } from "@aarogyam/auth";
 import { useToast } from "@sakalya/ui";
@@ -249,7 +248,6 @@ function ShellFrame() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [collapsed, setCollapsed] = useStoredFlag("aarogyam.portal.sidebar-collapsed");
-  const [searchParams] = useSearchParams();
   const sideRef = useRef<HTMLElement>(null);
   const mainId = useId();
   const mainRef = useRef<HTMLElement>(null);
@@ -290,16 +288,6 @@ function ShellFrame() {
     ...(can("appointments.read")
       ? [{ id: "queue", label: "Queue", icon: <ListOrdered />, href: "/queue" }]
       : []),
-    ...(can("clinical.read")
-      ? [
-          {
-            id: "prescriptions",
-            label: "Prescriptions",
-            icon: <Pill />,
-            href: "/prescriptions",
-          },
-        ]
-      : []),
     ...(can("billing.read")
       ? [
           {
@@ -319,16 +307,6 @@ function ShellFrame() {
     },
   ];
   const system: NavItem[] = [
-    ...(can("staff.manage")
-      ? [
-          {
-            id: "staff",
-            label: "Staff",
-            icon: <UserCog />,
-            href: "/settings?tab=staff",
-          },
-        ]
-      : []),
     {
       id: "settings",
       label: "Settings",
@@ -336,13 +314,12 @@ function ShellFrame() {
       href: "/settings",
     },
   ];
-  const onStaffTab = location.pathname.startsWith("/settings") && searchParams.get("tab") === "staff";
-  const activeId = onStaffTab
-    ? "staff"
-    : ([...workspace, ...system].find((entry) =>
-        location.pathname.startsWith(entry.href.split("?")[0] ?? entry.href),
-      )?.id ?? "");
-  const palettePages = [...workspace, ...system].map((item) => ({ id: item.id, label: item.label, href: item.href, icon: item.icon }));
+  const activeId = [...workspace, ...system].find((entry) => location.pathname.startsWith(entry.href))?.id ?? "";
+  const palettePages = [
+    ...workspace,
+    ...system,
+    ...(can("staff.manage") || can("roles.manage") ? [{ id: "team", label: "Team & roles", href: "/settings?tab=team", icon: <UserCog /> }] : []),
+  ].map((item) => ({ id: item.id, label: item.label, href: item.href, icon: item.icon }));
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

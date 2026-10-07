@@ -41,6 +41,41 @@ describe("Patient 360 bills and prescriptions", () => {
     });
   });
 
+  it("pages a long prescription history, newest first, with Load more", async () => {
+    const user = userEvent.setup();
+    let path = "";
+    const backend = fakeApi((fixtures) => {
+      const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
+      const patient = fixtures.patients.find((p) => p.clinic_id === sunrise?.id);
+      path = `/patients/${patient?.id ?? ""}?tab=prescriptions`;
+      fixtures.prescriptions = fixtures.prescriptions.filter((rx) => rx.patient_id !== patient?.id);
+      for (let n = 1; n <= 12; n += 1) {
+        const day = String(n).padStart(2, "0");
+        fixtures.prescriptions.push({
+          id: `00000000-0000-4000-8000-0000000000${day}`,
+          clinic_id: sunrise?.id ?? "",
+          patient_id: patient?.id ?? "",
+          status: "issued",
+          number: `RX-T${day}`,
+          items: [],
+          language: "en",
+          alerts: [],
+          created_at: `2026-03-${day}T10:00:00Z`,
+          issued_at: `2026-03-${day}T10:00:00Z`,
+        });
+      }
+    });
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    const list = await screen.findByRole("list", { name: "Prescriptions" });
+    const numbers = () => within(list).getAllByRole("link").map((a) => a.textContent);
+    await waitFor(() => { expect(numbers()).toHaveLength(10); });
+    expect(numbers()[0]).toBe("RX-T12");
+    await user.click(screen.getByRole("button", { name: "Load more" }));
+    await waitFor(() => { expect(numbers()).toHaveLength(12); });
+    expect(numbers()[11]).toBe("RX-T01");
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  });
+
   it("hides billing from a role without billing.read", async () => {
     const { path } = billedPatient();
     const backend = fakeApi((fixtures) => {

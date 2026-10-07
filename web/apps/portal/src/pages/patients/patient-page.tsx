@@ -1,6 +1,6 @@
 import { Eye, EyeOff, Mail, Pencil, Phone } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 
 import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
@@ -89,6 +89,9 @@ function PatientView({ patient }: { patient: Patient }) {
   const { can } = useClinic();
   const navigate = useNavigate();
   const canSeeClinical = can("clinical.read") || can("clinical.write");
+  // ?tab=prescriptions opens the Rx tab (the command palette and old links use it).
+  const [params] = useSearchParams();
+  const requestedTab = params.get("tab") === "prescriptions" && canSeeClinical ? "prescriptions" : "overview";
   // Without patients.contact the API sends contact details already masked: show them as they are.
   const revealable = can("patients.contact");
   const age = patient.age_years ?? null;
@@ -165,7 +168,7 @@ function PatientView({ patient }: { patient: Patient }) {
       <MkCard>
         <Tabs
           label="Patient record"
-          defaultValue="overview"
+          defaultValue={requestedTab}
           items={[
             {
               value: "overview",

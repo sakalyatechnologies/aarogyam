@@ -45,15 +45,28 @@ import { SkeletonRows } from "../../components/skeleton-rows.js";
 export function SettingsPage() {
   const { session, can } = useClinic();
   useDocumentTitle("Settings", session.clinic.name);
-  // The sidebar's Staff link opens this tab: /settings?tab=staff.
+  // /staff and older links open the Team & roles tab: /settings?tab=team.
   const [params] = useSearchParams();
-  const requested = params.get("tab");
+  const rawTab = params.get("tab");
+  const requested = rawTab === "staff" || rawTab === "roles" ? "team" : rawTab;
   const items: TabItem[] = [
     ...(can("settings.manage") ? [{ value: "chairs-doctors", label: "Chairs and doctors", content: <ChairsDoctorsPanel /> }] : []),
     ...(can("settings.manage") ? [{ value: "website", label: "Website", content: <WebsitePanel /> }] : []),
     ...(can("billing.read") ? [{ value: "price-list", label: "Price list", content: <PriceListPanel /> }] : []),
-    ...(can("staff.manage") ? [{ value: "staff", label: "Staff", content: <StaffPanel /> }] : []),
-    ...(can("roles.manage") ? [{ value: "roles", label: "Roles & access", content: <RolesPanel /> }] : []),
+    ...(can("staff.manage") || can("roles.manage")
+      ? [
+          {
+            value: "team",
+            label: "Team & roles",
+            content: (
+              <div className="flex flex-col gap-6">
+                {can("staff.manage") ? <StaffPanel /> : null}
+                {can("roles.manage") ? <RolesPanel /> : null}
+              </div>
+            ),
+          },
+        ]
+      : []),
     { value: "sessions", label: "Sessions", content: <SessionsPanel /> },
   ];
   return (
@@ -102,7 +115,7 @@ export function SettingsPage() {
         </div>
       </div>
       {can("settings.manage") ? <LetterheadThemePanel /> : null}
-      <MkCard title="Clinic administration" hint="Chairs, doctors, prices, staff and your signed-in devices">
+      <MkCard title="Clinic administration" hint="Chairs, doctors, prices, team and your signed-in devices">
         <Tabs key={requested ?? ""} label="Settings" items={items} {...(items.some((item) => item.value === requested) && requested !== null ? { defaultValue: requested } : {})} />
       </MkCard>
     </div>
@@ -349,7 +362,7 @@ function StaffPanel() {
       header: "Role",
       cell: (member) =>
         can("roles.manage") ? (
-          <Link to={`/settings?tab=roles&role=${encodeURIComponent(member.role_key)}`} className="mk-link" title={`See what ${member.role_name} can do`}>
+          <Link to={`/settings?tab=team&role=${encodeURIComponent(member.role_key)}`} className="mk-link" title={`See what ${member.role_name} can do`}>
             {member.role_name}
           </Link>
         ) : (

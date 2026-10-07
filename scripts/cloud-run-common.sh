@@ -82,3 +82,8 @@ env_value() { # file key
 }
 
 secret_exists() { gcloud secrets describe "$1" --project "$PROJECT_ID" >/dev/null 2>&1; }
+
+# ---- Pilot operations (scripts/ops-setup.sh, deploy/backup, docs/ops.md) -------------------
+BACKUP_JOB="${BACKUP_JOB:-aarogyam-backup}"
+BACKUP_SA_NAME="aarogyam-backup"    # the backup job runs as this; creates objects in the bucket, nothing else
+BACKUP_SCHEDULE="${BACKUP_SCHEDULE:-30 20 * * *}"   # 02:00 IST every day (cron, UTC)

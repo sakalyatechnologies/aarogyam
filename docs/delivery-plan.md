@@ -21,7 +21,7 @@ How Aarogyam gets built, in what order, and what is deliberately left for later.
 | **M3 Front desk** | Patients (reference), patient import (Excel/CSV), appointments (one per chair at a time), queue tokens, working hours, Today | A clinic's existing patients are imported, booked, arrive and queue |
 | **M4 Visit** | Visits, notes with addenda and conflicts, vitals, conditions, allergies, files, Dental pack as data, procedures, treatment plans | A full dental visit is recorded |
 | **M5 Prescription and money** | Prescriptions (allergy check, Quick Rx, print with footer and QR, PIN links), bills (GST fields, numbering at issue), payments, follow-up, outbox via Cloud Scheduler | The whole journey works on the API |
-| **M6 Pilot readiness** | Production, error tracking, synthetic journey checks, backups with a restore drill, domain, legal | Smile Catchers starts |
+| **M6 Pilot readiness** | Production, error tracking, synthetic journey checks, backups with a restore drill (built, not yet applied: `docs/ops.md`), domain, legal | Smile Catchers starts |
 
 The web portal stays one slice behind the API. The doctor app starts after M3 and is online-first in 1A.
 

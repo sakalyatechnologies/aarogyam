@@ -143,6 +143,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/client-errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logs an error from a web app (public, throttled, nothing stored). */
+        post: operations["reportClientError"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/applications": {
         parameters: {
             query?: never;
@@ -378,6 +395,23 @@ export interface paths {
         put?: never;
         /** Finds medicines in the shared list. */
         post: operations["searchDrugs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether the API is serving (public, no sign-in, no database). */
+        get: operations["checkApiHealth"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3115,6 +3149,25 @@ export interface components {
             /** @description The visit that recorded it. */
             visit_id?: string | null;
         };
+        /** @description What a page sends when something fails. */
+        ClientError: {
+            /** @description Which app: `portal`, `console`, `website` or `mobile`. */
+            app: string;
+            /** @description `error` (default), `unhandledrejection` or `console`. */
+            kind?: string | null;
+            /** @description The error's message; scrubbed and cut to 300 characters. */
+            message: string;
+            /** @description The error's name, such as `TypeError`. */
+            name?: string | null;
+            /** @description The page's path; reduced to a route shape. */
+            page?: string | null;
+            /** @description The app's release. */
+            release?: string | null;
+            /** @description The `x-request-id` of a failed API call, to join with the server's log lines. */
+            request_id?: string | null;
+            /** @description The stack trace; scrubbed and cut to 2000 characters. */
+            stack?: string | null;
+        };
         /** @description The versions of one app the API serves. */
         ClientVersions: {
             /** @description The app's name as it appears in `x-client`, such as `aarogyam-staff`. */
@@ -3674,6 +3727,11 @@ export interface components {
             kind: string;
             /** @description A one-time magic-link token hash (`supabase`). */
             token_hash?: string | null;
+        };
+        /** @description The answer to a health check. */
+        Health: {
+            /** @description Always `ok` while the API is serving. */
+            status: string;
         };
         /** @description Appointments starting in one local hour. */
         HourBar: {
@@ -7367,6 +7425,35 @@ export interface operations {
             };
         };
     };
+    reportClientError: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientError"];
+            };
+        };
+        responses: {
+            /** @description Logged, or dropped when over the allowance */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many reports from this address */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listApplications: {
         parameters: {
             query?: {
@@ -7951,6 +8038,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    checkApiHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Health"];
+                };
             };
         };
     };
@@ -13065,7 +13171,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks staff.manage */
+            /** @description The role lacks staff.manage and roles.manage */
             403: {
                 headers: {
                     [name: string]: unknown;

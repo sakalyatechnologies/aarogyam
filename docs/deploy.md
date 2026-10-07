@@ -285,6 +285,11 @@ merged migration; fix forward with a new one.
   own free tier).
 - The $1 budget alert is the safety net. Check Billing, Reports, once in the first week.
 
+### Pilot operations
+
+Error tracking, uptime checks, alert emails, nightly backups and the restore drill: see
+`docs/ops.md`. `scripts/ops-setup.sh` (dry run by default) creates them.
+
 ### Update, roll back, tear down
 
 ```bash

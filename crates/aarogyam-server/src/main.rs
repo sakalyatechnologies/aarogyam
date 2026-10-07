@@ -155,6 +155,10 @@ async fn main() -> anyhow::Result<()> {
 /// Serves the API until a shutdown signal, then drains in-flight requests.
 ///
 /// The pool connects on first use, so the server starts while the database is briefly down.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the one place every setting becomes a part of the server"
+)]
 async fn serve(config: Config) -> anyhow::Result<()> {
     tracing::info!(
         environment = %config.environment,
@@ -252,9 +256,26 @@ async fn serve(config: Config) -> anyhow::Result<()> {
             sites_target: config.website.sites_target,
             address_template: config.website.address_template,
         });
-    sakalya_http::serve(aarogyam_api::router(state), config.http.bind)
-        .await
-        .context("the server stopped with an error")
+    sakalya_http::serve(
+        aarogyam_api::router(with_error_reporting(state, local)),
+        config.http.bind,
+    )
+    .await
+    .context("the server stopped with an error")
+}
+
+/// Deployed servers report 5xx answers and panics to Cloud Error Reporting (docs/deploy.md
+/// "Error tracking"); locally they only reach the ordinary log.
+fn with_error_reporting(state: AppState, local: bool) -> AppState {
+    if local {
+        return state;
+    }
+    let reporting = Arc::new(aarogyam_api::ErrorReporting::stdout(
+        "aarogyam-api",
+        env!("CARGO_PKG_VERSION"),
+    ));
+    reporting.install_panic_hook();
+    state.with_error_reporting(reporting)
 }
 
 /// How sign-in tokens are checked: development tokens only in `dev` mode (local only), Supabase

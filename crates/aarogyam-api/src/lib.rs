@@ -30,17 +30,20 @@
 mod cache;
 mod client_gate;
 mod dev;
+pub mod error_report;
 mod extract;
 mod failure;
 pub mod metrics;
 mod openapi;
 mod revalidate;
+mod scrub;
 mod state;
 mod v1;
 
 use axum::Router;
 
 pub use dev::DevTokens;
+pub use error_report::ErrorReporting;
 pub use extract::{ClinicRequest, PlatformRequest, Require, SignedIn};
 pub use failure::ApiFailure;
 #[doc(inline)]
@@ -76,6 +79,9 @@ pub fn standard_throttle_with(
         RuleConfig::new("ip-handoff-redeem", KeyKind::Ip, 20, 10 * 60)
             .on_paths(&["/api/v1/auth/handoff/redeem"]),
         RuleConfig::new("ip-handoff", KeyKind::Ip, 60, 10 * 60).on_paths(&["/api/v1/auth/handoff"]),
+        // Errors from the web apps: a failing page may retry in a loop.
+        RuleConfig::new("ip-client-errors", KeyKind::Ip, 20, 60)
+            .on_paths(&["/api/v1/client-errors"]),
         RuleConfig::new("ip-registration", KeyKind::Ip, 5, 60 * 60)
             .on_paths(&["/api/v1/registrations"]),
         // Public booking: reads (doctors, slots) are cheap but unauthenticated, so capped per IP;
@@ -108,6 +114,7 @@ pub fn router(state: AppState) -> Router {
     let metrics = std::sync::Arc::clone(state.metrics());
     let clients = std::sync::Arc::clone(state.client_policy());
     let throttle = state.throttle().cloned();
+    let reporting = state.error_reporting().cloned();
     let mut routes = Router::new()
         .nest("/api/v1", v1::routes(local_dev))
         .with_state(state)
@@ -125,8 +132,15 @@ pub fn router(state: AppState) -> Router {
     }
     let routes = routes.merge(sakalya_http::health_routes());
     // Outside the standard layers, so timeouts and panics they turn into responses are counted.
-    sakalya_http::with_standard_layers(routes, &http).layer(axum::middleware::from_fn_with_state(
-        metrics,
-        metrics::track,
-    ))
+    let app = sakalya_http::with_standard_layers(routes, &http).layer(
+        axum::middleware::from_fn_with_state(metrics, metrics::track),
+    );
+    match reporting {
+        // Outermost, so it sees the 500s the standard layers make from panics and timeouts.
+        Some(reporting) => app.layer(axum::middleware::from_fn_with_state(
+            reporting,
+            error_report::report_server_errors,
+        )),
+        None => app,
+    }
 }

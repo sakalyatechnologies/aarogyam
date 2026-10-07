@@ -24,8 +24,10 @@ use uuid::Uuid;
 
 use crate::cache::TtlCache;
 use crate::dev::DevTokens;
+use crate::error_report::ErrorReporting;
 use crate::failure::ApiFailure;
 use crate::metrics::ServiceMetrics;
+use crate::v1::client_errors::Budget;
 
 /// How long a host lookup or a member's permissions are reused before asking the database again.
 const CACHE_TTL: Duration = Duration::from_secs(30);
@@ -147,6 +149,8 @@ struct Inner {
     accounts: Option<Arc<dyn SignInAccounts>>,
     quality_dir: PathBuf,
     clients: Arc<ClientPolicy>,
+    error_reporting: Option<Arc<ErrorReporting>>,
+    client_errors: Budget,
 }
 
 /// Shared state; cheap to clone.
@@ -177,6 +181,8 @@ impl AppState {
                 accounts: None,
                 quality_dir: PathBuf::from("var/quality"),
                 clients: Arc::new(ClientPolicy::default()),
+                error_reporting: None,
+                client_errors: Budget::default(),
             }),
         }
     }
@@ -272,6 +278,25 @@ impl AppState {
             inner.clients = Arc::new(policy);
         }
         self
+    }
+
+    /// Reports `5xx` answers and web-app errors in Cloud Error Reporting's shape (see
+    /// [`crate::error_report`]). Without it they only reach the ordinary log. Call before the
+    /// state is shared (cloned).
+    #[must_use]
+    pub fn with_error_reporting(mut self, reporting: Arc<ErrorReporting>) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.error_reporting = Some(reporting);
+        }
+        self
+    }
+
+    pub(crate) fn error_reporting(&self) -> Option<&Arc<ErrorReporting>> {
+        self.inner.error_reporting.as_ref()
+    }
+
+    pub(crate) fn client_error_budget(&self) -> &Budget {
+        &self.inner.client_errors
     }
 
     pub(crate) fn client_policy(&self) -> &Arc<ClientPolicy> {

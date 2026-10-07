@@ -60,21 +60,27 @@ describe("money stays hidden without the permission", () => {
 });
 
 describe("Settings → Roles & access", () => {
-  it("is only there for roles.manage", async () => {
-    renderPortal("/settings", { as: PEOPLE.farah, backend: farahWith(["staff.manage", "settings.manage"]) });
-    await screen.findByRole("tab", { name: "Staff" });
-    expect(screen.queryByRole("tab", { name: "Roles & access" })).toBeNull();
+  it("shows the roles editor in Team & roles only for roles.manage", async () => {
+    renderPortal("/settings?tab=team", { as: PEOPLE.farah, backend: farahWith(["staff.manage", "settings.manage"]) });
+    expect(await screen.findByRole("button", { name: "Invite" })).toBeTruthy();
+    expect(screen.queryByRole("table", { name: "Roles and what they can do" })).toBeNull();
+  });
+
+  it("hides Team & roles without staff.manage or roles.manage", async () => {
+    renderPortal("/settings", { as: PEOPLE.farah, backend: farahWith(["settings.manage"]) });
+    await screen.findByRole("tab", { name: "Chairs and doctors" });
+    expect(screen.queryByRole("tab", { name: "Team & roles" })).toBeNull();
   });
 
   it("links each person's role from the staff list", async () => {
-    renderPortal("/settings?tab=staff", { as: PEOPLE.asha });
+    renderPortal("/settings?tab=team", { as: PEOPLE.asha });
     const [link] = await screen.findAllByRole("link", { name: "Front desk" });
-    expect(link?.getAttribute("href")).toBe("/settings?tab=roles&role=front_desk");
+    expect(link?.getAttribute("href")).toBe("/settings?tab=team&role=front_desk");
   });
 
   it("edits a role with confirmation and shows who changed what", async () => {
     const user = userEvent.setup();
-    renderPortal("/settings?tab=roles&role=front_desk", { as: PEOPLE.asha });
+    renderPortal("/settings?tab=team&role=front_desk", { as: PEOPLE.asha });
     expect(await screen.findByRole("table", { name: "Roles and what they can do" })).toBeTruthy();
     const editor = await screen.findByRole("region", { name: "Front desk" });
     expect(within(editor).getByText(/Finance and money/)).toBeTruthy();
@@ -95,7 +101,7 @@ describe("Settings → Roles & access", () => {
   });
 
   it("keeps the owner role read-only", async () => {
-    renderPortal("/settings?tab=roles&role=owner", { as: PEOPLE.asha });
+    renderPortal("/settings?tab=team&role=owner", { as: PEOPLE.asha });
     const editor = await screen.findByRole("region", { name: "Owner" });
     expect(within(editor).getByText(/always has full access/)).toBeTruthy();
     expect(within(editor).queryByRole("button", { name: "Save changes" })).toBeNull();

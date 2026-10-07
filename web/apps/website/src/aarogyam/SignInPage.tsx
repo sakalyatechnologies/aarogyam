@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { fetchMe, handoffUrl, requestHandoff } from "./api";
 import { getAuthClient, signInConfigured, verifiedAccessToken } from "./auth";
 import { CONSOLE_URL } from "./env";
+import { Showcase } from "./Showcase";
 import { decideDestination, resolveNext, type Destination } from "./routing";
 
 type Step = "email" | "code" | "password" | "routing";
@@ -88,7 +89,10 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
   };
 
   return (
-    <div className="auth-page">
+    <div className="v4-auth">
+      <aside className="v4-auth-left"><Showcase /></aside>
+      <div className="v4-auth-right">
+      <div className="auth-page">
       <div className="wrap">
         <button className="backlink" onClick={onBack}>← aarogyam.in</button>
         <div className="auth-card rv in">
@@ -160,6 +164,8 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
             <p className="auth-note">New here? <a onClick={onRegister} style={{ cursor: "pointer", color: "var(--ac)" }}>Request access</a></p>
           )}
         </div>
+      </div>
+      </div>
       </div>
     </div>
   );

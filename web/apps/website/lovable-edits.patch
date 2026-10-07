@@ -28,12 +28,19 @@
        <div className="max-w-md text-center">
 --- a/src/routes/index.tsx
 +++ b/src/routes/index.tsx
+@@ -1,5 +1,5 @@
+ import { createFileRoute, useNavigate } from "@tanstack/react-router";
+-import SiteView from "@/landing/views/SiteView.jsx";
++import { Landing } from "@/aarogyam/Landing";
+ 
+ export const Route = createFileRoute("/")({
+   head: () => ({
 @@ -17,5 +17,5 @@
  
  function Home() {
    const navigate = useNavigate();
 -  return <SiteView onRegister={() => navigate({ to: "/register" })} onSignIn={() => navigate({ to: "/login" })} />;
-+  return <SiteView onRegister={() => navigate({ to: "/register" })} onSignIn={() => navigate({ to: "/sign-in" })} />;
++  return <Landing onRegister={() => navigate({ to: "/register" })} onSignIn={() => navigate({ to: "/sign-in" })} />;
  }
 --- a/src/routes/register.tsx
 +++ b/src/routes/register.tsx

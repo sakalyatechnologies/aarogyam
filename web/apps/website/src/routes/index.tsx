@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import SiteView from "@/landing/views/SiteView.jsx";
+import { Landing } from "@/aarogyam/Landing";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -17,5 +17,5 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const navigate = useNavigate();
-  return <SiteView onRegister={() => navigate({ to: "/register" })} onSignIn={() => navigate({ to: "/sign-in" })} />;
+  return <Landing onRegister={() => navigate({ to: "/register" })} onSignIn={() => navigate({ to: "/sign-in" })} />;
 }

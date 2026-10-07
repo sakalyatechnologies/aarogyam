@@ -5,13 +5,15 @@
 use std::fmt;
 
 use crate::clinical::{ClinicalError, optional_text, text_enum};
+use crate::dental_terms::{TermKind, TermRef};
 
 /// The specialty module the chart belongs to.
 pub const MODULE: &str = "dental";
 /// The record kind of a chart entry.
 pub const KIND: &str = "tooth";
-/// The version of [`ChartEntry`]'s JSON shape.
-pub const SCHEMA_VERSION: i32 = 1;
+/// The version of [`ChartEntry`]'s JSON shape. Version 2 added the procedure and material;
+/// version 1 entries read as having neither.
+pub const SCHEMA_VERSION: i32 = 2;
 
 /// A tooth by its FDI (ISO 3950) number: 11-18, 21-28, 31-38, 41-48 for permanent teeth and
 /// 51-55, 61-65, 71-75, 81-85 for primary (milk) teeth.
@@ -36,6 +38,15 @@ pub enum ChartError {
     /// The note is too long.
     #[error("note must be at most 500 characters")]
     Note,
+    /// Not a procedure of the vocabulary.
+    #[error("unknown procedure")]
+    Procedure,
+    /// Not a material of the vocabulary.
+    #[error("unknown material")]
+    Material,
+    /// A sound tooth was given a procedure or material.
+    #[error("sound clears the tooth; leave the procedure and material out")]
+    SoundWithDetail,
 }
 
 impl Tooth {
@@ -166,10 +177,24 @@ pub struct ChartEntry {
     tooth: Tooth,
     surface: Option<Surface>,
     finding: Finding,
+    procedure: Option<TermRef>,
+    material: Option<TermRef>,
     note: Option<String>,
 }
 
-/// The JSON shape stored in `specialty_records.data` (schema version 1).
+/// What else an entry says besides tooth, surface and finding: procedure and material ids
+/// (seeded ids or clinic term UUIDs) and a remark.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Detail<'a> {
+    /// Procedure id.
+    pub procedure: Option<&'a str>,
+    /// Material id.
+    pub material: Option<&'a str>,
+    /// The clinician's remark.
+    pub note: Option<&'a str>,
+}
+
+/// The JSON shape stored in `specialty_records.data` (schema version 2).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ChartData {
     /// FDI tooth number.
@@ -179,13 +204,20 @@ pub struct ChartData {
     pub surface: Option<String>,
     /// Finding value.
     pub finding: String,
+    /// What was done: a seeded procedure id or a clinic term's UUID.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub procedure: Option<String>,
+    /// What it was done with: a seeded material id or a clinic term's UUID.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub material: Option<String>,
     /// The clinician's remark.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
 }
 
 impl ChartEntry {
-    /// Validates an entry.
+    /// Validates an entry. A clinic term (a UUID) is only checked for shape here; the caller
+    /// checks that the clinic has it.
     ///
     /// # Errors
     /// The [`ChartError`] that applies.
@@ -193,7 +225,7 @@ impl ChartEntry {
         tooth: i64,
         surface: Option<&str>,
         finding: &str,
-        note: Option<&str>,
+        detail: Detail<'_>,
     ) -> Result<Self, ChartError> {
         let tooth = Tooth::new(tooth)?;
         let surface = match surface.map(str::trim) {
@@ -206,13 +238,36 @@ impl ChartEntry {
         if surface.is_some() && finding.whole_tooth_only() {
             return Err(ChartError::WholeTooth(finding.as_str()));
         }
-        let note = optional_text(note, 500).map_err(|_: ClinicalError| ChartError::Note)?;
+        let term = |kind, text: Option<&str>, error| match text.map(str::trim) {
+            None | Some("") => Ok(None),
+            Some(text) => TermRef::parse(kind, text).map(Some).map_err(|_| error),
+        };
+        let procedure = term(TermKind::Procedure, detail.procedure, ChartError::Procedure)?;
+        let material = term(TermKind::Material, detail.material, ChartError::Material)?;
+        if finding == Finding::Sound && (procedure.is_some() || material.is_some()) {
+            return Err(ChartError::SoundWithDetail);
+        }
+        let note = optional_text(detail.note, 500).map_err(|_: ClinicalError| ChartError::Note)?;
         Ok(Self {
             tooth,
             surface,
             finding,
+            procedure,
+            material,
             note,
         })
+    }
+
+    /// The procedure, if recorded.
+    #[must_use]
+    pub const fn procedure(&self) -> Option<TermRef> {
+        self.procedure
+    }
+
+    /// The material, if recorded.
+    #[must_use]
+    pub const fn material(&self) -> Option<TermRef> {
+        self.material
     }
 
     /// The tooth.
@@ -240,6 +295,8 @@ impl ChartEntry {
             tooth: self.tooth.number(),
             surface: self.surface.map(|s| s.as_str().to_owned()),
             finding: self.finding.as_str().to_owned(),
+            procedure: self.procedure.map(TermRef::id_text),
+            material: self.material.map(TermRef::id_text),
             note: self.note.clone(),
         }
     }
@@ -256,6 +313,45 @@ impl ChartEntry {
 mod tests {
     use super::*;
 
+    fn note(text: &str) -> Detail<'_> {
+        Detail {
+            note: Some(text),
+            ..Detail::default()
+        }
+    }
+
+    #[test]
+    fn entries_name_procedure_and_material_from_the_vocabulary() {
+        let detail = |procedure, material| Detail {
+            procedure,
+            material,
+            note: None,
+        };
+        let crown =
+            ChartEntry::new(16, None, "crown", detail(Some("crown"), Some("zirconia"))).unwrap();
+        assert_eq!(crown.data().procedure.as_deref(), Some("crown"));
+        assert_eq!(crown.data().material.as_deref(), Some("zirconia"));
+        assert_eq!(
+            ChartEntry::new(16, None, "crown", detail(Some("zirconia"), None)),
+            Err(ChartError::Procedure)
+        );
+        assert_eq!(
+            ChartEntry::new(16, None, "crown", detail(None, Some("unobtainium"))),
+            Err(ChartError::Material)
+        );
+        assert_eq!(
+            ChartEntry::new(16, None, "sound", detail(None, Some("gold"))),
+            Err(ChartError::SoundWithDetail)
+        );
+        let clinic = "0190a7c2-0000-7000-8000-000000000001";
+        let own = ChartEntry::new(16, Some("O"), "filled", detail(None, Some(clinic))).unwrap();
+        assert!(own.material().and_then(TermRef::clinic).is_some());
+        // Version 1 entries read without procedure or material.
+        let old: ChartData =
+            serde_json::from_str(r#"{"tooth":36,"surface":"O","finding":"caries"}"#).unwrap();
+        assert_eq!(old.material, None);
+    }
+
     #[test]
     fn fdi_numbers() {
         for good in [11, 18, 28, 38, 48, 51, 55, 65, 75, 85] {
@@ -270,19 +366,19 @@ mod tests {
 
     #[test]
     fn entries_check_surfaces_and_findings() {
-        let caries = ChartEntry::new(36, Some("o"), "caries", Some(" deep ")).unwrap();
+        let caries = ChartEntry::new(36, Some("o"), "caries", note(" deep ")).unwrap();
         assert_eq!(caries.surface(), Some(Surface::Occlusal));
         assert_eq!(caries.data().note.as_deref(), Some("deep"));
         assert_eq!(
-            ChartEntry::new(36, Some("O"), "crown", None),
+            ChartEntry::new(36, Some("O"), "crown", Detail::default()),
             Err(ChartError::WholeTooth("crown"))
         );
         assert_eq!(
-            ChartEntry::new(36, Some("X"), "caries", None),
+            ChartEntry::new(36, Some("X"), "caries", Detail::default()),
             Err(ChartError::Surface)
         );
         assert_eq!(
-            ChartEntry::new(36, None, "decay", None),
+            ChartEntry::new(36, None, "decay", Detail::default()),
             Err(ChartError::Finding)
         );
         assert_eq!(
@@ -293,12 +389,12 @@ mod tests {
 
     #[test]
     fn whole_tooth_findings_replace_surface_entries() {
-        let crown = ChartEntry::new(36, None, "crown", None).unwrap();
+        let crown = ChartEntry::new(36, None, "crown", Detail::default()).unwrap();
         assert!(crown.replaces(None));
         assert!(crown.replaces(Some(Surface::Occlusal)));
-        let root_canal = ChartEntry::new(36, None, "root_canal", None).unwrap();
+        let root_canal = ChartEntry::new(36, None, "root_canal", Detail::default()).unwrap();
         assert!(!root_canal.replaces(Some(Surface::Occlusal)));
-        let filled = ChartEntry::new(36, Some("O"), "filled", None).unwrap();
+        let filled = ChartEntry::new(36, Some("O"), "filled", Detail::default()).unwrap();
         assert!(filled.replaces(Some(Surface::Occlusal)));
         assert!(!filled.replaces(Some(Surface::Distal)));
         assert!(!filled.replaces(None));

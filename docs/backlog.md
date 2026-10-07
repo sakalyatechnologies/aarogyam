@@ -4,16 +4,9 @@ Requests from the founder and clinics that are not built yet. Read this before d
 
 ## Dental chart
 
-### Treatment details per tooth (6 Oct 2026)
-- Selecting a tooth (or several) offers what was done or found per **surface** (mesial, distal, occlusal/incisal, buccal/labial, lingual/palatal) with the **material**: zirconia, PFM (porcelain fused to metal), metal (cast), composite, amalgam, glass ionomer, e.max (lithium disilicate), gold, ceramic, temporary.
-- Lists are **dropdowns with type-ahead** (typing "Z" offers Zirconia) and **"add new"**; additions are saved for the clinic and offered next time.
-- Lookups and matching happen **in the app**, not per keystroke on the API: the clinic's lists load once with the chart (or as reference data cached like the price list) and changes save with the finding.
-- Patient 360 shows the details tooth by tooth (history per tooth, surface and material).
-- **Design notes:** materials and procedures are specialty data (AGENTS.md rule 11): a seeded vocabulary in `specialties/dental`, plus clinic-defined additions in a clinic table with `org_id` and RLS. Findings reference vocabulary ids, not free text, so reports and future exports stay consistent.
-- **Today:** the chart records conditions per surface (`/api/v1/patients/{id}/dental-chart`); there is no material field and no clinic-editable list.
-
-### Realistic tooth shapes everywhere (6 Oct 2026)
-- Wherever a compact chart shows two straight rows of boxes (Patient 360 summaries on web and mobile), use the same oval, tooth-shaped drawing as the full chart.
+### Clinic list upkeep (6 Oct 2026, follow-up)
+- Built: procedures and materials per surface on one or several teeth (seeded in `specialties/dental/vocabulary.json`, clinic additions in `dental_terms`), type-ahead and "Add new" on web, Android and iOS, and oval compact charts in the website demo.
+- Still to do: retiring or renaming a clinic's own term (the table is append-only today), and a settings screen listing the clinic's additions.
 
 ## Today dashboard visuals (6 Oct 2026)
 - Chair utilisation over time (per chair, per day and week).

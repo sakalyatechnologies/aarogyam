@@ -47,7 +47,7 @@ describe("Dental chart tab", () => {
     expect(surfaceOf(46, "B")?.getAttribute("data-selected")).toBe("false");
     expect(screen.getByRole("button", { name: "Occlusal surface" }).getAttribute("aria-pressed")).toBe("true");
     await user.click(screen.getByRole("button", { name: /^Record a finding for tooth 46/ }));
-    expect(within(await screen.findByRole("dialog")).getByLabelText("Surface")).toHaveProperty("value", "O");
+    expect(within(await screen.findByRole("dialog")).getByRole("button", { name: "Occlusal" }).getAttribute("aria-pressed")).toBe("true");
     await user.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByRole("button", { name: /^Tooth 46, molar, Caries on occlusal/ });
     expect(surfaceOf(46, "O")?.getAttribute("data-finding")).toBe("caries");
@@ -122,6 +122,67 @@ describe("Dental chart tab", () => {
     fireEvent.touchStart(stage, { touches: [{ clientX: 80, clientY: 100 }] });
     fireEvent.touchEnd(stage, { changedTouches: [{ clientX: 220, clientY: 100 }] });
     expect(stage.getAttribute("data-active")).toBe("upper");
+  });
+
+  it("records procedure and material on several teeth, with type-ahead and Add new, without a request per keystroke", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = patientPath();
+    let chartReads = 0;
+    renderPortal(path, {
+      as: PEOPLE.asha,
+      backend,
+      wrap: (client) => ({
+        ...client,
+        getDentalChart: (...args) => {
+          chartReads += 1;
+          return client.getDentalChart(...args);
+        },
+      }),
+    });
+    await user.click(await screen.findByRole("tab", { name: "Dental chart" }));
+    await screen.findByRole("group", { name: "Upper arch" });
+
+    await user.click(screen.getByRole("button", { name: "Select several" }));
+    await user.click(tooth(16));
+    await user.click(tooth(26));
+    expect(await screen.findByRole("heading", { name: "2 teeth selected" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Record for 2 teeth" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.selectOptions(dialog.getByLabelText("Finding"), "filled");
+    await user.click(dialog.getByRole("button", { name: "Occlusal / incisal" }));
+
+    const readsBefore = chartReads;
+    const material = dialog.getByLabelText("Material");
+    await user.type(material, "Z");
+    expect(within(screen.getByRole("listbox", { name: "Materials" })).getAllByRole("option")[0]?.textContent).toBe("Zirconia");
+    await user.clear(material);
+    await user.type(material, "Lithium silicate");
+    await user.click(screen.getByRole("option", { name: 'Add "Lithium silicate"' }));
+    await screen.findByDisplayValue("Lithium silicate");
+    await user.type(dialog.getByLabelText("Procedure"), "onl");
+    await user.keyboard("{Enter}");
+    expect(dialog.getByLabelText("Procedure")).toHaveProperty("value", "Onlay");
+    expect(chartReads).toBe(readsBefore);
+    await user.click(dialog.getByRole("button", { name: "Save" }));
+
+    const details = within(await screen.findByRole("table", { name: "Treatment details by tooth" }));
+    const rows = details.getAllByRole("row").slice(1).map((row) => row.textContent);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toContain("16");
+    expect(rows[0]).toContain("OcclusalFilledOnlayLithium silicate");
+    expect(rows[1]).toContain("26");
+
+    // The tooth's history shows the surface, procedure and material.
+    await user.click(screen.getByRole("button", { name: "Select several" }));
+    await user.click(tooth(16));
+    const history = within(await screen.findByRole("list", { name: "History of tooth 16" }));
+    expect(await history.findByText("Onlay · Lithium silicate")).toBeTruthy();
+    expect(history.getByText(/occlusal/)).toBeTruthy();
+
+    // The clinic's new material is offered next time.
+    await user.click(screen.getByRole("button", { name: /^Record a finding for tooth 16/ }));
+    await user.type(within(await screen.findByRole("dialog", { name: /^Record a finding/ })).getByLabelText("Material"), "lith");
+    expect(within(screen.getByRole("listbox", { name: "Materials" })).getAllByRole("option")[0]?.textContent).toBe("Lithium silicate · this clinic");
   });
 
   it("lets a reader look at a tooth but not record", async () => {

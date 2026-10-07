@@ -93,6 +93,8 @@ entities! {
     Allergy, AllergyId;
     /// A specialty record, such as a dental chart entry.
     SpecialtyRecord, SpecialtyRecordId;
+    /// A clinic's own dental term: a procedure or material it added to the seeded list.
+    DentalTerm, DentalTermId;
     /// A procedure planned or done in a visit.
     Procedure, ProcedureId;
     /// A treatment plan.

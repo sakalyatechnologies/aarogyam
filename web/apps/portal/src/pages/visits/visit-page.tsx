@@ -142,6 +142,9 @@ function VisitView({ patientId, detail }: { patientId: PatientId; detail: NonNul
                 <li key={entry.id}>
                   Tooth {entry.tooth}
                   {entry.surface == null ? "" : ` (${entry.surface})`}: <span className="font-semibold text-text">{entry.finding}</span>
+                  {[entry.procedure?.label, entry.material?.label].some((part) => part !== undefined)
+                    ? ` · ${[entry.procedure?.label, entry.material?.label].filter((part) => part !== undefined).join(" · ")}`
+                    : null}
                 </li>
               ))}
             </ul>

@@ -1,0 +1,13 @@
+/* The procedure and material dropdowns: an input with a type-ahead list under it. */
+.odo-combo { position: relative; }
+.odo-combo-input { width: 100%; min-height: 2.75rem; border: 1px solid var(--sk-border-strong, #b9c4bf); border-radius: 12px; background: var(--sk-surface, #fff); color: var(--sk-text, #14231d); font: inherit; font-size: 16px; padding: 10px 14px; }
+@media (min-width: 640px) { .odo-combo-input { font-size: 14px; } }
+.odo-combo-input:focus { outline: 2px solid var(--sk-primary, #0f766e); outline-offset: 2px; }
+.odo-combo-list { position: absolute; z-index: 10; left: 0; right: 0; top: calc(100% + 4px); max-height: 15rem; overflow: auto; margin: 0; padding: 4px; list-style: none; background: var(--sk-surface, #fff); color: var(--sk-text, #14231d); border: 1px solid var(--sk-border, #d8e0dc); border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, .16); }
+.odo-combo-list li { padding: 8px 10px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+.odo-combo-list li[aria-selected="true"] { background: color-mix(in srgb, var(--sk-primary, #0f766e) 14%, var(--sk-surface, #fff)); }
+.odo-combo-list small, .odo-combo-list .odo-muted { color: var(--sk-text-muted, #5d6b66); }
+.odo-surface-toggles { display: flex; flex-wrap: wrap; gap: 6px; }
+.odo-surface-toggles button { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--sk-border, #d8e0dc); background: transparent; color: var(--sk-text, #14231d); cursor: pointer; }
+.odo-surface-toggles button[aria-pressed="true"] { background: color-mix(in srgb, var(--sk-primary, #0f766e) 16%, var(--sk-surface, #fff)); border-color: var(--sk-primary, #0f766e); }
+.odo-surface-toggles button:disabled { opacity: .45; cursor: default; }

@@ -1972,6 +1972,7 @@
     "clinical_notes.signed_by",
     "conditions.verified_by",
     "daily_closings.closed_by",
+    "dental_terms.added_by",
     "document_extractions.confirmed_by",
     "encounters.clinician_id",
     "invoices.issued_by",
@@ -4651,7 +4652,7 @@
      "type": "jsonb",
      "nullable": false,
      "ref": null,
-     "note": "validated against the module's schema on write; dental: tooth, surface, finding, note"
+     "note": "validated against the module's schema on write; dental: tooth, surface, finding, procedure, material, note (procedure and material are term ids: seeded or dental_terms)"
     },
     {
      "name": "tooth",
@@ -4722,6 +4723,43 @@
    ],
    "sensitivity": "health",
    "offline": "read_write"
+  },
+  {
+   "name": "dental_terms",
+   "domain": "clinical",
+   "purpose": "A clinic's own dental procedures and materials, beside the seeded vocabulary in specialties/dental/vocabulary.json.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
+   "notes": "Chart entries name a term by id: a seeded id such as zirconia, or one of these UUIDs. The list arrives with the chart and clients filter it as the clinician types.",
+   "cols": [
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "procedure, material"
+    },
+    {
+     "name": "label",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique per list ignoring case"
+    },
+    {
+     "name": "added_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "document_templates",

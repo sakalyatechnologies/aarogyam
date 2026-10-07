@@ -1372,6 +1372,22 @@ export const attachment = z.object({
 }) satisfies z.ZodType<C.Attachment>;
 export type Attachment = z.output<typeof attachment>;
 
+export const dentalTermKind = z.enum(["procedure", "material"]) satisfies z.ZodType<C.DentalTermKind>;
+export type DentalTermKind = z.output<typeof dentalTermKind>;
+
+/** A procedure or material: seeded (`zirconia`) or the clinic's own (a UUID id, `own`). */
+export const dentalTerm = z.object({
+  id: z.string().min(1),
+  kind: dentalTermKind,
+  label: z.string().min(1),
+  own: z.boolean(),
+}) satisfies z.ZodType<C.DentalTerm>;
+export type DentalTerm = z.output<typeof dentalTerm>;
+const dentalTermRef = dentalTerm.nullable().exactOptional();
+
+/** Body of `POST /api/v1/dental-terms`. */
+export type NewDentalTerm = C.NewDentalTerm;
+
 export const visitDetail = z.object({
   visit,
   notes: z.array(note),
@@ -1383,6 +1399,8 @@ export const visitDetail = z.object({
       tooth: count,
       surface: toothSurface.nullable().exactOptional(),
       finding: z.string(),
+      procedure: dentalTermRef,
+      material: dentalTermRef,
       status: z.string(),
       note: optionalText,
       effective_at: timestamp,
@@ -1419,6 +1437,8 @@ export const chartEntry = z.object({
   tooth: count,
   surface: toothSurface.nullable().exactOptional(),
   finding: chartFinding,
+  procedure: dentalTermRef,
+  material: dentalTermRef,
   note: optionalText,
   status: chartEntryStatus,
   recorded_by: membershipId.nullable().exactOptional(),
@@ -1428,7 +1448,11 @@ export const chartEntry = z.object({
 }) satisfies z.ZodType<C.ChartEntry>;
 export type ChartEntry = z.output<typeof chartEntry>;
 
-export const dentalChart = z.object({ current: z.array(chartEntry), history: z.array(chartEntry) }) satisfies z.ZodType<C.DentalChart>;
+export const dentalChart = z.object({
+  current: z.array(chartEntry),
+  history: z.array(chartEntry),
+  terms: z.array(dentalTerm),
+}) satisfies z.ZodType<C.DentalChart>;
 export type DentalChart = z.output<typeof dentalChart>;
 
 /** Body of `POST /api/v1/patients/{id}/dental-chart`. */

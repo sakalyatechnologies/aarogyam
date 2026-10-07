@@ -90,6 +90,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::facts::flags,
         crate::v1::chart::get,
         crate::v1::chart::record,
+        crate::v1::chart::add_term,
         crate::v1::treatment::record_procedure,
         crate::v1::treatment::procedures,
         crate::v1::treatment::complete,

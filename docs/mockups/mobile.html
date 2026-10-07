@@ -144,15 +144,19 @@ body{margin:0;font-family:"Plus Jakarta Sans",system-ui,sans-serif;color:var(--i
 .phero h3{margin:0;font-size:19px}.ios .phero h3{letter-spacing:-.01em}
 .phero .meta{font-size:12px;color:var(--pmut);margin:3px 0 0}
 .pflags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.teeth16{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;margin:8px 0 4px}
-.mtooth{aspect-ratio:.8;border-radius:6px;border:1.5px solid var(--prule);background:var(--pcard);font-size:7.5px;font-weight:800;
-  color:var(--pmut);display:grid;place-items:center;cursor:pointer;padding:0;transition:.15s}
-.mtooth:active{transform:scale(1.25)}
-.mtooth.treated{border-color:var(--green);background:var(--green-soft);color:var(--green)}
-.mtooth.rct{border-color:var(--indigo);background:var(--indigo-soft);color:var(--indigo)}
-.mtooth.planned{border-color:var(--amber);border-style:dashed;background:var(--amber-soft);color:var(--amber)}
-.mtooth.watch{border-color:var(--red);color:var(--red)}
-.mtooth.sel{box-shadow:0 0 0 2px var(--brand)}
+.teeth16{display:flex;align-items:flex-start;gap:1px;margin:8px 0 4px}
+.mtooth{flex:var(--w,1) 1 0;min-width:0;border:0;background:none;padding:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;
+  font-size:7.5px;font-weight:800;color:var(--pmut);transform:translateY(var(--y,0)) rotate(var(--r,0deg));transition:.15s}
+.mtooth svg{width:100%;height:auto;display:block;overflow:visible}
+.mtooth .rt{fill:var(--pinset);stroke:var(--prule);stroke-width:1}
+.mtooth .cr{fill:var(--pcard);stroke:var(--prule);stroke-width:1.2}
+.mtooth .oc{fill:none;stroke:var(--prule);stroke-width:.7;opacity:.8}
+.mtooth:active{transform:translateY(var(--y,0)) rotate(var(--r,0deg)) scale(1.25)}
+.mtooth.treated{color:var(--green)}.mtooth.treated .cr{fill:var(--green-soft);stroke:var(--green)}
+.mtooth.rct{color:var(--indigo)}.mtooth.rct .cr{fill:var(--indigo-soft);stroke:var(--indigo)}.mtooth.rct .rt{stroke:var(--indigo);fill:var(--indigo-soft)}
+.mtooth.planned{color:var(--amber)}.mtooth.planned .cr{fill:var(--amber-soft);stroke:var(--amber);stroke-dasharray:2.5 2}
+.mtooth.watch{color:var(--red)}.mtooth.watch .cr{stroke:var(--red);stroke-width:1.6}
+.mtooth.sel .cr{stroke:var(--brand);stroke-width:2.2}.mtooth.sel{color:var(--brand)}
 .archlbl{font-size:9.5px;font-weight:800;letter-spacing:.1em;color:var(--pmut);margin:8px 0 2px}
 .txline{border-left:3px solid var(--brand);background:var(--pinset);border-radius:0 10px 10px 0;padding:9px 12px;margin:8px 0;font-size:12px}
 .txline b{font-size:12.5px;display:block}.txline span{color:var(--pmut)}
@@ -504,10 +508,27 @@ function setPtab(w,t,el){
 document.querySelectorAll('#iosSeg button').forEach(b=>b.onclick=()=>setPtab('ios',b.dataset.ptab,b));
 document.querySelectorAll('#andTabs button').forEach(b=>b.onclick=()=>setPtab('and',b.dataset.ptab,b));
 
+/* The compact chart draws each tooth as the full chart does: an oval crown on its roots, sized by kind, along a gentle arch. */
+const TKIND=n=>{const q=n%10;return q<=2?'i':q===3?'c':q<=5?'p':'m';};
+const TW={i:.78,c:.84,p:.92,m:1.12};
+function toothSVG(n){
+  const k=TKIND(n), up=[1,2].includes(Math.floor(n/10));
+  const cw={i:12,c:13,p:15,m:18}[k], h=k==='m'?7.5:7, cy=up?22:8;
+  const top=up?17:13, tip=up?1:29;
+  const roots=k==='m'
+    ?`<path class="rt" d="M${10-cw/2+1.5},${top} Q${10-cw/4-1},${tip} ${10-1},${top} Z"/><path class="rt" d="M${10+1},${top} Q${10+cw/4+1},${tip} ${10+cw/2-1.5},${top} Z"/>`
+    :`<path class="rt" d="M${10-cw/2+1.5},${top} Q10,${tip} ${10+cw/2-1.5},${top} Z"/>`;
+  const groove=k==='m'||k==='p'?`<path class="oc" d="M${10-cw/4},${cy} Q10,${cy+(up?1.5:-1.5)} ${10+cw/4},${cy}"/>`:'';
+  return `<svg viewBox="0 0 20 30" aria-hidden="true">${roots}<ellipse class="cr" cx="10" cy="${cy}" rx="${cw/2}" ry="${h}"/>${groove}</svg>`;
+}
 function teethRowHTML(w,arr,p,sel){
-  return `<div class="teeth16">`+arr.map(n=>{
+  const up=[1,2].includes(Math.floor(arr[0]/10));
+  return `<div class="teeth16">`+arr.map((n,i)=>{
     const st=p.teeth[n]||''; const s=sel===n?' sel':'';
-    return `<button class="mtooth ${st}${s}" onclick="selTooth('${w}','${n}')">${n}</button>`;
+    const t=(i-(arr.length-1)/2)/((arr.length-1)/2), lift=(4*t*t).toFixed(1), rot=((up?1:-1)*t*9).toFixed(1);
+    const style=`--w:${TW[TKIND(n)]};--y:${up?-lift:lift}px;--r:${rot}deg`;
+    const num=`<span>${n}</span>`;
+    return `<button class="mtooth ${st}${s}" style="${style}" aria-label="Tooth ${n}${st?', '+st:''}" onclick="selTooth('${w}','${n}')">${up?num+toothSVG(n):toothSVG(n)+num}</button>`;
   }).join('')+`</div>`;
 }
 let selT={ios:null,and:null};

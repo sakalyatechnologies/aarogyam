@@ -30,7 +30,7 @@ export interface OdontogramProps {
   chart: DentalChart;
   planItems: readonly PlanItem[];
   /** Undefined when the caller may not record findings: the chart then reads but does not offer the dialog. */
-  onRecord: ((tooth: number, surface: ToothSurface | null) => void) | undefined;
+  onRecord: ((teeth: readonly number[], surface: ToothSurface | null) => void) | undefined;
 }
 
 /** Both arches of one dentition, selectable by mouse, touch and keyboard, with a legend, summary strip and tooth panel. */
@@ -40,6 +40,9 @@ export function Odontogram({ patientId, chart, planItems, onRecord }: Odontogram
     return teeth.length > 0 && teeth.every((t) => dentitionOf(t) === "child") ? "child" : "adult";
   });
   const [selected, setSelected] = useState<{ tooth: number; surface: ToothSurface | null } | undefined>(undefined);
+  // "Select several": taps add and remove teeth, so one finding can be recorded on all of them.
+  const [several, setSeveral] = useState(false);
+  const [group, setGroup] = useState<readonly number[]>([]);
   const [focusTooth, setFocusTooth] = useState<number | undefined>(undefined);
   const [phoneArch, setPhoneArch] = useState<ArchName>("upper");
   const [zoom, setZoom] = useState<(typeof ZOOMS)[number]>(1);
@@ -54,7 +57,16 @@ export function Odontogram({ patientId, chart, planItems, onRecord }: Odontogram
   const tabStop = focusTooth !== undefined && order.includes(focusTooth) ? focusTooth : order[0];
 
   const select = (tooth: number, surface: ToothSurface | null) => {
-    setSelected({ tooth, surface });
+    if (several) {
+      // A tap on a picked tooth removes it; a tap on one of its surfaces keeps it.
+      const removing = surface === null && group.includes(tooth);
+      const next = removing ? group.filter((t) => t !== tooth) : group.includes(tooth) ? group : [...group, tooth];
+      setGroup(next);
+      const last = next[next.length - 1];
+      setSelected(removing ? (last === undefined ? undefined : { tooth: last, surface: null }) : { tooth, surface });
+    } else {
+      setSelected({ tooth, surface });
+    }
     setFocusTooth(tooth);
   };
   const focusOn = (tooth: number | undefined) => {
@@ -168,12 +180,26 @@ export function Odontogram({ patientId, chart, planItems, onRecord }: Odontogram
               onClick={() => {
                 setDentition(d);
                 setSelected(undefined);
+                setGroup([]);
                 setFocusTooth(undefined);
               }}
             >
               {d === "adult" ? "Adult" : "Child (primary)"}
             </button>
           ))}
+        </div>
+        <div className="odo-seg" role="group" aria-label="Selection">
+          <button
+            type="button"
+            aria-pressed={several}
+            onClick={() => {
+              const next = !several;
+              setSeveral(next);
+              setGroup(next && selected !== undefined ? [selected.tooth] : []);
+            }}
+          >
+            Select several
+          </button>
         </div>
         <div className="odo-seg odo-arch-tabs" role="group" aria-label="Arch">
           {(["upper", "lower"] as const).map((a) => (
@@ -243,7 +269,7 @@ export function Odontogram({ patientId, chart, planItems, onRecord }: Odontogram
                         key={placed.tooth}
                         placed={placed}
                         state={states.get(placed.tooth) ?? EMPTY_STATE(placed.tooth)}
-                        selected={selected?.tooth === placed.tooth}
+                        selected={selected?.tooth === placed.tooth || group.includes(placed.tooth)}
                         selectedSurface={selected?.surface ?? null}
                         focusable={placed.tooth === tabStop}
                         onSelect={select}
@@ -259,6 +285,7 @@ export function Odontogram({ patientId, chart, planItems, onRecord }: Odontogram
         </div>
         <ToothPanel
           patientId={patientId}
+          group={several ? group : []}
           tooth={selected?.tooth}
           surface={selected?.surface ?? null}
           state={selected === undefined ? undefined : states.get(selected.tooth)}

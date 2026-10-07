@@ -1643,6 +1643,182 @@ async fn the_timeline_lists_the_record_newest_first() {
     app.finish().await;
 }
 
+/// Procedures and materials: the seeded vocabulary and the clinic's additions arrive with the
+/// chart, entries name them by id and show their labels in the history, and one clinic can
+/// neither see nor use another's terms.
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn dental_terms_are_seeded_added_per_clinic_and_named_by_entries() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let beta = app.token(BETA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let chart_path = format!("/api/v1/patients/{patient}/dental-chart");
+    let add = async |host, token: &str, kind: &str, label: &str| {
+        app.send(
+            Method::POST,
+            host,
+            "/api/v1/dental-terms",
+            Some(token),
+            Some(json!({ "kind": kind, "label": label })),
+        )
+        .await
+    };
+
+    // The seeded vocabulary comes with the chart.
+    let (status, chart) = app
+        .send(Method::GET, ALPHA, &chart_path, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    let labels = |chart: &Value, kind: &str| -> Vec<String> {
+        chart["terms"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|t| t["kind"] == kind)
+            .map(|t| t["label"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    assert_eq!(labels(&chart, "material").len(), 10);
+    assert!(labels(&chart, "material").contains(&"Zirconia".to_owned()));
+    assert!(labels(&chart, "procedure").contains(&"Crown".to_owned()));
+
+    // "Add new": saved once per clinic, found again ignoring case; a seeded label is the seeded term.
+    let (status, added) = add(ALPHA, &owner, "material", "  Lithium   silicate ").await;
+    assert_eq!(status, StatusCode::CREATED, "{added}");
+    assert_eq!(added["label"], "Lithium silicate");
+    assert_eq!(added["own"], true);
+    let own = added["id"].as_str().unwrap().to_owned();
+    let (status, again) = add(ALPHA, &owner, "material", "lithium SILICATE").await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert_eq!(again["id"], own.as_str());
+    let (status, seeded) = add(ALPHA, &owner, "material", "zirconia").await;
+    assert_eq!(status, StatusCode::OK, "{seeded}");
+    assert_eq!(
+        (&seeded["id"], &seeded["own"]),
+        (&json!("zirconia"), &json!(false))
+    );
+    for (kind, label) in [
+        ("colour", "Blue"),
+        ("material", "   "),
+        ("procedure", &"x".repeat(81)),
+    ] {
+        let (status, error) = add(ALPHA, &owner, kind, label).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{kind} {label}: {error}");
+    }
+    let (status, _) = add(ALPHA, &app.token(ALPHA_ASSISTANT), "material", "Gold foil").await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    // Entries name terms by id; the chart and the history carry their labels.
+    let (status, chart) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &chart_path,
+            Some(&owner),
+            Some(json!({ "entries": [
+                { "tooth": 16, "finding": "crown", "procedure": "crown", "material": "zirconia" },
+                { "tooth": 26, "surface": "O", "finding": "filled", "procedure": "inlay", "material": own },
+                { "tooth": 27, "surface": "M", "finding": "caries" },
+            ] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    assert!(labels(&chart, "material").contains(&"Lithium silicate".to_owned()));
+    assert_eq!(chart["current"][0]["material"]["label"], "Zirconia");
+    assert_eq!(chart["current"][0]["procedure"]["label"], "Crown");
+    assert_eq!(chart["current"][1]["material"]["id"], own.as_str());
+    assert_eq!(chart["current"][1]["material"]["label"], "Lithium silicate");
+    assert_eq!(chart["current"][2]["material"], Value::Null);
+    let (status, chart) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("{chart_path}?tooth=26"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    assert_eq!(chart["history"][0]["surface"], "O");
+    assert_eq!(chart["history"][0]["procedure"]["label"], "Inlay");
+    assert_eq!(chart["history"][0]["material"]["label"], "Lithium silicate");
+
+    for entry in [
+        json!({ "tooth": 16, "finding": "crown", "material": "unobtainium" }),
+        json!({ "tooth": 16, "finding": "crown", "procedure": "zirconia" }),
+        json!({ "tooth": 16, "finding": "crown", "procedure": own }),
+        json!({ "tooth": 16, "finding": "sound", "material": "gold" }),
+        json!({ "tooth": 16, "finding": "crown", "material": Uuid::now_v7() }),
+    ] {
+        let (status, error) = app
+            .send(
+                Method::POST,
+                ALPHA,
+                &chart_path,
+                Some(&owner),
+                Some(json!({ "entries": [entry] })),
+            )
+            .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{entry}: {error}");
+    }
+
+    // Beta sees only the seeded list, can't use Alpha's term, and keeps its own additions apart.
+    let beta_patient = register(&app, BETA, &beta, "Ravi Kumar").await;
+    let beta_chart = format!("/api/v1/patients/{beta_patient}/dental-chart");
+    let (status, chart) = app
+        .send(Method::GET, BETA, &beta_chart, Some(&beta), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    assert!(!labels(&chart, "material").contains(&"Lithium silicate".to_owned()));
+    let (status, error) = app
+        .send(
+            Method::POST,
+            BETA,
+            &beta_chart,
+            Some(&beta),
+            Some(json!({ "entries": [{ "tooth": 26, "finding": "filled", "material": own }] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{error}");
+    let (status, theirs) = add(BETA, &beta, "material", "Lithium silicate").await;
+    assert_eq!(status, StatusCode::CREATED, "{theirs}");
+    assert_ne!(theirs["id"], own.as_str());
+    // On Alpha's host Beta's owner isn't a member.
+    let (status, _) = add(ALPHA, &beta, "material", "Gold foil").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // Row-level security keeps each clinic's terms to itself, and terms never change.
+    let (alpha_id, beta_id) = (app.clinic_id("alpha").await, app.clinic_id("beta").await);
+    let db = app.api_db();
+    for (clinic, expected) in [
+        (alpha_id, own.clone()),
+        (beta_id, theirs["id"].as_str().unwrap().to_owned()),
+    ] {
+        let ids = db
+            .scoped(&Scope::tenant(clinic), async |tx| {
+                sqlx::query_scalar::<_, String>("select id::text from aarogyam.dental_terms")
+                    .fetch_all(tx.conn())
+                    .await
+                    .map_err(DbError::from)
+            })
+            .await
+            .unwrap();
+        assert_eq!(ids, [expected]);
+    }
+    let error = db
+        .scoped(&Scope::tenant(alpha_id), async |tx| {
+            sqlx::query("update aarogyam.dental_terms set label = 'Changed'")
+                .execute(tx.conn())
+                .await
+                .map_err(DbError::from)
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(error.kind(), DbErrorKind::Forbidden);
+    app.finish().await;
+}
+
 /// The clinical tables pass the schema checks, and row-level security hides one clinic's
 /// clinical rows from another even in a direct query.
 #[tokio::test]
@@ -1936,7 +2112,8 @@ fn template(path: &str) -> String {
 }
 
 /// [`every_route`] lists every clinical operation in the OpenAPI document, except the upload
-/// (multipart, checked in the files test) and the signed download (no sign-in).
+/// (multipart, checked in the files test), the signed download (no sign-in) and adding a dental
+/// term (checked in its own test).
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
 async fn every_clinical_route_is_checked() {
@@ -1948,8 +2125,11 @@ async fn every_clinical_route_is_checked() {
             let clinical = operation["tags"]
                 .as_array()
                 .is_some_and(|tags| tags.contains(&json!("clinical")));
-            let skipped =
-                path.ends_with("/content") || (path.ends_with("/attachments") && method == "post");
+            // Adding a dental term names no record, so it has no cross-clinic 404; its own test
+            // proves clinics can't see or use each other's terms.
+            let skipped = path.ends_with("/content")
+                || path.ends_with("/dental-terms")
+                || (path.ends_with("/attachments") && method == "post");
             if clinical && !skipped {
                 documented.push(format!("{} {}", method.to_uppercase(), template(path)));
             }

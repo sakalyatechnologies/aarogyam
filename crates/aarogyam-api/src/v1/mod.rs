@@ -179,6 +179,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/patients/{id}/dental-chart",
             get(chart::get).post(chart::record),
         )
+        .route("/dental-terms", post(chart::add_term))
         .route("/visits/{id}/procedures", post(treatment::record_procedure))
         .route("/patients/{id}/procedures", get(treatment::procedures))
         .route("/procedures/{id}/complete", post(treatment::complete))

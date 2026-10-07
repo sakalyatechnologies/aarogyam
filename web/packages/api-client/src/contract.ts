@@ -350,6 +350,9 @@ export type ChartEntry = Schemas["ChartEntry"];
 export type DentalChart = Schemas["DentalChart"];
 export type NewChartEntry = Schemas["NewChartEntry"];
 export type NewChartEntries = Schemas["NewChartEntries"];
+export type DentalTermKind = "procedure" | "material";
+export type DentalTerm = Omit<Schemas["DentalTerm"], "kind"> & { kind: DentalTermKind };
+export type NewDentalTerm = Omit<Schemas["NewDentalTerm"], "kind"> & { kind: DentalTermKind };
 
 // Patient files (M4) ------------------------------------------------------------------------------
 

@@ -120,3 +120,11 @@
   .odo-layout { grid-template-columns: 1fr; }
   .odo-history { max-height: none; }
 }
+
+/* procedure and material under a history entry, and the tooth-by-tooth table */
+.odo-detail { font-size: 12px; color: var(--odo-text); }
+.odo-details { width: 100%; border-collapse: collapse; font-size: 13px; }
+.odo-details th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--odo-muted); padding: 6px 8px; border-bottom: 1px solid var(--odo-border); }
+.odo-details td { padding: 7px 8px; border-bottom: 1px solid var(--odo-border); vertical-align: top; }
+.odo-details td:first-child { font-weight: 700; font-variant-numeric: tabular-nums; }
+.odo-details-wrap { overflow-x: auto; }

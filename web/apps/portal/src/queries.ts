@@ -11,12 +11,14 @@ import {
   type ClinicSettingsChanges,
   type ConditionFields,
   type DateRange,
+  type DentalChart,
   type LeaveId,
   type LetterheadSlot,
   type MemberChanges,
   type MembershipId,
   type NewAppointmentBody,
   type NewChartEntries,
+  type NewDentalTerm,
   type NewInvitation,
   type NewLeave,
   type NewPatient,
@@ -747,6 +749,20 @@ export function useDentalChart(patientId: PatientId | undefined) {
     queryKey: ["dental-chart", access.org_id, patientId],
     queryFn: ({ signal }) => (patientId === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.getDentalChart(patientId, undefined, { signal }))),
     enabled: patientId !== undefined,
+  });
+}
+
+/** Adds a procedure or material for the clinic and puts it in every cached chart's list, so the dropdowns offer it at once without a reload. */
+export function useAddDentalTerm() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NewDentalTerm) => unwrap(api.addDentalTerm(input)),
+    onSuccess: (term) => {
+      queryClient.setQueriesData<DentalChart>({ queryKey: ["dental-chart", access.org_id] }, (chart) =>
+        chart === undefined || chart.terms.some((t) => t.id === term.id) ? chart : { ...chart, terms: [...chart.terms, term] },
+      );
+    },
   });
 }
 

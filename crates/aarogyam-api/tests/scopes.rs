@@ -447,3 +447,51 @@ async fn assigned_narrows_like_own() {
     assert_eq!(status, StatusCode::NOT_FOUND);
     app.finish().await;
 }
+
+/// A doctor narrowed to their own patients starts the visit of a walk-in queued with them,
+/// though the patient isn't theirs yet; another narrowed doctor finds no such token.
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_narrowed_doctor_starts_visits_for_tokens_queued_with_them() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let doctor_a = doctor(&app, &owner, DOCTOR_A, "Dr A").await;
+    doctor(&app, &owner, DOCTOR_B, "Dr B").await;
+    narrow_doctors(&app, &owner, "own").await;
+    let (status, walk_in) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/walk-ins",
+            Some(&desk),
+            Some(json!({ "patient": { "full_name": "Walk In" }, "practitioner_id": doctor_a })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{walk_in}");
+    let start = format!(
+        "/api/v1/queue/{}/start-visit",
+        walk_in["token"]["id"].as_str().unwrap()
+    );
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &start,
+            Some(&app.token(DOCTOR_B)),
+            Some(json!({})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, started) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &start,
+            Some(&app.token(DOCTOR_A)),
+            Some(json!({})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    app.finish().await;
+}

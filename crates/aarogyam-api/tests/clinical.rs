@@ -2103,6 +2103,11 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             Some(json!({ "status": "resolved" })),
         ),
         (
+            Method::POST,
+            format!("/api/v1/patients/{patient}/allergies/{allergy}/confirm"),
+            None,
+        ),
+        (
             Method::GET,
             format!("/api/v1/patients/{patient}/clinical-flags"),
             None,
@@ -2216,8 +2221,11 @@ async fn every_clinical_route_is_checked() {
                 .is_some_and(|tags| tags.contains(&json!("clinical")));
             // Adding a dental term names no record, so it has no cross-clinic 404; its own test
             // proves clinics can't see or use each other's terms.
+            // The quick picks are specialty data, the same for every clinic: no record, no 404
+            // (tests/walk_ins.rs reads them).
             let skipped = path.ends_with("/content")
                 || path.ends_with("/dental-terms")
+                || path.ends_with("/quick-picks")
                 || (path.ends_with("/attachments") && method == "post");
             if clinical && !skipped {
                 documented.push(format!("{} {}", method.to_uppercase(), template(path)));

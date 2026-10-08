@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into aarogyam.allergies\n             (id, patient_id, substance, code_system, code, reaction, severity, status, source,\n              verified_by, verified_at)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())\n           returning id, patient_id, substance, code_system, code, reaction, severity, status, source,\n                     verified_by, created_at, updated_at",
+  "query": "with a as (\n             insert into aarogyam.allergies\n               (id, patient_id, substance, code_system, code, reaction, severity, status, source,\n                verified_by, verified_at)\n             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())\n             returning id, patient_id, substance, code_system, code, reaction, severity, status,\n                       source, verified_by, created_at, updated_at),\n           reviewed as (\n             update aarogyam.patients set allergies_reviewed = 'has_allergies', allergies_reviewed_at = now()\n             where id = $2 and $8 = 'active' and allergies_reviewed <> 'has_allergies')\n           select id as \"id!\", patient_id as \"patient_id!\", substance as \"substance!\", code_system,\n                  code, reaction, severity as \"severity!\", status as \"status!\", source as \"source!\",\n                  verified_by, created_at as \"created_at!\", updated_at as \"updated_at!\"\n           from a",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "id!",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -16,7 +16,7 @@
       },
       {
         "ordinal": 1,
-        "name": "patient_id",
+        "name": "patient_id!",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -27,7 +27,7 @@
       },
       {
         "ordinal": 2,
-        "name": "substance",
+        "name": "substance!",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -71,7 +71,7 @@
       },
       {
         "ordinal": 6,
-        "name": "severity",
+        "name": "severity!",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -82,7 +82,7 @@
       },
       {
         "ordinal": 7,
-        "name": "status",
+        "name": "status!",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -93,7 +93,7 @@
       },
       {
         "ordinal": 8,
-        "name": "source",
+        "name": "source!",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -115,7 +115,7 @@
       },
       {
         "ordinal": 10,
-        "name": "created_at",
+        "name": "created_at!",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -126,7 +126,7 @@
       },
       {
         "ordinal": 11,
-        "name": "updated_at",
+        "name": "updated_at!",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -165,5 +165,5 @@
       false
     ]
   },
-  "hash": "2536f8b6857288c0d519ddaddc1a04bc8113e6c3a998e9f5990711f42c1901c5"
+  "hash": "de83c5988f265e27f89e625cafaf867dbe153e9113289a46956ae5f10624f1dc"
 }

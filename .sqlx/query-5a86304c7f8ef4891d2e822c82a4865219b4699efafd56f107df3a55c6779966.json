@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.patient_consents\n             (patient_id, purpose, notice_version, given_at, method, recorded_by)\n           select $1, c.purpose, $4, now(), c.method, $5\n           from unnest($2::text[], $3::text[]) as c(purpose, method)\n           on conflict (org_id, patient_id, purpose) where status = 'given' do nothing\n           returning purpose",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "purpose",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patient_consents",
+            "name": "purpose"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray",
+        "TextArray",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5a86304c7f8ef4891d2e822c82a4865219b4699efafd56f107df3a55c6779966"
+}

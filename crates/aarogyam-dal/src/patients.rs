@@ -655,3 +655,47 @@ pub async fn insert_self_registered(
     .await?;
     Ok(row)
 }
+
+/// A patient whose phone matches, with only what the desk needs to say "this is them".
+#[derive(Debug, Clone)]
+pub struct PhoneMatch {
+    /// Identifier.
+    pub id: Uuid,
+    /// Readable number.
+    pub number: String,
+    /// Full name.
+    pub full_name: String,
+    /// `female`, `male`, `other` or `unknown`.
+    pub sex: String,
+    /// Date of birth.
+    pub date_of_birth: Option<Date>,
+    /// Whether it was estimated.
+    pub birth_date_estimated: bool,
+}
+
+/// Patients whose main or second phone is `phone_e164`, by name, within `member`'s reach.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn lookup_phone(
+    conn: &mut PgConnection,
+    phone_e164: &str,
+    limit: i64,
+    member: Option<Uuid>,
+) -> Result<Vec<PhoneMatch>, DbError> {
+    let rows = sqlx::query_as!(
+        PhoneMatch,
+        r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated
+           from aarogyam.patients
+           where (phone_e164 = $1 or alt_phone_e164 = $1) and deleted_at is null
+             and status <> 'merged' and app.patient_in_reach(id, $3)
+           order by full_name, id
+           limit $2"#,
+        phone_e164,
+        limit,
+        member
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}

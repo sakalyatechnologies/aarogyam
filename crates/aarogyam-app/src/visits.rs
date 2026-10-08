@@ -11,6 +11,7 @@ use aarogyam_domain::clinical::{
 };
 use aarogyam_domain::ids::{ClinicalNoteId, EncounterId, MembershipId, NoteAddendumId, PatientId};
 use aarogyam_domain::permission::Permission;
+use aarogyam_domain::schedule::QueueStatus;
 use sakalya_db::{Db, ScopedTx};
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -145,7 +146,7 @@ pub struct VisitView {
     pub ended_at: Option<OffsetDateTime>,
 }
 
-fn visit_view(row: visits::EncounterRow, names: &Names) -> Result<VisitView, AppError> {
+pub(crate) fn visit_view(row: visits::EncounterRow, names: &Names) -> Result<VisitView, AppError> {
     Ok(VisitView {
         id: EncounterId::from_uuid(row.id),
         number: row.number,
@@ -331,6 +332,7 @@ pub async fn start(
                 appointment_id: input.appointment_id,
                 chief_complaint: chief_complaint.as_deref(),
                 started_at: now,
+                queue_token_id: None,
             },
         )
         .await
@@ -426,6 +428,13 @@ pub async fn close(
         let visit =
             require_open_visit(tx, visit_id, actor.reach(Permission::ClinicalWrite)).await?;
         let row = visits::close_encounter(tx.conn(), visit.id, now).await?;
+        // A visit started from the queue finishes its token (and the token's appointment).
+        if let Some(token_id) = visits::token_of(tx.conn(), row.id).await?
+            && let Some(token) = aarogyam_dal::queue::lock(tx.conn(), token_id).await?
+            && matches!(token.status.as_str(), "waiting" | "in_chair")
+        {
+            crate::queue::move_token(tx, &actor.timezone, &token, QueueStatus::Done, now).await?;
+        }
         let names = Names::load(tx, [row.clinician_id]).await?;
         visit_view(row, &names)
     })

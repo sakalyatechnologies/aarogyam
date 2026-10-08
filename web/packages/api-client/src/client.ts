@@ -4,6 +4,7 @@ import type { ApiResult } from "./result.js";
 import type { FileSharing, PatientAppAccess, PatientAppInvitation, PatientLinkDecided } from "./contract.js";
 import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
+import type { Allergy, PhoneMatchPage, QuickPicks, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
 import type {
   AcceptInvitation,
   Acceptance,
@@ -615,4 +616,16 @@ export interface ApiClient {
   deleteWebsitePhoto(id: string, options?: RequestOptions): Promise<ApiResult<void>>;
   /** Clinic host, public: the published website; `404` while it is not published. */
   getPublicSite(options?: RequestOptions): Promise<ApiResult<SitePage>>;
+
+  // Walk-in fast path.
+  /** Clinic host: registers (or picks) a walk-in, records reported allergies and desk consents, and issues a token, in one step. Needs `intake.write`, `patients.write` and `appointments.write`. */
+  registerWalkIn(input: WalkInRequest, options?: RequestOptions): Promise<ApiResult<WalkIn>>;
+  /** Clinic host: patients registered with a phone (sent in the body), with only id, number, name, age and sex. Needs `patients.read`. */
+  lookupPatientsByPhone(phone: string, options?: RequestOptions): Promise<ApiResult<PhoneMatchPage>>;
+  /** Clinic host: seats a token and starts (or returns) its visit. Needs `clinical.write`. */
+  startVisitFromQueue(id: QueueTokenId, options?: RequestOptions): Promise<ApiResult<StartedVisit>>;
+  /** Clinic host: confirms an allergy the patient reported at the desk. Needs `clinical.write`. */
+  confirmAllergy(id: PatientId, allergyId: AllergyId, options?: RequestOptions): Promise<ApiResult<Allergy>>;
+  /** Clinic host: the specialty's quick picks (allergies, complaints, findings, procedures, advice, medicine sets). Needs `patients.read` or `clinical.read`. */
+  getQuickPicks(options?: RequestOptions): Promise<ApiResult<QuickPicks>>;
 }

@@ -552,3 +552,13 @@ export type QualityTrendPoint = Schemas["QualityTrendPoint"];
 export type QualityTrend = Schemas["QualityTrend"];
 export type QualityFailingTest = Schemas["QualityFailingTest"];
 export type QualityReport = Schemas["QualityReport"];
+// Walk-in fast path.
+export type WalkInRequest = Schemas["WalkInRequest"];
+export type WalkIn = Schemas["WalkIn"];
+export type PhoneLookup = Schemas["PhoneLookup"];
+export type PhoneMatch = Schemas["PhoneMatch"];
+export type PhoneMatches = Schemas["PhoneMatches"];
+export type StartedVisit = Schemas["StartedVisit"];
+export type QuickPicks = Schemas["QuickPicks"];
+export type QuickPick = Schemas["QuickPick"];
+export type QuickTextPick = Schemas["QuickTextPick"];

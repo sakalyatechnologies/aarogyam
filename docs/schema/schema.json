@@ -1657,7 +1657,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Seeded by migrations from the Rust permission list; a test checks that they match.",
+   "notes": "Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and \"No known allergies\" at a walk-in and grants no clinical reading.",
    "cols": [
     {
      "name": "key",
@@ -2273,6 +2273,20 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "allergies_reviewed",
+     "type": "allergy_review",
+     "nullable": false,
+     "ref": null,
+     "note": "unknown, none_known, has_allergies; set by walk-in intake and by recording an active allergy"
+    },
+    {
+     "name": "allergies_reviewed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "null exactly while unknown"
     },
     {
      "name": "row_version",
@@ -3109,7 +3123,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Unique (org_id, branch_id, day, token_number) and one token per appointment. Numbers come from number_sequences (kind queue_token, series = branch, period = local date).",
+   "notes": "Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done.",
    "cols": [
     {
      "name": "branch_id",
@@ -3182,7 +3196,9 @@
      "note": ""
     }
    ],
-   "referenced_by": [],
+   "referenced_by": [
+    "encounters.queue_token_id"
+   ],
    "sensitivity": "personal",
    "offline": "read_write"
   },
@@ -3396,6 +3412,13 @@
      "nullable": true,
      "ref": null,
      "note": "set when closed"
+    },
+    {
+     "name": "queue_token_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "queue_tokens",
+     "note": "the token it was started from; one visit per token, same patient (migration 0310)"
     }
    ],
    "referenced_by": [
@@ -3833,7 +3856,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Allergies the front desk records at a walk-in (intake.write, migration 0310) have source patient and no verifier until a clinician confirms them (POST /patients/{id}/allergies/{aid}/confirm); entries by clinicians are verified by whoever records them. Recording an active allergy sets patients.allergies_reviewed to has_allergies.",
    "cols": [
     {
      "name": "patient_id",
@@ -3896,7 +3919,7 @@
      "type": "uuid",
      "nullable": true,
      "ref": "memberships",
-     "note": ""
+     "note": "who recorded or confirmed it; null while a patient-reported allergy awaits a clinician"
     },
     {
      "name": "verified_at",

@@ -86,6 +86,7 @@ pub mod patient;
 pub mod patient_app;
 pub mod permission;
 pub mod prescription;
+pub mod quick_picks;
 pub mod retention;
 pub mod richtext;
 pub mod roles;

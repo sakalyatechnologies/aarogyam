@@ -1367,6 +1367,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Patients already registered with this phone (main or second number), so the desk can pick
+         *     an existing patient before registering a walk-in.
+         */
+        post: operations["lookupPatientsByPhone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/search": {
         parameters: {
             query?: never;
@@ -1442,6 +1462,26 @@ export interface paths {
         head?: never;
         /** Edits an allergy: resolve it, change its severity, or mark it entered in error. */
         patch: operations["updateAllergy"];
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/allergies/{allergy_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirms an allergy the patient reported at the desk: the caller becomes its verifier.
+         *     Confirming one already confirmed changes nothing.
+         */
+        post: operations["confirmAllergy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/patients/{id}/app-access": {
@@ -2188,6 +2228,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/queue/{id}/start-visit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Starts the visit of a queue token in one tap: seats the token (and its appointment) if it is
+         *     waiting, then starts a visit linked to the token and its appointment with the caller as the
+         *     clinician. A token or appointment that already has a visit returns it (`200`, `created`
+         *     false), so a repeat is safe.
+         */
+        post: operations["startVisitFromQueue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/queue/{id}/status": {
         parameters: {
             query?: never;
@@ -2203,6 +2265,26 @@ export interface paths {
          *     is safe.
          */
         post: operations["setQueueTokenStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/quick-picks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The clinic's quick picks: allergies for the desk, complaints, findings, procedures, advice
+         *     lines and medicine sets for the doctor. Specialty data; dental for now.
+         */
+        get: operations["getQuickPicks"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3023,6 +3105,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/walk-ins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Registers a walk-in in one step, in one transaction: the patient (new, or registered and
+         *     picked from the phone lookup), the allergies they report or "No known allergies", the
+         *     consents they give at the desk, and a queue token.
+         */
+        post: operations["registerWalkIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -3149,6 +3252,11 @@ export interface components {
         /** @description An allergy. */
         Allergy: {
             code?: components["schemas"]["Code"] | null;
+            /**
+             * @description Whether a clinician recorded or confirmed it. False for an allergy the patient reported
+             *     at the desk until a clinician confirms it.
+             */
+            confirmed: boolean;
             /** @description When it was recorded (RFC 3339). */
             created_at: string;
             /** @description Identifier. */
@@ -3165,7 +3273,10 @@ export interface components {
             substance: string;
             /** @description When it last changed (RFC 3339). */
             updated_at: string;
-            /** @description The member who recorded or last confirmed it. */
+            /**
+             * @description The member who recorded or last confirmed it; null while a patient-reported allergy
+             *     waits for a clinician to confirm it.
+             */
             verified_by?: string | null;
         };
         /** @description An allergy to record or edit. On an edit, fields left out stay as they are. */
@@ -3880,6 +3991,11 @@ export interface components {
         ClinicalFlags: {
             /** @description Active allergies, severe first. */
             allergies: components["schemas"]["Allergy"][];
+            /**
+             * @description Whether the patient was asked about allergies: `unknown` (never asked), `none_known`
+             *     ("No known allergies") or `has_allergies`.
+             */
+            allergies_reviewed: string;
             /** @description Active allergies. */
             allergy_count: number;
             /** @description Flagged active conditions. */
@@ -4140,6 +4256,13 @@ export interface components {
             label: string;
             /** @description Added by the clinic rather than seeded. */
             own: boolean;
+        };
+        /** @description A consent the patient gives at the desk, recorded against the clinic's current notice. */
+        DeskConsentFields: {
+            /** @description `verbal` (the usual at the desk), `paper` or `app`. */
+            method: string;
+            /** @description `care`, `reminders`, `promotional`, `sharing` or `research`. */
+            purpose: string;
         };
         /** @description Who to sign in as. */
         DevTokenRequest: {
@@ -6167,6 +6290,32 @@ export interface components {
             /** @description Patients who owe. */
             patients: number;
         };
+        /** @description A phone to look up. Sent in the body, never the URL. */
+        PhoneLookup: {
+            /** @description The phone in any common Indian format; +91 is assumed without a country code. */
+            phone: string;
+        };
+        /** @description A registered patient with that phone: just enough to say "this is them". */
+        PhoneMatch: {
+            /**
+             * Format: int32
+             * @description Age in whole years today.
+             */
+            age_years?: number | null;
+            /** @description Full name. */
+            full_name: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description Readable number, such as `SD-1042`. */
+            number: string;
+            /** @description `female`, `male`, `other` or `unknown`. */
+            sex: string;
+        };
+        /** @description Patients registered with a phone. */
+        PhoneMatches: {
+            /** @description Matches by name; at most 10. Families share numbers, so there may be several. */
+            items: components["schemas"]["PhoneMatch"][];
+        };
         /** @description A picture's new description. */
         PhotoChanges: {
             /** @description What it shows; empty removes it. */
@@ -6574,6 +6723,68 @@ export interface components {
              * @description Minutes waited: until now while waiting, otherwise until called.
              */
             wait_minutes: number;
+        };
+        /** @description Several medicines added in one tap, each still editable; the allergy check still runs on issue. */
+        QuickMedicineSet: {
+            /** @description Stable id. */
+            id: string;
+            /** @description The medicines, in order. */
+            items: components["schemas"]["QuickSetMedicine"][];
+            /** @description The chip's label, such as `Post-extraction`. */
+            label: string;
+        };
+        /** @description A pick that is only a name: an allergy substance or a procedure. */
+        QuickPick: {
+            /** @description Stable id. */
+            id: string;
+            /** @description What staff read and what is recorded. */
+            label: string;
+        };
+        /** @description The clinic's quick picks. */
+        QuickPicks: {
+            /** @description Advice lines for the prescription. */
+            advice: components["schemas"]["QuickTextPick"][];
+            /** @description Common allergy substances, offered at a walk-in. */
+            allergies: components["schemas"]["QuickPick"][];
+            /** @description Chief complaints: each writes the note's opening line. */
+            complaints: components["schemas"]["QuickTextPick"][];
+            /** @description Examination findings. */
+            findings: components["schemas"]["QuickTextPick"][];
+            /** @description Medicine sets. */
+            medicine_sets: components["schemas"]["QuickMedicineSet"][];
+            /** @description Procedures done in a visit. */
+            procedures: components["schemas"]["QuickPick"][];
+        };
+        /** @description One medicine of a set, as a prescription line starts. */
+        QuickSetMedicine: {
+            /** @description Dose, such as `1 tablet`. */
+            dose: string;
+            /** @description Generic name; match it to the medicine list before adding. */
+            drug_name: string;
+            /**
+             * Format: int32
+             * @description For how many days.
+             */
+            duration_days?: number | null;
+            /** @description Form, such as `tablet`. */
+            form: string;
+            /** @description Frequency, such as `1-0-1`. */
+            frequency: string;
+            /** @description Extra instructions. */
+            instructions?: string | null;
+            /** @description Strength, such as `500 mg`. */
+            strength: string;
+            /** @description `before_food`, `after_food`, `empty_stomach`, `bedtime`, `sos` or `as_directed`. */
+            timing?: string | null;
+        };
+        /** @description A pick that writes a line: a complaint, a finding or an advice line. */
+        QuickTextPick: {
+            /** @description Stable id. */
+            id: string;
+            /** @description The chip's label. */
+            label: string;
+            /** @description The line it writes. */
+            text: string;
         };
         /** @description A reason, for voiding or cancelling. */
         Reason: {
@@ -7436,6 +7647,15 @@ export interface components {
             /** @description Members, active first, then by name. */
             members: components["schemas"]["Member"][];
         };
+        /** @description A visit started from the queue. */
+        StartedVisit: {
+            /** @description Whether this request started the visit; false on a repeat. */
+            created: boolean;
+            /** @description The token, now in the chair. */
+            token: components["schemas"]["QueueToken"];
+            /** @description The visit: new, or the one the token or its appointment already had. */
+            visit: components["schemas"]["Visit"];
+        };
         /** @description A status change. */
         StatusChange: {
             /** @description Why; required to cancel, up to 200 characters. */
@@ -7873,6 +8093,22 @@ export interface components {
             /** @description The visit's number, such as `V-318`. */
             visit_number: string;
         };
+        /** @description What a walk-in did. */
+        WalkIn: {
+            /**
+             * Format: int64
+             * @description How many allergies were recorded.
+             */
+            allergies_recorded: number;
+            /** @description The purposes whose consent was recorded. */
+            consents_recorded: string[];
+            /** @description The patient. */
+            patient: components["schemas"]["Patient"];
+            /** @description Whether the patient was registered by this request. */
+            registered: boolean;
+            /** @description The queue token issued. */
+            token: components["schemas"]["QueueToken"];
+        };
         /** @description A walk-in. */
         WalkInBody: {
             /** @description Branch; the default branch when left out. */
@@ -7880,6 +8116,34 @@ export interface components {
             /** @description The patient (register them first if new). */
             patient_id: string;
             /** @description The doctor, if known. */
+            practitioner_id?: string | null;
+        };
+        /**
+         * @description A walk-in: a new patient (`patient`) or a registered one (`patient_id`), exactly one of the
+         *     two.
+         */
+        WalkInRequest: {
+            /**
+             * @description Substances the patient says they are allergic to, each 1 to 200 characters (at most
+             *     20). Recorded as patient-reported until a clinician confirms them; ones already on record
+             *     are not repeated.
+             */
+            allergies?: string[];
+            /** @description Branch; the default branch when left out. */
+            branch_id?: string | null;
+            /**
+             * @description Consents given at the desk, each purpose once. Purposes already in force are left as
+             *     they are.
+             */
+            consents?: components["schemas"]["DeskConsentFields"][];
+            /** @description The patient knows of no allergies. Not together with `allergies`. */
+            no_known_allergies?: boolean;
+            /** @description The notice version shown; the clinic's current notice (`v1 2026-10`) when left out. */
+            notice_version?: string | null;
+            patient?: components["schemas"]["NewPatient"] | null;
+            /** @description A registered patient, such as one picked from the phone lookup. */
+            patient_id?: string | null;
+            /** @description The doctor, if known. A member who sees only their own patients must name themselves. */
             practitioner_id?: string | null;
         };
         /** @description Changes to the website; anything left out stays as it is. */
@@ -11900,6 +12164,50 @@ export interface operations {
             };
         };
     };
+    lookupPatientsByPhone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhoneLookup"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhoneMatches"];
+                };
+            };
+            /** @description Not a phone number */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     searchPatients: {
         parameters: {
             query?: never;
@@ -12184,6 +12492,51 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such allergy for this patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    confirmAllergy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description The allergy */
+                allergy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Allergy"];
+                };
             };
             /** @description Not signed in */
             401: {
@@ -14991,6 +15344,66 @@ export interface operations {
             };
         };
     };
+    startVisitFromQueue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The token */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The visit already existed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedVisit"];
+                };
+            };
+            /** @description The visit was started */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedVisit"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such token in this clinic, or its patient isn't yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The patient left, or the appointment can't move to the chair */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     setQueueTokenStatus: {
         parameters: {
             query?: never;
@@ -15051,6 +15464,39 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MoveRefused"];
                 };
+            };
+        };
+    };
+    getQuickPicks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuickPicks"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks both patients.read and clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -17615,6 +18061,64 @@ export interface operations {
                 content?: never;
             };
             /** @description The visit is closed, or the plan item isn't accepted or already has a procedure */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    registerWalkIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WalkInRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalkIn"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks intake.write, patients.write or appointments.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description "No known allergies" for a patient with an allergy on record */
             409: {
                 headers: {
                     [name: string]: unknown;

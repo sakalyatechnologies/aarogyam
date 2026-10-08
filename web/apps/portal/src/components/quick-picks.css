@@ -1,0 +1,46 @@
+/*
+ * Walk-in fast path and quick picks: toggle chips (allergies, complaints, medicine sets), the phone lookup's
+ * matches, and the allergy banner's patient-reported badge. Uses the --sk-* tokens directly, because dialogs
+ * render outside .mk-app.
+ */
+.qp-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.qp-chip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px;
+  border: 1px solid var(--sk-border); border-radius: 999px; background: var(--sk-surface);
+  color: var(--sk-text); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.qp-chip:hover { border-color: color-mix(in srgb, var(--sk-primary) 45%, var(--sk-border)); }
+.qp-chip:focus-visible { outline: 2px solid var(--sk-primary); outline-offset: 2px; }
+.qp-chip[aria-pressed="true"] { background: var(--sk-primary-soft); border-color: var(--sk-primary); color: var(--sk-primary-text); font-weight: 600; }
+.qp-chip.qp-none[aria-pressed="true"] { background: var(--sk-success-soft); border-color: var(--sk-success-text); color: var(--sk-success-text); }
+.qp-chip:disabled { opacity: .55; cursor: default; }
+.qp-chip > svg { width: 16px; height: 16px; flex: none; }
+.qp-label { font-size: 13px; font-weight: 600; color: var(--sk-text); margin: 0 0 8px; }
+.qp-hint { font-size: 12.5px; color: var(--sk-text-muted); margin: 6px 0 0; }
+
+.wi-section { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px solid var(--sk-border); }
+.wi-section:first-child { padding-top: 0; border-top: 0; }
+.wi-grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 560px) { .wi-grid { grid-template-columns: 2fr 1fr; } }
+.wi-match {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; text-align: left;
+  border: 1px solid var(--sk-border); border-radius: 14px; background: var(--sk-surface); color: var(--sk-text);
+  font: inherit; cursor: pointer; min-height: 48px;
+}
+.wi-match:hover { background: color-mix(in srgb, var(--sk-primary) 4%, var(--sk-surface)); }
+.wi-match[aria-pressed="true"] { border-color: var(--sk-primary); background: var(--sk-primary-soft); }
+.wi-match-t { flex: 1; min-width: 0; }
+.wi-match-t b { display: block; font-size: 14px; }
+.wi-match-t span { display: block; font-size: 12.5px; color: var(--sk-text-muted); }
+.wi-read { font-size: 13px; color: var(--sk-text-muted); background: var(--sk-background); border-radius: 12px; padding: 10px 12px; margin: 0; }
+.wi-check { display: flex; align-items: center; gap: 10px; min-height: 40px; font-size: 14px; color: var(--sk-text); cursor: pointer; }
+.wi-check input { width: 18px; height: 18px; accent-color: var(--sk-primary); }
+
+.mk-allergy-list { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.mk-allergy-chip { display: inline-flex; align-items: center; gap: 6px; }
+.mk-allergy-reported {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; padding: 2px 7px;
+  border-radius: 8px; border: 1px dashed currentColor; opacity: .9;
+}
+.mk-allergy-confirm { min-height: 32px; padding: 2px 10px; font-size: 12.5px; }

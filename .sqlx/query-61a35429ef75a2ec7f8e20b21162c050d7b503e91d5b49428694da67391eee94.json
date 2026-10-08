@@ -1,0 +1,90 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, number, full_name, sex, date_of_birth, birth_date_estimated\n           from aarogyam.patients\n           where (phone_e164 = $1 or alt_phone_e164 = $1) and deleted_at is null\n             and status <> 'merged' and app.patient_in_reach(id, $3)\n           order by full_name, id\n           limit $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "full_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "full_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "sex",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "sex"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "date_of_birth",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "date_of_birth"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "birth_date_estimated",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "birth_date_estimated"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "61a35429ef75a2ec7f8e20b21162c050d7b503e91d5b49428694da67391eee94"
+}

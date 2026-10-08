@@ -5,6 +5,10 @@
 pub const MAX_VERSION: usize = 40;
 /// Longest note.
 pub const MAX_NOTE: usize = 500;
+/// The notice version recorded when the caller names none (a walk-in at the desk). Clinics
+/// can't set their own yet; until they can, this is the label of the template notice
+/// (`web/apps/website` legal pages).
+pub const DEFAULT_NOTICE_VERSION: &str = "v1 2026-10";
 
 text_value! {
     /// What the patient agreed to.

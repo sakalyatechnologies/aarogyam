@@ -1066,6 +1066,8 @@ export const allergy = z.object({
   source: clinicalSource,
   code: code.nullable().exactOptional(),
   verified_by: membershipId.nullable().exactOptional(),
+  /** False for an allergy the patient reported at the desk until a clinician confirms it. */
+  confirmed: z.boolean(),
   created_at: timestamp,
   updated_at: timestamp,
 }) satisfies z.ZodType<C.Allergy>;
@@ -1106,6 +1108,8 @@ export const clinicalFlags = z.object({
   condition_count: count,
   severe_allergy: z.boolean(),
   details_hidden: z.boolean(),
+  /** Whether the patient was asked: `unknown`, `none_known` ("No known allergies") or `has_allergies`. */
+  allergies_reviewed: z.enum(["unknown", "none_known", "has_allergies"]),
 }) satisfies z.ZodType<C.ClinicalFlags>;
 export type ClinicalFlags = z.output<typeof clinicalFlags>;
 
@@ -2453,3 +2457,71 @@ export type Setup = z.output<typeof setup>;
 
 /** Body of `PATCH /api/v1/settings/onboarding` and `/api/v1/me/onboarding`. */
 export type SetupUpdate = C.SetupUpdate;
+
+// Walk-in fast path ---------------------------------------------------------------------------
+
+/** A registered patient with the phone the desk typed: just enough to say "this is them". */
+export const phoneMatch = z.object({
+  id: patientId,
+  number: z.string(),
+  full_name: z.string(),
+  age_years: z.number().int().nonnegative().nullable().exactOptional(),
+  sex,
+}) satisfies z.ZodType<C.PhoneMatch>;
+export type PhoneMatch = z.output<typeof phoneMatch>;
+
+export const phoneMatches = z.object({ items: z.array(phoneMatch) }) satisfies z.ZodType<C.PhoneMatches>;
+export type PhoneMatchPage = z.output<typeof phoneMatches>;
+
+/** What `POST /api/v1/walk-ins` did. */
+export const walkIn = z.object({
+  patient,
+  registered: z.boolean(),
+  token: queueToken,
+  allergies_recorded: z.number().int().nonnegative(),
+  consents_recorded: z.array(consentPurpose),
+}) satisfies z.ZodType<C.WalkIn>;
+export type WalkIn = z.output<typeof walkIn>;
+
+/** Body of `POST /api/v1/walk-ins`: `patient` (new) or `patient_id` (registered). */
+export type WalkInRequest = C.WalkInRequest;
+
+/** A visit started from a queue token, and the token, now in the chair. */
+export const startedVisit = z.object({
+  visit,
+  token: queueToken,
+  created: z.boolean(),
+}) satisfies z.ZodType<C.StartedVisit>;
+export type StartedVisit = z.output<typeof startedVisit>;
+
+const quickPick = z.object({ id: z.string(), label: z.string() }) satisfies z.ZodType<C.QuickPick>;
+const quickTextPick = z.object({ id: z.string(), label: z.string(), text: z.string() }) satisfies z.ZodType<C.QuickTextPick>;
+
+/** The clinic's specialty quick picks: allergies for the desk; complaints, findings, procedures, advice and medicine sets for the doctor. */
+export const quickPicks = z.object({
+  allergies: z.array(quickPick),
+  complaints: z.array(quickTextPick),
+  findings: z.array(quickTextPick),
+  procedures: z.array(quickPick),
+  advice: z.array(quickTextPick),
+  medicine_sets: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      items: z.array(
+        z.object({
+          drug_name: z.string(),
+          strength: z.string(),
+          form: z.string(),
+          dose: z.string(),
+          frequency: z.string(),
+          timing: z.string().nullable().exactOptional(),
+          duration_days: z.number().int().positive().nullable().exactOptional(),
+          instructions: z.string().nullable().exactOptional(),
+        }),
+      ),
+    }),
+  ),
+}) satisfies z.ZodType<C.QuickPicks>;
+export type QuickPicks = z.output<typeof quickPicks>;
+export type MedicineSet = QuickPicks["medicine_sets"][number];

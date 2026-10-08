@@ -3,7 +3,7 @@
 use aarogyam_dal::facts::{self, AllergyRow, AllergyValues, ConditionRow, ConditionValues};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::clinical::{
-    CodeSystem, FactStatus, RecordSource, Severity, clinical_text, optional_text,
+    AllergyReview, CodeSystem, FactStatus, RecordSource, Severity, clinical_text, optional_text,
 };
 use aarogyam_domain::ids::{AllergyId, ConditionId, EncounterId, MembershipId, PatientId};
 use aarogyam_domain::permission::Permission;
@@ -486,6 +486,40 @@ pub async fn edit_allergy(
     .await
 }
 
+/// Confirms a patient-reported allergy: the member becomes its verifier. Confirming one that is
+/// already confirmed changes nothing and returns it.
+///
+/// # Errors
+/// [`AppError::NotFound`] when the allergy isn't this patient's in this clinic or the patient is
+/// out of reach.
+pub async fn confirm_allergy(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    patient_id: PatientId,
+    allergy_id: AllergyId,
+) -> Result<AllergyView, AppError> {
+    actor.require(Permission::ClinicalWrite)?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let current = facts::get_allergy_for_update(
+            tx.conn(),
+            patient_id.uuid(),
+            allergy_id.uuid(),
+            actor.reach(Permission::ClinicalWrite).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("allergy"))?;
+        if current.verified_by.is_some() {
+            return allergy_view(current);
+        }
+        let row = facts::confirm_allergy(tx.conn(), current.id, actor.membership_id.uuid())
+            .await?
+            .ok_or(AppError::Internal("allergy confirmed concurrently"))?;
+        allergy_view(row)
+    })
+    .await
+}
+
 /// A patient's allergies, active and severe first.
 ///
 /// # Errors
@@ -525,6 +559,8 @@ pub struct ClinicalFlags {
     pub allergies: Vec<AllergyView>,
     /// Flagged active conditions.
     pub conditions: Vec<ConditionView>,
+    /// Whether the patient has been asked about allergies.
+    pub allergies_reviewed: AllergyReview,
 }
 
 /// The patient's clinical flags.
@@ -554,7 +590,10 @@ pub async fn flags(
             .filter(|row| row.flagged && row.status == FactStatus::Active.as_str())
             .map(condition_view)
             .collect::<Result<_, _>>()?;
+        let review = facts::allergy_review(tx.conn(), patient.id).await?;
         Ok(ClinicalFlags {
+            allergies_reviewed: AllergyReview::parse(&review)
+                .map_err(|_| AppError::Internal("unknown allergy review"))?,
             allergy_count: allergies.len(),
             severe_allergy: allergies.iter().any(|a| a.severity == Severity::Severe),
             condition_count: conditions.len(),

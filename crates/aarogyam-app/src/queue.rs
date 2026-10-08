@@ -1,10 +1,10 @@
 //! The waiting-room queue: tokens numbered per branch per clinic day, issued when a booked
 //! patient arrives or to a walk-in, and moved along as they are seen.
 
-use aarogyam_dal::queue::{self as dal, TokenRow};
-use aarogyam_dal::{appointments, clinic, patients, schedule};
+use aarogyam_dal::queue::{self as dal, TokenRow, TokenState};
+use aarogyam_dal::{appointments, clinic, patients, schedule, visits};
 use aarogyam_domain::access::{ClinicActor, Reach};
-use aarogyam_domain::ids::{BranchId, PatientId, PractitionerId, QueueTokenId};
+use aarogyam_domain::ids::{BranchId, EncounterId, PatientId, PractitionerId, QueueTokenId};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::{QueueStatus, minutes_between};
 use sakalya_db::{Db, ScopedTx};
@@ -18,6 +18,7 @@ use crate::moved::Moved;
 use crate::patients::age_on;
 use crate::schedule::resolve_branch;
 use crate::scope::staff_scope as scope;
+use crate::visits::{Names, VisitView, visit_view};
 
 /// Why a token whose appointment is changed through the queue was cancelled.
 const LEFT_REASON: &str = "Left without being seen";
@@ -86,7 +87,7 @@ pub(crate) async fn issue_token(
     Ok(id)
 }
 
-async fn view(
+pub(crate) async fn view(
     tx: &mut ScopedTx,
     id: Uuid,
     now: OffsetDateTime,
@@ -175,21 +176,7 @@ pub async fn walk_in(
         {
             return Err(AppError::NotFound("patient"));
         }
-        // A member who queues only their own patients queues them only with themselves.
-        let reach = actor.reach(Permission::AppointmentsWrite);
-        if input.practitioner_id.is_none() && reach != Reach::All {
-            return Err(AppError::invalid(
-                "practitioner_id",
-                "choose yourself as the doctor",
-            ));
-        }
-        if let Some(id) = input.practitioner_id
-            && schedule::practitioner(tx.conn(), id.uuid())
-                .await?
-                .is_none_or(|row| !reach.includes(row.membership_id))
-        {
-            return Err(AppError::invalid("practitioner_id", "no such doctor"));
-        }
+        check_doctor(tx, actor, input.practitioner_id).await?;
         let branch_id = resolve_branch(tx, input.branch_id).await?;
         let id = issue_token(
             tx,
@@ -204,6 +191,30 @@ pub async fn walk_in(
         view(tx, id, now, clinic_today(&profile.timezone, now)).await
     })
     .await
+}
+
+/// Checks the doctor a walk-in is queued with: a member who queues only their own patients
+/// queues them only with themselves.
+pub(crate) async fn check_doctor(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    practitioner_id: Option<PractitionerId>,
+) -> Result<(), AppError> {
+    let reach = actor.reach(Permission::AppointmentsWrite);
+    if practitioner_id.is_none() && reach != Reach::All {
+        return Err(AppError::invalid(
+            "practitioner_id",
+            "choose yourself as the doctor",
+        ));
+    }
+    if let Some(id) = practitioner_id
+        && schedule::practitioner(tx.conn(), id.uuid())
+            .await?
+            .is_none_or(|row| !reach.includes(row.membership_id))
+    {
+        return Err(AppError::invalid("practitioner_id", "no such doctor"));
+    }
+    Ok(())
 }
 
 /// Moves a token along: `in_chair`, `done` or `left`. A token with an appointment moves the
@@ -247,33 +258,135 @@ pub async fn set_status(
                 current: view(tx, token.id, now, today).await?,
             });
         }
-        match (token.appointment_id, to.appointment_status()) {
-            (Some(appointment_id), Some(next)) => {
-                appointments::lock(tx.conn(), appointment_id, None).await?;
-                let current = appointments::get(tx.conn(), appointment_id, None)
-                    .await?
-                    .ok_or(AppError::NotFound("appointment"))?;
-                let reason = (to == QueueStatus::Left).then_some(LEFT_REASON);
-                match plan_status(&current.status, next, reason)? {
-                    StatusPlan::Move(reason) => {
-                        apply_status(tx, &actor.timezone, &current, next, reason.as_ref(), now)
-                            .await?;
-                    }
-                    // The appointment is already there: bring the token along.
-                    StatusPlan::Same => {
-                        dal::set_status(tx.conn(), token.id, to.as_str(), now).await?;
-                    }
-                    StatusPlan::Refused(error) => {
-                        return Ok(Moved::Refused {
-                            reason: error.to_string(),
-                            current: view(tx, token.id, now, today).await?,
-                        });
-                    }
-                }
-            }
-            _ => dal::set_status(tx.conn(), token.id, to.as_str(), now).await?,
+        if let Some(reason) = move_token(tx, &actor.timezone, &token, to, now).await? {
+            return Ok(Moved::Refused {
+                reason,
+                current: view(tx, token.id, now, today).await?,
+            });
         }
         Ok(Moved::Done(view(tx, token.id, now, today).await?))
+    })
+    .await
+}
+
+/// Moves a locked token that may move to `to` (checked by the caller), and its appointment with
+/// it. Returns the reason when the appointment's table refuses the move.
+pub(crate) async fn move_token(
+    tx: &mut ScopedTx,
+    timezone: &str,
+    token: &TokenState,
+    to: QueueStatus,
+    now: OffsetDateTime,
+) -> Result<Option<String>, AppError> {
+    match (token.appointment_id, to.appointment_status()) {
+        (Some(appointment_id), Some(next)) => {
+            appointments::lock(tx.conn(), appointment_id, None).await?;
+            let current = appointments::get(tx.conn(), appointment_id, None)
+                .await?
+                .ok_or(AppError::NotFound("appointment"))?;
+            let reason = (to == QueueStatus::Left).then_some(LEFT_REASON);
+            match plan_status(&current.status, next, reason)? {
+                StatusPlan::Move(reason) => {
+                    apply_status(tx, timezone, &current, next, reason.as_ref(), now).await?;
+                }
+                // The appointment is already there: bring the token along.
+                StatusPlan::Same => {
+                    dal::set_status(tx.conn(), token.id, to.as_str(), now).await?;
+                }
+                StatusPlan::Refused(error) => return Ok(Some(error.to_string())),
+            }
+        }
+        _ => dal::set_status(tx.conn(), token.id, to.as_str(), now).await?,
+    }
+    Ok(None)
+}
+
+/// A visit started from the queue, and the token as it is now.
+#[derive(Debug, Clone)]
+pub struct StartedVisit {
+    /// The visit, new or the one that already existed.
+    pub visit: VisitView,
+    /// The token, in the chair.
+    pub token: TokenView,
+    /// Whether this request started the visit (false on a repeat).
+    pub created: bool,
+}
+
+/// Starts the visit of a queue token in one step: seats the token (and its appointment) if it is
+/// waiting, then starts a visit linked to the token and its appointment with the member as the
+/// clinician. When the token or its appointment already has a visit, that visit is returned and
+/// linked, so a second tap changes nothing.
+///
+/// # Errors
+/// [`AppError::NotFound`] when the token isn't in this clinic or out of the member's reach (the
+/// patient isn't theirs and the token doesn't name them); [`AppError::Conflict`] when the patient
+/// left without a visit or the appointment can't move to the chair.
+pub async fn start_visit(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    token_id: QueueTokenId,
+    now: OffsetDateTime,
+) -> Result<StartedVisit, AppError> {
+    actor.require(Permission::ClinicalWrite)?;
+    let reach = actor.reach(Permission::ClinicalWrite).member();
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let today = clinic_today(&actor.timezone, now);
+        let token = dal::lock_for_visit(tx.conn(), token_id.uuid(), reach)
+            .await?
+            .ok_or(AppError::NotFound("queue token"))?;
+        let status = QueueStatus::parse(&token.state.status)
+            .map_err(|_| AppError::Internal("unknown token status"))?;
+        let existing =
+            visits::for_token(tx.conn(), token.state.id, token.state.appointment_id).await?;
+        if existing.is_none() && status == QueueStatus::Left {
+            return Err(AppError::Conflict(
+                "the patient left without being seen; issue a new token",
+            ));
+        }
+        if status == QueueStatus::Waiting
+            && move_token(tx, &actor.timezone, &token.state, QueueStatus::InChair, now)
+                .await?
+                .is_some()
+        {
+            return Err(AppError::Conflict(
+                "the appointment can't move to the chair from its status",
+            ));
+        }
+        let (row, created) = if let Some(row) = existing {
+            if row.appointment_id.is_some() && row.appointment_id == token.state.appointment_id {
+                visits::link_token(tx.conn(), row.id, token.state.id).await?;
+            }
+            (row, false)
+        } else {
+            let branch_id = visits::default_branch(tx.conn())
+                .await?
+                .ok_or(AppError::NotFound("branch"))?;
+            let value = patients::next_number(tx.conn(), "visit").await?;
+            let number = format!("V-{value}");
+            let row = visits::insert_encounter(
+                tx.conn(),
+                &visits::NewEncounter {
+                    id: EncounterId::new_v7().uuid(),
+                    number: &number,
+                    patient_id: token.patient_id,
+                    clinician_id: actor.membership_id.uuid(),
+                    branch_id,
+                    appointment_id: token.state.appointment_id,
+                    chief_complaint: None,
+                    started_at: now,
+                    queue_token_id: Some(token.state.id),
+                },
+            )
+            .await?;
+            (row, true)
+        };
+        let names = Names::load(tx, [row.clinician_id]).await?;
+        Ok(StartedVisit {
+            visit: visit_view(row, &names)?,
+            token: view(tx, token.state.id, now, today).await?,
+            created,
+        })
     })
     .await
 }

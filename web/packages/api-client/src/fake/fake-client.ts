@@ -58,6 +58,7 @@ import {
 import { EXPENSE_NAMES, buildAnalytics, daysInclusive, wireExpense, type FakeExpense } from "./analytics.js";
 import { clinicTerms } from "./dental-terms.js";
 import { createMetrics } from "./metrics.js";
+import { QUICK_PICKS } from "./quick-picks.js";
 import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photosOf, siteOf, wirePhoto, wireSettings, type FakePhoto } from "./website.js";
 import { createRandom, fakeUuid } from "./random.js";
 import { CLINIC_STEPS, MEMBER_STEPS, applySetup, setupOf, wireSetup } from "./setup.js";
@@ -1588,6 +1589,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             condition_count: conditions.length,
             severe_allergy: allergies.some((a) => a.severity === "severe"),
             details_hidden: !detailsAllowed,
+            allergies_reviewed: allergies.length > 0 ? "has_allergies" : (clinicPatients(caller).find((p) => p.id === id)?.allergies_reviewed ?? "unknown"),
           } satisfies C.ClinicalFlags);
         }),
 
@@ -2077,6 +2079,13 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           found.status = "closed";
           found.ended_at = clock().toISOString();
+          // A visit started from the queue finishes its token.
+          const linked = state.queueTokens.find((t) => t.id === found.queue_token_id);
+          if (linked !== undefined && (linked.status === "waiting" || linked.status === "in_chair")) {
+            linked.status = "done";
+            linked.called_at ??= found.ended_at;
+            linked.done_at = found.ended_at;
+          }
           const wired = wireVisit(found, state);
           if (wired === undefined) {
             return notFound;
@@ -5150,6 +5159,262 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             issued_on: rx.issued_at == null ? null : rx.issued_at.slice(0, 10),
           } satisfies C.Verification);
         }),
+
+      // Walk-in fast path.
+      registerWalkIn: (input, opts) =>
+        respond(S.walkIn, opts?.signal, async () => {
+          const caller = await inClinic("intake.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const perms = caller.membership.role.permissions;
+          if (!hasPermission(perms, "patients.write") || !hasPermission(perms, "appointments.write")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const now = clock();
+          if ((input.patient == null) === (input.patient_id == null)) {
+            return invalid("patient", "give either patient or patient_id");
+          }
+          const allergies = (input.allergies ?? []).map((a) => a.trim());
+          if (input.no_known_allergies === true && allergies.length > 0) {
+            return invalid("no_known_allergies", "can't be given together with allergies");
+          }
+          if (allergies.some((a) => a.length < 1 || a.length > 200) || allergies.length > 20) {
+            return invalid("allergies", "must be 1 to 200 characters of text");
+          }
+          const consents = input.consents ?? [];
+          const purposes: C.ConsentPurpose[] = [];
+          for (const c of consents) {
+            const purpose = S.consentPurpose.safeParse(c.purpose);
+            const method = S.consentMethod.safeParse(c.method);
+            if (!purpose.success) return invalid("purpose", "unknown value");
+            if (!method.success) return invalid("method", "unknown value");
+            if (purposes.includes(purpose.data)) return invalid("consents", "name each purpose once");
+            purposes.push(purpose.data);
+          }
+          if (input.practitioner_id != null && !state.practitioners.some((p) => p.id === input.practitioner_id && p.clinic_id === caller.clinic.id)) {
+            return invalid("practitioner_id", "no such doctor");
+          }
+          let patient: FakePatient | undefined;
+          if (input.patient != null) {
+            const problem = validateNewPatient(input.patient, now);
+            if (problem !== null) {
+              return problem;
+            }
+          } else {
+            patient = clinicPatients(caller).find((p) => p.id === input.patient_id);
+            if (patient === undefined) {
+              return notFound;
+            }
+          }
+          const active = (id: string) => state.allergies.filter((a) => a.clinic_id === caller.clinic.id && a.patient_id === id && a.status === "active");
+          if (patient !== undefined && input.no_known_allergies === true && active(patient.id).length > 0) {
+            return refuse(409, "conflict", "this patient has an allergy on record; a doctor must review it first");
+          }
+          const registered = patient === undefined;
+          if (patient === undefined && input.patient != null) {
+            const details = input.patient;
+            const numbers = state.patients.filter((p) => p.clinic_id === caller.clinic.id).map((p) => Number(p.number.split("-")[1] ?? 0));
+            const estimated = details.date_of_birth == null && details.age_years != null;
+            patient = {
+              clinic_id: caller.clinic.id,
+              id: fakeUuid(random, now),
+              number: `${caller.clinic.number_prefix}-${String(1 + Math.max(0, ...numbers))}`,
+              full_name: details.full_name.trim().replace(/\s+/g, " "),
+              sex: S.sex.catch("unknown").parse(details.sex),
+              date_of_birth: details.date_of_birth ?? (estimated ? `${String(now.getUTCFullYear() - (details.age_years ?? 0))}-01-01` : null),
+              birth_date_estimated: estimated,
+              phone: details.phone ?? null,
+              email: details.email ?? null,
+              preferred_language: details.preferred_language ?? "en-IN",
+              status: "active",
+              created_at: now.toISOString(),
+              last_visit_at: null,
+            };
+            state.patients.push(patient);
+          }
+          if (patient === undefined) {
+            return notFound;
+          }
+          const target = patient;
+          let allergiesRecorded = 0;
+          for (const substance of allergies) {
+            if (active(target.id).some((a) => a.substance.toLowerCase() === substance.toLowerCase())) continue;
+            const at = clock().toISOString();
+            state.allergies.push({
+              id: fakeUuid(random, clock()),
+              clinic_id: caller.clinic.id,
+              patient_id: target.id,
+              substance,
+              reaction: null,
+              severity: "moderate",
+              status: "active",
+              source: "patient",
+              code: null,
+              verified_by: null,
+              created_at: at,
+              updated_at: at,
+            });
+            allergiesRecorded += 1;
+          }
+          if (input.no_known_allergies === true) target.allergies_reviewed = "none_known";
+          if (active(target.id).length > 0) target.allergies_reviewed = "has_allergies";
+          const recorded: C.ConsentPurpose[] = [];
+          const stored = (state.consents ??= []);
+          for (const c of consents) {
+            const purpose = S.consentPurpose.parse(c.purpose);
+            if (stored.some((x) => x.clinic_id === caller.clinic.id && x.patient_id === target.id && x.purpose === purpose && x.status === "given")) continue;
+            stored.push({
+              id: S.consentId.parse(fakeUuid(random, clock())),
+              clinic_id: caller.clinic.id,
+              patient_id: target.id,
+              purpose,
+              notice_version: input.notice_version ?? "v1 2026-10",
+              given_at: now.toISOString(),
+              method: S.consentMethod.parse(c.method),
+              recorded_by: caller.user.display_name,
+              status: "given",
+            });
+            recorded.push(purpose);
+          }
+          const branchId = input.branch_id ?? caller.clinic.id;
+          const day = localClock(now, caller.clinic.timezone).date;
+          const nextNumber =
+            1 +
+            Math.max(
+              0,
+              ...state.queueTokens.filter((t) => t.clinic_id === caller.clinic.id && t.branch_id === branchId && t.day === day).map((t) => t.token_number),
+            );
+          const token: FakeQueueToken = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            branch_id: branchId,
+            day,
+            token_number: nextNumber,
+            patient_id: target.id,
+            practitioner_id: input.practitioner_id ?? null,
+            appointment_id: null,
+            status: "waiting",
+            issued_at: now.toISOString(),
+            called_at: null,
+            done_at: null,
+          };
+          state.queueTokens.push(token);
+          const wired = wireQueueToken(token, state, now);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply({
+            patient: wirePatient(target, caller),
+            registered,
+            token: wired,
+            allergies_recorded: allergiesRecorded,
+            consents_recorded: recorded,
+          } satisfies C.WalkIn);
+        }),
+
+      lookupPatientsByPhone: (phone, opts) =>
+        respond(S.phoneMatches, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const digits = phone.replace(/[\s-]/g, "");
+          const e164 = digits.startsWith("+") ? digits : `+91${digits.replace(/^0/, "")}`;
+          if (!E164.test(e164)) {
+            return invalid("phone", "invalid phone number");
+          }
+          const now = clock();
+          const items = clinicPatients(caller)
+            .filter((p) => p.phone === e164)
+            .sort((a, b) => a.full_name.localeCompare(b.full_name))
+            .slice(0, 10)
+            .map((p) => ({ id: p.id, number: p.number, full_name: p.full_name, age_years: ageYears(p.date_of_birth, now), sex: p.sex }));
+          return reply({ items } satisfies C.PhoneMatches);
+        }),
+
+      startVisitFromQueue: (id, opts) =>
+        respond(S.startedVisit, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const token = state.queueTokens.find((t) => t.id === id && t.clinic_id === caller.clinic.id);
+          if (token === undefined) {
+            return notFound;
+          }
+          const now = clock();
+          let existing = state.visits.find(
+            (v) => v.clinic_id === caller.clinic.id && (v.queue_token_id === token.id || (token.appointment_id != null && v.appointment_id === token.appointment_id)),
+          );
+          if (existing === undefined && token.status === "left") {
+            return refuse(409, "conflict", "the patient left without being seen; issue a new token");
+          }
+          if (token.status === "waiting") {
+            token.status = "in_chair";
+            token.called_at = now.toISOString();
+            const appt = state.appointments.find((a) => a.id === token.appointment_id);
+            if (appt !== undefined && appt.status === "arrived") {
+              appt.status = "in_chair";
+              appt.seated_at = now.toISOString();
+            }
+          }
+          const created = existing === undefined;
+          if (existing === undefined) {
+            existing = {
+              id: fakeUuid(random, now),
+              clinic_id: caller.clinic.id,
+              patient_id: token.patient_id,
+              clinician_membership_id: caller.membership.id,
+              number: `V-${String(1 + state.visits.filter((v) => v.clinic_id === caller.clinic.id).length)}`,
+              appointment_id: token.appointment_id ?? null,
+              queue_token_id: token.id,
+              chief_complaint: null,
+              status: "open",
+              started_at: now.toISOString(),
+              ended_at: null,
+            };
+            state.visits.push(existing);
+          } else {
+            existing.queue_token_id ??= token.id;
+          }
+          const visit = wireVisit(existing, state);
+          const wired = wireQueueToken(token, state, now);
+          if (visit === undefined || wired === undefined) {
+            return notFound;
+          }
+          return reply({ visit, token: wired, created } satisfies C.StartedVisit);
+        }),
+
+      confirmAllergy: (id, allergyIdValue, opts) =>
+        respond(S.allergy, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.allergies.find((a) => a.id === allergyIdValue && a.patient_id === id && a.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.verified_by == null) {
+            found.verified_by = caller.membership.id;
+            found.updated_at = clock().toISOString();
+          }
+          return reply(wireAllergy(found) satisfies C.Allergy);
+        }),
+
+      getQuickPicks: (opts) =>
+        respond(S.quickPicks, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const perms = caller.membership.role.permissions;
+          if (!hasPermission(perms, "patients.read") && !hasPermission(perms, "clinical.read")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          return reply(QUICK_PICKS);
+        }),
     };
   }
 
@@ -5728,6 +5993,7 @@ function wireAllergy(a: FakeAllergy): C.Allergy {
     source: a.source,
     code: a.code ?? null,
     verified_by: a.verified_by ?? null,
+    confirmed: a.verified_by != null,
     created_at: a.created_at,
     updated_at: a.updated_at,
   };

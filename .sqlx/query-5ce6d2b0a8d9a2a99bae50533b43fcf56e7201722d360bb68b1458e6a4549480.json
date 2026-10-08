@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with wanted as (\n             select distinct on (lower(s)) s as substance\n             from unnest($2::text[]) as s),\n           added as (\n             insert into aarogyam.allergies (patient_id, substance, source)\n             select $1, w.substance, 'patient' from wanted w\n             where not exists (select 1 from aarogyam.allergies a\n                               where a.patient_id = $1 and a.status = 'active'\n                                 and lower(a.substance) = lower(w.substance))\n             returning id),\n           reviewed as (\n             update aarogyam.patients set allergies_reviewed = 'has_allergies', allergies_reviewed_at = now()\n             where id = $1 and allergies_reviewed <> 'has_allergies' and cardinality($2::text[]) > 0)\n           select count(*) as \"count!\" from added",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5ce6d2b0a8d9a2a99bae50533b43fcf56e7201722d360bb68b1458e6a4549480"
+}

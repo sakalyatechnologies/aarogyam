@@ -244,7 +244,7 @@ pub struct NewPatient {
     pub preferred_language: Option<String>,
 }
 
-fn parse_date(text: &str) -> Result<Date, ApiError> {
+pub(super) fn parse_date(text: &str) -> Result<Date, ApiError> {
     let format = time::macros::format_description!("[year]-[month]-[day]");
     Date::parse(text.trim(), &format)
         .map_err(|_| ApiError::bad_request("invalid_request", "date_of_birth: must be YYYY-MM-DD"))
@@ -401,4 +401,77 @@ pub(crate) async fn edit(
     .await?;
     tracing::info!(event = Event::PatientUpdated.as_str(), patient_id = %id, "patient updated");
     Ok(with_etag(view.row_version, view.into()))
+}
+
+/// A phone to look up. Sent in the body, never the URL.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct PhoneLookup {
+    /// The phone in any common Indian format; +91 is assumed without a country code.
+    pub phone: String,
+}
+
+/// A registered patient with that phone: just enough to say "this is them".
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PhoneMatch {
+    /// Identifier.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Readable number, such as `SD-1042`.
+    pub number: String,
+    /// Full name.
+    pub full_name: String,
+    /// Age in whole years today.
+    pub age_years: Option<u16>,
+    /// `female`, `male`, `other` or `unknown`.
+    pub sex: String,
+}
+
+/// Patients registered with a phone.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PhoneMatches {
+    /// Matches by name; at most 10. Families share numbers, so there may be several.
+    pub items: Vec<PhoneMatch>,
+}
+
+/// Patients already registered with this phone (main or second number), so the desk can pick
+/// an existing patient before registering a walk-in.
+#[utoipa::path(
+    post,
+    path = "/api/v1/patients/lookup",
+    operation_id = "lookupPatientsByPhone",
+    tag = "patients",
+    request_body = PhoneLookup,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = PhoneMatches),
+        (status = 400, description = "Not a phone number"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks patients.read")
+    )
+)]
+pub(crate) async fn lookup(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<PatientsRead>,
+    ApiJson(body): ApiJson<PhoneLookup>,
+) -> Result<Json<PhoneMatches>, ApiFailure> {
+    let rows = app::lookup_phone(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        &body.phone,
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(PhoneMatches {
+        items: rows
+            .into_iter()
+            .map(|row| PhoneMatch {
+                id: row.id.uuid(),
+                number: row.number,
+                full_name: row.full_name,
+                age_years: row.age_years,
+                sex: row.sex,
+            })
+            .collect(),
+    }))
 }

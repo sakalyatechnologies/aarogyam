@@ -20,7 +20,8 @@ describe("Patient 360 header", () => {
   it("shows the allergy banner and one row of record tabs, Overview first", async () => {
     const { path, backend } = allergicPatient();
     renderPortal(path, { as: PEOPLE.asha, backend });
-    expect(await screen.findByText(/Penicillin allergy/)).toBeTruthy();
+    expect(await screen.findByText("Allergies:")).toBeTruthy();
+    expect(screen.getByText("Penicillin")).toBeTruthy();
     const tabs = screen.getByRole("tablist", { name: "Patient record" });
     expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Overview", "Chart", "Visits", "Rx", "Files", "Notes", "Consent", "Clinical flags", "Billing"]);
     expect(await screen.findByRole("heading", { name: "Recent clinical history" })).toBeTruthy();
@@ -39,7 +40,7 @@ describe("Patient 360 header", () => {
     const user = userEvent.setup();
     const { path, backend, number } = allergicPatient();
     renderPortal(path, { as: PEOPLE.asha, backend });
-    await screen.findByText(/Penicillin allergy/);
+    await screen.findByText("Allergies:");
     await user.click(screen.getByRole("link", { name: "Back to patients" }));
     const recent = await screen.findByRole("region", { name: "Recently viewed" });
     expect(within(recent).getAllByRole("link")).toHaveLength(1);

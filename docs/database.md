@@ -42,7 +42,7 @@ flowchart LR
   billing -->|3| people
   billing -->|9| tenancy
   clinical -->|16| people
-  clinical -->|1| scheduling
+  clinical -->|2| scheduling
   clinical -->|17| tenancy
   notify -->|1| billing
   notify -->|1| clinical
@@ -646,7 +646,7 @@ Every permission the API checks, such as patients.read.
 | `description` | `text` |  |
 | `scopes` | `text[]` | which of all, own, assigned it can be narrowed to; always all |
 
-Seeded by migrations from the Rust permission list; a test checks that they match.
+Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and "No known allergies" at a walk-in and grants no clinical reading.
 
 ### `role_templates` (★ foundation)
 
@@ -830,6 +830,8 @@ A clinic's own record of a patient. Two clinics never share this row.
 | `status` | `patient_status` | active, inactive, deceased, merged |
 | `merged_into_id` | `uuid?` | → `patients`. set by a merge, cleared by an unmerge |
 | `last_visit_at` | `timestamptz?` |  |
+| `allergies_reviewed` | `allergy_review` | unknown, none_known, has_allergies; set by walk-in intake and by recording an active allergy |
+| `allergies_reviewed_at` | `timestamptz?` | null exactly while unknown |
 | `row_version` | `bigint` | starts at 1 and goes up when the record changes; sent as the ETag, checked against If-Match on edits |
 
 A phone number is contact information, never identity: families share numbers and numbers change. A merge only sets merged_into_id; records stay on the original patient and reads resolve to the canonical one, so a wrong merge can be undone. Number, phone and name-prefix search use plain indexes; fuzzy name search goes through app.search_patients(), because trigram matching can't use an index under row-level security. Same-phone registrations get a duplicate warning, never an automatic merge.
@@ -1076,7 +1078,9 @@ Walk-in tokens shown on the waiting-room screen.
 | `called_at` | `timestamptz?` |  |
 | `done_at` | `timestamptz?` |  |
 
-Unique (org_id, branch_id, day, token_number) and one token per appointment. Numbers come from number_sequences (kind queue_token, series = branch, period = local date).
+Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done.
+
+Referenced by: `encounters.queue_token_id`
 
 ### `teleconsult_sessions`
 
@@ -1184,6 +1188,7 @@ One visit. Visit-level clinical data (complaint, vitals, notes, procedures, file
 | `chief_complaint` | `text?` |  |
 | `started_at` | `timestamptz` |  |
 | `ended_at` | `timestamptz?` | set when closed |
+| `queue_token_id` | `uuid?` | → `queue_tokens`. the token it was started from; one visit per token, same patient (migration 0310) |
 
 Unique (org_id, id, patient_id): every child row carries patient_id and a composite foreign key (org_id, encounter_id, patient_id), so a visit's notes, vitals, procedures and files can't belong to another patient. Patient-level facts (allergies, active conditions, history) live on the patient and may be updated during a visit; they do not require one. Opening a visit writes access_log.
 
@@ -1308,8 +1313,10 @@ Allergies, shown as a warning banner on the patient and on prescriptions.
 | `severity` | `severity` | mild, moderate, severe |
 | `status` | `allergy_status` | active, resolved, entered_in_error |
 | `source` | `record_source` | clinician, assistant, patient, import, device, ai_draft, abdm |
-| `verified_by` | `uuid?` | → `memberships` |
+| `verified_by` | `uuid?` | → `memberships`. who recorded or confirmed it; null while a patient-reported allergy awaits a clinician |
 | `verified_at` | `timestamptz?` |  |
+
+Allergies the front desk records at a walk-in (intake.write, migration 0310) have source patient and no verifier until a clinician confirms them (POST /patients/{id}/allergies/{aid}/confirm); entries by clinicians are verified by whoever records them. Recording an active allergy sets patients.allergies_reviewed to has_allergies.
 
 ### `drug_catalog`
 

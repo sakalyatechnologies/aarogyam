@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.encounters set queue_token_id = $2\n           where id = $1 and queue_token_id is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eb1197531af7055b903b099636b4d11d1a645489d19d29d5c477a37439de3c14"
+}

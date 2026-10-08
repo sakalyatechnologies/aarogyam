@@ -15,7 +15,7 @@ describe("Patient 360: clinical flags", () => {
     });
     renderPortal(path, { as: PEOPLE.asha, backend });
     await user.click(await screen.findByRole("tab", { name: "Clinical flags" }));
-    await screen.findByText("Penicillin");
+    expect((await screen.findAllByText("Penicillin")).length).toBeGreaterThan(0);
     expect(screen.getByText("Type 2 diabetes")).toBeTruthy();
     expect(screen.getByText("Severe allergy")).toBeTruthy();
   });

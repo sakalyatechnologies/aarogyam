@@ -124,6 +124,10 @@ pub enum Event {
     ExpenseRecorded,
     /// A clinic expense was voided.
     ExpenseVoided,
+    /// A walk-in was registered (or found), checked in and given a token in one step.
+    WalkInRegistered,
+    /// A clinician confirmed a patient-reported allergy.
+    AllergyConfirmed,
 }
 
 impl Event {
@@ -191,6 +195,8 @@ impl Event {
             Self::AttachmentSharingChanged => "attachment.sharing_changed",
             Self::ExpenseRecorded => "expense.recorded",
             Self::ExpenseVoided => "expense.voided",
+            Self::WalkInRegistered => "walk_in.registered",
+            Self::AllergyConfirmed => "allergy.confirmed",
         }
     }
 }

@@ -68,7 +68,7 @@ export function ConsoleAccessGate() {
     return <NoConsoleAccess />;
   }
   return (
-    <MfaGate>
+    <MfaGate required={me.data.staff_mfa_required}>
       <Outlet />
     </MfaGate>
   );

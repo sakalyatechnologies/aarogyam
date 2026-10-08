@@ -4751,6 +4751,11 @@ export interface components {
              *     them there, or offers it first beside their clinics.
              */
             console_access: boolean;
+            /**
+             * @description Whether the console asks Sakalya staff for an authenticator code (`auth.staff_mfa`). The
+             *     console reads this to show or skip its second step.
+             */
+            staff_mfa_required: boolean;
         };
         /** @description A member of staff. */
         Member: {

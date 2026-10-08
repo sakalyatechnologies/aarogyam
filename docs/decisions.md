@@ -2,6 +2,10 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-07: Staff authenticator is a setting, off in the demo
+
+`auth.staff_mfa` (`ARO_AUTH__STAFF_MFA`, default on) controls whether Sakalya staff need an authenticator code (`aal2`) for the console; the console reads it from `/me` (`staff_mfa_required`). It is off in the demo deploys (`STAFF_MFA` unset) and **must be on before real patient data** (pilot: `STAFF_MFA=true`).
+
 ## 2026-10-07: Patient accounts, links and the patient API
 
 **Decision.** Patients sign in with Supabase email codes into a platform `patient_accounts` row (no clinic data). They read a clinic's records only through an active `patient_links` row made by a clinic-issued link code or by a match the clinic confirms; never by phone or name. Patient reads run in a normal clinic transaction with actor kind `patient_account`, and restrictive `patient_account` policies on every clinic table limit them to the linked record (deny by default for new tables, checked by the schema lint). Cross-clinic reads live on the app host and aggregate per linked clinic; writes for one clinic (book, cancel) and file downloads go to that clinic's host, so the clinic still comes from the host. Patients see appointments, issued prescriptions, issued bills and files the clinic marked shared; notes and the chart stay internal (D3). Booking from the app reuses the public booking rules in the public scope, for the linked record.

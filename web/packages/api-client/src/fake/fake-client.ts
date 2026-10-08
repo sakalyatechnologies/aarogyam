@@ -524,7 +524,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
                 ? []
                 : [{ org_id: clinic.id, slug: clinic.slug, name: clinic.name, role_key: m.role.key, role_name: m.role.name, host: clinic.host }];
             });
-          return reply({ clinics, console_access: state.platformUsers.some((u) => u.id === user.id) } satisfies C.Me);
+          return reply({ clinics, console_access: state.platformUsers.some((u) => u.id === user.id), staff_mfa_required: true } satisfies C.Me);
         }),
 
       createHandoff: (input, opts) =>

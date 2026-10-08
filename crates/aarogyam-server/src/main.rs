@@ -264,6 +264,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         .with_throttle(throttle)
         .with_notifier(notifier)
         .with_files(files)
+        .with_staff_mfa(config.auth.staff_mfa)
         .with_website(website_links(config.website));
     sakalya_http::serve(
         aarogyam_api::router(with_error_reporting(state, local)),

@@ -13924,7 +13924,8 @@
         "description": "The signed-in person's clinics.",
         "required": [
           "clinics",
-          "console_access"
+          "console_access",
+          "staff_mfa_required"
         ],
         "properties": {
           "clinics": {
@@ -13937,6 +13938,10 @@
           "console_access": {
             "type": "boolean",
             "description": "Whether they are active Sakalya staff who can open the console. Central sign-in sends\nthem there, or offers it first beside their clinics."
+          },
+          "staff_mfa_required": {
+            "type": "boolean",
+            "description": "Whether the console asks Sakalya staff for an authenticator code (`auth.staff_mfa`). The\nconsole reads this to show or skip its second step."
           }
         }
       },

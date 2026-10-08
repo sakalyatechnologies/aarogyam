@@ -15,9 +15,10 @@ type Phase = { kind: "loading" } | { kind: "error"; message: string } | { kind: 
  * refuses console calls from a session that has not passed it (`aal2`). Development sign-in has
  * no second step, so it passes straight through.
  */
-export function MfaGate({ children }: { children: ReactNode }) {
+export function MfaGate({ required, children }: { required: boolean; children: ReactNode }) {
   const auth = useAuth();
-  if (auth.kind !== "email_code") {
+  // `required` is the API's `auth.staff_mfa` setting (from `/me`): off in the demo.
+  if (!required || auth.kind !== "email_code") {
     return <>{children}</>;
   }
   return <SecondStep auth={auth}>{children}</SecondStep>;

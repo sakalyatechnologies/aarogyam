@@ -288,13 +288,14 @@ async fn me_says_who_may_open_the_console() {
     let app = TestApp::start().await;
     let staff = me(&app, STAFF).await;
     assert_eq!(staff["console_access"], true);
+    assert_eq!(staff["staff_mfa_required"], true);
     assert_eq!(staff["clinics"], json!([]));
     let owner = me(&app, ALPHA_OWNER).await;
     assert_eq!(owner["console_access"], false);
     assert_eq!(owner["clinics"][0]["slug"], "alpha");
     assert_eq!(
         me(&app, STRANGER).await,
-        json!({ "clinics": [], "console_access": false })
+        json!({ "clinics": [], "console_access": false, "staff_mfa_required": true })
     );
 
     // Staff can't also belong to a clinic: the database refuses, so /me never mixes the two.

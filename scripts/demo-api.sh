@@ -40,6 +40,8 @@ export ARO_HTTP__EDGE_SECRET="$EDGE_SECRET"
 export ARO_HTTP__EDGE_HOST_HEADER=x-sakalya-host
 export ARO_AUTH__MODE=supabase
 export ARO_AUTH__DEV_TOKENS=false
+# Demo: no authenticator step for Sakalya staff. The pilot sets STAFF_MFA=true.
+export ARO_AUTH__STAFF_MFA="${STAFF_MFA:-false}"
 # One portal Worker per clinic (workers.dev has no wildcard subdomains); the landing page and
 # sign-in live on aarogyam-portal, which belongs to no clinic.
 export ARO_HOSTS__PORTAL_HOST_TEMPLATE="{slug}-aarogyam.${WORKERS}"

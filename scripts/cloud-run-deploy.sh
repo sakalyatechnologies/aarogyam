@@ -60,6 +60,9 @@ ENV_VARS="ARO_ENVIRONMENT=${ENVIRONMENT_NAME}"
 ENV_VARS="${ENV_VARS}#SUPABASE_URL=${SUPABASE_URL}"
 ENV_VARS="${ENV_VARS}#ARO_AUTH__MODE=supabase"
 ENV_VARS="${ENV_VARS}#ARO_AUTH__DEV_TOKENS=false"
+# Sakalya staff authenticator (second step) for the console: off for the demo; the pilot sets
+# STAFF_MFA=true. It must be on before real patient data (docs/decisions.md).
+ENV_VARS="${ENV_VARS}#ARO_AUTH__STAFF_MFA=${STAFF_MFA:-false}"
 ENV_VARS="${ENV_VARS}#ARO_HOSTS__PORTAL_HOST_TEMPLATE={slug}-aarogyam.${WORKERS}"
 ENV_VARS="${ENV_VARS}#ARO_HOSTS__APP=aarogyam-portal.${WORKERS}"
 ENV_VARS="${ENV_VARS}#ARO_HOSTS__CONSOLE=aarogyam-console.${WORKERS}"

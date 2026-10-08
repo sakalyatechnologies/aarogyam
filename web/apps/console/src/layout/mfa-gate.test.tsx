@@ -34,10 +34,10 @@ function client(initial: MfaStatus, verify = vi.fn<(factor: string, code: string
   return { auth, verify };
 }
 
-function show(auth: EmailCodeAuthClient) {
+function show(auth: EmailCodeAuthClient, required = true) {
   render(
     <AuthProvider client={auth}>
-      <MfaGate>
+      <MfaGate required={required}>
         <p>Console content</p>
       </MfaGate>
     </AuthProvider>,
@@ -48,6 +48,12 @@ describe("Console second step", () => {
   it("lets a session that already passed it straight in", async () => {
     show(client({ step: "done" }).auth);
     expect(await screen.findByText("Console content")).toBeTruthy();
+  });
+
+  it("skips the second step when the API says it isn't required", async () => {
+    show(client({ step: "enrol" }).auth, false);
+    expect(await screen.findByText("Console content")).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "QR code for your authenticator app" })).toBeNull();
   });
 
   it("asks someone with an authenticator for its code, then opens the console", async () => {

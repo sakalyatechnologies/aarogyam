@@ -268,6 +268,12 @@ merged migration; fix forward with a new one.
   between runs: about 4 seconds of CPU per run is roughly 90,000 of the 180,000 free
   vCPU-seconds a month. Change the pace with `DRAIN_SCHEDULE='*/5 * * * *'
   scripts/cloud-run-deploy.sh`; an invitation email arrives within the interval.
+- **Staff authenticator** (`ARO_AUTH__STAFF_MFA`, default `true` in the server): the deploy
+  scripts set it from `STAFF_MFA`, which defaults to `false` for the demo. The pilot runs
+  `STAFF_MFA=true scripts/cloud-run-deploy.sh`. The API then refuses console calls below
+  `aal2`, and the console shows its enrol/verify step; when off, both are skipped (the console
+  reads `staff_mfa_required` from `/me`, so there is one switch). Must be on before real
+  patient data.
 - **Patient files** go to the private Supabase Storage bucket `aarogyam-files`
   (`ARO_FILES__BACKEND=supabase`), streamed through the API's permission-checked routes.
 

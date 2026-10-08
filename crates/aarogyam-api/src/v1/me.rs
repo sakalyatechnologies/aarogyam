@@ -44,6 +44,9 @@ pub struct Me {
     /// Whether they are active Sakalya staff who can open the console. Central sign-in sends
     /// them there, or offers it first beside their clinics.
     pub console_access: bool,
+    /// Whether the console asks Sakalya staff for an authenticator code (`auth.staff_mfa`). The
+    /// console reads this to show or skip its second step.
+    pub staff_mfa_required: bool,
 }
 
 /// The signed-in person's clinics, for the clinic switcher.
@@ -63,6 +66,7 @@ pub(crate) async fn me(
         lookups::me(state.db().pool(), signed_in.claims.subject().uuid()).await?;
     Ok(Json(Me {
         console_access,
+        staff_mfa_required: state.staff_mfa(),
         clinics: clinics
             .into_iter()
             .map(|clinic| MyClinic {

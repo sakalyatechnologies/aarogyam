@@ -150,6 +150,7 @@ struct Inner {
     quality_dir: PathBuf,
     clients: Arc<ClientPolicy>,
     error_reporting: Option<Arc<ErrorReporting>>,
+    staff_mfa: bool,
     client_errors: Budget,
 }
 
@@ -182,6 +183,7 @@ impl AppState {
                 quality_dir: PathBuf::from("var/quality"),
                 clients: Arc::new(ClientPolicy::default()),
                 error_reporting: None,
+                staff_mfa: true,
                 client_errors: Budget::default(),
             }),
         }
@@ -224,6 +226,17 @@ impl AppState {
     pub fn with_allergy_source(mut self, source: Arc<dyn AllergySource>) -> Self {
         if let Some(inner) = Arc::get_mut(&mut self.inner) {
             inner.allergies = source;
+        }
+        self
+    }
+
+    /// Turns the Sakalya-staff authenticator requirement (`aal2` for console calls) on or off.
+    /// On by default; only demos and development turn it off. Call before the state is shared
+    /// (cloned).
+    #[must_use]
+    pub fn with_staff_mfa(mut self, required: bool) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.staff_mfa = required;
         }
         self
     }
@@ -313,6 +326,11 @@ impl AppState {
 
     pub(crate) fn allergies(&self) -> &dyn AllergySource {
         self.inner.allergies.as_ref()
+    }
+
+    /// Whether console calls need the staff member's authenticator code (`aal2`).
+    pub(crate) fn staff_mfa(&self) -> bool {
+        self.inner.staff_mfa
     }
 
     pub(crate) fn website(&self) -> &WebsiteLinks {

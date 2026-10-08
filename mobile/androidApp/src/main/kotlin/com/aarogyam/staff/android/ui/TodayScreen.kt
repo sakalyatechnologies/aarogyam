@@ -44,6 +44,7 @@ fun TodayScreen(
     holder: TodayStateHolder,
     onSwitchClinic: () -> Unit,
     onSignOut: () -> Unit,
+    onWalkIn: () -> Unit,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     val loaded = state as? TodayState.Loaded
@@ -53,6 +54,7 @@ fun TodayScreen(
             subtitle = loaded?.view?.let { greeting(it) },
             actions = {
                 val onBar = SkTheme.colors.onBrandDark.color
+                BarAction(stringResource(R.string.walk_in_add), onBar, onWalkIn)
                 BarAction(stringResource(R.string.switch_clinic), onBar, onSwitchClinic)
                 BarAction(stringResource(R.string.sign_out), onBar, onSignOut)
             },

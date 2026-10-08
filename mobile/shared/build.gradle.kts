@@ -87,6 +87,21 @@ val apiModels =
         "SummaryContent",
         "VisitNote",
         "NoteSections",
+        "PhoneLookup",
+        "PhoneMatches",
+        "PhoneMatch",
+        "WalkInRequest",
+        "NewPatient",
+        "DeskConsentFields",
+        "WalkIn",
+        "QueueDay",
+        "StartedVisit",
+        "TokenStatusChange",
+        "QuickPicks",
+        "QuickPick",
+        "QuickTextPick",
+        "QuickMedicineSet",
+        "QuickSetMedicine",
     )
 val generatedApi = layout.buildDirectory.dir("generated/openapi")
 

@@ -14,16 +14,18 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.walkin.QueueScreen
 import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.designcompose.SkBottomNavigation
 import com.sakalya.mobile.designcompose.SkNavItem
 
 private const val TAB_TODAY = 0
 private const val TAB_PATIENTS = 1
-private const val TAB_CALENDAR = 2
+private const val TAB_QUEUE = 2
+private const val TAB_CALENDAR = 3
 
 /**
- * The signed-in shell: Today, Patients and Calendar behind bottom tabs. Each tab's state holder
+ * The signed-in shell: Today, Patients, Queue and Calendar behind bottom tabs. Each tab's state holder
  * lives as long as this destination, so a search or a day survives a tab switch.
  */
 @Composable
@@ -31,6 +33,7 @@ fun MainScreen(
     graph: AppGraph,
     clinic: ClinicContext,
     onOpenPatient: (String) -> Unit,
+    onWalkIn: () -> Unit,
     onSwitchClinic: () -> Unit,
     onSignOut: () -> Unit,
 ) {
@@ -38,9 +41,24 @@ fun MainScreen(
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             when (tab) {
-                TAB_PATIENTS -> PatientsScreen(rememberHolder { graph.patients(clinic, it) }, onOpenPatient)
-                TAB_CALENDAR -> CalendarScreen(rememberHolder { graph.calendar(clinic, it) }, onOpenPatient)
-                else -> TodayScreen(rememberHolder { graph.today(clinic, it) }, onSwitchClinic, onSignOut)
+                TAB_PATIENTS -> {
+                    PatientsScreen(rememberHolder { graph.patients(clinic, it) }, onOpenPatient, onWalkIn)
+                }
+
+                TAB_QUEUE -> {
+                    QueueScreen(
+                        rememberHolder { graph.queue(clinic, it) },
+                        onWalkIn,
+                    ) { onOpenPatient(it.patientId) }
+                }
+
+                TAB_CALENDAR -> {
+                    CalendarScreen(rememberHolder { graph.calendar(clinic, it) }, onOpenPatient)
+                }
+
+                else -> {
+                    TodayScreen(rememberHolder { graph.today(clinic, it) }, onSwitchClinic, onSignOut, onWalkIn)
+                }
             }
         }
         SkBottomNavigation(
@@ -48,6 +66,7 @@ fun MainScreen(
                 listOf(
                     navItem(R.string.tab_today, R.drawable.ic_tab_today),
                     navItem(R.string.tab_patients, R.drawable.ic_tab_patients),
+                    navItem(R.string.tab_queue, R.drawable.ic_tab_queue),
                     navItem(R.string.tab_calendar, R.drawable.ic_tab_calendar),
                 ),
             selectedIndex = tab,

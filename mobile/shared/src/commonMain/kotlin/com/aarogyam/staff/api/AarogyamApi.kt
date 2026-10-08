@@ -65,7 +65,7 @@ class AppApi(
 
 /** Calls on one clinic's host; the host alone selects the clinic. */
 class ClinicApi(
-    private val client: HttpClient,
+    internal val client: HttpClient,
     /** The clinic's origin (`https://host`), the base of links the patient opens. */
     val origin: String = "",
 ) {

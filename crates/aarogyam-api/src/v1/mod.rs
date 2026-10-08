@@ -6,9 +6,11 @@ pub(crate) mod appointments;
 pub(crate) mod auth;
 pub(crate) mod billing;
 pub(crate) mod chart;
+pub(crate) mod client_errors;
 pub(crate) mod console;
 pub(crate) mod facts;
 pub(crate) mod files;
+pub(crate) mod health;
 pub(crate) mod imports;
 pub(crate) mod internal;
 pub(crate) mod inventory;
@@ -65,6 +67,13 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
     let router = Router::new()
         // Public: which app versions are served.
         .route("/meta", get(meta::meta))
+        // Public: for uptime checks, through the edge (no database).
+        .route("/health", get(health::health))
+        // Public, throttled per IP and capped in size: errors from the web apps, logged only.
+        .route(
+            "/client-errors",
+            post(client_errors::report).layer(DefaultBodyLimit::max(client_errors::MAX_BODY)),
+        )
         .route("/me", get(me::me))
         .route("/me/sessions", get(me::sessions))
         .route("/me/sessions/{id}/revoke", post(me::revoke_session))

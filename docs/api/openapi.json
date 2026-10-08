@@ -459,6 +459,33 @@
         }
       }
     },
+    "/api/v1/client-errors": {
+      "post": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Logs an error from a web app (public, throttled, nothing stored).",
+        "operationId": "reportClientError",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientError"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Logged, or dropped when over the allowance"
+          },
+          "429": {
+            "description": "Too many reports from this address"
+          }
+        }
+      }
+    },
     "/api/v1/console/applications": {
       "get": {
         "tags": [
@@ -1103,6 +1130,26 @@
             "bearer": []
           }
         ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Whether the API is serving (public, no sign-in, no database).",
+        "operationId": "checkApiHealth",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/imports/incomplete": {
@@ -9885,6 +9932,66 @@
           }
         }
       },
+      "ClientError": {
+        "type": "object",
+        "description": "What a page sends when something fails.",
+        "required": [
+          "app",
+          "message"
+        ],
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "Which app: `portal`, `console`, `website` or `mobile`."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`error` (default), `unhandledrejection` or `console`."
+          },
+          "message": {
+            "type": "string",
+            "description": "The error's message; scrubbed and cut to 300 characters."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The error's name, such as `TypeError`."
+          },
+          "page": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The page's path; reduced to a route shape."
+          },
+          "release": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The app's release."
+          },
+          "request_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The `x-request-id` of a failed API call, to join with the server's log lines."
+          },
+          "stack": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The stack trace; scrubbed and cut to 2000 characters."
+          }
+        }
+      },
       "ClientVersions": {
         "type": "object",
         "description": "The versions of one app the API serves.",
@@ -11307,6 +11414,19 @@
               "null"
             ],
             "description": "A one-time magic-link token hash (`supabase`)."
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "description": "The answer to a health check.",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Always `ok` while the API is serving."
           }
         }
       },

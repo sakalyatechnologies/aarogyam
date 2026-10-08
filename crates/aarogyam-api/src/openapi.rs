@@ -24,6 +24,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     paths(
         healthz,
         crate::v1::meta::meta,
+        crate::v1::health::health,
+        crate::v1::client_errors::report,
         crate::v1::me::me,
         crate::v1::me::session,
         crate::v1::me::sessions,

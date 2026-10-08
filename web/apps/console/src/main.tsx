@@ -1,10 +1,14 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import { installClientErrorReporting } from "@aarogyam/app-kit";
+
 import { App } from "./app.js";
 import { readEnv } from "./env.js";
 import { createServices } from "./services.js";
 import "./styles.css";
+
+installClientErrorReporting({ app: "console" });
 
 const root = document.getElementById("root");
 if (root !== null) {

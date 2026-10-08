@@ -490,6 +490,10 @@ async fn every_route_requires_sign_in_and_a_permission() {
             // Which phone app versions are served: an app asks before it signs in, and an app
             // that is too old must still be able to (tests/client_gate.rs).
             "/api/v1/meta",
+            // Uptime checks; answers `ok` and nothing else (tests/ops.rs).
+            "/api/v1/health",
+            // Errors from the web apps: throttled, capped, scrubbed, logged only (tests/ops.rs).
+            "/api/v1/client-errors",
         ];
         if !path.starts_with("/api/v1/")
             || path.starts_with("/api/v1/dev/")

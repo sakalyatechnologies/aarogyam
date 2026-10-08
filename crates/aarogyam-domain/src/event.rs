@@ -120,6 +120,10 @@ pub enum Event {
     AppointmentCancelledByPatient,
     /// A file's sharing with the patient changed.
     AttachmentSharingChanged,
+    /// A clinic expense was recorded.
+    ExpenseRecorded,
+    /// A clinic expense was voided.
+    ExpenseVoided,
 }
 
 impl Event {
@@ -185,6 +189,8 @@ impl Event {
             Self::PatientLinkEnded => "patient_link.ended",
             Self::AppointmentCancelledByPatient => "appointment.cancelled_by_patient",
             Self::AttachmentSharingChanged => "attachment.sharing_changed",
+            Self::ExpenseRecorded => "expense.recorded",
+            Self::ExpenseVoided => "expense.voided",
         }
     }
 }

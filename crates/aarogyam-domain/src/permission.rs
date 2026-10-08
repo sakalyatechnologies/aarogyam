@@ -42,11 +42,15 @@ pub enum Permission {
     InventoryManage,
     /// Choose what each role can see and do.
     RolesManage,
+    /// Record clinic expenses.
+    ExpensesWrite,
+    /// See the Analytics page: chair use, patients and busy hours.
+    AnalyticsView,
 }
 
 impl Permission {
     /// Every permission, in catalogue order.
-    pub const ALL: [Self; 18] = [
+    pub const ALL: [Self; 20] = [
         Self::PatientsRead,
         Self::PatientsWrite,
         Self::PatientsContact,
@@ -65,6 +69,8 @@ impl Permission {
         Self::InventoryRead,
         Self::InventoryManage,
         Self::RolesManage,
+        Self::ExpensesWrite,
+        Self::AnalyticsView,
     ];
 
     /// The catalogue key, such as `patients.read`.
@@ -89,6 +95,8 @@ impl Permission {
             Self::InventoryRead => "inventory.read",
             Self::InventoryManage => "inventory.manage",
             Self::RolesManage => "roles.manage",
+            Self::ExpensesWrite => "expenses.write",
+            Self::AnalyticsView => "analytics.view",
         }
     }
 
@@ -303,6 +311,8 @@ required!(
     InventoryRead,
     InventoryManage,
     RolesManage,
+    ExpensesWrite,
+    AnalyticsView,
 );
 
 #[cfg(test)]

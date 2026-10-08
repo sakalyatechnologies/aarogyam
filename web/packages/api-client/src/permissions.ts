@@ -22,6 +22,10 @@ export const PERMISSIONS = [
   "audit.view",
   "inventory.read",
   "inventory.manage",
+  /** Record clinic expenses (listing and voiding them need finance.view). */
+  "expenses.write",
+  /** The owner's Analytics page; its money figures also need finance.view. */
+  "analytics.view",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

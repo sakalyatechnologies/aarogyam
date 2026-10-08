@@ -459,6 +459,20 @@ export type PendingItem = Schemas["PendingItem"];
 export type PendingReport = Schemas["PendingReport"];
 export type TodayMoney = Schemas["TodayMoney"];
 
+// Expenses and Analytics -------------------------------------------------------------------------
+
+export type ExpenseCategory = Schemas["ExpenseCategory"];
+export type Expense = Schemas["Expense"];
+export type ExpenseList = Schemas["ExpenseList"];
+export type NewExpense = Schemas["NewExpense"];
+export type AnalyticsBucket = Schemas["AnalyticsBucket"];
+export type Analytics = Schemas["Analytics"];
+export type AnalyticsBucketRow = Schemas["AnalyticsBucketRow"];
+export type AnalyticsChair = Schemas["AnalyticsChair"];
+export type ChairUtilization = Schemas["ChairUtilization"];
+export type CategorySpend = Schemas["CategorySpend"];
+export type BusyHour = Schemas["BusyHour"];
+
 // Prescriptions (M5) ----------------------------------------------------------------------------
 
 export type PrescriptionStatus = "draft" | "issued" | "cancelled";

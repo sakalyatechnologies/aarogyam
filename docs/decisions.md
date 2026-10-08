@@ -2,6 +2,15 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-07: Analytics: chair utilization and material costs
+
+**Decision.** `GET /api/v1/reports/analytics` (`analytics.view`, owner by default; money figures null without `finance.view`) reads everything in one statement in one clinic transaction.
+
+- **Chair utilization** = booked minutes ÷ open minutes, per chair (rooms of kind `chair`) per month or week. Booked minutes are the lengths of appointments starting in the period that are not deleted, cancelled or unconfirmed online requests; no-shows count, because the chair was held. Open minutes are **9 hours (540 minutes) on every calendar day** of the period inside the range, because clinic opening hours are not stored (only each doctor's working hours). The figure can pass 100% when a chair is booked for longer than that. Replace the constant with clinic hours when they exist; the response carries `open_minutes_per_day` so the page can say what it assumed.
+- **Stock purchases count as material.** Expenses per category are the recorded (not void) `expenses` rows plus stock received in the period at cost (`stock_batches.received_quantity × unit_cost_paise`, by `received_on`), added to `material`. Stock is not copied into `expenses`, so it can't be counted twice or drift; `stock_purchases_paise` shows the stock part. A clinic that also enters a material expense by hand for the same delivery counts it twice; the expense form should say so.
+- **Patients.** A visit is an appointment not deleted, cancelled, a no-show or an unconfirmed request. A patient is **new** in the period of their first such visit ever, **returning** in later periods. Age bands use the date of birth on the report's last day; referral counts are by the referral source's kind (not its name, which may name a person), for patients whose first visit is in the range.
+- **Range.** The last twelve calendar months by default, at most 731 days (24 months).
+
 ## 2026-10-07: Staff authenticator is a setting, off in the demo
 
 `auth.staff_mfa` (`ARO_AUTH__STAFF_MFA`, default on) controls whether Sakalya staff need an authenticator code (`aal2`) for the console; the console reads it from `/me` (`staff_mfa_required`). It is off in the demo deploys (`STAFF_MFA` unset) and **must be on before real patient data** (pilot: `STAFF_MFA=true`).

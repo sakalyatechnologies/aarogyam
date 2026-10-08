@@ -2,6 +2,7 @@
 //! [`crate::extract::Require`] (a clinic member with a permission), [`crate::extract::PlatformRequest`]
 //! (Sakalya staff on the console host) or [`crate::extract::SignedIn`] (anyone signed in).
 
+pub(crate) mod analytics;
 pub(crate) mod appointments;
 pub(crate) mod auth;
 pub(crate) mod billing;
@@ -9,6 +10,7 @@ pub(crate) mod chart;
 pub(crate) mod client_errors;
 pub(crate) mod consents;
 pub(crate) mod console;
+pub(crate) mod expenses;
 pub(crate) mod facts;
 pub(crate) mod files;
 pub(crate) mod health;
@@ -402,6 +404,9 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/payments/{id}/void", post(payments::void))
         .route("/reports/collections", get(reports::collections))
         .route("/reports/pending", get(reports::pending))
+        .route("/reports/analytics", get(analytics::analytics))
+        .route("/expenses", get(expenses::list).post(expenses::record))
+        .route("/expenses/{id}/void", post(expenses::void))
         .route("/today/money", get(reports::today_money))
         .route("/patients/{id}/recalls", post(recalls::create))
         .route("/recalls", get(recalls::due))

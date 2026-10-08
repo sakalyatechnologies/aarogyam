@@ -6,6 +6,7 @@
 //! these; nothing here knows about HTTP.
 
 pub mod accounts;
+pub mod analytics;
 pub mod appointments;
 pub mod billing;
 pub mod chart;
@@ -13,6 +14,7 @@ pub mod clock;
 pub mod consents;
 pub mod console;
 pub mod error;
+pub mod expenses;
 pub mod facts;
 pub mod files;
 pub mod handoff;

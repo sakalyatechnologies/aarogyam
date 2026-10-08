@@ -1248,6 +1248,173 @@
         ]
       }
     },
+    "/api/v1/expenses": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Expenses spent on clinic days `from` to `to`, newest day first, voided ones included.",
+        "operationId": "listExpenses",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First clinic day, YYYY-MM-DD",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last clinic day, included",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Most rows, 1 to 500 (default 500)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad date or a backwards range"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks finance.view"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Records an expense.",
+        "operationId": "recordExpense",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewExpense"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Expense"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input: amount, note, or a day after today"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks expenses.write"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/expenses/{id}/void": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Voids an expense with a reason; it stops counting in reports.",
+        "operationId": "voidExpense",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The expense",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reason"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Expense"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No reason given"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks finance.view"
+          },
+          "404": {
+            "description": "No such expense in this clinic"
+          },
+          "409": {
+            "description": "Already void"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "tags": [
@@ -7150,6 +7317,69 @@
         }
       }
     },
+    "/api/v1/reports/analytics": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Chair utilization, income, expenses (stock received counts as material) and patients by\nmonth or week. The last twelve months by default; at most 731 days. Money fields are null\nunless the caller also has `finance.view`.",
+        "operationId": "getAnalyticsReport",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First clinic day, YYYY-MM-DD (default: the 1st of the month eleven months before to)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last clinic day, included (default: today)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bucket",
+            "in": "query",
+            "description": "month (default) or week",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Analytics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad date, bucket, or a backwards or too long range"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks analytics.view"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/reports/collections": {
       "get": {
         "tags": [
@@ -9838,6 +10068,173 @@
           }
         }
       },
+      "Analytics": {
+        "type": "object",
+        "description": "The Analytics report.",
+        "required": [
+          "from",
+          "to",
+          "bucket",
+          "open_minutes_per_day",
+          "money_visible",
+          "chairs",
+          "buckets",
+          "patients",
+          "busy_hours"
+        ],
+        "properties": {
+          "bucket": {
+            "$ref": "#/components/schemas/AnalyticsBucket",
+            "description": "Months or weeks."
+          },
+          "buckets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsBucketRow"
+            },
+            "description": "Every period in the range, oldest first."
+          },
+          "busy_hours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusyHour"
+            },
+            "description": "Visits by weekday and hour; only non-zero cells."
+          },
+          "chairs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsChair"
+            },
+            "description": "Chairs: the active ones, and any other with bookings in the range, by name."
+          },
+          "from": {
+            "type": "string",
+            "description": "First day, `YYYY-MM-DD`."
+          },
+          "money_visible": {
+            "type": "boolean",
+            "description": "Whether the money fields are filled (the caller has `finance.view`)."
+          },
+          "open_minutes_per_day": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minutes a chair is assumed open each day (540: clinic hours are not stored yet)."
+          },
+          "patients": {
+            "$ref": "#/components/schemas/PatientBreakdown",
+            "description": "Who the patients are."
+          },
+          "to": {
+            "type": "string",
+            "description": "Last day, included."
+          }
+        }
+      },
+      "AnalyticsBucket": {
+        "type": "string",
+        "description": "How the report groups days.",
+        "enum": [
+          "month",
+          "week"
+        ]
+      },
+      "AnalyticsBucketRow": {
+        "type": "object",
+        "description": "One month or week. Money fields are null without `finance.view`.",
+        "required": [
+          "start",
+          "first_day",
+          "last_day",
+          "chair_utilization",
+          "patients"
+        ],
+        "properties": {
+          "chair_utilization": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChairUtilization"
+            },
+            "description": "Every chair in `chairs`, in that order."
+          },
+          "expenses": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CategorySpend"
+            },
+            "description": "Every category, zero when nothing was spent."
+          },
+          "expenses_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "All expenses, in paise."
+          },
+          "first_day": {
+            "type": "string",
+            "description": "The first day counted: `start`, or the report's `from` if later."
+          },
+          "income_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Payments received (not void), in paise."
+          },
+          "last_day": {
+            "type": "string",
+            "description": "The last day counted: the period's end, or the report's `to` if earlier."
+          },
+          "patients": {
+            "$ref": "#/components/schemas/PatientMix",
+            "description": "New and returning patients."
+          },
+          "payments": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "How many payments."
+          },
+          "start": {
+            "type": "string",
+            "description": "The period's first day (the 1st, or a Monday), `YYYY-MM-DD`."
+          },
+          "stock_purchases_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Stock received at cost, in paise; already inside `material`."
+          }
+        }
+      },
+      "AnalyticsChair": {
+        "type": "object",
+        "description": "A chair in the report.",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The chair (a room of kind `chair`)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          }
+        }
+      },
       "Application": {
         "type": "object",
         "description": "A clinic's application.",
@@ -10590,6 +10987,34 @@
           }
         }
       },
+      "BusyHour": {
+        "type": "object",
+        "description": "Visits starting in an hour of a weekday.",
+        "required": [
+          "weekday",
+          "hour",
+          "visits"
+        ],
+        "properties": {
+          "hour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Hour of the day in clinic time, 0 to 23.",
+            "minimum": 0
+          },
+          "visits": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Visits."
+          },
+          "weekday": {
+            "type": "integer",
+            "format": "int32",
+            "description": "ISO weekday: 1 Monday to 7 Sunday.",
+            "minimum": 0
+          }
+        }
+      },
       "CancelRequest": {
         "type": "object",
         "description": "Cancelling a prescription.",
@@ -10662,6 +11087,25 @@
               "type": "string"
             },
             "description": "The scopes it can be narrowed to: always `all`, sometimes `own` and `assigned`."
+          }
+        }
+      },
+      "CategorySpend": {
+        "type": "object",
+        "description": "Spent in one category in a period.",
+        "required": [
+          "category",
+          "amount_paise"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise; for `material`, includes stock received at cost."
+          },
+          "category": {
+            "$ref": "#/components/schemas/ExpenseCategory",
+            "description": "`salary`, `material`, `electricity`, `lab`, `rent` or `other`."
           }
         }
       },
@@ -10750,6 +11194,43 @@
           "status": {
             "type": "string",
             "description": "`in_use` while a patient is in it, otherwise `free`."
+          }
+        }
+      },
+      "ChairUtilization": {
+        "type": "object",
+        "description": "One chair's use in a period.",
+        "required": [
+          "room_id",
+          "booked_minutes",
+          "open_minutes",
+          "appointments",
+          "utilization_bps"
+        ],
+        "properties": {
+          "appointments": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Appointments."
+          },
+          "booked_minutes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minutes booked: appointments not cancelled and not unconfirmed online requests\n(no-shows count)."
+          },
+          "open_minutes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minutes open: `open_minutes_per_day` for each day of the period inside the range."
+          },
+          "room_id": {
+            "type": "string",
+            "description": "The chair."
+          },
+          "utilization_bps": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Booked over open, in basis points (10000 is fully booked; can be more)."
           }
         }
       },
@@ -12281,6 +12762,104 @@
           }
         }
       },
+      "Expense": {
+        "type": "object",
+        "description": "Money the clinic spent.",
+        "required": [
+          "id",
+          "category",
+          "category_name",
+          "spent_on",
+          "amount_paise",
+          "status",
+          "recorded_by",
+          "created_at"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise."
+          },
+          "category": {
+            "$ref": "#/components/schemas/ExpenseCategory",
+            "description": "What it was for."
+          },
+          "category_name": {
+            "type": "string",
+            "description": "The category's name, such as `Rent`."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was recorded (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A note."
+          },
+          "recorded_by": {
+            "type": "string",
+            "description": "The membership that recorded it."
+          },
+          "spent_on": {
+            "type": "string",
+            "description": "The clinic day the money went out, `YYYY-MM-DD`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`recorded` or `void`."
+          },
+          "void_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was voided."
+          },
+          "voided_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was voided (RFC 3339)."
+          }
+        }
+      },
+      "ExpenseCategory": {
+        "type": "string",
+        "description": "A system expense category. Stock deliveries count as `material` in analytics.",
+        "enum": [
+          "salary",
+          "material",
+          "electricity",
+          "lab",
+          "rent",
+          "other"
+        ]
+      },
+      "ExpenseList": {
+        "type": "object",
+        "description": "Expenses.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Expense"
+            },
+            "description": "Newest day first, voided ones included."
+          }
+        }
+      },
       "ExpireBody": {
         "type": "object",
         "description": "A write-off.",
@@ -13423,6 +14002,25 @@
           }
         }
       },
+      "KeyCount": {
+        "type": "object",
+        "description": "A count under a key.",
+        "required": [
+          "key",
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many."
+          },
+          "key": {
+            "type": "string",
+            "description": "The key."
+          }
+        }
+      },
       "Leave": {
         "type": "object",
         "description": "Time a doctor is away.",
@@ -14498,6 +15096,37 @@
           "label": {
             "type": "string",
             "description": "What the clinician reads, 1 to 80 characters."
+          }
+        }
+      },
+      "NewExpense": {
+        "type": "object",
+        "description": "An expense to record.",
+        "required": [
+          "category",
+          "spent_on",
+          "amount_paise"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise, more than zero and at most 1,00,00,000 rupees."
+          },
+          "category": {
+            "$ref": "#/components/schemas/ExpenseCategory",
+            "description": "What it was for."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Up to 300 characters."
+          },
+          "spent_on": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`; today or earlier."
           }
         }
       },
@@ -15884,6 +16513,38 @@
           }
         }
       },
+      "PatientBreakdown": {
+        "type": "object",
+        "description": "Who the patients in the range are.",
+        "required": [
+          "age_bands",
+          "visit_kinds",
+          "referral_sources"
+        ],
+        "properties": {
+          "age_bands": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyCount"
+            },
+            "description": "Patients seen, by age on the last day: `0_12`, `13_17`, `18_34`, `35_49`, `50_64`,\n`65_plus`, `unknown`. Every band listed."
+          },
+          "referral_sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyCount"
+            },
+            "description": "Patients whose first visit was in the range, by referral source kind: `patient`,\n`doctor`, `online`, `walk_in`, `camp`, `insurance`, `other`, `unknown` (none recorded).\nEvery kind listed."
+          },
+          "visit_kinds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyCount"
+            },
+            "description": "Visits by appointment kind: `new`, `follow_up`, `procedure`, `emergency`. Every kind\nlisted."
+          }
+        }
+      },
       "PatientBrief": {
         "type": "object",
         "description": "A patient as the calendar and queue show them.",
@@ -16367,6 +17028,26 @@
           "status": {
             "type": "string",
             "description": "`sent` or `not_sent`."
+          }
+        }
+      },
+      "PatientMix": {
+        "type": "object",
+        "description": "New and returning patients in a period.",
+        "required": [
+          "new",
+          "returning"
+        ],
+        "properties": {
+          "new": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Patients whose first visit ever was in this period."
+          },
+          "returning": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Patients seen who had visited before this period."
           }
         }
       },
@@ -21505,11 +22186,11 @@
     },
     {
       "name": "billing",
-      "description": "Price list, bills, payments and receipts; clinic host only"
+      "description": "Price list, bills, payments, receipts and expenses; clinic host only"
     },
     {
       "name": "reports",
-      "description": "Money reports for owners and finance; clinic host only"
+      "description": "Money reports for owners and finance, and the owner's Analytics; clinic host only"
     },
     {
       "name": "prescriptions",

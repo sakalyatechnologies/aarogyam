@@ -76,6 +76,10 @@ entities! {
     InventoryItem, InventoryItemId;
     /// A delivery of an item, with its expiry and cost.
     StockBatch, StockBatchId;
+    /// What an expense was for: salaries, materials, rent and so on.
+    ExpenseCategory, ExpenseCategoryId;
+    /// Money the clinic spent.
+    Expense, ExpenseId;
 }
 
 entities! {

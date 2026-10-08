@@ -349,6 +349,13 @@ fn hot_routes(
             ALPHA,
             "/api/v1/reports/pending".into(),
         ),
+        // Chairs, money, patients and busy hours in one statement.
+        Route::get(
+            "GET /reports/analytics",
+            ALPHA,
+            "/api/v1/reports/analytics".into(),
+        ),
+        Route::get("GET /expenses", ALPHA, "/api/v1/expenses".into()),
         Route::get("GET /invoices", ALPHA, "/api/v1/invoices".into()),
         Route::get("GET /stock", ALPHA, "/api/v1/stock".into()),
         Route::get(

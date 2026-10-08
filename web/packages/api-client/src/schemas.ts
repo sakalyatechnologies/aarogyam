@@ -1227,6 +1227,41 @@ export const patientNotes = z.object({
 }) satisfies z.ZodType<C.PatientNotes>;
 export type PatientNotes = z.output<typeof patientNotes>;
 
+// Notice and consent records (DPDP) ---------------------------------------------------------------
+
+export const consentId = z.uuid().brand<"ConsentId">();
+export type ConsentId = z.output<typeof consentId>;
+export const consentPurpose = z.enum(["care", "reminders", "promotional", "sharing", "research"]) satisfies z.ZodType<C.ConsentPurpose>;
+export type ConsentPurpose = z.output<typeof consentPurpose>;
+export const consentMethod = z.enum(["paper", "verbal", "app"]) satisfies z.ZodType<C.ConsentMethod>;
+export type ConsentMethod = z.output<typeof consentMethod>;
+export const consentStatus = z.enum(["given", "withdrawn"]) satisfies z.ZodType<C.ConsentStatus>;
+export type ConsentStatus = z.output<typeof consentStatus>;
+
+export const consent = z.object({
+  id: consentId,
+  purpose: consentPurpose,
+  notice_version: z.string(),
+  given_at: timestamp,
+  method: consentMethod,
+  recorded_by: z.string(),
+  status: consentStatus,
+  withdrawn_at: optionalTimestamp,
+  withdrawn_by: optionalText,
+  withdrawn_method: consentMethod.nullable().exactOptional(),
+  note: optionalText,
+  withdrawal_note: optionalText,
+}) satisfies z.ZodType<C.Consent>;
+export type Consent = z.output<typeof consent>;
+
+export const consentList = z.object({ items: z.array(consent) }) satisfies z.ZodType<C.ConsentList>;
+export type ConsentPage = z.output<typeof consentList>;
+
+/** Body of `POST /api/v1/patients/{id}/consents`. */
+export type RecordConsent = C.RecordConsent;
+/** Body of `POST /api/v1/consents/{id}/withdraw`. */
+export type WithdrawConsent = C.WithdrawConsent;
+
 /** Body of `PUT /api/v1/patients/{id}/summary-note`. */
 export type SummaryContent = C.SummaryContent;
 

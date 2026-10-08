@@ -237,7 +237,7 @@ Onboarding answers become a site configuration. A GitHub App creates the clinic'
 
 **Founder must enable in Supabase (not done in code).** Authentication, Providers, Email: keep "Enable email provider" and password sign-in on; set minimum password length to 12 and require letters and digits; keep "Confirm email" on; consider "Leaked password protection" (Pro plan only). Review the Auth rate-limit page ("Rate limit for sign-ups and sign-ins" defaults to 30 per 5 minutes per IP).
 
-**Follow-up (open, not built): require a second step for super admins.** A password alone is a weaker proof than a mailbox-held code for the console, which can see every clinic. Proposal: enrol super admins in Supabase TOTP MFA, have the API require `aal2` in the JWT (the claim is already parsed in `sakalya-auth`) on console routes, and make the console prompt for the authenticator code after either sign-in method. Until then, super admins should prefer the email code.
+**Second step for super admins (built 2026-10-07).** Sakalya staff need an authenticator-app code (Supabase Auth TOTP MFA, free) before the console. The console, after sign-in by either method or the central handoff, checks `auth.mfa` and shows an enrolment screen (QR code and key) or a code prompt until the session is `aal2`. The API's `PlatformRequest` refuses every console route with `403 mfa_required` unless the token's `aal` claim (parsed by `sakalya-auth`) is `aal2`; non-staff still get the plain staff-only `403`, so the check reveals nothing. Clinic users are unaffected (optional MFA for them is in the backlog). Development sign-in tokens carry `aal2` (there is no second step locally). **Setup:** TOTP must be enabled in the Supabase project (Authentication, Multi-Factor; on by default). **Recovery:** a staff member who loses their authenticator is reset by deleting their factor in the Supabase dashboard (Authentication, Users); they then enrol again at next sign-in. Enrolling is open to a signed-in staff session, so the first sign-in of a new super admin should be done promptly after the grant.
 
 ## 2026-10-05: Supabase Storage for files, streamed through the API
 
@@ -266,3 +266,37 @@ What `own` means, per record:
 
 **Consequences.** Starting a visit or prescribing needs the patient in reach first, so a narrowed doctor can't make any patient their own; booking a patient with themselves (at `appointments.write` `own`) does, and that is how a patient becomes theirs. Clinic set-up stays visible to anyone who can see the calendar (rooms, doctors, hours, leave, letterhead, the drug list). A patient's header still shows their next appointment even if it is with a colleague. Editing a patient (`patients.write`, which is `all` only) still needs the patient within `patients.read` reach, because the answer shows the record. The consultant template, which was `assigned` from the start, is now narrowed as intended.
 
+
+## 2026-10-07: Notice and consent records (DPDP)
+
+**Decision.** `aarogyam.patient_consents` (migration 0280) records, per patient and purpose (`care`, `reminders`, `promotional`, `sharing`, `research`): the clinic's notice version the patient was shown (a free label such as `v1 2026-10`), when they agreed, how (`paper`, `verbal`, `app`) and which staff member recorded it. A withdrawal fills `withdrawn_*` once and the row is then final (`freeze_when_final`); consenting again adds a new row. At most one active consent per patient and purpose. The routes are `GET`/`POST /patients/{id}/consents` and `POST /consents/{id}/withdraw`, under `patients.read` and `patients.write` (so reception can record them, and scopes apply). Every change is in the change history. Patient 360 shows them in a Consent tab, and the header and quick look say whether consent to care is recorded; this replaces the earlier "consent form on file" label, which only looked at a Files item.
+
+**Why.** The clinic is the data fiduciary and must be able to show a notice was given and consent taken, and when it was withdrawn (DPDP sections 5 to 6). The notice text itself is the clinic's document (see `web/apps/website` legal pages for a template); we record the version, not the text, until clinics need to author notices in the product.
+
+**Not done.** Withdrawal does not yet switch off messages (the outbox still uses `consent_channels`): wire promotional and reminder withdrawals to it when messaging ships. Patient self-service consent (app) comes with the patient app.
+
+## 2026-10-07: Retention schedule and anonymisation design (DPDP)
+
+**Decision.** Each class of record has a default retention period, kept in code (`aarogyam-domain/src/retention.rs`) and here, and an operator job lists what is past it: `aarogyam retention` (needs `ARO_DB__OWNER_URL`; add `--sample N` for identifiers). It is a dry run and has no other mode: `--apply` exists only to refuse, until erasure is built. Counts, the oldest date and a few IDs are logged per clinic and class (`retention.past` events), never names. A test checks the code table against this one.
+
+| Class | What | Kept | Counted from | Basis (a lawyer must confirm) |
+|---|---|---|---|---|
+| `patient_record` | Patient and everything under them: visits, notes, prescriptions, files, charts | 7 years; children until 21 | Last visit, appointment or bill | Medical councils require records for at least 3 years; the Limitation Act (3 years from majority) and disputes argue for longer; 7 is the cautious default; DPDP section 8(7) says erase when the purpose ends |
+| `invoices` | Bills and payments | 8 years | Date issued | GST law (72 months) and company law (8 years) |
+| `outbox` | Sent or abandoned messages | 90 days | When sent or abandoned | Not needed once delivered; names recipients |
+| `share_links` | Patient links, after expiry | 30 days | Expiry | Not needed once expired |
+| `import_sessions` | Uploaded spreadsheets of patients | 30 days | Upload | Working copy only; the patients are in the clinic's records |
+| `access_log` | Who viewed a record | 3 years | Entry | Lets a clinic answer "who saw my record"; the DPDP Rules ask for logs to be kept at least 1 year |
+| `audit_events` | Who changed a record | 7 years | Entry | As the patient record it describes |
+| `clinic_applications` | Requests for access that were never approved | 365 days | Decision | Not needed after the decision |
+
+A clinic may keep records longer where its profession or a dispute requires; per-clinic overrides, and a legal hold that stops erasure of a patient, come before erasure is built (backlog). Consent records stay with the patient record and for 3 years after it.
+
+**Anonymisation and erasure design (not built).**
+
+1. **Erase is the default end of a patient record; anonymise only what the clinic still needs for statistics.** A patient row stays as a tombstone (`id`, `org_id`, `number`, `status = 'erased'`, `erased_at`) because other tables point at it; identity columns (name, search name, phones, email, address, birth date) are cleared. Bills inside their 8 years keep their lines and totals, with the recipient snapshot cleared, until they too pass retention.
+2. **One transaction per patient, in dependency order:** files (the rows, then the Storage objects, with an outbox row to retry a failed delete), voice notes, notes and addenda, observations, conditions, allergies, specialty records, procedures, treatment plans, prescriptions and their items, share links, recalls, queued messages, then the identity columns. Consent rows stay and point at the tombstone.
+3. **The change history holds old values.** `audit_events.changes` for the erased rows is scrubbed by an owner-run function (the table is append-only to the app role); access-log entries hold only IDs and stay.
+4. **Backups.** Erased data remains in backups until they expire (14 daily and 8 weekly dumps, `docs/ops.md`: about 8 weeks). The notice says so. An `erasure_log` of erased patient IDs is replayed after any restore so erased people don't return.
+5. **Who decides.** The dry-run report goes to the clinic owner, who confirms by clinic and class; the job then runs with `--apply --clinic <slug>`, and the run records `retention.applied` with counts in the change history. A patient's own erasure request (DPDP section 12) uses the same procedure, but refuses records still inside their legal minimum and says why.
+6. **Needs first:** the legal-hold flag, the per-clinic override, an `erased` patient status the UI understands, and a restore-drill step for the erasure log.

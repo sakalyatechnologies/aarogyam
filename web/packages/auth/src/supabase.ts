@@ -47,6 +47,22 @@ export interface SupabaseAuthApi {
   };
   /** Asks the auth server about the stored session's user. */
   getUser(): Promise<{ data: { user: { id: string } | null }; error: SupabaseError | null }>;
+  mfa: {
+    getAuthenticatorAssuranceLevel(): Promise<{
+      data: { currentLevel: string | null; nextLevel: string | null } | null;
+      error: SupabaseError | null;
+    }>;
+    listFactors(): Promise<{
+      data: { all: { id: string; factor_type: string; status: string }[] } | null;
+      error: SupabaseError | null;
+    }>;
+    enroll(params: { factorType: "totp"; friendlyName: string }): Promise<{
+      data: { id: string; totp: { qr_code: string; secret: string } } | null;
+      error: SupabaseError | null;
+    }>;
+    challengeAndVerify(params: { factorId: string; code: string }): Promise<{ data: unknown; error: SupabaseError | null }>;
+    unenroll(params: { factorId: string }): Promise<{ data: unknown; error: SupabaseError | null }>;
+  };
   /** `global` ends every session of this person, not just this browser's. */
   signOut(options?: { scope: "global" | "local" }): Promise<{ error: SupabaseError | null }>;
 }
@@ -237,6 +253,59 @@ export function createSupabaseAuth(api: SupabaseAuthApi, options: SupabaseAuthOp
         return failed("network", AUTH_MESSAGES.network);
       }
     },
+    mfa: {
+      status: async () => {
+        try {
+          const level = await api.mfa.getAuthenticatorAssuranceLevel();
+          if (level.error !== null || level.data === null) {
+            return { ok: false, message: MFA_UNAVAILABLE };
+          }
+          if (level.data.currentLevel === "aal2") {
+            return { ok: true, status: { step: "done" } };
+          }
+          const factors = await api.mfa.listFactors();
+          if (factors.error !== null || factors.data === null) {
+            return { ok: false, message: MFA_UNAVAILABLE };
+          }
+          const verified = factors.data.all.find((f) => f.factor_type === "totp" && f.status === "verified");
+          return { ok: true, status: verified === undefined ? { step: "enrol" } : { step: "verify", factorId: verified.id } };
+        } catch {
+          return { ok: false, message: AUTH_MESSAGES.network };
+        }
+      },
+      enrol: async () => {
+        try {
+          // A half-finished enrolment would block a new one with the same name.
+          const factors = await api.mfa.listFactors();
+          for (const factor of factors.data?.all ?? []) {
+            if (factor.factor_type === "totp" && factor.status !== "verified") {
+              await api.mfa.unenroll({ factorId: factor.id });
+            }
+          }
+          const { data, error } = await api.mfa.enroll({ factorType: "totp", friendlyName: "Authenticator app" });
+          if (error !== null || data === null) {
+            return { ok: false, message: MFA_UNAVAILABLE };
+          }
+          return { ok: true, enrolment: { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret } };
+        } catch {
+          return { ok: false, message: AUTH_MESSAGES.network };
+        }
+      },
+      verify: async (factorId, code) => {
+        try {
+          const { error } = await api.mfa.challengeAndVerify({ factorId, code });
+          if (error === null) {
+            return { ok: true };
+          }
+          if (isRateLimited(error)) {
+            return failed("rate_limited", AUTH_MESSAGES.rateLimited);
+          }
+          return isNetworkFailure(error) ? failed("network", AUTH_MESSAGES.network) : failed("invalid_code", MFA_WRONG_CODE);
+        } catch {
+          return failed("network", AUTH_MESSAGES.network);
+        }
+      },
+    },
     signOut: async () => {
       // Everywhere first; if the server can't be reached or already refuses the token, still clear this browser.
       try {
@@ -268,6 +337,8 @@ export function createSupabaseAuth(api: SupabaseAuthApi, options: SupabaseAuthOp
   };
 }
 
+const MFA_UNAVAILABLE = "Couldn't reach the second-step service. Try again in a moment.";
+const MFA_WRONG_CODE = "That code is wrong or has expired. Open your authenticator app and enter the current 6-digit code.";
 const EXPIRED_LINK = "This sign-in link is invalid or has expired. Request a new code or link.";
 
 export interface SupabaseConfig {

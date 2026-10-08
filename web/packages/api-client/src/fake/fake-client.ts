@@ -17,6 +17,7 @@ import {
   PERMISSION_CATALOGUE,
   ROLES,
   type FakeAllergy,
+  type FakeConsent,
   type FakePlan,
   type FakePlanItem,
   type FakeAlert,
@@ -97,6 +98,21 @@ const refuse = (status: number, code: string, message: string): Outcome => ({ ok
 /** Input errors as the API sends them: the field, a colon, then what is wrong. */
 const invalid = (field: string, problem: string): Outcome => refuse(400, "invalid_request", `${field}: ${problem}`);
 const notFound = refuse(404, "not_found", "Not found.");
+/** A consent record as the API sends it: without the fake's clinic and patient keys. */
+const wireConsent = (c: FakeConsent): C.Consent => ({
+  id: c.id,
+  purpose: c.purpose,
+  notice_version: c.notice_version,
+  given_at: c.given_at,
+  method: c.method,
+  recorded_by: c.recorded_by,
+  status: c.status,
+  ...(c.withdrawn_at === undefined ? {} : { withdrawn_at: c.withdrawn_at }),
+  ...(c.withdrawn_by === undefined ? {} : { withdrawn_by: c.withdrawn_by }),
+  ...(c.withdrawn_method === undefined ? {} : { withdrawn_method: c.withdrawn_method }),
+  ...(c.note === undefined ? {} : { note: c.note }),
+  ...(c.withdrawal_note === undefined ? {} : { withdrawal_note: c.withdrawal_note }),
+});
 /** `409` when issuing a prescription hits allergy alerts without an override reason. */
 const blocked = (alerts: C.Alert[]): Outcome => ({ ok: false, status: 409, body: { code: "allergy_alerts", alerts } });
 const OWNER = ROLES.owner;
@@ -1706,6 +1722,96 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           };
           state.conditions.push(record);
           return reply(wireCondition(record) satisfies C.Condition);
+        }),
+
+      listConsents: (id, opts) =>
+        respond(S.consentList, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const items = (state.consents ?? [])
+            .filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id)
+            .sort((a, b) => b.given_at.localeCompare(a.given_at))
+            .map(wireConsent);
+          return reply({ items } satisfies C.ConsentList);
+        }),
+
+      recordConsent: (id, input, opts) =>
+        respond(S.consent, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const purpose = S.consentPurpose.safeParse(input.purpose);
+          if (!purpose.success) {
+            return invalid("purpose", "unknown value");
+          }
+          const method = S.consentMethod.safeParse(input.method);
+          if (!method.success) {
+            return invalid("method", "unknown value");
+          }
+          const version = input.notice_version;
+          if (version.length < 1 || version.length > 40 || version !== version.trim()) {
+            return invalid("notice_version", "must be 1 to 40 characters, without spaces at either end");
+          }
+          const note = (input.note ?? "").trim();
+          if (note.length > 500) {
+            return invalid("note", "must be at most 500 characters of plain text");
+          }
+          const consents = (state.consents ??= []);
+          if (consents.some((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.purpose === purpose.data && c.status === "given")) {
+            return refuse(409, "conflict", "this patient already has an active consent for that purpose; withdraw it first");
+          }
+          const now = clock().toISOString();
+          const record: FakeConsent = {
+            id: S.consentId.parse(fakeUuid(random, clock())),
+            clinic_id: caller.clinic.id,
+            patient_id: id,
+            purpose: purpose.data,
+            notice_version: version,
+            given_at: input.given_at ?? now,
+            method: method.data,
+            recorded_by: caller.user.display_name,
+            status: "given",
+            ...(note === "" ? {} : { note }),
+          };
+          consents.push(record);
+          return reply(wireConsent(record) satisfies C.Consent);
+        }),
+
+      withdrawConsent: (id, input, opts) =>
+        respond(S.consent, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = (state.consents ?? []).find((c) => c.id === id && c.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const method = S.consentMethod.safeParse(input.method);
+          if (!method.success) {
+            return invalid("method", "unknown value");
+          }
+          if (found.status === "withdrawn") {
+            return refuse(409, "conflict", "that consent was already withdrawn");
+          }
+          found.status = "withdrawn";
+          found.withdrawn_at = clock().toISOString();
+          found.withdrawn_by = caller.user.display_name;
+          found.withdrawn_method = method.data;
+          const note = (input.note ?? "").trim();
+          if (note !== "") {
+            found.withdrawal_note = note;
+          }
+          return reply(wireConsent(found) satisfies C.Consent);
         }),
 
       getPatientNotes: (id, opts) =>

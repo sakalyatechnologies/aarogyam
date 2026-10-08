@@ -56,6 +56,16 @@ enum Command {
         #[command(subcommand)]
         action: Platform,
     },
+    /// Lists records past their retention period, per class and clinic (a dry run: nothing is
+    /// deleted or changed), over the schema owner's connection. See docs/decisions.md.
+    Retention {
+        /// Identifiers to show per clinic and class (0 to 20).
+        #[arg(long, default_value_t = 3, value_parser = clap::value_parser!(i32).range(0..=20))]
+        sample: i32,
+        /// Erase or anonymise what is listed. Not built yet: refused.
+        #[arg(long)]
+        apply: bool,
+    },
     /// The outgoing-message queue.
     Outbox {
         #[command(subcommand)]
@@ -143,6 +153,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Migrate => migrate(config).await,
         Command::Admin { action } => admin(config, action).await,
         Command::Platform { action } => platform(config, action).await,
+        Command::Retention { sample, apply } => retention(&config, sample, apply).await,
         Command::Outbox {
             action: Outbox::Drain { every },
         } => drain(config, every).await,
@@ -616,6 +627,40 @@ impl Person {
             display_name,
         })
     }
+}
+
+/// The retention dry run: one `retention.past` line per class and clinic with records past their
+/// period (counts, the oldest date and a few ids, never names), then a total per class.
+async fn retention(config: &Config, sample: i32, apply: bool) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        !apply,
+        "--apply is not built yet: erasure and anonymisation are designed in docs/decisions.md (Retention). Nothing was changed."
+    );
+    let db = owner_db(config)?;
+    let now = time::OffsetDateTime::now_utc();
+    for class in aarogyam_app::retention::report(&db, now, sample).await? {
+        for group in &class.groups {
+            let sample: Vec<String> = group.sample.iter().map(ToString::to_string).collect();
+            tracing::info!(
+                event = "retention.past",
+                class = class.class.as_str(),
+                clinic = group.org_id.map(|id| id.to_string()).unwrap_or_default(),
+                records = group.count,
+                oldest = group.oldest.map(|at| at.date().to_string()).unwrap_or_default(),
+                sample = %sample.join(","),
+                "records past retention"
+            );
+        }
+        tracing::info!(
+            event = "retention.class",
+            class = class.class.as_str(),
+            period = %class.period.describe(),
+            cutoff = %class.cutoff.date(),
+            records = class.total(),
+            "dry run: nothing was deleted"
+        );
+    }
+    Ok(())
 }
 
 /// The schema owner's connection, which admin commands need.

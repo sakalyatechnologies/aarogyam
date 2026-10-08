@@ -24,6 +24,13 @@ function stubApi(overrides: Partial<SupabaseAuthApi> = {}) {
     getUser: vi.fn(() => Promise.resolve({ data: { user: { id: "u1" } }, error: null })),
     signInWithPassword: vi.fn(() => Promise.resolve({ data: { session: null }, error: null })),
     updateUser: vi.fn(() => Promise.resolve({ error: null })),
+    mfa: {
+      getAuthenticatorAssuranceLevel: vi.fn(() => Promise.resolve({ data: { currentLevel: "aal1" as const, nextLevel: "aal1" as const }, error: null })),
+      listFactors: vi.fn(() => Promise.resolve({ data: { all: [] }, error: null })),
+      enroll: vi.fn(() => Promise.resolve({ data: { id: "f1", totp: { qr_code: "data:image/svg+xml;utf8,<svg/>", secret: "ABC" } }, error: null })),
+      challengeAndVerify: vi.fn(() => Promise.resolve({ data: {}, error: null })),
+      unenroll: vi.fn(() => Promise.resolve({ data: {}, error: null })),
+    },
     ...overrides,
   };
   return {
@@ -201,6 +208,46 @@ describe("createSupabaseAuth", () => {
       expect(await createSupabaseAuth(weak.api).setPassword("x")).toMatchObject({ code: "weak_password" });
       const other = stubApi({ updateUser: () => Promise.resolve({ error: apiError(400, "reauthentication_needed") }) });
       expect(await createSupabaseAuth(other.api).setPassword("x")).toMatchObject({ code: "rejected", message: AUTH_MESSAGES.passwordRejected });
+    });
+  });
+
+  describe("second step (TOTP)", () => {
+    it("is done when the session is already aal2", async () => {
+      const { api } = stubApi({
+        mfa: { ...stubApi().api.mfa, getAuthenticatorAssuranceLevel: () => Promise.resolve({ data: { currentLevel: "aal2", nextLevel: "aal2" }, error: null }) },
+      });
+      expect(await createSupabaseAuth(api).mfa.status()).toEqual({ ok: true, status: { step: "done" } });
+    });
+
+    it("asks for a code when a verified authenticator exists, and to enrol when none does", async () => {
+      expect(await createSupabaseAuth(stubApi().api).mfa.status()).toEqual({ ok: true, status: { step: "enrol" } });
+      const { api } = stubApi({
+        mfa: { ...stubApi().api.mfa, listFactors: () => Promise.resolve({ data: { all: [{ id: "f9", factor_type: "totp", status: "verified" }] }, error: null }) },
+      });
+      expect(await createSupabaseAuth(api).mfa.status()).toEqual({ ok: true, status: { step: "verify", factorId: "f9" } });
+    });
+
+    it("discards an unfinished enrolment before starting a new one", async () => {
+      const unenroll = vi.fn(() => Promise.resolve({ data: {}, error: null }));
+      const { api } = stubApi({
+        mfa: {
+          ...stubApi().api.mfa,
+          unenroll,
+          listFactors: () => Promise.resolve({ data: { all: [{ id: "old", factor_type: "totp", status: "unverified" }] }, error: null }),
+        },
+      });
+      const result = await createSupabaseAuth(api).mfa.enrol();
+      expect(unenroll).toHaveBeenCalledWith({ factorId: "old" });
+      expect(result).toEqual({ ok: true, enrolment: { factorId: "f1", qrCode: "data:image/svg+xml;utf8,<svg/>", secret: "ABC" } });
+    });
+
+    it("says a wrong code is wrong without echoing the service's detail", async () => {
+      const { api } = stubApi({
+        mfa: { ...stubApi().api.mfa, challengeAndVerify: () => Promise.resolve({ data: null, error: apiError(400, "mfa_verification_failed") }) },
+      });
+      const result = await createSupabaseAuth(api).mfa.verify("f1", "123456");
+      expect(result).toMatchObject({ ok: false, code: "invalid_code" });
+      expect(JSON.stringify(result)).not.toContain("upstream detail");
     });
   });
 });

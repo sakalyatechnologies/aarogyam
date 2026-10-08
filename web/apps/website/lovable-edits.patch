@@ -37,10 +37,11 @@
  }
 --- a/src/routes/register.tsx
 +++ b/src/routes/register.tsx
-@@ -1,11 +1,12 @@
+@@ -1,11 +1,13 @@
  import { createFileRoute, useNavigate } from "@tanstack/react-router";
 +import "@/aarogyam/v4.css";
  import RegisterView from "@/landing/views/RegisterView.jsx";
++import { LegalLinks } from "@/aarogyam/legal/LegalLinks";
  
  export const Route = createFileRoute("/register")({
    head: () => ({
@@ -51,16 +52,22 @@
        { property: "og:title", content: "Request access — Aarogyam" },
        { property: "og:description", content: "Apply for Aarogyam for your clinic." },
        { property: "og:type", content: "website" },
-@@ -19,9 +20,8 @@
+@@ -18,10 +20,12 @@
+ function Register() {
    const navigate = useNavigate();
    return (
-     <RegisterView
+-    <RegisterView
 -      onBack={() => navigate({ to: "/login" })}
 -      onSignIn={() => navigate({ to: "/login" })}
 -      onTrack={(ref: string) => navigate({ to: "/track", search: ref ? { ref } : {} })}
-+      onBack={() => navigate({ to: "/" })}
-+      onSignIn={() => navigate({ to: "/sign-in" })}
-     />
+-    />
++    <>
++      <RegisterView
++        onBack={() => navigate({ to: "/" })}
++        onSignIn={() => navigate({ to: "/sign-in" })}
++      />
++      <LegalLinks className="legal-links-page" />
++    </>
    );
  }
 --- a/src/landing/Shell.jsx

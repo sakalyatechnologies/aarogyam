@@ -7,6 +7,7 @@ import { formatDate, formatRupees } from "@aarogyam/app-kit";
 import { Empty, MkCard, MkDrawer } from "../components/mk/index.js";
 import { useClinic } from "../clinic.js";
 import { ageSex, patientPath } from "../lib/patients.js";
+import { useConsents } from "../pages/patients/queries.js";
 import { useClinicalFlags, usePatient, useVisits } from "../queries.js";
 
 export interface PeekRef {
@@ -58,6 +59,7 @@ function PeekBody({ patient, onNavigate }: { patient: PeekRef; onNavigate: () =>
   const record = usePatient(patient.id);
   const clinical = can("clinical.read");
   const flags = useClinicalFlags(clinical ? patient.id : undefined);
+  const consents = useConsents(patient.id);
   const visits = useVisits(clinical ? patient.id : undefined);
   const money = can("billing.read");
   const p = record.data;
@@ -101,7 +103,7 @@ function PeekBody({ patient, onNavigate }: { patient: PeekRef; onNavigate: () =>
       ) : null}
       <div className="mk-kv" style={{ borderBottom: 0 }}>
         <span>Consent</span>
-        <b>Not recorded</b>
+        <b>{consents.data === undefined ? "—" : consents.data.items.some((c) => c.purpose === "care" && c.status === "given") ? "Recorded" : "Not recorded"}</b>
       </div>
       <h3>Recent visits</h3>
       {recent.length === 0 ? (

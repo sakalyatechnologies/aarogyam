@@ -486,6 +486,67 @@
         }
       }
     },
+    "/api/v1/consents/{id}/withdraw": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Records that the patient withdrew a consent. The record stays as history.",
+        "operationId": "withdrawPatientConsent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The consent",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawConsent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Consent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown method, or a bad note"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such consent in this clinic, or its patient is out of the role's reach"
+          },
+          "409": {
+            "description": "That consent was already withdrawn"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/console/applications": {
       "get": {
         "tags": [
@@ -3749,6 +3810,110 @@
           },
           "404": {
             "description": "No such condition for this patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/consents": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "The patient's consent records, newest first.",
+        "operationId": "listPatientConsents",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic, or out of the role's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Records that the patient was shown the clinic's notice and agreed to a purpose. The change\nhistory records who entered it.",
+        "operationId": "recordPatientConsent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordConsent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Consent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown purpose or method, a bad version or note, or a time in the future"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic, or out of the role's reach"
+          },
+          "409": {
+            "description": "The patient already has an active consent for that purpose; withdraw it first"
           }
         },
         "security": [
@@ -10762,6 +10927,100 @@
           }
         }
       },
+      "Consent": {
+        "type": "object",
+        "description": "One consent a patient gave, and whether it still stands.",
+        "required": [
+          "id",
+          "purpose",
+          "notice_version",
+          "given_at",
+          "method",
+          "recorded_by",
+          "status"
+        ],
+        "properties": {
+          "given_at": {
+            "type": "string",
+            "description": "When the patient agreed (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "method": {
+            "type": "string",
+            "description": "`paper`, `verbal` or `app`."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A short remark."
+          },
+          "notice_version": {
+            "type": "string",
+            "description": "The clinic's label for the notice text the patient was shown."
+          },
+          "purpose": {
+            "type": "string",
+            "description": "`care`, `reminders`, `promotional`, `sharing` or `research`."
+          },
+          "recorded_by": {
+            "type": "string",
+            "description": "The staff member who recorded it."
+          },
+          "status": {
+            "type": "string",
+            "description": "`given` or `withdrawn`."
+          },
+          "withdrawal_note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A short remark about the withdrawal."
+          },
+          "withdrawn_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was withdrawn (RFC 3339)."
+          },
+          "withdrawn_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The staff member who recorded the withdrawal."
+          },
+          "withdrawn_method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`paper`, `verbal` or `app`."
+          }
+        }
+      },
+      "ConsentList": {
+        "type": "object",
+        "description": "A patient's consents, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Consent"
+            },
+            "description": "The consents, given and withdrawn."
+          }
+        }
+      },
       "ConsoleClinic": {
         "type": "object",
         "description": "A clinic, with counts only.",
@@ -16220,6 +16479,43 @@
           }
         }
       },
+      "RecordConsent": {
+        "type": "object",
+        "description": "A consent to record.",
+        "required": [
+          "purpose",
+          "notice_version",
+          "method"
+        ],
+        "properties": {
+          "given_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the patient agreed (RFC 3339); now when absent. Not in the future."
+          },
+          "method": {
+            "type": "string",
+            "description": "How: `paper`, `verbal` or `app`."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A short remark, up to 500 characters. No clinical detail."
+          },
+          "notice_version": {
+            "type": "string",
+            "description": "The clinic's label for the notice text shown, 1 to 40 characters, such as `v1 2026-10`."
+          },
+          "purpose": {
+            "type": "string",
+            "description": "`care`, `reminders`, `promotional`, `sharing` or `research`."
+          }
+        }
+      },
       "RedeemHandoff": {
         "type": "object",
         "description": "A code to redeem on the host it was made for.",
@@ -19469,6 +19765,26 @@
               "$ref": "#/components/schemas/SiteTemplate"
             },
             "description": "The designs and their palettes."
+          }
+        }
+      },
+      "WithdrawConsent": {
+        "type": "object",
+        "description": "A withdrawal to record.",
+        "required": [
+          "method"
+        ],
+        "properties": {
+          "method": {
+            "type": "string",
+            "description": "How the patient withdrew: `paper`, `verbal` or `app`."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A short remark, up to 500 characters."
           }
         }
       },

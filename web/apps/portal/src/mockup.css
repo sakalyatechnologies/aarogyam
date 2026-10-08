@@ -690,3 +690,9 @@ body > [data-base-ui-portal] { position: relative; z-index: 150; }
 
 .mk-phone-search { display: none; }
 @media (max-width: 640px) { .mk-phone-search { display: grid; } }
+
+/* Legal links: the foot of the signed-in portal and of sign-in and register. */
+.mk-legal { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; }
+.mk-legal a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.mk-legal a:hover { color: var(--green); }
+.mk-foot { padding: 28px 0 8px; border-top: 1px solid var(--rule); margin-top: 28px; }

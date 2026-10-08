@@ -61,7 +61,7 @@ Next when there is bandwidth, after the 4 Oct demo. One planned pass, then `saka
 | GST fields (supplier and recipient snapshot, SAC per line, CGST/SGST, credit notes) | M5 |
 | Share-link PIN attempts and lockout; QR verify token | M5 |
 | Outbox claim function, retries and retention | M5 |
-| Retention classes, anonymisation, notice and consent records (DPDP) | Before May 2027 |
+| Retention classes, anonymisation, notice and consent records (DPDP) | Consent records and the retention dry run built (7 Oct 2026); erasure and anonymisation designed in decisions.md, not built; before May 2027 |
 | Support role with time-limited grants enforced in the database; pgaudit | Before the pilot |
 | ABDM identifiers and consent artefacts | ABDM milestones |
 | Web kit: accessibility checks in CI, i18n strings | Web track |

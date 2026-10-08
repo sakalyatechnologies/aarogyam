@@ -290,6 +290,17 @@ impl TestApp {
         }
     }
 
+    /// A database handle on the schema owner's login, as operator commands use.
+    pub fn owner_db(&self) -> Db {
+        let url = format!(
+            "postgres://aarogyam_owner@{}:{}/{}",
+            self.admin.get_host(),
+            self.admin.get_port(),
+            self.database
+        );
+        Db::connect_lazy(&DbConfig::new(SecretString::from(url))).unwrap()
+    }
+
     /// A database handle on the API's login role, for row-level security checks.
     pub fn api_db(&self) -> Db {
         Db::connect_lazy(&DbConfig::new(SecretString::from(self.api_url.clone()))).unwrap()
@@ -336,6 +347,11 @@ impl TestApp {
             .fetch_one(&self.owner)
             .await
             .unwrap()
+    }
+
+    /// A token that passed one factor only (before the second step).
+    pub fn token_aal1(&self, auth_uid: Uuid) -> String {
+        self.tokens.mint_with_level(auth_uid, None, "aal1").unwrap()
     }
 
     pub fn token(&self, auth_uid: Uuid) -> String {

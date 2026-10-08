@@ -24,4 +24,10 @@ describe("sign-in showcase", () => {
     expect(html).toContain("v4-auth-right");
     expect(html).toContain("Request access");
   });
+
+  it("links the privacy policy, terms and notices under the form", () => {
+    const html = renderToString(<SignInPage onBack={() => undefined} onRegister={() => undefined} />);
+    expect(html).toContain('href="/privacy"');
+    expect(html).toContain('href="/terms"');
+  });
 });

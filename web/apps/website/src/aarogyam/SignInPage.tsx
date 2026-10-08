@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { fetchMe, handoffUrl, requestHandoff } from "./api";
 import { getAuthClient, signInConfigured, verifiedAccessToken } from "./auth";
 import { CONSOLE_URL } from "./env";
+import { LegalLinks } from "./legal/LegalLinks";
 import { Showcase } from "./Showcase";
 import { decideDestination, resolveNext, type Destination } from "./routing";
 
@@ -164,6 +165,7 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
             <p className="auth-note">New here? <a onClick={onRegister} style={{ cursor: "pointer", color: "var(--ac)" }}>Request access</a></p>
           )}
         </div>
+        <LegalLinks />
       </div>
       </div>
       </div>

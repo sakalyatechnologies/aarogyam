@@ -1982,6 +1982,8 @@
     "membership_branches.membership_id",
     "note_addenda.author_id",
     "observations.verified_by",
+    "patient_consents.recorded_by",
+    "patient_consents.withdrawn_by",
     "payments.received_by",
     "payments.voided_by",
     "payroll_entries.membership_id",
@@ -2302,6 +2304,7 @@
     "medical_history_items.patient_id",
     "messages.patient_id",
     "observations.patient_id",
+    "patient_consents.patient_id",
     "patient_gaps.patient_id",
     "patient_identifiers.patient_id",
     "patient_links.patient_id",
@@ -8067,6 +8070,106 @@
     {
      "name": "revoked_at",
      "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "patient_consents",
+   "domain": "trust",
+   "purpose": "DPDP notice and consent record: the patient was shown the clinic's notice and agreed to a purpose; later withdrawn.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "finalizable",
+   "schema": "aarogyam",
+   "notes": "At most one active (given) consent per patient and purpose. A withdrawal sets the withdrawn_* columns once and the row is then final; to consent again, record a new row. Every change is audited.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "purpose",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "care, reminders, promotional, sharing, research"
+    },
+    {
+     "name": "notice_version",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "the clinic's label for the notice text shown, e.g. v1 2026-10"
+    },
+    {
+     "name": "given_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": "when the patient agreed (may be earlier than the entry)"
+    },
+    {
+     "name": "method",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "paper, verbal, app"
+    },
+    {
+     "name": "recorded_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": "the staff member who recorded it"
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "given, withdrawn"
+    },
+    {
+     "name": "withdrawn_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "withdrawn_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "withdrawn_method",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "paper, verbal, app"
+    },
+    {
+     "name": "note",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "up to 500 characters; no clinical detail"
+    },
+    {
+     "name": "withdrawal_note",
+     "type": "text",
      "nullable": true,
      "ref": null,
      "note": ""

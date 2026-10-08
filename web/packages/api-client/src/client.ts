@@ -162,6 +162,11 @@ import type {
   FinishedItemStatus,
   Joined,
   PatientNotes,
+  ConsentId,
+  ConsentPage,
+  Consent,
+  RecordConsent,
+  WithdrawConsent,
   SummaryContent,
   SummaryNote,
   Timeline,
@@ -360,6 +365,12 @@ export interface ApiClient {
 
   /** Clinic host: a patient's visits, notes, procedures and files, newest first. Needs `clinical.read`. */
   getTimeline(id: PatientId, options?: RequestOptions): Promise<ApiResult<Timeline>>;
+  /** Clinic host: a patient's consent records (DPDP), newest first. Needs `patients.read`. */
+  listConsents(id: PatientId, options?: RequestOptions): Promise<ApiResult<ConsentPage>>;
+  /** Clinic host: records that the patient saw the clinic's notice and agreed. Needs `patients.write`. */
+  recordConsent(id: PatientId, input: RecordConsent, options?: RequestOptions): Promise<ApiResult<Consent>>;
+  /** Clinic host: records that the patient withdrew a consent. Needs `patients.write`. */
+  withdrawConsent(id: ConsentId, input: WithdrawConsent, options?: RequestOptions): Promise<ApiResult<Consent>>;
   /** Clinic host: a patient's summary note and visit notes, for Patient 360. Needs `clinical.read`. */
   getPatientNotes(id: PatientId, options?: RequestOptions): Promise<ApiResult<PatientNotes>>;
   /**

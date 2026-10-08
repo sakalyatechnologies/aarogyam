@@ -22,7 +22,7 @@ describe("Patient 360 header", () => {
     renderPortal(path, { as: PEOPLE.asha, backend });
     expect(await screen.findByText(/Penicillin allergy/)).toBeTruthy();
     const tabs = screen.getByRole("tablist", { name: "Patient record" });
-    expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Overview", "Chart", "Visits", "Rx", "Files", "Notes", "Clinical flags", "Billing"]);
+    expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Overview", "Chart", "Visits", "Rx", "Files", "Notes", "Consent", "Clinical flags", "Billing"]);
     expect(await screen.findByRole("heading", { name: "Recent clinical history" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to patients" }).getAttribute("href")).toBe("/patients");
   });

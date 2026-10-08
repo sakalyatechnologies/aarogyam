@@ -194,6 +194,12 @@ export interface FakeQueueToken {
   done_at?: string | null;
 }
 
+/** A consent record, server-shaped except for `clinic_id` and `patient_id`. */
+export interface FakeConsent extends C.Consent {
+  clinic_id: string;
+  patient_id: string;
+}
+
 /** An allergy, server-shaped except for `clinic_id`. */
 export interface FakeAllergy {
   id: string;
@@ -588,6 +594,8 @@ export interface Fixtures {
   conditions: FakeCondition[];
   visits: FakeVisit[];
   notes: FakeNote[];
+  /** Consent records (DPDP), made on first use. */
+  consents?: FakeConsent[];
   /** Patient summary notes, made on first save. */
   summaryNotes?: FakeSummaryNote[];
   observations: FakeObservation[];

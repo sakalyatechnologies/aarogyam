@@ -10,11 +10,13 @@ import { AppointmentActionButton, isOpenAppointment } from "../../components/app
 import { AlertBanner, Empty, Initials, ListRow, MkCard, Skeleton, StatusChip, Timeline } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { ageSex, formatPhone, languageLabel, maskEmail, maskPhone, patientPath } from "../../lib/patients.js";
-import { useAttachments, useClinicalFlags, usePatient, useTimeline, useToday } from "../../queries.js";
+import { useClinicalFlags, usePatient, useTimeline, useToday } from "../../queries.js";
 import { rememberPatient } from "../../lib/recent-patients.js";
 import { usePlans } from "../treatment-plans/queries.js";
 import { NotFoundPage } from "../not-found-page.js";
 import { ClinicalFlagsPanel } from "./clinical-flags-panel.js";
+import { ConsentPanel } from "./consent-panel.js";
+import { useConsents } from "./queries.js";
 import { DentalChartPanel } from "./dental-chart-panel.js";
 import { FilesPanel } from "./files-panel.js";
 import { NotesPanel } from "./notes-panel.js";
@@ -127,7 +129,7 @@ function PatientView({ patient }: { patient: Patient }) {
               {ageSex(age, patient.sex, patient.birth_date_estimated)} · <span className="mk-mono">{patient.number}</span>
               {patient.status === "active" ? "" : ` · ${patient.status === "inactive" ? "Inactive" : patient.status}`}
             </p>
-            {canSeeClinical ? <ConsentLine patientId={patient.id} /> : null}
+            <ConsentLine patientId={patient.id} />
           </div>
         </div>
         <div className="mk-p360-actions">
@@ -179,6 +181,7 @@ function PatientView({ patient }: { patient: Patient }) {
                 { value: "notes", label: "Notes", content: <MkCard><NotesPanel patientId={patient.id} /></MkCard> },
               ]
             : []),
+          { value: "consent", label: "Consent", content: <MkCard><ConsentPanel patientId={patient.id} /></MkCard> },
           { value: "flags", label: "Clinical flags", content: <MkCard><ClinicalFlagsPanel patientId={patient.id} /></MkCard> },
           ...(can("billing.read") ? [{ value: "billing", label: "Billing", content: <MkCard><BillsPanel patientId={patient.id} /></MkCard> }] : []),
         ]}
@@ -202,17 +205,17 @@ function AllergyBanner({ patientId }: { patientId: PatientId }) {
   );
 }
 
-/** Whether a signed consent form is on file (a Files item labelled as consent). */
+/** Whether the patient's consent to care is recorded and still stands (from their consent records). */
 function ConsentLine({ patientId }: { patientId: PatientId }) {
-  const files = useAttachments(patientId);
-  if (files.data === undefined) {
+  const consents = useConsents(patientId);
+  if (consents.data === undefined) {
     return null;
   }
-  const consent = files.data.items.some((file) => file.kind === "consent");
+  const care = consents.data.items.some((c) => c.purpose === "care" && c.status === "given");
   return (
-    <span className={`mk-consent ${consent ? "ok" : ""}`}>
-      {consent ? <ShieldCheck aria-hidden="true" /> : <ShieldQuestion aria-hidden="true" />}
-      {consent ? "Consent on file" : "No consent form on file"}
+    <span className={`mk-consent ${care ? "ok" : ""}`}>
+      {care ? <ShieldCheck aria-hidden="true" /> : <ShieldQuestion aria-hidden="true" />}
+      {care ? "Consent recorded" : "No consent recorded"}
     </span>
   );
 }

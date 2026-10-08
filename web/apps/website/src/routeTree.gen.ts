@@ -10,14 +10,39 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DpaRouteImport } from './routes/dpa'
+import { Route as LegalRouteImport } from './routes/legal'
+import { Route as PatientNoticeRouteImport } from './routes/patient-notice'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignOutRouteImport } from './routes/sign-out'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DpaRoute = DpaRouteImport.update({
+  id: '/dpa',
+  path: '/dpa',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalRoute = LegalRouteImport.update({
+  id: '/legal',
+  path: '/legal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PatientNoticeRoute = PatientNoticeRouteImport.update({
+  id: '/patient-notice',
+  path: '/patient-notice',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterRoute = RegisterRouteImport.update({
@@ -35,6 +60,11 @@ const SignOutRoute = SignOutRouteImport.update({
   path: '/sign-out',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
   path: '/workspace',
@@ -43,39 +73,90 @@ const WorkspaceRoute = WorkspaceRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dpa': typeof DpaRoute
+  '/legal': typeof LegalRoute
+  '/patient-notice': typeof PatientNoticeRoute
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/sign-in': typeof SignInRoute
   '/sign-out': typeof SignOutRoute
+  '/terms': typeof TermsRoute
   '/workspace': typeof WorkspaceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/dpa': typeof DpaRoute
+  '/legal': typeof LegalRoute
+  '/patient-notice': typeof PatientNoticeRoute
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/sign-in': typeof SignInRoute
   '/sign-out': typeof SignOutRoute
+  '/terms': typeof TermsRoute
   '/workspace': typeof WorkspaceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dpa': typeof DpaRoute
+  '/legal': typeof LegalRoute
+  '/patient-notice': typeof PatientNoticeRoute
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/sign-in': typeof SignInRoute
   '/sign-out': typeof SignOutRoute
+  '/terms': typeof TermsRoute
   '/workspace': typeof WorkspaceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/register' | '/sign-in' | '/sign-out' | '/workspace'
+  fullPaths:
+    | '/'
+    | '/dpa'
+    | '/legal'
+    | '/patient-notice'
+    | '/privacy'
+    | '/register'
+    | '/sign-in'
+    | '/sign-out'
+    | '/terms'
+    | '/workspace'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/register' | '/sign-in' | '/sign-out' | '/workspace'
-  id: '__root__' | '/' | '/register' | '/sign-in' | '/sign-out' | '/workspace'
+  to:
+    | '/'
+    | '/dpa'
+    | '/legal'
+    | '/patient-notice'
+    | '/privacy'
+    | '/register'
+    | '/sign-in'
+    | '/sign-out'
+    | '/terms'
+    | '/workspace'
+  id:
+    | '__root__'
+    | '/'
+    | '/dpa'
+    | '/legal'
+    | '/patient-notice'
+    | '/privacy'
+    | '/register'
+    | '/sign-in'
+    | '/sign-out'
+    | '/terms'
+    | '/workspace'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DpaRoute: typeof DpaRoute
+  LegalRoute: typeof LegalRoute
+  PatientNoticeRoute: typeof PatientNoticeRoute
+  PrivacyRoute: typeof PrivacyRoute
   RegisterRoute: typeof RegisterRoute
   SignInRoute: typeof SignInRoute
   SignOutRoute: typeof SignOutRoute
+  TermsRoute: typeof TermsRoute
   WorkspaceRoute: typeof WorkspaceRoute
 }
 
@@ -86,6 +167,34 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dpa': {
+      id: '/dpa'
+      path: '/dpa'
+      fullPath: '/dpa'
+      preLoaderRoute: typeof DpaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal': {
+      id: '/legal'
+      path: '/legal'
+      fullPath: '/legal'
+      preLoaderRoute: typeof LegalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/patient-notice': {
+      id: '/patient-notice'
+      path: '/patient-notice'
+      fullPath: '/patient-notice'
+      preLoaderRoute: typeof PatientNoticeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -109,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignOutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/workspace': {
       id: '/workspace'
       path: '/workspace'
@@ -121,9 +237,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DpaRoute: DpaRoute,
+  LegalRoute: LegalRoute,
+  PatientNoticeRoute: PatientNoticeRoute,
+  PrivacyRoute: PrivacyRoute,
   RegisterRoute: RegisterRoute,
   SignInRoute: SignInRoute,
   SignOutRoute: SignOutRoute,
+  TermsRoute: TermsRoute,
   WorkspaceRoute: WorkspaceRoute,
 }
 export const routeTree = rootRouteImport

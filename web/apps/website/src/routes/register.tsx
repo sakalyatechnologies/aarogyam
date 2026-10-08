@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import "@/aarogyam/v4.css";
 import RegisterView from "@/landing/views/RegisterView.jsx";
+import { LegalLinks } from "@/aarogyam/legal/LegalLinks";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -19,9 +20,12 @@ export const Route = createFileRoute("/register")({
 function Register() {
   const navigate = useNavigate();
   return (
-    <RegisterView
-      onBack={() => navigate({ to: "/" })}
-      onSignIn={() => navigate({ to: "/sign-in" })}
-    />
+    <>
+      <RegisterView
+        onBack={() => navigate({ to: "/" })}
+        onSignIn={() => navigate({ to: "/sign-in" })}
+      />
+      <LegalLinks className="legal-links-page" />
+    </>
   );
 }

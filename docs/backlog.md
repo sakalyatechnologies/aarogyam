@@ -84,3 +84,9 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 - Today each clinic's records are isolated by design (row-level security per clinic): a patient who sees Doctor A and then Doctor B at another clinic has two separate records, and Doctor B cannot see Doctor A's dental chart.
 - **Direction:** sharing only with the patient's consent: a patient-owned record (the Aarogyam patient app and/or ABDM/ABHA consent artefacts) where the patient grants Doctor B's clinic access to selected history (e.g. the dental chart), time-limited and revocable, audited on both sides. Never automatic sharing by phone number match.
 - **Design notes:** findings already reference vocabulary ids and carry dates and clinicians, which makes a shareable, structured summary possible; ABDM identifiers are already on the review follow-up list.
+
+## Privacy and compliance follow-ups (7 Oct 2026)
+- **Optional MFA for clinic users** (owner and doctors), reusing the console's authenticator step; a clinic setting could later make it required for roles that see finance or export data.
+- **Erasure and anonymisation** as designed in decisions.md (Retention): legal-hold flag, per-clinic retention override, the erase job with `--apply --clinic`, scrubbing `audit_events.changes`, and an erasure log replayed after a restore.
+- **Consent drives messaging:** withdrawing `reminders` or `promotional` consent should switch off those messages (link `patient_consents` to `consent_channels`); patient self-service consent in the patient app; clinic-authored notice text with versions instead of a free label.
+- **Legal pages for clinics' own use:** clinics' own notice printed with the clinic's letterhead; lawyer-reviewed Hindi and Marathi versions.

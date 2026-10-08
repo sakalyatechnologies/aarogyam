@@ -9,6 +9,7 @@
 use sqlx::migrate::Migrator;
 
 pub mod access;
+pub mod analytics;
 pub mod applications;
 pub mod appointments;
 pub mod attachments;
@@ -20,6 +21,7 @@ pub mod consents;
 pub mod console;
 pub mod dental_terms;
 pub mod edge;
+pub mod expenses;
 pub mod facts;
 pub mod handoff;
 pub mod identifiers;

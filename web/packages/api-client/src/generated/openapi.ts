@@ -438,6 +438,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Expenses spent on clinic days `from` to `to`, newest day first, voided ones included. */
+        get: operations["listExpenses"];
+        put?: never;
+        /** Records an expense. */
+        post: operations["recordExpense"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/expenses/{id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Voids an expense with a reason; it stops counting in reports. */
+        post: operations["voidExpense"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -2225,6 +2260,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Chair utilization, income, expenses (stock received counts as material) and patients by
+         *     month or week. The last twelve months by default; at most 731 days. Money fields are null
+         *     unless the caller also has `finance.view`.
+         */
+        get: operations["getAnalyticsReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/collections": {
         parameters: {
             query?: never;
@@ -3141,6 +3197,77 @@ export interface components {
             /** @description The bill: issued, of the same patient. */
             invoice_id: string;
         };
+        /** @description The Analytics report. */
+        Analytics: {
+            /** @description Months or weeks. */
+            bucket: components["schemas"]["AnalyticsBucket"];
+            /** @description Every period in the range, oldest first. */
+            buckets: components["schemas"]["AnalyticsBucketRow"][];
+            /** @description Visits by weekday and hour; only non-zero cells. */
+            busy_hours: components["schemas"]["BusyHour"][];
+            /** @description Chairs: the active ones, and any other with bookings in the range, by name. */
+            chairs: components["schemas"]["AnalyticsChair"][];
+            /** @description First day, `YYYY-MM-DD`. */
+            from: string;
+            /** @description Whether the money fields are filled (the caller has `finance.view`). */
+            money_visible: boolean;
+            /**
+             * Format: int64
+             * @description Minutes a chair is assumed open each day (540: clinic hours are not stored yet).
+             */
+            open_minutes_per_day: number;
+            /** @description Who the patients are. */
+            patients: components["schemas"]["PatientBreakdown"];
+            /** @description Last day, included. */
+            to: string;
+        };
+        /**
+         * @description How the report groups days.
+         * @enum {string}
+         */
+        AnalyticsBucket: "month" | "week";
+        /** @description One month or week. Money fields are null without `finance.view`. */
+        AnalyticsBucketRow: {
+            /** @description Every chair in `chairs`, in that order. */
+            chair_utilization: components["schemas"]["ChairUtilization"][];
+            /** @description Every category, zero when nothing was spent. */
+            expenses?: components["schemas"]["CategorySpend"][] | null;
+            /**
+             * Format: int64
+             * @description All expenses, in paise.
+             */
+            expenses_paise?: number | null;
+            /** @description The first day counted: `start`, or the report's `from` if later. */
+            first_day: string;
+            /**
+             * Format: int64
+             * @description Payments received (not void), in paise.
+             */
+            income_paise?: number | null;
+            /** @description The last day counted: the period's end, or the report's `to` if earlier. */
+            last_day: string;
+            /** @description New and returning patients. */
+            patients: components["schemas"]["PatientMix"];
+            /**
+             * Format: int64
+             * @description How many payments.
+             */
+            payments?: number | null;
+            /** @description The period's first day (the 1st, or a Monday), `YYYY-MM-DD`. */
+            start: string;
+            /**
+             * Format: int64
+             * @description Stock received at cost, in paise; already inside `material`.
+             */
+            stock_purchases_paise?: number | null;
+        };
+        /** @description A chair in the report. */
+        AnalyticsChair: {
+            /** @description The chair (a room of kind `chair`). */
+            id: string;
+            /** @description Its name. */
+            name: string;
+        };
         /** @description A clinic's application. */
         Application: {
             /** @description Its city. */
@@ -3443,6 +3570,24 @@ export interface components {
             /** @description `light` or `dark`. */
             mode?: string | null;
         };
+        /** @description Visits starting in an hour of a weekday. */
+        BusyHour: {
+            /**
+             * Format: int32
+             * @description Hour of the day in clinic time, 0 to 23.
+             */
+            hour: number;
+            /**
+             * Format: int64
+             * @description Visits.
+             */
+            visits: number;
+            /**
+             * Format: int32
+             * @description ISO weekday: 1 Monday to 7 Sunday.
+             */
+            weekday: number;
+        };
         /** @description Cancelling a prescription. */
         CancelRequest: {
             /** @description Why, 3 to 500 characters. */
@@ -3466,6 +3611,16 @@ export interface components {
             module: string;
             /** @description The scopes it can be narrowed to: always `all`, sometimes `own` and `assigned`. */
             scopes: string[];
+        };
+        /** @description Spent in one category in a period. */
+        CategorySpend: {
+            /**
+             * Format: int64
+             * @description Paise; for `material`, includes stock received at cost.
+             */
+            amount_paise: number;
+            /** @description `salary`, `material`, `electricity`, `lab`, `rent` or `other`. */
+            category: components["schemas"]["ExpenseCategory"];
         };
         /** @description An appointment as a chair tile shows it. */
         ChairAppointment: {
@@ -3494,6 +3649,32 @@ export interface components {
             room_id: string;
             /** @description `in_use` while a patient is in it, otherwise `free`. */
             status: string;
+        };
+        /** @description One chair's use in a period. */
+        ChairUtilization: {
+            /**
+             * Format: int64
+             * @description Appointments.
+             */
+            appointments: number;
+            /**
+             * Format: int64
+             * @description Minutes booked: appointments not cancelled and not unconfirmed online requests
+             *     (no-shows count).
+             */
+            booked_minutes: number;
+            /**
+             * Format: int64
+             * @description Minutes open: `open_minutes_per_day` for each day of the period inside the range.
+             */
+            open_minutes: number;
+            /** @description The chair. */
+            room_id: string;
+            /**
+             * Format: int64
+             * @description Booked over open, in basis points (10000 is fully booked; can be more).
+             */
+            utilization_bps: number;
         };
         /** @description A finding on a tooth or one of its surfaces. */
         ChartEntry: {
@@ -4070,6 +4251,44 @@ export interface components {
             /** @description A message for people, without patient data. */
             message: string;
         };
+        /** @description Money the clinic spent. */
+        Expense: {
+            /**
+             * Format: int64
+             * @description Paise.
+             */
+            amount_paise: number;
+            /** @description What it was for. */
+            category: components["schemas"]["ExpenseCategory"];
+            /** @description The category's name, such as `Rent`. */
+            category_name: string;
+            /** @description When it was recorded (RFC 3339). */
+            created_at: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description A note. */
+            note?: string | null;
+            /** @description The membership that recorded it. */
+            recorded_by: string;
+            /** @description The clinic day the money went out, `YYYY-MM-DD`. */
+            spent_on: string;
+            /** @description `recorded` or `void`. */
+            status: string;
+            /** @description Why it was voided. */
+            void_reason?: string | null;
+            /** @description When it was voided (RFC 3339). */
+            voided_at?: string | null;
+        };
+        /**
+         * @description A system expense category. Stock deliveries count as `material` in analytics.
+         * @enum {string}
+         */
+        ExpenseCategory: "salary" | "material" | "electricity" | "lab" | "rent" | "other";
+        /** @description Expenses. */
+        ExpenseList: {
+            /** @description Newest day first, voided ones included. */
+            items: components["schemas"]["Expense"][];
+        };
         /** @description A write-off. */
         ExpireBody: {
             /** @description Why; "expired" by default. */
@@ -4569,6 +4788,16 @@ export interface components {
             /** @description The clinic. */
             org_id: string;
         };
+        /** @description A count under a key. */
+        KeyCount: {
+            /**
+             * Format: int64
+             * @description How many.
+             */
+            count: number;
+            /** @description The key. */
+            key: string;
+        };
         /** @description Time a doctor is away. */
         Leave: {
             /** @description End (RFC 3339). */
@@ -4978,6 +5207,20 @@ export interface components {
             kind: string;
             /** @description What the clinician reads, 1 to 80 characters. */
             label: string;
+        };
+        /** @description An expense to record. */
+        NewExpense: {
+            /**
+             * Format: int64
+             * @description Paise, more than zero and at most 1,00,00,000 rupees.
+             */
+            amount_paise: number;
+            /** @description What it was for. */
+            category: components["schemas"]["ExpenseCategory"];
+            /** @description Up to 300 characters. */
+            note?: string | null;
+            /** @description The clinic day, `YYYY-MM-DD`; today or earlier. */
+            spent_on: string;
         };
         /** @description Where the signed-in person is going. */
         NewHandoff: {
@@ -5538,6 +5781,25 @@ export interface components {
             /** @description The slot's start, exactly as `GET /public/availability` offered it (RFC 3339). */
             starts_at: string;
         };
+        /** @description Who the patients in the range are. */
+        PatientBreakdown: {
+            /**
+             * @description Patients seen, by age on the last day: `0_12`, `13_17`, `18_34`, `35_49`, `50_64`,
+             *     `65_plus`, `unknown`. Every band listed.
+             */
+            age_bands: components["schemas"]["KeyCount"][];
+            /**
+             * @description Patients whose first visit was in the range, by referral source kind: `patient`,
+             *     `doctor`, `online`, `walk_in`, `camp`, `insurance`, `other`, `unknown` (none recorded).
+             *     Every kind listed.
+             */
+            referral_sources: components["schemas"]["KeyCount"][];
+            /**
+             * @description Visits by appointment kind: `new`, `follow_up`, `procedure`, `emergency`. Every kind
+             *     listed.
+             */
+            visit_kinds: components["schemas"]["KeyCount"][];
+        };
         /** @description A patient as the calendar and queue show them. */
         PatientBrief: {
             /**
@@ -5725,6 +5987,19 @@ export interface components {
             reason?: string | null;
             /** @description `sent` or `not_sent`. */
             status: string;
+        };
+        /** @description New and returning patients in a period. */
+        PatientMix: {
+            /**
+             * Format: int64
+             * @description Patients whose first visit ever was in this period.
+             */
+            new: number;
+            /**
+             * Format: int64
+             * @description Patients seen who had visited before this period.
+             */
+            returning: number;
         };
         /** @description A patient's notes. */
         PatientNotes: {
@@ -8896,6 +9171,158 @@ export interface operations {
             };
             /** @description The role lacks prescriptions.issue */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listExpenses: {
+        parameters: {
+            query?: {
+                /** @description First clinic day, YYYY-MM-DD */
+                from?: string;
+                /** @description Last clinic day, included */
+                to?: string;
+                /** @description Most rows, 1 to 500 (default 500) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseList"];
+                };
+            };
+            /** @description A bad date or a backwards range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    recordExpense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewExpense"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            /** @description Invalid input: amount, note, or a day after today */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks expenses.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    voidExpense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The expense */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reason"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            /** @description No reason given */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such expense in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already void */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14751,6 +15178,53 @@ export interface operations {
             };
             /** @description Too many applications from this address */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAnalyticsReport: {
+        parameters: {
+            query?: {
+                /** @description First clinic day, YYYY-MM-DD (default: the 1st of the month eleven months before to) */
+                from?: string;
+                /** @description Last clinic day, included (default: today) */
+                to?: string;
+                /** @description month (default) or week */
+                bucket?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Analytics"];
+                };
+            };
+            /** @description A bad date, bucket, or a backwards or too long range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks analytics.view */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

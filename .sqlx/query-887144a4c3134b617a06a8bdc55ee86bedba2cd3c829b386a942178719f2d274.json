@@ -1,0 +1,165 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with c as (\n             select id, key, name from aarogyam.expense_categories where key = $2\n           ), e as (\n             insert into aarogyam.expenses (id, category_id, spent_on, amount_paise, note, recorded_by)\n             select $1, c.id, $3, $4, $5, $6 from c\n             returning id, category_id, spent_on, amount_paise, note, status, void_reason, voided_at,\n                       recorded_by, created_at\n           )\n           select e.id as \"id!\", e.category_id as \"category_id!\", c.key as \"category_key!\",\n                  c.name as \"category_name!\", e.spent_on as \"spent_on!\",\n                  e.amount_paise as \"amount_paise!\", e.note, e.status as \"status!\",\n                  e.void_reason, e.voided_at, e.recorded_by as \"recorded_by!\",\n                  e.created_at as \"created_at!\"\n           from e join c on c.id = e.category_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "category_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "category_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "category_key!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expense_categories",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "category_name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expense_categories",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "spent_on!",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "spent_on"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "amount_paise!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "amount_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "status!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "void_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "void_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "voided_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "voided_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "recorded_by!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "recorded_by"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Date",
+        "Int8",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "887144a4c3134b617a06a8bdc55ee86bedba2cd3c829b386a942178719f2d274"
+}

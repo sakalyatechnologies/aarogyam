@@ -61,6 +61,7 @@ macro_rules! text_value {
 }
 
 pub mod access;
+pub mod analytics;
 pub mod billing;
 pub mod booking;
 pub mod client;
@@ -72,6 +73,7 @@ pub mod dental;
 pub mod dental_terms;
 pub mod edge;
 pub mod event;
+pub mod expense;
 pub mod files;
 pub mod ids;
 pub mod import;

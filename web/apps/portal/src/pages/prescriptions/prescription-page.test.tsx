@@ -25,7 +25,7 @@ describe("Prescriptions", () => {
     await user.click(screen.getByRole("button", { name: "Issue prescription" }));
 
     expect(await screen.findByRole("heading", { name: "Allergy alert" })).toBeTruthy();
-    expect(screen.getByText(/penicillin/i)).toBeTruthy();
+    expect(within(screen.getByRole("dialog")).getAllByText(/penicillin/i).length).toBeGreaterThan(0);
 
     const confirm = screen.getByRole<HTMLButtonElement>("button", { name: /issue anyway/i });
     expect(confirm.disabled).toBe(true);
@@ -62,6 +62,21 @@ describe("Prescriptions", () => {
     if (email !== null) {
       expect(screen.getByLabelText("Patient PIN").textContent).toMatch(/^\d{6}$/);
     }
+  });
+
+  it("adds a whole medicine set in one tap, each line still editable", async () => {
+    const user = userEvent.setup();
+    let patientPath = "";
+    const backend = fakeApi((fixtures) => {
+      const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
+      const patient = fixtures.patients.find((p) => p.clinic_id === sunrise?.id);
+      patientPath = `/patients/${patient?.id ?? ""}/prescriptions`;
+    });
+    renderPortal(patientPath, { as: PEOPLE.asha, backend });
+    await user.click(await screen.findByRole("button", { name: "New prescription" }));
+    await user.click(await screen.findByRole("button", { name: /Post-extraction/ }));
+    expect(await screen.findByText(/Post-extraction: \d+ medicines added/)).toBeTruthy();
+    expect(screen.getAllByPlaceholderText("Medicine name").length).toBeGreaterThan(1);
   });
 
   it("starts Quick Rx from the last issued prescription", async () => {

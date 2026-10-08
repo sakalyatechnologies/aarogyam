@@ -25,6 +25,7 @@ import {
 import { PageHeader } from "../../components/mk/index.js";
 import { patientPath } from "../../lib/patients.js";
 import { joinParts } from "../../lib/text.js";
+import { MedicineSets } from "./medicine-sets.js";
 
 const TIMINGS = [
   { value: "", label: "Not set" },
@@ -329,6 +330,12 @@ function DraftEditor({ rx, onIssued }: { rx: Prescription; onIssued: (message: P
 
       <div>
         <p className="mb-2 text-sm font-semibold text-text">Medicines</p>
+        <MedicineSets
+          onAdd={(added, label) => {
+            setItems((prev) => [...prev, ...added]);
+            toast.show({ title: `${label}: ${String(added.length)} medicines added`, tone: "success" });
+          }}
+        />
         {items.length === 0 ? <p className="text-sm text-muted">No medicines yet.</p> : null}
         <ul className="flex flex-col gap-3">
           {items.map((item, index) => (

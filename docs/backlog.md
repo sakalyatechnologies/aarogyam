@@ -58,10 +58,46 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 - **Campaigns:** choose all, active, or filtered patients (last visit, treatment, age, birthday month) and send an offer, camp or greeting; opt-out honoured, quiet hours, preview and count before sending, delivery report.
 - **Design notes:** WhatsApp Business API (Meta-approved templates for outbound) and SMS via the notification service and outbox (AGENTS.md rule 10, never direct from handlers); consent and opt-out stored per patient (DPDP); campaigns need a permission, rate limits and an audit; costs per message shown before sending.
 
+## Clinic notifications for online bookings (8 Oct 2026, important)
+Founder testing: a patient booked online from the clinic website and the booking appeared on the calendar, but nobody at the clinic was told. The bell in the top bar is a placeholder; it always says "You're all caught up".
+
+**Who sees it**
+- **Every member who handles appointments** sees each notification, not just whoever is on duty. If the assistant misses one, the doctor or front desk still sees it.
+- **Read state is per person.** Each notification also shows whether it has been handled ("Confirmed by Farah, 10:42") and by whom, so two people don't call the same patient.
+
+**Where it shows**
+- **Portal:** the bell shows an unread count and a list. Each item opens its appointment.
+- **Staff phone app:** push notification to the assistant, the front desk and the doctor. The push payload carries IDs only, never patient names (AGENTS.md rule 6). The app shows the same list.
+- **Inbox (Messages):** an inbox message per booking, so it stays visible until someone handles it rather than disappearing like a toast.
+
+**Reminders and escalation**
+- If a booking is still unhandled after a set time (for example 15 minutes in opening hours), remind everyone again.
+- After that, escalate to the owner.
+- Unhandled bookings sit at the top of Today until confirmed or declined.
+
+**Patient side**
+- After booking online, the patient sees "The clinic will confirm shortly" instead of an instant confirmation, when the clinic chooses "wait for confirmation".
+- **Later:** a WhatsApp (or SMS) message, "Sunrise Dental has your request and will get back to you within 1 hour", then the confirmation or decline. This goes through the outbox and notification service and needs WhatsApp Business templates (see "Contacting patients").
+
+**Design notes**
+- Notifications are written in the same transaction as the booking (outbox pattern) and store IDs only.
+- Delivery: the portal checks every minute (no live connection to start with); the phone app gets FCM/APNs push through the notification service.
+- A per-clinic setting decides between "confirm online bookings automatically" and "wait for confirmation" (the `requested` status already exists).
+- Respects scopes: a doctor limited to their own patients sees only their bookings.
+
+**Related fixes found in the same test (planned)**
+- **Appointment window:**
+  - fields out of line (hints above some boxes but not others)
+  - the chair change is lost unless you press Move appointment
+  - reason, visit kind and length can't be edited
+  - no patient phone or email
+- **Online sign-ups:** registered with name, email and phone only; complete age, sex, allergies and consent at Mark arrived, and also match duplicates by phone.
+- **Date and time fields:** the shared `sakalya-web` date field is the browser default (US order, no shortcuts) and time is typed as text. Build a proper date picker and slot-based time picker there, then use it everywhere.
+
 ## Analytics tab (6 Oct 2026)
 - A dedicated Analytics area for the owner/admin doctor (not staff), on web and the same on mobile. The founder will share a dashboard mock-up; plan from that, review, then build.
 - **Design notes:** owner-only by default via a new permission; one query per chart within the round-trip budget; respects scopes.
-- **Backend built (7 Oct 2026):** `analytics.view` (owner), `GET /reports/analytics` (chair utilization, income, expenses with stock as material, new vs returning, age band, visit kind, referral source, busy hours; one statement), and expenses (`expenses.write` for owner and finance; `GET/POST /expenses`, `POST /expenses/{id}/void`). Rules in `decisions.md`, "Analytics: chair utilization and material costs". Still to build: the portal Analytics page and Billing → Expenses tab, mobile, clinic opening hours (utilization assumes 9 h a day), custom expense categories, branch/vendor/receipt on expenses.
+- **Backend built (7 Oct 2026):** `analytics.view` (owner), `GET /reports/analytics` (chair utilization, income, expenses with stock as material, new vs returning, age band, visit kind, referral source, busy hours; one statement), and expenses (`expenses.write` for owner and finance; `GET/POST /expenses`, `POST /expenses/{id}/void`). Rules in `decisions.md`, "Analytics: chair utilization and material costs". The portal Analytics page and Billing → Expenses tab were built on 8 Oct 2026. Still to build: mobile, clinic opening hours (utilization assumes 9 h a day), custom expense categories, branch/vendor/receipt on expenses.
 
 ## Referral programme (later)
 - Clinics refer other clinics and earn a discount (e.g. 10–50% of the next month) when the referred clinic subscribes; tracking codes, a referrals page, and terms to decide with pricing.

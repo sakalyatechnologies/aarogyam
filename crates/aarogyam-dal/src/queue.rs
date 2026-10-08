@@ -178,6 +178,62 @@ pub async fn get_for_update(
     Ok(row)
 }
 
+/// A token about to start a visit.
+#[derive(Debug, Clone)]
+pub struct TokenForVisit {
+    /// The token's state.
+    pub state: TokenState,
+    /// The patient.
+    pub patient_id: Uuid,
+}
+
+/// A token, locked until the transaction ends, if `member` may start its visit: the patient is
+/// in their clinical reach, or the token names them as the doctor. `None` reaches every token.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn lock_for_visit(
+    conn: &mut PgConnection,
+    id: Uuid,
+    member: Option<Uuid>,
+) -> Result<Option<TokenForVisit>, DbError> {
+    let row = sqlx::query!(
+        r#"select id, status, appointment_id, patient_id from aarogyam.queue_tokens
+           where id = $1
+             and (app.patient_in_reach(patient_id, $2)
+                  or (practitioner_id is not null and app.practitioner_in_reach(practitioner_id, $2)))
+           for update"#,
+        id,
+        member
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row.map(|row| TokenForVisit {
+        state: TokenState {
+            id: row.id,
+            status: row.status,
+            appointment_id: row.appointment_id,
+        },
+        patient_id: row.patient_id,
+    }))
+}
+
+/// A token by id, locked until the transaction ends, whatever the member's reach: for moves
+/// that follow from a visit the caller has already checked.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn lock(conn: &mut PgConnection, id: Uuid) -> Result<Option<TokenState>, DbError> {
+    let row = sqlx::query_as!(
+        TokenState,
+        r#"select id, status, appointment_id from aarogyam.queue_tokens where id = $1 for update"#,
+        id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
 /// The token of an appointment, locked until the transaction ends.
 ///
 /// # Errors

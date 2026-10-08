@@ -5,6 +5,7 @@ use aarogyam_app::facts::{
     ConditionView,
 };
 use aarogyam_domain::clinical::CodeSystem;
+use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{AllergyId, ConditionId, EncounterId, MembershipId, PatientId};
 use aarogyam_domain::permission::require::{ClinicalRead, ClinicalWrite, PatientsRead};
 use axum::Json;
@@ -275,9 +276,13 @@ pub struct Allergy {
     pub status: String,
     /// `clinician`, `assistant`, `patient` or `import`.
     pub source: String,
-    /// The member who recorded or last confirmed it.
+    /// The member who recorded or last confirmed it; null while a patient-reported allergy
+    /// waits for a clinician to confirm it.
     #[schema(value_type = Option<String>)]
     pub verified_by: Option<Uuid>,
+    /// Whether a clinician recorded or confirmed it. False for an allergy the patient reported
+    /// at the desk until a clinician confirms it.
+    pub confirmed: bool,
     /// When it was recorded (RFC 3339).
     pub created_at: String,
     /// When it last changed (RFC 3339).
@@ -295,6 +300,7 @@ impl From<AllergyView> for Allergy {
             status: view.status.as_str().to_owned(),
             source: view.source.as_str().to_owned(),
             verified_by: view.verified_by.map(MembershipId::uuid),
+            confirmed: view.verified_by.is_some(),
             created_at: rfc3339(view.created_at),
             updated_at: rfc3339(view.updated_at),
         }
@@ -442,6 +448,46 @@ pub(crate) async fn edit_allergy(
     Ok(Json(view.into()))
 }
 
+/// Confirms an allergy the patient reported at the desk: the caller becomes its verifier.
+/// Confirming one already confirmed changes nothing.
+#[utoipa::path(
+    post,
+    path = "/api/v1/patients/{id}/allergies/{allergy_id}/confirm",
+    operation_id = "confirmAllergy",
+    tag = "clinical",
+    params(
+        ("id" = String, Path, description = "The patient"),
+        ("allergy_id" = String, Path, description = "The allergy")
+    ),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = Allergy),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write"),
+        (status = 404, description = "No such allergy for this patient in this clinic")
+    )
+)]
+pub(crate) async fn confirm_allergy(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath((id, allergy_id)): ApiPath<(Uuid, Uuid)>,
+) -> Result<Json<Allergy>, ApiFailure> {
+    let view = app::confirm_allergy(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        PatientId::from_uuid(id),
+        AllergyId::from_uuid(allergy_id),
+    )
+    .await?;
+    tracing::info!(
+        event = Event::AllergyConfirmed.as_str(),
+        allergy_id = %view.id.uuid(),
+        "allergy confirmed"
+    );
+    Ok(Json(view.into()))
+}
+
 /// Patient 360's safety banner. Anyone who can see the patient learns that flags exist and how
 /// many; the substances and conditions need `clinical.read`.
 #[derive(Debug, Serialize, ToSchema)]
@@ -458,6 +504,9 @@ pub struct ClinicalFlags {
     pub allergies: Vec<Allergy>,
     /// Flagged active conditions.
     pub conditions: Vec<Condition>,
+    /// Whether the patient was asked about allergies: `unknown` (never asked), `none_known`
+    /// ("No known allergies") or `has_allergies`.
+    pub allergies_reviewed: String,
 }
 
 impl From<FlagsView> for ClinicalFlags {
@@ -469,6 +518,7 @@ impl From<FlagsView> for ClinicalFlags {
             details_hidden: view.details_hidden,
             allergies: view.allergies.into_iter().map(Allergy::from).collect(),
             conditions: view.conditions.into_iter().map(Condition::from).collect(),
+            allergies_reviewed: view.allergies_reviewed.as_str().to_owned(),
         }
     }
 }

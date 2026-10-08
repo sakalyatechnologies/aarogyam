@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.patients\n           set allergies_reviewed = 'none_known',\n               allergies_reviewed_at = case when allergies_reviewed = 'none_known'\n                                            then allergies_reviewed_at else now() end\n           where id = $1\n             and not exists (select 1 from aarogyam.allergies a\n                             where a.patient_id = $1 and a.status = 'active')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "89e70b683d9efae6defcc2a404cc7ce38dcb7ce1e35441bc9b6020af9e6f8fc8"
+}

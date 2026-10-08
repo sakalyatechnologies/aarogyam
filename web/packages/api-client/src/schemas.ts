@@ -1066,6 +1066,8 @@ export const allergy = z.object({
   source: clinicalSource,
   code: code.nullable().exactOptional(),
   verified_by: membershipId.nullable().exactOptional(),
+  /** False for an allergy the patient reported at the desk until a clinician confirms it. */
+  confirmed: z.boolean(),
   created_at: timestamp,
   updated_at: timestamp,
 }) satisfies z.ZodType<C.Allergy>;
@@ -1106,6 +1108,8 @@ export const clinicalFlags = z.object({
   condition_count: count,
   severe_allergy: z.boolean(),
   details_hidden: z.boolean(),
+  /** Whether the patient was asked: `unknown`, `none_known` ("No known allergies") or `has_allergies`. */
+  allergies_reviewed: z.enum(["unknown", "none_known", "has_allergies"]),
 }) satisfies z.ZodType<C.ClinicalFlags>;
 export type ClinicalFlags = z.output<typeof clinicalFlags>;
 

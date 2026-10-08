@@ -10,7 +10,7 @@ use aarogyam_domain::patient::{
 };
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::search::PatientQuery;
-use sakalya_db::Db;
+use sakalya_db::{Db, ScopedTx};
 use sakalya_types::{CallingCode, PhoneE164};
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
@@ -373,29 +373,53 @@ pub async fn register(
             .ok_or(AppError::NotFound("clinic"))?;
         let today = clinic_today(&profile.timezone, now);
         let patient = validate(&input, today)?;
-        let prefix = NumberPrefix::parse(&profile.number_prefix).map_err(AppError::patient)?;
-        let value = patients::next_number(tx.conn(), "patient").await?;
-        let value =
-            u64::try_from(value).map_err(|_| AppError::Internal("negative patient number"))?;
-        let number = PatientNumber::new(&prefix, value);
-        let row = patients::insert(
-            tx.conn(),
-            &patients::NewPatientRow {
-                id: PatientId::new_v7().uuid(),
-                number: number.as_str(),
-                full_name: patient.full_name.as_str(),
-                sex: patient.sex.as_str(),
-                date_of_birth: patient.birth_date.map(BirthDate::date),
-                birth_date_estimated: patient.birth_date.is_some_and(BirthDate::is_estimated),
-                phone_e164: patient.phone.as_ref().map(PhoneE164::as_e164),
-                email: patient.email.as_ref().map(Email::as_str),
-                preferred_language: patient.preferred_language.as_str(),
-            },
-        )
-        .await?;
-        Ok(view(row, actor, today))
+        insert_new(tx, &profile.number_prefix, &patient, actor, today).await
     })
     .await
+}
+
+/// A registered patient within the member's `patients.read` reach, inside an open transaction.
+pub(crate) async fn existing(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    patient_id: PatientId,
+    today: Date,
+) -> Result<PatientView, AppError> {
+    let reach = actor.reach(Permission::PatientsRead).member();
+    let row = patients::get(tx.conn(), patient_id.uuid(), reach)
+        .await?
+        .ok_or(AppError::NotFound("patient"))?;
+    Ok(view(row, actor, today))
+}
+
+/// Issues the clinic's next number and saves a validated patient, inside an open transaction.
+pub(crate) async fn insert_new(
+    tx: &mut ScopedTx,
+    number_prefix: &str,
+    patient: &NewPatient,
+    actor: &ClinicActor,
+    today: Date,
+) -> Result<PatientView, AppError> {
+    let prefix = NumberPrefix::parse(number_prefix).map_err(AppError::patient)?;
+    let value = patients::next_number(tx.conn(), "patient").await?;
+    let value = u64::try_from(value).map_err(|_| AppError::Internal("negative patient number"))?;
+    let number = PatientNumber::new(&prefix, value);
+    let row = patients::insert(
+        tx.conn(),
+        &patients::NewPatientRow {
+            id: PatientId::new_v7().uuid(),
+            number: number.as_str(),
+            full_name: patient.full_name.as_str(),
+            sex: patient.sex.as_str(),
+            date_of_birth: patient.birth_date.map(BirthDate::date),
+            birth_date_estimated: patient.birth_date.is_some_and(BirthDate::is_estimated),
+            phone_e164: patient.phone.as_ref().map(PhoneE164::as_e164),
+            email: patient.email.as_ref().map(Email::as_str),
+            preferred_language: patient.preferred_language.as_str(),
+        },
+    )
+    .await?;
+    Ok(view(row, actor, today))
 }
 
 /// Edits a patient's details with the same rules as registration. Changing the phone or email
@@ -749,4 +773,55 @@ mod tests {
         assert_eq!(mask_email("priya@example.in"), "p***@example.in");
         assert_eq!(mask_email("nonsense"), "***");
     }
+}
+
+/// Most matches a phone lookup returns.
+pub const MAX_PHONE_MATCHES: i64 = 10;
+
+/// A patient whose phone matches, with only what the desk needs to recognise them.
+#[derive(Debug, Clone)]
+pub struct PhoneMatch {
+    /// Identifier.
+    pub id: PatientId,
+    /// Readable number, such as `SD-1042`.
+    pub number: String,
+    /// Full name.
+    pub full_name: String,
+    /// `female`, `male`, `other` or `unknown`.
+    pub sex: String,
+    /// Age in whole years today.
+    pub age_years: Option<u16>,
+}
+
+/// Patients already registered with this phone (main or second number), so the desk can pick
+/// "this is them" before registering someone new. Families share numbers: there may be several.
+///
+/// # Errors
+/// [`AppError::Invalid`] for a phone that isn't one; [`AppError::Db`] on database failures.
+pub async fn lookup_phone(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    phone: &str,
+    now: OffsetDateTime,
+) -> Result<Vec<PhoneMatch>, AppError> {
+    actor.require(Permission::PatientsRead)?;
+    let phone = parse_phone(phone)?.ok_or(AppError::invalid("phone", "is required"))?;
+    let today = clinic_today(&actor.timezone, now);
+    let reach = actor.reach(Permission::PatientsRead).member();
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let rows =
+            patients::lookup_phone(tx.conn(), phone.as_e164(), MAX_PHONE_MATCHES, reach).await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| PhoneMatch {
+                id: PatientId::from_uuid(row.id),
+                number: row.number,
+                full_name: row.full_name,
+                sex: row.sex,
+                age_years: age_on(row.date_of_birth, row.birth_date_estimated, today),
+            })
+            .collect())
+    })
+    .await
 }

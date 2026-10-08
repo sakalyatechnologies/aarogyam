@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into aarogyam.encounters\n             (id, number, patient_id, clinician_id, branch_id, appointment_id, chief_complaint, started_at)\n           values ($1, $2, $3, $4, $5, $6, $7, $8)\n           returning id, number, patient_id, clinician_id, branch_id, appointment_id, status,\n                     chief_complaint, started_at, ended_at",
+  "query": "insert into aarogyam.encounters\n             (id, number, patient_id, clinician_id, branch_id, appointment_id, chief_complaint, started_at,\n              queue_token_id)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n           returning id, number, patient_id, clinician_id, branch_id, appointment_id, status,\n                     chief_complaint, started_at, ended_at",
   "describe": {
     "columns": [
       {
@@ -123,7 +123,8 @@
         "Uuid",
         "Uuid",
         "Text",
-        "Timestamptz"
+        "Timestamptz",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -139,5 +140,5 @@
       true
     ]
   },
-  "hash": "ffec582c76959c9fa53b2a9a0940bde27a716c3365c79da30905484894f8b14e"
+  "hash": "d303d4aeec5160eb99db8f510fe4e82feb620e6a7ab750f3c9aa28939e0a8340"
 }

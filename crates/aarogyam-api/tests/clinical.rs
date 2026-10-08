@@ -2103,6 +2103,11 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             Some(json!({ "status": "resolved" })),
         ),
         (
+            Method::POST,
+            format!("/api/v1/patients/{patient}/allergies/{allergy}/confirm"),
+            None,
+        ),
+        (
             Method::GET,
             format!("/api/v1/patients/{patient}/clinical-flags"),
             None,

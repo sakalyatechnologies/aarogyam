@@ -181,3 +181,35 @@ pub async fn withdraw(
     .await?;
     Ok(())
 }
+
+/// Records several consents of one patient given now, one per purpose, in one statement.
+/// Purposes that already have an active consent are left as they are. Returns the purposes
+/// recorded.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn insert_many(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    purposes: &[String],
+    methods: &[String],
+    notice_version: &str,
+    recorded_by: Uuid,
+) -> Result<Vec<String>, DbError> {
+    let rows = sqlx::query_scalar!(
+        r#"insert into aarogyam.patient_consents
+             (patient_id, purpose, notice_version, given_at, method, recorded_by)
+           select $1, c.purpose, $4, now(), c.method, $5
+           from unnest($2::text[], $3::text[]) as c(purpose, method)
+           on conflict (org_id, patient_id, purpose) where status = 'given' do nothing
+           returning purpose"#,
+        patient_id,
+        purposes,
+        methods,
+        notice_version,
+        recorded_by
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}

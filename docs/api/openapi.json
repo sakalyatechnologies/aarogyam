@@ -3970,6 +3970,50 @@
         ]
       }
     },
+    "/api/v1/patients/lookup": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Patients already registered with this phone (main or second number), so the desk can pick\nan existing patient before registering a walk-in.",
+        "operationId": "lookupPatientsByPhone",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneLookup"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhoneMatches"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a phone number"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/search": {
       "post": {
         "tags": [
@@ -4296,6 +4340,60 @@
           },
           "400": {
             "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such allergy for this patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/allergies/{allergy_id}/confirm": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Confirms an allergy the patient reported at the desk: the caller becomes its verifier.\nConfirming one already confirmed changes nothing.",
+        "operationId": "confirmAllergy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "allergy_id",
+            "in": "path",
+            "description": "The allergy",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Allergy"
+                }
+              }
+            }
           },
           "401": {
             "description": "Not signed in"
@@ -7119,6 +7217,65 @@
         ]
       }
     },
+    "/api/v1/queue/{id}/start-visit": {
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Starts the visit of a queue token in one tap: seats the token (and its appointment) if it is\nwaiting, then starts a visit linked to the token and its appointment with the caller as the\nclinician. A token or appointment that already has a visit returns it (`200`, `created`\nfalse), so a repeat is safe.",
+        "operationId": "startVisitFromQueue",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The visit already existed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedVisit"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "The visit was started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedVisit"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such token in this clinic, or its patient isn't yours"
+          },
+          "409": {
+            "description": "The patient left, or the appointment can't move to the chair"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/queue/{id}/status": {
       "post": {
         "tags": [
@@ -9651,6 +9808,56 @@
         ]
       }
     },
+    "/api/v1/walk-ins": {
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Registers a walk-in in one step, in one transaction: the patient (new, or registered and\npicked from the phone lookup), the allergies they report or \"No known allergies\", the\nconsents they give at the desk, and a queue token.",
+        "operationId": "registerWalkIn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalkInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalkIn"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks intake.write, patients.write or appointments.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "\"No known allergies\" for a patient with an allergy on record"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -9922,6 +10129,7 @@
           "severity",
           "status",
           "source",
+          "confirmed",
           "created_at",
           "updated_at"
         ],
@@ -9936,6 +10144,10 @@
                 "type": "null"
               }
             ]
+          },
+          "confirmed": {
+            "type": "boolean",
+            "description": "Whether a clinician recorded or confirmed it. False for an allergy the patient reported\nat the desk until a clinician confirms it."
           },
           "created_at": {
             "type": "string",
@@ -9977,7 +10189,7 @@
               "string",
               "null"
             ],
-            "description": "The member who recorded or last confirmed it."
+            "description": "The member who recorded or last confirmed it; null while a patient-reported allergy\nwaits for a clinician to confirm it."
           }
         }
       },
@@ -11819,7 +12031,8 @@
           "condition_count",
           "details_hidden",
           "allergies",
-          "conditions"
+          "conditions",
+          "allergies_reviewed"
         ],
         "properties": {
           "allergies": {
@@ -11828,6 +12041,10 @@
               "$ref": "#/components/schemas/Allergy"
             },
             "description": "Active allergies, severe first."
+          },
+          "allergies_reviewed": {
+            "type": "string",
+            "description": "Whether the patient was asked about allergies: `unknown` (never asked), `none_known`\n(\"No known allergies\") or `has_allergies`."
           },
           "allergy_count": {
             "type": "integer",
@@ -12483,6 +12700,24 @@
           "own": {
             "type": "boolean",
             "description": "Added by the clinic rather than seeded."
+          }
+        }
+      },
+      "DeskConsentFields": {
+        "type": "object",
+        "description": "A consent the patient gives at the desk, recorded against the clinic's current notice.",
+        "required": [
+          "purpose",
+          "method"
+        ],
+        "properties": {
+          "method": {
+            "type": "string",
+            "description": "`verbal` (the usual at the desk), `paper` or `app`."
+          },
+          "purpose": {
+            "type": "string",
+            "description": "`care`, `reminders`, `promotional`, `sharing` or `research`."
           }
         }
       },
@@ -17470,6 +17705,72 @@
           }
         }
       },
+      "PhoneLookup": {
+        "type": "object",
+        "description": "A phone to look up. Sent in the body, never the URL.",
+        "required": [
+          "phone"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "The phone in any common Indian format; +91 is assumed without a country code."
+          }
+        }
+      },
+      "PhoneMatch": {
+        "type": "object",
+        "description": "A registered patient with that phone: just enough to say \"this is them\".",
+        "required": [
+          "id",
+          "number",
+          "full_name",
+          "sex"
+        ],
+        "properties": {
+          "age_years": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Age in whole years today.",
+            "minimum": 0
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Full name."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "number": {
+            "type": "string",
+            "description": "Readable number, such as `SD-1042`."
+          },
+          "sex": {
+            "type": "string",
+            "description": "`female`, `male`, `other` or `unknown`."
+          }
+        }
+      },
+      "PhoneMatches": {
+        "type": "object",
+        "description": "Patients registered with a phone.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PhoneMatch"
+            },
+            "description": "Matches by name; at most 10. Families share numbers, so there may be several."
+          }
+        }
+      },
       "PhotoChanges": {
         "type": "object",
         "description": "A picture's new description.",
@@ -20660,6 +20961,29 @@
           }
         }
       },
+      "StartedVisit": {
+        "type": "object",
+        "description": "A visit started from the queue.",
+        "required": [
+          "visit",
+          "token",
+          "created"
+        ],
+        "properties": {
+          "created": {
+            "type": "boolean",
+            "description": "Whether this request started the visit; false on a repeat."
+          },
+          "token": {
+            "$ref": "#/components/schemas/QueueToken",
+            "description": "The token, now in the chair."
+          },
+          "visit": {
+            "$ref": "#/components/schemas/Visit",
+            "description": "The visit: new, or the one the token or its appointment already had."
+          }
+        }
+      },
       "StatusChange": {
         "type": "object",
         "description": "A status change.",
@@ -21753,6 +22077,44 @@
           }
         }
       },
+      "WalkIn": {
+        "type": "object",
+        "description": "What a walk-in did.",
+        "required": [
+          "patient",
+          "registered",
+          "token",
+          "allergies_recorded",
+          "consents_recorded"
+        ],
+        "properties": {
+          "allergies_recorded": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many allergies were recorded.",
+            "minimum": 0
+          },
+          "consents_recorded": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The purposes whose consent was recorded."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/Patient",
+            "description": "The patient."
+          },
+          "registered": {
+            "type": "boolean",
+            "description": "Whether the patient was registered by this request."
+          },
+          "token": {
+            "$ref": "#/components/schemas/QueueToken",
+            "description": "The queue token issued."
+          }
+        }
+      },
       "WalkInBody": {
         "type": "object",
         "description": "A walk-in.",
@@ -21777,6 +22139,69 @@
               "null"
             ],
             "description": "The doctor, if known."
+          }
+        }
+      },
+      "WalkInRequest": {
+        "type": "object",
+        "description": "A walk-in: a new patient (`patient`) or a registered one (`patient_id`), exactly one of the\ntwo.",
+        "properties": {
+          "allergies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Substances the patient says they are allergic to, each 1 to 200 characters (at most\n20). Recorded as patient-reported until a clinician confirms them; ones already on record\nare not repeated."
+          },
+          "branch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Branch; the default branch when left out."
+          },
+          "consents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeskConsentFields"
+            },
+            "description": "Consents given at the desk, each purpose once. Purposes already in force are left as\nthey are."
+          },
+          "no_known_allergies": {
+            "type": "boolean",
+            "description": "The patient knows of no allergies. Not together with `allergies`."
+          },
+          "notice_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The notice version shown; the clinic's current notice (`v1 2026-10`) when left out."
+          },
+          "patient": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NewPatient",
+                "description": "Details of a patient to register now."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "patient_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A registered patient, such as one picked from the phone lookup."
+          },
+          "practitioner_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The doctor, if known. A member who sees only their own patients must name themselves."
           }
         }
       },

@@ -54,6 +54,8 @@ pub struct NewEncounter<'a> {
     pub chief_complaint: Option<&'a str>,
     /// When it started.
     pub started_at: OffsetDateTime,
+    /// The queue token it was started from, if any (same patient).
+    pub queue_token_id: Option<Uuid>,
 }
 
 /// The clinic's default branch, or its oldest one.
@@ -81,8 +83,9 @@ pub async fn insert_encounter(
     let row = sqlx::query_as!(
         EncounterRow,
         r#"insert into aarogyam.encounters
-             (id, number, patient_id, clinician_id, branch_id, appointment_id, chief_complaint, started_at)
-           values ($1, $2, $3, $4, $5, $6, $7, $8)
+             (id, number, patient_id, clinician_id, branch_id, appointment_id, chief_complaint, started_at,
+              queue_token_id)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
            returning id, number, patient_id, clinician_id, branch_id, appointment_id, status,
                      chief_complaint, started_at, ended_at"#,
         new.id,
@@ -92,7 +95,8 @@ pub async fn insert_encounter(
         new.branch_id,
         new.appointment_id,
         new.chief_complaint,
-        new.started_at
+        new.started_at,
+        new.queue_token_id
     )
     .fetch_one(&mut *conn)
     .await?;
@@ -105,6 +109,70 @@ pub async fn insert_encounter(
     .execute(conn)
     .await?;
     Ok(row)
+}
+
+/// The visit started from queue token `token_id` or from appointment `appointment_id`, locked
+/// until the transaction ends, whatever the member's reach: the caller has checked the token.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn for_token(
+    conn: &mut PgConnection,
+    token_id: Uuid,
+    appointment_id: Option<Uuid>,
+) -> Result<Option<EncounterRow>, DbError> {
+    let row = sqlx::query_as!(
+        EncounterRow,
+        r#"select id, number, patient_id, clinician_id, branch_id, appointment_id, status,
+                  chief_complaint, started_at, ended_at
+           from aarogyam.encounters
+           where queue_token_id = $1 or ($2::uuid is not null and appointment_id = $2)
+           order by queue_token_id = $1 desc nulls last
+           limit 1
+           for update"#,
+        token_id,
+        appointment_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// Links a visit to the queue token it was started from, unless it has one already.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn link_token(
+    conn: &mut PgConnection,
+    encounter_id: Uuid,
+    token_id: Uuid,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"update aarogyam.encounters set queue_token_id = $2
+           where id = $1 and queue_token_id is null"#,
+        encounter_id,
+        token_id
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
+/// The queue token a visit was started from, if any.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn token_of(
+    conn: &mut PgConnection,
+    encounter_id: Uuid,
+) -> Result<Option<Uuid>, DbError> {
+    let id = sqlx::query_scalar!(
+        r#"select queue_token_id from aarogyam.encounters where id = $1"#,
+        encounter_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(id.flatten())
 }
 
 /// Serialises requests that carry the same client-chosen id until the transaction ends, so a

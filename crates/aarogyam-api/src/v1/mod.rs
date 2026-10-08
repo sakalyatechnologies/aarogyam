@@ -44,6 +44,7 @@ pub(crate) mod today;
 pub(crate) mod treatment;
 pub(crate) mod visits;
 pub(crate) mod vitals;
+pub(crate) mod walk_ins;
 pub(crate) mod website;
 
 use axum::Json;
@@ -111,6 +112,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/invitations/accept", post(invitations::accept))
         .route("/patients", get(patients::recent).post(patients::register))
         .route("/patients/search", post(patients::search))
+        .route("/patients/lookup", post(patients::lookup))
         .route("/patients/{id}", get(patients::open).patch(patients::edit))
         .route(
             "/patients/{id}/identifiers",
@@ -170,6 +172,8 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/appointments/{id}/status", post(appointments::set_status))
         .route("/queue", get(queue::list).post(queue::walk_in))
         .route("/queue/{id}/status", post(queue::set_status))
+        .route("/queue/{id}/start-visit", post(queue::start_visit))
+        .route("/walk-ins", post(walk_ins::register))
         .route("/today", get(today::today))
         .route(
             "/patients/{id}/visits",
@@ -222,6 +226,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route(
             "/patients/{id}/allergies/{allergy_id}",
             patch(facts::edit_allergy),
+        )
+        .route(
+            "/patients/{id}/allergies/{allergy_id}/confirm",
+            post(facts::confirm_allergy),
         )
         .route("/patients/{id}/clinical-flags", get(facts::flags))
         .route(

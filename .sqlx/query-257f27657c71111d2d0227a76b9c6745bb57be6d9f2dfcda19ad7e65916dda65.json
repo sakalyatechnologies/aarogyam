@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select queue_token_id from aarogyam.encounters where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "queue_token_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "queue_token_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "257f27657c71111d2d0227a76b9c6745bb57be6d9f2dfcda19ad7e65916dda65"
+}

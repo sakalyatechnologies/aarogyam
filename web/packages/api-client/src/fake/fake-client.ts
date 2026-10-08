@@ -1587,6 +1587,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             condition_count: conditions.length,
             severe_allergy: allergies.some((a) => a.severity === "severe"),
             details_hidden: !detailsAllowed,
+            allergies_reviewed: allergies.length > 0 ? "has_allergies" : "unknown",
           } satisfies C.ClinicalFlags);
         }),
 
@@ -5620,6 +5621,7 @@ function wireAllergy(a: FakeAllergy): C.Allergy {
     source: a.source,
     code: a.code ?? null,
     verified_by: a.verified_by ?? null,
+    confirmed: a.verified_by != null,
     created_at: a.created_at,
     updated_at: a.updated_at,
   };

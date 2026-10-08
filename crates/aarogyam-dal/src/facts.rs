@@ -236,12 +236,20 @@ pub async fn insert_allergy(
 ) -> Result<AllergyRow, DbError> {
     let row = sqlx::query_as!(
         AllergyRow,
-        r#"insert into aarogyam.allergies
-             (id, patient_id, substance, code_system, code, reaction, severity, status, source,
-              verified_by, verified_at)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
-           returning id, patient_id, substance, code_system, code, reaction, severity, status, source,
-                     verified_by, created_at, updated_at"#,
+        r#"with a as (
+             insert into aarogyam.allergies
+               (id, patient_id, substance, code_system, code, reaction, severity, status, source,
+                verified_by, verified_at)
+             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+             returning id, patient_id, substance, code_system, code, reaction, severity, status,
+                       source, verified_by, created_at, updated_at),
+           reviewed as (
+             update aarogyam.patients set allergies_reviewed = 'has_allergies', allergies_reviewed_at = now()
+             where id = $2 and $8 = 'active' and allergies_reviewed <> 'has_allergies')
+           select id as "id!", patient_id as "patient_id!", substance as "substance!", code_system,
+                  code, reaction, severity as "severity!", status as "status!", source as "source!",
+                  verified_by, created_at as "created_at!", updated_at as "updated_at!"
+           from a"#,
         id,
         patient_id,
         values.substance,
@@ -336,4 +344,97 @@ pub async fn list_allergies(
     .fetch_all(conn)
     .await?;
     Ok(rows)
+}
+
+/// Records allergies the patient reported at the desk (`source = 'patient'`, not yet
+/// confirmed), skipping substances already active for the patient (same name, any case), and
+/// marks the patient as having allergies. One statement.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn insert_reported(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    substances: &[String],
+) -> Result<u64, DbError> {
+    let count = sqlx::query_scalar!(
+        r#"with wanted as (
+             select distinct on (lower(s)) s as substance
+             from unnest($2::text[]) as s),
+           added as (
+             insert into aarogyam.allergies (patient_id, substance, source)
+             select $1, w.substance, 'patient' from wanted w
+             where not exists (select 1 from aarogyam.allergies a
+                               where a.patient_id = $1 and a.status = 'active'
+                                 and lower(a.substance) = lower(w.substance))
+             returning id),
+           reviewed as (
+             update aarogyam.patients set allergies_reviewed = 'has_allergies', allergies_reviewed_at = now()
+             where id = $1 and allergies_reviewed <> 'has_allergies' and cardinality($2::text[]) > 0)
+           select count(*) as "count!" from added"#,
+        patient_id,
+        substances
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(u64::try_from(count).unwrap_or_default())
+}
+
+/// Marks that the patient knows of no allergies, unless an active allergy is on record.
+/// Returns whether it was marked.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn mark_none_known(conn: &mut PgConnection, patient_id: Uuid) -> Result<bool, DbError> {
+    let done = sqlx::query!(
+        r#"update aarogyam.patients
+           set allergies_reviewed = 'none_known',
+               allergies_reviewed_at = case when allergies_reviewed = 'none_known'
+                                            then allergies_reviewed_at else now() end
+           where id = $1
+             and not exists (select 1 from aarogyam.allergies a
+                             where a.patient_id = $1 and a.status = 'active')"#,
+        patient_id
+    )
+    .execute(conn)
+    .await?;
+    Ok(done.rows_affected() == 1)
+}
+
+/// Confirms an unconfirmed allergy as `member`. Returns `None` when it was already confirmed.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn confirm_allergy(
+    conn: &mut PgConnection,
+    id: Uuid,
+    member: Uuid,
+) -> Result<Option<AllergyRow>, DbError> {
+    let row = sqlx::query_as!(
+        AllergyRow,
+        r#"update aarogyam.allergies set verified_by = $2, verified_at = now()
+           where id = $1 and verified_by is null
+           returning id, patient_id, substance, code_system, code, reaction, severity, status, source,
+                     verified_by, created_at, updated_at"#,
+        id,
+        member
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// Whether the patient has been asked about allergies (`unknown`, `none_known` or
+/// `has_allergies`).
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn allergy_review(conn: &mut PgConnection, patient_id: Uuid) -> Result<String, DbError> {
+    let review = sqlx::query_scalar!(
+        r#"select allergies_reviewed from aarogyam.patients where id = $1"#,
+        patient_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(review.unwrap_or_else(|| "unknown".to_owned()))
 }

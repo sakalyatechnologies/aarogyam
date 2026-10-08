@@ -4,7 +4,7 @@ use aarogyam_app::Moved;
 use aarogyam_app::queue::{self as app, TokenView, WalkIn};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{BranchId, PatientId, PractitionerId, QueueTokenId};
-use aarogyam_domain::permission::require::{AppointmentsRead, AppointmentsWrite};
+use aarogyam_domain::permission::require::{AppointmentsRead, AppointmentsWrite, ClinicalWrite};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -15,6 +15,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::appointments::{PatientBrief, PractitionerBrief};
+use super::visits::Visit;
 use super::{parse_day, parse_id, rfc3339};
 use crate::AppState;
 use crate::extract::Require;
@@ -261,4 +262,69 @@ pub(crate) async fn set_status(
             Err(ApiFailure::refused(reason, &QueueToken::from(current)))
         }
     }
+}
+
+/// A visit started from the queue.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct StartedVisit {
+    /// The visit: new, or the one the token or its appointment already had.
+    pub visit: Visit,
+    /// The token, now in the chair.
+    pub token: QueueToken,
+    /// Whether this request started the visit; false on a repeat.
+    pub created: bool,
+}
+
+/// Starts the visit of a queue token in one tap: seats the token (and its appointment) if it is
+/// waiting, then starts a visit linked to the token and its appointment with the caller as the
+/// clinician. A token or appointment that already has a visit returns it (`200`, `created`
+/// false), so a repeat is safe.
+#[utoipa::path(
+    post,
+    path = "/api/v1/queue/{id}/start-visit",
+    operation_id = "startVisitFromQueue",
+    tag = "queue",
+    params(("id" = String, Path, description = "The token")),
+    security(("bearer" = [])),
+    responses(
+        (status = 201, body = StartedVisit, description = "The visit was started"),
+        (status = 200, body = StartedVisit, description = "The visit already existed"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write"),
+        (status = 404, description = "No such token in this clinic, or its patient isn't yours"),
+        (status = 409, description = "The patient left, or the appointment can't move to the chair")
+    )
+)]
+pub(crate) async fn start_visit(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<(StatusCode, Json<StartedVisit>), ApiFailure> {
+    let started = app::start_visit(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        QueueTokenId::from_uuid(id),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    let status = if started.created {
+        tracing::info!(
+            event = Event::VisitStarted.as_str(),
+            visit_id = %started.visit.id.uuid(),
+            queue_token_id = %started.token.row.id,
+            "visit started from the queue"
+        );
+        StatusCode::CREATED
+    } else {
+        StatusCode::OK
+    };
+    Ok((
+        status,
+        Json(StartedVisit {
+            visit: started.visit.into(),
+            token: started.token.into(),
+            created: started.created,
+        }),
+    ))
 }

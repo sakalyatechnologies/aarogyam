@@ -26,6 +26,8 @@ export const PERMISSIONS = [
   "expenses.write",
   /** The owner's Analytics page; its money figures also need finance.view. */
   "analytics.view",
+  /** Record patient-reported allergies and "No known allergies" at a walk-in; reads nothing clinical. */
+  "intake.write",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

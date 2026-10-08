@@ -174,6 +174,73 @@ async fn repeatable_moves(
     ]
 }
 
+/// The walk-in fast path: the phone lookup, a one-step walk-in (a new patient each time), and
+/// the doctor's taps, which repeat safely.
+async fn walk_in_routes(app: &TestApp, owner: &str) -> [Route; 4] {
+    let (status, walk_in) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/walk-ins",
+            Some(owner),
+            Some(
+                json!({ "patient": { "full_name": "Asha Pawar", "phone": "9876500001" },
+                         "allergies": ["Penicillin"] }),
+            ),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{walk_in}");
+    let patient = walk_in["patient"]["id"].as_str().unwrap();
+    let token = walk_in["token"]["id"].as_str().unwrap();
+    let (_, allergies) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/patients/{patient}/allergies"),
+            Some(owner),
+            None,
+        )
+        .await;
+    let allergy = allergies["items"][0]["id"].as_str().unwrap();
+    let post = |name: &'static str, uri: String, body: Value, extra: usize| Route {
+        method: Method::POST,
+        body: Some(body),
+        ..Route::get(name, ALPHA, uri).allow_extra(extra)
+    };
+    [
+        post(
+            "POST /patients/lookup",
+            "/api/v1/patients/lookup".into(),
+            json!({ "phone": "9876500001" }),
+            0,
+        ),
+        // The patient's number and row, the allergies, the consents, the branch, the token's
+        // number, the token and its row: one statement each, seven over (eight with a doctor).
+        post(
+            "POST /walk-ins",
+            "/api/v1/walk-ins".into(),
+            json!({ "patient": { "full_name": "Ravi Pawar", "age_years": 30, "phone": "9876500002" },
+                    "allergies": ["Latex"],
+                    "consents": [{ "purpose": "care", "method": "verbal" }] }),
+            7,
+        ),
+        // The token's lock, the visit it has, the doctor's name and the token's row: three over.
+        post(
+            "POST /queue/{id}/start-visit",
+            format!("/api/v1/queue/{token}/start-visit"),
+            json!({}),
+            3,
+        ),
+        // The allergy's lock, then the answer from it: no write on a repeat.
+        post(
+            "POST /allergies/{id}/confirm",
+            format!("/api/v1/patients/{patient}/allergies/{allergy}/confirm"),
+            json!({}),
+            0,
+        ),
+    ]
+}
+
 /// Edits sent with the `If-Match` version just read. Each repeats the record's own content, so
 /// the version stays put and the measured repeats succeed. Read-modify-write edits (read the
 /// record, check it, write it) take more trips than a read, each allowance below.
@@ -479,12 +546,13 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
     let starts_at = format!("{tomorrow}T12:00:00+05:30");
     let edits = conditional_edits(&app, &owner, &patient, &appointment, &starts_at).await;
     let routes = hot_routes(monday, sunday, tomorrow, &doctor, &patient);
+    let walk_ins = walk_in_routes(&app, &owner).await;
 
     let mut table = String::from(
         "\nroute                     cold  warm  (cold: prepares, new connections; warm: pings, release checks)\n",
     );
     let mut over = Vec::new();
-    for route in edits.iter().chain(&moves).chain(&routes) {
+    for route in edits.iter().chain(&moves).chain(&walk_ins).chain(&routes) {
         // A state of its own warms the pool's connections and their statement caches, so
         // what is counted is the request, not connecting or preparing.
         let (db, trips) = app.counting_db().await;

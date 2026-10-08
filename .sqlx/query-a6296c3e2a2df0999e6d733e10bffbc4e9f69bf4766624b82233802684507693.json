@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select allergies_reviewed from aarogyam.patients where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "allergies_reviewed",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "allergies_reviewed"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a6296c3e2a2df0999e6d733e10bffbc4e9f69bf4766624b82233802684507693"
+}

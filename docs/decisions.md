@@ -263,3 +263,29 @@ What `own` means, per record:
 **Why.** The clinic is the data fiduciary and must be able to show a notice was given and consent taken, and when it was withdrawn (DPDP sections 5 to 6). The notice text itself is the clinic's document (see `web/apps/website` legal pages for a template); we record the version, not the text, until clinics need to author notices in the product.
 
 **Not done.** Withdrawal does not yet switch off messages (the outbox still uses `consent_channels`): wire promotional and reminder withdrawals to it when messaging ships. Patient self-service consent (app) comes with the patient app.
+
+## 2026-10-07: Retention schedule and anonymisation design (DPDP)
+
+**Decision.** Each class of record has a default retention period, kept in code (`aarogyam-domain/src/retention.rs`) and here, and an operator job lists what is past it: `aarogyam retention` (needs `ARO_DB__OWNER_URL`; add `--sample N` for identifiers). It is a dry run and has no other mode: `--apply` exists only to refuse, until erasure is built. Counts, the oldest date and a few IDs are logged per clinic and class (`retention.past` events), never names. A test checks the code table against this one.
+
+| Class | What | Kept | Counted from | Basis (a lawyer must confirm) |
+|---|---|---|---|---|
+| `patient_record` | Patient and everything under them: visits, notes, prescriptions, files, charts | 7 years; children until 21 | Last visit, appointment or bill | Medical councils require records for at least 3 years; the Limitation Act (3 years from majority) and disputes argue for longer; 7 is the cautious default; DPDP section 8(7) says erase when the purpose ends |
+| `invoices` | Bills and payments | 8 years | Date issued | GST law (72 months) and company law (8 years) |
+| `outbox` | Sent or abandoned messages | 90 days | When sent or abandoned | Not needed once delivered; names recipients |
+| `share_links` | Patient links, after expiry | 30 days | Expiry | Not needed once expired |
+| `import_sessions` | Uploaded spreadsheets of patients | 30 days | Upload | Working copy only; the patients are in the clinic's records |
+| `access_log` | Who viewed a record | 3 years | Entry | Lets a clinic answer "who saw my record"; the DPDP Rules ask for logs to be kept at least 1 year |
+| `audit_events` | Who changed a record | 7 years | Entry | As the patient record it describes |
+| `clinic_applications` | Requests for access that were never approved | 365 days | Decision | Not needed after the decision |
+
+A clinic may keep records longer where its profession or a dispute requires; per-clinic overrides, and a legal hold that stops erasure of a patient, come before erasure is built (backlog). Consent records stay with the patient record and for 3 years after it.
+
+**Anonymisation and erasure design (not built).**
+
+1. **Erase is the default end of a patient record; anonymise only what the clinic still needs for statistics.** A patient row stays as a tombstone (`id`, `org_id`, `number`, `status = 'erased'`, `erased_at`) because other tables point at it; identity columns (name, search name, phones, email, address, birth date) are cleared. Bills inside their 8 years keep their lines and totals, with the recipient snapshot cleared, until they too pass retention.
+2. **One transaction per patient, in dependency order:** files (the rows, then the Storage objects, with an outbox row to retry a failed delete), voice notes, notes and addenda, observations, conditions, allergies, specialty records, procedures, treatment plans, prescriptions and their items, share links, recalls, queued messages, then the identity columns. Consent rows stay and point at the tombstone.
+3. **The change history holds old values.** `audit_events.changes` for the erased rows is scrubbed by an owner-run function (the table is append-only to the app role); access-log entries hold only IDs and stay.
+4. **Backups.** Erased data remains in backups until they expire (14 daily and 8 weekly dumps, `docs/ops.md`: about 8 weeks). The notice says so. An `erasure_log` of erased patient IDs is replayed after any restore so erased people don't return.
+5. **Who decides.** The dry-run report goes to the clinic owner, who confirms by clinic and class; the job then runs with `--apply --clinic <slug>`, and the run records `retention.applied` with counts in the change history. A patient's own erasure request (DPDP section 12) uses the same procedure, but refuses records still inside their legal minimum and says why.
+6. **Needs first:** the legal-hold flag, the per-clinic override, an `erased` patient status the UI understands, and a restore-drill step for the erasure log.

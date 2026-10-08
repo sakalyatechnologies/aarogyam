@@ -33,6 +33,7 @@ pub mod queue;
 pub mod recalls;
 pub mod record;
 pub mod reports;
+pub mod retention;
 pub mod roles;
 pub mod schedule;
 mod scope;

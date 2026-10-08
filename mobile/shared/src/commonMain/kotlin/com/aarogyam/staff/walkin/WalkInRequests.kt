@@ -12,10 +12,20 @@ private val MOBILE = Regex("^[6-9]\\d{9}$")
 private const val MIN_NAME = 2
 private const val MAX_AGE = 120
 
-/** What the desk typed into the mobile field, kept to digits (a pasted `+91` or spaces drop out). */
+/**
+ * What the desk typed into the mobile field, kept to ten digits. A pasted `+91` or trunk `0` drops
+ * out; digits typed past ten are ignored rather than shifting the number.
+ */
 internal fun mobileDigits(typed: String): String {
-    val digits = typed.filter { it.isDigit() }
-    return if (digits.length > MOBILE_DIGITS && digits.startsWith("91")) digits.drop(2) else digits.take(MOBILE_DIGITS)
+    val text = typed.trim()
+    val digits = text.filter { it.isDigit() }
+    val national =
+        when {
+            text.startsWith("+91") -> digits.drop(2)
+            digits.length == MOBILE_DIGITS + 1 && digits.startsWith("0") -> digits.drop(1)
+            else -> digits
+        }
+    return national.take(MOBILE_DIGITS)
 }
 
 private const val MOBILE_DIGITS = 10

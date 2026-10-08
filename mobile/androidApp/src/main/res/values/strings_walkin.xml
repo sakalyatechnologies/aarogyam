@@ -42,7 +42,7 @@
     <string name="queue_waiting">In the clinic</string>
     <string name="queue_finished">Seen or left</string>
     <string name="queue_token">#%1$d</string>
-    <string name="queue_wait_minutes">%1$d min</string>
+    <string name="queue_wait_minutes">%1$d\u00A0min</string>
     <string name="queue_status_waiting">Waiting</string>
     <string name="queue_status_in_chair">In chair</string>
     <string name="queue_status_done">Done</string>

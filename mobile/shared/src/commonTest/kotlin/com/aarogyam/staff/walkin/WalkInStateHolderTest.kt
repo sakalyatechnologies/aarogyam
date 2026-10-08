@@ -88,4 +88,23 @@ class WalkInStateHolderTest {
             holder.submit()
             assertEquals(WalkInProblem.AgeInvalid, holder.form().problem)
         }
+
+    @Test
+    fun a_number_nobody_has_is_someone_new_and_extra_digits_are_ignored() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(LOOKUP, { json("""{"items":[]}""") })
+            val holder = holder(backend)
+            holder.setMobile("9123456780")
+            val form = holder.awaitForm { it.lookup is LookupState.Matches }
+            assertEquals(Who.New, form.who)
+            assertTrue(form.showNewPatient)
+            holder.setMobile("912345678042")
+            assertEquals("9123456780", holder.form().mobile)
+            assertEquals(Who.New, holder.form().who)
+            holder.setMobile("+91 91234 56780")
+            assertEquals("9123456780", holder.form().mobile)
+            holder.setMobile("09123456780")
+            assertEquals("9123456780", holder.form().mobile)
+        }
 }

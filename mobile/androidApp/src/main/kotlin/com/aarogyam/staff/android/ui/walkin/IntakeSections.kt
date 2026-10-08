@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -32,17 +31,13 @@ internal fun AllergySection(
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.S.dp)) {
         Label(R.string.walk_in_allergies)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.S.dp)) {
-            FilterChip(
+            PickChip(
+                stringResource(R.string.walk_in_no_known_allergies),
                 selected = form.noKnownAllergies,
                 onClick = holder::toggleNoKnownAllergies,
-                label = { Text(stringResource(R.string.walk_in_no_known_allergies)) },
             )
             form.allergyPicks.forEach { label ->
-                FilterChip(
-                    selected = label in form.allergies,
-                    onClick = { holder.toggleAllergy(label) },
-                    label = { Text(label) },
-                )
+                PickChip(label, selected = label in form.allergies, onClick = { holder.toggleAllergy(label) })
             }
         }
         Hint(R.string.walk_in_allergies_hint)
@@ -77,18 +72,14 @@ internal fun DoctorSection(
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.S.dp)) {
         Label(R.string.walk_in_doctor)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.S.dp)) {
-            FilterChip(
+            PickChip(
+                stringResource(R.string.walk_in_doctor_any),
                 selected = form.doctorId == null,
                 onClick = { onDoctor(null) },
-                label = { Text(stringResource(R.string.walk_in_doctor_any)) },
             )
             form.doctors.forEach { doctor ->
                 val chosen = form.doctorId == doctor.id
-                FilterChip(
-                    selected = chosen,
-                    onClick = { onDoctor(if (chosen) null else doctor.id) },
-                    label = { Text(doctor.name) },
-                )
+                PickChip(doctor.name, selected = chosen, onClick = { onDoctor(if (chosen) null else doctor.id) })
             }
         }
     }
@@ -104,6 +95,7 @@ private fun Check(
     Row(
         Modifier.toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onChange),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.SM.dp),
     ) {
         val brand = SkTheme.colors.primary.color
         Checkbox(

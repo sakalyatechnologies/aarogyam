@@ -1681,7 +1681,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld min"
+            "value": "%lld min"
           }
         }
       }

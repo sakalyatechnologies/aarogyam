@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -40,6 +43,7 @@ internal fun TokenCard(
         ) {
             Text(
                 stringResource(R.string.queue_token, row.tokenNumber),
+                modifier = Modifier.widthIn(min = TOKEN_WIDTH.dp),
                 style = SkTypography.number,
                 color = SkTheme.colors.primary.color,
             )
@@ -65,7 +69,8 @@ internal fun TokenCard(
             SkChip(stringResource(row.status.label()), tone = row.status.tone())
         }
         if (row.status.active && (state.canMove || state.canStartVisit)) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.S.dp), modifier = Modifier) {
+            Spacer(Modifier.height(Spacing.M.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.S.dp)) {
                 if (state.canStartVisit) {
                     Action(
                         R.string.queue_start_visit,
@@ -108,3 +113,6 @@ private fun TokenStatus.tone(): SkTone =
         TokenStatus.Done -> SkTone.Success
         TokenStatus.Left -> SkTone.Neutral
     }
+
+/** Room for a two-digit token, so names line up down the list. */
+private const val TOKEN_WIDTH = 44

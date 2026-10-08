@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
@@ -124,7 +123,7 @@ internal fun NewPatientSection(
         FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.S.dp)) {
             listOf(Sex.Female, Sex.Male, Sex.Other).forEach { sex ->
                 val text = sex.label()?.let { stringResource(it) } ?: return@forEach
-                FilterChip(selected = form.sex == sex, onClick = { holder.setSex(sex) }, label = { Text(text) })
+                PickChip(text, selected = form.sex == sex, onClick = { holder.setSex(sex) })
             }
         }
     }

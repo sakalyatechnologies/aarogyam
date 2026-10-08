@@ -72,6 +72,7 @@ private struct TokenCard: View {
                 HStack(spacing: SkSpacing.m) {
                     Text(String(format: String(localized: "queue.token"), Int(row.tokenNumber)))
                         .font(.title2.bold()).foregroundStyle(theme.palette.primaryText.color)
+                        .frame(minWidth: 48, alignment: .leading)
                     VStack(alignment: .leading) {
                         Text(row.name).bold().foregroundStyle(theme.palette.text.color)
                         Text(detail).font(.footnote).foregroundStyle(theme.palette.textMuted.color)

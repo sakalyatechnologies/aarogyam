@@ -30,7 +30,11 @@ class WalkInStateHolder(
     val state: StateFlow<WalkInState> = mutableState.asStateFlow()
 
     private val lookup =
-        PhoneLookupRunner(clinic.api, scope, debounceMillis, log) { result -> edit { copy(lookup = result) } }
+        PhoneLookupRunner(clinic.api, scope, debounceMillis, log) { result ->
+            // Nobody registered with the number: it is someone new, without an extra tap.
+            val nobody = result is LookupState.Matches && result.items.isEmpty()
+            edit { copy(lookup = result, who = if (nobody && who == Who.None) Who.New else who) }
+        }
 
     init {
         if (REQUIRED.all { it in clinic.permissions }) loadReference() else mutableState.value = WalkInState.NotAllowed
@@ -39,14 +43,10 @@ class WalkInStateHolder(
     /** The desk typed into the mobile field; a complete number looks up registered patients. */
     fun setMobile(typed: String) {
         val digits = mobileDigits(typed)
-        edit {
-            copy(
-                mobile = digits,
-                who = if (who is Who.Existing) Who.None else who,
-                lookup = LookupState.Idle,
-                problem = null,
-            )
-        }
+        val form = (mutableState.value as? WalkInState.Editing)?.form ?: return
+        if (digits == form.mobile) return
+        // A new number decides afresh who the walk-in is.
+        edit { copy(mobile = digits, who = Who.None, lookup = LookupState.Idle, problem = null) }
         lookup.request(digits.takeIf { isCompleteMobile(it) })
     }
 

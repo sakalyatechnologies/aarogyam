@@ -10,7 +10,8 @@ import { Empty, MkCard, StatusChip } from "../../components/mk/index.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 import { useClinic } from "../../clinic.js";
 import { useTodayDate } from "../../lib/patients.js";
-import { CATEGORY_LABEL, ExpenseForm } from "./expense-form.js";
+import { CATEGORY_LABEL } from "../../lib/expenses.js";
+import { ExpenseForm } from "./expense-form.js";
 import { useExpenses, useVoidExpense } from "./queries.js";
 import "./expenses.css";
 

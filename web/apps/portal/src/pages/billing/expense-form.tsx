@@ -2,21 +2,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
-import { apiErrorOf, EXPENSE_CATEGORIES, type ExpenseCategory } from "@aarogyam/api-client";
+import { apiErrorOf, EXPENSE_CATEGORIES } from "@aarogyam/api-client";
 import { Button, DateInput, Field, Select, TextInput, useToast } from "@sakalya/ui";
 
 import { AlertBanner } from "../../components/mk/index.js";
+import { CATEGORY_LABEL } from "../../lib/expenses.js";
 import { useTodayDate } from "../../lib/patients.js";
 import { useRecordExpense } from "./queries.js";
-
-export const CATEGORY_LABEL: Readonly<Record<ExpenseCategory, string>> = {
-  salary: "Salary",
-  material: "Material",
-  electricity: "Electricity",
-  lab: "Lab",
-  rent: "Rent",
-  other: "Other",
-};
 
 const OPTIONS = EXPENSE_CATEGORIES.map((value) => ({ value, label: CATEGORY_LABEL[value] }));
 /** The API's cap: 1,00,00,000 rupees. */

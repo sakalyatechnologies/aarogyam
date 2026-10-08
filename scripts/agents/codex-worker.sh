@@ -18,8 +18,8 @@ ACTOR=codex-$SLOT
 TIMEOUT=${AGENT_TIMEOUT:-1500}
 POLL=${AGENT_POLL:-60}
 MODEL_1=${AGENT_MODEL_1:-deepseek/deepseek-chat}
-MODEL_2=${AGENT_MODEL_2:-deepseek/deepseek-v4-pro}
-MODEL_3=${AGENT_MODEL_3:-deepseek/deepseek-v4-pro}
+MODEL_2=${AGENT_MODEL_2:-google/gemini-3.8-flash}
+MODEL_3=${AGENT_MODEL_3:-google/gemini-3.8-flash}
 export CARGO_TARGET_DIR=${AGENT_TARGETS:-$HOME/.cache/agent-targets}/slot-$SLOT
 export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH"
 # Web tests time out under load when several workers and gates run at once.
@@ -84,7 +84,11 @@ The worker will verify your change with:
 
 The previous attempt failed this check. Output (last lines):
 $fail_tail"
-      with_timeout "$TIMEOUT" codex exec -m "$model" -C "$wt" -s workspace-write \
+      # Gemini on OpenRouter refuses requests with reasoning off, which Codex sends for models it
+      # has no metadata for, so turn it on.
+      model_flags=()
+      case "$model" in google/*) model_flags=(-c model_reasoning_effort=low -c model_supports_reasoning_summaries=true) ;; esac
+      with_timeout "$TIMEOUT" codex exec -m "$model" "${model_flags[@]}" -C "$wt" -s workspace-write \
         --add-dir "$CARGO_TARGET_DIR" --skip-git-repo-check --ephemeral \
         -o "$dir/reply-$attempt.txt" "$prompt" >"$dir/codex-$attempt.log" 2>&1
       tokens=$(grep -A1 '^tokens used' "$dir/codex-$attempt.log" | tail -1 | tr -dc '0-9')

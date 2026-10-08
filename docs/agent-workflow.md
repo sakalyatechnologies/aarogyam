@@ -22,8 +22,8 @@ The worker starts at the task's tier and moves up one after two failed attempts.
 | Tier | Work | Default model (`AGENT_MODEL_<n>` overrides) |
 |---|---|---|
 | 1 | Docs, lint, renames, simple tests | `deepseek/deepseek-chat` |
-| 2 | Bug fixes, endpoints and screens that follow an existing pattern | `deepseek/deepseek-v4-pro` (qwen3-coder-next failed 4 of 4 on the first task) |
-| 3 | Multi-file features | `deepseek/deepseek-v4-pro` |
+| 2 | Bug fixes, endpoints and screens that follow an existing pattern | `google/gemini-3.8-flash` (from 8 Oct 2026; was `deepseek/deepseek-v4-pro`; qwen3-coder-next failed 4 of 4 on the first task) |
+| 3 | Multi-file features | `google/gemini-3.8-flash` (Codex needs reasoning on for it; the worker sets that) |
 | Claude | Architecture, security, scaffolding, review, failed tasks | Claude Code |
 
 ## Rules

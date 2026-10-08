@@ -8,7 +8,7 @@ export function LookStep({ props }: { props: StepProps }) {
   const [error, setError] = useState<string | undefined>(undefined);
   return (
     <MkCard title="Your look" hint="Do you have a letterhead? Upload it, or pick a design made from your clinic's details. Then choose the portal's colours.">
-      <LetterheadThemePanel bare />
+      <LetterheadThemePanel />
       {error === undefined ? null : (
         <p role="alert" className="sw-error">
           {error}

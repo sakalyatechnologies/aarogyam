@@ -10,7 +10,7 @@ describe("Settings: online booking", () => {
   it("lets the owner switch on automatic confirmation", async () => {
     const user = userEvent.setup();
     const backend = fakeApi();
-    renderPortal("/settings", { as: PEOPLE.asha, backend });
+    renderPortal("/settings?tab=booking", { as: PEOPLE.asha, backend });
     const card = (await screen.findByRole("heading", { name: "Online booking" })).closest("section");
     if (card === null) throw new Error("expected the online booking card");
     const toggle = await within(card).findByRole("switch", { name: "Confirm bookings automatically" });
@@ -25,7 +25,7 @@ describe("Settings: online booking", () => {
   });
 
   it("shows the front desk that only the owner changes it", async () => {
-    renderPortal("/settings", { as: PEOPLE.farah });
+    renderPortal("/settings?tab=booking", { as: PEOPLE.farah });
     expect(await screen.findByText("Only the clinic owner can change online booking.")).toBeTruthy();
   });
 });

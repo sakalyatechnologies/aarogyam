@@ -172,6 +172,19 @@ text_enum!(
 );
 
 text_enum!(
+    /// Whether the patient has been asked about allergies. An empty allergy list means nothing
+    /// until this says `none_known`.
+    AllergyReview {
+        /// Never asked.
+        Unknown => "unknown",
+        /// Asked: the patient knows of no allergies.
+        NoneKnown => "none_known",
+        /// At least one allergy is on record.
+        HasAllergies => "has_allergies",
+    }
+);
+
+text_enum!(
     /// Whether a condition or allergy applies now.
     FactStatus {
         /// Applies now.

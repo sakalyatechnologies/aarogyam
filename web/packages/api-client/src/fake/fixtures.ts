@@ -7,6 +7,7 @@
 
 import type * as C from "../contract.js";
 import type { Permission } from "../permissions.js";
+import { seedExpenses } from "./analytics.js";
 import { DENTAL_REASONS, FEMALE_NAMES, MALE_NAMES, SURNAMES } from "./names.js";
 import { createQualityReport } from "./quality.js";
 import { createRandom, fakeUuid, type Random } from "./random.js";
@@ -614,6 +615,8 @@ export interface Fixtures {
   inventoryItems: FakeInventoryItem[];
   stockBatches: FakeStockBatch[];
   stockMovements: FakeStockMovement[];
+  /** Clinic expenses (stock deliveries count as material on their own). */
+  expenses?: import("./analytics.js").FakeExpense[];
   invoices: FakeInvoice[];
   payments: FakePayment[];
   drugs: FakeDrug[];
@@ -657,6 +660,8 @@ export const ROLES = {
       "reports.export",
       "inventory.read",
       "inventory.manage",
+      "expenses.write",
+      "analytics.view",
     ],
   },
   doctor: {
@@ -694,7 +699,7 @@ export const ROLES = {
   finance: {
     key: "finance",
     name: "Finance",
-    permissions: ["patients.read", "billing.read", "billing.write", "finance.view", "reports.export"],
+    permissions: ["patients.read", "billing.read", "billing.write", "finance.view", "reports.export", "expenses.write"],
   },
 } as const satisfies Record<string, FakeRole>;
 
@@ -702,11 +707,13 @@ export const ROLES = {
 export const PERMISSION_CATALOGUE: readonly { key: Permission; module: string; description: string; scopes: readonly ("all" | "own" | "assigned")[] }[] = [
   { key: "appointments.read", module: "appointments", description: "See the calendar and queue", scopes: ["all", "own", "assigned"] },
   { key: "appointments.write", module: "appointments", description: "Book, move and cancel appointments", scopes: ["all", "own", "assigned"] },
+  { key: "analytics.view", module: "analytics", description: "See the Analytics page: chair use, patients and busy hours", scopes: ["all"] },
   { key: "audit.view", module: "audit", description: "See the change history and access record", scopes: ["all"] },
   { key: "billing.read", module: "billing", description: "See bills and payments", scopes: ["all"] },
   { key: "billing.write", module: "billing", description: "Create bills and take payments", scopes: ["all"] },
   { key: "clinical.read", module: "clinical", description: "See visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
   { key: "clinical.write", module: "clinical", description: "Record visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
+  { key: "expenses.write", module: "expenses", description: "Record clinic expenses", scopes: ["all"] },
   { key: "finance.view", module: "finance", description: "See revenue, expenses and salaries", scopes: ["all"] },
   { key: "inventory.manage", module: "inventory", description: "Receive, use and adjust stock; edit items and suppliers", scopes: ["all"] },
   { key: "inventory.read", module: "inventory", description: "See stock levels, suppliers and expiry dates", scopes: ["all"] },
@@ -1337,6 +1344,7 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     inventoryItems,
     stockBatches,
     stockMovements,
+    expenses: seedExpenses(sunrise.id, sunriseOwnerMembership.id, now),
     invoices,
     payments,
     drugs,

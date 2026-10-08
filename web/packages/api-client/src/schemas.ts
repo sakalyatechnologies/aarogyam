@@ -1879,6 +1879,88 @@ export const todayMoney = z.object({
 }) satisfies z.ZodType<C.TodayMoney>;
 export type TodayMoney = z.output<typeof todayMoney>;
 
+// Expenses and Analytics ---------------------------------------------------------------------
+
+export const expenseId = z.string().min(1).brand<"ExpenseId">();
+export type ExpenseId = z.output<typeof expenseId>;
+
+/** The system categories; stock deliveries count as `material` in analytics automatically. */
+export const expenseCategory = z.enum(["salary", "material", "electricity", "lab", "rent", "other"]) satisfies z.ZodType<C.ExpenseCategory>;
+export type ExpenseCategory = z.output<typeof expenseCategory>;
+export const EXPENSE_CATEGORIES = expenseCategory.options;
+
+export const expense = z.object({
+  id: expenseId,
+  category: expenseCategory,
+  category_name: z.string(),
+  spent_on: date,
+  amount_paise: paise,
+  note: optionalText,
+  status: z.string(),
+  recorded_by: membershipId,
+  created_at: timestamp,
+  void_reason: optionalText,
+  voided_at: optionalTimestamp,
+}) satisfies z.ZodType<C.Expense>;
+export type Expense = z.output<typeof expense>;
+
+export const expenseList = z.object({ items: z.array(expense) }) satisfies z.ZodType<C.ExpenseList>;
+export type ExpenseList = z.output<typeof expenseList>;
+
+/** Body of `POST /api/v1/expenses`. */
+export type NewExpense = C.NewExpense;
+
+export const analyticsBucket = z.enum(["month", "week"]) satisfies z.ZodType<C.AnalyticsBucket>;
+export type AnalyticsBucket = z.output<typeof analyticsBucket>;
+
+const chairUtilization = z.object({
+  room_id: roomId,
+  booked_minutes: count,
+  open_minutes: count,
+  appointments: count,
+  utilization_bps: count,
+}) satisfies z.ZodType<C.ChairUtilization>;
+export type ChairUtilization = z.output<typeof chairUtilization>;
+
+const categorySpend = z.object({ category: expenseCategory, amount_paise: paise }) satisfies z.ZodType<C.CategorySpend>;
+export type CategorySpend = z.output<typeof categorySpend>;
+
+const keyCount = z.object({ key: z.string(), count }) satisfies z.ZodType<C.KeyCount>;
+export type KeyCount = z.output<typeof keyCount>;
+
+const analyticsBucketRow = z.object({
+  start: date,
+  first_day: date,
+  last_day: date,
+  chair_utilization: z.array(chairUtilization),
+  income_paise: paise.nullable().exactOptional(),
+  payments: count.nullable().exactOptional(),
+  expenses_paise: paise.nullable().exactOptional(),
+  expenses: z.array(categorySpend).nullable().exactOptional(),
+  stock_purchases_paise: paise.nullable().exactOptional(),
+  patients: z.object({ new: count, returning: count }) satisfies z.ZodType<C.PatientMix>,
+}) satisfies z.ZodType<C.AnalyticsBucketRow>;
+export type AnalyticsBucketRow = z.output<typeof analyticsBucketRow>;
+
+export const analytics = z.object({
+  from: date,
+  to: date,
+  bucket: analyticsBucket,
+  open_minutes_per_day: count,
+  money_visible: z.boolean(),
+  chairs: z.array(z.object({ id: roomId, name: z.string() }) satisfies z.ZodType<C.AnalyticsChair>),
+  buckets: z.array(analyticsBucketRow),
+  patients: z.object({
+    age_bands: z.array(keyCount),
+    visit_kinds: z.array(keyCount),
+    referral_sources: z.array(keyCount),
+  }) satisfies z.ZodType<C.PatientBreakdown>,
+  busy_hours: z.array(
+    z.object({ weekday: z.number().int().min(1).max(7), hour: z.number().int().min(0).max(23), visits: count }) satisfies z.ZodType<C.BusyHour>,
+  ),
+}) satisfies z.ZodType<C.Analytics>;
+export type Analytics = z.output<typeof analytics>;
+
 // Prescriptions (M5) ----------------------------------------------------------------------------
 
 export const prescriptionId = z.string().min(1).brand<"PrescriptionId">();

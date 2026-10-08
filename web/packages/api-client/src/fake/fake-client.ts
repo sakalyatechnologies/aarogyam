@@ -55,6 +55,7 @@ import {
   type FakeVisit,
   type Fixtures,
 } from "./fixtures.js";
+import { EXPENSE_NAMES, buildAnalytics, daysInclusive, wireExpense, type FakeExpense } from "./analytics.js";
 import { clinicTerms } from "./dental-terms.js";
 import { createMetrics } from "./metrics.js";
 import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photosOf, siteOf, wirePhoto, wireSettings, type FakePhoto } from "./website.js";
@@ -4301,6 +4302,113 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             buckets,
             items,
           } satisfies C.PendingReport);
+        }),
+
+      listExpenses: (range, opts) =>
+        respond(S.expenseList, opts?.signal, async () => {
+          const caller = await inClinic("finance.view");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const { from, to } = range;
+          if (from !== undefined && to !== undefined && from > to) {
+            return invalid("from", "must be before to");
+          }
+          const items = (state.expenses ?? [])
+            .filter((e) => e.clinic_id === caller.clinic.id && (from === undefined || e.spent_on >= from) && (to === undefined || e.spent_on <= to))
+            .sort((a, b) => b.spent_on.localeCompare(a.spent_on) || b.created_at.localeCompare(a.created_at))
+            .slice(0, 500);
+          return reply({ items: items.map(wireExpense) } satisfies C.ExpenseList);
+        }),
+
+      recordExpense: (input, opts) =>
+        respond(S.expense, opts?.signal, async () => {
+          const caller = await inClinic("expenses.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!(input.category in EXPENSE_NAMES)) {
+            return invalid("category", "unknown category");
+          }
+          if (!Number.isInteger(input.amount_paise) || input.amount_paise <= 0 || input.amount_paise > 1_000_000_000) {
+            return invalid("amount_paise", "must be more than zero and at most 1,00,00,000 rupees");
+          }
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(input.spent_on) || input.spent_on > clinicToday(caller.clinic)) {
+            return invalid("spent_on", "must be today or earlier");
+          }
+          const note = input.note?.trim() ?? "";
+          if (note.length > 300) {
+            return invalid("note", "at most 300 characters");
+          }
+          const now = clock();
+          const row: FakeExpense = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            category: input.category,
+            spent_on: input.spent_on,
+            amount_paise: input.amount_paise,
+            note: note === "" ? null : note,
+            recorded_by: caller.membership.id,
+            created_at: now.toISOString(),
+          };
+          (state.expenses ??= []).push(row);
+          return reply(wireExpense(row) satisfies C.Expense);
+        }),
+
+      voidExpense: (id, reason, opts) =>
+        respond(S.expense, opts?.signal, async () => {
+          const caller = await inClinic("finance.view");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = (state.expenses ?? []).find((e) => e.id === id && e.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const why = reason.reason.trim();
+          if (why.length < 3 || why.length > 500) {
+            return invalid("reason", "give a short reason");
+          }
+          if (found.voided_at != null) {
+            return refuse(409, "conflict", "already void");
+          }
+          found.voided_at = clock().toISOString();
+          found.void_reason = why;
+          return reply(wireExpense(found) satisfies C.Expense);
+        }),
+
+      getAnalytics: (query, opts) =>
+        respond(S.analytics, opts?.signal, async () => {
+          const caller = await inClinic("analytics.view");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const bucket = query.bucket ?? "month";
+          const to = query.to ?? clinicToday(caller.clinic);
+          const toDate = new Date(`${to}T00:00:00Z`);
+          const from = query.from ?? new Date(Date.UTC(toDate.getUTCFullYear(), toDate.getUTCMonth() - 11, 1)).toISOString().slice(0, 10);
+          if (from > to) {
+            return invalid("from", "must be before to");
+          }
+          if (daysInclusive(from, to) > 731) {
+            return invalid("from", "the range is too long");
+          }
+          const clinicId = caller.clinic.id;
+          return reply(
+            buildAnalytics({
+              from,
+              to,
+              bucket,
+              moneyVisible: hasPermission(caller.membership.role.permissions, "finance.view"),
+              chairs: state.rooms
+                .filter((r) => r.clinic_id === clinicId && r.kind === "chair" && r.active)
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((r) => ({ id: r.id, name: r.name })),
+              expenses: (state.expenses ?? []).filter((e) => e.clinic_id === clinicId),
+              stockBatches: state.stockBatches.filter((b) => b.clinic_id === clinicId),
+              payments: state.payments.filter((p) => p.clinic_id === clinicId && p.status === "received"),
+            }) satisfies C.Analytics,
+          );
         }),
 
       getTodayMoney: (opts) =>

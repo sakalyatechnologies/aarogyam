@@ -127,7 +127,16 @@ export function DomainTab({ domain, saving, onSave }: DomainTabProps) {
           <p>
             Your website will open at <CopyValue value={domain.default_address} label="website address" />
           </p>
-          <p className="wb-muted">You can add your own domain at any time. Nothing else is needed.</p>
+          <p className="wb-muted">
+            {domain.address_status === "ready"
+              ? "It is live now."
+              : domain.address_status === "pending"
+                ? "It is being set up and opens within about two minutes of publishing."
+                : domain.address_status === "failed"
+                  ? "It could not be set up yet; the Website page shows why."
+                  : "It opens as soon as you publish."}{" "}
+            You can add your own domain at any time. Nothing else is needed.
+          </p>
           {domain.custom_domain != null && (
             <Button
               variant="secondary"

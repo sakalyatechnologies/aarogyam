@@ -463,6 +463,11 @@ pub struct SiteDomain {
     pub sites_target: String,
     /// The free address the site is served on without a domain of the clinic's own.
     pub default_address: String,
+    /// Whether the edge serves that address yet: `none` (not published), `pending`, `ready`
+    /// or `failed`. A published site is reachable within about two minutes.
+    pub address_status: String,
+    /// A short reason when `address_status` is `failed`.
+    pub address_error: Option<String>,
 }
 
 /// The owner's website settings and everything the editor needs.
@@ -515,7 +520,19 @@ fn settings_view(state: &AppState, view: &WebsiteView) -> Result<WebsiteSettings
             verification_token: s.domain_token.clone(),
             checked_at: s.domain_checked_at.map(rfc3339),
             sites_target: links.sites_target.clone(),
-            default_address: links.address_for(&view.slug),
+            default_address: view.site_host.as_ref().map_or_else(
+                || links.address_for(&view.slug),
+                |host| host.hostname.clone(),
+            ),
+            // A site taken down shows as not published, though its Worker is still being removed.
+            address_status: match view.site_host.as_ref().map(|h| h.edge_status.as_str()) {
+                None | Some("removing") => "none".to_owned(),
+                Some(status) => status.to_owned(),
+            },
+            address_error: view
+                .site_host
+                .as_ref()
+                .and_then(|host| host.edge_error.clone()),
         },
         photos: view.photos.iter().map(SitePhoto::from).collect(),
         preview: SitePage::try_from(&view.preview)?,
@@ -610,6 +627,7 @@ pub(crate) async fn update_settings(
             published,
             custom_domain: body.custom_domain,
         },
+        &state.website().address_template,
     )
     .await?;
     let event = if published.is_some() {

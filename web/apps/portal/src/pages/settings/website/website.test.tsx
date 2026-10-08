@@ -89,8 +89,13 @@ describe("Settings, Website", () => {
     await user.click(await screen.findByRole("button", { name: "Publish" }));
     expect(await screen.findByRole("button", { name: "Take down" })).toBeTruthy();
     expect((await visitor.getPublicSite()).ok).toBe(true);
+    // The real address and its status show, not a placeholder.
+    const open = await screen.findByRole("link", { name: "Open sunrise-site.spring-snow-130f.workers.dev" });
+    expect(open.getAttribute("href")).toBe("https://sunrise-site.spring-snow-130f.workers.dev");
+    expect(screen.getByText(/Address ready/)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Take down" }));
     expect(await screen.findByRole("button", { name: "Publish" })).toBeTruthy();
+    expect(screen.queryByText(/Address ready/)).toBeNull();
     expect((await visitor.getPublicSite()).ok).toBe(false);
   });
 
@@ -110,13 +115,13 @@ describe("Settings, Website", () => {
     const { user, backend } = await openWebsite();
     await user.click(await screen.findByRole("tab", { name: "Domain" }));
     // No domain yet: the free address from the configured template.
-    expect(await screen.findByText("sunrise-site.aarogyam.example")).toBeTruthy();
+    expect(await screen.findByText("sunrise-site.spring-snow-130f.workers.dev")).toBeTruthy();
     await user.click(screen.getByRole("radio", { name: /Yes, I have one/ }));
     await user.type(screen.getByLabelText("Your domain"), "https://www.SunriseDental.in/");
     await user.click(screen.getByRole("button", { name: "Show me the records" }));
     const table = await screen.findByRole("table", { name: /DNS records to add for www.sunrisedental.in/ });
     expect(within(table).getByText("CNAME")).toBeTruthy();
-    expect(within(table).getByText("sites.aarogyam.example")).toBeTruthy();
+    expect(within(table).getByText("aarogyam-site.spring-snow-130f.workers.dev")).toBeTruthy();
     expect(within(table).getByText("TXT")).toBeTruthy();
     expect(within(table).getByText("_aarogyam-verify")).toBeTruthy();
     expect(within(table).getByText(/^aarogyam-verify-/)).toBeTruthy();

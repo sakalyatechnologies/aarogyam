@@ -367,6 +367,48 @@ addresses".
   resolves, so the drain marks addresses ready without calling Cloudflare.
 - **Moving to a wildcard domain** later needs no code change: see the next section.
 
+### Clinic websites
+
+Publishing a site in Settings, Website makes it reachable within about two minutes, with no
+deploy and nothing for the clinic to configure. Design: `docs/decisions.md`, "Clinic sites go
+live".
+
+- **Address.** `<slug>-site.<subdomain>.workers.dev` today (`ARO_WEBSITE__ADDRESS_TEMPLATE`,
+  set by `scripts/cloud-run-deploy.sh` and `scripts/demo-api.sh`), `<slug>-site.sakalyatechnologies.com`
+  after the nameservers move. Settings shows the real address and **pending / ready / failed**.
+- **How.** Publishing writes a second host for the clinic (`org_domains`, kind `site`, status
+  `pending`). The same outbox job that makes portal addresses uploads a Worker `<slug>-site`
+  that hands requests to the shared `aarogyam-site` Worker through a service binding, and
+  turns on its workers.dev address. `aarogyam-site` serves the built site app
+  (`web/apps/site`) and forwards only `GET /api/v1/public/site` and its pictures to the API
+  with the clinic's host: no sign-in, no patient data, nothing else under `/api` (404). Booking
+  is the portal's `/book` page inside the site (`VITE_BOOKING_URL_TEMPLATE`, set by
+  `deploy-workers.sh` from the portal host template).
+- **Take down.** The API stops serving the site at once (404). The host is marked `removing`
+  and the job deletes the clinic's Worker and forgets the host, so the 100-Worker limit
+  (portal plus site Workers per clinic, about 45 clinics with live sites on workers.dev) is
+  spent only on live sites. Publishing again queues it afresh. A failed removal is retried.
+- **Go live (once, in this order).**
+  ```bash
+  scripts/deploy-workers.sh <api-origin>   # builds and deploys aarogyam-portal, console and the new aarogyam-site
+  scripts/cloud-run-deploy.sh              # migration 0240, API with ARO_WEBSITE__*, outbox job
+  ```
+  The site Worker must exist before the first publish (a clinic Worker's service binding needs
+  it). Then publish a site; it is ready after the next job run (every 2 minutes). A site
+  published before this release gets its address on the next save (Take down, then Publish, or
+  any change). A failed address is retried by publishing again, or `scripts/provision-hosts.sh
+  --clinic <slug>`, which now queues site hosts too.
+- **Settings.** `ARO_EDGE__SITE_WORKER_NAME_TEMPLATE` (default `{slug}-site`, must match the
+  address template) and `ARO_EDGE__SITE_WORKER` (default `aarogyam-site`); the job's token needs
+  nothing beyond "Workers Scripts: Edit", which covers deleting. Locally,
+  `{slug}-site.localtest.me` with `edge.hosts = "wildcard"`; `pnpm dev:site` serves it.
+- **Moving to a wildcard domain.** Set `ARO_EDGE__HOSTS=wildcard` and
+  `ARO_WEBSITE__ADDRESS_TEMPLATE={slug}-site.sakalyatechnologies.com`, add the route
+  `*-site.sakalyatechnologies.com/*` to `aarogyam-site` next to the portal route, and re-save
+  published sites to point their host at the new name. No code change. A clinic's own domain
+  goes through Cloudflare for SaaS to `aarogyam-site` (the custom domain step in Settings still
+  only shows the records; its verification is not built yet).
+
 ### Moving the domain to Cloudflare (the recommended path)
 
 `sakalyatechnologies.com` stays registered at GoDaddy; only its nameservers move to

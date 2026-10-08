@@ -243,15 +243,13 @@ async fn serve(config: Config) -> anyhow::Result<()> {
     } else if !local {
         tracing::warn!("supabase.secret_key is not set: invited people get no sign-in account");
     }
+    warn_on_local_site_addresses(&config.website.address_template, local);
     let state = state
         .with_client_policy(clients)
         .with_throttle(throttle)
         .with_notifier(notifier)
         .with_files(files)
-        .with_website(aarogyam_api::WebsiteLinks {
-            sites_target: config.website.sites_target,
-            address_template: config.website.address_template,
-        });
+        .with_website(website_links(config.website));
     sakalya_http::serve(aarogyam_api::router(state), config.http.bind)
         .await
         .context("the server stopped with an error")
@@ -313,6 +311,23 @@ fn notifier(config: &Config, local: bool) -> anyhow::Result<Notifier> {
     })
 }
 
+fn website_links(website: aarogyam_server::config::WebsiteSettings) -> aarogyam_api::WebsiteLinks {
+    aarogyam_api::WebsiteLinks {
+        sites_target: website.sites_target,
+        address_template: website.address_template,
+    }
+}
+
+/// A deployed service with the local default address template would queue site addresses
+/// nobody can reach.
+fn warn_on_local_site_addresses(address_template: &str, local: bool) {
+    if !local && address_template.contains("localtest.me") {
+        tracing::warn!(
+            "website.address_template is a local default: published clinic sites get addresses nobody can reach"
+        );
+    }
+}
+
 /// How portal hosts are made to work, from `edge.*`. The Cloudflare token stays in this
 /// process: it is only ever sent to Cloudflare's API.
 fn portal_addresses(config: &Config) -> anyhow::Result<PortalAddresses> {
@@ -340,6 +355,9 @@ fn portal_addresses(config: &Config) -> anyhow::Result<PortalAddresses> {
                     &edge.worker_name_template,
                     &edge.portal_worker,
                 )
+                .and_then(|workers| {
+                    workers.with_site(&edge.site_worker_name_template, &edge.site_worker)
+                })
                 .context("edge.* settings")?,
             )
         }

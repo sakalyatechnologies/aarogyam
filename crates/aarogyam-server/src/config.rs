@@ -359,6 +359,13 @@ pub struct EdgeSettings {
     /// The portal Worker every clinic Worker hands requests to (`ARO_EDGE__PORTAL_WORKER`).
     /// Default `aarogyam-portal`.
     pub portal_worker: String,
+    /// A clinic's website Worker name, with `{slug}` replaced
+    /// (`ARO_EDGE__SITE_WORKER_NAME_TEMPLATE`). Default `{slug}-site`; it must match
+    /// `website.address_template`.
+    pub site_worker_name_template: String,
+    /// The site Worker every clinic website Worker hands requests to (`ARO_EDGE__SITE_WORKER`).
+    /// Default `aarogyam-site`.
+    pub site_worker: String,
 }
 
 impl Default for EdgeSettings {
@@ -370,6 +377,8 @@ impl Default for EdgeSettings {
             workers_subdomain: None,
             worker_name_template: "{slug}-aarogyam".to_owned(),
             portal_worker: "aarogyam-portal".to_owned(),
+            site_worker_name_template: "{slug}-site".to_owned(),
+            site_worker: "aarogyam-site".to_owned(),
         }
     }
 }
@@ -441,19 +450,22 @@ impl Default for FileSettings {
 #[derive(Debug, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct WebsiteSettings {
-    /// What a clinic's `www` CNAME record points to (`ARO_WEBSITE__SITES_TARGET`). A
-    /// placeholder until the product domain exists.
+    /// What a clinic's `www` CNAME record points to (`ARO_WEBSITE__SITES_TARGET`), such as
+    /// `aarogyam-site.spring-snow-130f.workers.dev`. The default is for local development;
+    /// deployed environments set it (`scripts/cloud-run-deploy.sh` does).
     pub sites_target: String,
     /// The free address, with `{slug}` replaced by the clinic's slug
-    /// (`ARO_WEBSITE__ADDRESS_TEMPLATE`), such as `{slug}-site.aarogyam.example`.
+    /// (`ARO_WEBSITE__ADDRESS_TEMPLATE`), such as `{slug}-site.spring-snow-130f.workers.dev`
+    /// now or `{slug}-site.sakalyatechnologies.com` later. Publishing queues this host for the
+    /// outbox job, so it must match `edge.site_worker_name_template`.
     pub address_template: String,
 }
 
 impl Default for WebsiteSettings {
     fn default() -> Self {
         Self {
-            sites_target: "sites.aarogyam.example".into(),
-            address_template: "{slug}-site.aarogyam.example".into(),
+            sites_target: "sites.localtest.me".into(),
+            address_template: "{slug}-site.localtest.me".into(),
         }
     }
 }

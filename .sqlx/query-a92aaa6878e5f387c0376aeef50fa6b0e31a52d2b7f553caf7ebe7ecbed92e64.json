@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.site_host_publish($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "site_host_publish",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a92aaa6878e5f387c0376aeef50fa6b0e31a52d2b7f553caf7ebe7ecbed92e64"
+}

@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select hostname, edge_status as \"edge_status!\", edge_error\n           from aarogyam.org_domains where kind = 'site' and is_primary",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hostname",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_domains",
+            "name": "hostname"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "edge_status!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_domains",
+            "name": "edge_status"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "edge_error",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_domains",
+            "name": "edge_error"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "281dd4aa0b55d0e7e8fbba20d616792d1374c48a0f58e7ee25534a7e8357ffd4"
+}

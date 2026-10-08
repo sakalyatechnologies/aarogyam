@@ -45,6 +45,8 @@ export ARO_AUTH__DEV_TOKENS=false
 export ARO_HOSTS__PORTAL_HOST_TEMPLATE="{slug}-aarogyam.${WORKERS}"
 export ARO_HOSTS__APP="aarogyam-portal.${WORKERS}"
 export ARO_HOSTS__CONSOLE="aarogyam-console.${WORKERS}"
+export ARO_WEBSITE__ADDRESS_TEMPLATE="{slug}-site.${WORKERS}"
+export ARO_WEBSITE__SITES_TARGET="aarogyam-site.${WORKERS}"
 export ARO_EMAIL__PORTAL_LINK="https://{host}"
 # The outbox sender gives new clinics their Worker through the Cloudflare API (the
 # CLOUDFLARE_* values from .env.cloudflare), so a clinic made in the console works right away.

@@ -50,6 +50,17 @@ Newest first. Change a decision by adding an entry that supersedes it.
 - **Status lives on `org_domains`** (`edge_status`, migration 0160), not in the outbox. Outbox rows are messages and are purged after 30 days, but the console needs the status for good. The console shows "Address ready / pending / failed".
 - **Moving from A to B1 needs no code or console change.** Set `ARO_EDGE__HOSTS=wildcard` (the job then marks hosts ready without calling Cloudflare) and `ARO_HOSTS__PORTAL_HOST_TEMPLATE={slug}-aarogyam.sakalyatechnologies.com`, re-point existing hosts, remove the job's Cloudflare token, and delete the per-clinic Workers.
 
+## 2026-10-07: Clinic sites go live
+
+**Problem.** Publishing in Settings, Website saved a flag and showed a placeholder address; nothing served the site.
+
+**Decision.** Reuse the automatic address design (2026-10-05) with a second host kind.
+
+- **A `site` host next to the `portal` host.** Publishing writes `org_domains` (kind `site`, migration 0240) through definer functions that take the clinic from the transaction, never an argument; the outbox job claims it like a portal host and uploads a `<slug>-site` Worker bound to the shared `aarogyam-site` Worker. Status is `pending`, `ready` or `failed`, shown in Settings. Free address `<slug>-site.spring-snow-130f.workers.dev` now, `<slug>-site.sakalyatechnologies.com` with `wildcard` later: only configuration changes.
+- **Take down removes it.** The API 404s at once (the host stops verifying); status `removing` lets the job delete the Worker and the row, so the 100-Worker limit isn't spent on dark sites. Publishing again recreates it.
+- **Public by construction.** `aarogyam-site` forwards only `GET /api/v1/public/site` and its pictures; every other `/api` path is a 404 at the edge. The API returns the same 404 for an unpublished site, a clinic with no site host, and another clinic's host. Booking stays the portal's `/book` page, framed.
+- **No placeholders.** Defaults are local (`localtest.me`); `scripts/cloud-run-deploy.sh` and `scripts/demo-api.sh` set the real templates.
+
 ## 2026-10-04: The visit record (M4)
 
 - **Clinicians are memberships.** Visits, notes, procedures and plans point at `memberships`; a doctor's practitioner record (registration, fees) hangs off the same membership. `encounters.appointment_id` has no foreign key until the appointments table merges; a follow-up migration adds the composite key.

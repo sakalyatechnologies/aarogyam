@@ -320,6 +320,8 @@ pub struct WebsiteView {
     pub doctors: Vec<Candidate>,
     /// Services the owner may show or hide.
     pub services: Vec<Candidate>,
+    /// The free site address and where it stands at the edge; `None` until first published.
+    pub site_host: Option<dal::SiteHostRow>,
 }
 
 fn clock(time: Time) -> String {
@@ -546,6 +548,7 @@ async fn view_in(tx: &mut ScopedTx) -> Result<WebsiteView, AppError> {
         preview,
         doctors,
         services,
+        site_host: dal::site_host(tx.conn()).await?,
     })
 }
 
@@ -671,6 +674,7 @@ pub async fn update(
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     changes: SiteChanges,
+    site_address_template: &str,
 ) -> Result<WebsiteView, AppError> {
     actor.require(Permission::SettingsManage)?;
     let content = changes
@@ -695,6 +699,18 @@ pub async fn update(
             settings.published = published;
         }
         dal::save(tx.conn(), &settings.to_row()?).await?;
+        // The free address follows the published state: publishing queues it (a published site
+        // saved again keeps it), taking the site down queues its removal.
+        if settings.published {
+            let slug = clinic::profile(tx.conn())
+                .await?
+                .ok_or(AppError::NotFound("clinic"))?
+                .slug;
+            let host = site_address_template.replace("{slug}", &slug);
+            dal::publish_site_host(tx.conn(), &host).await?;
+        } else if changes.published == Some(false) {
+            dal::take_down_site_host(tx.conn()).await?;
+        }
         view_in(tx).await
     })
     .await

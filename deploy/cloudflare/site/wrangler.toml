@@ -1,0 +1,21 @@
+# Clinic website Worker: static assets from the site app's Vite build, plus the two public read
+# routes (`/api/v1/public/site` and its photos) proxied to the API. Every clinic's site address
+# is a small forwarding Worker (made by the outbox job) that calls this one. `API_ORIGIN` is
+# overridden at deploy time; `EDGE_SECRET` is a Worker secret (scripts/deploy-workers.sh sets it).
+name = "aarogyam-site"
+main = "worker.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[assets]
+# Built by `pnpm --filter @aarogyam/site build` (scripts/deploy-workers.sh); VITE_* build-time
+# vars (VITE_API_MODE, VITE_BOOKING_URL_TEMPLATE) go to that build step, not to the Worker.
+directory = "../../../web/apps/site/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[vars]
+# Placeholder; always overridden at deploy time.
+API_ORIGIN = "http://localhost:8080"

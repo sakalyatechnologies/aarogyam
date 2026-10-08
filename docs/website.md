@@ -23,10 +23,10 @@ Designs: `aurora` (premium dark), `hearth` (warm family), `clinical` (minimal), 
 
 The public payload holds only public facts: no patient data, registration numbers, domain token or published flag. A test checks the exact keys and that private values never appear.
 
-## Serving it (later)
+## Serving it
 
-A Worker serves `web/apps/site` at `<slug>-site.<domain>` and proxies `/api` to the API with the clinic's host, so the API resolves the clinic as it does for the portal. Set `VITE_BOOKING_URL_TEMPLATE` (for example `https://{slug}.<domain>/book`) when building the site. The portal host must allow framing by the site host. Custom domains: the owner adds a CNAME `www` to `website.sites_target` and a TXT `_aarogyam-verify` with the token; verification and `org_domains` (globally unique, `cloudflare_hostname_id`) come with the infrastructure. Config: `ARO_WEBSITE__SITES_TARGET`, `ARO_WEBSITE__ADDRESS_TEMPLATE` (placeholders for now).
+Publishing queues the clinic's free site address (`<slug>-site.<domain>`, `org_domains` kind `site`); the outbox job makes it work, and taking the site down removes it. The `aarogyam-site` Worker (`deploy/cloudflare/site`) serves `web/apps/site` and proxies only `GET /api/v1/public/site` and its pictures to the API with the clinic's host, so the API resolves the clinic as it does for the portal. `VITE_BOOKING_URL_TEMPLATE` (the portal's `/book`, set by `scripts/deploy-workers.sh`) points the booking frame at the clinic's portal host. Settings shows the real address and its status (`domain.default_address`, `address_status`: none, pending, ready, failed). Steps and limits: `docs/deploy.md`, "Clinic websites". Custom domains: the owner adds a CNAME `www` to `website.sites_target` and a TXT `_aarogyam-verify` with the token; verification and `cloudflare_hostname_id` come with Cloudflare for SaaS. Config: `ARO_WEBSITE__SITES_TARGET`, `ARO_WEBSITE__ADDRESS_TEMPLATE`.
 
 ## Not done
 
-Domain verification and hosting; sitemap and per-page server-side rendering for crawlers (the page sets its tags in the browser); AI copy.
+Custom-domain verification and hosting (free addresses are live); sitemap and per-page server-side rendering for crawlers (the page sets its tags in the browser); AI copy.

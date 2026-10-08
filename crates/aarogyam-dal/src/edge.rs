@@ -7,7 +7,7 @@ use sqlx::PgPool;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-/// A portal host claimed for provisioning.
+/// A portal or site host claimed for provisioning.
 #[derive(Debug, Clone)]
 pub struct ClaimedHost {
     /// Its clinic.
@@ -20,9 +20,13 @@ pub struct ClaimedHost {
     pub hostname: String,
     /// Attempts so far, this one included.
     pub attempts: i32,
+    /// `portal` or `site`.
+    pub kind: String,
+    /// The host is to be removed (a site taken down), not made to work.
+    pub removing: bool,
 }
 
-/// Claims up to `limit` due portal hosts across clinics for `lease_seconds`.
+/// Claims up to `limit` due portal and site hosts across clinics for `lease_seconds`.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -34,8 +38,9 @@ pub async fn claim(
     let rows = sqlx::query_as!(
         ClaimedHost,
         r#"select org_id as "org_id!", domain_id as "domain_id!", slug as "slug!",
-                  hostname as "hostname!", attempts as "attempts!"
-           from app.edge_hosts_claim($1, $2)"#,
+                  hostname as "hostname!", attempts as "attempts!",
+                  kind as "kind!", removing as "removing!"
+           from app.edge_hosts_work($1, $2)"#,
         limit,
         lease_seconds
     )
@@ -50,6 +55,17 @@ pub async fn claim(
 /// [`DbError`] on a database failure.
 pub async fn mark_ready(pool: &PgPool, domain_id: Uuid) -> Result<(), DbError> {
     sqlx::query!(r#"select app.edge_host_ready($1)"#, domain_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+/// Forgets a taken-down site host whose Worker is gone.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn mark_removed(pool: &PgPool, domain_id: Uuid) -> Result<(), DbError> {
+    sqlx::query!(r#"select app.edge_host_removed($1)"#, domain_id)
         .execute(pool)
         .await?;
     Ok(())
@@ -77,7 +93,7 @@ pub async fn mark_failed(
     Ok(())
 }
 
-/// Queues every clinic's portal host again, or one clinic's (by slug); returns how many.
+/// Queues every clinic's portal and site host again, or one clinic's (by slug); returns how many.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.

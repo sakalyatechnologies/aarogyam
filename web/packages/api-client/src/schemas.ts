@@ -2255,6 +2255,8 @@ export const siteDomain = z.object({
   checked_at: optionalTimestamp,
   sites_target: z.string(),
   default_address: z.string(),
+  address_status: z.enum(["none", "pending", "ready", "failed"]),
+  address_error: optionalText,
 }) satisfies z.ZodType<C.SiteDomain>;
 export type SiteDomain = z.output<typeof siteDomain>;
 

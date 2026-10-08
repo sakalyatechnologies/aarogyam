@@ -17380,9 +17380,21 @@
         "required": [
           "status",
           "sites_target",
-          "default_address"
+          "default_address",
+          "address_status"
         ],
         "properties": {
+          "address_error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A short reason when `address_status` is `failed`."
+          },
+          "address_status": {
+            "type": "string",
+            "description": "Whether the edge serves that address yet: `none` (not published), `pending`, `ready`\nor `failed`. A published site is reachable within about two minutes."
+          },
           "checked_at": {
             "type": [
               "string",

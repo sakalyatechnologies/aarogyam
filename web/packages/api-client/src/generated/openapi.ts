@@ -6094,6 +6094,13 @@ export interface components {
         };
         /** @description Where the clinic's own domain verification stands, with what to show the owner. */
         SiteDomain: {
+            /** @description A short reason when `address_status` is `failed`. */
+            address_error?: string | null;
+            /**
+             * @description Whether the edge serves that address yet: `none` (not published), `pending`, `ready`
+             *     or `failed`. A published site is reachable within about two minutes.
+             */
+            address_status: string;
             /** @description When it was last checked (RFC 3339). */
             checked_at?: string | null;
             /** @description The clinic's own domain, if any. */
@@ -13065,7 +13072,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks staff.manage */
+            /** @description The role lacks staff.manage and roles.manage */
             403: {
                 headers: {
                     [name: string]: unknown;

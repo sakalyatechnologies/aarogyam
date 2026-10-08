@@ -193,8 +193,11 @@ export function wireSettings(
       status: site.domain_status,
       verification_token: site.domain_token,
       checked_at: null,
-      sites_target: "sites.aarogyam.example",
-      default_address: `${clinic.slug}-site.aarogyam.example`,
+      sites_target: "aarogyam-site.spring-snow-130f.workers.dev",
+      default_address: `${clinic.slug}-site.spring-snow-130f.workers.dev`,
+      // The real API queues the address when a site is published and the outbox job makes it work.
+      address_status: site.published ? "ready" : "none",
+      address_error: null,
     },
     photos: photosOf(state, clinic.id).map(wirePhoto),
     preview: buildPage(state, clinic, site, bookingEnabled),

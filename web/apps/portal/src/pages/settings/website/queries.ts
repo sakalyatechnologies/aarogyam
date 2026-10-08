@@ -9,6 +9,8 @@ export function useWebsite() {
   return useQuery({
     queryKey: ["website", access.org_id],
     queryFn: ({ signal }) => unwrap(api.getWebsiteSettings({ signal })),
+    // A published site's address is made within about two minutes; watch until it is ready.
+    refetchInterval: (query) => (query.state.data?.published && query.state.data.domain.address_status === "pending" ? 10_000 : false),
   });
 }
 

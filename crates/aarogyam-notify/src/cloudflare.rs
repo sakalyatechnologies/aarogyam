@@ -209,6 +209,15 @@ impl WorkersApi {
         self.send(request).await
     }
 
+    /// Deletes the Worker `name`; one that is already gone counts as deleted.
+    pub(crate) async fn delete_script(&self, name: &WorkerName) -> Result<(), Failure> {
+        let request = self.client.delete(self.script_url(name));
+        match self.send(request).await {
+            Err(failure) if failure.reason.contains("answered 404") => Ok(()),
+            other => other,
+        }
+    }
+
     async fn send(&self, request: reqwest::RequestBuilder) -> Result<(), Failure> {
         let response = request
             .bearer_auth(self.token.expose_secret())

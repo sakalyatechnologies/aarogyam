@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.edge_host_removed($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "edge_host_removed",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c15c6b4d2fad63571a4a064c0dc92999cc8cfc33c80d5e4455d728d99b742c37"
+}

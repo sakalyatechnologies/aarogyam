@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.site_host_take_down()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "site_host_take_down",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "9e023a7f535a48bf69634f1f2f5d7f09ced81e296b969a7db95617582d69e8ad"
+}

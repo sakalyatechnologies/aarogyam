@@ -34,6 +34,36 @@ function fieldErrors(message: string): Record<string, string> {
   return rest.length > 0 && field !== undefined && field.includes(".") ? { [field]: rest.join(": ") } : {};
 }
 
+/** Where the published site's free address stands: being set up, open, or failed. */
+function AddressStatus({ domain }: { domain: WebsiteSettings["domain"] }) {
+  const address = domain.default_address;
+  switch (domain.address_status) {
+    case "ready":
+      return (
+        <p className="wb-muted" role="status">
+          Address ready.{" "}
+          <a href={`https://${address}`} target="_blank" rel="noreferrer">
+            Open {address}
+          </a>
+        </p>
+      );
+    case "failed":
+      return (
+        <p className="wb-muted" role="alert">
+          The address could not be set up{domain.address_error != null ? ` (${domain.address_error})` : ""}. Sakalya support can set it up again.
+        </p>
+      );
+    case "pending":
+      return (
+        <p className="wb-muted" role="status">
+          Setting up your address. This usually takes less than two minutes.
+        </p>
+      );
+    case "none":
+      return null;
+  }
+}
+
 function Builder({ settings }: { settings: WebsiteSettings }) {
   const toast = useToast();
   const update = useUpdateWebsite();
@@ -146,7 +176,7 @@ function Builder({ settings }: { settings: WebsiteSettings }) {
     save({ published }).then(
       () => {
         toast.show({
-          title: published ? "Published. Your website goes live on your address once hosting is connected." : "Website taken down",
+          title: published ? "Published. Your website is reachable on its address within about two minutes." : "Website taken down",
           tone: "success",
         });
       },
@@ -248,6 +278,7 @@ function Builder({ settings }: { settings: WebsiteSettings }) {
           <p className="wb-muted">
             {settings.published ? "Published" : "Not published yet"} · {settings.domain.custom_domain ?? settings.domain.default_address}
           </p>
+          {settings.published && <AddressStatus domain={settings.domain} />}
         </div>
         <div className="wb-top-actions">
           <span className="wb-state" role="status">

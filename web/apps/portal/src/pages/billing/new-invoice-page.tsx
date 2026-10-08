@@ -1,13 +1,14 @@
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
-import { apiErrorOf, randomUuid, type InvoiceLineInput, type Patient } from "@aarogyam/api-client";
+import { apiErrorOf, patientId as parsePatientId, randomUuid, type InvoiceLineInput, type Patient } from "@aarogyam/api-client";
 import { formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
 import { Avatar, Button, Card, Field, FormActions, Select, TextInput } from "@sakalya/ui";
 
 import { PatientPicker } from "../../components/patient-picker.js";
 import { ageSex } from "../../lib/patients.js";
+import { usePatient } from "../../queries.js";
 import { useCreateInvoice, usePriceItems } from "./queries.js";
 import { PageHeader } from "../../components/mk/index.js";
 
@@ -27,7 +28,12 @@ function emptyLine(): DraftLine {
 export function NewInvoicePage() {
   useDocumentTitle("New bill", "Billing");
   const navigate = useNavigate();
-  const [patient, setPatient] = useState<Patient>();
+  const [picked, setPatient] = useState<Patient | null>();
+  // "Complete and bill" from a visit opens this page for that patient (?patient=<id>); "Change patient" clears it.
+  const [params] = useSearchParams();
+  const presetId = parsePatientId.safeParse(params.get("patient") ?? undefined);
+  const preset = usePatient(presetId.success && picked === undefined ? presetId.data : undefined);
+  const patient = picked === null ? undefined : (picked ?? preset.data);
   const priceItems = usePriceItems();
   const create = useCreateInvoice();
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
@@ -112,7 +118,7 @@ export function NewInvoicePage() {
               variant="ghost"
               className="ml-auto"
               onClick={() => {
-                setPatient(undefined);
+                setPatient(null);
               }}
             >
               Change patient

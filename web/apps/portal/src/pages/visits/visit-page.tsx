@@ -1,6 +1,6 @@
 import { Check, Lock, MessageSquarePlus, Mic, Plus } from "lucide-react";
 import { useRef, useState } from "react";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 
 import {
   apiErrorOf,
@@ -83,6 +83,18 @@ function VisitView({ patientId, detail }: { patientId: PatientId; detail: NonNul
   const close = useCloseVisit(patientId, visit.id);
   const toast = useToast();
   const isOpen = visit.status === "open";
+  const navigate = useNavigate();
+  const closeVisit = (then?: () => void) => {
+    close.mutate(undefined, {
+      onSuccess: () => {
+        toast.show({ title: "Visit closed", tone: "success" });
+        then?.();
+      },
+      onError: (thrown) => {
+        toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't close that visit.", tone: "danger" });
+      },
+    });
+  };
 
   return (
     <>
@@ -97,17 +109,22 @@ function VisitView({ patientId, detail }: { patientId: PatientId; detail: NonNul
                 variant="secondary"
                 disabled={close.isPending}
                 onClick={() => {
-                  close.mutate(undefined, {
-                    onSuccess: () => {
-                      toast.show({ title: "Visit closed", tone: "success" });
-                    },
-                    onError: (thrown) => {
-                      toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't close that visit.", tone: "danger" });
-                    },
-                  });
+                  closeVisit();
                 }}
               >
                 {close.isPending ? "Closing…" : "Close visit"}
+              </Button>
+            ) : null}
+            {canWrite && isOpen && can("billing.write") ? (
+              <Button
+                disabled={close.isPending}
+                onClick={() => {
+                  closeVisit(() => {
+                    void navigate(`/billing/invoices/new?patient=${encodeURIComponent(patientId)}`);
+                  });
+                }}
+              >
+                Complete and bill
               </Button>
             ) : null}
           </div>

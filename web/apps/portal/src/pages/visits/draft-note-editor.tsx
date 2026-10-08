@@ -8,6 +8,7 @@ import { MarkdownToolbar } from "../../components/markdown-toolbar.js";
 import { useEditNote, useUploadRecording } from "./queries.js";
 import { insertAt } from "./voice/dictation.js";
 import { VoiceRecorder } from "./voice/voice-recorder.js";
+import { QuickPickBar, type PickSection } from "./quick-pick-bar.js";
 
 const SECTIONS = [
   { key: "subjective", label: "Subjective" },
@@ -142,8 +143,16 @@ export function DraftNoteEditor({
     setRecording(false);
   };
 
+  /** A quick pick adds its line to the end of its section, on a line of its own, unless it is already there. */
+  const pick = (key: PickSection, text: string) => {
+    const current = latest.current[key];
+    if (current.includes(text)) return;
+    change(key, current.trim() === "" ? text : `${current.trimEnd()}\n${text}`);
+  };
+
   return (
     <div className="flex flex-col gap-3">
+      <QuickPickBar patientId={patientId} visitId={visitId} onPick={pick} />
       <div className="grid gap-3 sm:grid-cols-2">
         {SECTIONS.map(({ key, label }) => (
           <Field key={key} label={label}>

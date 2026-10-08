@@ -1,5 +1,7 @@
 import {
   Bell,
+  ChartNoAxesCombined,
+  ReceiptIndianRupee,
   CalendarCheck,
   CalendarRange,
   ListOrdered,
@@ -307,6 +309,9 @@ function ShellFrame() {
         ]
       : []),
     { id: "stock", label: "Stock", icon: <Package />, href: "/stock" },
+    ...(can("analytics.view")
+      ? [{ id: "analytics", label: "Analytics", icon: <ChartNoAxesCombined />, href: "/analytics" }]
+      : []),
     {
       id: "messages",
       label: "Messages",
@@ -326,6 +331,7 @@ function ShellFrame() {
   const palettePages = [
     ...workspace,
     ...system,
+    ...(can("finance.view") ? [{ id: "expenses", label: "Expenses", href: "/billing?tab=expenses", icon: <ReceiptIndianRupee /> }] : []),
     ...(can("staff.manage") || can("roles.manage") ? [{ id: "team", label: "Team & roles", href: "/settings?tab=team", icon: <UserCog /> }] : []),
   ].map((item) => ({ id: item.id, label: item.label, href: item.href, icon: item.icon }));
 

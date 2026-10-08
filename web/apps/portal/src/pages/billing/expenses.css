@@ -1,0 +1,32 @@
+/* Billing → Expenses: the quick-add form and the month list. Portal colour variables only. */
+
+.ex-layout { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.ex-layout > :only-child { grid-column: 1 / -1; }
+.ex-form { display: grid; gap: 12px; }
+.ex-wide { min-width: 0; }
+.ex-wide .mk-alert { margin: 0; }
+.ex-error { margin: 0; font-size: 13px; color: var(--red); }
+.ex-month { display: flex; gap: 6px; }
+.ex-month .mk-iconbtn { width: 34px; height: 34px; box-shadow: none; }
+.ex-month .mk-iconbtn svg { width: 16px; height: 16px; }
+.ex-month .mk-iconbtn:disabled { opacity: .4; cursor: default; transform: none; }
+.ex-groups { display: grid; gap: 14px; }
+.ex-group { border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; }
+.ex-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 14px; background: var(--hover); }
+.ex-group-head h3 { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.ex-sum { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
+.ex-rows { list-style: none; margin: 0; padding: 0; }
+.ex-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto 52px; align-items: center; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--rule); font-size: 13px; }
+.ex-day { color: var(--muted); font-variant-numeric: tabular-nums; }
+.ex-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink2); }
+.ex-amt { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
+.ex-row > :last-child { justify-self: end; }
+.ex-row.is-void .ex-amt, .ex-row.is-void .ex-note { color: var(--muted); text-decoration: line-through; }
+
+@media (max-width: 1120px) {
+  .ex-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 480px) {
+  .ex-row { grid-template-columns: 52px minmax(0, 1fr) auto; }
+  .ex-row > :last-child { grid-column: 1 / -1; justify-self: start; }
+}

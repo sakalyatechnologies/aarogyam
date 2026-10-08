@@ -1,0 +1,143 @@
+/*
+ * Analytics page. Every colour comes from the theme. The --chart-* series are stepped from the
+ * clinic's brand hue (slot 1 is the brand itself) with fixed lightness and chroma per mode, so
+ * adjacent series stay apart for colour-blind readers; the order was checked with the dataviz
+ * palette validator for the default brand in light and dark (adjacent CVD ΔE ≥ 9). Older browsers
+ * without relative colours get the color-mix fallbacks. --chart-8 is the neutral "unknown".
+ */
+.an-page {
+  --chart-1: var(--sk-chart-1);
+  --chart-2: color-mix(in oklch, var(--sk-danger) 60%, var(--sk-warning));
+  --chart-3: color-mix(in oklch, var(--sk-info) 85%, var(--sk-brand));
+  --chart-4: var(--sk-warning);
+  --chart-5: color-mix(in oklch, var(--sk-danger) 60%, var(--sk-info));
+  --chart-6: color-mix(in oklch, var(--sk-info) 60%, var(--sk-danger));
+  --chart-7: var(--sk-success);
+  --chart-1: oklch(from var(--sk-brand) 0.56 max(c, 0.12) h);
+  --chart-2: oklch(from var(--sk-brand) 0.66 0.17 calc(h - 140));
+  --chart-3: oklch(from var(--sk-brand) 0.52 0.16 calc(h + 76));
+  --chart-4: oklch(from var(--sk-brand) 0.74 0.15 calc(h - 100));
+  --chart-5: oklch(from var(--sk-brand) 0.62 0.17 calc(h + 173));
+  --chart-6: oklch(from var(--sk-brand) 0.45 0.16 calc(h + 108));
+  --chart-7: oklch(from var(--sk-brand) 0.62 0.16 calc(h - 42));
+  --chart-8: color-mix(in srgb, var(--muted) 70%, var(--surface));
+  --chart-grid: color-mix(in srgb, var(--rule) 70%, transparent);
+  --chart-axis: var(--muted);
+  --heat-0: color-mix(in srgb, var(--rule) 45%, var(--surface));
+  --heat-1: color-mix(in srgb, var(--brand) 22%, var(--surface));
+  --heat-2: color-mix(in srgb, var(--brand) 45%, var(--surface));
+  --heat-3: color-mix(in srgb, var(--brand) 70%, var(--surface));
+  --heat-4: var(--brand);
+}
+[data-theme-mode="dark"] .an-page {
+  --chart-1: oklch(from var(--sk-brand) 0.64 max(c, 0.12) h);
+  --chart-2: oklch(from var(--sk-brand) 0.62 0.17 calc(h - 140));
+  --chart-3: oklch(from var(--sk-brand) 0.58 0.16 calc(h + 76));
+  --chart-4: oklch(from var(--sk-brand) 0.66 0.14 calc(h - 100));
+  --chart-5: oklch(from var(--sk-brand) 0.6 0.17 calc(h + 173));
+  --chart-6: oklch(from var(--sk-brand) 0.52 0.16 calc(h + 108));
+  --chart-7: oklch(from var(--sk-brand) 0.62 0.16 calc(h - 42));
+}
+
+/* Header controls */
+.an-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.an-updating { font-size: 12px; color: var(--muted); }
+
+/* KPI row */
+.an-kpis { list-style: none; margin: 0 0 16px; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.an-kpis > li { min-width: 0; display: grid; position: relative; }
+.an-kpis .mk-stat { height: 100%; }
+.an-owner { font-size: 13px; font-weight: 600; color: var(--muted); }
+.an-meter { position: absolute; left: 16px; right: 16px; bottom: 16px; height: 6px; border-radius: 999px; background: var(--heat-0); overflow: hidden; }
+.an-meter > span { display: block; height: 100%; border-radius: inherit; background: var(--chart-1); }
+
+/* Chart grid: named areas, one column at 1120px and below */
+.an-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-areas:
+    "income income income expenses expenses expenses"
+    "chairs chairs chairs mix mix mix"
+    "busy busy busy busy busy busy"
+    "age age visit visit referral referral";
+}
+.an-grid.no-money {
+  grid-template-areas:
+    "chairs chairs chairs mix mix mix"
+    "busy busy busy busy busy busy"
+    "age age visit visit referral referral";
+}
+.an-grid > * { min-width: 0; margin: 0; }
+.an-income { grid-area: income; } .an-expenses { grid-area: expenses; } .an-chairs { grid-area: chairs; }
+.an-mix { grid-area: mix; } .an-busy { grid-area: busy; } .an-age { grid-area: age; }
+.an-visit { grid-area: visit; } .an-referral { grid-area: referral; }
+.an-chart { width: 100%; height: 240px; }
+.an-chart.sm { height: 180px; }
+.an-chart svg { overflow: visible; }
+.an-chart .recharts-cartesian-axis-tick-value { fill: var(--chart-axis); font-size: 11px; }
+.an-chart .recharts-surface:focus { outline: none; }
+.an-moneynote { margin: 0 0 16px; }
+
+/* Shared tooltip */
+.an-tip { background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: 12px; padding: 8px 10px; box-shadow: var(--sh); font-size: 12px; min-width: 140px; }
+.an-tip-h { font-weight: 700; margin-bottom: 4px; }
+.an-tip ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.an-tip li { display: flex; align-items: center; gap: 6px; }
+.an-tip li b { margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; }
+
+/* Legends: a swatch next to ink-coloured text */
+.an-legend { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink2); }
+.an-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.an-sw { width: 10px; height: 10px; border-radius: 3px; flex: none; background: var(--sw); }
+.an-legend.col { display: grid; gap: 6px; margin: 0; }
+.an-legend.col li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; }
+.an-legend.col b { font-variant-numeric: tabular-nums; color: var(--ink); }
+
+/* Donuts */
+.an-donut { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 14px; align-items: center; }
+.an-donut-c { position: relative; width: 140px; height: 140px; }
+.an-donut-n { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+.an-donut-n strong { font-size: 18px; color: var(--ink); }
+.an-donut-n span { font-size: 11px; color: var(--muted); }
+
+/* Chair progress rows */
+.an-chairrows { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+.an-chairrow { display: grid; grid-template-columns: 80px minmax(0, 1fr) 48px; gap: 10px; align-items: center; font-size: 12.5px; }
+.an-chairrow b { text-align: right; font-variant-numeric: tabular-nums; }
+.an-bar { height: 8px; border-radius: 999px; background: var(--heat-0); overflow: hidden; }
+.an-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--sw); }
+
+/* Busy-hours heatmap */
+.an-heat { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 4px 8px; font-size: 11px; color: var(--muted); }
+.an-heat-hours, .an-heat-row { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 4px; }
+.an-heat-hours span { text-align: center; }
+.an-heat-line { display: contents; }
+.an-heat-day { align-self: center; }
+.an-cell { height: 26px; border-radius: 5px; background: var(--heat-0); }
+.an-cell[data-level="1"] { background: var(--heat-1); }
+.an-cell[data-level="2"] { background: var(--heat-2); }
+.an-cell[data-level="3"] { background: var(--heat-3); }
+.an-cell[data-level="4"] { background: var(--heat-4); }
+.an-heat-legend { display: flex; align-items: center; gap: 4px; justify-content: flex-end; margin-top: 10px; font-size: 11px; color: var(--muted); }
+.an-heat-legend .an-cell { width: 18px; height: 10px; }
+
+/* Loading */
+.an-skel-grid { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+@media (max-width: 1120px) {
+  .an-grid, .an-grid.no-money {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "income" "expenses" "chairs" "mix" "busy" "age" "visit" "referral";
+  }
+  .an-grid.no-money { grid-template-areas: "chairs" "mix" "busy" "age" "visit" "referral"; }
+  .an-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .an-skel-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 480px) {
+  .an-donut { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+  .an-donut .an-legend.col { width: 100%; }
+  .an-heat-hours span:nth-child(even) { visibility: hidden; }
+  .an-cell { height: 18px; border-radius: 3px; }
+  .an-heat-row, .an-heat-hours { gap: 2px; }
+}

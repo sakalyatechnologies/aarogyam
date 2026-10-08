@@ -172,6 +172,12 @@ import type {
   SummaryNote,
   Timeline,
   TodayMoney,
+  Analytics,
+  AnalyticsBucket,
+  Expense,
+  ExpenseId,
+  ExpenseList,
+  NewExpense,
   TokenStatusChange,
   Today,
   Verification,
@@ -209,6 +215,11 @@ export interface DateRange {
   from: string;
   /** Last local day, `YYYY-MM-DD`; at most 42 days counting both. */
   to: string;
+}
+
+/** The Analytics range: up to 731 days, grouped by month (default) or week. */
+export interface AnalyticsQuery extends Partial<DateRange> {
+  bucket?: AnalyticsBucket | undefined;
 }
 
 export interface AppointmentFilter extends DateRange {
@@ -533,6 +544,15 @@ export interface ApiClient {
   getPendingReport(options?: RequestOptions): Promise<ApiResult<PendingReport>>;
   /** Clinic host: today's collections, pending dues and revenue mix for the Today screen. Needs `finance.view`. */
   getTodayMoney(options?: RequestOptions): Promise<ApiResult<TodayMoney>>;
+
+  /** Clinic host: expenses spent in the range, newest day first, voided ones included. Needs `finance.view`. */
+  listExpenses(range: Partial<DateRange>, options?: RequestOptions): Promise<ApiResult<ExpenseList>>;
+  /** Clinic host: records an expense. Needs `expenses.write`. */
+  recordExpense(input: NewExpense, options?: RequestOptions): Promise<ApiResult<Expense>>;
+  /** Clinic host: voids an expense with a reason; it stops counting in reports. Needs `finance.view`. */
+  voidExpense(id: ExpenseId, reason: Reason, options?: RequestOptions): Promise<ApiResult<Expense>>;
+  /** Clinic host: chair use, money, patients and busy hours by month or week; money is null without `finance.view`. Needs `analytics.view`. */
+  getAnalytics(query: AnalyticsQuery, options?: RequestOptions): Promise<ApiResult<Analytics>>;
 
   /** Clinic host: a patient's prescriptions, newest first. Needs `clinical.read`. */
   listPrescriptions(patientId: PatientId, options?: RequestOptions): Promise<ApiResult<PrescriptionPage>>;

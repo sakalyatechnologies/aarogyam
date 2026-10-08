@@ -30,6 +30,9 @@ import {
   letterheadDocument,
   clinicalFlags,
   collections,
+  analytics,
+  expense,
+  expenseList,
   condition,
   conditionList,
   consoleClinics,
@@ -615,6 +618,19 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "GET", path: "/api/v1/reports/collections", schema: collections, query: { from: range.from, to: range.to }, signal: opts?.signal }),
     getPendingReport: (opts) => call({ method: "GET", path: "/api/v1/reports/pending", schema: pendingReport, signal: opts?.signal }),
     getTodayMoney: (opts) => call({ method: "GET", path: "/api/v1/today/money", schema: todayMoney, signal: opts?.signal }),
+    listExpenses: (range, opts) =>
+      call({ method: "GET", path: "/api/v1/expenses", schema: expenseList, query: { from: range.from, to: range.to }, signal: opts?.signal }),
+    recordExpense: (input, opts) => call({ method: "POST", path: "/api/v1/expenses", schema: expense, body: input, signal: opts?.signal }),
+    voidExpense: (id, reason, opts) =>
+      call({ method: "POST", path: `/api/v1/expenses/${encodeURIComponent(id)}/void`, schema: expense, body: reason, signal: opts?.signal }),
+    getAnalytics: (query, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/reports/analytics",
+        schema: analytics,
+        query: { from: query.from, to: query.to, bucket: query.bucket },
+        signal: opts?.signal,
+      }),
 
     listPrescriptions: (patientId, opts) =>
       call({

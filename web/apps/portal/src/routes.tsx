@@ -78,6 +78,10 @@ export const routes: RouteObject[] = [
                 ],
               },
               { path: "stock", lazy: lazyPage(() => import("./pages/stock/stock-page.js"), (m) => m.StockPage) },
+              {
+                element: <RequireCan permission="analytics.view" what="Analytics" />,
+                children: [{ path: "analytics", lazy: lazyPage(() => import("./pages/analytics/analytics-page.js"), (m) => m.AnalyticsPage) }],
+              },
               { path: "messages", lazy: lazyPage(() => import("./pages/messages/messages-page.js"), (m) => m.MessagesPage) },
               { path: "staff", element: <Navigate to="/settings?tab=team" replace /> },
               { path: "settings", lazy: lazyPage(() => import("./pages/settings/settings-page.js"), (m) => m.SettingsPage) },

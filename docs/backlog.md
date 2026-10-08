@@ -94,6 +94,21 @@ Founder testing: a patient booked online from the clinic website and the booking
 - **Online sign-ups:** registered with name, email and phone only; complete age, sex, allergies and consent at Mark arrived, and also match duplicates by phone.
 - **Date and time fields:** the shared `sakalya-web` date field is the browser default (US order, no shortcuts) and time is typed as text. Build a proper date picker and slot-based time picker there, then use it everywhere.
 
+## Sign-in from the public website: one smooth step (8 Oct 2026)
+- **Problem:** after signing in on the public Aarogyam website, several different screens flash by while it redirects to the clinic portal, and it takes a while. Today the path goes from the website's sign-in, through the handoff, then the portal's own loading screens ("Loading your clinics", "Opening the clinic"), then the setup gate, then the page.
+- **Wanted:** one simple loader from the moment you press Sign in until the clinic page is ready. It should be the same full-screen, branded loader with one line of text, such as "Opening Sunrise Dental…", and no intermediate screens.
+- **Design notes:**
+  - Measure each hop first (website sign-in, handoff redemption, `/me`, `/session`, setup) and remove the ones that can be skipped or run in parallel.
+  - Keep the one-time code and host binding as they are.
+  - Make the portal's loading states share one component, so they show as a single steady loader instead of a sequence.
+  - If something fails, show a clear error with "Try again" and a way back to sign in.
+
+## Public website and sign-in look like two products (8 Oct 2026)
+- **Problem:** the public Aarogyam website (Lovable design, kept as is) and the sign-in, registration and sign-out pages use very different colours and type, so clicking Sign in feels like landing on another site.
+- **Wanted:** the sign-in, register and sign-out pages, and the loader above, use the public website's palette, typography and logo treatment. Then the clinic portal takes over with the clinic's own theme.
+- **Constraint:** don't change the public landing page itself (founder decision); adapt the auth pages to it.
+- **Design notes:** take the colours and fonts from the website's styles as tokens in `sakalya-web` (an "Aarogyam brand" theme), use them in the shared auth shell (`web/packages/auth`), and check light and dark.
+
 ## Analytics tab (6 Oct 2026)
 - A dedicated Analytics area for the owner/admin doctor (not staff), on web and the same on mobile. The founder will share a dashboard mock-up; plan from that, review, then build.
 - **Design notes:** owner-only by default via a new permission; one query per chart within the round-trip budget; respects scopes.

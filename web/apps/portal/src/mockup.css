@@ -5,7 +5,7 @@
  * mock-up's palette for the default brand and follow the clinic's branding otherwise.
  * Generic pieces here (kpi tile, meter, bars, donut, toggle, drawer, toast) move to sakalya-web.
  */
-.mk-app, .mk-drawer, .mk-scrim, .mk-toast, .mk-palette, .mk-bk {
+.mk-app, .mk-drawer, .mk-scrim, .mk-toast, .mk-palette, .mk-bk, .sw-only {
   --sk-shadow: 0 1px 2px rgba(13, 42, 34, 0.07), 0 12px 32px rgba(13, 42, 34, 0.08);
   --brand: var(--sk-primary);
   --brand2: var(--mk-brand2, color-mix(in srgb, var(--sk-primary) 72%, #000));
@@ -409,7 +409,7 @@
  * uppercase eyebrows, large tight titles (600, -1px), soft initials, rounded 9px status chips.
  * Overrides the older mock-up rules above by coming later; new pieces are prefixed as before.
  * ======================================================================================== */
-.mk-app, .mk-drawer, .mk-palette {
+.mk-app, .mk-drawer, .mk-palette, .sw-only {
   --v4-font: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
   --panel-r: 21px;
   --sh: 0 1px 2px rgba(23, 46, 39, 0.04), 0 6px 20px rgba(23, 46, 39, 0.05);
@@ -420,6 +420,7 @@
 .mk-app { font-family: var(--v4-font); font-size: 14px; line-height: 1.5;
   background: radial-gradient(1100px 420px at 70% -12%, color-mix(in srgb, var(--sk-primary) 7%, transparent), transparent 62%), var(--bg); }
 .mk-palette { font-family: var(--v4-font); }
+.sw-only { font-family: var(--v4-font); font-size: 14px; line-height: 1.5; }
 
 /* cards and tiles: borderless white panels */
 .mk-card { border: 1px solid color-mix(in srgb, var(--rule) 55%, transparent); border-radius: var(--panel-r); box-shadow: var(--sh); padding: 20px 22px; }

@@ -24,7 +24,10 @@
 .sw-choice[aria-checked="true"] { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
 .sw-choice:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
 .sw-fixed { display: inline-block; padding: 8px 14px; border-radius: 11px; background: var(--brand-soft); font-weight: 700; font-size: .875rem; }
-.sw-logo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sw-logo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: .8125rem; color: var(--muted); }
+.sw-logo input[type="file"] { font: inherit; color: var(--ink); max-width: 100%; }
+.sw-logo input[type="file"]::file-selector-button { margin-right: 10px; padding: 8px 16px; border: 1px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.sw-logo input[type="file"]::file-selector-button:hover { background: var(--hover); }
 .sw-error { margin: 12px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--red-soft); color: var(--red); font-size: .875rem; }
 .sw-field-error { margin: 4px 0 0; color: var(--red); font-size: .8125rem; }
 
@@ -99,11 +102,19 @@
 
 .sw-card-wrap { margin-bottom: 14px; }
 
-/* The owner's setup on its own, before the clinic's dashboard exists. */
+/* The owner's setup on its own, before the clinic's dashboard exists. It sits outside `.mk-app`,
+   so it takes the mock-up's variables (mockup.css) and base type itself. */
 .sw-only {
-  min-height: 100%;
+  min-height: 100vh;
   padding: 16px;
+  font-family: var(--sk-font, "Plus Jakarta Sans", system-ui, sans-serif);
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
 }
+.sw-only *, .sw-only *::before, .sw-only *::after { box-sizing: border-box; }
+.sw-only button { font: inherit; }
+.sw-only :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .sw-only-head {
   display: flex;
   align-items: center;

@@ -25,11 +25,11 @@ export const PERMISSION_GROUPS: readonly { id: string; label: string; modules: r
   {
     id: "money",
     label: "Billing & money",
-    modules: ["billing", "finance"],
+    modules: ["billing", "finance", "expenses"],
     hint: "Finance and money: bills, payments, balances and the clinic's revenue. By default only the owner and finance roles see revenue.",
   },
   { id: "stock", label: "Stock", modules: ["inventory"] },
-  { id: "reports", label: "Reports", modules: ["reports"] },
+  { id: "reports", label: "Reports", modules: ["reports", "analytics"] },
   { id: "staff", label: "Staff & settings", modules: ["staff", "settings", "audit", "roles"] },
 ];
 

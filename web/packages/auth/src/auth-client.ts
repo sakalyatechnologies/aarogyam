@@ -76,6 +76,35 @@ export interface EmailCodeAuthClient extends AuthClientBase {
   setPassword: (password: string) => Promise<AuthOutcome>;
   /** Finishes a central sign-in handoff: trades the one-time magic-link token hash the API gave this host for a session here. */
   verifyTokenHash: (tokenHash: string) => Promise<AuthOutcome>;
+  /** The authenticator-app second step. */
+  mfa: MfaClient;
+}
+
+/** Where a person stands with the authenticator-app (TOTP) second step. */
+export type MfaStatus =
+  /** The session already passed the second step. */
+  | { step: "done" }
+  /** An authenticator is enrolled: ask for its code. */
+  | { step: "verify"; factorId: string }
+  /** None enrolled yet: show the QR code. */
+  | { step: "enrol" };
+
+/** A new authenticator to add: the QR code (an SVG data address) and the secret to type by hand. */
+export interface MfaEnrolment {
+  factorId: string;
+  qrCode: string;
+  secret: string;
+}
+
+export type MfaResult<T> = ({ ok: true } & T) | { ok: false; message: string };
+
+/** TOTP second step (Supabase Auth MFA). Required for Sakalya staff in the console. */
+export interface MfaClient {
+  status: () => Promise<MfaResult<{ status: MfaStatus }>>;
+  /** Starts enrolling; an earlier unfinished enrolment is discarded. */
+  enrol: () => Promise<MfaResult<{ enrolment: MfaEnrolment }>>;
+  /** Checks a 6-digit code for the factor. On success the session is upgraded and its token carries `aal2`. */
+  verify: (factorId: string, code: string) => Promise<AuthOutcome>;
 }
 
 export type AuthClient = DevAuthClient | EmailCodeAuthClient;

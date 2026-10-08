@@ -9,6 +9,7 @@ import { Skeleton } from "@sakalya/ui";
 
 import { useApi } from "../api.js";
 import { centralSignInSetting } from "../env.js";
+import { MfaGate } from "./mfa-gate.js";
 
 export const NO_CONSOLE_ACCESS = "This account doesn't have Sakalya console access";
 
@@ -66,5 +67,9 @@ export function ConsoleAccessGate() {
   if (!me.data.console_access) {
     return <NoConsoleAccess />;
   }
-  return <Outlet />;
+  return (
+    <MfaGate>
+      <Outlet />
+    </MfaGate>
+  );
 }

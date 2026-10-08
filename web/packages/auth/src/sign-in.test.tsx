@@ -29,6 +29,11 @@ function stubAuth(responses: { request?: AuthOutcome; verify?: AuthOutcome; pass
     signInWithPassword,
     setPassword,
     verifyTokenHash: () => Promise.resolve({ ok: true as const }),
+    mfa: {
+      status: () => Promise.resolve({ ok: true as const, status: { step: "done" as const } }),
+      enrol: () => Promise.resolve({ ok: false as const, message: "unused" }),
+      verify: () => Promise.resolve({ ok: true as const }),
+    },
   };
   return { auth, requestCode, verifyCode, signInWithPassword, setPassword };
 }

@@ -72,6 +72,22 @@ impl DevTokens {
     /// # Errors
     /// [`ApiError`] (internal) if signing fails.
     pub fn mint_with_email(&self, auth_uid: Uuid, email: Option<&str>) -> Result<String, ApiError> {
+        // Development sign-in has no second step, so its tokens stand in for one that passed it:
+        // the local console works without a Supabase project.
+        self.mint_with_level(auth_uid, email, "aal2")
+    }
+
+    /// A signed token with the given assurance level (`aal1` one factor, `aal2` two), as Supabase
+    /// issues before and after the second step. For tests of what needs the second step.
+    ///
+    /// # Errors
+    /// [`ApiError`] (internal) if signing fails.
+    pub fn mint_with_level(
+        &self,
+        auth_uid: Uuid,
+        email: Option<&str>,
+        level: &str,
+    ) -> Result<String, ApiError> {
         let now = OffsetDateTime::now_utc().unix_timestamp();
         let claims = DevClaims {
             iss: &self.issuer,
@@ -80,7 +96,7 @@ impl DevTokens {
             iat: now,
             exp: now + TOKEN_SECONDS,
             role: "authenticated",
-            aal: "aal1",
+            aal: level,
             session_id: Uuid::now_v7(),
             is_anonymous: false,
             email,

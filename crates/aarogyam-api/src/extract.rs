@@ -10,7 +10,7 @@ use aarogyam_domain::permission::Required;
 use axum::extract::FromRequestParts;
 use axum::http::header;
 use axum::http::request::Parts;
-use sakalya_auth::Claims;
+use sakalya_auth::{AssuranceLevel, Claims};
 use sakalya_http::{ApiError, Edge, REQUEST_ID_HEADER};
 use uuid::Uuid;
 
@@ -244,6 +244,15 @@ impl FromRequestParts<AppState> for PlatformRequest {
             .await?
             .filter(|staff| staff.role.is_some())
             .ok_or_else(|| ApiError::forbidden("forbidden", "Sakalya staff only."))?;
+        // The console sees every clinic: a password or email code alone isn't enough. Checked after
+        // the staff lookup so someone who isn't staff learns nothing about the second step.
+        if claims.assurance_level() != AssuranceLevel::Aal2 {
+            return Err(ApiError::forbidden(
+                "mfa_required",
+                "Console access needs your authenticator code. Open the console to enter it.",
+            )
+            .into());
+        }
         sakalya_telemetry::record_user(staff.user_id.uuid());
         Ok(Self {
             staff,

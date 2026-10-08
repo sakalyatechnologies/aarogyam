@@ -349,6 +349,11 @@ impl TestApp {
             .unwrap()
     }
 
+    /// A token that passed one factor only (before the second step).
+    pub fn token_aal1(&self, auth_uid: Uuid) -> String {
+        self.tokens.mint_with_level(auth_uid, None, "aal1").unwrap()
+    }
+
     pub fn token(&self, auth_uid: Uuid) -> String {
         self.tokens.mint(auth_uid).unwrap()
     }

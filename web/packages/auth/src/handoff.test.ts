@@ -42,6 +42,13 @@ describe("central sign-in handoff", () => {
       signOut: () => Promise.resolve({ error: null }),
       signInWithPassword: none,
       updateUser: () => Promise.resolve({ error: null }),
+      mfa: {
+        getAuthenticatorAssuranceLevel: () => Promise.resolve({ data: null, error: null }),
+        listFactors: () => Promise.resolve({ data: null, error: null }),
+        enroll: () => Promise.resolve({ data: null, error: null }),
+        challengeAndVerify: () => Promise.resolve({ data: null, error: null }),
+        unenroll: () => Promise.resolve({ data: null, error: null }),
+      },
     };
     const auth = createSupabaseAuth(api);
     const outcome = await completeHandoff(auth, "#code=abc", () => Promise.resolve({ kind: "supabase", token_hash: "th-1" }));

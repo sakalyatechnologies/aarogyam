@@ -1,8 +1,9 @@
 import { FileWarning, HandCoins, Plus, Smartphone, Stethoscope, Wallet } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import type { Invoice } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
+import { Tabs } from "@sakalya/ui";
 
 import { Bars, Empty, Initials, MkCard, PageHeader, Skeleton, StatTile, StatusChip, type ChipTone } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
@@ -11,6 +12,7 @@ import { useTodayDate } from "../../lib/patients.js";
 import { useCollections, useInvoices, usePendingReport } from "./queries.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 import { computeMonthFigures } from "./month-figures.js";
+import { ExpensesPanel } from "./expenses-panel.js";
 
 const plural = (n: number, word: string) => `${String(n)} ${word}${n === 1 ? "" : "s"}`;
 
@@ -45,9 +47,13 @@ function exportCsv(rows: readonly Invoice[]) {
   URL.revokeObjectURL(url);
 }
 
-/** Billing: this month's money, the weekly collections chart, and every bill. Needs `billing.read`. */
+/**
+ * Billing: this month's money, the weekly collections chart, and every bill. Needs `billing.read`.
+ * With `finance.view` it has a second tab, Expenses (`?tab=expenses`).
+ */
 export function BillingPage() {
   const { can } = useClinic();
+  const [params, setParams] = useSearchParams();
   useDocumentTitle("Billing", "Aarogyam");
   const today = useTodayDate();
   const ms = monthStart(today);
@@ -62,27 +68,8 @@ export function BillingPage() {
   const rows = invoices.data?.items ?? [];
   const weeks = (collections.data?.by_week ?? []).slice(-8);
 
-  return (
-    <div className="mk-panel">
-      <PageHeader
-        eyebrow={`Billing · ${new Date(`${today}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })}`}
-        title="Billing"
-        subtitle="Bills, payments and what is still owed."
-        actions={
-          <>
-            {finance ? (
-              <Link to="/billing/pending" className="mk-btn mk-btn-ghost">
-                <FileWarning aria-hidden="true" /> Pending payments
-              </Link>
-            ) : null}
-            {canWrite ? (
-              <Link to="/billing/invoices/new" className="mk-btn mk-btn-primary">
-                <Plus aria-hidden="true" /> New bill
-              </Link>
-            ) : null}
-          </>
-        }
-      />
+  const bills = (
+    <>
       {finance ? (
         <div className="mk-stats">
           {collections.isPending
@@ -202,6 +189,48 @@ export function BillingPage() {
           )}
         </MkCard>
       </div>
+    </>
+  );
+  const raw = params.get("tab");
+  const tab = finance && raw === "expenses" ? "expenses" : "bills";
+
+  return (
+    <div className="mk-panel">
+      <PageHeader
+        eyebrow={`Billing · ${new Date(`${today}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })}`}
+        title="Billing"
+        subtitle="Bills, payments and what is still owed."
+        actions={
+          <>
+            {finance ? (
+              <Link to="/billing/pending" className="mk-btn mk-btn-ghost">
+                <FileWarning aria-hidden="true" /> Pending payments
+              </Link>
+            ) : null}
+            {canWrite ? (
+              <Link to="/billing/invoices/new" className="mk-btn mk-btn-primary">
+                <Plus aria-hidden="true" /> New bill
+              </Link>
+            ) : null}
+          </>
+        }
+      />
+      {finance ? (
+        <Tabs
+          className="mk-tabs4 bl-tabs"
+          label="Billing"
+          value={tab}
+          onValueChange={(next) => {
+            setParams(next === "bills" ? {} : { tab: next });
+          }}
+          items={[
+            { value: "bills", label: "Bills", content: bills },
+            { value: "expenses", label: "Expenses", content: <ExpensesPanel /> },
+          ]}
+        />
+      ) : (
+        bills
+      )}
     </div>
   );
 }

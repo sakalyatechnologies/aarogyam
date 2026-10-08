@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   unwrap,
   type DateRange,
+  type ExpenseId,
+  type NewExpense,
   type InvoiceEdit,
   type InvoiceId,
   type NewInvoice,
@@ -175,4 +177,35 @@ export function useTodayMoney(enabled = true) {
     refetchInterval: 60_000,
     enabled,
   });
+}
+
+export function useExpenses(range: DateRange, enabled = true) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["expenses", access.org_id, range.from, range.to],
+    queryFn: ({ signal }) => unwrap(api.listExpenses(range, { signal })),
+    enabled,
+  });
+}
+
+/** Expenses feed the Analytics report too, so a change refreshes it. */
+function useExpenseChanged() {
+  const { access } = useClinic();
+  const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: ["expenses", access.org_id] });
+    void queryClient.invalidateQueries({ queryKey: ["analytics", access.org_id] });
+  };
+}
+
+export function useRecordExpense() {
+  const { api } = useClinic();
+  const changed = useExpenseChanged();
+  return useMutation({ mutationFn: (input: NewExpense) => unwrap(api.recordExpense(input)), onSuccess: changed });
+}
+
+export function useVoidExpense() {
+  const { api } = useClinic();
+  const changed = useExpenseChanged();
+  return useMutation({ mutationFn: ({ id, reason }: { id: ExpenseId; reason: string }) => unwrap(api.voidExpense(id, { reason })), onSuccess: changed });
 }

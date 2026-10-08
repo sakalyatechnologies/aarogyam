@@ -282,3 +282,105 @@ impl<S: Send + Sync> FromRequestParts<S> for IfMatch {
         }
     }
 }
+
+/// Reads the patient account behind a verified token. The token comes first, so a missing one
+/// is `401` on any host.
+async fn patient_access(
+    state: &AppState,
+    claims: &Claims,
+) -> Result<aarogyam_app::patient_app::PatientAccess, ApiFailure> {
+    use aarogyam_app::patient_app::{self as patient_app, AccessRefusal};
+    let session = claims.session_id().ok_or_else(ApiError::unauthenticated)?;
+    match patient_app::access(state.db(), claims.subject().uuid(), claims.email(), session).await? {
+        Ok(access) => {
+            sakalya_telemetry::record_user(access.account_id.uuid());
+            Ok(access)
+        }
+        Err(AccessRefusal::Revoked) => Err(ApiFailure::Error(ApiError::unauthenticated())),
+        Err(AccessRefusal::NoEmail) => Err(ApiFailure::Error(ApiError::forbidden(
+            "email_required",
+            "Sign in with a verified email address.",
+        ))),
+        Err(AccessRefusal::Disabled) => Err(ApiFailure::Error(ApiError::forbidden(
+            "account_disabled",
+            "This patient account is disabled.",
+        ))),
+    }
+}
+
+/// A signed-in patient account on the app host: the person's own records, at the clinics that
+/// linked them, and nothing else (`docs/patient-access.md`). Other hosts get `404`; the account
+/// is made on the first request from the token's verified email.
+#[derive(Debug)]
+pub struct PatientRequest {
+    /// The account and its linked clinics.
+    pub access: aarogyam_app::patient_app::PatientAccess,
+    /// The request ID, for the access record.
+    pub request_id: Option<Uuid>,
+}
+
+impl FromRequestParts<AppState> for PatientRequest {
+    type Rejection = ApiFailure;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let claims = state.claims(&parts.headers).await?;
+        if edge(parts)?.host().as_str() != state.hosts().app {
+            return Err(ApiFailure::Error(not_found()));
+        }
+        Ok(Self {
+            access: patient_access(state, &claims).await?,
+            request_id: request_id(parts),
+        })
+    }
+}
+
+/// A signed-in patient account with an active link at the clinic named by the host, for the
+/// few patient actions that change one clinic's records (booking, cancelling) or stream its
+/// files. Unknown hosts, closed clinics and clinics that haven't linked the account get `404`.
+#[derive(Debug)]
+pub struct PatientAtClinic {
+    /// The account and its linked clinics.
+    pub access: aarogyam_app::patient_app::PatientAccess,
+    /// The link at this clinic.
+    pub clinic: aarogyam_app::patient_app::LinkedClinic,
+    /// The Supabase auth id, which caps open bookings like the public page.
+    pub auth_uid: Uuid,
+    /// The request ID, for the access record.
+    pub request_id: Option<Uuid>,
+}
+
+impl FromRequestParts<AppState> for PatientAtClinic {
+    type Rejection = ApiFailure;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let claims = state.claims(&parts.headers).await?;
+        let host = edge(parts)?.host().as_str().to_owned();
+        let hosts = state.hosts();
+        if host == hosts.console || host == hosts.app {
+            return Err(ApiFailure::Error(not_found()));
+        }
+        let clinic = state
+            .clinic_for_host(&host)
+            .await?
+            .filter(|clinic| clinic.status.is_some_and(ClinicStatus::is_open))
+            .ok_or_else(|| ApiFailure::Error(not_found()))?;
+        let access = patient_access(state, &claims).await?;
+        let linked = access
+            .at(clinic.clinic_id)
+            .cloned()
+            .ok_or_else(|| ApiFailure::Error(not_found()))?;
+        sakalya_telemetry::record_tenant(clinic.clinic_id.uuid());
+        Ok(Self {
+            access,
+            clinic: linked,
+            auth_uid: claims.subject().uuid(),
+            request_id: request_id(parts),
+        })
+    }
+}

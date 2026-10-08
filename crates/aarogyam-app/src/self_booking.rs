@@ -391,7 +391,107 @@ pub async fn book(
     let email = Email::parse(&input.email).map_err(AppError::patient)?;
     let name = PersonName::parse(&input.full_name).map_err(AppError::patient)?;
     let phone = parse_phone(&input.phone)?.ok_or(AppError::invalid("phone", "is required"))?;
-    let reason = parse_reason(input.reason.as_deref())?;
+    let slot = Slot {
+        account: input.account,
+        practitioner_id: input.practitioner_id,
+        starts_at: input.starts_at,
+        reason: parse_reason(input.reason.as_deref())?,
+    };
+    book_slot(
+        db,
+        clinic_id,
+        request_id,
+        &slot,
+        Who::Verified { email, name, phone },
+        now,
+    )
+    .await
+}
+
+/// A slot asked for by a signed-in patient.
+#[derive(Debug, Clone)]
+pub struct Slot {
+    /// The Supabase auth id of the person booking.
+    pub account: Uuid,
+    /// The doctor.
+    pub practitioner_id: PractitionerId,
+    /// The slot's start, one of the offered slots.
+    pub starts_at: OffsetDateTime,
+    /// Why they are coming, checked.
+    pub reason: Option<String>,
+}
+
+/// Whose appointment it is.
+enum Who {
+    /// A verified email, matched to a record or registered.
+    Verified {
+        email: Email,
+        name: PersonName,
+        phone: PhoneE164,
+    },
+    /// The record a patient-app account is linked to.
+    Linked(PatientId),
+}
+
+/// Books the slot for the record a patient-app account is linked to, through the same rules as
+/// the public page (booking on, doctor bookable, slot free and offered, open bookings capped).
+/// `slot.reason` is checked here. The confirmation goes to the email on the record, if any.
+///
+/// # Errors
+/// As [`book`].
+pub async fn book_linked(
+    db: &Db,
+    clinic_id: ClinicId,
+    request_id: Option<Uuid>,
+    patient_id: PatientId,
+    slot: Slot,
+    now: OffsetDateTime,
+) -> Result<BookedOnline, AppError> {
+    let slot = Slot {
+        reason: parse_reason(slot.reason.as_deref())?,
+        ..slot
+    };
+    book_slot(
+        db,
+        clinic_id,
+        request_id,
+        &slot,
+        Who::Linked(patient_id),
+        now,
+    )
+    .await
+}
+
+/// The patient record a booking is for, the appointment kind, and where to email.
+async fn whose(
+    tx: &mut ScopedTx,
+    profile: &ClinicProfile,
+    who: Who,
+) -> Result<(Uuid, &'static str, Option<Email>), AppError> {
+    match who {
+        Who::Verified { email, name, phone } => {
+            let (id, kind) = patient_for(tx, profile, &email, &name, &phone).await?;
+            Ok((id, kind, Some(email)))
+        }
+        Who::Linked(patient_id) => {
+            let email = patients::get(tx.conn(), patient_id.uuid(), None)
+                .await?
+                .ok_or(AppError::NotFound("patient"))?
+                .email
+                .and_then(|text| Email::parse(&text).ok());
+            Ok((patient_id.uuid(), "follow_up", email))
+        }
+    }
+}
+
+async fn book_slot(
+    db: &Db,
+    clinic_id: ClinicId,
+    request_id: Option<Uuid>,
+    input: &Slot,
+    who: Who,
+    now: OffsetDateTime,
+) -> Result<BookedOnline, AppError> {
     db.scoped(&public_scope(clinic_id, request_id), async |tx| {
         let profile = clinic::profile(tx.conn())
             .await?
@@ -415,7 +515,12 @@ pub async fn book(
         let starts_at = input.starts_at.to_offset(offset);
         let ends_at = starts_at + Duration::minutes(i64::from(settings.slot_minutes));
 
-        let (patient_id, kind) = patient_for(tx, &profile, &email, &name, &phone).await?;
+        let source = if matches!(who, Who::Linked(_)) {
+            "app"
+        } else {
+            "website"
+        };
+        let (patient_id, kind, email) = whose(tx, &profile, who).await?;
         let status = if settings.auto_confirm {
             AppointmentStatus::Confirmed
         } else {
@@ -429,6 +534,7 @@ pub async fn book(
             patient_id,
             input.account,
             status.as_str(),
+            source,
             &Booking {
                 practitioner_id: doctor.id,
                 branch_id,
@@ -436,7 +542,7 @@ pub async fn book(
                 starts_at,
                 ends_at,
                 kind,
-                reason: reason.as_deref(),
+                reason: input.reason.as_deref(),
                 notes: None,
             },
         )
@@ -462,16 +568,18 @@ pub async fn book(
         } else {
             MessageKind::BookingRequested
         };
-        email_patient(
-            tx,
-            message,
-            &email,
-            id.uuid(),
-            &profile.name,
-            &doctor.display_name,
-            starts_at,
-        )
-        .await?;
+        if let Some(email) = email {
+            email_patient(
+                tx,
+                message,
+                &email,
+                id.uuid(),
+                &profile.name,
+                &doctor.display_name,
+                starts_at,
+            )
+            .await?;
+        }
         Ok(BookedOnline {
             id,
             status,

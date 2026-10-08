@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with replaced as (\n             update aarogyam.patient_link_codes set replaced_at = now()\n             where patient_id = $1 and used_at is null and replaced_at is null\n           )\n           insert into aarogyam.patient_link_codes (patient_id, code_hash, expires_at)\n           values ($1, $2, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1c2c40a021a24ba5dd57fa79333a84a8683814daa0a236b2795ac7736d523db4"
+}

@@ -1029,7 +1029,6 @@
     "memberships.user_id",
     "messages.user_id",
     "notifications.user_id",
-    "patient_links.user_id",
     "platform_users.user_id",
     "role_changes.changed_by",
     "sessions.user_id",
@@ -1244,7 +1243,6 @@
     "entitlement_overrides.org_id",
     "org_daily_stats.org_id",
     "org_domains.org_id",
-    "patient_links.org_id",
     "saas_invoices.org_id",
     "subscriptions.org_id",
     "support_grants.org_id",
@@ -1982,6 +1980,7 @@
     "membership_branches.membership_id",
     "note_addenda.author_id",
     "observations.verified_by",
+    "patient_links.decided_by",
     "payments.received_by",
     "payments.voided_by",
     "payroll_entries.membership_id",
@@ -2304,6 +2303,7 @@
     "observations.patient_id",
     "patient_gaps.patient_id",
     "patient_identifiers.patient_id",
+    "patient_link_codes.patient_id",
     "patient_links.patient_id",
     "patient_notes.patient_id",
     "patients.merged_into_id",
@@ -2544,30 +2544,55 @@
    "offline": "read_write"
   },
   {
-   "name": "patient_links",
+   "name": "patient_accounts",
    "domain": "people",
-   "purpose": "Phase 3: connects a patient's own Aarogyam account to their record at each clinic.",
+   "purpose": "A person signed in to the patient app with a verified email. Holds no clinic data.",
    "rls": "user",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "This is the single-umbrella view: one person, many clinic records, joined only by verified links.",
+   "notes": "Made on the first patient-app request from the token's verified email. Reached only through definer functions (app.patient_access and friends, migration 0261); app_user has no grants.",
    "cols": [
     {
-     "name": "user_id",
+     "name": "auth_uid",
      "type": "uuid",
      "nullable": false,
-     "ref": "users",
-     "note": ""
+     "ref": null,
+     "note": "unique: the Supabase Auth subject"
     },
     {
-     "name": "org_id",
-     "type": "uuid",
+     "name": "email",
+     "type": "text",
      "nullable": false,
-     "ref": "organizations",
-     "note": ""
+     "ref": null,
+     "note": "the verified email, lower case"
     },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "active, disabled"
+    }
+   ],
+   "referenced_by": [
+    "patient_links.account_id"
+   ],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
+   "name": "patient_links",
+   "domain": "people",
+   "purpose": "Connects a patient account to the clinic's record of that patient.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Never made automatically by phone or name. One open link per account per clinic, one active account per record. Every clinic table has a restrictive patient_account policy: a patient account reads only the linked record's appointments, issued prescriptions and bills, payments and shared files.",
+   "cols": [
     {
      "name": "patient_id",
      "type": "uuid",
@@ -2576,17 +2601,52 @@
      "note": ""
     },
     {
-     "name": "verified_via",
-     "type": "link_method",
+     "name": "account_id",
+     "type": "uuid",
      "nullable": false,
-     "ref": null,
-     "note": "otp, abha, clinic_confirmed"
+     "ref": "patient_accounts",
+     "note": ""
     },
     {
-     "name": "verified_at",
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "pending, active, declined, revoked"
+    },
+    {
+     "name": "linked_via",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "code (a clinic-issued link code) or clinic_confirmed (a match the patient asked for and the clinic confirmed)"
+    },
+    {
+     "name": "purpose",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "care"
+    },
+    {
+     "name": "consented_at",
      "type": "timestamptz",
      "nullable": false,
      "ref": null,
+     "note": "when the patient redeemed the code or asked"
+    },
+    {
+     "name": "linked_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "decided_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
      "note": ""
     },
     {
@@ -2595,12 +2655,70 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "revoked_by",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "patient, clinic"
     }
    ],
    "referenced_by": [
     "consents.patient_link_id"
    ],
-   "sensitivity": "health",
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
+   "name": "patient_link_codes",
+   "domain": "people",
+   "purpose": "Link codes from \"Invite to patient app\": shown as a QR code and emailed through the outbox.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "code_hash",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "SHA-256 of the 10-character code; the code itself is never stored"
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": "a week after issue"
+    },
+    {
+     "name": "used_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "replaced_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "a newer code for the same record"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
    "offline": "server_only"
   },
   {
@@ -4532,6 +4650,13 @@
      "nullable": true,
      "ref": null,
      "note": "a recording: en-IN, hi-IN, mr-IN"
+    },
+    {
+     "name": "shared_with_patient",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "shown in the patient app; never for audio"
     }
    ],
    "referenced_by": [

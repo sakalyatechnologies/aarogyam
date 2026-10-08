@@ -120,3 +120,13 @@ where n.nspname in ('aarogyam', 'audit') and c.relkind in ('r', 'p') and not c.r
 select table_schema || '.' || table_name as violation
 from information_schema.role_table_grants
 where grantee = 'aarogyam_api';
+
+-- name: clinic_tables_without_patient_policy
+-- Every clinic table decides what a patient account may read (0261): a restrictive policy named
+-- patient_account, deny-all unless a migration opens the table on purpose.
+select c.relname as violation
+from pg_class c join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'aarogyam' and c.relkind in ('r', 'p') and not c.relispartition
+  and exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = 'org_id' and not a.attisdropped)
+  and not exists (select 1 from pg_policy p where p.polrelid = c.oid
+                  and p.polname = 'patient_account' and not p.polpermissive);

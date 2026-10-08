@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             coalesce((select jsonb_agg(jsonb_build_object(\n                         'id', l.id, 'status', l.status, 'linked_via', l.linked_via,\n                         'account_email', app.patient_account_email(l.account_id),\n                         'consented_at', l.consented_at, 'linked_at', l.linked_at,\n                         'revoked_at', l.revoked_at)\n                       order by (l.status in ('pending', 'active')) desc, l.created_at desc)\n                       from aarogyam.patient_links l where l.patient_id = $1), '[]'::jsonb)\n               as \"links!\",\n             (select max(c.expires_at) from aarogyam.patient_link_codes c\n              where c.patient_id = $1 and c.used_at is null and c.replaced_at is null\n                and c.expires_at > now()) as code_expires_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "links!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "code_expires_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "9eb0455e8fe015e1ee8f9ce919a734b8479aefd767b18162fcbeb84eca363a84"
+}

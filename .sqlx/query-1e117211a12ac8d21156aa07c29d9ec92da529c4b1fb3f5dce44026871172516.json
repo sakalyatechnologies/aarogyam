@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,\n                  taken_at, created_at, note_id, addendum_id, duration_seconds, language\n           from aarogyam.attachments where patient_id = $1 and deleted_at is null\n           order by created_at desc, id desc",
+  "query": "select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,\n                  taken_at, created_at, note_id, addendum_id, duration_seconds, language, shared_with_patient\n           from aarogyam.attachments where encounter_id = $1 and deleted_at is null\n           order by created_at, id",
   "describe": {
     "columns": [
       {
@@ -178,6 +178,17 @@
             "name": "language"
           }
         }
+      },
+      {
+        "ordinal": 16,
+        "name": "shared_with_patient",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "shared_with_patient"
+          }
+        }
       }
     ],
     "parameters": {
@@ -201,8 +212,9 @@
       true,
       true,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "b37693fb42d448f4e81664145b9e6c3b041a679f00c1a773faf5bfc1ed6b0416"
+  "hash": "1e117211a12ac8d21156aa07c29d9ec92da529c4b1fb3f5dce44026871172516"
 }

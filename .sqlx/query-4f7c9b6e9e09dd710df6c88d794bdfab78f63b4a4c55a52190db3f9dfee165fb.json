@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with logged as (\n             insert into audit.access_log\n               (actor_user_id, actor_kind, patient_id, resource, action, purpose, request_id)\n             values ($2, 'patient', $1, 'appointment', 'view', 'patient_self', $3)\n           )\n           select\n             (select jsonb_build_object(\n                       'id', a.id, 'starts_at', a.starts_at, 'ends_at', a.ends_at,\n                       'status', a.status, 'reason', a.reason,\n                       'practitioner_id', a.practitioner_id,\n                       'doctor_name', p.display_name, 'specialty', p.specialty)\n              from aarogyam.appointments a\n              join aarogyam.practitioners p on p.org_id = a.org_id and p.id = a.practitioner_id\n              where a.patient_id = $1 and a.deleted_at is null and a.ends_at > $4\n                and a.status in ('requested', 'booked', 'confirmed', 'arrived', 'in_chair')\n              order by a.starts_at limit 1) as next_appointment,\n             coalesce((select sum(b.total_paise) from aarogyam.invoices b\n                       where b.patient_id = $1 and b.status = 'issued'), 0)::bigint\n             - coalesce((select sum(a.amount_paise)\n                         from aarogyam.payment_allocations a\n                         join aarogyam.payments p on p.org_id = a.org_id and p.id = a.payment_id\n                         join aarogyam.invoices b on b.org_id = a.org_id and b.id = a.invoice_id\n                         where a.patient_id = $1 and p.status = 'received' and b.status = 'issued'),\n                        0)::bigint as \"balance_paise!\",\n             (select count(*) from aarogyam.prescriptions r\n              where r.patient_id = $1 and r.status = 'issued') as \"prescriptions!\",\n             (select max(r.issued_at) from aarogyam.prescriptions r\n              where r.patient_id = $1 and r.status = 'issued') as last_prescription_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "next_appointment",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "balance_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "prescriptions!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "last_prescription_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "4f7c9b6e9e09dd710df6c88d794bdfab78f63b4a4c55a52190db3f9dfee165fb"
+}

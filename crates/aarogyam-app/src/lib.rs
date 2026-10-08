@@ -23,6 +23,7 @@ pub mod letterhead;
 pub mod moved;
 pub mod onboarding;
 pub mod outbox;
+pub mod patient_app;
 pub mod patient_notes;
 pub mod patients;
 pub mod payments;

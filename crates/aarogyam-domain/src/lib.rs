@@ -9,8 +9,8 @@
 //! messages ([`outbox`]), appointments, chairs and the queue ([`schedule`]), patient imports
 //! ([`import`]), business event names ([`event`]), the clinical record: visits and notes
 //! ([`clinical`]), vital signs ([`vitals`]), the dental chart ([`dental`]) and patient files
-//! ([`files`]), money ([`billing`]), prescriptions ([`prescription`]) and patient links
-//! ([`share`]) and the clinic's public website ([`website`]).
+//! ([`files`]), money ([`billing`]), prescriptions ([`prescription`]), patient links
+//! ([`share`]), the patient app's accounts and links ([`patient_app`]) and the clinic's public website ([`website`]).
 
 /// A stored text value that is not one of the enum's values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -80,6 +80,7 @@ pub mod letterhead;
 pub mod onboarding;
 pub mod outbox;
 pub mod patient;
+pub mod patient_app;
 pub mod permission;
 pub mod prescription;
 pub mod richtext;

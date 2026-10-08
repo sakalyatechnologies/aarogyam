@@ -62,6 +62,9 @@ pub struct Attachment {
     pub duration_seconds: Option<i32>,
     /// A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`.
     pub language: Option<String>,
+    /// Whether the clinic shares it with the patient in the patient app
+    /// (`PUT /attachments/{id}/sharing`).
+    pub shared_with_patient: bool,
 }
 
 impl From<AttachmentView> for Attachment {
@@ -84,6 +87,7 @@ impl From<AttachmentView> for Attachment {
                 .map(aarogyam_domain::ids::NoteAddendumId::uuid),
             duration_seconds: view.duration_seconds,
             language: view.language.map(|l| l.as_str().to_owned()),
+            shared_with_patient: view.shared_with_patient,
         }
     }
 }

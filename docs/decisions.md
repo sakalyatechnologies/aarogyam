@@ -2,6 +2,12 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-07: Patient accounts, links and the patient API
+
+**Decision.** Patients sign in with Supabase email codes into a platform `patient_accounts` row (no clinic data). They read a clinic's records only through an active `patient_links` row made by a clinic-issued link code or by a match the clinic confirms; never by phone or name. Patient reads run in a normal clinic transaction with actor kind `patient_account`, and restrictive `patient_account` policies on every clinic table limit them to the linked record (deny by default for new tables, checked by the schema lint). Cross-clinic reads live on the app host and aggregate per linked clinic; writes for one clinic (book, cancel) and file downloads go to that clinic's host, so the clinic still comes from the host. Patients see appointments, issued prescriptions, issued bills and files the clinic marked shared; notes and the chart stay internal (D3). Booking from the app reuses the public booking rules in the public scope, for the linked record.
+
+**Why.** RLS keeps enforcing isolation without a second database role, and a patient bug can only under-show, never leak another record. Codes and confirmed matches satisfy "verification before linking" without paid SMS.
+
 ## 2026-10-06: Bringing in a clinic's existing records
 
 **Files (built).** A clinic uploads its own CSV or Excel file in whatever layout it has (`POST /api/v1/imports/sessions`, web Patients → Import).

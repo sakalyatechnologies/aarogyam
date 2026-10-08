@@ -391,13 +391,14 @@ pub async fn insert_self_booked(
     patient_id: Uuid,
     account: Uuid,
     status: &str,
+    source: &str,
     booking: &Booking<'_>,
 ) -> Result<(), DbError> {
     sqlx::query!(
         r#"insert into aarogyam.appointments
              (id, patient_id, practitioner_id, branch_id, room_id, starts_at, ends_at, kind, reason,
               notes, source, status, booked_by_account)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'website', $11, $12)"#,
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $13, $11, $12)"#,
         id,
         patient_id,
         booking.practitioner_id,
@@ -409,7 +410,8 @@ pub async fn insert_self_booked(
         booking.reason,
         booking.notes,
         status,
-        account
+        account,
+        source
     )
     .execute(conn)
     .await?;

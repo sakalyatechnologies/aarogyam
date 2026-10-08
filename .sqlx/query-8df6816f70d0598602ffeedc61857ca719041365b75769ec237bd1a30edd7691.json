@@ -1,0 +1,121 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with logged as (\n             insert into audit.access_log\n               (actor_user_id, actor_kind, patient_id, resource, action, purpose, request_id)\n             values ($2, 'patient', $1, 'prescription', 'view', 'patient_self', $3)\n           )\n           select r.id, r.number as \"number!\", r.issued_at as \"issued_at!\",\n                  r.doctor as \"doctor!\", r.diagnosis_text, r.advice, r.follow_up_on,\n                  r.verify_token as \"verify_token!\",\n                  coalesce((select jsonb_agg(jsonb_build_object(\n                              'drug_name', i.drug_name, 'strength', i.strength, 'form', i.form,\n                              'dose', i.dose, 'frequency', i.frequency, 'timing', i.timing,\n                              'duration_days', i.duration_days, 'instructions', i.instructions)\n                            order by i.line_no)\n                            from aarogyam.prescription_items i\n                            where i.org_id = r.org_id and i.prescription_id = r.id), '[]'::jsonb)\n                    as \"items!\"\n           from aarogyam.prescriptions r\n           where r.patient_id = $1 and r.status = 'issued'\n           order by r.issued_at desc\n           limit 100",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "number!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "issued_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "issued_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "doctor!",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "doctor"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "diagnosis_text",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "diagnosis_text"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "advice",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "advice"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "follow_up_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "follow_up_on"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "verify_token!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "verify_token"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "items!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "8df6816f70d0598602ffeedc61857ca719041365b75769ec237bd1a30edd7691"
+}

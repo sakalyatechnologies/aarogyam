@@ -80,7 +80,17 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 ## Other specialties (planning)
 - Today the product is dental-first. Plan specialty packs for general practice (MBBS), gynaecology, ENT, paediatrics and others as data (AGENTS.md rule 11): forms, vocabularies, templates and charts per specialty; a clinic can have several.
 
+## Patient app follow-ups (7 Oct 2026, after v1 on feat/patient-app)
+- **Phone sign-in:** OTP by SMS needs a paid provider and DLT registration; email codes only until then.
+- **Self sign-up:** Supabase sign-ups are off, so only patients a clinic invited (or who exist already) can sign in; a throttled, Turnstile-checked patient sign-up would let a patient ask for a match first.
+- **Scan the QR in the app** (camera), and open the app from an emailed link (app links on the product domain).
+- **File viewer:** the app lists shared files; viewing images and PDFs in the app, and patients uploading old reports.
+- **Patient session registry:** patient sessions aren't in `sessions`, so they can't be listed or revoked from the app yet (staff revocation of the same Supabase session still applies).
+- **Family profiles** (one account, several records), push reminders (no health data in payloads), "who viewed my record" from `access_log`, doctor-approved visit summaries (D3).
+- **Move generic mobile code to sakalya-mobile:** the email-code sign-in holder, `ScreenError` and host config are copied between the staff and patient apps.
+
 ## One patient across clinics (planning, important)
 - Today each clinic's records are isolated by design (row-level security per clinic): a patient who sees Doctor A and then Doctor B at another clinic has two separate records, and Doctor B cannot see Doctor A's dental chart.
 - **Direction:** sharing only with the patient's consent: a patient-owned record (the Aarogyam patient app and/or ABDM/ABHA consent artefacts) where the patient grants Doctor B's clinic access to selected history (e.g. the dental chart), time-limited and revocable, audited on both sides. Never automatic sharing by phone number match.
 - **Design notes:** findings already reference vocabulary ids and carry dates and clinicians, which makes a shareable, structured summary possible; ABDM identifiers are already on the review follow-up list.
+- **Built so far (7 Oct 2026):** the patient account and verified per-clinic links, and the patient app showing every linked clinic's appointments, prescriptions, bills and shared files together (`docs/patient-access.md`, "Built"). Still to build: a patient granting one clinic access to another clinic's history (consent artefacts, time-limited, audited both sides).

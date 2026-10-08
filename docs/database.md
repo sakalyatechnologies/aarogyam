@@ -537,7 +537,7 @@ Locations of a clinic. Single-location clinics have one.
 | `state_code` | `text?` | GST state code, e.g. 27 for Maharashtra; the place of supply |
 | `is_default` | `bool` | exactly one per clinic |
 
-Referenced by: `appointments.branch_id`, `daily_closings.branch_id`, `encounters.branch_id`, `equipment.branch_id`, `expenses.branch_id`, `invoices.branch_id`, `membership_branches.branch_id`, `queue_tokens.branch_id`, `rooms.branch_id`, `working_hours.branch_id`
+Referenced by: `appointments.branch_id`, `daily_closings.branch_id`, `encounters.branch_id`, `equipment.branch_id`, `invoices.branch_id`, `membership_branches.branch_id`, `queue_tokens.branch_id`, `rooms.branch_id`, `working_hours.branch_id`
 
 ### `org_domains` (★ foundation)
 
@@ -632,8 +632,6 @@ Non-medical files: logos, signatures, generated PDFs, website images.
 | `size_bytes` | `bigint` |  |
 
 Stored in a different bucket from patient attachments.
-
-Referenced by: `expenses.receipt_asset_id`
 
 ### `permissions` (★ foundation)
 
@@ -740,7 +738,7 @@ A user's place in a clinic: role, branches, status. The link between users and c
 
 Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize().
 
-Referenced by: `allergies.verified_by`, `clinical_notes.author_id`, `clinical_notes.error_by`, `clinical_notes.signed_by`, `conditions.verified_by`, `daily_closings.closed_by`, `dental_terms.added_by`, `document_extractions.confirmed_by`, `encounters.clinician_id`, `invoices.issued_by`, `invoices.voided_by`, `medical_history_items.verified_by`, `member_setup.membership_id`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `patient_consents.recorded_by`, `patient_consents.withdrawn_by`, `patient_links.decided_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `procedures.clinician_id`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`, `treatment_plans.clinician_id`
+Referenced by: `allergies.verified_by`, `clinical_notes.author_id`, `clinical_notes.error_by`, `clinical_notes.signed_by`, `conditions.verified_by`, `daily_closings.closed_by`, `dental_terms.added_by`, `document_extractions.confirmed_by`, `encounters.clinician_id`, `expenses.recorded_by`, `expenses.voided_by`, `invoices.issued_by`, `invoices.voided_by`, `medical_history_items.verified_by`, `member_setup.membership_id`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `patient_consents.recorded_by`, `patient_consents.withdrawn_by`, `patient_links.decided_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `procedures.clinician_id`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`, `treatment_plans.clinician_id`
 
 ### `membership_branches` (★ foundation)
 
@@ -2069,11 +2067,15 @@ Money returned to a patient.
 
 Rent, electricity, salaries, consumables and so on.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: internal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: internal · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
-| `name` | `text` |  |
+| `key` | `text` | unique per clinic: salary, material, electricity, lab, rent, other |
+| `name` | `text` | Salaries, Materials, Electricity, Lab work, Rent, Other |
+| `is_system` | `bool` | seeded for every clinic |
+
+Built (migration 0300). The six system categories are seeded for every clinic by a trigger on organizations (and for clinics that existed). Custom categories are not offered yet.
 
 Referenced by: `expenses.category_id`
 
@@ -2081,18 +2083,21 @@ Referenced by: `expenses.category_id`
 
 Money the clinic spends.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: financial · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: financial · offline: server only · lifecycle: finalizable*
 
 | Column | Type | Notes |
 |---|---|---|
-| `branch_id` | `uuid` | → `branches` |
 | `category_id` | `uuid` | → `expense_categories` |
-| `amount_paise` | `bigint` |  |
-| `paid_at` | `date` |  |
-| `method` | `payment_method` |  |
-| `vendor` | `text?` |  |
-| `notes` | `text?` |  |
-| `receipt_asset_id` | `uuid?` | → `assets` |
+| `spent_on` | `date` | the clinic day |
+| `amount_paise` | `bigint` | above zero |
+| `note` | `text?` | up to 300 characters |
+| `recorded_by` | `uuid` | → `memberships` |
+| `status` | `expense_status` | recorded, void |
+| `void_reason` | `text?` |  |
+| `voided_at` | `timestamptz?` |  |
+| `voided_by` | `uuid?` | → `memberships` |
+
+Built (migration 0300). Recording needs expenses.write; listing and voiding need finance.view. Never edited: a mistake is voided with a reason (trigger). Stock deliveries are not copied in; the Analytics report counts stock_batches at cost as material. Not built yet: branch, payment method, vendor, receipt file.
 
 ### `daily_closings`
 

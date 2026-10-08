@@ -1317,7 +1317,6 @@
     "daily_closings.branch_id",
     "encounters.branch_id",
     "equipment.branch_id",
-    "expenses.branch_id",
     "invoices.branch_id",
     "membership_branches.branch_id",
     "queue_tokens.branch_id",
@@ -1645,9 +1644,7 @@
      "note": ""
     }
    ],
-   "referenced_by": [
-    "expenses.receipt_asset_id"
-   ],
+   "referenced_by": [],
    "sensitivity": "internal",
    "offline": "server_only"
   },
@@ -1973,6 +1970,8 @@
     "dental_terms.added_by",
     "document_extractions.confirmed_by",
     "encounters.clinician_id",
+    "expenses.recorded_by",
+    "expenses.voided_by",
     "invoices.issued_by",
     "invoices.voided_by",
     "medical_history_items.verified_by",
@@ -6694,16 +6693,30 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Built (migration 0300). The six system categories are seeded for every clinic by a trigger on organizations (and for clinics that existed). Custom categories are not offered yet.",
    "cols": [
+    {
+     "name": "key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "unique per clinic: salary, material, electricity, lab, rent, other"
+    },
     {
      "name": "name",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "Salaries, Materials, Electricity, Lab work, Rent, Other"
+    },
+    {
+     "name": "is_system",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "seeded for every clinic"
     }
    ],
    "referenced_by": [
@@ -6719,17 +6732,10 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "finalizable",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Built (migration 0300). Recording needs expenses.write; listing and voiding need finance.view. Never edited: a mistake is voided with a reason (trigger). Stock deliveries are not copied in; the Analytics report counts stock_batches at cost as material. Not built yet: branch, payment method, vendor, receipt file.",
    "cols": [
-    {
-     "name": "branch_id",
-     "type": "uuid",
-     "nullable": false,
-     "ref": "branches",
-     "note": ""
-    },
     {
      "name": "category_id",
      "type": "uuid",
@@ -6738,45 +6744,59 @@
      "note": ""
     },
     {
+     "name": "spent_on",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": "the clinic day"
+    },
+    {
      "name": "amount_paise",
      "type": "bigint",
      "nullable": false,
      "ref": null,
+     "note": "above zero"
+    },
+    {
+     "name": "note",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "up to 300 characters"
+    },
+    {
+     "name": "recorded_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
      "note": ""
     },
     {
-     "name": "paid_at",
-     "type": "date",
+     "name": "status",
+     "type": "expense_status",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "recorded, void"
     },
     {
-     "name": "method",
-     "type": "payment_method",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "vendor",
+     "name": "void_reason",
      "type": "text",
      "nullable": true,
      "ref": null,
      "note": ""
     },
     {
-     "name": "notes",
-     "type": "text",
+     "name": "voided_at",
+     "type": "timestamptz",
      "nullable": true,
      "ref": null,
      "note": ""
     },
     {
-     "name": "receipt_asset_id",
+     "name": "voided_by",
      "type": "uuid",
      "nullable": true,
-     "ref": "assets",
+     "ref": "memberships",
      "note": ""
     }
    ],

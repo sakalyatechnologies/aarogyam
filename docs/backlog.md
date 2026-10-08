@@ -109,6 +109,38 @@ Founder testing: a patient booked online from the clinic website and the booking
 - **Constraint:** don't change the public landing page itself (founder decision); adapt the auth pages to it.
 - **Design notes:** take the colours and fonts from the website's styles as tokens in `sakalya-web` (an "Aarogyam brand" theme), use them in the shared auth shell (`web/packages/auth`), and check light and dark.
 
+## Outside UI review of the portal (8 Oct 2026)
+Two walkthroughs of the live Sunrise portal (all tabs, then a Patients deep-dive). Verdict: coherent and close to production; fix the trust issues first. Status is noted per item.
+
+**High**
+- **Times at 1–3 am:** the calendar shows appointments at 1:15 am and 2:40 am, and the busy-hours heatmap shows "Mon 1a: 3 visits". Analytics already uses clinic time, so check whether the demo rows themselves sit at night (seed or refresh shifted in UTC) or the clinic's timezone setting is wrong. Fix the data or the cause; a dental clinic open at 3 am erodes trust. *(in progress)*
+- **Partial-name search:** "pat" finds nothing although "Sneha Patil" exists. Search should match prefixes and parts of words. *(in progress)*
+- **Phone search:** the hint promises "the last digits of the phone", but "9999" finds nothing. Make it work, or change the hint. *(in progress)*
+- **Query strings leaking between pages:** Calendar's `?from&to` carries onto Queue and Today, and Analytics' `?months&by` onto Messages. Each page should own its own query string. *(in progress)*
+- **Stock empty states:** two compete on one screen ("Start tracking your stock" and "No items yet"). Merge them into one guided card. *(in progress)*
+- **New bill from a patient's Billing tab:** loses the patient. Pass `?patient=`, which the new-bill page supports since 8 Oct. *(in progress)*
+
+**Medium**
+- **Today hero:** says "Nobody else is booked today" next to "3/3 completed"; should read "All of today's appointments are done".
+- **Team today:** lists the owner twice ("Asha Kulkarni, Owner" and "Dr Asha Kulkarni, Orthodontics"); the member and their practitioner profile should be one row.
+- **Settings tabs:** nine tabs overflow at 1280 px, so Sessions is hidden. Wrap them or group them (see "UX review of settings").
+- **Invoice chips:** both "Issued" and "paid" show; show one status.
+- **Messages:** the campaign composer looks functional next to "Nothing is sent from here yet". Label it a preview or disable it.
+- **Dental chart summary:** "with caries / restored / missing" show no counts; show 0.
+- **Incomplete details page:** says every imported patient has their details, while patients with no age exist; list missing age too.
+- **Record a finding:** preselects Caries on a sound tooth; default to nothing (or the tooth's current state). The dialog also has both Cancel and Close; keep one.
+
+**Low**
+- **Analytics numbers:**
+  - Legend values read "3·38%"; show "3 (38%)".
+  - Expenses and Net show blank instead of ₹0.
+  - Chair-use meters show a bare number next to an average of 0%; label the unit.
+- **Queue:** the "Longest wait" stat has no value when the queue is empty; show "—".
+- **Recent patients table:** Treatment and Bill columns are mostly "—"; hide empty columns.
+- **Patient breadcrumb:** shows "PATIENT 360"; show the clinic number (SD-14).
+- **Cut-off sentences:** the patient-app invite ("…bills in the Aarogyam") and the Consent tab description ("…withdraw. Th").
+- **Name case:** nudge names to title case on entry ("ram" → "Ram"), or display them that way.
+
 ## Analytics tab (6 Oct 2026)
 - A dedicated Analytics area for the owner/admin doctor (not staff), on web and the same on mobile. The founder will share a dashboard mock-up; plan from that, review, then build.
 - **Design notes:** owner-only by default via a new permission; one query per chart within the round-trip budget; respects scopes.

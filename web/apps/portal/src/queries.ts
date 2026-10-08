@@ -1,12 +1,14 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  appointmentStatus,
   readBranding,
   unwrap,
   type AllergyFields,
   type AppointmentChanges,
   type AppointmentFilter,
   type AppointmentId,
+  type AppointmentStatus,
   type AttachmentId,
   type ClinicSettingsChanges,
   type ConditionFields,
@@ -44,6 +46,7 @@ import {
   type RoomId,
   type SessionId,
   type StatusChange,
+  type Today,
   type TokenStatusChange,
   type VisitId,
   type WalkInBody,
@@ -85,11 +88,12 @@ export function useCreatePatient() {
   });
 }
 
-export function useToday() {
+export function useToday(enabled = true) {
   const { api, access } = useClinic();
   return useQuery({
     queryKey: ["today", access.org_id],
     queryFn: ({ signal }) => unwrap(api.getToday({ signal })),
+    enabled,
     ...SCHEDULE,
     refetchInterval: 60_000,
   });
@@ -491,12 +495,65 @@ export function useChangeAppointment() {
   });
 }
 
+/** What the optimistic update changes on a cached Today when an appointment moves to `status`. */
+function applyStatus(today: Today, id: AppointmentId, status: AppointmentStatus): Today {
+  const found = today.appointments.find((a) => a.id === id);
+  if (found === undefined) {
+    return today;
+  }
+  const stamp = new Date().toISOString();
+  const wasWaiting = found.status === "arrived";
+  const counts = { ...today.counts };
+  if (status === "arrived") {
+    counts.waiting += 1;
+  } else if (wasWaiting && (status === "in_chair" || status === "completed")) {
+    counts.waiting = Math.max(0, counts.waiting - 1);
+  }
+  if (status === "completed") {
+    counts.done += 1;
+  }
+  return {
+    ...today,
+    counts,
+    appointments: today.appointments.map((a) =>
+      a.id !== id
+        ? a
+        : {
+            ...a,
+            status,
+            ...(status === "arrived" ? { arrived_at: stamp } : {}),
+            ...(status === "in_chair" ? { seated_at: stamp } : {}),
+            ...(status === "completed" ? { completed_at: stamp } : {}),
+          },
+    ),
+    attention: today.attention.filter((item) => item.appointment_id !== id),
+  };
+}
+
+/** Moves an appointment along. Today updates at once and is put back if the API refuses. */
 export function useSetAppointmentStatus() {
   const { api, access } = useClinic();
   const queryClient = useQueryClient();
+  const key = ["today", access.org_id];
   return useMutation({
     mutationFn: ({ id, change }: { id: AppointmentId; change: StatusChange }) => unwrap(api.setAppointmentStatus(id, change)),
-    onSuccess: () => { invalidateSchedule(queryClient, access.org_id); },
+    onMutate: async ({ id, change }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const before = queryClient.getQueryData<Today>(key);
+      if (before !== undefined) {
+        const parsed = appointmentStatus.safeParse(change.status);
+        if (parsed.success) {
+          queryClient.setQueryData<Today>(key, applyStatus(before, id, parsed.data));
+        }
+      }
+      return { before };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.before !== undefined) {
+        queryClient.setQueryData<Today>(key, context.before);
+      }
+    },
+    onSettled: () => { invalidateSchedule(queryClient, access.org_id); },
   });
 }
 

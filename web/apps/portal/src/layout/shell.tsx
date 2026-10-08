@@ -31,7 +31,6 @@ import { useToday } from "../queries.js";
 import { ClinicMark } from "./clinic-mark.js";
 import { CommandPalette } from "./command-palette.js";
 import { useStoredFlag } from "./use-stored-flag.js";
-import { VoiceNoteButton } from "./voice-note-button.js";
 import { PeekProvider } from "./peek.js";
 import { ProgressBar } from "./progress-bar.js";
 
@@ -165,13 +164,11 @@ function ClinicSwitch() {
   );
 }
 
-/** The top bar's search: a compact button that opens the command palette (also ⌘K or Ctrl+K). */
-function SearchButton({ onOpen }: { onOpen: () => void }) {
+/** Phones have no keyboard shortcut: an icon-only search button, shown under 640px, opens the same palette. */
+function PhoneSearchButton({ onOpen }: { onOpen: () => void }) {
   return (
-    <button type="button" className="mk-iconbtn mk-searchbtn" aria-label="Search" aria-keyshortcuts="Control+K Meta+K" title="Search (⌘K)" onClick={onOpen}>
+    <button type="button" className="mk-iconbtn mk-phone-search" aria-label="Search" onClick={onOpen}>
       <Search aria-hidden="true" />
-      <span className="mk-sb-txt">Search</span>
-      <kbd className="mk-sb-txt" aria-hidden="true">⌘K</kbd>
     </button>
   );
 }
@@ -392,8 +389,8 @@ function ShellFrame() {
         <div className="mk-logo">
           <ClinicMark name={session.clinic.name} />
           <div className="mk-logo-t">
-            <b>{session.clinic.name}</b>
-            <small>Aarogyam Clinic OS</small>
+            <b>Aarogyam</b>
+            <small>Clinic OS</small>
           </div>
           <button
             type="button"
@@ -452,12 +449,11 @@ function ShellFrame() {
             <MenuIcon aria-hidden="true" />
           </button>
           <div className="mk-top-actions">
-            <SearchButton
+            <PhoneSearchButton
               onOpen={() => {
                 setPaletteOpen(true);
               }}
             />
-            <VoiceNoteButton />
             {can("appointments.write") ? (
               <button
                 type="button"

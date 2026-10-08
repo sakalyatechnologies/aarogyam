@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -75,39 +75,29 @@ describe("Voice note in the visit", () => {
     expect(screen.getByText("Pain on the lower left chewing")).toBeTruthy();
   });
 
-  it("opens the recorder from the top bar after asking which patient", async () => {
+  it("offers Record voice on a draft note only to people who can write notes, and nothing in the top bar", async () => {
     installVoiceDoubles();
     const user = userEvent.setup();
-    const { backend, name } = patientPath();
-    renderPortal("/", { as: PEOPLE.asha, backend });
-    await user.click(await screen.findByRole("button", { name: "Voice note" }));
-    const dialog = await screen.findByRole("dialog", { name: "Voice note: choose the patient" });
-    expect(within(dialog).getByText("The note is saved as a draft on this patient's record.")).toBeTruthy();
-    await user.type(await screen.findByPlaceholderText("Name, clinic number or phone"), name);
-    await user.click(await screen.findByRole("button", { name: new RegExp(name) }));
-    await screen.findByRole("heading", { name: /^Visit V-/ });
-    await screen.findByRole("region", { name: "Voice recorder" });
-    expect(screen.getByRole("button", { name: "Start recording" })).toBeTruthy();
-    // The same button on the open visit goes straight to the recorder.
-    await user.click(screen.getByRole("button", { name: "Close" }));
-    expect(screen.queryByRole("region", { name: "Voice recorder" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Voice note" }));
-    await waitFor(() => {
-      expect(screen.getByRole("region", { name: "Voice recorder" })).toBeTruthy();
-    });
-    expect(screen.queryByRole("dialog")).toBeNull();
+    const { backend, path } = patientPath();
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    expect(screen.queryByRole("button", { name: "Voice note" })).toBeNull();
+    await user.click(await screen.findByRole("tab", { name: "Visits" }));
+    await user.click(await screen.findByRole("button", { name: "Start visit" }));
+    await user.click(await screen.findByRole("button", { name: "New note" }));
+    expect(await screen.findByRole("button", { name: "Record voice" })).toBeTruthy();
   });
 
-  it("is unavailable without clinical.write", async () => {
-    let path = "";
-    const backend = fakeApi((fixtures) => {
-      const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
-      path = `/patients/${fixtures.patients.find((p) => p.clinic_id === sunrise?.id)?.id ?? ""}`;
-      const membership = fixtures.memberships.find((m) => m.user_id === PEOPLE.farah);
-      if (membership !== undefined) membership.role = { key: "reader", name: "Reader", permissions: ["patients.read", "clinical.read"] };
-    });
-    renderPortal(path, { as: PEOPLE.farah, backend });
-    const button = await screen.findByRole("button", { name: "Voice note" });
-    expect(button).toHaveProperty("disabled", true);
+  it("says plainly when the browser cannot dictate, and keeps only the recording", async () => {
+    installVoiceDoubles();
+    Reflect.deleteProperty(window, "SpeechRecognition");
+    Reflect.deleteProperty(window, "webkitSpeechRecognition");
+    const user = userEvent.setup();
+    const { backend, path } = patientPath();
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await user.click(await screen.findByRole("tab", { name: "Visits" }));
+    await user.click(await screen.findByRole("button", { name: "Start visit" }));
+    await user.click(await screen.findByRole("button", { name: "New note" }));
+    await user.click(await screen.findByRole("button", { name: "Record voice" }));
+    expect(await screen.findByText(/Live dictation isn't available in this browser/)).toBeTruthy();
   });
 });

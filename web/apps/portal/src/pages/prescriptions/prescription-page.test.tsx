@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -77,5 +77,31 @@ describe("Prescriptions", () => {
     await user.click(await screen.findByRole("button", { name: "Quick Rx" }));
     expect(await screen.findByText("draft")).toBeTruthy();
     expect(await screen.findByDisplayValue(/amoxicillin/i)).toBeTruthy();
+  });
+});
+
+describe("A prescription's navigation", () => {
+  it("links back to the patient's Rx tab and shows breadcrumbs", async () => {
+    const user = userEvent.setup();
+    let path = "";
+    let patientId = "";
+    let name = "";
+    const backend = fakeApi((fixtures) => {
+      const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
+      const rx = fixtures.prescriptions.find((r) => r.clinic_id === sunrise?.id);
+      patientId = rx?.patient_id ?? "";
+      name = fixtures.patients.find((p) => p.id === patientId)?.full_name ?? "";
+      path = `/prescriptions/${rx?.id ?? ""}`;
+    });
+    const { router } = renderPortal(path, { as: PEOPLE.asha, backend });
+    const back = await screen.findByRole("link", { name: `${name} · Rx` });
+    expect(back.getAttribute("href")).toBe(`/patients/${patientId}?tab=prescriptions`);
+    const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(within(crumbs).getByRole("link", { name: "Patients" }).getAttribute("href")).toBe("/patients");
+    expect(within(crumbs).getByRole("link", { name })).toBeTruthy();
+    expect(within(crumbs).getByText(/^(RX-|Draft)/).getAttribute("aria-current")).toBe("page");
+    await user.click(back);
+    expect(router.state.location.search).toBe("?tab=prescriptions");
+    expect(await screen.findByRole("tab", { name: "Rx", selected: true })).toBeTruthy();
   });
 });

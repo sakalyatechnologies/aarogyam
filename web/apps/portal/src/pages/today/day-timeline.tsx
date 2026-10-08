@@ -4,6 +4,7 @@ import type { Today } from "@aarogyam/api-client";
 import { formatTime } from "@aarogyam/app-kit";
 
 import { MkAvatar, StatusChip } from "../../components/mk/index.js";
+import { StaggerItem, StaggerList } from "../../components/mk/motion.js";
 import { APPOINTMENT_CHIP } from "../../lib/appointment-status.js";
 import { clockLabel, gridHours, nowMinutes, packColumns, placementOf } from "../../lib/time-grid.js";
 
@@ -73,7 +74,7 @@ export function DayTimeline({ appointments, asOf, timeZone, nextId, waitingMinut
         </button>
       </div>
       <div className="mk-tlwrap" ref={wrap} role="region" aria-label="Today's schedule, scrollable" tabIndex={0} style={{ height: TIMELINE_HEIGHT }}>
-        <ol className="mk-tl" style={{ height }} data-start-hour={start} data-end-hour={end}>
+        <StaggerList as="ol" className="mk-tl" style={{ height }} data-start-hour={start} data-end-hour={end}>
           {hours.map((hour) => (
             <li key={`h-${String(hour)}`} className="mk-tl-hour" aria-hidden="true" style={{ top: (hour - start) * PX_PER_HOUR }}>
               <span>{clockLabel(hour * 60)}</span>
@@ -85,7 +86,8 @@ export function DayTimeline({ appointments, asOf, timeZone, nextId, waitingMinut
             const minutes = Math.round((Date.parse(a.ends_at) - Date.parse(a.starts_at)) / 60_000);
             const state = a.status === "completed" ? "done" : a.status === "arrived" ? "wait" : "";
             return (
-              <li
+              <StaggerItem
+                as="li"
                 key={a.id}
                 className={`mk-tl-ev ${state}`}
                 style={{
@@ -112,7 +114,7 @@ export function DayTimeline({ appointments, asOf, timeZone, nextId, waitingMinut
                   </div>
                   <StatusChip tone={tag.tone}>{tag.label}</StatusChip>
                 </button>
-              </li>
+              </StaggerItem>
             );
           })}
           {nowVisible ? (
@@ -122,7 +124,7 @@ export function DayTimeline({ appointments, asOf, timeZone, nextId, waitingMinut
               </div>
             </li>
           ) : null}
-        </ol>
+        </StaggerList>
       </div>
     </>
   );

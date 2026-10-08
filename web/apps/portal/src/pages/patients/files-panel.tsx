@@ -3,11 +3,12 @@ import { useRef, useState } from "react";
 
 import { apiErrorOf, type AttachmentId, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatBytes, formatDateTime } from "@aarogyam/app-kit";
-import { Button, Dialog, Field, Select, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, Select, Switch, TextInput, useToast } from "@sakalya/ui";
 import { MkCard, Empty } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
 import { useAttachments, useDownloadLink, useUploadAttachment } from "../../queries.js";
+import { useSetFileSharing } from "./queries.js";
 import { NO_LABEL, PRESET_LABELS, groupByLabel, parseTooth } from "./file-labels.js";
 import { FileThumb } from "./file-thumb.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
@@ -28,6 +29,7 @@ export function FilesPanel({ patientId }: { patientId: PatientId }) {
   const { can } = useClinic();
   const attachments = useAttachments(patientId);
   const downloadLink = useDownloadLink();
+  const sharing = useSetFileSharing(patientId);
   const toast = useToast();
   const [uploading, setUploading] = useState(false);
 
@@ -80,6 +82,22 @@ export function FilesPanel({ patientId }: { patientId: PatientId }) {
                         {file.tooth == null ? "" : ` · Tooth ${String(file.tooth)}`}
                       </p>
                     </div>
+                    {can("clinical.write") && file.kind !== "audio" ? (
+                      <Switch
+                        label="Share with patient"
+                        checked={file.shared_with_patient}
+                        disabled={sharing.isPending}
+                        onCheckedChange={(shared) => {
+                          sharing.mutate(
+                            { id: file.id, shared },
+                            {
+                              onSuccess: () => toast.show({ title: shared ? "Shared with the patient's app" : "No longer shared", tone: "success" }),
+                              onError: (thrown) => toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't change sharing.", tone: "danger" }),
+                            },
+                          );
+                        }}
+                      />
+                    ) : null}
                     <Button
                       variant="secondary"
                       icon={<Download aria-hidden="true" className="size-4" />}

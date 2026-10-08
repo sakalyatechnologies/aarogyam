@@ -17,6 +17,7 @@ import { ClinicalFlagsPanel } from "./clinical-flags-panel.js";
 import { DentalChartPanel } from "./dental-chart-panel.js";
 import { FilesPanel } from "./files-panel.js";
 import { NotesPanel } from "./notes-panel.js";
+import { PatientAppCard } from "./patient-app-card.js";
 import { BillsPanel, PrescriptionsPanel } from "./records-panels.js";
 import { VisitsPanel } from "./visits-panel.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
@@ -265,6 +266,7 @@ function Overview({ patient, canSeeClinical, revealable }: { patient: Patient; c
             )}
           </div>
         </MkCard>
+        <PatientAppCard patientId={patient.id} />
       </div>
     </div>
   );

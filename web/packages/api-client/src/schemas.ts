@@ -1371,8 +1371,43 @@ export const attachment = z.object({
   duration_seconds: count.nullable().exactOptional(),
   /** `en-IN`, `hi-IN` or `mr-IN`. */
   language: z.string().nullable().exactOptional(),
+  /** Shown in the patient's app; older APIs leave it out. */
+  shared_with_patient: z.boolean().default(false),
 }) satisfies z.ZodType<C.Attachment>;
 export type Attachment = z.output<typeof attachment>;
+
+export const fileSharing = z.object({ shared_with_patient: z.boolean() }) satisfies z.ZodType<C.FileSharing>;
+
+export const patientLinkStatus = z.enum(["pending", "active", "declined", "revoked"]);
+export type PatientLinkStatus = z.output<typeof patientLinkStatus>;
+
+export const patientAppLink = z.object({
+  id: z.string().min(1),
+  status: z.string(),
+  linked_via: z.string(),
+  account_email: z.string(),
+  consented_at: timestamp,
+  linked_at: optionalTimestamp,
+  revoked_at: optionalTimestamp,
+}) satisfies z.ZodType<C.PatientAppLink>;
+export type PatientAppLink = z.output<typeof patientAppLink>;
+
+export const patientAppAccess = z.object({
+  links: z.array(patientAppLink),
+  code_expires_at: optionalTimestamp,
+  has_email: z.boolean(),
+}) satisfies z.ZodType<C.PatientAppAccess>;
+export type PatientAppAccess = z.output<typeof patientAppAccess>;
+
+export const patientAppInvitation = z.object({
+  code: z.string().min(1),
+  expires_at: timestamp,
+  emailed: z.boolean(),
+}) satisfies z.ZodType<C.PatientAppInvitation>;
+export type PatientAppInvitation = z.output<typeof patientAppInvitation>;
+
+export const patientLinkDecided = z.object({ id: z.string().min(1), status: z.string() }) satisfies z.ZodType<C.PatientLinkDecided>;
+export type PatientLinkDecided = z.output<typeof patientLinkDecided>;
 
 export const dentalTermKind = z.enum(["procedure", "material"]) satisfies z.ZodType<C.DentalTermKind>;
 export type DentalTermKind = z.output<typeof dentalTermKind>;

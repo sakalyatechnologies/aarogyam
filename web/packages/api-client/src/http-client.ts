@@ -39,6 +39,10 @@ import {
   dentalTerm,
   devTokenResponse,
   downloadLink,
+  fileSharing,
+  patientAppAccess,
+  patientAppInvitation,
+  patientLinkDecided,
   drugList,
   importResult,
   importSession,
@@ -421,6 +425,14 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/attachments`, schema: attachment, body: form, signal: opts?.signal }),
     getDownloadLink: (id, opts) =>
       call({ method: "GET", path: `/api/v1/attachments/${encodeURIComponent(id)}/download`, schema: downloadLink, signal: opts?.signal }),
+    setAttachmentSharing: (id, sharing, opts) =>
+      call({ method: "PUT", path: `/api/v1/attachments/${encodeURIComponent(id)}/sharing`, schema: fileSharing, body: sharing, signal: opts?.signal }),
+    getPatientAppAccess: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/app-access`, schema: patientAppAccess, signal: opts?.signal }),
+    invitePatientToApp: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/app-invitations`, schema: patientAppInvitation, signal: opts?.signal }),
+    decidePatientLink: (id, decision, opts) =>
+      call({ method: "POST", path: `/api/v1/patient-links/${encodeURIComponent(id)}/${decision}`, schema: patientLinkDecided, signal: opts?.signal }),
 
     listStaff: (opts) => call({ method: "GET", path: "/api/v1/staff", schema: staffResponse, signal: opts?.signal }),
     inviteStaff: (input, opts) =>

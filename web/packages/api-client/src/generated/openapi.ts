@@ -106,6 +106,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attachments/{id}/sharing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Shares a file with the patient in their app, or stops sharing it. Voice recordings are
+         *     never shared.
+         */
+        put: operations["setAttachmentSharing"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/handoff": {
         parameters: {
             query?: never;
@@ -779,6 +799,229 @@ export interface paths {
         patch: operations["updateMySetup"];
         trace?: never;
     };
+    "/api/v1/me/patient": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in patient's account and linked clinics. The account is made on the first call. */
+        get: operations["getMyPatientAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/appointments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patient's upcoming and past appointments at every linked clinic. */
+        get: operations["listMyAppointments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/appointments/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancels one of the patient's own appointments at this clinic (the host), when it is still
+         *     open and starts at least the clinic's booking notice from now. Repeating it succeeds.
+         */
+        post: operations["cancelMyAppointment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/bills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patient's issued bills and what they owe each linked clinic (read only). */
+        get: operations["listMyBills"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Books a slot at this clinic (the host) for the patient's linked record, through the same
+         *     rules as the public booking page. `requested`, or `confirmed` when the clinic auto-confirms.
+         */
+        post: operations["bookAsPatient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The files every linked clinic marked "Share with patient". */
+        get: operations["listMyFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/files/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Streams a file this clinic (the host) shared with the patient. Each download is in the
+         *     access record.
+         */
+        get: operations["getMyFileContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The home screen: the next appointment, balances and prescriptions at every linked clinic. */
+        get: operations["getMyPatientHome"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/link-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Asks a clinic to connect the record that has the patient's verified email. The clinic
+         *     confirms it on Patient 360; nothing is linked until then. Always `202`, whether or not the
+         *     clinic has such a record.
+         */
+        post: operations["requestPatientLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Links the patient's account to their record at a clinic with the code the clinic issued.
+         *     The patient's consent is recorded with the link.
+         */
+        post: operations["redeemPatientLinkCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/links/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ends one of the patient's own links: that clinic's records leave the app. */
+        post: operations["revokePatientLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/prescriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The patient's issued prescriptions at every linked clinic (drafts and cancelled ones are
+         *     never shown), each with the link to its public verify page.
+         */
+        get: operations["listMyPrescriptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/practitioner": {
         parameters: {
             query?: never;
@@ -969,6 +1212,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patient-links/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirms a match the patient asked for: the record appears in their app. */
+        post: operations["confirmPatientLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patient-links/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Declines a match the patient asked for. */
+        post: operations["declinePatientLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patient-links/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ends an active link: the record leaves the patient's app. */
+        post: operations["revokePatientLinkByClinic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients": {
         parameters: {
             query?: never;
@@ -1062,6 +1356,43 @@ export interface paths {
         head?: never;
         /** Edits an allergy: resolve it, change its severity, or mark it entered in error. */
         patch: operations["updateAllergy"];
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/app-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who has patient-app access to this record, and whether a code is waiting. */
+        get: operations["getPatientAppAccess"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/app-invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * "Invite to patient app": makes sure the patient can sign in with the email on their record,
+         *     issues a link code (replacing any unused one) and emails it through the outbox.
+         */
+        post: operations["invitePatientToApp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/patients/{id}/attachments": {
@@ -2909,6 +3240,11 @@ export interface components {
             /** @description SHA-256 of the content, hex. */
             sha256: string;
             /**
+             * @description Whether the clinic shares it with the patient in the patient app
+             *     (`PUT /attachments/{id}/sharing`).
+             */
+            shared_with_patient: boolean;
+            /**
              * Format: int64
              * @description Size in bytes.
              */
@@ -3646,6 +3982,11 @@ export interface components {
             /** @description Earliest first; already expired batches come first. */
             items: components["schemas"]["ExpiringBatch"][];
         };
+        /** @description Whether a file is shared with the patient. */
+        FileSharing: {
+            /** @description True to show it in the patient's app. */
+            shared_with_patient: boolean;
+        };
         /**
          * @description A one-time code for that host. Send the person to `redirect_url`: the code is in the URL
          *     fragment, which browsers never send to a server.
@@ -4245,6 +4586,13 @@ export interface components {
             /** @description The opening hours. */
             timings?: boolean | null;
         };
+        /** @description The clinic a code linked. */
+        LinkedByCode: {
+            /** @description The clinic. */
+            clinic_id: string;
+            /** @description `linked`, or `already_linked` for a repeat. */
+            outcome: string;
+        };
         /** @description An item at or below its reorder level, for the front desk's attention list. */
         LowStockAlert: {
             /** @description The item. */
@@ -4545,6 +4893,11 @@ export interface components {
             reason?: string | null;
             /** @description Start (RFC 3339). */
             starts_at: string;
+        };
+        /** @description Which clinic to ask. */
+        NewLinkRequest: {
+            /** @description The clinic's address name, such as `sunrise` (from `sunrise.aarogyam.example`). */
+            clinic: string;
         };
         /** @description A draft note to start. */
         NewNote: {
@@ -4910,6 +5263,148 @@ export interface components {
             /** @description `active`, `inactive`, `deceased` or `merged`. */
             status: string;
         };
+        /** @description A record's patient-app access. */
+        PatientAppAccess: {
+            /** @description When the unused code expires, if one is waiting (RFC 3339). */
+            code_expires_at?: string | null;
+            /** @description Whether the record has an email; an invitation needs one, since the patient signs in with it. */
+            has_email: boolean;
+            /** @description Links, open ones first. */
+            links: components["schemas"]["PatientAppLink"][];
+        };
+        /** @description A new link code, shown once. */
+        PatientAppInvitation: {
+            /** @description The code, `XXXXX-XXXXX`: show it as text and as a QR code. It is not shown again. */
+            code: string;
+            /** @description Whether the email with the code was queued to the address on the record. */
+            emailed: boolean;
+            /** @description When it stops working (RFC 3339). */
+            expires_at: string;
+        };
+        /** @description A patient account's link to this record. */
+        PatientAppLink: {
+            /** @description The email the patient signed in with; masked without `patients.contact`. */
+            account_email: string;
+            /** @description When the patient consented (RFC 3339). */
+            consented_at: string;
+            /** @description The link. */
+            id: string;
+            /** @description When it became active (RFC 3339). */
+            linked_at?: string | null;
+            /** @description `code` or `clinic_confirmed`. */
+            linked_via: string;
+            /** @description When it was revoked (RFC 3339). */
+            revoked_at?: string | null;
+            /** @description `pending` (the patient asked; confirm or decline), `active`, `declined` or `revoked`. */
+            status: string;
+        };
+        /** @description One of the patient's appointments. */
+        PatientAppointment: {
+            /** @description Whether the app offers Cancel (the clinic's notice still applies when it is sent). */
+            can_cancel: boolean;
+            /** @description The clinic. */
+            clinic_id: string;
+            /** @description The doctor's name. */
+            doctor_name: string;
+            /** @description End, RFC 3339 in the clinic's time zone. */
+            ends_at: string;
+            /** @description The appointment. */
+            id: string;
+            /** @description The doctor. */
+            practitioner_id: string;
+            /** @description Why they are coming. */
+            reason?: string | null;
+            /** @description What the doctor practises. */
+            specialty?: string | null;
+            /** @description Start, RFC 3339 in the clinic's time zone. */
+            starts_at: string;
+            /**
+             * @description `requested`, `booked`, `confirmed`, `arrived`, `in_chair`, `completed`, `cancelled` or
+             *     `no_show`.
+             */
+            status: string;
+        };
+        /** @description The patient's appointments. */
+        PatientAppointments: {
+            /** @description Over, newest first. */
+            past: components["schemas"]["PatientAppointment"][];
+            /** @description Not over yet, soonest first. */
+            upcoming: components["schemas"]["PatientAppointment"][];
+        };
+        /** @description What the patient owes one clinic. */
+        PatientBalance: {
+            /**
+             * Format: int64
+             * @description Owed on issued bills, in paise.
+             */
+            balance_paise: number;
+            /** @description The clinic. */
+            clinic_id: string;
+        };
+        /** @description One of the patient's issued bills. */
+        PatientBill: {
+            /**
+             * Format: int64
+             * @description Still owed, in paise.
+             */
+            balance_paise: number;
+            /** @description The clinic. */
+            clinic_id: string;
+            /** @description The bill. */
+            id: string;
+            /** @description When it was issued (RFC 3339, the clinic's time zone). */
+            issued_at: string;
+            /** @description The lines, in order. */
+            items: components["schemas"]["PatientBillLine"][];
+            /** @description The bill number. */
+            number: string;
+            /**
+             * Format: int64
+             * @description Paid against it, in paise.
+             */
+            paid_paise: number;
+            /**
+             * Format: int64
+             * @description Total, in paise.
+             */
+            total_paise: number;
+        };
+        /** @description A line on a bill. */
+        PatientBillLine: {
+            /** @description What it was for. */
+            description: string;
+            /**
+             * Format: int32
+             * @description How many.
+             */
+            quantity: number;
+            /**
+             * Format: int64
+             * @description The line's total, in paise.
+             */
+            total_paise: number;
+        };
+        /** @description The patient's bills and balances. */
+        PatientBills: {
+            /**
+             * Format: int64
+             * @description Owed across clinics, in paise.
+             */
+            balance_paise: number;
+            /** @description What is owed to each linked clinic. */
+            balances: components["schemas"]["PatientBalance"][];
+            /** @description Issued bills, newest first. */
+            items: components["schemas"]["PatientBill"][];
+        };
+        /** @description A booking from the app. */
+        PatientBooking: {
+            /** @description The doctor, from `GET /public/booking` on this host. */
+            practitioner_id: string;
+            /** @description Why they are coming, in a few words. */
+            reason?: string | null;
+            /** @description The slot's start, exactly as `GET /public/availability` offered it (RFC 3339). */
+            starts_at: string;
+        };
         /** @description A patient as the calendar and queue show them. */
         PatientBrief: {
             /**
@@ -4925,6 +5420,13 @@ export interface components {
             number: string;
             /** @description `female`, `male`, `other` or `unknown`. */
             sex: string;
+        };
+        /** @description The appointment's status after a cancellation. */
+        PatientCancelled: {
+            /** @description The appointment. */
+            id: string;
+            /** @description `cancelled`. */
+            status: string;
         };
         /**
          * @description Changes to a patient. Fields left out stay as they are; an empty `phone`, `email` or
@@ -4948,6 +5450,87 @@ export interface components {
             preferred_language?: string | null;
             /** @description `female`, `male`, `other` or `unknown`. */
             sex?: string | null;
+        };
+        /** @description A clinic that linked the patient. */
+        PatientClinic: {
+            /** @description Branding (brand colour, theme mode). */
+            branding: Record<string, unknown>;
+            /** @description The clinic. */
+            clinic_id: string;
+            /** @description Its portal host: bookings, cancellations and files go there. */
+            host?: string | null;
+            /** @description The link. */
+            link_id: string;
+            /** @description When the clinic linked the patient (RFC 3339). */
+            linked_at: string;
+            /** @description Its name. */
+            name: string;
+            /** @description The patient's number at this clinic, such as `SD-1042`. */
+            patient_number: string;
+            /** @description Its subdomain. */
+            slug: string;
+            /** @description IANA time zone; times from this clinic are in it. */
+            timezone: string;
+        };
+        /** @description The home screen for one clinic. */
+        PatientClinicSummary: {
+            /**
+             * Format: int64
+             * @description Owed on issued bills, in paise.
+             */
+            balance_paise: number;
+            /** @description The clinic. */
+            clinic: components["schemas"]["PatientClinic"];
+            /** @description The newest prescription's date (RFC 3339). */
+            last_prescription_at?: string | null;
+            next_appointment?: components["schemas"]["PatientAppointment"] | null;
+            /**
+             * Format: int64
+             * @description Issued prescriptions.
+             */
+            prescriptions: number;
+        };
+        /** @description A file a clinic shared with the patient. */
+        PatientFile: {
+            /** @description A caption. */
+            caption?: string | null;
+            /** @description The clinic: fetch it from that clinic's host. */
+            clinic_id: string;
+            /** @description When it was added (RFC 3339). */
+            created_at: string;
+            /** @description The file. */
+            id: string;
+            /** @description `photo`, `xray`, `report`, `document` or `consent`. */
+            kind: string;
+            /** @description Its label, such as `OPG`. */
+            label?: string | null;
+            /** @description Media type. */
+            mime_type: string;
+            /**
+             * Format: int64
+             * @description Size in bytes.
+             */
+            size_bytes: number;
+            /** @description When it was taken (RFC 3339). */
+            taken_at?: string | null;
+        };
+        /** @description Files the clinics shared with the patient. */
+        PatientFiles: {
+            /** @description Newest first. */
+            items: components["schemas"]["PatientFile"][];
+        };
+        /** @description Everything the home screen needs, in one request. */
+        PatientHome: {
+            /**
+             * Format: int64
+             * @description Owed across clinics, in paise.
+             */
+            balance_paise: number;
+            /** @description Each linked clinic, by name. */
+            clinics: components["schemas"]["PatientClinicSummary"][];
+            /** @description The verified email they signed in with. */
+            email: string;
+            next_appointment?: components["schemas"]["PatientAppointment"] | null;
         };
         /** @description Another number a patient is known by. */
         PatientIdentifier: {
@@ -4980,10 +5563,24 @@ export interface components {
             /** @description `preview` checks every row and saves nothing; `commit` saves the valid rows. */
             mode: string;
         };
+        /** @description A link's status after the clinic's decision. */
+        PatientLinkDecided: {
+            /** @description The link. */
+            id: string;
+            /** @description `active`, `declined` or `revoked`. */
+            status: string;
+        };
         /** @description Search results. */
         PatientList: {
             /** @description Matching patients, best first. */
             items: components["schemas"]["Patient"][];
+        };
+        /** @description The signed-in patient and the clinics that linked them. */
+        PatientMe: {
+            /** @description Linked clinics, by name. */
+            clinics: components["schemas"]["PatientClinic"][];
+            /** @description The verified email they signed in with. */
+            email: string;
         };
         /** @description What happened to the patient's copy. */
         PatientMessage: {
@@ -5002,6 +5599,34 @@ export interface components {
             /** @description Visit notes, newest first (up to 100), limited to those the caller's role reaches. */
             visit_notes: components["schemas"]["VisitNote"][];
         };
+        /** @description One of the patient's issued prescriptions. */
+        PatientPrescription: {
+            /** @description Advice as printed. */
+            advice?: string | null;
+            /** @description The clinic. */
+            clinic_id: string;
+            /** @description The diagnosis as printed. */
+            diagnosis?: string | null;
+            /** @description The doctor's name as printed. */
+            doctor_name?: string | null;
+            /** @description The follow-up date, `YYYY-MM-DD`. */
+            follow_up_on?: string | null;
+            /** @description The prescription. */
+            id: string;
+            /** @description When it was issued (RFC 3339, the clinic's time zone). */
+            issued_at: string;
+            /** @description The medicines, in order. */
+            items: components["schemas"]["PatientRxItem"][];
+            /** @description `RX-…`. */
+            number: string;
+            /** @description The public page that verifies it (its QR code), on the clinic's host. */
+            verify_url?: string | null;
+        };
+        /** @description The patient's issued prescriptions. */
+        PatientPrescriptions: {
+            /** @description Newest first. */
+            items: components["schemas"]["PatientPrescription"][];
+        };
         /** @description A patient as a bill or payment names them. */
         PatientRef: {
             /** @description Identifier. */
@@ -5010,6 +5635,28 @@ export interface components {
             name: string;
             /** @description Number, such as `SD-1042`. */
             number: string;
+        };
+        /** @description A medicine on a prescription. */
+        PatientRxItem: {
+            /** @description How much at a time. */
+            dose: string;
+            /** @description The medicine as printed. */
+            drug_name: string;
+            /**
+             * Format: int32
+             * @description For how many days.
+             */
+            duration_days?: number | null;
+            /** @description Form, such as `tablet`. */
+            form?: string | null;
+            /** @description How often, such as `1-0-1`. */
+            frequency: string;
+            /** @description Anything else the doctor wrote. */
+            instructions?: string | null;
+            /** @description Strength, such as `500 mg`. */
+            strength?: string | null;
+            /** @description `before_food`, `after_food`, `empty_stomach`, `bedtime`, `sos` or `as_directed`. */
+            timing?: string | null;
         };
         /** @description A payment and its receipt number. */
         Payment: {
@@ -5573,6 +6220,11 @@ export interface components {
         /** @description A code to redeem on the host it was made for. */
         RedeemHandoff: {
             /** @description The code from the URL fragment. */
+            code: string;
+        };
+        /** @description A link code from the clinic. */
+        RedeemLinkCode: {
+            /** @description The code, such as `7KQ2M-X9D4T` (case, spaces and dashes don't matter). */
             code: string;
         };
         /** @description The one answer to a valid application. */
@@ -7271,6 +7923,53 @@ export interface operations {
                 content?: never;
             };
             /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such file in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setAttachmentSharing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The file */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileSharing"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileSharing"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -9247,6 +9946,493 @@ export interface operations {
             };
         };
     };
+    getMyPatientAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientMe"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The sign-in has no verified email */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the app host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMyAppointments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientAppointments"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the app host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cancelMyAppointment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The appointment */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientCancelled"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the patient's appointment at this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too late to cancel in the app */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMyBills: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientBills"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the app host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    bookAsPatient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientBooking"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientAppointment"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic that linked the patient, or online booking is off */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The slot is gone, or too many open bookings */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMyFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientFiles"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the app host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMyFileContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The file */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, with its media type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a file this clinic shared with the patient */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMyPatientHome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientHome"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the app host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    requestPatientLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Asked; the clinic will confirm */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No clinic named */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    redeemPatientLinkCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedeemLinkCode"];
+            };
+        };
+        responses: {
+            /** @description Already linked: nothing changed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkedByCode"];
+                };
+            };
+            /** @description Linked */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkedByCode"];
+                };
+            };
+            /** @description Not a code */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such code, used, or expired */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Linked to another record there, or the record to another account */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many attempts */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revokePatientLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ended */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not one of the patient's open links */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMyPrescriptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientPrescriptions"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the app host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getMyPractitioner: {
         parameters: {
             query?: never;
@@ -9789,6 +10975,142 @@ export interface operations {
             };
         };
     };
+    confirmPatientLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientLinkDecided"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No pending link with this id in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The record is already linked to an app account */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    declinePatientLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientLinkDecided"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No pending link with this id in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revokePatientLinkByClinic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientLinkDecided"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No active link with this id in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listPatients: {
         parameters: {
             query?: {
@@ -10183,6 +11505,106 @@ export interface operations {
             };
             /** @description No such allergy for this patient in this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getPatientAppAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientAppAccess"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    invitePatientToApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientAppInvitation"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The record has no email, or the clinic no portal address */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Supabase could not create the sign-in account */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13065,7 +14487,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks staff.manage */
+            /** @description The role lacks staff.manage and roles.manage */
             403: {
                 headers: {
                     [name: string]: unknown;

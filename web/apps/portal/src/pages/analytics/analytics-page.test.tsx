@@ -60,7 +60,9 @@ describe("Analytics", () => {
     await waitFor(() => {
       expect(asked.at(-1)?.bucket).toBe("week");
     });
-    expect(router.state.location.search).toBe("?months=3&by=week");
+    await waitFor(() => {
+      expect(router.state.location.search).toBe("?months=3&by=week");
+    });
     expect(screen.getByRole("button", { name: "3 months" }).getAttribute("aria-pressed")).toBe("true");
     // The previous report stays on screen while the next one loads.
     expect(screen.getByRole("heading", { name: "Busy hours" })).toBeTruthy();

@@ -1,5 +1,6 @@
 import { Armchair, HandCoins, Lock, Scale, Wallet } from "lucide-react";
 import { useReducedMotion } from "motion/react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 
 import type { Analytics, AnalyticsBucket } from "@aarogyam/api-client";
@@ -17,7 +18,8 @@ import { ExpensesChart, IncomeChart } from "./money-charts.js";
 import { useAnalytics } from "./queries.js";
 import "./analytics.css";
 
-const MONTHS: readonly { value: "3" | "6" | "12"; label: string }[] = [
+type MonthsKey = "3" | "6" | "12";
+const MONTHS: readonly { value: MonthsKey; label: string }[] = [
   { value: "3", label: "3 months" },
   { value: "6", label: "6 months" },
   { value: "12", label: "12 months" },
@@ -37,17 +39,23 @@ export function AnalyticsPage() {
   useDocumentTitle("Analytics", session.clinic.name);
   const today = useTodayDate();
   const [params, setParams] = useSearchParams();
-  const monthsKey = MONTHS.find((o) => o.value === params.get("months"))?.value ?? "12";
-  const months: Months = monthsKey === "3" ? 3 : monthsKey === "6" ? 6 : 12;
-  const bucket: AnalyticsBucket = params.get("by") === "week" ? "week" : "month";
+  // Kept in state, mirrored to the URL: two quick clicks must not lose one to a pending navigation.
+  const [choice, setChoice] = useState<{ months: MonthsKey; by: AnalyticsBucket }>(() => ({
+    months: MONTHS.find((o) => o.value === params.get("months"))?.value ?? "12",
+    by: params.get("by") === "week" ? "week" : "month",
+  }));
+  const months: Months = choice.months === "3" ? 3 : choice.months === "6" ? 6 : 12;
+  const bucket = choice.by;
   const report = useAnalytics({ from: rangeStart(today, months), bucket });
-  const set = (key: string, value: string) => {
-    setParams((current) => {
-      const next = new URLSearchParams(current);
-      next.set(key, value);
-      return next;
-    });
+  const choose = (next: Partial<typeof choice>) => {
+    setChoice((current) => ({ ...current, ...next }));
   };
+  const asked = `${params.get("months") ?? ""}|${params.get("by") ?? ""}`;
+  useEffect(() => {
+    if (asked !== `${choice.months}|${choice.by}`) {
+      setParams({ months: choice.months, by: choice.by }, { replace: true });
+    }
+  }, [asked, choice, setParams]);
 
   return (
     <div className="mk-panel an-page">
@@ -62,8 +70,8 @@ export function AnalyticsPage() {
                 Updating…
               </span>
             ) : null}
-            <Segments label="Range" options={MONTHS} value={monthsKey} onChange={(v) => { set("months", v); }} />
-            <Segments label="Group by" options={BUCKETS} value={bucket} onChange={(v) => { set("by", v); }} />
+            <Segments label="Range" options={MONTHS} value={choice.months} onChange={(v) => { choose({ months: v }); }} />
+            <Segments label="Group by" options={BUCKETS} value={bucket} onChange={(v) => { choose({ by: v }); }} />
           </div>
         }
       />

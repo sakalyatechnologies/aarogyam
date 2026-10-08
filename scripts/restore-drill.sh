@@ -14,7 +14,8 @@
 #                        A database named aarogyam_drill_<time> is created there.
 #   --keep               keep the scratch database afterwards (its name is printed)
 #   --weekly             use the newest weekly dump instead of the newest daily one
-# Environment: PROJECT_ID (or the gcloud default project), BACKUP_BUCKET (default
+# With a bucket (not --file) it also restores the accounts dump (read back) and one random
+# patient file from files/. Environment: PROJECT_ID (or the gcloud default project), BACKUP_BUCKET (default
 #   aarogyam-backups-<project id>). Needs pg_restore and psql, version 17 or newer, on PATH.
 # Exit status: 0 only when every check passed.
 set -euo pipefail
@@ -89,10 +90,15 @@ START="$(date +%s)"
 # ---- 1. Fetch -----------------------------------------------------------------------------
 if [ -z "$FILE" ]; then
   command -v gcloud >/dev/null || die "gcloud is not installed"
-  LATEST="$(gcloud storage ls "gs://${BACKUP_BUCKET}/${PREFIX}/" --project "$PROJECT_ID" | sort | tail -n 1)"
+  LATEST="$(gcloud storage ls "gs://${BACKUP_BUCKET}/${PREFIX}/" --project "$PROJECT_ID" | grep '/aarogyam-[0-9]' | sort | tail -n 1)"
   [ -n "$LATEST" ] || die "no dumps under gs://${BACKUP_BUCKET}/${PREFIX}/ (has the backup job run?)"
   FILE="$WORK/latest.dump"
   gcloud storage cp "$LATEST" "$FILE" --project "$PROJECT_ID" >/dev/null
+  # The accounts dump and a sample patient file from the same bucket.
+  AUTH_LATEST="$(gcloud storage ls "gs://${BACKUP_BUCKET}/${PREFIX}/" --project "$PROJECT_ID" | grep '/auth-[0-9]' | sort | tail -n 1 || true)"
+  [ -z "$AUTH_LATEST" ] || gcloud storage cp "$AUTH_LATEST" "$WORK/auth.dump" --project "$PROJECT_ID" >/dev/null
+  SAMPLE="$(gcloud storage ls "gs://${BACKUP_BUCKET}/files/**" --project "$PROJECT_ID" 2>/dev/null | grep -v '/$' | awk 'BEGIN{srand()} {a[NR]=$0} END{print a[int(rand()*NR)+1]}' || true)"
+  if [ -n "$SAMPLE" ]; then gcloud storage cp "$SAMPLE" "$WORK/sample-file" --project "$PROJECT_ID" >/dev/null 2>&1 || rm -f "$WORK/sample-file"; fi
   SOURCE="$LATEST"
 fi
 [ -s "$FILE" ] || die "dump $FILE is missing or empty"
@@ -167,6 +173,22 @@ else
   LEDGER="$(q "select count(*) from private._sqlx_migrations")"
   FILES="$(find db/migrations -name '*.sql' 2>/dev/null | wc -l | tr -d ' ')"
   check "migration ledger" "$([ "$LEDGER" -gt 0 ] && [ "$LEDGER" -le "$FILES" ] && echo 1 || echo 0)" "(dump has $LEDGER; this checkout has $FILES migration files)"
+fi
+if [ -n "${BACKUP_BUCKET:-}" ]; then
+  if [ -s "$WORK/sample-file" ]; then
+    check "sample patient file restored" 1 "($(wc -c <"$WORK/sample-file" | tr -d ' ') bytes, $(basename "$SAMPLE" | cut -c1-8)...)"
+  else
+    check "sample patient file restored" 0 "(none under gs://${BACKUP_BUCKET}/files/: no files yet, or the files job has not run)"
+  fi
+  if [ -s "$WORK/auth.dump" ]; then
+    # Accounts restore data-only into Supabase's own tables; here, into a stub with the same names.
+    AUTH_ROWS="$(pg_restore --data-only -f - "$WORK/auth.dump" | grep -c '^[0-9a-f]\{8\}-[0-9a-f]\{4\}-' || true)"
+    check "auth accounts dump readable" "$([ "$AUTH_ROWS" -gt 0 ] && echo 1 || echo 0)" "($AUTH_ROWS rows in users and identities)"
+    LINKED="$(q "select count(*) from aarogyam.users")"
+    echo "  note: $LINKED product users link to accounts by auth_uid (docs/ops.md, Restoring for real)"
+  else
+    check "auth accounts dump present" 0 "(no auth-*.dump under ${PREFIX}/)"
+  fi
 fi
 [ "$AGE_HOURS" != unknown ] && [ "$AGE_HOURS" -gt 30 ] && check "backup freshness" 0 "(${AGE_HOURS} hours old)"
 echo

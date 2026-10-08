@@ -34,6 +34,8 @@ command -v python3 >/dev/null || die "python3 is required (it reads the JSON the
 
 BACKUP_BUCKET="${BACKUP_BUCKET:-aarogyam-backups-${PROJECT_ID}}"
 BACKUP_SA="${BACKUP_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+FILES_SA="${FILES_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+SUPABASE_URL="$(env_value .env.supabase SUPABASE_URL)"
 ALERT_EMAIL="${ALERT_EMAIL:-$(gcloud config get-value account 2>/dev/null || true)}"
 WORKERS_SUBDOMAIN="$(env_value .env.cloudflare CLOUDFLARE_WORKERS_SUBDOMAIN)"
 UPTIME_CLINIC="${UPTIME_CLINIC:-sunrise}"
@@ -49,13 +51,15 @@ if [ "$DRY_RUN" != "1" ]; then
   gcloud auth list --filter=status:ACTIVE --format='value(account)' | grep -q . || die "not signed in: run 'gcloud auth login'"
   gcloud projects describe "$PROJECT_ID" >/dev/null 2>&1 || die "project '$PROJECT_ID' not found or no access"
   [ -n "$WORKERS_SUBDOMAIN" ] || [ -n "${UPTIME_CLINIC_HOST##*<*}" ] || die "set CLOUDFLARE_WORKERS_SUBDOMAIN in .env.cloudflare or UPTIME_CLINIC_HOST"
+  [ -n "$SUPABASE_URL" ] || die "SUPABASE_URL is missing in .env.supabase"
+  secret_exists "$SECRET_SUPABASE_KEY" || die "secret '$SECRET_SUPABASE_KEY' not found: run scripts/cloud-run-setup.sh first"
   secret_exists "$SECRET_DB_OWNER_URL" || die "secret '$SECRET_DB_OWNER_URL' not found: run scripts/cloud-run-setup.sh first"
   [ -n "$ALERT_EMAIL" ] || die "set ALERT_EMAIL=<address to email>"
 fi
 
 CA_FILE=config/supabase-ca.crt
 [ -f "$CA_FILE" ] || die "missing $CA_FILE (the backup image needs it)"
-IMAGE_TAG="$(cat deploy/backup/Dockerfile deploy/backup/backup.sh "$CA_FILE" | shasum | cut -c1-12)"
+IMAGE_TAG="$(cat deploy/backup/Dockerfile deploy/backup/backup.sh deploy/backup/files-sync.sh "$CA_FILE" | shasum | cut -c1-12)"
 BACKUP_IMAGE="${IMAGE_REPO}/backup:${IMAGE_TAG}"
 
 cat <<PLAN
@@ -72,20 +76,24 @@ Will do:
      or delete them), read the secret $SECRET_DB_OWNER_URL, write logs. Nothing else.
   4. Backup image $BACKUP_IMAGE (Cloud Build, as $BUILD_SA_NAME), Cloud Run job $BACKUP_JOB,
      Cloud Scheduler '$BACKUP_SCHEDULE' (UTC) started as $SCHED_SA_NAME
+     The dump has two files: the product schemas and Supabase Auth's accounts (auth-<time>.dump).
+     Files job $FILES_JOB (same image, account $FILES_SA_NAME): copies new patient files from
+     Supabase Storage into gs://$BACKUP_BUCKET/files/ nightly ('$FILES_SCHEDULE' UTC); it may list
+     and create objects there and read $SECRET_SUPABASE_KEY, nothing else. files/ is not expired.
   5. Email channel for $ALERT_EMAIL
   6. Uptime checks, every 5 minutes from 3 regions, HTTPS, 10 s timeout:
        aarogyam-clinic   https://$UPTIME_CLINIC_HOST/api/v1/health   (through the Cloudflare Worker, must say "ok")
        aarogyam-website  https://$UPTIME_WEBSITE_HOST/
   7. Log-based metric $ERROR_METRIC (error events the API reports, see docs/ops.md "Error tracking")
   8. Alert policies emailing the channel: uptime failing (clinic, website), Cloud Run 5xx
-     (3 or more in 5 minutes), application error events (any in 5 minutes), backup job failed
+     (3 or more in 5 minutes), application error events (any in 5 minutes), database backup failed, patient files copy failed
 Costs: all inside free tiers EXCEPT these lines, which are small but not free:
   - Cloud Storage in $REGION is not in the free tier (it covers only US regions): about
     USD 0.02 per GB-month; 22 retained dumps of a 20 MB database is about 0.5 GB, under 1 cent a month.
   - Cloud Build uses a source bucket in the US multi-region (about 10 MB). Free tier: 2,500 build minutes a month.
   - Artifact Registry: the backup image adds about 100 MB to the free 0.5 GB; the cleanup policy
     keeps the last 3 images of any repository package.
-  Free: Cloud Run job (a minute a night), Cloud Scheduler (3 jobs free; this is the 2nd),
+  Free: Cloud Run job (a minute a night), Cloud Scheduler (3 jobs free: the outbox, the database backup and the files copy use all 3; a 4th would cost about USD 0.10 a month),
   uptime checks (1M executions free; this uses about 52k a month), alert policies and email
   notifications, the log-based metric, Error Reporting (with Cloud Logging, 50 GB free).
 PLAN
@@ -187,6 +195,22 @@ mutate_quiet gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serv
 mutate_quiet gcloud secrets add-iam-policy-binding "$SECRET_DB_OWNER_URL" --project "$PROJECT_ID" \
   --member "serviceAccount:$BACKUP_SA" --role roles/secretmanager.secretAccessor --quiet
 
+echo "== Files backup service account"
+if gcloud iam service-accounts describe "$FILES_SA" --project "$PROJECT_ID" >/dev/null 2>&1; then
+  echo "  $FILES_SA_NAME exists"
+else
+  mutate gcloud iam service-accounts create "$FILES_SA_NAME" --display-name "Aarogyam patient files backup" --project "$PROJECT_ID"
+  [ "$DRY_RUN" = "1" ] || sleep 8
+fi
+for role in roles/storage.objectCreator roles/storage.objectViewer; do
+  mutate_quiet gcloud storage buckets add-iam-policy-binding "gs://$BACKUP_BUCKET" --project "$PROJECT_ID" \
+    --member "serviceAccount:$FILES_SA" --role "$role"
+done
+mutate_quiet gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:$FILES_SA" \
+  --role roles/logging.logWriter --condition=None --quiet
+mutate_quiet gcloud secrets add-iam-policy-binding "$SECRET_SUPABASE_KEY" --project "$PROJECT_ID" \
+  --member "serviceAccount:$FILES_SA" --role roles/secretmanager.secretAccessor --quiet
+
 # ---- 4. Image, job, schedule --------------------------------------------------------------
 echo "== Backup image"
 if gcloud artifacts docker images describe "$BACKUP_IMAGE" >/dev/null 2>&1; then
@@ -194,7 +218,7 @@ if gcloud artifacts docker images describe "$BACKUP_IMAGE" >/dev/null 2>&1; then
 else
   CTX="$WORK/backup-image"
   mkdir -p "$CTX/config"
-  cp deploy/backup/Dockerfile deploy/backup/backup.sh "$CTX/"
+  cp deploy/backup/Dockerfile deploy/backup/backup.sh deploy/backup/files-sync.sh "$CTX/"
   cp "$CA_FILE" "$CTX/config/"
   cat >"$WORK/build.yaml" <<'YAML'
 options:
@@ -234,6 +258,25 @@ fi
 mutate gcloud scheduler jobs "$SCHED_VERB" http "$BACKUP_JOB" --project "$PROJECT_ID" \
   --location "$REGION" --schedule "$BACKUP_SCHEDULE" --time-zone Etc/UTC \
   --uri "$JOB_URI" --http-method POST "$HEADERS_FLAG" "Content-Type=application/json" \
+  --message-body '{}' --oauth-service-account-email "$SCHED_SA"
+
+echo "== Files backup job and schedule"
+mutate gcloud run jobs deploy "$FILES_JOB" --project "$PROJECT_ID" --region "$REGION" \
+  --image "$DIGEST_IMAGE" --service-account "$FILES_SA" --command /app/files-sync.sh \
+  --tasks 1 --max-retries 1 --task-timeout 1800s --cpu 1 --memory 1Gi \
+  --set-env-vars "BACKUP_BUCKET=${BACKUP_BUCKET},FILES_BUCKET=aarogyam-files,SUPABASE_URL=${SUPABASE_URL:-<supabase-url>}" \
+  --set-secrets "SUPABASE_SECRET_KEY=${SECRET_SUPABASE_KEY}:latest" --quiet
+mutate_quiet gcloud run jobs add-iam-policy-binding "$FILES_JOB" --project "$PROJECT_ID" \
+  --region "$REGION" --member "serviceAccount:${SCHED_SA}" --role roles/run.invoker --quiet
+FILES_URI="https://run.googleapis.com/v2/projects/${PROJECT_ID}/locations/${REGION}/jobs/${FILES_JOB}:run"
+if gcloud scheduler jobs describe "$FILES_JOB" --location "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
+  F_VERB=update; F_HEADERS=--update-headers
+else
+  F_VERB=create; F_HEADERS=--headers
+fi
+mutate gcloud scheduler jobs "$F_VERB" http "$FILES_JOB" --project "$PROJECT_ID" \
+  --location "$REGION" --schedule "$FILES_SCHEDULE" --time-zone Etc/UTC \
+  --uri "$FILES_URI" --http-method POST "$F_HEADERS" "Content-Type=application/json" \
   --message-body '{}' --oauth-service-account-email "$SCHED_SA"
 
 # ---- 5. Email channel ---------------------------------------------------------------------
@@ -312,13 +355,17 @@ policy "Aarogyam backup: job failed" \
   'metric.type=\"run.googleapis.com/job/completed_execution_count\" AND resource.type=\"cloud_run_job\" AND resource.label.job_name=\"aarogyam-backup\" AND metric.label.result=\"failed\"' \
   ALIGN_DELTA 3600s 0 "The nightly backup failed; the latest dump is more than a day old. See docs/ops.md, Backups."
 
+policy "Aarogyam backup: patient files copy failed" \
+  'metric.type=\"run.googleapis.com/job/completed_execution_count\" AND resource.type=\"cloud_run_job\" AND resource.label.job_name=\"aarogyam-backup-files\" AND metric.label.result=\"failed\"' \
+  ALIGN_DELTA 3600s 0 "The nightly copy of patient files failed. See docs/ops.md, Backups."
+
 cat <<DONE
 
 $([ "$DRY_RUN" = 1 ] && echo "Dry run finished: nothing was changed. Apply with: PROJECT_ID=$PROJECT_ID scripts/ops-setup.sh --yes" || echo "Done.")
 
 Then, once:
   - Run the backup now:  gcloud run jobs execute $BACKUP_JOB --region $REGION --project $PROJECT_ID --wait
-  - Check Console > Monitoring > Alerting shows five policies and Uptime shows two checks.
+  - Check Console > Monitoring > Alerting shows six policies and Uptime shows two checks.
   - Error Reporting (Console > Error Reporting) shows errors once the API with error reporting is deployed.
   - Restore drill: scripts/restore-drill.sh --yes   (docs/ops.md)
 DONE

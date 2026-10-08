@@ -4,10 +4,10 @@
 # backup.sh and config/supabase-ca.crt (the database URLs say sslrootcert=config/supabase-ca.crt,
 # relative to /app).
 FROM postgres:17-alpine
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl jq
 WORKDIR /app
-COPY backup.sh /app/backup.sh
+COPY backup.sh files-sync.sh /app/
 COPY config/supabase-ca.crt /app/config/supabase-ca.crt
-RUN chmod 0555 /app/backup.sh && adduser -D -u 65532 backup
+RUN chmod 0555 /app/backup.sh /app/files-sync.sh && adduser -D -u 65532 backup
 USER backup
 ENTRYPOINT ["/app/backup.sh"]

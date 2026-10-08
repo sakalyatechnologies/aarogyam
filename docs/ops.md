@@ -9,7 +9,7 @@ the founder adds `--yes`.
 | 5xx and panic reports, web errors | Cloud Error Reporting (free with Cloud Logging) | built into the API |
 | Alert emails | Cloud Monitoring alert policies | `scripts/ops-setup.sh` |
 | Uptime checks | Cloud Monitoring, every 5 minutes, 3 regions | `scripts/ops-setup.sh` |
-| Nightly backup | Cloud Run job `aarogyam-backup` to a Cloud Storage bucket | `scripts/ops-setup.sh`, `deploy/backup/` |
+| Nightly backup (database, auth accounts, patient files) | Cloud Run jobs `aarogyam-backup` and `aarogyam-backup-files` to a Cloud Storage bucket | `scripts/ops-setup.sh`, `deploy/backup/` |
 | Restore drill | your laptop, scratch database | `scripts/restore-drill.sh` |
 | Script tests | no cloud access | `scripts/ops-selftest.sh` |
 
@@ -69,10 +69,9 @@ which is why the helper sends only the error's name, message and stack. The publ
 Locally (`ARO_ENVIRONMENT=local`) none of this writes Error Reporting lines; client errors go to
 the ordinary log as warnings.
 
-**Alerts.** `scripts/ops-setup.sh` creates an email channel and five policies: clinic address
+**Alerts.** `scripts/ops-setup.sh` creates an email channel and six policies: clinic address
 failing, website failing (two of three regions down), Cloud Run 5xx (three in five minutes),
-application error events (any, from the log-based metric `aarogyam_error_events`), and backup job
-failed. Verify them in Console, Monitoring, Alerting after applying: the metric and filter names
+application error events (any, from the log-based metric `aarogyam_error_events`), database backup failed, and patient files copy failed. Verify them in Console, Monitoring, Alerting after applying: the metric and filter names
 were written from documentation, not tested against a live project. For "new error group"
 emails, also switch on Error Reporting's own notifications in its settings (Console only).
 
@@ -98,6 +97,16 @@ Supabase's free plan has no downloadable backups, so the API's data is protected
 - **What**: `pg_dump --format=custom` of schemas `aarogyam`, `audit`, `private` and also `app`
   (functions only; the other schemas' triggers, defaults and policies need them to restore).
   Taken with the owner URL (row-level security hides rows from every other role).
+- **Auth accounts**: a second file, `auth-<time>.dump`, next to each dump: `auth.users` and
+  `auth.identities` (the owner role can read them on Supabase; checked). It holds emails and
+  password hashes, so it has the same access as the rest of the bucket and nothing else.
+- **Patient files**: job `aarogyam-backup-files` (02:15 IST, account `aarogyam-backup-files`)
+  lists the Supabase Storage bucket `aarogyam-files` with the service key and copies objects
+  that are not yet in `files/<clinic id>/<attachment id>`. Incremental (a quiet night copies
+  nothing), create-only (never overwrites). Objects never change after upload. It may list and
+  create objects in the bucket and read `aarogyam-supabase-secret-key`, nothing else. `files/`
+  is **not** under the 14/56-day rules: expiring by age would delete files that are still in use.
+  Instead a file stays until removed by hand (see Erasure).
 - **When**: Cloud Scheduler `30 20 * * *` UTC (02:00 IST) starts Cloud Run job `aarogyam-backup`
   (`deploy/backup/`, postgres:17 client). The dump is read back with `pg_restore --list` and its
   size checked after upload; failures log `backup.failed` and the "backup job failed" alert
@@ -121,11 +130,10 @@ Supabase's free plan has no downloadable backups, so the API's data is protected
   restored in under a second locally; measure your own with the drill). The real figure is the
   manual work around it: a new database, roles, secrets, redeploy. Plan on 2 to 4 hours until
   this has been done once for real. No one has restored production from these dumps yet.
-- **Not in the backup**, and not restorable from it: Supabase Auth accounts (`auth` schema;
-  restoring into the same project keeps them, a new project does not, so people would be
-  re-invited), patient files in Supabase Storage (`aarogyam-files`), database roles and their
-  passwords, and the database's own settings. Files and Auth are the next gap to close (a
-  nightly Storage sync is the cheapest fix); decide before the first clinic holds real data.
+- **Files have a separate, smaller RPO**: up to 24 hours too, but a file lost between the upload
+  and the next 02:15 IST run is gone; the database row would restore pointing at nothing.
+- **Not in the backup**: database roles and their passwords, other Supabase Auth tables
+  (sessions, refresh tokens: people sign in again), and the database's own settings.
 
 ### Restore drill
 
@@ -139,10 +147,18 @@ scripts/restore-drill.sh --yes --file x.dump --scratch-url postgres://postgres:.
 It downloads the dump with your own `gcloud` login, creates `aarogyam_drill_<time>` on the scratch
 server (a local Postgres 17, or a Supabase branch; it refuses the production host), prepares the
 `extensions` schema and any roles the dump grants to, restores with `--exit-on-error`, then
-reports: dump age, restore time, every table's row count, organizations present, no patient
+reports: dump age, the accounts dump read back, one random patient file restored from `files/`, restore time, every table's row count, organizations present, no patient
 without an organization, row-level-security policies present, and the migration ledger against
 `db/migrations`. Exit status 0 only on PASS; the scratch database is dropped (`--keep` keeps it).
 Run it after the first backup and then monthly; add the date to `docs/handoff.md`.
+
+### Erasure
+
+A patient file deleted in the product is deleted in Supabase Storage, but its copy stays in
+`files/` (and any database or accounts dump stays until it ages out, 14 or 56 days). When a
+deletion must be total, also run
+`gcloud storage rm gs://<bucket>/files/<clinic id>/<attachment id>` (you hold the rights; the
+backup accounts cannot delete).
 
 ### Restoring for real
 
@@ -155,13 +171,24 @@ Run it after the first backup and then monthly; add the date to `docs/handoff.md
    `btree_gist`, `btree_gin`, `pg_trgm`, then `pg_restore --no-owner --no-privileges --exit-on-error`
    as the owner and re-apply grants by running `aarogyam migrate` (the ledger is restored, so it
    applies only what is newer).
-4. Redeploy (`scripts/cloud-run-deploy.sh`) so revisions pick up the new secret versions, scale
+4. Accounts, new project only: the product links people to sign-in accounts by
+   `aarogyam.users.auth_uid` = `auth.users.id`. Restore the accounts first so the ids match and
+   nothing needs re-linking:
+   `pg_restore --data-only --no-owner --dbname <new owner url> auth-<time>.dump`
+   (`auth.users` then `auth.identities`; the new project's own tables must be empty of those
+   ids). If accounts were re-created another way (people re-invited or signed in again, so the
+   ids differ), re-link memberships by email, then check no product user is left unlinked:
+   `update aarogyam.users u set auth_uid = a.id from auth.users a where lower(a.email) = lower(u.email);`
+   `select count(*) from aarogyam.users u where not exists (select 1 from auth.users a where a.id = u.auth_uid);`
+5. Files: copy `files/` back into the Supabase bucket (`gcloud storage cp -r gs://<bucket>/files/ <local>` then
+   upload with the Storage API or dashboard, keeping the `<clinic id>/<attachment id>` paths).
+6. Redeploy (`scripts/cloud-run-deploy.sh`) so revisions pick up the new secret versions, scale
    back up, sign in, open a patient.
 
 ## Costs
 
-Free: Cloud Run job (about a minute a night), Cloud Scheduler (3 jobs free; the outbox and backup
-use two), uptime checks, alert policies and email, the log-based metric, Error Reporting (with
+Free: Cloud Run jobs (a few minutes a night), Cloud Scheduler (3 jobs free; the outbox, database
+backup and files copy use all three, a fourth would cost about USD 0.10 a month), uptime checks, alert policies and email, the log-based metric, Error Reporting (with
 Cloud Logging's 50 GB a month), Cloud Build (2,500 minutes a month).
 
 **Could cost money:** Cloud Storage in `asia-south1`. The always-free 5 GB covers only US

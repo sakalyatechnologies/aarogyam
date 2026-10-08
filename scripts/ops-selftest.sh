@@ -23,9 +23,10 @@ SCRIPTS=(scripts/ops-setup.sh scripts/restore-drill.sh scripts/ops-selftest.sh s
 echo "== syntax"
 for s in "${SCRIPTS[@]}"; do run "bash -n $s" bash -n "$s"; done
 run "sh -n deploy/backup/backup.sh" sh -n deploy/backup/backup.sh
+run "sh -n deploy/backup/files-sync.sh" sh -n deploy/backup/files-sync.sh
 if command -v shellcheck >/dev/null; then
   run "shellcheck scripts" shellcheck -x "${SCRIPTS[@]}"
-  run "shellcheck backup.sh" shellcheck -s sh deploy/backup/backup.sh
+  run "shellcheck backup.sh and files-sync.sh" shellcheck -s sh deploy/backup/backup.sh deploy/backup/files-sync.sh
 else
   echo "  skip  shellcheck is not installed"
 fi
@@ -53,6 +54,7 @@ expect "ops-setup plans the bucket in asia-south1" "$OUT" "storage buckets creat
 expect "ops-setup plans the lifecycle rules" "$OUT" "buckets update .*--lifecycle-file"
 expect "ops-setup keeps 14 daily and 8 weekly" "$OUT" "daily/   deleted after 14 days"
 expect "ops-setup plans a least-privilege backup account" "$OUT" "objectCreator"
+expect "ops-setup plans the files copy job" "$OUT" "run jobs deploy aarogyam-backup-files .*--command /app/files-sync.sh"
 expect "ops-setup plans the schedule" "$OUT" "scheduler jobs create http aarogyam-backup .*--schedule 30 20"
 expect "ops-setup plans the clinic uptime check on the health route" "$OUT" "/api/v1/health"
 expect "ops-setup plans five minute checks" "$OUT" "\"period\": \"300s\""
@@ -80,7 +82,7 @@ fi
 if [ -n "${OPS_SELFTEST_DB_URL:-}" ]; then
   echo "== backup and restore against $OPS_SELFTEST_DB_URL"
   ADMIN="$(sed -E 's#^([a-z]+://[^/]*)/.*#\1/postgres#' <<<"$OPS_SELFTEST_DB_URL")"
-  run "backup.sh writes a readable dump" env DB_URL="$OPS_SELFTEST_DB_URL" BACKUP_UPLOAD=0 OUT_DIR="$TMP" deploy/backup/backup.sh
+  run "backup.sh writes a readable dump" env DB_URL="$OPS_SELFTEST_DB_URL" BACKUP_UPLOAD=0 BACKUP_AUTH=0 OUT_DIR="$TMP" deploy/backup/backup.sh
   OUT="$(scripts/restore-drill.sh --yes --file "$TMP"/aarogyam-*.dump --scratch-url "$ADMIN" 2>&1)" || bad "drill passes on a fresh dump"
   expect "drill reports PASS" "$OUT" "RESULT: PASS"
   head -c 2000 "$TMP"/aarogyam-*.dump >"$TMP/aarogyam-20200101T000000Z.dump"

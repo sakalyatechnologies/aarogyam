@@ -1,6 +1,6 @@
 # AGENTS.md: aarogyam/mobile
 
-The Aarogyam staff app: Kotlin Multiplatform shared code (`shared/`), the Compose Android app (`androidApp/`) and the SwiftUI iOS app (`iosApp/`, XcodeGen `project.yml`, the shared framework through SKIE).
+The Aarogyam staff app: Kotlin Multiplatform shared code (`shared/`), the Compose Android app (`androidApp/`) and the SwiftUI iOS app (`iosApp/`, XcodeGen `project.yml`, the shared framework through SKIE). The patient app follows the same layout in `patientShared/`, `patientApp/` and `patientIos/` (README, "Patient app"); its gate is `patientIos/scripts/ios-check.sh` plus the same `./gradlew check`.
 
 ## Read before writing code
 

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aarogyam</string>
+    <string name="loading">Loading</string>
+    <string name="try_again">Try again</string>
+    <string name="not_configured_title">This build isn\'t set up</string>
+    <string name="not_configured_message">It has no sign-in settings. Ask whoever gave you the app for a new build.</string>
+    <string name="storage_unavailable_title">Unlock your phone to continue</string>
+    <string name="storage_unavailable_message">Your sign-in is kept in the phone\'s secure storage, which isn\'t available yet.</string>
+
+    <string name="sign_in_title">Your health, from every clinic</string>
+    <string name="sign_in_subtitle">Sign in with the email your clinic has for you. We\'ll send you a code; no password needed.</string>
+    <string name="email_label">Your email</string>
+    <string name="send_code">Send me a code</string>
+    <string name="code_sent">We sent an 8-digit code to %1$s.</string>
+    <string name="code_label">Code from the email</string>
+    <string name="verify_code">Sign in</string>
+    <string name="change_email">Use another email</string>
+    <string name="error_invalid_email">That doesn\'t look like an email address.</string>
+    <string name="error_invalid_code">Enter the 8 digits from the email.</string>
+    <string name="error_email_not_accepted">We couldn\'t send a code to that address. Use the email your clinic invited.</string>
+    <string name="error_code_rejected">That code didn\'t work. Check it, or ask for a new one.</string>
+    <string name="error_too_many">Too many tries. Please wait a few minutes.</string>
+    <string name="error_offline">You\'re offline. Check your connection.</string>
+    <string name="error_network">We couldn\'t reach Aarogyam. Please try again.</string>
+    <string name="error_unknown">Something went wrong. Please try again.</string>
+    <string name="error_signed_out">Please sign in again.</string>
+    <string name="error_upgrade">Please update the app to continue.</string>
+    <string name="error_not_configured">This build isn\'t set up.</string>
+
+    <string name="clinics_title">My clinics</string>
+    <string name="clinics_empty_title">Add your clinic</string>
+    <string name="clinics_empty_message">Your clinic gives you a code (on a QR card or by email). Enter it below to see your appointments, prescriptions and bills here.</string>
+    <string name="clinic_number">Your number: %1$s</string>
+    <string name="add_clinic_title">Add a clinic</string>
+    <string name="code_from_clinic">Code from your clinic</string>
+    <string name="code_hint">Like 7KQ2M-X9D4T</string>
+    <string name="add_clinic">Add clinic</string>
+    <string name="added_clinic">%1$s is now in your app.</string>
+    <string name="no_code_title">No code?</string>
+    <string name="no_code_message">Ask a clinic to connect the record with your email. They confirm it at the front desk.</string>
+    <string name="clinic_address_label">Clinic address name, like sunrise</string>
+    <string name="ask_clinic">Ask to connect</string>
+    <string name="asked_clinic">Asked. If the clinic has your email on file, they\'ll confirm it soon.</string>
+    <string name="link_invalid_code">A code is 10 letters and numbers.</string>
+    <string name="link_not_found">That code doesn\'t work. It may be used or expired; ask the clinic for a new one.</string>
+    <string name="link_other_record">You\'re already connected to another record at this clinic.</string>
+    <string name="link_taken">This record is connected to another account. Please ask the clinic.</string>
+    <string name="link_no_clinic">Enter the clinic\'s address name.</string>
+    <string name="sign_out">Sign out</string>
+    <string name="done">Done</string>
+    <string name="back">Back</string>
+
+    <string name="home_greeting">Hello</string>
+    <string name="home_subtitle">Here\'s what\'s coming up</string>
+    <string name="next_visit">Next visit</string>
+    <string name="no_next_visit_title">No visits booked</string>
+    <string name="no_next_visit_message">Book your next check-up in a few taps.</string>
+    <string name="book_visit">Book a visit</string>
+    <string name="see_appointments">All appointments</string>
+    <string name="prescriptions">Prescriptions</string>
+    <string name="bills">Bills</string>
+    <string name="balance_due">Due</string>
+    <string name="all_paid">All paid</string>
+    <string name="with_doctor">with %1$s</string>
+    <string name="at_clinic">%1$s · %2$s</string>
+
+    <string name="appointments_title">Appointments</string>
+    <string name="upcoming">Upcoming</string>
+    <string name="past">Past</string>
+    <string name="no_upcoming">Nothing booked yet.</string>
+    <string name="no_past">Your past visits will show here.</string>
+    <string name="cancel_visit">Cancel</string>
+    <string name="cancel_too_late">It\'s too close to the visit to cancel in the app. Please call the clinic.</string>
+    <string name="cancel_failed">We couldn\'t cancel it. Please try again.</string>
+    <string name="status_requested">Requested</string>
+    <string name="status_booked">Booked</string>
+    <string name="status_confirmed">Confirmed</string>
+    <string name="status_at_clinic">At the clinic</string>
+    <string name="status_done">Done</string>
+    <string name="status_cancelled">Cancelled</string>
+    <string name="status_missed">Missed</string>
+
+    <string name="book_title">Book a visit</string>
+    <string name="choose_clinic">Which clinic?</string>
+    <string name="choose_doctor">Which doctor?</string>
+    <string name="choose_day">Which day?</string>
+    <string name="choose_time">Which time?</string>
+    <string name="no_slots">No free times that day. Try another day.</string>
+    <string name="reason_label">What\'s it about? (optional)</string>
+    <string name="confirm_booking">Book this time</string>
+    <string name="booking_off">This clinic doesn\'t take bookings in the app yet. Please call them.</string>
+    <string name="slot_taken">Someone just took that time. Please pick another.</string>
+    <string name="booked_requested">Request sent. The clinic will confirm it soon.</string>
+    <string name="booked_confirmed">You\'re booked. See you then!</string>
+
+    <string name="prescriptions_empty">Prescriptions your doctors issue will show here.</string>
+    <string name="issued_by">%1$s · %2$s</string>
+    <string name="verify_prescription">Open the verified copy</string>
+    <string name="follow_up_on">Follow-up on %1$s</string>
+    <string name="timing_before_food">before food</string>
+    <string name="timing_after_food">after food</string>
+    <string name="timing_empty_stomach">on an empty stomach</string>
+    <string name="timing_bedtime">at bedtime</string>
+    <string name="timing_sos">when needed</string>
+    <string name="timing_as_directed">as directed</string>
+
+    <string name="bills_empty">Your bills will show here.</string>
+    <string name="total_due">Total due</string>
+    <string name="bill_total">Total %1$s</string>
+    <string name="bill_due">%1$s due</string>
+    <string name="bill_paid">Paid</string>
+    <plurals name="for_days">
+        <item quantity="one">for %1$d day</item>
+        <item quantity="other">for %1$d days</item>
+    </plurals>
+</resources>

@@ -8,8 +8,8 @@
 #   Web (when a web-relevant path is staged):
 #   6. pnpm check, from the repo root
 #   Mobile (when mobile/ or scripts/mobile-deps.sh is staged):
-#   7. ./gradlew check in mobile/ (tests, Android lint with warnings as errors, ktlint)
-#   8. the iOS app: simulator build and XCTests (mobile/iosApp/scripts/ios-check.sh)
+#   7. ./gradlew check in mobile/ (both apps: tests, Android lint with warnings as errors, ktlint)
+#   8. the iOS apps: simulator builds and XCTests (mobile/iosApp and mobile/patientIos ios-check.sh)
 # Bypass only in an emergency: git commit --no-verify
 staged=$(git diff --cached --name-only)
 rust_staged=$(printf '%s\n' "$staged" | grep -vE '^mobile/|^scripts/mobile-deps\.sh$' |
@@ -59,4 +59,5 @@ if [ -n "$mobile_staged" ]; then
   export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@17}"
   (cd mobile && ./gradlew check --quiet --max-workers=2) || fail "fix the mobile check findings above (cd mobile && ./gradlew check)"
   mobile/iosApp/scripts/ios-check.sh || fail "fix the iOS build or tests above (mobile/iosApp/scripts/ios-check.sh)"
+  mobile/patientIos/scripts/ios-check.sh || fail "fix the patient iOS build or tests above (mobile/patientIos/scripts/ios-check.sh)"
 fi

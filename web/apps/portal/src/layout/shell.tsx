@@ -9,17 +9,17 @@ import {
   Plus,
   Search,
   Settings,
+  ChevronsLeft,
   Menu as MenuIcon,
-  PanelLeftClose,
-  PanelLeftOpen,
   UserCog,
   UsersRound,
   X,
   Wallet,
   KeyRound,
 } from "lucide-react";
+import { m, useReducedMotion } from "motion/react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 
 import { PasswordDialog, signOutToSite, supportsPassword, useAuth, usePasswordDialog } from "@aarogyam/auth";
 import { useToast } from "@sakalya/ui";
@@ -33,7 +33,13 @@ import { CommandPalette } from "./command-palette.js";
 import { useStoredFlag } from "./use-stored-flag.js";
 import { LegalLinks } from "../components/legal-links.js";
 import { PeekProvider } from "./peek.js";
+import { PageTransition } from "./page-transition.js";
 import { ProgressBar } from "./progress-bar.js";
+
+/** The rail's widths on wide screens (the drawer under 1120px keeps its own width in CSS). */
+const RAIL_OPEN = "248px";
+const RAIL_SHUT = "72px";
+const RAIL_SPRING = { type: "spring", stiffness: 300, damping: 26 } as const;
 
 interface NavItem {
   id: string;
@@ -100,6 +106,7 @@ function NavGroup({
                 title={item.label}
                 onClick={onNavigate}
               >
+                {item.id === activeId ? <m.div layoutId="railbar" className="mk-railbar" aria-hidden="true" /> : null}
                 <span className="mk-ico" aria-hidden="true">
                   {item.icon}
                 </span>
@@ -126,41 +133,43 @@ function ClinicSwitch() {
   const others = me.clinics.filter((clinic) => clinic.org_id !== access.org_id);
   const listId = useId();
   return (
-    <div className="mk-clinic" ref={ref}>
-      <button
-        type="button"
-        disabled={others.length === 0}
-        aria-expanded={others.length === 0 ? undefined : open}
-        aria-controls={others.length === 0 ? undefined : listId}
-        aria-label={`Clinic: ${access.name}${others.length === 0 ? "" : ". Switch clinic"}`}
-        onClick={() => {
-          setOpen((value) => !value);
-        }}
-      >
-        <b>{access.name}</b>
-        <span>
-          {access.role_name}
-          {others.length === 0 ? "" : " ▾"}
-        </span>
-      </button>
-      {open ? (
-        <ul id={listId}>
-          {others.map((clinic) => (
-            <li key={clinic.org_id}>
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  switchClinic(clinic);
-                  void navigate("/");
-                }}
-              >
-                Switch to {clinic.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+    <div className="mk-clinic-wrap">
+      <div className="mk-clinic" ref={ref}>
+        <button
+          type="button"
+          disabled={others.length === 0}
+          aria-expanded={others.length === 0 ? undefined : open}
+          aria-controls={others.length === 0 ? undefined : listId}
+          aria-label={`Clinic: ${access.name}${others.length === 0 ? "" : ". Switch clinic"}`}
+          onClick={() => {
+            setOpen((value) => !value);
+          }}
+        >
+          <b>{access.name}</b>
+          <span>
+            {access.role_name}
+            {others.length === 0 ? "" : " ▾"}
+          </span>
+        </button>
+        {open ? (
+          <ul id={listId}>
+            {others.map((clinic) => (
+              <li key={clinic.org_id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    switchClinic(clinic);
+                    void navigate("/");
+                  }}
+                >
+                  Switch to {clinic.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -247,6 +256,7 @@ function ShellFrame() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [collapsed, setCollapsed] = useStoredFlag("aarogyam.portal.sidebar-collapsed");
   const sideRef = useRef<HTMLElement>(null);
+  const reduceMotion = useReducedMotion();
   const mainId = useId();
   const mainRef = useRef<HTMLElement>(null);
   const appointmentsToday = today.data?.counts.total;
@@ -382,10 +392,13 @@ function ShellFrame() {
           }}
         />
       ) : null}
-      <aside
+      <m.aside
         ref={sideRef}
         className={`mk-side ${menuOpen ? "open" : ""}`}
         aria-label="Sidebar"
+        initial={false}
+        animate={{ "--rail-w": collapsed ? RAIL_SHUT : RAIL_OPEN }}
+        transition={reduceMotion === true ? { duration: 0 } : RAIL_SPRING}
       >
         <div className="mk-logo">
           <ClinicMark name={session.clinic.name} />
@@ -403,7 +416,9 @@ function ShellFrame() {
               setCollapsed(!collapsed);
             }}
           >
-            {collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
+            <m.span className="mk-collapse-ico" initial={false} animate={{ rotate: collapsed ? 180 : 0 }} transition={RAIL_SPRING}>
+              <ChevronsLeft aria-hidden="true" />
+            </m.span>
           </button>
           <button
             type="button"
@@ -435,7 +450,7 @@ function ShellFrame() {
             }}
           />
         </nav>
-      </aside>
+      </m.aside>
       <div className="mk-main">
         <div className="mk-topbar">
           <button
@@ -491,7 +506,7 @@ function ShellFrame() {
           }}
         />
         <main id={mainId} ref={mainRef} tabIndex={-1} className="outline-none">
-          <Outlet />
+          <PageTransition />
         </main>
         <footer className="mk-foot">
           <LegalLinks />

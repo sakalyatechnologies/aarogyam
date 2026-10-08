@@ -1,3 +1,4 @@
+import { LazyMotion, MotionConfig } from "motion/react";
 import { useMemo } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 
@@ -10,6 +11,7 @@ import { Avatar, Button, Card, EmptyState, Skeleton, ThemeScope } from "@sakalya
 import { centralSignInSetting } from "../env.js";
 import { ClinicProvider, useClinicChoice, useMe, useServices, useSession, type ClinicContextValue } from "../clinic.js";
 import { MOCKUP_BRAND, mockupTheme, mockupVars } from "./mockup-theme.js";
+import { loadMotionFeatures } from "./motion-features.js";
 import { SetupGate } from "../pages/setup/setup-gate.js";
 import { MockShell } from "./shell.js";
 
@@ -104,9 +106,14 @@ export function ClinicGate() {
     <ClinicProvider value={value}>
       <div style={{ display: "contents", ...mockupVars(theme) }}>
         <ThemeScope theme={theme} className="min-h-full">
-          <SetupGate>
-            <MockShell />
-          </SetupGate>
+          {/* Motion's features load after first paint; `strict` keeps the heavy `motion.*` out. */}
+          <LazyMotion features={loadMotionFeatures} strict>
+            <MotionConfig reducedMotion="user">
+              <SetupGate>
+                <MockShell />
+              </SetupGate>
+            </MotionConfig>
+          </LazyMotion>
         </ThemeScope>
       </div>
     </ClinicProvider>

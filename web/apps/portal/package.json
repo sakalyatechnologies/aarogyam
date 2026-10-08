@@ -19,6 +19,7 @@
     "@sakalya/ui": "link:../../../../sakalya-web/packages/ui",
     "@tanstack/react-query": "^5.104.1",
     "lucide-react": "^1.50.0",
+    "motion": "^14.0.0",
     "qrcode-generator": "^2.0.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

@@ -10007,8 +10007,7 @@
           "mime_type",
           "size_bytes",
           "sha256",
-          "created_at",
-          "shared_with_patient"
+          "created_at"
         ],
         "properties": {
           "addendum_id": {
@@ -10076,7 +10075,7 @@
           },
           "shared_with_patient": {
             "type": "boolean",
-            "description": "Whether the clinic shares it with the patient in the patient app\n(`PUT /attachments/{id}/sharing`)."
+            "description": "Whether the clinic shares it with the patient in the patient app\n(`PUT /attachments/{id}/sharing`). Optional in the schema, so apps built before it read on."
           },
           "size_bytes": {
             "type": "integer",

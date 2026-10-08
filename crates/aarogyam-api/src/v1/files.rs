@@ -63,7 +63,8 @@ pub struct Attachment {
     /// A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`.
     pub language: Option<String>,
     /// Whether the clinic shares it with the patient in the patient app
-    /// (`PUT /attachments/{id}/sharing`).
+    /// (`PUT /attachments/{id}/sharing`). Optional in the schema, so apps built before it read on.
+    #[schema(required = false)]
     pub shared_with_patient: bool,
 }
 

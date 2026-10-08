@@ -3241,9 +3241,9 @@ export interface components {
             sha256: string;
             /**
              * @description Whether the clinic shares it with the patient in the patient app
-             *     (`PUT /attachments/{id}/sharing`).
+             *     (`PUT /attachments/{id}/sharing`). Optional in the schema, so apps built before it read on.
              */
-            shared_with_patient: boolean;
+            shared_with_patient?: boolean;
             /**
              * Format: int64
              * @description Size in bytes.

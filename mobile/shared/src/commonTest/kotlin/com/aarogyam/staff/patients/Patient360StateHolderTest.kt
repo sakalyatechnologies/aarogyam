@@ -23,13 +23,13 @@ import kotlin.test.assertTrue
 class Patient360StateHolderTest {
     private val base = "$SUNRISE/api/v1/patients/p1"
     private val flags =
-        """{"allergy_count":1,"severe_allergy":true,"condition_count":1,"details_hidden":false,
-           "allergies":[{"id":"a1","substance":"Penicillin","severity":"severe","reaction":"Rash","status":"active","source":"staff",
+        """{"allergy_count":1,"severe_allergy":true,"condition_count":1,"details_hidden":false,"allergies_reviewed":"has_allergies",
+           "allergies":[{"id":"a1","substance":"Penicillin","severity":"severe","confirmed":true,"reaction":"Rash","status":"active","source":"staff",
              "created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}],
            "conditions":[{"id":"c1","display_text":"Diabetes","flagged":true,"status":"active","source":"staff",
              "created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}]}"""
     private val hiddenFlags =
-        """{"allergy_count":1,"severe_allergy":true,"condition_count":0,"details_hidden":true,
+        """{"allergy_count":1,"severe_allergy":true,"condition_count":0,"details_hidden":true,"allergies_reviewed":"has_allergies",
            "allergies":[],"conditions":[]}"""
     private val visits =
         """{"items":[{"id":"v1","number":"V-318","patient_id":"p1","clinician":{"id":"m1","name":"Dr. Patil"},
@@ -115,7 +115,7 @@ class Patient360StateHolderTest {
             backend.on("$base/visits", { json("""{"items":[]}""") })
             backend.on("$base/clinical-flags", {
                 json(
-                    """{"allergy_count":0,"severe_allergy":false,"condition_count":0,"details_hidden":false,
+                    """{"allergy_count":0,"severe_allergy":false,"condition_count":0,"details_hidden":false,"allergies_reviewed":"has_allergies",
                        "allergies":[],"conditions":[]}""",
                 )
             })

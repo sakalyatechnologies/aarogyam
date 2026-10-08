@@ -500,9 +500,49 @@ pub async fn search_phone(
     Ok(rows)
 }
 
-/// Patients whose name starts with `prefix` (lowercased, as stored in `search_name`), by
-/// name. When `fuzzy` and fewer than three match, close spellings follow
-/// (`app.search_patients`, best match first, at most `limit` more). With summaries.
+/// Patients whose phone (main or alternate) ends with `tail` (digits only), by name, with
+/// summaries. A clinic's patients are few enough that this filters them without an index.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn search_phone_tail(
+    conn: &mut PgConnection,
+    tail: &str,
+    limit: i64,
+    at: SummaryAt,
+    member: Option<Uuid>,
+) -> Result<Vec<ListedPatient>, DbError> {
+    let rows = sqlx::query_as!(
+        ListedPatient,
+        r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
+                  s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+           from (select * from aarogyam.patients
+                 where (right(phone_e164, char_length($1)) = $1 or right(alt_phone_e164, char_length($1)) = $1)
+                   and deleted_at is null and app.patient_in_reach(id, $5)
+                 order by full_name
+                 limit $2) p
+           cross join lateral app.patient_summary(p.id, $3, $4) s
+           order by p.full_name"#,
+        tail,
+        limit,
+        at.now,
+        at.today,
+        member
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// Patients matching `prefix` (lowercased, as stored in `search_name`), best kind of match
+/// first, then by name, at most `limit`:
+/// 1. the whole name starts with it (`sneha p` finds Sneha Patil);
+/// 2. every typed word starts a word of the name, in any order (`pat`, `pat sne`);
+/// 3. when `loose`, the name contains it anywhere (`atil`);
+/// 4. when `loose` and fewer than three matched, close spellings (`app.search_patients`, best
+///    match first). With summaries.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -510,7 +550,7 @@ pub async fn search_name(
     conn: &mut PgConnection,
     prefix: &str,
     limit: i64,
-    fuzzy: bool,
+    loose: bool,
     at: SummaryAt,
     member: Option<Uuid>,
 ) -> Result<Vec<ListedPatient>, DbError> {
@@ -524,18 +564,35 @@ pub async fn search_name(
                and app.patient_in_reach(id, $7)
              order by search_name collate "C"
              limit $2
+           ), by_part as (
+             -- Word prefixes (every typed word starts a word of the name), then substrings.
+             select id, case when words then 1 else 2 end as source,
+                    row_number() over (order by not words, search_name collate "C") as position
+             from (select id, search_name,
+                          not exists (select 1 from unnest(string_to_array($1, ' ')) t
+                                      where strpos(' ' || search_name, ' ' || t) = 0) as words
+                   from aarogyam.patients
+                   where deleted_at is null and strpos(search_name, split_part($1, ' ', 1)) > 0
+                     and app.patient_in_reach(id, $7)) n
+             where (words or ($4 and strpos(search_name, $1) > 0))
+               and id not in (select id from by_prefix)
+             order by position
+             limit $2
            ), close as (
              select f.id, f.position
              from app.search_patients($1, $3) with ordinality
                   as f(id, number, full_name, sex, date_of_birth, birth_date_estimated,
                        phone_e164, last_visit_at, similarity, position)
-             where $4 and (select count(*) from by_prefix) < 3
+             where $4 and (select count(*) from by_prefix) + (select count(*) from by_part) < 3
                and f.id not in (select id from by_prefix)
+               and f.id not in (select id from by_part)
                and app.patient_in_reach(f.id, $7)
            ), picked as (
              select id, 0 as source, position from by_prefix
              union all
-             select id, 1, position from close
+             select id, source, position from by_part
+             union all
+             select id, 3, position from close
            )
            select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
                   p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
@@ -545,11 +602,12 @@ pub async fn search_name(
            join aarogyam.patients p on p.id = picked.id
            cross join lateral app.patient_summary(p.id, $5, $6) s
            where p.deleted_at is null
-           order by picked.source, picked.position"#,
+           order by picked.source, picked.position
+           limit $2"#,
         prefix,
         limit,
         fuzzy_limit,
-        fuzzy,
+        loose,
         at.now,
         at.today,
         member

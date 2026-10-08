@@ -11,7 +11,7 @@ mod support;
 use axum::http::{Method, StatusCode};
 use serde_json::{Value, json};
 use support::people::*;
-use support::{ALPHA, TestApp};
+use support::{ALPHA, BETA, TestApp};
 
 async fn register(app: &TestApp, token: &str, name: &str, phone: &str) -> String {
     let (status, body) = app
@@ -152,5 +152,69 @@ async fn opening_a_record_writes_one_access_record_and_a_missing_one_none() {
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(chart_views().await, before + 1);
+    app.finish().await;
+}
+
+/// The names a search at `host` returns, in order.
+async fn found_at(app: &TestApp, host: &str, token: &str, query: &str) -> Vec<String> {
+    let (status, body) = app
+        .send(
+            Method::POST,
+            host,
+            "/api/v1/patients/search",
+            Some(token),
+            Some(json!({ "q": query })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{query}: {body}");
+    names(&body)
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn parts_of_names_and_the_end_of_a_phone_find_patients() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    register(&app, &owner, "Sneha Patil", "98765 09999").await;
+    register(&app, &owner, "Patrick Dsouza", "98765 11112").await;
+    register(&app, &owner, "Ramesh Gopatil", "98765 22223").await;
+    register(&app, &owner, "Nila Iyer", "98765 31234").await;
+
+    // The whole name's start first, then the start of another word, then anywhere in it.
+    assert_eq!(
+        found(&app, &owner, "pat").await,
+        ["Patrick Dsouza", "Sneha Patil", "Ramesh Gopatil"]
+    );
+    // Two letters: starts of words only, no substrings.
+    assert_eq!(
+        found(&app, &owner, "pa").await,
+        ["Patrick Dsouza", "Sneha Patil"]
+    );
+    // Every typed word starts a word, in any order.
+    assert_eq!(found(&app, &owner, "pat sne").await, ["Sneha Patil"]);
+    assert_eq!(
+        found(&app, &owner, "atil").await,
+        ["Ramesh Gopatil", "Sneha Patil"]
+    );
+
+    // The last four or more digits of a phone, with or without spaces.
+    assert_eq!(found(&app, &owner, "9999").await, ["Sneha Patil"]);
+    assert_eq!(found(&app, &owner, "0 9999").await, ["Sneha Patil"]);
+    assert_eq!(found(&app, &owner, "22223").await, ["Ramesh Gopatil"]);
+    // Digits in the middle of a phone are not its end.
+    assert_eq!(found(&app, &owner, "8765").await, Vec::<String>::new());
+    // Digits that are no patient's number still find the phone they end.
+    assert_eq!(found(&app, &owner, "1234").await, ["Nila Iyer"]);
+
+    // Another clinic finds none of them, by name or by phone.
+    let beta = app.token(BETA_OWNER);
+    assert_eq!(
+        found_at(&app, BETA, &beta, "pat").await,
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        found_at(&app, BETA, &beta, "9999").await,
+        Vec::<String>::new()
+    );
     app.finish().await;
 }

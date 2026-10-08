@@ -123,4 +123,17 @@ describe("Stock", () => {
     renderPortal("/stock", { as: PEOPLE.farah, backend: asRole(ROLES.consultant) });
     expect(await screen.findByText("Stock isn't available to your role")).toBeTruthy();
   });
+
+  it("shows one guided card, not a second empty table, when nothing is tracked", async () => {
+    const backend = fakeApi((fixtures) => {
+      fixtures.inventoryItems.length = 0;
+      fixtures.stockBatches.length = 0;
+      fixtures.stockMovements.length = 0;
+    });
+    renderPortal("/stock", { as: PEOPLE.farah, backend });
+    expect(await screen.findByText("Start tracking your stock")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Add the first item/ })).toBeTruthy();
+    expect(screen.queryByText("No items yet")).toBeNull();
+    expect(screen.queryByRole("table", { name: "Inventory" })).toBeNull();
+  });
 });

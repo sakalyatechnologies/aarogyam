@@ -39,6 +39,7 @@ export function StockPage() {
   }
 
   const items = stock.data?.items ?? [];
+  const empty = !stock.isPending && !stock.isError && items.length === 0;
   const needOrder = items.filter((l) => l.item.active && (l.status === "low" || l.status === "critical")).length;
 
   const columns: readonly DataTableColumn<StockLevel>[] = [
@@ -91,12 +92,16 @@ export function StockPage() {
       />
       <div className="flex flex-col gap-4">
         {stock.isError ? <ApiErrorNotice title="Couldn't load stock" error={stock.error} onRetry={() => void stock.refetch()} /> : null}
-        {!stock.isPending && items.length === 0 ? (
+        {empty ? (
           <MkCard>
             <EmptyState
               art="stock"
               title="Start tracking your stock"
-              description="Add the materials and medicines the clinic keeps; low levels and expiry dates then show up on Today."
+              description={
+                canManage
+                  ? "Add the materials and medicines the clinic keeps, with a reorder level for each. Low levels and expiry dates then show up here and on Today."
+                  : "Nothing is tracked yet. Someone with the inventory permission can add the materials and medicines the clinic keeps."
+              }
               action={
                 canManage ? (
                   <button
@@ -154,6 +159,7 @@ export function StockPage() {
           </AlertBanner>
         ) : null}
 
+        {empty ? null : (
         <MkCard
           title="Inventory"
           action={
@@ -178,6 +184,7 @@ export function StockPage() {
             empty={{ title: "No items yet", description: "Add the materials the clinic stocks to track them here.", icon: null }}
           />
         </MkCard>
+        )}
       </div>
       <ItemDialog
         itemId={openItem}

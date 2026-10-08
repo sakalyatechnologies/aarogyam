@@ -79,3 +79,9 @@ The pre-commit hook runs both when anything under `mobile/` is staged.
 ## API models
 
 `shared` generates models from `../docs/api/openapi.json` at build time (OpenAPI Generator, `kotlin` / `multiplatform`, models only) into `shared/build/generated/openapi`, so they never drift from the committed spec. Add a schema to `apiModels` in `shared/build.gradle.kts` when a screen needs it, and a wrapper in `api/AarogyamApi.kt` (one request per screen where the API offers it).
+
+## Patient app
+
+A second app for patients (`docs/patient-access.md`): `patientShared/` (KMP state holders, models from the `patient` tag of the OpenAPI document), `patientApp/` (Compose, id `com.sakalya.patient`) and `patientIos/` (SwiftUI, XcodeGen, framework `AarogyamPatientShared`). Sign-in by email code, My clinics (add one with the clinic's code, or ask a clinic to confirm), Home (next visit, book, prescriptions, bills), Appointments with Cancel. Reads go to the app host (`/api/v1/me/patient/...`); booking and cancelling go to the clinic's host. Screenshots are blocked except in the local debug build (synthetic data); `mobile/docs/screenshots/patient/` has them.
+
+Local run: the local stack as above, then link a synthetic patient (any seeded patient's record with email `patient.demo@example.test`, invited from Patient 360, redeemed with the dev sign-in's "Synthetic patient"), and `./gradlew :patientApp:installLocalDebug` / `patientIos/scripts/ios-check.sh`. The sign-in holder, `ScreenError` and host config are copies of the staff app's and move to sakalya-mobile (backlog).

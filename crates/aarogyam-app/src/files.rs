@@ -388,6 +388,8 @@ pub struct AttachmentView {
     pub duration_seconds: Option<i32>,
     /// The language a recording is spoken in.
     pub language: Option<VoiceLanguage>,
+    /// Whether the clinic shares it with the patient in the patient app.
+    pub shared_with_patient: bool,
 }
 
 fn view(row: AttachmentRow) -> Result<AttachmentView, AppError> {
@@ -408,6 +410,7 @@ fn view(row: AttachmentRow) -> Result<AttachmentView, AppError> {
         addendum_id: row.addendum_id.map(NoteAddendumId::from_uuid),
         duration_seconds: row.duration_seconds,
         language: row.language.as_deref().and_then(VoiceLanguage::parse),
+        shared_with_patient: row.shared_with_patient,
     })
 }
 

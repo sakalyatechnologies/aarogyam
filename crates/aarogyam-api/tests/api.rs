@@ -542,7 +542,11 @@ async fn every_route_requires_sign_in_and_a_permission() {
                 // A verified-email sign-in with no clinic membership: tests/self_booking.rs.
                 "/api/v1/public/bookings",
             ];
-            let clinic_route = host == ALPHA && !signed_in_only.contains(&path.as_str());
+            // The patient app's own permission model: a patient account sees only its linked
+            // records, at clinics that linked it (tests/patient_app.rs).
+            let patient_route = path.starts_with("/api/v1/me/patient");
+            let clinic_route =
+                host == ALPHA && !signed_in_only.contains(&path.as_str()) && !patient_route;
             if clinic_route {
                 let (status, _) = app
                     .send(method.clone(), host, &concrete, Some(&nothing), body)

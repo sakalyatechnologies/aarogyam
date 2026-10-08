@@ -103,4 +103,8 @@ entities! {
     TreatmentPlanItem, TreatmentPlanItemId;
     /// A patient file.
     Attachment, AttachmentId;
+    /// A person signed in to the patient app.
+    PatientAccount, PatientAccountId;
+    /// A patient account's link to a clinic's record.
+    PatientLink, PatientLinkId;
 }

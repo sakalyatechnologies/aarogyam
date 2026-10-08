@@ -127,6 +127,16 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function createFakeBackend(fixtures: Fixtures): FakeBackend {
   const state = structuredClone(fixtures);
   const random = createRandom(7);
+  /** Patient-app links and waiting codes, per patient (the fake keeps them in memory only). */
+  const appAccess = new Map<string, { links: C.PatientAppLink[]; code_expires_at: string | null }>();
+  const appAccessOf = (patient: string) => {
+    let found = appAccess.get(patient);
+    if (found === undefined) {
+      found = { links: [], code_expires_at: null };
+      appAccess.set(patient, found);
+    }
+    return found;
+  };
 
   interface Invitation {
     id: string;
@@ -2667,6 +2677,81 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return notFound;
           }
           return reply({ url: found.url, expires_at: new Date(clock().getTime() + 5 * 60_000).toISOString() } satisfies C.DownloadLink);
+        }),
+
+      setAttachmentSharing: (id, sharing, opts) =>
+        respond(S.fileSharing, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.attachments.find((a) => a.id === id && a.clinic_id === caller.clinic.id && a.kind !== "audio");
+          if (found === undefined) {
+            return notFound;
+          }
+          found.shared_with_patient = sharing.shared_with_patient;
+          return reply({ shared_with_patient: sharing.shared_with_patient } satisfies C.FileSharing);
+        }),
+
+      getPatientAppAccess: (id, opts) =>
+        respond(S.patientAppAccess, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const patient = clinicPatients(caller).find((p) => p.id === id);
+          if (patient === undefined) {
+            return notFound;
+          }
+          const access = appAccessOf(id);
+          return reply({ links: access.links, code_expires_at: access.code_expires_at, has_email: patient.email != null } satisfies C.PatientAppAccess);
+        }),
+
+      invitePatientToApp: (id, opts) =>
+        respond(S.patientAppInvitation, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const patient = clinicPatients(caller).find((p) => p.id === id);
+          if (patient === undefined) {
+            return notFound;
+          }
+          if (patient.email == null) {
+            return refuse(409, "conflict", "add the patient's email first: they sign in to the app with it");
+          }
+          const alphabet = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "M", "N", "P", "Q", "R", "S", "T", "V", "W", "X", "Y", "Z"];
+          const half = () => Array.from({ length: 5 }, () => random.pick(alphabet)).join("");
+          const expires = new Date(clock().getTime() + 7 * 86_400_000).toISOString();
+          appAccessOf(id).code_expires_at = expires;
+          return reply({ code: `${half()}-${half()}`, expires_at: expires, emailed: true } satisfies C.PatientAppInvitation);
+        }),
+
+      decidePatientLink: (id, decision, opts) =>
+        respond(S.patientLinkDecided, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          for (const patient of clinicPatients(caller)) {
+            const link = appAccess.get(patient.id)?.links.find((l) => l.id === id);
+            if (link === undefined) {
+              continue;
+            }
+            const from = decision === "revoke" ? "active" : "pending";
+            if (link.status !== from) {
+              return notFound;
+            }
+            link.status = decision === "confirm" ? "active" : decision === "decline" ? "declined" : "revoked";
+            if (decision === "confirm") {
+              link.linked_at = clock().toISOString();
+            }
+            if (decision === "revoke") {
+              link.revoked_at = clock().toISOString();
+            }
+            return reply({ id, status: link.status } satisfies C.PatientLinkDecided);
+          }
+          return notFound;
         }),
 
       listStaff: (opts) =>
@@ -5712,6 +5797,7 @@ function wireChartEntry(c: FakeChartEntry, state: Fixtures): C.ChartEntry {
 
 function wireAttachment(a: FakeAttachment): C.Attachment {
   return {
+    shared_with_patient: a.shared_with_patient ?? false,
     id: a.id,
     kind: a.kind,
     mime_type: a.mime_type,

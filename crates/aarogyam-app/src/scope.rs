@@ -39,3 +39,25 @@ pub(crate) fn public_scope(
         None => scope,
     }
 }
+
+pub(crate) const PATIENT_ACCOUNT: ActorKind = match ActorKind::new("patient_account") {
+    Ok(kind) => kind,
+    Err(_) => panic!("invalid actor kind"),
+};
+
+/// The scope for a signed-in patient account reading one linked clinic: row-level security
+/// limits every row to the clinic and, through the `patient_account` policies, to the linked
+/// record (migration 0261).
+pub(crate) fn patient_account_scope(
+    clinic_id: aarogyam_domain::ids::ClinicId,
+    account_id: aarogyam_domain::ids::PatientAccountId,
+    request_id: Option<Uuid>,
+) -> Scope {
+    let scope = Scope::tenant(clinic_id.uuid())
+        .with_user(account_id.uuid())
+        .with_actor_kind(PATIENT_ACCOUNT);
+    match request_id {
+        Some(id) => scope.with_request_id(id),
+        None => scope,
+    }
+}

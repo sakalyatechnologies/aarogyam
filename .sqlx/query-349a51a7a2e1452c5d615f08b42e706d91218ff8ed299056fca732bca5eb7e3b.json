@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select org_id as \"org_id!\", outcome as \"outcome!\"\n           from app.redeem_patient_link_code($1, $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "org_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "outcome!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "349a51a7a2e1452c5d615f08b42e706d91218ff8ed299056fca732bca5eb7e3b"
+}

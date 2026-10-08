@@ -429,6 +429,13 @@ fn hot_routes(
             ALPHA,
             format!("/api/v1/patients/{patient}"),
         ),
+        // The patient in reach, then the links and the waiting code: one over.
+        Route::get(
+            "GET /patients/{id}/app-access",
+            ALPHA,
+            format!("/api/v1/patients/{patient}/app-access"),
+        )
+        .allow_extra(1),
         Route {
             signed_in: false,
             ..Route::get(
@@ -497,6 +504,105 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
         if warm.statements > WARM_BUDGET + route.extra
             || cold.statements > COLD_BUDGET + route.extra
         {
+            over.push(route.name);
+        }
+    }
+    println!("{table}");
+    app.finish().await;
+    assert!(over.is_empty(), "over budget: {over:?}{table}");
+}
+
+/// The patient app's reads with one linked clinic. The account and its links take one trip on
+/// the app host (no cache: a revoked link must stop working at once), then each linked clinic
+/// is one scoped transaction: start, one statement (with its access record), commit.
+const PATIENT_BUDGET_ONE_CLINIC: usize = 1 + WARM_BUDGET;
+
+#[tokio::test]
+#[ignore = "needs Postgres: DATABASE_URL=postgres://localhost:5432/postgres"]
+async fn patient_app_reads_stay_within_their_round_trip_budget() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let today = OffsetDateTime::now_utc()
+        .to_offset(UtcOffset::from_hms(5, 30, 0).unwrap())
+        .date();
+    let (_, patient, _) = clinic_day(&app, &owner, today + Duration::days(1)).await;
+    let (status, body) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &format!("/api/v1/patients/{patient}"),
+            Some(&owner),
+            Some(json!({ "email": "sunil@example.test" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, invitation) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/patients/{patient}/app-invitations"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{invitation}");
+    let person = uuid::Uuid::now_v7();
+    let token = app
+        .tokens
+        .mint_with_email(person, Some("sunil@example.test"))
+        .unwrap();
+    let (status, linked) = app
+        .send(
+            Method::POST,
+            "app.localtest.me",
+            "/api/v1/me/patient/links",
+            Some(&token),
+            Some(json!({ "code": invitation["code"] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{linked}");
+
+    let host = "app.localtest.me";
+    let routes = [
+        // The account and its links only.
+        Route::get("GET /me/patient", host, "/api/v1/me/patient".into()),
+        Route::get(
+            "GET /me/patient/home",
+            host,
+            "/api/v1/me/patient/home".into(),
+        ),
+        Route::get(
+            "GET /me/patient/appointments",
+            host,
+            "/api/v1/me/patient/appointments".into(),
+        ),
+        Route::get(
+            "GET /me/patient/prescriptions",
+            host,
+            "/api/v1/me/patient/prescriptions".into(),
+        ),
+        Route::get(
+            "GET /me/patient/bills",
+            host,
+            "/api/v1/me/patient/bills".into(),
+        ),
+        Route::get(
+            "GET /me/patient/files",
+            host,
+            "/api/v1/me/patient/files".into(),
+        ),
+    ];
+    let mut table = String::from("\nroute                          trips\n");
+    let mut over = Vec::new();
+    for route in &routes {
+        let (db, trips) = app.counting_db().await;
+        let patient_router = app.router_on(db);
+        for _ in 0..3 {
+            measure(&patient_router, &trips, route, &token).await;
+        }
+        let counted = measure(&patient_router, &trips, route, &token).await;
+        writeln!(table, "{:<31}{:>4}", route.name, counted.statements).unwrap();
+        if counted.statements > PATIENT_BUDGET_ONE_CLINIC {
             over.push(route.name);
         }
     }

@@ -26,3 +26,5 @@ includeBuild(sakalyaMobile)
 
 include(":shared")
 include(":androidApp")
+include(":patientShared")
+include(":patientApp")

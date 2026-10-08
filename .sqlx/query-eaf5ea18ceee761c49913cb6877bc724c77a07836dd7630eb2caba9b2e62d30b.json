@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.patient_links\n           set status = $3, decided_by = $4,\n               linked_at = case when $3 = 'active' then now() else linked_at end,\n               revoked_at = case when $3 = 'revoked' then now() else revoked_at end,\n               revoked_by = case when $3 = 'revoked' then 'clinic' else revoked_by end\n           where id = $1 and status = $2 and app.patient_in_reach(patient_id, $5)\n           returning patient_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patient_links",
+            "name": "patient_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "eaf5ea18ceee761c49913cb6877bc724c77a07836dd7630eb2caba9b2e62d30b"
+}

@@ -51,6 +51,15 @@ impl PortalLinks {
     pub fn shared(&self, host: &str, token: &str) -> String {
         format!("{}/shared/{token}", self.pattern.replace("{host}", host))
     }
+
+    /// The public page that verifies an issued prescription (its QR code points here).
+    #[must_use]
+    pub fn verify(&self, host: &str, token: &str) -> String {
+        format!(
+            "{}/verify/prescriptions/{token}",
+            self.pattern.replace("{host}", host)
+        )
+    }
 }
 
 impl Default for PortalLinks {
@@ -156,6 +165,44 @@ fn render_booking(
     })
 }
 
+/// The invitation to the patient app: the clinic, the link code and its expiry. No patient name
+/// or clinical data; the code links only the record the clinic chose.
+fn render_app_invitation(
+    to: String,
+    payload: &Value,
+    code: Option<&str>,
+) -> Result<Email, Failure> {
+    let clinic = field(payload, "clinic_name")?;
+    let expires = field(payload, "expires_on")?;
+    let code = code.ok_or_else(|| Failure::permanent("no link code"))?;
+    let subject = format!("See your {clinic} records in the Aarogyam app");
+    let text = format!(
+        "{clinic} has invited you to the Aarogyam patient app, where you can see your \
+         appointments, prescriptions and bills, and book your next visit.\n\n\
+         1. Install the Aarogyam app and sign in with this email address.\n\
+         2. Choose \"Add a clinic\" and enter this code: {code}\n\n\
+         The code works once and expires on {expires}. \
+         If you weren't expecting this, you can ignore this email."
+    );
+    let html = format!(
+        "<p><strong>{clinic}</strong> has invited you to the Aarogyam patient app, where you can \
+         see your appointments, prescriptions and bills, and book your next visit.</p>\
+         <ol><li>Install the Aarogyam app and sign in with this email address.</li>\
+         <li>Choose \"Add a clinic\" and enter this code: <strong>{code}</strong></li></ol>\
+         <p>The code works once and expires on {expires}. \
+         If you weren't expecting this, you can ignore this email.</p>",
+        clinic = escape(clinic),
+        code = escape(code),
+        expires = escape(expires),
+    );
+    Ok(Email {
+        to,
+        subject,
+        text,
+        html,
+    })
+}
+
 /// Renders a claimed email message.
 pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Failure> {
     let to = message
@@ -237,6 +284,9 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
                 text,
                 html,
             })
+        }
+        Some(MessageKind::PatientAppInvited) => {
+            render_app_invitation(to, &message.payload, message.secret.as_deref())
         }
         Some(
             kind @ (MessageKind::BookingRequested
@@ -336,6 +386,33 @@ mod tests {
         message.event_key = "booking.declined".into();
         let email = render(&message, &PortalLinks::default()).unwrap();
         assert!(email.text.contains("https://sunrise.localtest.me/book"));
+    }
+
+    #[test]
+    fn app_invitations_carry_the_code_and_no_patient_details() {
+        let message = Claimed {
+            event_key: "patient_app.invited".into(),
+            secret: Some("7KQ2M-X9D4T".into()),
+            payload: json!({
+                "clinic_name": "Alpha Dental",
+                "portal_host": "alpha.localtest.me",
+                "expires_on": "2026-10-14",
+            }),
+            ..invitation(json!({}))
+        };
+        let email = render(&message, &PortalLinks::default()).unwrap();
+        assert_eq!(
+            email.subject,
+            "See your Alpha Dental records in the Aarogyam app"
+        );
+        assert!(email.text.contains("7KQ2M-X9D4T"));
+        assert!(email.html.contains("<strong>7KQ2M-X9D4T</strong>"));
+        assert!(email.text.contains("2026-10-14"));
+        let without_code = Claimed {
+            secret: None,
+            ..message
+        };
+        assert!(render(&without_code, &PortalLinks::default()).is_err());
     }
 
     #[test]

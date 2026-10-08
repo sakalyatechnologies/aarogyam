@@ -277,7 +277,7 @@ fn apply_edit(
     })
 }
 
-fn mask_email(email: &str) -> String {
+pub(crate) fn mask_email(email: &str) -> String {
     match email.split_once('@') {
         Some((local, domain)) => {
             let first: String = local.chars().take(1).collect();

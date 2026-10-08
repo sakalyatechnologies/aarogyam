@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with found as (\n             select id, mime_type from aarogyam.attachments\n             where id = $4 and patient_id = $1 and shared_with_patient and deleted_at is null\n               and kind <> 'audio'\n           ), logged as (\n             insert into audit.access_log\n               (actor_user_id, actor_kind, patient_id, resource, resource_id, action, purpose, request_id)\n             select $2, 'patient', $1, 'attachment', found.id, 'download', 'patient_self', $3 from found\n           )\n           select mime_type from found",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mime_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "mime_type"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5ac991217891e220953b45f78f302bdf5c9df64bb610030140541cce2eeadac0"
+}

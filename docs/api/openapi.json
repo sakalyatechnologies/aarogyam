@@ -379,6 +379,61 @@
         ]
       }
     },
+    "/api/v1/attachments/{id}/sharing": {
+      "put": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Shares a file with the patient in their app, or stops sharing it. Voice recordings are\nnever shared.",
+        "operationId": "setAttachmentSharing",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileSharing"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileSharing"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such file in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/auth/handoff": {
       "post": {
         "tags": [
@@ -2490,6 +2545,461 @@
         ]
       }
     },
+    "/api/v1/me/patient": {
+      "get": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "The signed-in patient's account and linked clinics. The account is made on the first call.",
+        "operationId": "getMyPatientAccount",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientMe"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The sign-in has no verified email"
+          },
+          "404": {
+            "description": "Not the app host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/appointments": {
+      "get": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "The patient's upcoming and past appointments at every linked clinic.",
+        "operationId": "listMyAppointments",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientAppointments"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not the app host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/appointments/{id}/cancel": {
+      "post": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "Cancels one of the patient's own appointments at this clinic (the host), when it is still\nopen and starts at least the clinic's booking notice from now. Repeating it succeeds.",
+        "operationId": "cancelMyAppointment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The appointment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientCancelled"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not the patient's appointment at this clinic"
+          },
+          "409": {
+            "description": "Too late to cancel in the app"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/bills": {
+      "get": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "The patient's issued bills and what they owe each linked clinic (read only).",
+        "operationId": "listMyBills",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientBills"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not the app host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/bookings": {
+      "post": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "Books a slot at this clinic (the host) for the patient's linked record, through the same\nrules as the public booking page. `requested`, or `confirmed` when the clinic auto-confirms.",
+        "operationId": "bookAsPatient",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientBooking"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientAppointment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic that linked the patient, or online booking is off"
+          },
+          "409": {
+            "description": "The slot is gone, or too many open bookings"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/files": {
+      "get": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "The files every linked clinic marked \"Share with patient\".",
+        "operationId": "listMyFiles",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientFiles"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not the app host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/files/{id}/content": {
+      "get": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "Streams a file this clinic (the host) shared with the patient. Each download is in the\naccess record.",
+        "operationId": "getMyFileContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, with its media type"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a file this clinic shared with the patient"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/home": {
+      "get": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "The home screen: the next appointment, balances and prescriptions at every linked clinic.",
+        "operationId": "getMyPatientHome",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientHome"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not the app host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/link-requests": {
+      "post": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "Asks a clinic to connect the record that has the patient's verified email. The clinic\nconfirms it on Patient 360; nothing is linked until then. Always `202`, whether or not the\nclinic has such a record.",
+        "operationId": "requestPatientLink",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Asked; the clinic will confirm"
+          },
+          "400": {
+            "description": "No clinic named"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/links": {
+      "post": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "Links the patient's account to their record at a clinic with the code the clinic issued.\nThe patient's consent is recorded with the link.",
+        "operationId": "redeemPatientLinkCode",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeemLinkCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Already linked: nothing changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkedByCode"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Linked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkedByCode"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a code"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "No such code, used, or expired"
+          },
+          "409": {
+            "description": "Linked to another record there, or the record to another account"
+          },
+          "429": {
+            "description": "Too many attempts"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/links/{id}/revoke": {
+      "post": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "Ends one of the patient's own links: that clinic's records leave the app.",
+        "operationId": "revokePatientLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Ended"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not one of the patient's open links"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/prescriptions": {
+      "get": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "The patient's issued prescriptions at every linked clinic (drafts and cancelled ones are\nnever shown), each with the link to its public verify page.",
+        "operationId": "listMyPrescriptions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPrescriptions"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not the app host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/practitioner": {
       "get": {
         "tags": [
@@ -3042,6 +3552,144 @@
         ]
       }
     },
+    "/api/v1/patient-links/{id}/confirm": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Confirms a match the patient asked for: the record appears in their app.",
+        "operationId": "confirmPatientLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientLinkDecided"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No pending link with this id in this clinic"
+          },
+          "409": {
+            "description": "The record is already linked to an app account"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patient-links/{id}/decline": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Declines a match the patient asked for.",
+        "operationId": "declinePatientLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientLinkDecided"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No pending link with this id in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patient-links/{id}/revoke": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Ends an active link: the record leaves the patient's app.",
+        "operationId": "revokePatientLinkByClinic",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientLinkDecided"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No active link with this id in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients": {
       "get": {
         "tags": [
@@ -3490,6 +4138,102 @@
           },
           "404": {
             "description": "No such allergy for this patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/app-access": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Who has patient-app access to this record, and whether a code is waiting.",
+        "operationId": "getPatientAppAccess",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientAppAccess"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/app-invitations": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "\"Invite to patient app\": makes sure the patient can sign in with the email on their record,\nissues a link code (replacing any unused one) and emails it through the outbox.",
+        "operationId": "invitePatientToApp",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientAppInvitation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "The record has no email, or the clinic no portal address"
+          },
+          "503": {
+            "description": "Supabase could not create the sign-in account"
           }
         },
         "security": [
@@ -9541,6 +10285,10 @@
             "type": "string",
             "description": "SHA-256 of the content, hex."
           },
+          "shared_with_patient": {
+            "type": "boolean",
+            "description": "Whether the clinic shares it with the patient in the patient app\n(`PUT /attachments/{id}/sharing`). Optional in the schema, so apps built before it read on."
+          },
           "size_bytes": {
             "type": "integer",
             "format": "int64",
@@ -11614,6 +12362,19 @@
           }
         }
       },
+      "FileSharing": {
+        "type": "object",
+        "description": "Whether a file is shared with the patient.",
+        "required": [
+          "shared_with_patient"
+        ],
+        "properties": {
+          "shared_with_patient": {
+            "type": "boolean",
+            "description": "True to show it in the patient's app."
+          }
+        }
+      },
       "Handoff": {
         "type": "object",
         "description": "A one-time code for that host. Send the person to `redirect_url`: the code is in the URL\nfragment, which browsers never send to a server.",
@@ -13100,6 +13861,24 @@
           }
         }
       },
+      "LinkedByCode": {
+        "type": "object",
+        "description": "The clinic a code linked.",
+        "required": [
+          "clinic_id",
+          "outcome"
+        ],
+        "properties": {
+          "clinic_id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "outcome": {
+            "type": "string",
+            "description": "`linked`, or `already_linked` for a repeat."
+          }
+        }
+      },
       "LowStockAlert": {
         "type": "object",
         "description": "An item at or below its reorder level, for the front desk's attention list.",
@@ -13841,6 +14620,19 @@
           "starts_at": {
             "type": "string",
             "description": "Start (RFC 3339)."
+          }
+        }
+      },
+      "NewLinkRequest": {
+        "type": "object",
+        "description": "Which clinic to ask.",
+        "required": [
+          "clinic"
+        ],
+        "properties": {
+          "clinic": {
+            "type": "string",
+            "description": "The clinic's address name, such as `sunrise` (from `sunrise.aarogyam.example`)."
           }
         }
       },
@@ -14750,6 +15542,343 @@
           }
         }
       },
+      "PatientAppAccess": {
+        "type": "object",
+        "description": "A record's patient-app access.",
+        "required": [
+          "links",
+          "has_email"
+        ],
+        "properties": {
+          "code_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the unused code expires, if one is waiting (RFC 3339)."
+          },
+          "has_email": {
+            "type": "boolean",
+            "description": "Whether the record has an email; an invitation needs one, since the patient signs in with it."
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientAppLink"
+            },
+            "description": "Links, open ones first."
+          }
+        }
+      },
+      "PatientAppInvitation": {
+        "type": "object",
+        "description": "A new link code, shown once.",
+        "required": [
+          "code",
+          "expires_at",
+          "emailed"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The code, `XXXXX-XXXXX`: show it as text and as a QR code. It is not shown again."
+          },
+          "emailed": {
+            "type": "boolean",
+            "description": "Whether the email with the code was queued to the address on the record."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When it stops working (RFC 3339)."
+          }
+        }
+      },
+      "PatientAppLink": {
+        "type": "object",
+        "description": "A patient account's link to this record.",
+        "required": [
+          "id",
+          "status",
+          "linked_via",
+          "account_email",
+          "consented_at"
+        ],
+        "properties": {
+          "account_email": {
+            "type": "string",
+            "description": "The email the patient signed in with; masked without `patients.contact`."
+          },
+          "consented_at": {
+            "type": "string",
+            "description": "When the patient consented (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The link."
+          },
+          "linked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it became active (RFC 3339)."
+          },
+          "linked_via": {
+            "type": "string",
+            "description": "`code` or `clinic_confirmed`."
+          },
+          "revoked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was revoked (RFC 3339)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`pending` (the patient asked; confirm or decline), `active`, `declined` or `revoked`."
+          }
+        }
+      },
+      "PatientAppointment": {
+        "type": "object",
+        "description": "One of the patient's appointments.",
+        "required": [
+          "id",
+          "clinic_id",
+          "starts_at",
+          "ends_at",
+          "status",
+          "practitioner_id",
+          "doctor_name",
+          "can_cancel"
+        ],
+        "properties": {
+          "can_cancel": {
+            "type": "boolean",
+            "description": "Whether the app offers Cancel (the clinic's notice still applies when it is sent)."
+          },
+          "clinic_id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "doctor_name": {
+            "type": "string",
+            "description": "The doctor's name."
+          },
+          "ends_at": {
+            "type": "string",
+            "description": "End, RFC 3339 in the clinic's time zone."
+          },
+          "id": {
+            "type": "string",
+            "description": "The appointment."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why they are coming."
+          },
+          "specialty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the doctor practises."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start, RFC 3339 in the clinic's time zone."
+          },
+          "status": {
+            "type": "string",
+            "description": "`requested`, `booked`, `confirmed`, `arrived`, `in_chair`, `completed`, `cancelled` or\n`no_show`."
+          }
+        }
+      },
+      "PatientAppointments": {
+        "type": "object",
+        "description": "The patient's appointments.",
+        "required": [
+          "upcoming",
+          "past"
+        ],
+        "properties": {
+          "past": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientAppointment"
+            },
+            "description": "Over, newest first."
+          },
+          "upcoming": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientAppointment"
+            },
+            "description": "Not over yet, soonest first."
+          }
+        }
+      },
+      "PatientBalance": {
+        "type": "object",
+        "description": "What the patient owes one clinic.",
+        "required": [
+          "clinic_id",
+          "balance_paise"
+        ],
+        "properties": {
+          "balance_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Owed on issued bills, in paise."
+          },
+          "clinic_id": {
+            "type": "string",
+            "description": "The clinic."
+          }
+        }
+      },
+      "PatientBill": {
+        "type": "object",
+        "description": "One of the patient's issued bills.",
+        "required": [
+          "id",
+          "clinic_id",
+          "number",
+          "issued_at",
+          "total_paise",
+          "paid_paise",
+          "balance_paise",
+          "items"
+        ],
+        "properties": {
+          "balance_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Still owed, in paise."
+          },
+          "clinic_id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "id": {
+            "type": "string",
+            "description": "The bill."
+          },
+          "issued_at": {
+            "type": "string",
+            "description": "When it was issued (RFC 3339, the clinic's time zone)."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientBillLine"
+            },
+            "description": "The lines, in order."
+          },
+          "number": {
+            "type": "string",
+            "description": "The bill number."
+          },
+          "paid_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paid against it, in paise."
+          },
+          "total_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total, in paise."
+          }
+        }
+      },
+      "PatientBillLine": {
+        "type": "object",
+        "description": "A line on a bill.",
+        "required": [
+          "description",
+          "quantity",
+          "total_paise"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "What it was for."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How many."
+          },
+          "total_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The line's total, in paise."
+          }
+        }
+      },
+      "PatientBills": {
+        "type": "object",
+        "description": "The patient's bills and balances.",
+        "required": [
+          "items",
+          "balances",
+          "balance_paise"
+        ],
+        "properties": {
+          "balance_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Owed across clinics, in paise."
+          },
+          "balances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientBalance"
+            },
+            "description": "What is owed to each linked clinic."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientBill"
+            },
+            "description": "Issued bills, newest first."
+          }
+        }
+      },
+      "PatientBooking": {
+        "type": "object",
+        "description": "A booking from the app.",
+        "required": [
+          "practitioner_id",
+          "starts_at"
+        ],
+        "properties": {
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor, from `GET /public/booking` on this host."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why they are coming, in a few words."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "The slot's start, exactly as `GET /public/availability` offered it (RFC 3339)."
+          }
+        }
+      },
       "PatientBrief": {
         "type": "object",
         "description": "A patient as the calendar and queue show them.",
@@ -14784,6 +15913,24 @@
           "sex": {
             "type": "string",
             "description": "`female`, `male`, `other` or `unknown`."
+          }
+        }
+      },
+      "PatientCancelled": {
+        "type": "object",
+        "description": "The appointment's status after a cancellation.",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The appointment."
+          },
+          "status": {
+            "type": "string",
+            "description": "`cancelled`."
           }
         }
       },
@@ -14841,6 +15988,218 @@
               "null"
             ],
             "description": "`female`, `male`, `other` or `unknown`."
+          }
+        }
+      },
+      "PatientClinic": {
+        "type": "object",
+        "description": "A clinic that linked the patient.",
+        "required": [
+          "link_id",
+          "clinic_id",
+          "slug",
+          "name",
+          "timezone",
+          "branding",
+          "patient_number",
+          "linked_at"
+        ],
+        "properties": {
+          "branding": {
+            "type": "object",
+            "description": "Branding (brand colour, theme mode)."
+          },
+          "clinic_id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "host": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its portal host: bookings, cancellations and files go there."
+          },
+          "link_id": {
+            "type": "string",
+            "description": "The link."
+          },
+          "linked_at": {
+            "type": "string",
+            "description": "When the clinic linked the patient (RFC 3339)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "patient_number": {
+            "type": "string",
+            "description": "The patient's number at this clinic, such as `SD-1042`."
+          },
+          "slug": {
+            "type": "string",
+            "description": "Its subdomain."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA time zone; times from this clinic are in it."
+          }
+        }
+      },
+      "PatientClinicSummary": {
+        "type": "object",
+        "description": "The home screen for one clinic.",
+        "required": [
+          "clinic",
+          "balance_paise",
+          "prescriptions"
+        ],
+        "properties": {
+          "balance_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Owed on issued bills, in paise."
+          },
+          "clinic": {
+            "$ref": "#/components/schemas/PatientClinic",
+            "description": "The clinic."
+          },
+          "last_prescription_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The newest prescription's date (RFC 3339)."
+          },
+          "next_appointment": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PatientAppointment",
+                "description": "The next appointment that isn't cancelled or over."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prescriptions": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Issued prescriptions."
+          }
+        }
+      },
+      "PatientFile": {
+        "type": "object",
+        "description": "A file a clinic shared with the patient.",
+        "required": [
+          "id",
+          "clinic_id",
+          "kind",
+          "mime_type",
+          "size_bytes",
+          "created_at"
+        ],
+        "properties": {
+          "caption": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A caption."
+          },
+          "clinic_id": {
+            "type": "string",
+            "description": "The clinic: fetch it from that clinic's host."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was added (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The file."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`photo`, `xray`, `report`, `document` or `consent`."
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its label, such as `OPG`."
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "Media type."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Size in bytes."
+          },
+          "taken_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was taken (RFC 3339)."
+          }
+        }
+      },
+      "PatientFiles": {
+        "type": "object",
+        "description": "Files the clinics shared with the patient.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientFile"
+            },
+            "description": "Newest first."
+          }
+        }
+      },
+      "PatientHome": {
+        "type": "object",
+        "description": "Everything the home screen needs, in one request.",
+        "required": [
+          "email",
+          "balance_paise",
+          "clinics"
+        ],
+        "properties": {
+          "balance_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Owed across clinics, in paise."
+          },
+          "clinics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientClinicSummary"
+            },
+            "description": "Each linked clinic, by name."
+          },
+          "email": {
+            "type": "string",
+            "description": "The verified email they signed in with."
+          },
+          "next_appointment": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PatientAppointment",
+                "description": "The soonest upcoming appointment at any clinic."
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -14917,6 +16276,24 @@
           }
         }
       },
+      "PatientLinkDecided": {
+        "type": "object",
+        "description": "A link's status after the clinic's decision.",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The link."
+          },
+          "status": {
+            "type": "string",
+            "description": "`active`, `declined` or `revoked`."
+          }
+        }
+      },
       "PatientList": {
         "type": "object",
         "description": "Search results.",
@@ -14930,6 +16307,27 @@
               "$ref": "#/components/schemas/Patient"
             },
             "description": "Matching patients, best first."
+          }
+        }
+      },
+      "PatientMe": {
+        "type": "object",
+        "description": "The signed-in patient and the clinics that linked them.",
+        "required": [
+          "email",
+          "clinics"
+        ],
+        "properties": {
+          "clinics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientClinic"
+            },
+            "description": "Linked clinics, by name."
+          },
+          "email": {
+            "type": "string",
+            "description": "The verified email they signed in with."
           }
         }
       },
@@ -14994,6 +16392,93 @@
           }
         }
       },
+      "PatientPrescription": {
+        "type": "object",
+        "description": "One of the patient's issued prescriptions.",
+        "required": [
+          "id",
+          "clinic_id",
+          "number",
+          "issued_at",
+          "items"
+        ],
+        "properties": {
+          "advice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Advice as printed."
+          },
+          "clinic_id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "diagnosis": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The diagnosis as printed."
+          },
+          "doctor_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The doctor's name as printed."
+          },
+          "follow_up_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The follow-up date, `YYYY-MM-DD`."
+          },
+          "id": {
+            "type": "string",
+            "description": "The prescription."
+          },
+          "issued_at": {
+            "type": "string",
+            "description": "When it was issued (RFC 3339, the clinic's time zone)."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientRxItem"
+            },
+            "description": "The medicines, in order."
+          },
+          "number": {
+            "type": "string",
+            "description": "`RX-…`."
+          },
+          "verify_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The public page that verifies it (its QR code), on the clinic's host."
+          }
+        }
+      },
+      "PatientPrescriptions": {
+        "type": "object",
+        "description": "The patient's issued prescriptions.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientPrescription"
+            },
+            "description": "Newest first."
+          }
+        }
+      },
       "PatientRef": {
         "type": "object",
         "description": "A patient as a bill or payment names them.",
@@ -15014,6 +16499,65 @@
           "number": {
             "type": "string",
             "description": "Number, such as `SD-1042`."
+          }
+        }
+      },
+      "PatientRxItem": {
+        "type": "object",
+        "description": "A medicine on a prescription.",
+        "required": [
+          "drug_name",
+          "dose",
+          "frequency"
+        ],
+        "properties": {
+          "dose": {
+            "type": "string",
+            "description": "How much at a time."
+          },
+          "drug_name": {
+            "type": "string",
+            "description": "The medicine as printed."
+          },
+          "duration_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "For how many days."
+          },
+          "form": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Form, such as `tablet`."
+          },
+          "frequency": {
+            "type": "string",
+            "description": "How often, such as `1-0-1`."
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Anything else the doctor wrote."
+          },
+          "strength": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Strength, such as `500 mg`."
+          },
+          "timing": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`before_food`, `after_food`, `empty_stomach`, `bedtime`, `sos` or `as_directed`."
           }
         }
       },
@@ -16526,6 +18070,19 @@
           "code": {
             "type": "string",
             "description": "The code from the URL fragment."
+          }
+        }
+      },
+      "RedeemLinkCode": {
+        "type": "object",
+        "description": "A link code from the clinic.",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The code, such as `7KQ2M-X9D4T` (case, spaces and dashes don't matter)."
           }
         }
       },
@@ -19956,6 +21513,10 @@
     {
       "name": "public",
       "description": "Patient links, QR verification and self-booking and the published website on the clinic's host; reads need no sign-in"
+    },
+    {
+      "name": "patient",
+      "description": "The patient app: a signed-in patient's own records at the clinics that linked them; reads on the app host, bookings, cancellations and files on the clinic's host"
     },
     {
       "name": "console",

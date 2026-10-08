@@ -1,6 +1,7 @@
 /** The one interface both the HTTP client and the fake client implement. */
 
 import type { ApiResult } from "./result.js";
+import type { FileSharing, PatientAppAccess, PatientAppInvitation, PatientLinkDecided } from "./contract.js";
 import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
 import type {
@@ -430,6 +431,15 @@ export interface ApiClient {
   uploadAttachment(id: PatientId, form: FormData, options?: RequestOptions): Promise<ApiResult<Attachment>>;
   /** Clinic host: a short-lived link to download a file. Needs `clinical.read`. */
   getDownloadLink(id: AttachmentId, options?: RequestOptions): Promise<ApiResult<DownloadLink>>;
+  /** Clinic host: shares a file with the patient in their app, or stops sharing it. Needs `clinical.write`. */
+  setAttachmentSharing(id: AttachmentId, sharing: FileSharing, options?: RequestOptions): Promise<ApiResult<FileSharing>>;
+
+  /** Clinic host: who has patient-app access to a record, and whether a code is waiting. Needs `patients.read`. */
+  getPatientAppAccess(id: PatientId, options?: RequestOptions): Promise<ApiResult<PatientAppAccess>>;
+  /** Clinic host: "Invite to patient app": a new link code (shown once) emailed to the record's address. Needs `patients.write`. */
+  invitePatientToApp(id: PatientId, options?: RequestOptions): Promise<ApiResult<PatientAppInvitation>>;
+  /** Clinic host: confirms or declines a match the patient asked for, or revokes an active link. Needs `patients.write`. */
+  decidePatientLink(id: string, decision: "confirm" | "decline" | "revoke", options?: RequestOptions): Promise<ApiResult<PatientLinkDecided>>;
 
   /** Any host: applies to join Aarogyam. Throttled per IP; the same answer whether or not the address already applied. */
   submitRegistration(input: NewRegistration, options?: RequestOptions): Promise<ApiResult<RegistrationReceived>>;

@@ -370,6 +370,14 @@ export type AttachmentKind = "photo" | "xray" | "report" | "document" | "audio" 
 export type Attachment = Schemas["Attachment"];
 export type AttachmentList = Schemas["AttachmentList"];
 export type DownloadLink = Schemas["DownloadLink"];
+export type FileSharing = Schemas["FileSharing"];
+
+// Patient app, clinic side ------------------------------------------------------------------------
+
+export type PatientAppLink = Schemas["PatientAppLink"];
+export type PatientAppAccess = Schemas["PatientAppAccess"];
+export type PatientAppInvitation = Schemas["PatientAppInvitation"];
+export type PatientLinkDecided = Schemas["PatientLinkDecided"];
 
 // Onboarding: registration, applications, clinic detail (M2.5) ------------------------------------
 

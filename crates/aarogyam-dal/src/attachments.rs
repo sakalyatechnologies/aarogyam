@@ -40,6 +40,8 @@ pub struct AttachmentRow {
     pub duration_seconds: Option<i32>,
     /// A recording's spoken language tag.
     pub language: Option<String>,
+    /// Whether the clinic shares it with the patient in the patient app.
+    pub shared_with_patient: bool,
 }
 
 /// Values for a new file.
@@ -94,7 +96,7 @@ pub async fn insert(
               label, tooth, source, note_id, addendum_id, duration_seconds, language)
            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
            returning id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,
-                     taken_at, created_at, note_id, addendum_id, duration_seconds, language"#,
+                     taken_at, created_at, note_id, addendum_id, duration_seconds, language, shared_with_patient"#,
         new.id,
         new.patient_id,
         new.encounter_id,
@@ -129,7 +131,7 @@ pub async fn get(
     let row = sqlx::query_as!(
         AttachmentRow,
         r#"select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,
-                  taken_at, created_at, note_id, addendum_id, duration_seconds, language
+                  taken_at, created_at, note_id, addendum_id, duration_seconds, language, shared_with_patient
            from aarogyam.attachments
            where id = $1 and deleted_at is null and app.patient_in_reach(patient_id, $2)"#,
         id,
@@ -151,7 +153,7 @@ pub async fn list(
     let rows = sqlx::query_as!(
         AttachmentRow,
         r#"select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,
-                  taken_at, created_at, note_id, addendum_id, duration_seconds, language
+                  taken_at, created_at, note_id, addendum_id, duration_seconds, language, shared_with_patient
            from aarogyam.attachments where patient_id = $1 and deleted_at is null
            order by created_at desc, id desc"#,
         patient_id
@@ -172,7 +174,7 @@ pub async fn of_encounter(
     let rows = sqlx::query_as!(
         AttachmentRow,
         r#"select id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,
-                  taken_at, created_at, note_id, addendum_id, duration_seconds, language
+                  taken_at, created_at, note_id, addendum_id, duration_seconds, language, shared_with_patient
            from aarogyam.attachments where encounter_id = $1 and deleted_at is null
            order by created_at, id"#,
         encounter_id

@@ -163,7 +163,7 @@ async fn a_visit_started_again_with_the_same_id_is_the_same_visit() {
     let (_, mine) = app
         .send(Method::GET, ALPHA, &visit_path, Some(&owner), None)
         .await;
-    assert_eq!(mine["visit"]["chief_complaint"], "Toothache");
+    assert_eq!(mine["visit"]["chief_complaint"], "Toothache", "{mine}");
     let (_, beta_copy) = app
         .send(Method::GET, BETA, &visit_path, Some(&beta_owner), None)
         .await;

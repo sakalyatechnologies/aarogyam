@@ -97,6 +97,18 @@ pub fn standard_throttle_with(
             .on_paths(&["/api/v1/public/bookings"])
             .on_methods(&["POST"]),
         RuleConfig::new("public-booking-identity", KeyKind::Custom, 6, 60 * 60),
+        // The patient app: link codes are 50-bit secrets, but guessing is throttled per IP and
+        // per account; bookings from the app count with the public page's.
+        RuleConfig::new("ip-patient-link", KeyKind::Ip, 20, 10 * 60)
+            .on_paths(&[
+                "/api/v1/me/patient/links",
+                "/api/v1/me/patient/link-requests",
+            ])
+            .on_methods(&["POST"]),
+        RuleConfig::new("patient-link-account", KeyKind::Custom, 10, 60 * 60),
+        RuleConfig::new("ip-patient-booking", KeyKind::Ip, 10, 60 * 60)
+            .on_paths(&["/api/v1/me/patient/bookings"])
+            .on_methods(&["POST"]),
     ]);
     Throttle::new(match bypass {
         Some(token) => config.with_bypass_token(token),

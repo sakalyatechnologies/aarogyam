@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher icon only: Tulsi, the default brand. In-app colours come from the clinic's theme. -->
+    <color name="launcher_background">#136650</color>
+</resources>

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into aarogyam.attachments\n             (id, patient_id, encounter_id, kind, storage_key, mime_type, size_bytes, sha256, caption,\n              label, tooth, source, note_id, addendum_id, duration_seconds, language)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)\n           returning id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,\n                     taken_at, created_at, note_id, addendum_id, duration_seconds, language",
+  "query": "insert into aarogyam.attachments\n             (id, patient_id, encounter_id, kind, storage_key, mime_type, size_bytes, sha256, caption,\n              label, tooth, source, note_id, addendum_id, duration_seconds, language)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)\n           returning id, patient_id, encounter_id, kind, mime_type, size_bytes, sha256, caption, label, tooth,\n                     taken_at, created_at, note_id, addendum_id, duration_seconds, language, shared_with_patient",
   "describe": {
     "columns": [
       {
@@ -178,6 +178,17 @@
             "name": "language"
           }
         }
+      },
+      {
+        "ordinal": 16,
+        "name": "shared_with_patient",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "shared_with_patient"
+          }
+        }
       }
     ],
     "parameters": {
@@ -216,8 +227,9 @@
       true,
       true,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "415578355b464da37ae870edac5a9cc138a54ab8d47aa5a1b9c2fb1dc081a6ec"
+  "hash": "1471ff7f9a90bf8bcf2699b4ae531145cb2b24be8d6f6a42e78df993f81ed8cf"
 }

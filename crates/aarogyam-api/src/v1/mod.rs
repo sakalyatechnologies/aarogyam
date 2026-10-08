@@ -20,6 +20,8 @@ pub(crate) mod letterhead;
 pub(crate) mod me;
 pub(crate) mod meta;
 pub(crate) mod onboarding;
+pub(crate) mod patient_app;
+pub(crate) mod patient_links;
 pub(crate) mod patient_notes;
 pub(crate) mod patients;
 pub(crate) mod payments;
@@ -79,6 +81,27 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/me/sessions", get(me::sessions))
         .route("/me/sessions/{id}/revoke", post(me::revoke_session))
         .route("/session", get(me::session))
+        // The patient app: a signed-in patient's own records, at the clinics that linked them
+        // (tests/patient_app.rs). Reads on the app host; booking, cancelling and files on the
+        // clinic's host, which must have linked the account.
+        .route("/me/patient", get(patient_app::me))
+        .route("/me/patient/home", get(patient_app::home))
+        .route("/me/patient/appointments", get(patient_app::appointments))
+        .route("/me/patient/prescriptions", get(patient_app::prescriptions))
+        .route("/me/patient/bills", get(patient_app::bills))
+        .route("/me/patient/files", get(patient_app::files))
+        .route("/me/patient/links", post(patient_app::redeem))
+        .route("/me/patient/links/{id}/revoke", post(patient_app::revoke))
+        .route("/me/patient/link-requests", post(patient_app::request_link))
+        .route("/me/patient/bookings", post(patient_app::book))
+        .route(
+            "/me/patient/appointments/{id}/cancel",
+            post(patient_app::cancel),
+        )
+        .route(
+            "/me/patient/files/{id}/content",
+            get(patient_app::file_content),
+        )
         // Central sign-in: a signed-in person asks for a one-time code for another host; that
         // host redeems it, unauthenticated, throttled per IP (tests/handoff.rs).
         .route("/auth/handoff", post(auth::create))
@@ -156,6 +179,15 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(consents::list).post(consents::record),
         )
         .route("/consents/{id}/withdraw", post(consents::withdraw))
+        .route("/patients/{id}/app-access", get(patient_links::access))
+        .route(
+            "/patients/{id}/app-invitations",
+            post(patient_links::invite),
+        )
+        .route("/patient-links/{id}/confirm", post(patient_links::confirm))
+        .route("/patient-links/{id}/decline", post(patient_links::decline))
+        .route("/patient-links/{id}/revoke", post(patient_links::revoke))
+        .route("/attachments/{id}/sharing", put(patient_links::set_sharing))
         .route("/patients/{id}/notes", get(patient_notes::get))
         .route(
             "/patients/{id}/summary-note",

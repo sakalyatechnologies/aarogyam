@@ -1,0 +1,48 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select a.status, a.starts_at,\n                  coalesce((select s.booking from aarogyam.org_settings s where s.org_id = a.org_id),\n                           '{}'::jsonb) as \"booking!\"\n           from aarogyam.appointments a\n           where a.id = $2 and a.patient_id = $1 and a.deleted_at is null\n           for update of a",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "booking!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "83250e6dbd6dade982faeb3ca80fbef9e8f4304741c9ff56a66f0c793ca99a80"
+}

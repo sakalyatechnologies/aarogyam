@@ -43,6 +43,8 @@ pub enum MessageKind {
     BookingConfirmed,
     /// An appointment requested online was declined.
     BookingDeclined,
+    /// A clinic invited a patient to the patient app with a link code.
+    PatientAppInvited,
 }
 
 impl MessageKind {
@@ -55,6 +57,7 @@ impl MessageKind {
             Self::BookingRequested => "booking.requested",
             Self::BookingConfirmed => "booking.confirmed",
             Self::BookingDeclined => "booking.declined",
+            Self::PatientAppInvited => "patient_app.invited",
         }
     }
 
@@ -67,6 +70,7 @@ impl MessageKind {
             "booking.requested" => Some(Self::BookingRequested),
             "booking.confirmed" => Some(Self::BookingConfirmed),
             "booking.declined" => Some(Self::BookingDeclined),
+            "patient_app.invited" => Some(Self::PatientAppInvited),
             _ => None,
         }
     }

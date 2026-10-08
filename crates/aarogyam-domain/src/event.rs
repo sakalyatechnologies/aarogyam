@@ -108,6 +108,18 @@ pub enum Event {
     WebsitePublished,
     /// A website picture was uploaded or removed.
     WebsitePhotoChanged,
+    /// A clinic issued a patient-app link code for a patient.
+    PatientAppInvited,
+    /// A patient account was linked to a clinic's record.
+    PatientLinked,
+    /// A patient asked a clinic to confirm a match with their record.
+    PatientLinkRequested,
+    /// A patient link was declined or revoked.
+    PatientLinkEnded,
+    /// A patient cancelled their own appointment in the app.
+    AppointmentCancelledByPatient,
+    /// A file's sharing with the patient changed.
+    AttachmentSharingChanged,
 }
 
 impl Event {
@@ -167,6 +179,12 @@ impl Event {
             Self::WebsiteChanged => "website.changed",
             Self::WebsitePublished => "website.published",
             Self::WebsitePhotoChanged => "website.photo_changed",
+            Self::PatientAppInvited => "patient_app.invited",
+            Self::PatientLinked => "patient_link.linked",
+            Self::PatientLinkRequested => "patient_link.requested",
+            Self::PatientLinkEnded => "patient_link.ended",
+            Self::AppointmentCancelledByPatient => "appointment.cancelled_by_patient",
+            Self::AttachmentSharingChanged => "attachment.sharing_changed",
         }
     }
 }

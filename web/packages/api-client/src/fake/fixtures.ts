@@ -366,6 +366,8 @@ export interface FakeAttachment {
   addendum_id?: string | null;
   duration_seconds?: number | null;
   language?: string | null;
+  /** Shown in the patient's app. */
+  shared_with_patient?: boolean;
   /** Where the fake serves its bytes from: a blob URL, since there is no real server. */
   url: string;
 }

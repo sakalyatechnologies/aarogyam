@@ -5,6 +5,7 @@ import {
   unwrap,
   type AllergyFields,
   type AllergyId,
+  type AttachmentId,
   type ConsentId,
   type PatientFilter,
   type PatientId,
@@ -84,5 +85,45 @@ export function useWithdrawConsent(patientId: PatientId) {
   return useMutation({
     mutationFn: ({ id, input }: { id: ConsentId; input: WithdrawConsent }) => unwrap(api.withdrawConsent(id, input)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["patient-consents", access.org_id, patientId] }),
+  });
+}
+
+/** Who has patient-app access to this record, for Patient 360. */
+export function usePatientAppAccess(patientId: PatientId, enabled: boolean) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["patient-app-access", access.org_id, patientId],
+    queryFn: ({ signal }) => unwrap(api.getPatientAppAccess(patientId, { signal })),
+    enabled,
+  });
+}
+
+/** "Invite to patient app": a new code, shown once, emailed to the record's address. */
+export function useInvitePatientToApp(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.invitePatientToApp(patientId)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["patient-app-access", access.org_id, patientId] }),
+  });
+}
+
+/** Confirms or declines a match the patient asked for, or revokes an active link. */
+export function useDecidePatientLink(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, decision }: { id: string; decision: "confirm" | "decline" | "revoke" }) => unwrap(api.decidePatientLink(id, decision)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["patient-app-access", access.org_id, patientId] }),
+  });
+}
+
+/** Shares a file with the patient in their app, or stops sharing it. */
+export function useSetFileSharing(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, shared }: { id: AttachmentId; shared: boolean }) => unwrap(api.setAttachmentSharing(id, { shared_with_patient: shared })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["attachments", access.org_id, patientId] }),
   });
 }

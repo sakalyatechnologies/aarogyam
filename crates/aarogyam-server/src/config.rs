@@ -265,6 +265,15 @@ pub struct AuthSettings {
     pub dev_issuer: Box<str>,
     /// Secret for development tokens (`ARO_AUTH__DEV_SECRET`).
     pub dev_secret: Option<SecretString>,
+    /// Whether Sakalya staff need an authenticator code (`aal2`) for the console
+    /// (`ARO_AUTH__STAFF_MFA`). Default `true`; off only for development and demos, and it must
+    /// be on before real patient data.
+    #[serde(default = "default_staff_mfa")]
+    pub staff_mfa: bool,
+}
+
+fn default_staff_mfa() -> bool {
+    true
 }
 
 fn default_audience() -> Box<str> {

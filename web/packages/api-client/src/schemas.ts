@@ -128,7 +128,7 @@ const myClinic = z.object({
 export type ClinicAccess = z.output<typeof myClinic>;
 
 /** `console_access`: active Sakalya staff, whom central sign-in sends to the console (first, beside any clinics). */
-export const meResponse = z.object({ clinics: z.array(myClinic), console_access: z.boolean() }) satisfies z.ZodType<C.Me>;
+export const meResponse = z.object({ clinics: z.array(myClinic), console_access: z.boolean(), staff_mfa_required: z.boolean() }) satisfies z.ZodType<C.Me>;
 export type Me = z.output<typeof meResponse>;
 
 // Clinic host --------------------------------------------------------------------------------

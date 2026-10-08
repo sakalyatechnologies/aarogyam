@@ -31,6 +31,7 @@ pub(crate) mod prescriptions;
 pub(crate) mod public_booking;
 pub(crate) mod quality;
 pub(crate) mod queue;
+pub(crate) mod quick_picks;
 pub(crate) mod recalls;
 pub(crate) mod registrations;
 pub(crate) mod reports;
@@ -174,6 +175,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/queue/{id}/status", post(queue::set_status))
         .route("/queue/{id}/start-visit", post(queue::start_visit))
         .route("/walk-ins", post(walk_ins::register))
+        .route("/quick-picks", get(quick_picks::get))
         .route("/today", get(today::today))
         .route(
             "/patients/{id}/visits",

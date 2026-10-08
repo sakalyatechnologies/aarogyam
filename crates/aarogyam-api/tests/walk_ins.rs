@@ -526,3 +526,42 @@ async fn another_clinic_gets_404_and_finds_no_one() {
     assert_eq!(queue["items"][0]["status"], "waiting");
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_desk_and_the_doctor_read_the_quick_picks() {
+    let app = TestApp::start().await;
+    for (host, who) in [
+        (ALPHA, ALPHA_FRONT_DESK),
+        (ALPHA, ALPHA_OWNER),
+        (ALPHA, ALPHA_ASSISTANT),
+        (BETA, BETA_OWNER),
+    ] {
+        let (status, picks) = get(&app, host, &app.token(who), "/api/v1/quick-picks").await;
+        assert_eq!(status, StatusCode::OK, "{picks}");
+        assert!(
+            picks["allergies"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|a| a["label"] == "Penicillin")
+        );
+        let set = picks["medicine_sets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["id"] == "post_extraction")
+            .unwrap();
+        assert_eq!(set["items"][0]["drug_name"], "Amoxicillin");
+        assert!(picks["complaints"].as_array().unwrap().len() >= 5);
+    }
+    let (status, _) = get(
+        &app,
+        ALPHA,
+        &app.token(ALPHA_NOTHING),
+        "/api/v1/quick-picks",
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    app.finish().await;
+}

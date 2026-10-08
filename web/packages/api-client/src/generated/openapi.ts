@@ -2271,6 +2271,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/quick-picks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The clinic's quick picks: allergies for the desk, complaints, findings, procedures, advice
+         *     lines and medicine sets for the doctor. Specialty data; dental for now.
+         */
+        get: operations["getQuickPicks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recalls": {
         parameters: {
             query?: never;
@@ -6703,6 +6723,68 @@ export interface components {
              * @description Minutes waited: until now while waiting, otherwise until called.
              */
             wait_minutes: number;
+        };
+        /** @description Several medicines added in one tap, each still editable; the allergy check still runs on issue. */
+        QuickMedicineSet: {
+            /** @description Stable id. */
+            id: string;
+            /** @description The medicines, in order. */
+            items: components["schemas"]["QuickSetMedicine"][];
+            /** @description The chip's label, such as `Post-extraction`. */
+            label: string;
+        };
+        /** @description A pick that is only a name: an allergy substance or a procedure. */
+        QuickPick: {
+            /** @description Stable id. */
+            id: string;
+            /** @description What staff read and what is recorded. */
+            label: string;
+        };
+        /** @description The clinic's quick picks. */
+        QuickPicks: {
+            /** @description Advice lines for the prescription. */
+            advice: components["schemas"]["QuickTextPick"][];
+            /** @description Common allergy substances, offered at a walk-in. */
+            allergies: components["schemas"]["QuickPick"][];
+            /** @description Chief complaints: each writes the note's opening line. */
+            complaints: components["schemas"]["QuickTextPick"][];
+            /** @description Examination findings. */
+            findings: components["schemas"]["QuickTextPick"][];
+            /** @description Medicine sets. */
+            medicine_sets: components["schemas"]["QuickMedicineSet"][];
+            /** @description Procedures done in a visit. */
+            procedures: components["schemas"]["QuickPick"][];
+        };
+        /** @description One medicine of a set, as a prescription line starts. */
+        QuickSetMedicine: {
+            /** @description Dose, such as `1 tablet`. */
+            dose: string;
+            /** @description Generic name; match it to the medicine list before adding. */
+            drug_name: string;
+            /**
+             * Format: int32
+             * @description For how many days.
+             */
+            duration_days?: number | null;
+            /** @description Form, such as `tablet`. */
+            form: string;
+            /** @description Frequency, such as `1-0-1`. */
+            frequency: string;
+            /** @description Extra instructions. */
+            instructions?: string | null;
+            /** @description Strength, such as `500 mg`. */
+            strength: string;
+            /** @description `before_food`, `after_food`, `empty_stomach`, `bedtime`, `sos` or `as_directed`. */
+            timing?: string | null;
+        };
+        /** @description A pick that writes a line: a complaint, a finding or an advice line. */
+        QuickTextPick: {
+            /** @description Stable id. */
+            id: string;
+            /** @description The chip's label. */
+            label: string;
+            /** @description The line it writes. */
+            text: string;
         };
         /** @description A reason, for voiding or cancelling. */
         Reason: {
@@ -15382,6 +15464,39 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MoveRefused"];
                 };
+            };
+        };
+    };
+    getQuickPicks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuickPicks"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks both patients.read and clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

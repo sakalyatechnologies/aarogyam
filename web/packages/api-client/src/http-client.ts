@@ -116,6 +116,7 @@ import {
   workingHours,
   type RequestId,
 } from "./schemas.js";
+import { phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
 
 /** Returns the current access token, or `null` when signed out. */
 export type TokenSource = () => Promise<string | null> | string | null;
@@ -692,6 +693,21 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     setMyWorkingHours: (hours, opts) =>
       call({ method: "PUT", path: "/api/v1/me/working-hours", schema: workingHours, body: hours, signal: opts?.signal }),
     getPublicSite: (opts) => call({ method: "GET", path: "/api/v1/public/site", schema: sitePage, signal: opts?.signal }),
+
+    // Walk-in fast path.
+    registerWalkIn: (input, opts) => call({ method: "POST", path: "/api/v1/walk-ins", schema: walkIn, body: input, signal: opts?.signal }),
+    lookupPatientsByPhone: (phone, opts) =>
+      call({ method: "POST", path: "/api/v1/patients/lookup", schema: phoneMatches, body: { phone }, signal: opts?.signal }),
+    startVisitFromQueue: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/queue/${encodeURIComponent(id)}/start-visit`, schema: startedVisit, signal: opts?.signal }),
+    confirmAllergy: (id, allergyId, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/allergies/${encodeURIComponent(allergyId)}/confirm`,
+        schema: allergy,
+        signal: opts?.signal,
+      }),
+    getQuickPicks: (opts) => call({ method: "GET", path: "/api/v1/quick-picks", schema: quickPicks, signal: opts?.signal }),
   };
 }
 

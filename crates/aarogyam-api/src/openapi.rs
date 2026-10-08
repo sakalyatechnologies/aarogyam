@@ -71,6 +71,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::queue::set_status,
         crate::v1::queue::start_visit,
         crate::v1::walk_ins::register,
+        crate::v1::quick_picks::get,
         crate::v1::today::today,
         crate::v1::visits::start,
         crate::v1::visits::list,

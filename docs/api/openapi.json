@@ -7344,6 +7344,37 @@
         ]
       }
     },
+    "/api/v1/quick-picks": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The clinic's quick picks: allergies for the desk, complaints, findings, procedures, advice\nlines and medicine sets for the doctor. Specialty data; dental for now.",
+        "operationId": "getQuickPicks",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuickPicks"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks both patients.read and clinical.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/recalls": {
       "get": {
         "tags": [
@@ -18878,6 +18909,185 @@
             "type": "integer",
             "format": "int64",
             "description": "Minutes waited: until now while waiting, otherwise until called."
+          }
+        }
+      },
+      "QuickMedicineSet": {
+        "type": "object",
+        "description": "Several medicines added in one tap, each still editable; the allergy check still runs on issue.",
+        "required": [
+          "id",
+          "label",
+          "items"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable id."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuickSetMedicine"
+            },
+            "description": "The medicines, in order."
+          },
+          "label": {
+            "type": "string",
+            "description": "The chip's label, such as `Post-extraction`."
+          }
+        }
+      },
+      "QuickPick": {
+        "type": "object",
+        "description": "A pick that is only a name: an allergy substance or a procedure.",
+        "required": [
+          "id",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable id."
+          },
+          "label": {
+            "type": "string",
+            "description": "What staff read and what is recorded."
+          }
+        }
+      },
+      "QuickPicks": {
+        "type": "object",
+        "description": "The clinic's quick picks.",
+        "required": [
+          "allergies",
+          "complaints",
+          "findings",
+          "procedures",
+          "advice",
+          "medicine_sets"
+        ],
+        "properties": {
+          "advice": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuickTextPick"
+            },
+            "description": "Advice lines for the prescription."
+          },
+          "allergies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuickPick"
+            },
+            "description": "Common allergy substances, offered at a walk-in."
+          },
+          "complaints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuickTextPick"
+            },
+            "description": "Chief complaints: each writes the note's opening line."
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuickTextPick"
+            },
+            "description": "Examination findings."
+          },
+          "medicine_sets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuickMedicineSet"
+            },
+            "description": "Medicine sets."
+          },
+          "procedures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuickPick"
+            },
+            "description": "Procedures done in a visit."
+          }
+        }
+      },
+      "QuickSetMedicine": {
+        "type": "object",
+        "description": "One medicine of a set, as a prescription line starts.",
+        "required": [
+          "drug_name",
+          "strength",
+          "form",
+          "dose",
+          "frequency"
+        ],
+        "properties": {
+          "dose": {
+            "type": "string",
+            "description": "Dose, such as `1 tablet`."
+          },
+          "drug_name": {
+            "type": "string",
+            "description": "Generic name; match it to the medicine list before adding."
+          },
+          "duration_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "For how many days.",
+            "minimum": 0
+          },
+          "form": {
+            "type": "string",
+            "description": "Form, such as `tablet`."
+          },
+          "frequency": {
+            "type": "string",
+            "description": "Frequency, such as `1-0-1`."
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Extra instructions."
+          },
+          "strength": {
+            "type": "string",
+            "description": "Strength, such as `500 mg`."
+          },
+          "timing": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`before_food`, `after_food`, `empty_stomach`, `bedtime`, `sos` or `as_directed`."
+          }
+        }
+      },
+      "QuickTextPick": {
+        "type": "object",
+        "description": "A pick that writes a line: a complaint, a finding or an advice line.",
+        "required": [
+          "id",
+          "label",
+          "text"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable id."
+          },
+          "label": {
+            "type": "string",
+            "description": "The chip's label."
+          },
+          "text": {
+            "type": "string",
+            "description": "The line it writes."
           }
         }
       },

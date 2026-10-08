@@ -107,6 +107,8 @@ export interface FakePatient
   clinic_id: string;
   sex: C.Sex;
   status: "active" | "inactive" | "deceased" | "merged";
+  /** Set by a walk-in's "No known allergies"; active allergies always mean `has_allergies`. */
+  allergies_reviewed?: "unknown" | "none_known" | "has_allergies";
 }
 
 /** A chair, room or lab. Fixtures model one branch per clinic, so `branch_id` is the clinic's id. */
@@ -240,6 +242,8 @@ export interface FakeVisit {
   clinician_membership_id: string;
   number: string;
   appointment_id?: string | null;
+  /** The queue token it was started from. */
+  queue_token_id?: string | null;
   chief_complaint?: string | null;
   status: C.VisitStatus;
   started_at: string;
@@ -642,6 +646,7 @@ export const ROLES = {
       "patients.read",
       "patients.write",
       "patients.contact",
+      "intake.write",
       "appointments.read",
       "appointments.write",
       "clinical.read",
@@ -666,6 +671,7 @@ export const ROLES = {
       "patients.read",
       "patients.write",
       "patients.contact",
+      "intake.write",
       "appointments.read",
       "appointments.write",
       "clinical.read",
@@ -681,6 +687,7 @@ export const ROLES = {
       "patients.read",
       "patients.write",
       "patients.contact",
+      "intake.write",
       "appointments.read",
       "appointments.write",
       "billing.read",
@@ -689,7 +696,7 @@ export const ROLES = {
       "inventory.manage",
     ],
   },
-  assistant: { key: "assistant", name: "Assistant", permissions: ["patients.read", "appointments.read", "clinical.read", "inventory.read"] },
+  assistant: { key: "assistant", name: "Assistant", permissions: ["patients.read", "intake.write", "appointments.read", "clinical.read", "inventory.read"] },
   consultant: { key: "consultant", name: "Visiting consultant", permissions: ["appointments.read", "clinical.read"] },
   finance: {
     key: "finance",
@@ -708,6 +715,7 @@ export const PERMISSION_CATALOGUE: readonly { key: Permission; module: string; d
   { key: "clinical.read", module: "clinical", description: "See visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
   { key: "clinical.write", module: "clinical", description: "Record visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
   { key: "finance.view", module: "finance", description: "See revenue, expenses and salaries", scopes: ["all"] },
+  { key: "intake.write", module: "intake", description: "Record patient-reported allergies and \"No known allergies\" at registration", scopes: ["all"] },
   { key: "inventory.manage", module: "inventory", description: "Receive, use and adjust stock; edit items and suppliers", scopes: ["all"] },
   { key: "inventory.read", module: "inventory", description: "See stock levels, suppliers and expiry dates", scopes: ["all"] },
   { key: "patients.contact", module: "patients", description: "See full phone numbers and email addresses", scopes: ["all"] },

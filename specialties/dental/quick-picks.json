@@ -1,0 +1,99 @@
+{
+  "$comment": "The dental module's quick picks: one-tap entries for the desk and the doctor. Allergies are common substances the front desk offers at a walk-in (names the prescription allergy check understands, by name or class). Complaints and findings write the note's opening lines; procedures and advice lines fill the visit and the prescription; medicine sets add several medicines at once, each still editable. Ids are stable and lower_snake_case; labels are what staff read. A clinic's own favourites come later (backlog).",
+  "schema_version": 1,
+  "allergies": [
+    { "id": "penicillin", "label": "Penicillin" },
+    { "id": "amoxicillin", "label": "Amoxicillin" },
+    { "id": "sulfa", "label": "Sulfa drugs" },
+    { "id": "aspirin", "label": "Aspirin" },
+    { "id": "nsaid", "label": "NSAID" },
+    { "id": "local_anaesthetic", "label": "Local anaesthetic" },
+    { "id": "latex", "label": "Latex" },
+    { "id": "chlorhexidine", "label": "Chlorhexidine" },
+    { "id": "iodine", "label": "Iodine" },
+    { "id": "metronidazole", "label": "Metronidazole" }
+  ],
+  "complaints": [
+    { "id": "toothache", "label": "Toothache", "text": "Complains of toothache" },
+    { "id": "sensitivity", "label": "Sensitivity", "text": "Complains of sensitivity to hot and cold" },
+    { "id": "swelling", "label": "Swelling", "text": "Complains of swelling" },
+    { "id": "bleeding_gums", "label": "Bleeding gums", "text": "Complains of bleeding gums" },
+    { "id": "broken_tooth", "label": "Broken tooth", "text": "Complains of a broken tooth" },
+    { "id": "loose_tooth", "label": "Loose tooth", "text": "Complains of a loose tooth" },
+    { "id": "bad_breath", "label": "Bad breath", "text": "Complains of bad breath" },
+    { "id": "ulcer", "label": "Mouth ulcer", "text": "Complains of a mouth ulcer" },
+    { "id": "check_up", "label": "Check-up", "text": "Came for a routine check-up" },
+    { "id": "cleaning", "label": "Cleaning", "text": "Came for cleaning" }
+  ],
+  "findings": [
+    { "id": "deep_caries", "label": "Deep caries", "text": "Deep caries" },
+    { "id": "tender_on_percussion", "label": "Tender on percussion", "text": "Tender on percussion" },
+    { "id": "calculus", "label": "Calculus", "text": "Calculus and stains present" },
+    { "id": "gingivitis", "label": "Gingivitis", "text": "Gingival inflammation" },
+    { "id": "mobility", "label": "Mobility", "text": "Tooth mobile" },
+    { "id": "abscess", "label": "Abscess", "text": "Periapical abscess" },
+    { "id": "fractured_crown", "label": "Fractured crown", "text": "Fractured crown" },
+    { "id": "impacted_third_molar", "label": "Impacted wisdom tooth", "text": "Impacted third molar" }
+  ],
+  "procedures": [
+    { "id": "consultation", "label": "Consultation" },
+    { "id": "scaling", "label": "Scaling and polishing" },
+    { "id": "composite_filling", "label": "Composite filling" },
+    { "id": "rct", "label": "Root canal treatment" },
+    { "id": "extraction", "label": "Extraction" },
+    { "id": "surgical_extraction", "label": "Surgical extraction" },
+    { "id": "crown", "label": "Crown" },
+    { "id": "iopa_xray", "label": "IOPA X-ray" }
+  ],
+  "advice": [
+    { "id": "soft_diet", "label": "Soft diet", "text": "Soft, cold diet for 24 hours." },
+    { "id": "no_spitting", "label": "No spitting", "text": "Do not spit or rinse forcefully for 24 hours." },
+    { "id": "warm_saline", "label": "Warm saline rinses", "text": "Warm saline rinses three times a day from tomorrow." },
+    { "id": "avoid_chewing", "label": "Avoid chewing", "text": "Avoid chewing on the treated side until the next visit." },
+    { "id": "brush_twice", "label": "Brush twice", "text": "Brush twice a day with a soft brush; floss daily." },
+    { "id": "review", "label": "Review if pain", "text": "Come back if pain or swelling increases." }
+  ],
+  "medicine_sets": [
+    {
+      "id": "post_extraction",
+      "label": "Post-extraction",
+      "items": [
+        { "drug_name": "Amoxicillin", "strength": "500 mg", "form": "capsule", "dose": "1 capsule", "frequency": "1-1-1", "timing": "after_food", "duration_days": 5 },
+        { "drug_name": "Paracetamol", "strength": "650 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-1-1", "timing": "after_food", "duration_days": 3 },
+        { "drug_name": "Chlorhexidine", "strength": "0.2%", "form": "mouthwash", "dose": "10 ml rinse", "frequency": "0-0-2", "timing": "after_food", "duration_days": 7, "instructions": "Start the day after extraction" }
+      ]
+    },
+    {
+      "id": "dental_pain",
+      "label": "Dental pain",
+      "items": [
+        { "drug_name": "Ibuprofen", "strength": "400 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-1", "timing": "after_food", "duration_days": 3 },
+        { "drug_name": "Pantoprazole", "strength": "40 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-0", "timing": "before_food", "duration_days": 3 }
+      ]
+    },
+    {
+      "id": "dental_infection",
+      "label": "Dental infection",
+      "items": [
+        { "drug_name": "Amoxicillin", "strength": "500 mg", "form": "capsule", "dose": "1 capsule", "frequency": "1-1-1", "timing": "after_food", "duration_days": 5 },
+        { "drug_name": "Metronidazole", "strength": "400 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-1-1", "timing": "after_food", "duration_days": 5 },
+        { "drug_name": "Paracetamol", "strength": "650 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-1-1", "timing": "after_food", "duration_days": 3 }
+      ]
+    },
+    {
+      "id": "penicillin_allergic_infection",
+      "label": "Infection, penicillin-allergic",
+      "items": [
+        { "drug_name": "Azithromycin", "strength": "500 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-0", "timing": "after_food", "duration_days": 3 },
+        { "drug_name": "Metronidazole", "strength": "400 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-1-1", "timing": "after_food", "duration_days": 5 }
+      ]
+    },
+    {
+      "id": "gum_care",
+      "label": "Gum care",
+      "items": [
+        { "drug_name": "Chlorhexidine", "strength": "0.2%", "form": "mouthwash", "dose": "10 ml rinse", "frequency": "1-0-1", "timing": "after_food", "duration_days": 14 }
+      ]
+    }
+  ]
+}

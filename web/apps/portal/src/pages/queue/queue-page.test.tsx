@@ -30,21 +30,39 @@ describe("Queue", () => {
     await screen.findByRole("heading", { name: `In the chair (${String(initialInChair + 1)})` });
   });
 
-  it("issues a walk-in token for a patient found by search", async () => {
+  it("finds a registered patient by mobile number and queues them with consent", async () => {
     const user = userEvent.setup();
     const backend = fakeApi();
     const client = backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: PEOPLE.farah }), now: () => NOW });
     const patients = await client.listPatients();
     if (!patients.ok) throw new Error("expected patients");
-    const target = patients.value.items.find((p) => p.number === "SD-7");
-    if (target === undefined) throw new Error("expected SD-7 in fixtures");
+    const target = patients.value.items.find((p) => typeof p.phone === "string" && p.phone.startsWith("+91"));
+    if (target === undefined || typeof target.phone !== "string") throw new Error("expected a patient with a phone");
 
     renderPortal("/queue", { as: PEOPLE.farah, backend });
     await user.click(await screen.findByRole("button", { name: "Walk-in" }));
-    await user.type(await screen.findByPlaceholderText("Name, clinic number or phone"), "SD-7");
+    await user.type(await screen.findByLabelText(/Mobile number/), target.phone.slice(3));
     await user.click(await screen.findByRole("button", { name: new RegExp(target.full_name) }));
-    await user.click(screen.getByRole("button", { name: "Issue token" }));
-    expect(await screen.findByText(/Issued token #/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "No known allergies" }));
+    await user.click(screen.getByRole("button", { name: "Add to queue" }));
+    expect(await screen.findByText(new RegExp(`${target.full_name}: token #`))).toBeTruthy();
+  });
+
+  it("registers someone new without a phone, with reported allergies, in one step", async () => {
+    const user = userEvent.setup();
+    renderPortal("/queue", { as: PEOPLE.farah });
+    await user.click(await screen.findByRole("button", { name: "Walk-in" }));
+    await user.click(screen.getByRole("button", { name: "Add to queue" }));
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Enter the patient's name.");
+    await user.type(screen.getByLabelText(/^Name/), "Ramesh Pawar");
+    await user.type(screen.getByLabelText(/^Age/), "54");
+    await user.click(screen.getByRole("button", { name: "Male" }));
+    const allergies = screen.getByRole("group", { name: "Allergies" });
+    const first = within(allergies).getAllByRole("button")[1];
+    if (first === undefined) throw new Error("expected common allergy chips");
+    await user.click(first);
+    await user.click(screen.getByRole("button", { name: "Add to queue" }));
+    expect(await screen.findByText(/Ramesh Pawar: token #/)).toBeTruthy();
   });
 
   it("hides the walk-in button and seat/done actions from someone without appointments.write", async () => {

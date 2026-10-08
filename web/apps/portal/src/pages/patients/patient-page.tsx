@@ -7,13 +7,14 @@ import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTi
 import { Tabs } from "@sakalya/ui";
 
 import { AppointmentActionButton, isOpenAppointment } from "../../components/appointment-action.js";
-import { AlertBanner, Empty, Initials, ListRow, MkCard, Skeleton, StatusChip, Timeline } from "../../components/mk/index.js";
+import { Empty, Initials, ListRow, MkCard, Skeleton, StatusChip, Timeline } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { ageSex, formatPhone, languageLabel, maskEmail, maskPhone, patientPath } from "../../lib/patients.js";
-import { useClinicalFlags, usePatient, useTimeline, useToday } from "../../queries.js";
+import { usePatient, useTimeline, useToday } from "../../queries.js";
 import { rememberPatient } from "../../lib/recent-patients.js";
 import { usePlans } from "../treatment-plans/queries.js";
 import { NotFoundPage } from "../not-found-page.js";
+import { AllergyBanner } from "./allergy-banner.js";
 import { ClinicalFlagsPanel } from "./clinical-flags-panel.js";
 import { ConsentPanel } from "./consent-panel.js";
 import { useConsents } from "./queries.js";
@@ -188,21 +189,6 @@ function PatientView({ patient }: { patient: Patient }) {
         ]}
       />
     </div>
-  );
-}
-
-/** The allergy banner under the header: every active allergy, so nobody prescribes past it. */
-function AllergyBanner({ patientId }: { patientId: PatientId }) {
-  const flags = useClinicalFlags(patientId);
-  if (flags.data === undefined || flags.data.allergy_count === 0) {
-    return null;
-  }
-  const active = flags.data.allergies.filter((allergy) => allergy.status === "active");
-  const names = active.map((allergy) => allergy.substance);
-  return (
-    <AlertBanner tone={flags.data.severe_allergy ? "danger" : "warn"}>
-      <b>{flags.data.details_hidden || names.length === 0 ? `${String(flags.data.allergy_count)} recorded ${flags.data.allergy_count === 1 ? "allergy" : "allergies"}` : `${names.join(", ")} allergy`}</b> · check before prescribing
-    </AlertBanner>
   );
 }
 

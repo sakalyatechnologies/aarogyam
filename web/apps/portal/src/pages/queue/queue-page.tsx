@@ -1,14 +1,15 @@
-import { Armchair, CheckCircle2, Clock3, LogOut, Plus, UserRoundPlus } from "lucide-react";
+import { Armchair, CheckCircle2, Clock3, LogOut, UserRoundPlus } from "lucide-react";
 import { useState } from "react";
 
-import { apiErrorOf, type Patient, type QueueToken } from "@aarogyam/api-client";
+import { apiErrorOf, type QueueToken } from "@aarogyam/api-client";
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
-import { Avatar, Button, Dialog, Field, Select, useToast } from "@sakalya/ui";
+import { Button, useToast } from "@sakalya/ui";
 
-import { PatientPicker } from "../../components/patient-picker.js";
 import { useClinic } from "../../clinic.js";
+import { WalkInDialog } from "./walk-in-dialog.js";
+import { StartVisitButton } from "../../components/start-visit-button.js";
 import { ageSex, patientPath } from "../../lib/patients.js";
-import { useAddWalkIn, usePractitioners, useQueue, useSetQueueStatus } from "../../queries.js";
+import { usePractitioners, useQueue, useSetQueueStatus } from "../../queries.js";
 import { Empty, EmptyState, MkCard, PageHeader, Skeleton, StatTile, StatusChip } from "../../components/mk/index.js";
 
 /** Today's waiting room: wait times, walk-ins and moving tokens along. Built for a tablet at the counter. */
@@ -155,6 +156,7 @@ function QueueRow({ token, tone, canWrite }: { token: QueueToken; tone: "warning
       </div>
       {canWrite ? (
         <div className="flex shrink-0 flex-col gap-1.5">
+          {token.status === "waiting" || token.status === "in_chair" ? <StartVisitButton tokenId={token.id} label={token.status === "in_chair" ? "Open visit" : "Start visit"} /> : null}
           {token.status === "waiting" ? (
             <Button
               variant="secondary"
@@ -193,107 +195,5 @@ function QueueRow({ token, tone, canWrite }: { token: QueueToken; tone: "warning
         </div>
       ) : null}
     </li>
-  );
-}
-
-function WalkInDialog({
-  open,
-  onOpenChange,
-  practitioners,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  practitioners: readonly { id: string; display_name: string }[];
-}) {
-  const [patient, setPatient] = useState<Patient | undefined>(undefined);
-  const [practitionerId, setPractitionerId] = useState("");
-  const [error, setError] = useState<string | undefined>(undefined);
-  const addWalkIn = useAddWalkIn();
-  const toast = useToast();
-
-  const close = () => {
-    onOpenChange(false);
-    setPatient(undefined);
-    setPractitionerId("");
-    setError(undefined);
-  };
-
-  const submit = () => {
-    if (patient === undefined) {
-      return;
-    }
-    setError(undefined);
-    addWalkIn.mutate(
-      { patient_id: patient.id, ...(practitionerId === "" ? {} : { practitioner_id: practitionerId }) },
-      {
-        onSuccess: (token) => {
-          toast.show({ title: `Issued token #${String(token.token_number)}`, tone: "success" });
-          close();
-        },
-        onError: (thrown) => {
-          setError(apiErrorOf(thrown)?.message ?? "Couldn't issue a token. Please try again.");
-        },
-      },
-    );
-  };
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) close();
-      }}
-      title="Walk-in"
-      description="Issue a queue token to a patient without an appointment."
-      dismissOnOutsidePress={false}
-      footer={
-        <>
-          <Button variant="secondary" onClick={close}>
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={patient === undefined || addWalkIn.isPending}>
-            {addWalkIn.isPending ? "Issuing…" : "Issue token"}
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        {patient === undefined ? (
-          <PatientPicker onChoose={setPatient} />
-        ) : (
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface-muted px-4 py-3">
-            <span className="flex items-center gap-3">
-              <Avatar name={patient.full_name} size="sm" />
-              <span>
-                <span className="block text-sm font-bold text-text">{patient.full_name}</span>
-                <span className="block text-xs text-muted">{patient.number}</span>
-              </span>
-            </span>
-            <Button
-              variant="ghost"
-              icon={<Plus aria-hidden="true" className="size-4 rotate-45" />}
-              onClick={() => {
-                setPatient(undefined);
-              }}
-            >
-              Change
-            </Button>
-          </div>
-        )}
-        <Field label="Doctor" hint="Optional">
-          <Select
-            options={practitioners.map((p) => ({ value: p.id, label: p.display_name }))}
-            value={practitionerId}
-            onValueChange={setPractitionerId}
-            placeholder="Not yet known"
-          />
-        </Field>
-        {error === undefined ? null : (
-          <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger-text">
-            {error}
-          </p>
-        )}
-      </div>
-    </Dialog>
   );
 }

@@ -61,6 +61,7 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 ## Analytics tab (6 Oct 2026)
 - A dedicated Analytics area for the owner/admin doctor (not staff), on web and the same on mobile. The founder will share a dashboard mock-up; plan from that, review, then build.
 - **Design notes:** owner-only by default via a new permission; one query per chart within the round-trip budget; respects scopes.
+- **Backend built (7 Oct 2026):** `analytics.view` (owner), `GET /reports/analytics` (chair utilization, income, expenses with stock as material, new vs returning, age band, visit kind, referral source, busy hours; one statement), and expenses (`expenses.write` for owner and finance; `GET/POST /expenses`, `POST /expenses/{id}/void`). Rules in `decisions.md`, "Analytics: chair utilization and material costs". Still to build: the portal Analytics page and Billing → Expenses tab, mobile, clinic opening hours (utilization assumes 9 h a day), custom expense categories, branch/vendor/receipt on expenses.
 
 ## Referral programme (later)
 - Clinics refer other clinics and earn a discount (e.g. 10–50% of the next month) when the referred clinic subscribes; tracking codes, a referrals page, and terms to decide with pricing.

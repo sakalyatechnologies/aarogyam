@@ -666,3 +666,9 @@ a.mk-lrow:hover, button.mk-lrow:hover { background: var(--hover); }
 /* Dialogs, drawers and menus portal to <body> outside .mk-app: lift them above the sticky sidebar (60) and topbar (30), below toasts (200). */
 body > [data-base-ui-portal] { position: relative; z-index: 150; }
 .mk-qrow > .min-w-0 { flex: 1 1 140px; }
+
+/* Legal links: the foot of the signed-in portal and of sign-in and register. */
+.mk-legal { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; }
+.mk-legal a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.mk-legal a:hover { color: var(--green); }
+.mk-foot { padding: 28px 0 8px; border-top: 1px solid var(--rule); margin-top: 28px; }

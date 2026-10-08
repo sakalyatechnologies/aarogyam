@@ -32,6 +32,7 @@ import { ClinicMark } from "./clinic-mark.js";
 import { CommandPalette } from "./command-palette.js";
 import { useStoredFlag } from "./use-stored-flag.js";
 import { VoiceNoteButton } from "./voice-note-button.js";
+import { LegalLinks } from "../components/legal-links.js";
 import { PeekProvider } from "./peek.js";
 import { ProgressBar } from "./progress-bar.js";
 
@@ -496,6 +497,9 @@ function ShellFrame() {
         <main id={mainId} ref={mainRef} tabIndex={-1} className="outline-none">
           <Outlet />
         </main>
+        <footer className="mk-foot">
+          <LegalLinks />
+        </footer>
       </div>
     </div>
   );

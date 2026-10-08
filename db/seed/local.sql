@@ -114,6 +114,7 @@ insert into aarogyam.stock_movements (item_id, batch_id, kind, quantity, reason)
 select item_id, id, 'receive', received_quantity, null from aarogyam.stock_batches;
 -- Front desk at Sunrise: two chairs, two doctors with hours, and today's appointments and queue
 -- placed around the moment the seed runs, so Today has live data.
+-- Seeded at night (India time), they sit at 1-3 am: run scripts/demo-refresh.sh --clinic-hours after.
 select set_config('app.tenant_id', :'sunrise', true) \gset
 select id as sunrise_branch, replace(id::text, '-', '') as sunrise_series
 from aarogyam.branches where org_id = :'sunrise' and is_default \gset

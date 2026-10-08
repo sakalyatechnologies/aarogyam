@@ -13,6 +13,7 @@ import { useCollections, useInvoices, usePendingReport } from "./queries.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 import { computeMonthFigures } from "./month-figures.js";
 import { ExpensesPanel } from "./expenses-panel.js";
+import { invoiceStatus, type InvoiceStatusKey } from "../../lib/invoice-status.js";
 
 const plural = (n: number, word: string) => `${String(n)} ${word}${n === 1 ? "" : "s"}`;
 
@@ -22,12 +23,11 @@ function monthStart(today: string): string {
 
 const METHOD_LABEL: Readonly<Record<string, string>> = { upi: "UPI", cash: "Cash", card: "Card", bank_transfer: "Bank", cheque: "Cheque" };
 
+const CHIP_TONE: Readonly<Record<InvoiceStatusKey, ChipTone>> = { void: "noshow", draft: "done", paid: "ready", partial: "confirmed", due: "waiting" };
+
 function invoiceTag(invoice: Invoice): { label: string; tone: ChipTone } {
-  if (invoice.status === "void") return { label: "Void", tone: "noshow" };
-  if (invoice.status !== "issued") return { label: "Draft", tone: "done" };
-  if (invoice.payment_state === "paid") return { label: "Paid", tone: "ready" };
-  if (invoice.paid_paise > 0) return { label: "Partial", tone: "confirmed" };
-  return { label: "Due", tone: "waiting" };
+  const status = invoiceStatus(invoice);
+  return { label: status.label, tone: CHIP_TONE[status.key] };
 }
 
 const modeOf = (invoice: Invoice): string => (invoice.methods.length === 0 ? "—" : invoice.methods.map((m) => METHOD_LABEL[m] ?? m).join(", "));

@@ -22,8 +22,16 @@ describe("Sidebar", () => {
     const toggle = await screen.findByRole("button", { name: "Collapse sidebar" });
     const app = document.querySelector(".mk-app");
     expect(app?.classList.contains("mk-collapsed")).toBe(false);
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
     await user.click(toggle);
     expect(app?.classList.contains("mk-collapsed")).toBe(true);
+    expect(screen.getByRole("button", { name: "Expand sidebar" }).getAttribute("aria-pressed")).toBe("true");
+    // Labels clip with CSS rather than leaving the DOM, so the rail can animate and readers keep them.
+    const labels = [...document.querySelectorAll(".mk-nav-t")].map((label) => label.textContent);
+    expect(labels).toContain("Patients");
+    expect(document.querySelector(".mk-navlbl")?.textContent).toBe("Workspace");
+    // The active item carries the sliding bar.
+    expect(screen.getByRole("link", { name: /Today/ }).querySelector(".mk-railbar")).not.toBeNull();
     expect(localStorage.getItem(KEY)).toBe("1");
     // Links keep their names for screen readers and show them as tooltips.
     expect(screen.getByRole("link", { name: "Patients" }).getAttribute("title")).toBe("Patients");

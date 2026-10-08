@@ -7,6 +7,7 @@ import type { ClinicalFlags, Patient } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
 
 import { EmptyState, Initials, MkCard, PageHeader, SkeletonList, StatusChip, rowLink } from "../../components/mk/index.js";
+import { StaggerItem, StaggerList } from "../../components/mk/motion.js";
 import { useClinic } from "../../clinic.js";
 import { patientPath } from "../../lib/patients.js";
 import { recentPatientIds } from "../../lib/recent-patients.js";
@@ -187,9 +188,9 @@ export function PatientsPage() {
                     <th scope="col">Status</th>
                   </tr>
                 </thead>
-                <tbody>
+                <StaggerList as="tbody">
                   {rows.slice(0, shown).map((row) => (
-                    <tr key={row.id} {...rowLink(() => void navigate(patientPath(row)))}>
+                    <StaggerItem as="tr" key={row.id} {...rowLink(() => void navigate(patientPath(row)))}>
                       <th scope="row">
                         <span className="mk-pname">
                           <Initials name={row.full_name} size="sm" />
@@ -216,9 +217,9 @@ export function PatientsPage() {
                       <td>
                         <PatientChips patient={row} />
                       </td>
-                    </tr>
+                    </StaggerItem>
                   ))}
-                </tbody>
+                </StaggerList>
               </table>
             </div>
             {rows.length > shown ? (

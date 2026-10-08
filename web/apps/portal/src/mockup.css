@@ -31,6 +31,30 @@
   --hover: color-mix(in srgb, var(--sk-primary) 4%, var(--sk-surface));
   --field: color-mix(in srgb, var(--sk-primary) 2%, var(--sk-surface));
 }
+/*
+ * Rail colours. The sidebar stays dark in both clinic themes, tinted by the brand: its base is the
+ * theme's darkest colour (ink in light mode, the page in dark mode) and its text the lightest.
+ */
+.mk-app {
+  --rail-base: var(--sk-text);
+  --rail-on: var(--sk-surface);
+  --rail-bg: color-mix(in srgb, var(--sk-brand) 24%, var(--rail-base));
+  --rail-bg-end: color-mix(in srgb, var(--sk-brand) 32%, var(--rail-base));
+  --rail-ink: color-mix(in srgb, var(--rail-on) 80%, var(--rail-bg));
+  --rail-ink-strong: var(--rail-on);
+  --rail-ink-muted: color-mix(in srgb, var(--rail-on) 62%, var(--rail-bg));
+  --rail-accent: color-mix(in srgb, var(--sk-brand) 55%, var(--rail-on));
+  --rail-badge: color-mix(in srgb, var(--sk-brand) 18%, var(--rail-on));
+  --rail-fill: color-mix(in srgb, var(--rail-on) 7%, transparent);
+  --rail-fill-strong: color-mix(in srgb, var(--rail-on) 14%, transparent);
+  --rail-line: color-mix(in srgb, var(--rail-on) 12%, transparent);
+  /* Glass: set to a blur() to frost the rail over the page. */
+  --rail-glass: none;
+}
+[data-theme-mode="dark"] .mk-app {
+  --rail-base: var(--sk-background);
+  --rail-on: var(--sk-text);
+}
 .mk-app {
   position: relative;
   min-height: 100vh;
@@ -52,33 +76,34 @@
 
 /* sidebar */
 .mk-side {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--sk-brand) 22%, #050e0a) 0%, color-mix(in srgb, var(--sk-brand) 30%, #050e0a) 60%, color-mix(in srgb, var(--sk-brand) 26%, #050e0a) 100%);
-  color: #dfe9e4; padding: 22px 14px; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 6px; overflow: auto; z-index: 60;
+  background: linear-gradient(180deg, var(--rail-bg) 0%, var(--rail-bg-end) 100%);
+  backdrop-filter: var(--rail-glass);
+  color: var(--rail-ink); padding: 22px 14px; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 6px; overflow: auto; z-index: 60;
 }
 .mk-logo { display: flex; align-items: center; gap: 11px; padding: 6px 10px 18px; }
-.mk-logo-mark { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; font-size: 21px; font-weight: 800; color: #fff;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--sk-brand) 85%, #fff 15%), color-mix(in srgb, var(--sk-brand) 70%, #000)); box-shadow: 0 6px 18px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.25); }
-.mk-logo b { font-size: 17px; letter-spacing: -.02em; color: #fff; display: block; }
-.mk-logo small { font-size: 11px; color: #9db5aa; font-weight: 500; }
-.mk-clinic { margin: 0 6px 12px; position: relative; }
-.mk-clinic > button { width: 100%; text-align: left; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 10px 12px; font-size: 13px; cursor: pointer; transition: .2s; color: inherit; display: block; }
-.mk-clinic > button:hover { background: rgba(255,255,255,.12); }
+.mk-logo-mark { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; font-size: 21px; font-weight: 800; color: var(--rail-ink-strong);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--sk-brand) 85%, var(--rail-on)), color-mix(in srgb, var(--sk-brand) 70%, var(--rail-base))); box-shadow: 0 6px 18px color-mix(in srgb, var(--rail-base) 35%, transparent), inset 0 1px 0 var(--rail-line); }
+.mk-logo b { font-size: 17px; letter-spacing: -.02em; color: var(--rail-ink-strong); display: block; }
+.mk-logo small { font-size: 11px; color: var(--rail-ink-muted); font-weight: 500; }
+.mk-clinic { position: relative; }
+.mk-clinic > button { width: 100%; text-align: left; background: var(--rail-fill); border: 1px solid var(--rail-line); border-radius: 12px; padding: 10px 12px; font-size: 13px; cursor: pointer; transition: .2s; color: inherit; display: block; }
+.mk-clinic > button:hover { background: var(--rail-fill-strong); }
 .mk-clinic > button[disabled] { cursor: default; }
-.mk-clinic > button[disabled]:hover { background: rgba(255,255,255,.07); }
-.mk-clinic b { color: #fff; display: block; font-size: 13.5px; }
-.mk-clinic span { font-size: 11.5px; color: #9db5aa; }
-.mk-clinic ul { list-style: none; margin: 6px 0 0; padding: 4px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; }
-.mk-clinic li button { width: 100%; text-align: left; background: transparent; border: 0; color: #dfe9e4; padding: 8px 10px; border-radius: 8px; font-size: 13px; cursor: pointer; }
-.mk-clinic li button:hover { background: rgba(255,255,255,.12); }
-.mk-navlbl { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; color: #8fa89d; padding: 12px 12px 4px; text-transform: uppercase; }
+.mk-clinic > button[disabled]:hover { background: var(--rail-fill); }
+.mk-clinic b { color: var(--rail-ink-strong); display: block; font-size: 13.5px; }
+.mk-clinic span { font-size: 11.5px; color: var(--rail-ink-muted); }
+.mk-clinic ul { list-style: none; margin: 6px 0 0; padding: 4px; background: var(--rail-fill); border: 1px solid var(--rail-line); border-radius: 12px; }
+.mk-clinic li button { width: 100%; text-align: left; background: transparent; border: 0; color: var(--rail-ink); padding: 8px 10px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+.mk-clinic li button:hover { background: var(--rail-fill-strong); }
+.mk-navlbl { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; color: var(--rail-ink-muted); padding: 12px 12px 4px; text-transform: uppercase; }
 .mk-nav { display: flex; flex-direction: column; gap: 2px; }
 .mk-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.mk-nav a { display: flex; align-items: center; gap: 11px; width: 100%; color: #c4d4cc; padding: 10px 12px; border-radius: 11px; font-size: 13.5px; font-weight: 500; transition: .18s; text-decoration: none; }
-.mk-nav a:hover { background: rgba(255,255,255,.07); color: #fff; }
+.mk-nav a { position: relative; display: flex; align-items: center; gap: 11px; width: 100%; color: var(--rail-ink); padding: 10px 12px; border-radius: 11px; font-size: 13.5px; font-weight: 500; transition: .18s; text-decoration: none; }
+.mk-nav a:hover { background: var(--rail-fill); color: var(--rail-ink-strong); }
 .mk-nav a[aria-current="page"] { background: linear-gradient(135deg, var(--brand2), var(--brand)); color: var(--on-brand); font-weight: 700; box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 4px 14px rgba(0,0,0,.25); }
 .mk-nav .mk-ico { width: 20px; height: 20px; display: grid; place-items: center; flex: none; }
 .mk-nav .mk-ico svg { width: 17px; height: 17px; }
-.mk-nav .mk-bdg { margin-left: auto; background: #e2ac4a; color: #3a2a05; font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
+.mk-nav .mk-bdg { margin-left: auto; font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
 .mk-menu-scrim { display: none; }
 
 /* main + top bar */
@@ -325,23 +350,30 @@
 .mk-clinic > button { overflow-wrap: anywhere; }
 .mk-clinic b { white-space: normal; line-height: 1.25; }
 .mk-logo-mark { flex: none; overflow: hidden; }
-.mk-logo-mark.has-img { background: #fff; padding: 3px; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.mk-logo-mark.has-img { background: var(--rail-on); padding: 3px; box-shadow: 0 6px 18px color-mix(in srgb, var(--rail-base) 35%, transparent); }
 .mk-logo-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.mk-collapse, .mk-closemenu { flex: none; width: 30px; height: 30px; border-radius: 9px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.07); color: #dfe9e4; cursor: pointer; display: grid; place-items: center; padding: 0; }
-.mk-collapse:hover, .mk-closemenu:hover { background: rgba(255,255,255,.14); }
+.mk-collapse, .mk-closemenu { flex: none; width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--rail-line); background: var(--rail-fill); color: var(--rail-ink); cursor: pointer; display: grid; place-items: center; padding: 0; }
+.mk-collapse:hover, .mk-closemenu:hover { background: var(--rail-fill-strong); }
 .mk-collapse svg, .mk-closemenu svg { width: 16px; height: 16px; }
 .mk-closemenu { display: none; }
-.mk-side { transition: width .2s; }
-.mk-app { transition: grid-template-columns .2s; }
+.mk-collapse-ico { display: grid; place-items: center; }
+/* Rail labels clip (width and fade) instead of disappearing, so collapsing animates and screen readers keep them. */
+.mk-logo-t, .mk-nav-t { min-width: 0; overflow: hidden; white-space: nowrap; max-width: 180px; max-height: 48px; transition: max-width .22s ease, max-height .22s ease, opacity .16s ease; }
+.mk-navlbl { overflow: hidden; white-space: nowrap; max-height: 40px; transition: max-height .22s ease, padding .22s ease, opacity .16s ease; }
+.mk-clinic-wrap { display: grid; grid-template-rows: 1fr; margin: 0 6px 12px; transition: grid-template-rows .22s ease, margin .22s ease, opacity .16s ease, visibility .22s; }
+.mk-clinic-wrap > .mk-clinic { min-height: 0; min-width: 0; }
+.mk-railbar { position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--rail-accent); }
 @media (min-width: 1121px) {
-  .mk-app.mk-collapsed { grid-template-columns: 72px minmax(0, 1fr); }
-  .mk-collapsed .mk-side { padding: 18px 10px; align-items: stretch; overflow: hidden auto; }
+  .mk-app { grid-template-columns: auto minmax(0, 1fr); }
+  .mk-side { width: var(--rail-w, 248px); overflow: hidden auto; }
   .mk-collapsed .mk-logo { flex-direction: column; align-items: center; padding: 2px 0 10px; gap: 10px; }
-  .mk-collapsed .mk-logo-t, .mk-collapsed .mk-navlbl, .mk-collapsed .mk-nav-t, .mk-collapsed .mk-clinic { display: none; }
-  .mk-collapsed nav::before { content: ""; display: block; height: 1px; background: rgba(255,255,255,.12); margin: 0 6px 8px; }
-  .mk-collapsed .mk-nav { align-items: stretch; }
-  .mk-collapsed .mk-nav a { justify-content: center; padding: 0; height: 44px; width: 100%; position: relative; }
-  .mk-collapsed .mk-nav a[aria-current="page"] { box-shadow: none; background: color-mix(in srgb, #fff 18%, transparent); }
+  .mk-collapsed .mk-logo-t, .mk-collapsed .mk-nav-t { max-width: 0; opacity: 0; }
+  .mk-collapsed .mk-logo-t { max-height: 0; }
+  .mk-collapsed .mk-navlbl { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; }
+  .mk-collapsed .mk-clinic-wrap { grid-template-rows: 0fr; margin-bottom: 0; opacity: 0; visibility: hidden; }
+  .mk-collapsed .mk-clinic-wrap > .mk-clinic { overflow: hidden; }
+  .mk-collapsed nav::before { content: ""; display: block; height: 1px; background: var(--rail-line); margin: 0 6px 8px; }
+  .mk-collapsed .mk-nav a { height: 44px; }
   .mk-collapsed .mk-nav .mk-bdg { position: absolute; top: 2px; right: 4px; margin: 0; padding: 0 5px; font-size: 10px; line-height: 16px; min-width: 16px; text-align: center; }
 }
 @media (max-width: 1120px) {
@@ -603,13 +635,12 @@ a.mk-lrow:hover, button.mk-lrow:hover { background: var(--hover); }
 .mk-money > a { grid-column: 1 / -1; justify-self: start; }
 
 /* sidebar and top bar polish */
-.mk-side { background: linear-gradient(180deg, color-mix(in srgb, var(--sk-brand) 26%, #07130f) 0%, color-mix(in srgb, var(--sk-brand) 34%, #07130f) 100%); }
 .mk-nav a { border-radius: 12px; font-weight: 500; }
-/* The active item sits on the always-dark sidebar (not on a theme colour), so its label is white. */
-.mk-side .mk-nav a[aria-current="page"] { color: #fff; }
-.mk-nav a[aria-current="page"] { background: color-mix(in srgb, #fff 14%, transparent); font-weight: 600; box-shadow: inset 3px 0 0 color-mix(in srgb, var(--sk-brand) 55%, #e6f4ce); }
+/* The active item sits on the always-dark rail (not on a theme colour); the sliding .mk-railbar marks it. */
+.mk-side .mk-nav a[aria-current="page"] { color: var(--rail-ink-strong); }
+.mk-nav a[aria-current="page"] { background: var(--rail-fill-strong); font-weight: 600; box-shadow: none; }
 .mk-navlbl { letter-spacing: 1.5px; font-weight: 600; }
-.mk-nav .mk-bdg { background: #e6f4ce; color: #1d3b2d; font-weight: 700; }
+.mk-nav .mk-bdg { background: var(--rail-badge); color: var(--rail-base); font-weight: 700; }
 .mk-topbar { background: linear-gradient(180deg, var(--bg) 72%, transparent); }
 .mk-iconbtn { box-shadow: 0 1px 2px rgba(23, 46, 39, .05); border-color: color-mix(in srgb, var(--rule) 80%, transparent); }
 .mk-avatar { background: var(--brand-soft); color: var(--brand-text); box-shadow: none; font-weight: 600; }

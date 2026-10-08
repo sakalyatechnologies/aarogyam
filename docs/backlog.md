@@ -71,6 +71,15 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 - **Sign-in and landing pages** should show what Aarogyam is (product visuals, value), not just sign-in boxes; see how MyDwarpal handled it.
 - Review the whole portal and both mobile apps against the new direction before building more screens.
 
+## UX review of settings, setup and speed flows (8 Oct 2026)
+Review prompts are in `~/project/ux-review/ux-review-prompts.md` (outside the repo), with 13 screenshots in `~/project/ux-review/screenshots/`. Paste the shared context, then one prompt with its listed screenshots, then the output-format block. Each prompt includes a proposed fix for the reviewer to critique. The roles screenshots predate the expenses and Analytics access rights.
+- **Roles and permissions:** hidden role switching; locked roles don't explain themselves; "1 of 3" cells; 25 switches; confusing "Like X" buttons; staff and roles mixed together; very long on a phone.
+- **Letterhead:** small preview that scrolls away; oversized thumbnails and switch rows; raw file input; Save easy to miss; no clear order.
+- **Theme:** unclear which choice is active; no preview before applying; no undo; hex-only custom colour with no contrast check.
+- **Settings structure:** nine tabs in one row; phone tab bar; mixed saving (instant vs Save button).
+- **Setup "Your look" step:** the whole Theme and Letterhead screens stacked into one first-run step.
+- **Speed review:** taps and decisions for a walk-in and a doctor's visit; family-shared phone numbers; where the quick picks sit; SOAP vs one box.
+
 ## Simplify navigation (6 Oct 2026)
 - **Staff vs Settings:** both exist in the sidebar; decide one place (likely Settings → Team & roles, with clinic settings alongside) and remove the duplicate.
 - **Prescriptions page:** drop the clinic-wide Prescriptions page; prescriptions live on the patient's Rx tab (history paginated, "New prescription" there). Keep a clinic-wide list only if a real workflow needs it (e.g. a pharmacy hand-off queue).

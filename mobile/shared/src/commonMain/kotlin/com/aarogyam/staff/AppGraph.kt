@@ -16,6 +16,8 @@ import com.aarogyam.staff.device.MemoryPreferences
 import com.aarogyam.staff.device.Preferences
 import com.aarogyam.staff.expenses.ExpensesStateHolder
 import com.aarogyam.staff.files.FilesStateHolder
+import com.aarogyam.staff.labs.LabsStateHolder
+import com.aarogyam.staff.labs.NewLabCaseStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
@@ -264,6 +266,20 @@ class AppGraph private constructor(
         clinic: ClinicContext,
         scope: CoroutineScope,
     ): BadgesStateHolder = BadgesStateHolder(clinic, scope)
+
+    /** Lab work: cases and the lab directory. */
+    fun labs(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): LabsStateHolder = LabsStateHolder(clinic, scope, logger("aarogyam.labs"))
+
+    /** A new lab case for [patientId], linked to [visitId] when written inside a visit. */
+    fun newLabCase(
+        clinic: ClinicContext,
+        patientId: String,
+        visitId: String?,
+        scope: CoroutineScope,
+    ): NewLabCaseStateHolder = NewLabCaseStateHolder(clinic, patientId, visitId, scope, logger("aarogyam.labs"))
 
     /** Restores the session again, after secure storage was unavailable. */
     fun restore() {

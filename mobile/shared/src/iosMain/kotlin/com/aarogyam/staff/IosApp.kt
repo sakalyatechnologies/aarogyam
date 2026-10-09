@@ -14,6 +14,8 @@ import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.UserDefaultsPreferences
 import com.aarogyam.staff.expenses.ExpensesStateHolder
 import com.aarogyam.staff.files.FilesStateHolder
+import com.aarogyam.staff.labs.LabsStateHolder
+import com.aarogyam.staff.labs.NewLabCaseStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
@@ -282,3 +284,17 @@ fun AppGraph.badges(
     clinic: ClinicContext,
     screen: ScreenScope,
 ): BadgesStateHolder = badges(clinic, screen.scope)
+
+/** Lab work, living as long as [screen]. */
+fun AppGraph.labs(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): LabsStateHolder = labs(clinic, screen.scope)
+
+/** A new lab case, living as long as [screen]. */
+fun AppGraph.newLabCase(
+    clinic: ClinicContext,
+    patientId: String,
+    visitId: String?,
+    screen: ScreenScope,
+): NewLabCaseStateHolder = newLabCase(clinic, patientId, visitId, screen.scope)

@@ -78,4 +78,17 @@ class ArtTest {
         assertTrue(adult.filter { !it.upper }.all { it.y > 0.5 })
         assertEquals(20, JawGeometry.spots(Dentition.Child).size)
     }
+
+    @Test
+    fun icons_merge_into_one_outline_and_matrices_apply() {
+        val users = Icons.of("users").commands
+        assertTrue(users.count { it is com.sakalya.mobile.design.PathCommand.MoveTo } >= 2, "circle and path")
+        assertTrue(Icons.of("nope").commands.isEmpty())
+        val moved = ArtLayer("M1 2L3 4", matrix = listOf(2.0, 0.0, 0.0, 2.0, 10.0, 0.0)).pathData()?.commands
+        assertEquals(
+            com.sakalya.mobile.design.PathCommand
+                .MoveTo(12.0, 4.0),
+            moved?.first(),
+        )
+    }
 }

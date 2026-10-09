@@ -11,6 +11,7 @@ import { useClinic } from "../../clinic.js";
 import { useInvoices } from "../billing/queries.js";
 import { useCreatePrescription, useLastPrescription, usePrescriptions } from "../prescriptions/queries.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
+import { INVOICE_STATUS_TONE, invoiceStatus } from "../../lib/invoice-status.js";
 
 const RECENT = 5;
 const RX_PAGE = 10;
@@ -31,7 +32,7 @@ export function BillsPanel({ patientId }: { patientId: PatientId }) {
           <Button
             icon={<Plus aria-hidden="true" className="size-4" />}
             onClick={() => {
-              void navigate("/billing/invoices/new");
+              void navigate(`/billing/invoices/new?patient=${encodeURIComponent(patientId)}`);
             }}
           >
             New bill
@@ -52,8 +53,7 @@ export function BillsPanel({ patientId }: { patientId: PatientId }) {
                 <Link href={`/billing/invoices/${i.id}`} className="font-mono text-xs font-semibold text-primary-text hover:underline">
                   {i.number ?? "Draft"}
                 </Link>
-                <Tag tone={statusTone(i.status === "issued" ? "success" : i.status === "void" ? "danger" : "neutral")}>{i.status}</Tag>
-                {i.payment_state == null ? null : <Tag tone={statusTone(i.payment_state === "paid" ? "success" : "warning")}>{i.payment_state}</Tag>}
+                <Tag tone={statusTone(INVOICE_STATUS_TONE[invoiceStatus(i).key])}>{invoiceStatus(i).label}</Tag>
                 <span className="ms-auto font-semibold tabular-nums text-text">{formatRupees(i.total_paise)}</span>
                 <span className="text-muted">{formatDate(i.issued_at ?? i.created_at)}</span>
               </li>

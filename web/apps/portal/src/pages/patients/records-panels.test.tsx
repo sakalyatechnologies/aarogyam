@@ -28,6 +28,8 @@ describe("Patient 360 bills and prescriptions", () => {
     await user.click(screen.getByRole("button", { name: "New bill" }));
     // The page's code loads on first visit, so the navigation lands a moment later.
     await waitFor(() => { expect(router.state.location.pathname).toBe("/billing/invoices/new"); });
+    // The bill keeps the patient it was started for.
+    expect(router.state.location.search).toBe(`?patient=${path.split("/").pop() ?? ""}`);
   });
 
   it("starts a prescription draft from the Prescriptions tab", async () => {

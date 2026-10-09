@@ -1033,8 +1033,8 @@ async fn save(
 /// A patient on the to-do list.
 #[derive(Debug, Clone)]
 pub struct Gap {
-    /// The entry.
-    pub id: PatientGapId,
+    /// The entry; `None` for a patient registered here rather than imported (nothing to dismiss).
+    pub id: Option<PatientGapId>,
     /// The patient.
     pub patient_id: PatientId,
     /// Their number.
@@ -1048,12 +1048,13 @@ pub struct Gap {
     /// Its sheet.
     pub sheet_name: Option<String>,
     /// Their row in it.
-    pub row: usize,
+    pub row: Option<usize>,
     /// When they were imported.
-    pub imported_at: OffsetDateTime,
+    pub imported_at: Option<OffsetDateTime>,
 }
 
-/// Imported patients still missing details, oldest first.
+/// Patients still missing details: imported ones first, then those registered here with no
+/// age or sex, oldest first, within the member's reach.
 ///
 /// # Errors
 /// [`AppError::Db`] on failures.
@@ -1065,13 +1066,14 @@ pub async fn gaps(
     actor.require(Permission::PatientsRead)?;
     let rows = db
         .scoped(&scope(actor, request_id), async |tx| {
-            Ok::<_, AppError>(dal::open_gaps(tx.conn(), GAP_PAGE).await?)
+            let reach = actor.reach(Permission::PatientsRead).member();
+            Ok::<_, AppError>(dal::open_gaps(tx.conn(), GAP_PAGE, reach).await?)
         })
         .await?;
     Ok(rows
         .into_iter()
         .map(|row| Gap {
-            id: PatientGapId::from_uuid(row.id),
+            id: row.id.map(PatientGapId::from_uuid),
             patient_id: PatientId::from_uuid(row.patient_id),
             number: row.number,
             full_name: row.full_name,
@@ -1082,8 +1084,8 @@ pub async fn gaps(
                 .collect(),
             file_name: row.file_name,
             sheet_name: row.sheet_name,
-            row: usize::try_from(row.row_number).unwrap_or_default(),
-            imported_at: row.created_at,
+            row: row.row_number.and_then(|n| usize::try_from(n).ok()),
+            imported_at: row.imported_at,
         })
         .collect())
 }

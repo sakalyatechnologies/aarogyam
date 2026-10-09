@@ -449,8 +449,8 @@ pub async fn recorded_rows(
 /// A patient on the to-do list.
 #[derive(Debug, Clone)]
 pub struct GapRow {
-    /// The entry.
-    pub id: Uuid,
+    /// The entry; `None` for a patient registered here rather than imported.
+    pub id: Option<Uuid>,
     /// The patient.
     pub patient_id: Uuid,
     /// Their number.
@@ -464,36 +464,58 @@ pub struct GapRow {
     /// Its sheet.
     pub sheet_name: Option<String>,
     /// Their row in it.
-    pub row_number: i32,
-    /// When they were imported.
-    pub created_at: OffsetDateTime,
+    pub row_number: Option<i32>,
+    /// When they were imported; `None` for a patient registered here.
+    pub imported_at: Option<OffsetDateTime>,
 }
 
-/// Imported patients still missing details, oldest import first, at most `limit`. Details
-/// filled in since no longer count, and dismissed entries are left out.
+/// Patients still missing details, at most `limit`, within `member`'s reach: imported ones
+/// (oldest import first; details filled in since no longer count, dismissed entries are left
+/// out), then patients registered here with no age (no date of birth) or no sex, oldest first.
+/// A patient with any import entry, even a dismissed one, appears only through it.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
-pub async fn open_gaps(conn: &mut PgConnection, limit: i64) -> Result<Vec<GapRow>, DbError> {
+pub async fn open_gaps(
+    conn: &mut PgConnection,
+    limit: i64,
+    member: Option<Uuid>,
+) -> Result<Vec<GapRow>, DbError> {
     let rows = sqlx::query_as!(
         GapRow,
-        r#"select g.id, g.patient_id, p.number, p.full_name, s.missing as "missing!",
-                  i.file_name, i.sheet_name, g.row_number, g.created_at
-           from aarogyam.patient_gaps g
-           join aarogyam.patients p on p.org_id = g.org_id and p.id = g.patient_id
-           join aarogyam.imports i on i.org_id = g.org_id and i.id = g.import_id
-           cross join lateral (
-             select array(
-               select m from unnest(g.missing) m
-               where (m = 'phone' and p.phone_e164 is null)
-                  or (m = 'sex' and p.sex = 'unknown')
-                  or (m = 'date_of_birth' and p.date_of_birth is null)
-             ) as missing
-           ) s
-           where g.dismissed_at is null and p.deleted_at is null and cardinality(s.missing) > 0
-           order by g.created_at, g.row_number
+        r#"select id, patient_id as "patient_id!", number as "number!", full_name as "full_name!",
+                  missing as "missing!", file_name, sheet_name, row_number, imported_at
+           from (
+             select g.id, g.patient_id, p.number, p.full_name, s.missing, i.file_name, i.sheet_name,
+                    g.row_number, g.created_at as imported_at, 0 as source, g.created_at as at
+             from aarogyam.patient_gaps g
+             join aarogyam.patients p on p.org_id = g.org_id and p.id = g.patient_id
+             join aarogyam.imports i on i.org_id = g.org_id and i.id = g.import_id
+             cross join lateral (
+               select array(
+                 select m from unnest(g.missing) m
+                 where (m = 'phone' and p.phone_e164 is null)
+                    or (m = 'sex' and p.sex = 'unknown')
+                    or (m = 'date_of_birth' and p.date_of_birth is null)
+               ) as missing
+             ) s
+             where g.dismissed_at is null and p.deleted_at is null and cardinality(s.missing) > 0
+               and app.patient_in_reach(p.id, $2)
+             union all
+             select null, p.id, p.number, p.full_name,
+                    array_remove(array[case when p.sex = 'unknown' then 'sex' end,
+                                       case when p.date_of_birth is null then 'date_of_birth' end], null),
+                    null, null, null, null, 1, p.created_at
+             from aarogyam.patients p
+             where p.deleted_at is null and p.status = 'active'
+               and (p.sex = 'unknown' or p.date_of_birth is null)
+               and not exists (select 1 from aarogyam.patient_gaps g where g.org_id = p.org_id and g.patient_id = p.id)
+               and app.patient_in_reach(p.id, $2)
+           ) gaps
+           order by source, at, row_number, number
            limit $1"#,
-        limit
+        limit,
+        member
     )
     .fetch_all(conn)
     .await?;

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-drafted; a native speaker reviews before the pilot (docs/backlog.md). -->
+<resources>
+    <string name="patient_tab_notes">नोट्स</string>
+    <string name="notes_not_allowed">इस क्लिनिक में आपकी भूमिका नोट्स नहीं देख सकती.</string>
+    <string name="notes_summary_title">सारांश नोट</string>
+    <string name="notes_summary_empty">अभी कोई सारांश नहीं. मरीज़ की लंबी तस्वीर यहां रखें: इतिहास, पसंद, किस पर नज़र रखनी है.</string>
+    <string name="notes_write">सारांश लिखें</string>
+    <string name="notes_edit">सारांश बदलें</string>
+    <string name="notes_save">सहेजें</string>
+    <string name="notes_cancel">रद्द करें</string>
+    <string name="notes_preview">प्रीव्यू</string>
+    <string name="notes_updated">%1$s को अपडेट किया</string>
+    <string name="notes_updated_by">%1$s को %2$s ने अपडेट किया</string>
+    <string name="notes_visits_title">विज़िट नोट्स</string>
+    <string name="notes_visits_none">अभी कोई विज़िट नोट नहीं.</string>
+    <plurals name="notes_addenda">
+        <item quantity="one">%1$d परिशिष्ट: पढ़ने के लिए विज़िट खोलें.</item>
+        <item quantity="other">%1$d परिशिष्ट: पढ़ने के लिए विज़िट खोलें.</item>
+    </plurals>
+    <string name="notes_fmt_heading">शीर्षक</string>
+    <string name="notes_fmt_bold">बोल्ड</string>
+    <string name="notes_fmt_italic">इटैलिक</string>
+    <string name="notes_fmt_bullets">बुलेट सूची</string>
+    <string name="notes_fmt_numbers">क्रमांकित सूची</string>
+    <string name="notes_problem_html">HTML नहीं चलेगा. शीर्षक, सूची, बोल्ड और इटैलिक के लिए बटन इस्तेमाल करें.</string>
+    <string name="notes_problem_link">लिंक और तस्वीरें नहीं चलेंगी.</string>
+    <string name="notes_problem_code">कोड फ़ॉर्मैटिंग नहीं चलेगी.</string>
+    <string name="notes_problem_heading">शीर्षक तीन स्तर तक होते हैं (###).</string>
+    <string name="notes_problem_changed">आपके बदलाव के दौरान किसी और ने यह नोट बदल दिया. अपना टेक्स्ट कॉपी करें, रद्द करें और उनका संस्करण देखने के लिए फिर से खोलें.</string>
+    <string name="notes_kind_soap">SOAP नोट</string>
+    <string name="notes_kind_progress">प्रगति नोट</string>
+    <string name="notes_kind_procedure">प्रक्रिया नोट</string>
+    <string name="notes_kind_intake">इनटेक नोट</string>
+    <string name="notes_kind_front_desk">रिसेप्शन नोट</string>
+    <string name="notes_section_subjective">मरीज़ की बात</string>
+    <string name="notes_section_objective">जांच</string>
+    <string name="notes_section_assessment">आकलन</string>
+    <string name="notes_section_plan">योजना</string>
+    <string name="notes_status_draft">ड्राफ़्ट</string>
+    <string name="notes_status_signed">हस्ताक्षरित</string>
+    <string name="notes_status_conflict">टकराव</string>
+    <string name="notes_status_error">गलती से दर्ज</string>
+    <string name="notes_status_unknown">नोट</string>
+</resources>

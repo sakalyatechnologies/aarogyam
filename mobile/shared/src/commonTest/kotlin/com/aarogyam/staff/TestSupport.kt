@@ -121,7 +121,7 @@ const val ME_TWO_CLINICS =
     """{"clinics":[
       {"org_id":"0192f3a4-0000-7000-8000-000000000001","slug":"sunrise","name":"Sunrise Dental","role_key":"doctor","role_name":"Doctor","host":"sunrise.aarogyam.example"},
       {"org_id":"0192f3a4-0000-7000-8000-000000000002","slug":"lotus","name":"Lotus Clinic","role_key":"owner","role_name":"Owner","host":null}
-    ],"console_access":false}"""
+    ],"console_access":false,"staff_mfa_required":false}"""
 
 fun sessionBody(permissions: List<String> = listOf("appointments.read", "patients.read")): String =
     """{"clinic":{"id":"0192f3a4-0000-7000-8000-000000000001","slug":"sunrise","name":"Sunrise Dental",

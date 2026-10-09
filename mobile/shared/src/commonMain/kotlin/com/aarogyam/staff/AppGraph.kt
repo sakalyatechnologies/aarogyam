@@ -15,8 +15,10 @@ import com.aarogyam.staff.patients.Patient360StateHolder
 import com.aarogyam.staff.patients.PatientsStateHolder
 import com.aarogyam.staff.prescriptions.RxListStateHolder
 import com.aarogyam.staff.prescriptions.RxSheetStateHolder
+import com.aarogyam.staff.queue.QueueStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
+import com.aarogyam.staff.walkin.WalkInStateHolder
 import com.sakalya.mobile.auth.PublishableKey
 import com.sakalya.mobile.auth.SecureSessionStore
 import com.sakalya.mobile.auth.SessionManager
@@ -130,6 +132,16 @@ class AppGraph private constructor(
         patientId: String,
         scope: CoroutineScope,
     ): BillingStateHolder = BillingStateHolder(clinic, patientId, scope, logger("aarogyam.billing"))
+
+    fun walkIn(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): WalkInStateHolder = WalkInStateHolder(clinic, scope, logger("aarogyam.walkin"))
+
+    fun queue(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): QueueStateHolder = QueueStateHolder(clinic, scope, logger("aarogyam.queue"))
 
     fun calendar(
         clinic: ClinicContext,

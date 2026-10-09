@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-drafted; a native speaker reviews before the pilot (docs/backlog.md). -->
+<resources>
+    <string name="patient_tab_notes">नोंदी</string>
+    <string name="notes_not_allowed">या क्लिनिकमध्ये तुमच्या भूमिकेला नोंदी पाहता येत नाहीत.</string>
+    <string name="notes_summary_title">सारांश नोंद</string>
+    <string name="notes_summary_empty">अजून सारांश नाही. रुग्णाचे दीर्घकालीन चित्र इथे ठेवा: इतिहास, आवडीनिवडी, कशावर लक्ष ठेवायचे.</string>
+    <string name="notes_write">सारांश लिहा</string>
+    <string name="notes_edit">सारांश बदला</string>
+    <string name="notes_save">जतन करा</string>
+    <string name="notes_cancel">रद्द करा</string>
+    <string name="notes_preview">पूर्वावलोकन</string>
+    <string name="notes_updated">%1$s ला अपडेट केले</string>
+    <string name="notes_updated_by">%1$s ला %2$s यांनी अपडेट केले</string>
+    <string name="notes_visits_title">भेटीच्या नोंदी</string>
+    <string name="notes_visits_none">अजून भेटीच्या नोंदी नाहीत.</string>
+    <plurals name="notes_addenda">
+        <item quantity="one">%1$d पुरवणी: वाचण्यासाठी भेट उघडा.</item>
+        <item quantity="other">%1$d पुरवण्या: वाचण्यासाठी भेट उघडा.</item>
+    </plurals>
+    <string name="notes_fmt_heading">शीर्षक</string>
+    <string name="notes_fmt_bold">ठळक</string>
+    <string name="notes_fmt_italic">तिरपे</string>
+    <string name="notes_fmt_bullets">बुलेट यादी</string>
+    <string name="notes_fmt_numbers">क्रमांकित यादी</string>
+    <string name="notes_problem_html">HTML चालत नाही. शीर्षक, यादी, ठळक आणि तिरप्यासाठी बटणे वापरा.</string>
+    <string name="notes_problem_link">लिंक आणि चित्रे चालत नाहीत.</string>
+    <string name="notes_problem_code">कोड फॉरमॅटिंग चालत नाही.</string>
+    <string name="notes_problem_heading">शीर्षके तीन पातळ्यांपर्यंत असतात (###).</string>
+    <string name="notes_problem_changed">तुम्ही बदल करत असताना दुसऱ्या कोणीतरी ही नोंद बदलली. तुमचा मजकूर कॉपी करा, रद्द करा आणि त्यांची आवृत्ती पाहण्यासाठी पुन्हा उघडा.</string>
+    <string name="notes_kind_soap">SOAP नोंद</string>
+    <string name="notes_kind_progress">प्रगती नोंद</string>
+    <string name="notes_kind_procedure">उपचार नोंद</string>
+    <string name="notes_kind_intake">प्रवेश नोंद</string>
+    <string name="notes_kind_front_desk">रिसेप्शन नोंद</string>
+    <string name="notes_section_subjective">रुग्णाचे म्हणणे</string>
+    <string name="notes_section_objective">तपासणी</string>
+    <string name="notes_section_assessment">निदान</string>
+    <string name="notes_section_plan">उपचार योजना</string>
+    <string name="notes_status_draft">मसुदा</string>
+    <string name="notes_status_signed">सही केलेली</string>
+    <string name="notes_status_conflict">विसंगती</string>
+    <string name="notes_status_error">चुकून नोंदवले</string>
+    <string name="notes_status_unknown">टीप</string>
+</resources>

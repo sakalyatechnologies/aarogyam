@@ -23,6 +23,7 @@ import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.GraphState
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.chart.ChartTab
+import com.aarogyam.staff.android.ui.walkin.WalkInScreen
 import com.aarogyam.staff.clinic.ClinicBranding
 import com.sakalya.mobile.auth.SessionState
 import com.sakalya.mobile.designcompose.SkEmptyState
@@ -35,6 +36,7 @@ private object Routes {
     const val CLINICS = "clinics"
     const val MAIN = "main"
     const val PATIENT = "patient/{id}"
+    const val WALK_IN = "walk-in"
 }
 
 /** Themes the app from the open clinic's brand and shows the screen the session calls for. */
@@ -119,12 +121,17 @@ private fun Signed(graph: AppGraph) {
                             graph,
                             open,
                             onOpenPatient = { nav.navigate("patient/${Uri.encode(it)}") },
+                            onWalkIn = { nav.navigate(Routes.WALK_IN) },
                             onSwitchClinic = {
                                 chose = true
                                 graph.directory.leave()
                             },
                             onSignOut = graph::signOut,
                         )
+                    }
+                    composable(Routes.WALK_IN) {
+                        val open = clinic ?: return@composable
+                        WalkInScreen(rememberHolder { graph.walkIn(open, it) }, onClose = nav::popBackStack)
                     }
                     composable(Routes.PATIENT) { entry ->
                         val open = clinic ?: return@composable

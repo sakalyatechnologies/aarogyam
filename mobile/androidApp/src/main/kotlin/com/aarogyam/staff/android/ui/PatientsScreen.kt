@@ -24,18 +24,24 @@ import com.sakalya.mobile.designcompose.SkDivider
 import com.sakalya.mobile.designcompose.SkEmptyState
 import com.sakalya.mobile.designcompose.SkListRow
 import com.sakalya.mobile.designcompose.SkSearchField
+import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTone
 import com.sakalya.mobile.designcompose.SkTopBar
+import com.sakalya.mobile.designcompose.color
 
 /** Search-as-you-type over the clinic's patients; a tap opens Patient 360. */
 @Composable
 fun PatientsScreen(
     holder: PatientsStateHolder,
     onOpen: (String) -> Unit,
+    onWalkIn: () -> Unit,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().imePadding()) {
-        SkTopBar(title = stringResource(R.string.patients_title))
+        SkTopBar(
+            title = stringResource(R.string.patients_title),
+            actions = { BarAction(stringResource(R.string.walk_in_add), SkTheme.colors.onBrandDark.color, onWalkIn) },
+        )
         when (val current = state) {
             PatientsState.NotAllowed -> {
                 SkEmptyState(

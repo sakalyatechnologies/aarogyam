@@ -9,6 +9,7 @@ coroutines = "1.11.0"
 datetime = "0.7.1"
 compose-bom = "2026.09.00"
 activity-compose = "1.13.0"
+appcompat = "1.7.1"
 lifecycle = "2.11.0"
 navigation = "2.10.2"
 spotless = "8.9.0"
@@ -38,6 +39,7 @@ compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview"
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 exifinterface = { module = "androidx.exifinterface:exifinterface", version = "1.4.1" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }

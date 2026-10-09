@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-drafted; a native speaker reviews before the pilot (docs/backlog.md). -->
+<resources>
+    <string name="patient_tab_files">फ़ाइलें</string>
+    <string name="files_not_allowed">आपकी भूमिका मरीज़ की फ़ाइलें नहीं देख सकती.</string>
+    <string name="files_empty_title">अभी कोई फ़ाइल नहीं</string>
+    <string name="files_empty_message">फ़ोटो और एक्स-रे यहां दिखेंगे.</string>
+    <string name="files_take_photo">फ़ोटो लें</string>
+    <string name="files_choose_photo">गैलरी से चुनें</string>
+    <string name="files_unlabelled">बिना नाम</string>
+    <string name="files_tooth">दांत %1$d</string>
+    <string name="files_not_image">फ़ाइल</string>
+    <string name="files_label_title">इस फ़ोटो को नाम दें</string>
+    <string name="files_label_custom">या अपना नाम टाइप करें</string>
+    <string name="files_tooth_field">दांत (वैकल्पिक, जैसे 36)</string>
+    <string name="files_send">भेजें</string>
+    <string name="files_cancel">रद्द करें</string>
+    <string name="files_uploading">भेज रहे हैं…</string>
+    <string name="files_problem_label">नाम ज़्यादा से ज़्यादा 60 अक्षर का हो सकता है.</string>
+    <string name="files_problem_tooth">दांत 11 से 48 जैसा नंबर होना चाहिए, या दूध के दांतों के लिए 51 से 85.</string>
+    <string name="files_problem_large">यह फ़ोटो भेजने के लिए बहुत बड़ी है.</string>
+    <string name="files_problem_failed">फ़ोटो नहीं भेजी जा सकी. फिर कोशिश करें.</string>
+    <string name="files_problem_read">यह फ़ोटो पढ़ी नहीं जा सकी.</string>
+</resources>

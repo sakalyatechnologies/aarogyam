@@ -14,8 +14,10 @@ import com.aarogyam.staff.patients.Patient360StateHolder
 import com.aarogyam.staff.patients.PatientsStateHolder
 import com.aarogyam.staff.prescriptions.RxListStateHolder
 import com.aarogyam.staff.prescriptions.RxSheetStateHolder
+import com.aarogyam.staff.queue.QueueStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
+import com.aarogyam.staff.walkin.WalkInStateHolder
 import com.sakalya.mobile.design.ThemeMode
 import com.sakalya.mobile.http.PathNetworkMonitor
 import com.sakalya.mobile.securestorage.PlatformSecureStore
@@ -136,3 +138,15 @@ val LocalTime.minuteOfDay: Int get() = hour * MINUTES_PER_HOUR + minute
 val LocalDate.isoText: String get() = toString()
 
 private const val MINUTES_PER_HOUR = 60
+
+/** The Walk-in state holder for [clinic], living as long as [screen]. */
+fun AppGraph.walkIn(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): WalkInStateHolder = walkIn(clinic, screen.scope)
+
+/** The Queue tab's state holder for [clinic], living as long as [screen]. */
+fun AppGraph.queue(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): QueueStateHolder = queue(clinic, screen.scope)

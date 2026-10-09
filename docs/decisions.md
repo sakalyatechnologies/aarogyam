@@ -412,7 +412,6 @@ What `own` means, per record:
 | `audit_events` | Who changed a record | 7 years | Entry | As the patient record it describes |
 | `clinic_applications` | Requests for access that were never approved | 365 days | Decision | Not needed after the decision |
 | `chat_messages` | Staff chat messages, which may name a patient | 365 days | When posted | Working messages, not the record; the record is the chart |
-
 | `lab_work` | Lab orders with their items, history and payments | 8 years | Order recorded | The payments are clinic accounts (as bills); the orders describe work on a patient |
 | `lab_contacts` | People at labs, after the clinic removes them | 365 days | Removal | Business contacts, named with phone and email; not needed once removed |
 

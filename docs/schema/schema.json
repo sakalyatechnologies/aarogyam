@@ -1719,6 +1719,13 @@
      "nullable": false,
      "ref": null,
      "note": "online booking: enabled, slot_minutes, buffer_minutes, auto_confirm, horizon_days, min_notice_minutes"
+    },
+    {
+     "name": "patient_retention_years",
+     "type": "smallint",
+     "nullable": true,
+     "ref": null,
+     "note": "7 to 50; null keeps the default 7 years"
     }
    ],
    "referenced_by": [],
@@ -2382,7 +2389,7 @@
      "type": "patient_status",
      "nullable": false,
      "ref": null,
-     "note": "active, inactive, deceased, merged"
+     "note": "active, inactive, deceased, merged, erased"
     },
     {
      "name": "merged_into_id",
@@ -2418,6 +2425,34 @@
      "nullable": false,
      "ref": null,
      "note": "starts at 1 and goes up when the record changes; sent as the ETag, checked against If-Match on edits"
+    },
+    {
+     "name": "legal_hold",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "stops erasure (PUT /patients/{id}/legal-hold)"
+    },
+    {
+     "name": "legal_hold_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "legal_hold_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "erased_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "set with status erased: a tombstone with identity cleared"
     }
    ],
    "referenced_by": [
@@ -8800,6 +8835,108 @@
    ],
    "referenced_by": [],
    "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "erasure_steps",
+   "domain": "trust",
+   "purpose": "What erasing a patient does to each table: how to find their rows and whether to delete, update or keep them.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "audit",
+   "notes": "Owner only. A new table with patient data registers here in its own migration; a test fails while a table with patient_id isn't listed. The change history of every listed row is scrubbed whatever the action.",
+   "cols": [
+    {
+     "name": "table_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "primary key, schema-qualified"
+    },
+    {
+     "name": "step_order",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "action",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "delete, update, keep"
+    },
+    {
+     "name": "set_clause",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "for update"
+    },
+    {
+     "name": "filter",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "the patient's rows, $2 being the patient id; patient_id = $2 by default"
+    },
+    {
+     "name": "note",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "erasure_log",
+   "domain": "trust",
+   "purpose": "Patients erased, by id, so a restore from backup can be replayed.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "audit",
+   "notes": "Primary key (org_id, patient_id). The job also appends each id to a log file kept outside the database, which is what `aarogyam erase --replay` reads after a restore.",
+   "cols": [
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "run_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "erased_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
    "offline": "server_only"
   },
   {

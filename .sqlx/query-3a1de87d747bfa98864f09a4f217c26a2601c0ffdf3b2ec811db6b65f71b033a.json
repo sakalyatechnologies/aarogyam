@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.org_settings set patient_retention_years = $2 where org_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3a1de87d747bfa98864f09a4f217c26a2601c0ffdf3b2ec811db6b65f71b033a"
+}

@@ -140,6 +140,8 @@ pub enum Event {
     DentalTermRenamed,
     /// A patient signed out one of their own app sessions.
     PatientSessionRevoked,
+    /// A patient's legal hold was put on or released.
+    LegalHoldChanged,
 }
 
 impl Event {
@@ -215,6 +217,7 @@ impl Event {
             Self::DentalTermRestored => "dental_term.restored",
             Self::DentalTermRenamed => "dental_term.renamed",
             Self::PatientSessionRevoked => "patient_session.revoked",
+            Self::LegalHoldChanged => "legal_hold.changed",
         }
     }
 }

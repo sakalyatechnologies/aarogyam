@@ -14,6 +14,7 @@ pub mod clock;
 pub mod consents;
 pub mod console;
 pub mod dental_terms;
+pub mod erasure;
 pub mod error;
 pub mod expenses;
 pub mod facts;

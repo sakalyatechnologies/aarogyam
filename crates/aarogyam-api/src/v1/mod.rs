@@ -20,6 +20,7 @@ pub(crate) mod imports;
 pub(crate) mod internal;
 pub(crate) mod inventory;
 pub(crate) mod invitations;
+pub(crate) mod legal_hold;
 pub(crate) mod letterhead;
 pub(crate) mod me;
 pub(crate) mod meta;
@@ -196,6 +197,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(consents::list).post(consents::record),
         )
         .route("/consents/{id}/withdraw", post(consents::withdraw))
+        .route("/patients/{id}/legal-hold", put(legal_hold::set))
         .route(
             "/support-grants",
             get(support_grants::list).post(support_grants::create),

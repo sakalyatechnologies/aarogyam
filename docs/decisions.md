@@ -2,6 +2,17 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-08: Erasure job
+
+**Decision.** Patient records past retention are erased by `aarogyam erase` (migrations 0344 to 0346), building on the retention report.
+
+- **Legal hold and override first.** `patients.legal_hold` (with reason and time; `PUT /patients/{id}/legal-hold`, `settings.manage`) stops erasure; it doesn't make a front desk edit stale. `org_settings.patient_retention_years` (7 to 50, null = the default 7) lets a clinic keep longer, never shorter (`aarogyam admin retention-years`).
+- **Dry run by default.** `aarogyam erase [--clinic <slug>]` logs per clinic how many patients are past retention (last visit, appointment, bill or registration older than the clinic's years; children until 21) and how many legal holds keep (`erasure.planned`). `--apply --clinic <slug> --log-file <path>` erases that clinic only, one transaction per patient, appending each erased id to the log file as it goes and logging `retention.applied` with the count.
+- **What erasure does** (`app.erase_patient`, owner only): the patient row becomes a tombstone (id, number, `status = 'erased'`, `erased_at`, soft-deleted) with name (`Erased`), phones, email, address, birth date, blood group and tags cleared; the rows of every table registered in `audit.erasure_steps` are deleted (identifiers, link codes, share links, missing-details entries, front desk notes, recalls), updated (app links revoked, imported spreadsheet cells and the bill's printed recipient cleared; lines and totals stay) or kept; `audit_events.changes` of the patient and of every registered row is scrubbed (who and when stay); `audit.erasure_log` records the id. Consents stay with the tombstone. Append-only and final rows refuse changes except inside an erasure (`app.erasure`, never for the API's roles).
+- **Registry.** `audit.erasure_steps` says per table how to find the patient's rows (a filter, `patient_id = $2` by default) and whether to delete, update (a SET clause) or keep them. A new table holding patient data (labs, messages, chat) adds its row in its own migration; a test fails while any `aarogyam` table with a `patient_id` isn't registered.
+- **Restores.** The log file outside the database is replayed after any restore (`aarogyam erase --replay <path>`), erasing again whoever came back, whatever their state then (docs/ops.md).
+- **Not yet:** clinical content (notes, observations, conditions, allergies, charts, plans, prescriptions) and files are kept (registered `keep`); deleting them, their Storage objects and voice notes is the next step, as is the `erased` status in the portal and a patient's own erasure request.
+
 ## 2026-10-08: Retiring and renaming dental terms
 
 **Decision.** A clinic's own dental terms (`dental_terms`) can be renamed and retired (migration 0342, expand only). `GET /dental-terms` lists the clinic's additions with who added and retired them (`clinical.read` or `settings.manage`); `PATCH /dental-terms/{id}` renames, `POST /dental-terms/{id}/retire` and `/restore` retire and bring back (`settings.manage`, owner by default).
@@ -317,7 +328,7 @@ What `own` means, per record:
 
 ## 2026-10-07: Retention schedule and anonymisation design (DPDP)
 
-**Decision.** Each class of record has a default retention period, kept in code (`aarogyam-domain/src/retention.rs`) and here, and an operator job lists what is past it: `aarogyam retention` (needs `ARO_DB__OWNER_URL`; add `--sample N` for identifiers). It is a dry run and has no other mode: `--apply` exists only to refuse, until erasure is built. Counts, the oldest date and a few IDs are logged per clinic and class (`retention.past` events), never names. A test checks the code table against this one.
+**Decision.** Each class of record has a default retention period, kept in code (`aarogyam-domain/src/retention.rs`) and here, and an operator job lists what is past it: `aarogyam retention` (needs `ARO_DB__OWNER_URL`; add `--sample N` for identifiers). It is a dry run and has no other mode; erasing is `aarogyam erase` (see "Erasure job"). Counts, the oldest date and a few IDs are logged per clinic and class (`retention.past` events), never names. A test checks the code table against this one.
 
 | Class | What | Kept | Counted from | Basis (a lawyer must confirm) |
 |---|---|---|---|---|
@@ -332,7 +343,7 @@ What `own` means, per record:
 
 A clinic may keep records longer where its profession or a dispute requires; per-clinic overrides, and a legal hold that stops erasure of a patient, come before erasure is built (backlog). Consent records stay with the patient record and for 3 years after it.
 
-**Anonymisation and erasure design (not built).**
+**Anonymisation and erasure design (built 8 Oct in part, see "Erasure job").**
 
 1. **Erase is the default end of a patient record; anonymise only what the clinic still needs for statistics.** A patient row stays as a tombstone (`id`, `org_id`, `number`, `status = 'erased'`, `erased_at`) because other tables point at it; identity columns (name, search name, phones, email, address, birth date) are cleared. Bills inside their 8 years keep their lines and totals, with the recipient snapshot cleared, until they too pass retention.
 2. **One transaction per patient, in dependency order:** files (the rows, then the Storage objects, with an outbox row to retry a failed delete), voice notes, notes and addenda, observations, conditions, allergies, specialty records, procedures, treatment plans, prescriptions and their items, share links, recalls, queued messages, then the identity columns. Consent rows stay and point at the tombstone.

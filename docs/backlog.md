@@ -189,7 +189,7 @@ Review prompts are in `~/project/ux-review/ux-review-prompts.md` (outside the re
 
 ## Privacy and compliance follow-ups (7 Oct 2026)
 - **Optional MFA for clinic users** (owner and doctors), reusing the console's authenticator step; a clinic setting could later make it required for roles that see finance or export data.
-- **Erasure and anonymisation** as designed in decisions.md (Retention): legal-hold flag, per-clinic retention override, the erase job with `--apply --clinic`, scrubbing `audit_events.changes`, and an erasure log replayed after a restore.
+- **Erasure and anonymisation:** the job, legal hold, per-clinic override, history scrub and replayable log are built (decisions.md, "Erasure job"). Still to do: erasing clinical content and files, the `erased` status in the portal, a legal-hold control in Patient 360, and a patient's own erasure request.
 - **Consent drives messaging:** withdrawing `reminders` or `promotional` consent should switch off those messages (link `patient_consents` to `consent_channels`); patient self-service consent in the patient app; clinic-authored notice text with versions instead of a free label.
 - **Legal pages for clinics' own use:** clinics' own notice printed with the clinic's letterhead; lawyer-reviewed Hindi and Marathi versions.
 

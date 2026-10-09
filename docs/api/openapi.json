@@ -5482,6 +5482,64 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/legal-hold": {
+      "put": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Puts the patient on legal hold, which stops their erasure, or releases them. Holding again\nkeeps the first time and takes the new reason.",
+        "operationId": "setPatientLegalHold",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetLegalHold"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalHold"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A missing or bad reason"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/notes": {
       "get": {
         "tags": [
@@ -14799,6 +14857,33 @@
           }
         }
       },
+      "LegalHold": {
+        "type": "object",
+        "description": "A patient's legal hold.",
+        "required": [
+          "held"
+        ],
+        "properties": {
+          "held": {
+            "type": "boolean",
+            "description": "Whether erasure is stopped."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why, while held."
+          },
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Since when, while held (RFC 3339)."
+          }
+        }
+      },
       "Letterhead": {
         "type": "object",
         "description": "The letterhead printed on prescriptions, bills and receipts.",
@@ -20707,6 +20792,26 @@
           "id": {
             "type": "string",
             "description": "The user."
+          }
+        }
+      },
+      "SetLegalHold": {
+        "type": "object",
+        "description": "Puts a patient on legal hold, or releases them.",
+        "required": [
+          "held"
+        ],
+        "properties": {
+          "held": {
+            "type": "boolean",
+            "description": "On or off."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why, 3 to 300 characters; required when `held`. No clinical detail."
           }
         }
       },

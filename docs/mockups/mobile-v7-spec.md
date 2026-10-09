@@ -212,6 +212,10 @@ On native: springs use damping 0.62–0.75 and stiffness about 380–500 (tuned 
 ## Deviations (founder sign-off)
 The table is kept in sync with the approved plan (`docs/plans/mobile-v7-tasks.md`, "Parity deviations"). Add new rows here when parity checks find something unavoidable.
 
+| Found in | v7 shows | Native | Why |
+|---|---|---|---|
+| K2 palette | light primary at 30 % lightness for every brand | yellow-green brands (e.g. Neem `#4d7c0f`) step darker, to about 27 %, until white labels reach 4.5:1 | AA contrast; the other presets are unchanged |
+
 ## color-mix uses
 Each is `color-mix(in srgb, A n%, B)` and becomes `mix(A, B, n)`.
 

@@ -10,14 +10,14 @@ Tick a task only when its done criteria pass: tests, gates and parity sheet. Add
 | S0.2 | done |  | Copy the mockup to `docs/mockups/mobile-v7.html`. Write `mobile-v7-spec.md` covering: |
 | S0.3 | done |  | Reference-render script: v7 renders for each sheet ID at 320/360/390/430 widths, light and dark. Done when renders exist for every ID. |
 | S0.4 | done |  | Copy the tracker into the repo. Add backlog items: |
-| B1 | todo |  | `NewChartEntry.supersedes_id` for surface-change edits in `aarogyam-app/src/chart.rs`. `cargo test`, openapi regeneration and regenerated mo |
+| B1 | delegated to the backend session (BK-1) |  | `NewChartEntry.supersedes_id` for surface-change edits in `aarogyam-app/src/chart.rs`. `cargo test`, openapi regeneration and regenerated mo |
 | B2 | todo |  | Web `invite-page.tsx`: "Open in the Aarogyam app" plus a test. Before A21. |
-| K1 | todo |  | `ColorMath` HSL helpers and tests. |
-| K2 | todo |  | v7 tokens in `AppTheme` (including chart, status and the fixed mockup colours as tokens); tests for the count and AA across 6 presets × 2 mo |
-| K3 | todo |  | Type scale (13 styles) and tests; Roboto Flex; SakalyaUI font bundle and registration. |
-| K4 | todo |  | Motion tokens (durations, easing, springs, 60 ms stagger), `skPressable`, reduced motion. |
-| K5 | todo |  | Generic path-command model, parser tests, and Compose/SwiftUI renderers. |
-| K6 | todo |  | `SkAvatar` (slot and shape), `RoundedPolygon` cookie and blob morph, live pulse dot, badge dot, draw-on check mark, spinning shape, and the  |
+| K1 | done | kit 7b8d329 | `ColorMath` HSL helpers and tests. |
+| K2 | done | kit b481168 | v7 tokens in `AppTheme` (including chart, status and the fixed mockup colours as tokens); tests for the count and AA across 6 presets × 2 mo |
+| K3 | done | kit 0dffa24 | Type scale (13 styles) and tests; Roboto Flex; SakalyaUI font bundle and registration. |
+| K4 | done | kit fd42625 | Motion tokens (durations, easing, springs, 60 ms stagger), `skPressable`, reduced motion. |
+| K5 | done | kit c46dce4 | Generic path-command model, parser tests, and Compose/SwiftUI renderers. |
+| K6 | done | kit a48b5c5 | `SkAvatar` (slot and shape), `RoundedPolygon` cookie and blob morph, live pulse dot, badge dot, draw-on check mark, spinning shape, and the  |
 | K7 | todo |  | `SkSegmented` (with swap animation), `SkChoiceChips`, `SkKeypad`. |
 | K8 | todo |  | `SkStatGroup`, `SkTicket`, `SkLoadingIndicator`, `SkToast` (icon, message, spring). |
 | K9 | todo |  | Chart geometry (pure, tested), `SkBarChart` (ghost tracks, grow-in, tooltip, selection), `SkSplitBar` (grow-in), `SkSparkline`. |
@@ -64,7 +64,7 @@ Tick a task only when its done criteria pass: tests, gates and parity sheet. Add
 | A20 | todo |  | Welcome pager with illustrations, blobs and dots; the "Opening clinic" screen. |
 | A21 | todo |  | Sign-in (code boxes with autofill), registration, invite (WhatsApp-style preview bubble, Join screen, deep link, paste link) after B2; SMS a |
 | A22 | todo |  | Labs: directory, cases, WhatsApp, Preview. |
-| A23 | todo |  | Team list (real) and team chat (Preview). |
+| A23 | todo |  | Team list (real) and team chat — now REAL: staff chat API on main 39e0d58 (/conversations, /me/badges, chat.use). |
 | A24 | todo |  | Robolectric UI tests across tasks: tabs per role, More gating, forms, widths. |
 | I1 | todo |  | Shell: `TabView` with tabs from `NavModel`; `.tabBarMinimizeBehavior(.onScrollDown)` on 26 |
 | I2 | todo |  | Walk-in sheet (`.presentationDetents`) with the D14 photo (`PhotosPicker` / camera) |

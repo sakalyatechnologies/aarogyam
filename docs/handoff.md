@@ -2,6 +2,48 @@
 
 Where the work stands and exactly what to do next. Update this file at the end of every working session. Read it, `delivery-plan.md` and `decisions.md` before starting.
 
+## Status at 8 Oct 2026, night (read this first)
+
+**Live** (Cloud Run `b4e1971`, Workers on the same `main`, Supabase migrated through 0310):
+- **Portal:**
+  - the rail and page transitions
+  - Settings tabs
+  - Analytics with Billing → Expenses
+  - one-step walk-ins: phone lookup, then patient-reported allergies, then consent, then a token
+  - Start visit from the queue
+  - note quick picks, Same as last visit, medicine sets, Complete and bill
+  - fixes from two outside UI reviews: search by name parts and phone endings, query strings, Team today, missing details, polish
+- **Staff phone app** (on `main`, no store build): walk-in, the Queue tab, Marathi and Hindi screens.
+- **Demo data:** Sunrise's night-time rows were moved into clinic hours (`scripts/demo-refresh.sh --clinic-hours`).
+
+**Founder's ask (8 Oct):** finish every backlog item that code alone can finish (backend and e2e) in two sessions.
+
+| Session | Track | Items |
+|---|---|---|
+| 1 | A: clinic notifications | Feed for every member who handles appointments; per-person read state and "handled by"; portal bell; inbox message; reminder then escalation to the owner; per-clinic "confirm online bookings automatically / wait for confirmation"; patient sees "the clinic will confirm"; in-app list on the phone (push waits for the founder's Firebase project and Apple key) |
+| 1 | B: appointments | Appointment window redesign (one edit form, contact details, unsaved-edit guard, alignment; supersedes Codex tasks aro-no3, aro-7kc, aro-7j4); online sign-ups completed at Mark arrived; duplicate check by phone; clinic opening hours (used by chair utilization) |
+| 1 | C: platform | Support grants (`support_grants`, owner grants time-limited audited access, console UI); consent drives messaging (withdrawn reminders or promotional consent stops those messages); clinic notice text with versions; retiring and renaming a clinic's own dental terms |
+| 2 | D: e2e | Extend the Playwright golden journey: walk-in → queue → start visit → note → complete and bill; online booking → notification → confirm; expenses and analytics; settings tabs; run against the local stack |
+| 2 | E: clinic group | One admin doctor across several clinics (clinic group, cross-clinic invitations underneath) |
+| 2 | F: data | Erasure and anonymisation job; opening balances import; keep the original import file; patient session registry; throttled patient self sign-up (Turnstile) |
+| 2 | G: notes and speech | Note original text and confirmed English (C3 API), phone dictation and ML Kit translation (C1–C2), Marathi/Hindi i18n layer for the portal (C4 web) |
+| 2 | H: web | Single loader on sign-in, auth pages in the public site's look, date and time pickers in `sakalya-web` |
+
+**Needs someone outside these sessions:**
+- WhatsApp and SMS (Meta templates, DLT, paid provider)
+- phone OTP
+- push credentials
+- an AI provider with a data processing agreement, for paper import
+- lawyer review of the legal pages
+- native-speaker review of the Marathi and Hindi strings
+- ABDM
+- pharmacies and the referral programme (pricing)
+- content for other specialties
+
+**Codex queue:** paused, because the OpenRouter key hit its $10 limit. Tiers 2 and 3 now default to `google/gemini-3.8-flash`.
+
+**Migration numbers:** Track A uses 0320–0329, B 0330–0339, C 0340–0359.
+
 ## Status at 4 Oct 2026, 13:30 PDT (read this first)
 
 **Built and on `main` (not pushed):** M2–M5 backend (front desk, visits, prescriptions, billing), onboarding (registration → console approval → owner invitation email), portal screens for Today, patients, calendar and booking, queue, visit and dental chart, billing and collections, prescriptions with print, QR and PIN share; landing page and registration; console Applications, Clinic detail and Invite. Operator commands `aarogyam platform grant | revoke | list`, `aarogyam admin add-member` and `aarogyam outbox drain [--every N]`. The pre-commit hook runs the Rust gate and, for web changes, `pnpm check`.

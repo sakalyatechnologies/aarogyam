@@ -41,7 +41,7 @@ export function PatientAppCard({ patientId }: { patientId: PatientId }) {
     <MkCard title="Patient app">
       {active === undefined ? (
         <p className="mk-hint">
-          <Smartphone aria-hidden="true" size={14} /> Not connected. Invite the patient to see their appointments, prescriptions and bills in the Aarogyam app.
+          <Smartphone aria-hidden="true" size={14} style={{ display: "inline", verticalAlign: "-2px" }} /> Not connected. Invite the patient to see their appointments, prescriptions and bills in the Aarogyam app.
         </p>
       ) : (
         <div className="mk-kv" style={{ alignItems: "center" }}>

@@ -36,7 +36,8 @@ describe("Patient 360: patient app", () => {
     const user = userEvent.setup();
     const { path, backend } = withPatient("ravi@example.in");
     renderPortal(path, { as: PEOPLE.asha, backend });
-    expect(await screen.findByText(/Not connected/)).toBeTruthy();
+    // The whole sentence, ending in "app": an outside review saw it cut off after "Aarogyam".
+    expect((await screen.findByText(/Not connected/)).textContent.trim()).toMatch(/bills in the Aarogyam app\.$/);
     await user.click(await screen.findByRole("button", { name: "Invite to patient app" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("img", { name: "Patient app link code" })).toBeTruthy();

@@ -2,6 +2,14 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-09: Staff app API additions
+
+**Decision.** Additions the staff phone apps asked for (migrations 0384 to 0389), all additive: no field or route is removed or renamed.
+
+- **Chart corrections across surfaces:** a new chart entry may carry `supersedes_id`, a current dental entry of the same patient on any tooth or surface. That entry is superseded (the freeze rule still allows only `current` → `superseded`) and the new one links to it; the current entry for the new entry's own tooth and surface is superseded as before, without the link. Another patient's or clinic's entry is a 400, one no longer current a 409. The status change is audited by the table's audit trigger.
+
+**Why.** A finding charted on the wrong tooth or surface could only be marked in error and charted again, losing the link between the two.
+
 ## 2026-10-09: Staff chat
 
 **Decision.** Staff chat (migrations 0390 to 0392) is one-to-one (`direct`) or group conversations between members of one clinic, in plain text (1 to 4000 characters), polled; no live connection.

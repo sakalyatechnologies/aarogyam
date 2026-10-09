@@ -6408,7 +6408,7 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Records findings. Each supersedes the current entry for its tooth and surface (a crown,\nimplant or missing tooth also supersedes the tooth's surface entries); the history keeps\neverything. Returns the updated chart.",
+        "summary": "Records findings. Each supersedes the current entry for its tooth and surface (a crown,\nimplant or missing tooth also supersedes the tooth's surface entries); an entry with\n`supersedes_id` corrects that entry, even on another tooth or surface. The history keeps\neverything. Returns the updated chart.",
         "operationId": "recordDentalChart",
         "parameters": [
           {
@@ -6442,7 +6442,7 @@
             }
           },
           "400": {
-            "description": "A bad tooth, surface, finding, procedure or material, or a visit of another patient"
+            "description": "A bad tooth, surface, finding, procedure or material, a visit of another patient, or a `supersedes_id` that isn't this patient's chart entry"
           },
           "401": {
             "description": "Not signed in"
@@ -6454,7 +6454,7 @@
             "description": "No such patient in this clinic"
           },
           "409": {
-            "description": "The visit is closed, or the chart changed at the same moment"
+            "description": "The visit is closed, the corrected entry is no longer current, or the chart changed at the same moment"
           }
         },
         "security": [
@@ -17807,6 +17807,13 @@
               "null"
             ],
             "description": "A procedure id from the chart's `terms`: seeded (`crown`) or the clinic's own. Not with `sound`."
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Corrects this current entry of the patient, which may be on another tooth or surface:\nit is superseded and the new entry links to it. Leave out to supersede the current entry\nfor the new entry's own tooth and surface."
           },
           "surface": {
             "type": [

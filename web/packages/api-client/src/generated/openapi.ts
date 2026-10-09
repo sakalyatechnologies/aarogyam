@@ -2116,7 +2116,8 @@ export interface paths {
         put?: never;
         /**
          * Records findings. Each supersedes the current entry for its tooth and surface (a crown,
-         *     implant or missing tooth also supersedes the tooth's surface entries); the history keeps
+         *     implant or missing tooth also supersedes the tooth's surface entries); an entry with
+         *     `supersedes_id` corrects that entry, even on another tooth or surface. The history keeps
          *     everything. Returns the updated chart.
          */
         post: operations["recordDentalChart"];
@@ -6219,6 +6220,12 @@ export interface components {
             note?: string | null;
             /** @description A procedure id from the chart's `terms`: seeded (`crown`) or the clinic's own. Not with `sound`. */
             procedure?: string | null;
+            /**
+             * @description Corrects this current entry of the patient, which may be on another tooth or surface:
+             *     it is superseded and the new entry links to it. Leave out to supersede the current entry
+             *     for the new entry's own tooth and surface.
+             */
+            supersedes_id?: string | null;
             /** @description `M`, `O`, `D`, `B` or `L`; leave out for the whole tooth (crown, missing, implant, root canal and bridge are whole-tooth only). */
             surface?: string | null;
             /**
@@ -15752,7 +15759,7 @@ export interface operations {
                     "application/json": components["schemas"]["DentalChart"];
                 };
             };
-            /** @description A bad tooth, surface, finding, procedure or material, or a visit of another patient */
+            /** @description A bad tooth, surface, finding, procedure or material, a visit of another patient, or a `supersedes_id` that isn't this patient's chart entry */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -15780,7 +15787,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The visit is closed, or the chart changed at the same moment */
+            /** @description The visit is closed, the corrected entry is no longer current, or the chart changed at the same moment */
             409: {
                 headers: {
                     [name: string]: unknown;

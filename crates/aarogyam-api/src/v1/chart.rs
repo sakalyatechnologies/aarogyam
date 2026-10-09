@@ -178,6 +178,11 @@ pub struct NewChartEntry {
     pub material: Option<String>,
     /// A remark, up to 500 characters.
     pub note: Option<String>,
+    /// Corrects this current entry of the patient, which may be on another tooth or surface:
+    /// it is superseded and the new entry links to it. Leave out to supersede the current entry
+    /// for the new entry's own tooth and surface.
+    #[schema(value_type = Option<String>)]
+    pub supersedes_id: Option<Uuid>,
 }
 
 /// Findings recorded together.
@@ -191,7 +196,8 @@ pub struct NewChartEntries {
 }
 
 /// Records findings. Each supersedes the current entry for its tooth and surface (a crown,
-/// implant or missing tooth also supersedes the tooth's surface entries); the history keeps
+/// implant or missing tooth also supersedes the tooth's surface entries); an entry with
+/// `supersedes_id` corrects that entry, even on another tooth or surface. The history keeps
 /// everything. Returns the updated chart.
 #[utoipa::path(
     post,
@@ -203,11 +209,11 @@ pub struct NewChartEntries {
     security(("bearer" = [])),
     responses(
         (status = 200, body = DentalChart),
-        (status = 400, description = "A bad tooth, surface, finding, procedure or material, or a visit of another patient"),
+        (status = 400, description = "A bad tooth, surface, finding, procedure or material, a visit of another patient, or a `supersedes_id` that isn't this patient's chart entry"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
         (status = 404, description = "No such patient in this clinic"),
-        (status = 409, description = "The visit is closed, or the chart changed at the same moment")
+        (status = 409, description = "The visit is closed, the corrected entry is no longer current, or the chart changed at the same moment")
     )
 )]
 pub(crate) async fn record(
@@ -228,6 +234,7 @@ pub(crate) async fn record(
                 procedure: entry.procedure,
                 material: entry.material,
                 note: entry.note,
+                supersedes_id: entry.supersedes_id,
             })
             .collect(),
     };

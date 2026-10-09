@@ -399,6 +399,54 @@ async fn conditional_edits(
     ]
 }
 
+/// The lab list reads, each one statement: labs with their contacts, orders with their items
+/// and names (`app.lab_order_json`), one order with its history, a patient's orders with the
+/// reach check, payments, and a lab's balance.
+async fn lab_routes(app: &TestApp, owner: &str, patient: &str) -> Vec<Route> {
+    let vendor = created(
+        app,
+        owner,
+        "/api/v1/lab-vendors",
+        json!({ "name": "Precision Lab" }),
+    )
+    .await;
+    created(
+        app,
+        owner,
+        &format!("/api/v1/lab-vendors/{vendor}/contacts"),
+        json!({ "name": "Suresh", "email": "suresh@lab.test" }),
+    )
+    .await;
+    let order = created(
+        app,
+        owner,
+        "/api/v1/lab-orders",
+        json!({ "vendor_id": vendor, "patient_id": patient, "send": true,
+                "items": [{ "work_type": "Crown", "teeth": [36], "unit_cost_paise": 1000 }] }),
+    )
+    .await;
+    vec![
+        Route::get("GET /lab-vendors", ALPHA, "/api/v1/lab-vendors".into()),
+        Route::get("GET /lab-orders", ALPHA, "/api/v1/lab-orders".into()),
+        Route::get(
+            "GET /lab-orders/{id}",
+            ALPHA,
+            format!("/api/v1/lab-orders/{order}"),
+        ),
+        Route::get(
+            "GET /patients/{id}/lab-orders",
+            ALPHA,
+            format!("/api/v1/patients/{patient}/lab-orders"),
+        ),
+        Route::get("GET /lab-payments", ALPHA, "/api/v1/lab-payments".into()),
+        Route::get(
+            "GET /lab-vendors/{id}/balance",
+            ALPHA,
+            format!("/api/v1/lab-vendors/{vendor}/balance"),
+        ),
+    ]
+}
+
 /// Round trips of one request, after the background release checks settle.
 #[expect(
     clippy::print_stderr,
@@ -594,6 +642,32 @@ fn hot_routes(
             ALPHA,
             format!("/api/v1/patients/{patient}"),
         ),
+        // The patient in reach and their messages' metadata: one statement.
+        Route::get(
+            "GET /patients/{id}/messages",
+            ALPHA,
+            format!("/api/v1/patients/{patient}/messages"),
+        ),
+        // The patients in reach and every copy queued: one statement, all or none.
+        Route {
+            method: Method::POST,
+            body: Some(json!({
+                "patient_ids": [patient], "channel": "email", "template_key": "care.note",
+                "variables": { "subject": "About your visit" }, "body": "Hello",
+                "batch_id": "0192f1c4-0000-7000-8000-000000000001"
+            })),
+            ..Route::get("POST /messages", ALPHA, "/api/v1/messages".into())
+        },
+        // The preference saved, queued messages skipped and the list: one statement.
+        Route {
+            method: Method::POST,
+            body: Some(json!({ "channel": "email", "category": "promotional", "opted_out": true })),
+            ..Route::get(
+                "POST /patients/{id}/contact-preferences",
+                ALPHA,
+                format!("/api/v1/patients/{patient}/contact-preferences"),
+            )
+        },
         // The patient in reach, then the links and the waiting code: one over.
         Route::get(
             "GET /patients/{id}/app-access",
@@ -640,6 +714,7 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
     let walk_ins = walk_in_routes(&app, &owner).await;
     let support = support_routes(&app, &owner).await;
     let chat = chat_routes(&app, &owner, &patient).await;
+    let labs = lab_routes(&app, &owner, &patient).await;
 
     let mut table = String::from(
         "\nroute                     cold  warm  (cold: prepares, new connections; warm: pings, release checks)\n",
@@ -651,6 +726,7 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
         .chain(&walk_ins)
         .chain(&support)
         .chain(&chat)
+        .chain(&labs)
         .chain(&routes)
     {
         // A state of its own warms the pool's connections and their statement caches, so

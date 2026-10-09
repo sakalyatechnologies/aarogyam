@@ -103,6 +103,29 @@ pub async fn outbox(
     Ok(rows)
 }
 
+/// Patient messages queued before `cutoff`, whatever their outcome.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn messages(
+    pool: &PgPool,
+    cutoff: OffsetDateTime,
+    sample: i32,
+) -> Result<Vec<Group>, DbError> {
+    let rows = sqlx::query_as!(
+        Group,
+        r#"select org_id as "org_id?", count(*) as "count!", min(created_at) as "oldest?",
+                  (array_agg(id order by created_at))[1:$2] as "sample!: Vec<Uuid>"
+           from aarogyam.messages where created_at < $1
+           group by org_id order by org_id"#,
+        cutoff,
+        sample
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
 /// Patient links that expired before `cutoff`.
 ///
 /// # Errors
@@ -212,6 +235,52 @@ pub async fn clinic_applications(
            from aarogyam.clinic_applications
            where status <> 'approved' and coalesce(decided_at, created_at) < $1
            having count(*) > 0"#,
+        cutoff,
+        sample
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+/// Lab orders recorded before `cutoff`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn lab_work(
+    pool: &PgPool,
+    cutoff: OffsetDateTime,
+    sample: i32,
+) -> Result<Vec<Group>, DbError> {
+    let rows = sqlx::query_as!(
+        Group,
+        r#"select org_id as "org_id?", count(*) as "count!", min(created_at) as "oldest?",
+                  (array_agg(id order by created_at))[1:$2] as "sample!: Vec<Uuid>"
+           from aarogyam.lab_orders where created_at < $1
+           group by org_id order by org_id"#,
+        cutoff,
+        sample
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+/// Lab contacts removed before `cutoff`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn lab_contacts(
+    pool: &PgPool,
+    cutoff: OffsetDateTime,
+    sample: i32,
+) -> Result<Vec<Group>, DbError> {
+    let rows = sqlx::query_as!(
+        Group,
+        r#"select org_id as "org_id?", count(*) as "count!", min(deleted_at) as "oldest?",
+                  (array_agg(id order by deleted_at))[1:$2] as "sample!: Vec<Uuid>"
+           from aarogyam.lab_contacts where deleted_at < $1
+           group by org_id order by org_id"#,
         cutoff,
         sample
     )

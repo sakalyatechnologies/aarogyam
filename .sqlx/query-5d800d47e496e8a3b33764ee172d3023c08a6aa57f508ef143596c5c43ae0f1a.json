@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with i as (\n             delete from aarogyam.lab_order_items where id = $2 and lab_order_id = $1\n             returning line_no\n           )\n           insert into aarogyam.lab_order_events (lab_order_id, kind, line_no, actor_id)\n           select $1, 'item_removed', line_no, $3 from i",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5d800d47e496e8a3b33764ee172d3023c08a6aa57f508ef143596c5c43ae0f1a"
+}

@@ -494,6 +494,11 @@ async fn every_route_requires_sign_in_and_a_permission() {
             "/api/v1/health",
             // Errors from the web apps: throttled, capped, scrubbed, logged only (tests/ops.rs).
             "/api/v1/client-errors",
+            // One-click unsubscribe: the opaque token is the proof, throttled per IP, and the
+            // answer names nobody (tests/messaging.rs).
+            "/api/v1/public/unsubscribe/{token}",
+            // Resend's webhook: checked by its Svix signature instead (tests/messaging.rs).
+            "/api/v1/webhooks/resend",
         ];
         if !path.starts_with("/api/v1/")
             || path.starts_with("/api/v1/dev/")

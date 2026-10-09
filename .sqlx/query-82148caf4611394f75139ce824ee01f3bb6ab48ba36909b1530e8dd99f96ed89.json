@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select org_id as \"org_id?\", count(*) as \"count!\", min(created_at) as \"oldest?\",\n                  (array_agg(id order by created_at))[1:$2] as \"sample!: Vec<Uuid>\"\n           from aarogyam.lab_orders where created_at < $1\n           group by org_id order by org_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "org_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_orders",
+            "name": "org_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "oldest?",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "sample!: Vec<Uuid>",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "82148caf4611394f75139ce824ee01f3bb6ab48ba36909b1530e8dd99f96ed89"
+}

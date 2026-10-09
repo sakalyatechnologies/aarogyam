@@ -379,7 +379,7 @@ async fn token_check(config: &Config, local: bool) -> anyhow::Result<TokenCheck>
 fn notifier(config: &Config, local: bool) -> anyhow::Result<Notifier> {
     let links = PortalLinks::new(&config.email.portal_link)
         .context("email.portal_link must look like https://{host}")?;
-    Ok(if let Some(key) = config.email.resend_api_key.clone() {
+    let notifier = if let Some(key) = config.email.resend_api_key.clone() {
         Notifier::resend(key, &config.email.from, links)
             .context("could not set up email through Resend")?
     } else {
@@ -387,6 +387,11 @@ fn notifier(config: &Config, local: bool) -> anyhow::Result<Notifier> {
             tracing::warn!("email.resend_api_key is not set: email goes to the log only");
         }
         Notifier::log(links)
+    };
+    let notifier = notifier.with_daily_budget(config.email.daily_budget);
+    Ok(match config.email.resend_webhook_secret.clone() {
+        Some(secret) => notifier.with_resend_webhook_secret(secret),
+        None => notifier,
     })
 }
 
@@ -492,8 +497,8 @@ async fn addresses(config: Config, clinic: Option<&str>) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Makes new portal hosts work, reminds staff of unanswered booking requests (then the owners),
-/// then delivers due outbox messages, over the API connection, once or on a fixed interval.
+/// Makes new portal hosts work, reminds staff of unanswered booking requests (then the owners)
+/// and labs of work due, then delivers due outbox messages, over the API connection, once or on a fixed interval.
 async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
     let local = config.environment == Environment::Local;
     let notifier = notifier(&config, local)?;
@@ -534,6 +539,17 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             Ok(_) => {}
             Err(error) => tracing::warn!(error = %error, "could not remind booking requests"),
         }
+        // Lab work due in two days or today: email the lab; flag work overdue.
+        match aarogyam_notify::remind_labs(&db, time::OffsetDateTime::now_utc()).await {
+            Ok(report) if report.reminded + report.skipped + report.overdue > 0 => tracing::info!(
+                reminded = report.reminded,
+                skipped = report.skipped,
+                overdue = report.overdue,
+                "labs reminded"
+            ),
+            Ok(_) => {}
+            Err(error) => tracing::warn!(error = %error, "could not remind labs"),
+        }
         match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) => tracing::info!(
                 provider = notifier.email_provider(),
@@ -542,6 +558,12 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
                 retrying = report.retrying,
                 failed = report.failed,
                 purged = report.purged,
+                reminders_queued = report.messages.reminders_queued,
+                patient_sent = report.messages.sent,
+                patient_skipped = report.messages.skipped,
+                patient_rescheduled = report.messages.rescheduled,
+                patient_deferred = report.messages.deferred,
+                patient_failed = report.messages.failed,
                 "outbox drained"
             ),
             Err(error) if interval.is_some() => {

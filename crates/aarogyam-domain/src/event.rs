@@ -24,6 +24,14 @@ pub enum Event {
     MessageRetried,
     /// A queued message failed for the last time.
     MessageFailed,
+    /// A patient message was not sent, for a reason (consent, an opt-out, no address).
+    MessageSkipped,
+    /// Staff queued a message to patients.
+    MessagesQueued,
+    /// A patient opted out of a channel (staff, an unsubscribe link, a bounce).
+    ContactOptedOut,
+    /// A provider's webhook reported on a message.
+    MessageEventReceived,
     /// Staff were reminded of a booking request nobody had answered.
     BookingReminded,
     /// The owners were told of a booking request still unanswered after the reminder.
@@ -160,6 +168,20 @@ pub enum Event {
     ChatMessagePosted,
     /// A staff chat message was deleted by its author.
     ChatMessageDeleted,
+    /// A lab or a lab contact was added, changed or removed.
+    LabChanged,
+    /// A lab order was recorded.
+    LabOrderCreated,
+    /// A lab order moved to another status or stage, or got a new due date.
+    LabOrderUpdated,
+    /// A lab was reminded of an order.
+    LabOrderReminded,
+    /// A member logged contacting a lab about an order.
+    LabOrderContacted,
+    /// A payment to a lab was recorded.
+    LabPaymentRecorded,
+    /// A payment to a lab was voided.
+    LabPaymentVoided,
 }
 
 impl Event {
@@ -180,6 +202,10 @@ impl Event {
             Self::BookingEscalated => "booking.escalated",
             Self::NotificationsRead => "notifications.read",
             Self::MessageFailed => "message.failed",
+            Self::MessageSkipped => "message.skipped",
+            Self::MessagesQueued => "messages.queued",
+            Self::ContactOptedOut => "contact.opted_out",
+            Self::MessageEventReceived => "message.event_received",
             Self::HandoffCreated => "handoff.created",
             Self::HandoffRedeemed => "handoff.redeemed",
             Self::HandoffRefused => "handoff.refused",
@@ -245,6 +271,13 @@ impl Event {
             Self::ConversationStarted => "conversation.started",
             Self::ChatMessagePosted => "chat_message.posted",
             Self::ChatMessageDeleted => "chat_message.deleted",
+            Self::LabChanged => "lab.changed",
+            Self::LabOrderCreated => "lab_order.created",
+            Self::LabOrderUpdated => "lab_order.updated",
+            Self::LabOrderReminded => "lab_order.reminded",
+            Self::LabOrderContacted => "lab_order.contacted",
+            Self::LabPaymentRecorded => "lab_payment.recorded",
+            Self::LabPaymentVoided => "lab_payment.voided",
         }
     }
 }

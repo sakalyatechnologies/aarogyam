@@ -647,6 +647,7 @@ export const ROLES = {
     name: "Owner",
     permissions: [
       "support.grant",
+      "messages.send",
       "patients.read",
       "patients.write",
       "patients.contact",
@@ -731,6 +732,7 @@ export const PERMISSION_CATALOGUE: readonly { key: Permission; module: string; d
   { key: "patients.write", module: "patients", description: "Register and edit patients", scopes: ["all"] },
   { key: "prescriptions.issue", module: "prescriptions", description: "Issue and cancel prescriptions", scopes: ["all", "own", "assigned"] },
   { key: "reports.export", module: "reports", description: "Export data to Excel", scopes: ["all"] },
+  { key: "messages.send", module: "messages", description: "Send patients email messages from the clinic", scopes: ["all"] },
   { key: "roles.manage", module: "roles", description: "Choose what each role can see and do", scopes: ["all"] },
   { key: "settings.manage", module: "settings", description: "Change clinic settings, branding and templates", scopes: ["all"] },
   { key: "staff.manage", module: "staff", description: "Invite staff and change their roles", scopes: ["all"] },

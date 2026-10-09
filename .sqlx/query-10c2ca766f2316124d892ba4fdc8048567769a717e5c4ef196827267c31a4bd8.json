@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.messages\n             set status = 'skipped', skip_reason = $3, processed_at = now(), secret = null\n           where patient_id = $1 and purpose = $2 and status = 'queued'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "10c2ca766f2316124d892ba4fdc8048567769a717e5c4ef196827267c31a4bd8"
+}

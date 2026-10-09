@@ -123,4 +123,14 @@ entities! {
     Conversation, ConversationId;
     /// A message in a staff chat conversation.
     ChatMessage, ChatMessageId;
+    /// An outside lab.
+    LabVendor, LabVendorId;
+    /// A person at a lab.
+    LabContact, LabContactId;
+    /// Work sent to a lab.
+    LabOrder, LabOrderId;
+    /// One piece of work on a lab order.
+    LabOrderItem, LabOrderItemId;
+    /// Money paid to a lab.
+    LabPayment, LabPaymentId;
 }

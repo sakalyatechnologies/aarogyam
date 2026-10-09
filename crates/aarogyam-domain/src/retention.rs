@@ -17,6 +17,8 @@ text_value! {
         Invoices => "invoices",
         /// Queued and sent messages, which name recipients.
         Outbox => "outbox",
+        /// Messages to patients, queued, sent or skipped, with their provider events.
+        Messages => "messages",
         /// Links given to patients to open a document, after they expire.
         ShareLinks => "share_links",
         /// Spreadsheets uploaded to import patients, kept as cell contents.
@@ -29,6 +31,11 @@ text_value! {
         ClinicApplications => "clinic_applications",
         /// Staff chat messages, which may name a patient.
         ChatMessages => "chat_messages",
+        /// Lab orders with their items, history and payments: work on a patient and money
+        /// paid, kept like bills.
+        LabWork => "lab_work",
+        /// People at labs the clinic removed, who are named with their phone and email.
+        LabContacts => "lab_contacts",
     }
 }
 
@@ -62,11 +69,13 @@ impl Class {
     pub const fn period(self) -> Period {
         match self {
             Self::PatientRecord | Self::AuditEvents => Period::Years(7),
-            Self::Invoices => Period::Years(8),
+            Self::Invoices | Self::LabWork => Period::Years(8),
             Self::Outbox => Period::Days(90),
             Self::ShareLinks | Self::ImportSessions => Period::Days(30),
             Self::AccessLog => Period::Years(3),
-            Self::ClinicApplications | Self::ChatMessages => Period::Days(365),
+            Self::Messages | Self::ClinicApplications | Self::ChatMessages | Self::LabContacts => {
+                Period::Days(365)
+            }
         }
     }
 
@@ -79,11 +88,14 @@ impl Class {
             }
             Self::Invoices => "the date the bill was issued",
             Self::Outbox => "when the message was sent or abandoned",
+            Self::Messages => "when the message was queued",
             Self::ShareLinks => "when the link expired",
             Self::ImportSessions => "when the upload was made",
             Self::AccessLog | Self::AuditEvents => "when the entry was written",
             Self::ClinicApplications => "when the request was decided (or made, if undecided)",
             Self::ChatMessages => "when the message was posted",
+            Self::LabWork => "when the order was recorded",
+            Self::LabContacts => "when the contact was removed",
         }
     }
 

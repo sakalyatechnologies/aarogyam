@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with i as (\n             insert into aarogyam.lab_order_items\n               (lab_order_id, line_no, work_type, teeth, shade, material, qty, unit_cost_paise)\n             values ($1, $2, $3, $4, $5, $6, $7, $8)\n             returning id\n           ), e as (\n             insert into aarogyam.lab_order_events (lab_order_id, kind, line_no, actor_id)\n             select $1, 'item_added', $2, $9 from i\n           )\n           select id as \"id!\" from i",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_order_items",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2",
+        "Text",
+        "Int2Array",
+        "Text",
+        "Text",
+        "Int4",
+        "Int8",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5b657264f24c54c2bc65e846e9a3832f944757241858a5c377d5ab1429c0db83"
+}

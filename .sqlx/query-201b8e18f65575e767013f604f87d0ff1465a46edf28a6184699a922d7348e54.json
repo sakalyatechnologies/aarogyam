@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.message_provider_event($1, $2, $3, $4, $5) as \"outcome!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "outcome!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "201b8e18f65575e767013f604f87d0ff1465a46edf28a6184699a922d7348e54"
+}

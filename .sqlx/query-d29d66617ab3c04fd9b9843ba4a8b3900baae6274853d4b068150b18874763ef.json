@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with o as (\n             insert into aarogyam.lab_orders\n               (id, number, vendor_id, contact_id, patient_id, doctor_id, procedure_id,\n                encounter_id, rework_of_id, status, stage, instructions, sent_at, due_on)\n             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)\n             returning id\n           ), i as (\n             insert into aarogyam.lab_order_items\n               (lab_order_id, line_no, work_type, teeth, shade, material, qty, unit_cost_paise)\n             select o.id, x.line_no, x.work_type, x.teeth, x.shade, x.material, x.qty,\n                    x.unit_cost_paise\n             from o, jsonb_to_recordset($15) as x(line_no smallint, work_type text, teeth smallint[],\n                                                  shade text, material text, qty int,\n                                                  unit_cost_paise bigint)\n             returning id\n           )\n           insert into aarogyam.lab_order_events (lab_order_id, kind, to_status, due_on, actor_id)\n           select o.id, 'created', $10, $14, $16 from o",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Date",
+        "Jsonb",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d29d66617ab3c04fd9b9843ba4a8b3900baae6274853d4b068150b18874763ef"
+}

@@ -84,6 +84,9 @@ pub fn standard_throttle_with(
             .on_paths(&["/api/v1/client-errors"]),
         RuleConfig::new("ip-registration", KeyKind::Ip, 5, 60 * 60)
             .on_paths(&["/api/v1/registrations"]),
+        // Unsubscribe tokens are 192-bit secrets, but guessing is still throttled.
+        RuleConfig::new("ip-unsubscribe", KeyKind::Ip, 20, 10 * 60)
+            .on_paths(&["/api/v1/public/unsubscribe/"]),
         // Public booking: reads (doctors, slots) are cheap but unauthenticated, so capped per IP;
         // bookings are capped per IP here and per verified person in the handler.
         RuleConfig::new("ip-public-booking-read", KeyKind::Ip, 60, 60)

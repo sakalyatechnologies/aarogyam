@@ -116,7 +116,9 @@ async fn book(app: &TestApp, token: Option<&str>, body: Value) -> (StatusCode, V
 
 async fn queued(app: &TestApp, key: &str) -> Vec<(Option<String>, Value)> {
     sqlx::query_as(
-        "select recipient, payload from aarogyam.outbox_events where event_key = $1 order by created_at",
+        "select p.email, m.variables from aarogyam.messages m
+         join aarogyam.patients p on p.org_id = m.org_id and p.id = m.patient_id
+         where m.kind = $1 order by m.created_at",
     )
     .bind(key)
     .fetch_all(&app.owner)

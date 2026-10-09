@@ -1,0 +1,175 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.lab_payments\n           set status = 'void', void_reason = $2, voided_at = $3, voided_by = $4\n           where id = $1 and status = 'recorded'\n           returning id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,\n                     expense_id, status, void_reason, voided_at, recorded_by, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "vendor_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "vendor_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "lab_order_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "lab_order_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "paid_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "paid_on"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "amount_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "amount_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "lab_invoice_ref",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "lab_invoice_ref"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "expense_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "expense_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "void_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "void_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "voided_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "voided_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "recorded_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "recorded_by"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "f1fbe372d4295962bc3c5a93da611e49de336140389d4ce88b4654a41e8bb404"
+}

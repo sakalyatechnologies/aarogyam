@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.message_sent($1, $2, $3, $4, $5)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_sent",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a1178ef9de88996483958c8717639883e315bab620e42cd74b8e6ddaab09ab06"
+}

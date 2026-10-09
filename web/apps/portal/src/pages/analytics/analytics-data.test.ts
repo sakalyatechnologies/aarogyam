@@ -38,6 +38,7 @@ const report: Analytics = analytics.parse({
     },
   ],
   patients: { age_bands: [], visit_kinds: [], referral_sources: [] },
+  lab_turnaround: { orders_received: 0, average_days: null },
   busy_hours: [
     { weekday: 1, hour: 10, visits: 8 },
     { weekday: 6, hour: 12, visits: 2 },

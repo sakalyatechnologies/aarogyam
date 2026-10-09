@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select line_no, work_type, teeth, shade, material, qty, unit_cost_paise\n         from aarogyam.lab_order_items where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "line_no",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_order_items",
+            "name": "line_no"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "work_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_order_items",
+            "name": "work_type"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "teeth",
+        "type_info": "Int2Array",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_order_items",
+            "name": "teeth"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "shade",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_order_items",
+            "name": "shade"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "material",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_order_items",
+            "name": "material"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "qty",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_order_items",
+            "name": "qty"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "unit_cost_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_order_items",
+            "name": "unit_cost_paise"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "9be528906f4e8fa9539e2fb64b352838dceffd5b1bd14aeac43579a4140fcb33"
+}

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with v as (\n             update aarogyam.lab_vendors set deleted_at = $2\n             where id = $1 and deleted_at is null returning id\n           ), c as (\n             update aarogyam.lab_contacts set deleted_at = $2\n             where vendor_id in (select id from v) and deleted_at is null returning id\n           )\n           select count(*) as \"found!\" from v",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "6f7a12498ae0b174081b748579228390d93cb3a07ab634d67fe2b534ab03d6f2"
+}

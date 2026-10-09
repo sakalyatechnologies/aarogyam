@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with patient as (\n             select p.id from aarogyam.patients p\n             where p.id = $1 and p.deleted_at is null and app.patient_in_reach(p.id, $2)\n           ),\n           saved as (\n             insert into aarogyam.contact_preferences (patient_id, channel, category, opted_out,\n                                                       opted_out_at, whatsapp_opt_in_at, source)\n             select id, $3, $4, $5, case when $5 then now() end,\n                    case when $6 then now() end, $7 from patient\n             on conflict (org_id, patient_id, channel, category) do update\n               set opted_out = excluded.opted_out,\n                   opted_out_at = case when excluded.opted_out\n                     then coalesce(aarogyam.contact_preferences.opted_out_at, now()) end,\n                   whatsapp_opt_in_at = case when $6::boolean is null\n                     then aarogyam.contact_preferences.whatsapp_opt_in_at\n                     when $6 then coalesce(aarogyam.contact_preferences.whatsapp_opt_in_at, now())\n                     end,\n                   source = excluded.source\n             returning patient_id, channel, category, opted_out, opted_out_at, whatsapp_opt_in_at,\n                       source, updated_at\n           ),\n           skipped as (\n             update aarogyam.messages m\n               set status = 'skipped', skip_reason = 'opted_out', processed_at = now(), secret = null\n             from saved s\n             where s.opted_out and m.patient_id = s.patient_id and m.channel = s.channel\n               and m.status = 'queued' and (s.category = 'all' or m.purpose = s.category)\n             returning 1\n           )\n           select s.channel as \"channel!\", s.category as \"category!\", s.opted_out as \"opted_out!\",\n                  s.opted_out_at, s.whatsapp_opt_in_at, s.source as \"source!\",\n                  s.updated_at as \"updated_at!\"\n           from saved s\n           union all\n           select c.channel, c.category, c.opted_out, c.opted_out_at, c.whatsapp_opt_in_at,\n                  c.source, c.updated_at\n           from aarogyam.contact_preferences c\n           where c.patient_id in (select id from patient)\n             and (c.channel, c.category) <> ($3, $4)\n           order by 1, 2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "category!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "opted_out!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "opted_out_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "whatsapp_opt_in_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "source!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_at!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Bool",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "05bd2e54bdbe3c66ec53f2a58eb03185052f2964adfd542b7a53ab5dfcfd4151"
+}

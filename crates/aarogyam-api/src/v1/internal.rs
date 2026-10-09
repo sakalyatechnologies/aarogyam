@@ -43,11 +43,34 @@ pub struct DrainReport {
     pub booking_requests_reminded: usize,
     /// Escalations written to the owners' inbox.
     pub booking_requests_escalated: usize,
+    /// Appointment reminders queued for patients.
+    pub reminders_queued: i32,
+    /// Patient messages claimed to send now.
+    pub messages_claimed: usize,
+    /// Patient messages sent.
+    pub messages_sent: usize,
+    /// Patient messages not sent, for a reason (consent, an opt-out, no address).
+    pub messages_skipped: usize,
+    /// Patient messages put back: quiet hours, or a reminder whose appointment moved.
+    pub messages_rescheduled: usize,
+    /// Patient messages moved to tomorrow because the daily email budget was spent.
+    pub messages_deferred: usize,
+    /// Patient messages that failed and will be tried again.
+    pub messages_retrying: usize,
+    /// Patient messages that failed for the last time.
+    pub messages_failed: usize,
+    /// Reminders queued to labs about work due.
+    pub lab_reminders_queued: usize,
+    /// Reminders due to labs with no email address.
+    pub lab_reminders_skipped: usize,
+    /// Lab orders newly flagged overdue.
+    pub lab_orders_overdue: usize,
 }
 
 /// Makes new portal hosts work, reminds staff of unanswered booking requests (then the
-/// owners), then delivers due outbox messages across clinics (local development only; later Cloud
-/// Scheduler with a Google-signed token).
+/// owners) and labs of work due, delivers due outbox messages, then queues appointment
+/// reminders and sends due patient messages across clinics (local development only; later
+/// Cloud Scheduler with a Google-signed token).
 #[utoipa::path(
     post,
     path = "/api/v1/internal/outbox/drain",
@@ -64,6 +87,8 @@ pub(crate) async fn drain_outbox(
         .await?;
     let reminders =
         aarogyam_notify::remind(state.db(), OffsetDateTime::now_utc(), OpenHours::DEFAULT).await?;
+    // Before delivery, so a reminder queued now goes out in this run.
+    let labs = aarogyam_notify::remind_labs(state.db(), OffsetDateTime::now_utc()).await?;
     let notifier = state.notifier();
     let report = notifier
         .drain(state.db(), OffsetDateTime::now_utc())
@@ -82,5 +107,16 @@ pub(crate) async fn drain_outbox(
         booking_requests_open: reminders.open,
         booking_requests_reminded: reminders.reminded,
         booking_requests_escalated: reminders.escalated,
+        reminders_queued: report.messages.reminders_queued,
+        messages_claimed: report.messages.claimed,
+        messages_sent: report.messages.sent,
+        messages_skipped: report.messages.skipped,
+        messages_rescheduled: report.messages.rescheduled,
+        messages_deferred: report.messages.deferred,
+        messages_retrying: report.messages.retrying,
+        messages_failed: report.messages.failed,
+        lab_reminders_queued: labs.reminded,
+        lab_reminders_skipped: labs.skipped,
+        lab_orders_overdue: labs.overdue,
     }))
 }

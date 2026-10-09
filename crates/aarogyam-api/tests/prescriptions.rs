@@ -616,8 +616,9 @@ async fn rx_draft(app: &TestApp, token: &str, patient: &str) -> String {
 
 async fn queued(app: &TestApp) -> Vec<(String, Value, Option<String>)> {
     sqlx::query_as(
-        "select recipient, payload, secret from aarogyam.outbox_events
-         where event_key = 'prescription.shared' order by created_at",
+        "select p.email, m.variables, m.secret from aarogyam.messages m
+         join aarogyam.patients p on p.org_id = m.org_id and p.id = m.patient_id
+         where m.kind = 'prescription.shared' order by m.created_at",
     )
     .fetch_all(&app.owner)
     .await
@@ -663,7 +664,8 @@ async fn issuing_emails_the_patient_a_link_without_the_pin_or_medicines() {
             None,
         )
         .await;
-    assert_eq!(report["sent"], 1);
+    // A patient email: the patient message step sends it, through the log channel here.
+    assert_eq!(report["messages_sent"], 1, "{report}");
 
     // Cancel and reissue sends a second, fresh link.
     let cancel = format!("/api/v1/prescriptions/{id}/cancel");

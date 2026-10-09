@@ -32,6 +32,17 @@ struct SendEmail<'a> {
     subject: &'a str,
     text: &'a str,
     html: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    headers: Option<Headers<'a>>,
+}
+
+/// One-click unsubscribe (RFC 8058): mail apps show an Unsubscribe button that POSTs to the link.
+#[derive(Serialize)]
+struct Headers<'a> {
+    #[serde(rename = "List-Unsubscribe")]
+    list_unsubscribe: String,
+    #[serde(rename = "List-Unsubscribe-Post")]
+    list_unsubscribe_post: &'a str,
 }
 
 #[derive(Deserialize)]
@@ -85,6 +96,10 @@ impl Resend {
             subject: &email.subject,
             text: &email.text,
             html: &email.html,
+            headers: email.list_unsubscribe.as_ref().map(|link| Headers {
+                list_unsubscribe: format!("<{link}>"),
+                list_unsubscribe_post: "List-Unsubscribe=One-Click",
+            }),
         };
         let response = self
             .client

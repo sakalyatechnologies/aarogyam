@@ -46,6 +46,28 @@ export interface paths {
         patch: operations["updateAppointment"];
         trace?: never;
     };
+    "/api/v1/appointments/{id}/check-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Checks in a booked patient in one step: completes their registration (sex, age or date of
+         *     birth), records reported allergies or "No known allergies" and desk consents, and marks the
+         *     appointment arrived, issuing its queue token. For online sign-ups, which arrive with only a
+         *     name, email and phone. Checking in again records the details without a second token.
+         */
+        post: operations["checkInAppointment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/appointments/{id}/status": {
         parameters: {
             query?: never;
@@ -174,6 +196,48 @@ export interface paths {
         put?: never;
         /** Logs an error from a web app (public, throttled, nothing stored). */
         post: operations["reportClientError"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clinic-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's opening hours, every branch. */
+        get: operations["getClinicHours"];
+        /**
+         * Replaces one branch's opening hours and returns them. The Analytics page counts chair
+         *     utilization against them; without any it assumes nine hours a day.
+         */
+        put: operations["setClinicHours"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/consent-notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every version of the clinic's privacy notice, newest (current) first. */
+        get: operations["listConsentNotices"];
+        put?: never;
+        /**
+         * Publishes a new version of the clinic's notice; it becomes the current one, which consents
+         *     record from now on. Versions are never edited.
+         */
+        post: operations["publishConsentNotice"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1298,6 +1362,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patient-duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Self-registered records from online booking whose phone matches an existing patient, for
+         *     the front desk to merge or dismiss. Only flags whose two records are in reach.
+         */
+        get: operations["listPatientDuplicates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patient-duplicates/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismisses a flag: the two records are different people. */
+        post: operations["dismissPatientDuplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patient-links/{id}/confirm": {
         parameters: {
             query?: never;
@@ -1670,6 +1771,28 @@ export interface paths {
         post?: never;
         /** Removes a number from a patient. */
         delete: operations["removePatientIdentifier"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merges a self-registered record (from online booking) into an existing patient: its
+         *     appointments, queue tokens, patient-app links, identifiers and consents move, the existing
+         *     patient gets its email if it has none, and the record is marked merged. Refused when the
+         *     self-registered record has any clinical or billing record. Every change is audited.
+         */
+        post: operations["mergePatient"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3324,7 +3447,7 @@ export interface components {
             money_visible: boolean;
             /**
              * Format: int64
-             * @description Minutes a chair is assumed open each day (540: clinic hours are not stored yet).
+             * @description Minutes a chair is assumed open each day when its branch has no opening hours (540).
              */
             open_minutes_per_day: number;
             /** @description Who the patients are. */
@@ -3378,6 +3501,11 @@ export interface components {
             id: string;
             /** @description Its name. */
             name: string;
+            /**
+             * @description Whether its open minutes come from its branch's opening hours (`GET /clinic-hours`);
+             *     otherwise `open_minutes_per_day` is assumed on every day.
+             */
+            uses_clinic_hours: boolean;
         };
         /** @description A clinic's application. */
         Application: {
@@ -3776,7 +3904,8 @@ export interface components {
             booked_minutes: number;
             /**
              * Format: int64
-             * @description Minutes open: `open_minutes_per_day` for each day of the period inside the range.
+             * @description Minutes open on the days of the period inside the range: from the chair's branch opening
+             *     hours (closed days count zero), or `open_minutes_per_day` a day without them.
              */
             open_minutes: number;
             /** @description The chair. */
@@ -3814,6 +3943,54 @@ export interface components {
             tooth: number;
             /** @description The visit that recorded it. */
             visit_id?: string | null;
+        };
+        /**
+         * @description What the desk records at check-in. Every field is optional; details left out stay as they
+         *     are.
+         */
+        CheckInRequest: {
+            /**
+             * Format: int32
+             * @description Age in years, when the date of birth is unknown.
+             */
+            age_years?: number | null;
+            /**
+             * @description Substances the patient says they are allergic to (at most 20), recorded as
+             *     patient-reported until a clinician confirms them.
+             */
+            allergies?: string[];
+            /** @description Consents given at the desk, each purpose once. */
+            consents?: components["schemas"]["DeskConsentFields"][];
+            /** @description Date of birth, `YYYY-MM-DD`. Not with `age_years`. */
+            date_of_birth?: string | null;
+            /** @description The patient knows of no allergies. Not together with `allergies`. */
+            no_known_allergies?: boolean;
+            /**
+             * @description The published notice shown (`GET /consent-notices`); the clinic's current notice when
+             *     this and `notice_version` are left out.
+             */
+            notice_id?: string | null;
+            /** @description A notice label, for a notice that isn't published here (prefer `notice_id`). */
+            notice_version?: string | null;
+            /** @description `female`, `male`, `other` or `unknown`. */
+            sex?: string | null;
+        };
+        /** @description What a check-in did. */
+        CheckedIn: {
+            /**
+             * Format: int64
+             * @description How many allergies were recorded.
+             */
+            allergies_recorded: number;
+            /**
+             * @description The appointment, arrived; its patient's `registration_incomplete` says whether sex or
+             *     age is still missing.
+             */
+            appointment: components["schemas"]["Appointment"];
+            /** @description The purposes whose consent was recorded. */
+            consents_recorded: string[];
+            /** @description Its queue token. */
+            queue_token_id?: string | null;
         };
         /** @description What a page sends when something fails. */
         ClientError: {
@@ -3884,6 +4061,18 @@ export interface components {
             status: string;
             /** @description Its time zone. */
             timezone: string;
+        };
+        /** @description The clinic's opening hours. */
+        ClinicHours: {
+            /** @description By branch, weekday and start; split shifts are two entries. Empty when not set. */
+            shifts: components["schemas"]["OpeningShift"][];
+        };
+        /** @description A branch's new week. */
+        ClinicHoursChange: {
+            /** @description Branch; the default branch when left out. */
+            branch_id?: string | null;
+            /** @description Shifts, at most 28, none overlapping on a day. Empty clears the branch's hours. */
+            shifts: components["schemas"]["OpeningTime"][];
         };
         /** @description An invitation not yet accepted. */
         ClinicInvitation: {
@@ -4129,6 +4318,11 @@ export interface components {
             method: string;
             /** @description A short remark. */
             note?: string | null;
+            /**
+             * @description The clinic's published notice shown (`GET /consent-notices`); null for consents recorded
+             *     against a label only.
+             */
+            notice_id?: string | null;
             /** @description The clinic's label for the notice text the patient was shown. */
             notice_version: string;
             /** @description `care`, `reminders`, `promotional`, `sharing` or `research`. */
@@ -4150,6 +4344,32 @@ export interface components {
         ConsentList: {
             /** @description The consents, given and withdrawn. */
             items: components["schemas"]["Consent"][];
+        };
+        /** @description One published version of the clinic's notice. */
+        ConsentNotice: {
+            /** @description The notice text. */
+            body: string;
+            /** @description Identifier; consents record it as `notice_id`. */
+            id: string;
+            /** @description The clinic's short label, such as `v2 2026-11`. */
+            label: string;
+            /** @description When it was published (RFC 3339). */
+            published_at: string;
+            /** @description Who published it. */
+            published_by?: string | null;
+            /**
+             * Format: int32
+             * @description 1 for the first version, then 2, 3, ...
+             */
+            version: number;
+        };
+        /** @description The clinic's notice versions. */
+        ConsentNoticeList: {
+            /**
+             * @description Newest first; the first is the current notice. Empty until the clinic publishes one
+             *     (consents then record the template's label, `v1 2026-10`).
+             */
+            items: components["schemas"]["ConsentNotice"][];
         };
         /** @description A clinic, with counts only. */
         ConsoleClinic: {
@@ -4353,6 +4573,11 @@ export interface components {
             /** @description Part of a name or strength, such as `amox` or `500`. */
             q?: string;
         };
+        /** @description Open possible duplicates. */
+        DuplicateList: {
+            /** @description Newest first, at most 200. */
+            items: components["schemas"]["PossibleDuplicate"][];
+        };
         /** @description The record a row duplicates. */
         DuplicateRef: {
             /** @description Their number. */
@@ -4361,6 +4586,22 @@ export interface components {
             patient_id?: string | null;
             /** @description Or an earlier row of the file. */
             row?: number | null;
+        };
+        /** @description One of the two records. */
+        DuplicateSide: {
+            /**
+             * Format: int32
+             * @description Age in whole years, when known.
+             */
+            age_years?: number | null;
+            /** @description Their name. */
+            full_name: string;
+            /** @description The patient. */
+            id: string;
+            /** @description Their number. */
+            number: string;
+            /** @description `female`, `male`, `other` or `unknown`. */
+            sex: string;
         };
         /** @description Why a record is being marked entered in error. */
         EnteredInError: {
@@ -5156,6 +5397,21 @@ export interface components {
             /** @description Their display name. */
             name: string;
         };
+        /** @description Which patient to merge into. */
+        MergeRequest: {
+            /** @description The existing patient that keeps its number and record. */
+            into_patient_id: string;
+        };
+        /** @description What a merge did. */
+        Merged: {
+            /**
+             * Format: int64
+             * @description How many appointments moved to it.
+             */
+            appointments_moved: number;
+            /** @description The patient that remains. */
+            patient_id: string;
+        };
         /** @description What the API serves. */
         Meta: {
             /** @description Each app the server tracks versions of; empty when every version is served. */
@@ -5714,6 +5970,32 @@ export interface components {
             /** @description The six digits printed on the paper. */
             pin: string;
         };
+        /** @description A stretch of the week the clinic is open. */
+        OpeningShift: {
+            /** @description The branch. */
+            branch_id: string;
+            /** @description Closing time, `HH:MM`. */
+            ends: string;
+            /** @description Opening time, `HH:MM`. */
+            starts: string;
+            /**
+             * Format: int32
+             * @description 1 Monday to 7 Sunday.
+             */
+            weekday: number;
+        };
+        /** @description One opening shift to save. */
+        OpeningTime: {
+            /** @description Closing time, `HH:MM`, after the opening time. */
+            ends: string;
+            /** @description Opening time, `HH:MM`. */
+            starts: string;
+            /**
+             * Format: int32
+             * @description 1 Monday to 7 Sunday.
+             */
+            weekday: number;
+        };
         /** @description A patient. Phone and email are masked (`+91******3210`) unless the role has `patients.contact`. */
         Patient: {
             /**
@@ -5939,6 +6221,11 @@ export interface components {
             id: string;
             /** @description Readable number, such as `SD-1042`. */
             number: string;
+            /**
+             * @description Registered through online booking and still missing sex or age: complete the
+             *     registration at check-in (`POST /appointments/{id}/check-in`).
+             */
+            registration_incomplete: boolean;
             /** @description `female`, `male`, `other` or `unknown`. */
             sex: string;
         };
@@ -6396,6 +6683,19 @@ export interface components {
             /** @description The plans. */
             items: components["schemas"]["Plan"][];
         };
+        /** @description A self-registered record that may be an existing patient. */
+        PossibleDuplicate: {
+            /** @description The existing patient it may be. */
+            candidate: components["schemas"]["DuplicateSide"];
+            /** @description When it was flagged (RFC 3339). */
+            flagged_at: string;
+            /** @description The flag. */
+            id: string;
+            /** @description The self-registered record from online booking. */
+            patient: components["schemas"]["DuplicateSide"];
+            /** @description Why: `phone` (same phone, no email match). */
+            reason: string;
+        };
         /** @description A doctor who sees patients. */
         Practitioner: {
             /** @description Whether they can be booked. */
@@ -6618,6 +6918,13 @@ export interface components {
         ProcedureList: {
             /** @description The procedures. */
             items: components["schemas"]["Procedure"][];
+        };
+        /** @description A new version to publish. */
+        PublishNotice: {
+            /** @description The full notice text, up to 20,000 characters. */
+            body: string;
+            /** @description A short label, 1 to 40 characters, such as `v2 2026-11`. */
+            label: string;
         };
         /** @description A test failing in the newest run that recorded it. */
         QualityFailingTest: {
@@ -6847,8 +7154,16 @@ export interface components {
             method: string;
             /** @description A short remark, up to 500 characters. No clinical detail. */
             note?: string | null;
-            /** @description The clinic's label for the notice text shown, 1 to 40 characters, such as `v1 2026-10`. */
-            notice_version: string;
+            /**
+             * @description The published notice shown (`GET /consent-notices`). Left out with `notice_version` also
+             *     left out, the clinic's current notice is recorded.
+             */
+            notice_id?: string | null;
+            /**
+             * @description A notice label such as `v1 2026-10`, for a notice that isn't published here (the
+             *     earlier way; prefer `notice_id`).
+             */
+            notice_version?: string | null;
             /** @description `care`, `reminders`, `promotional`, `sharing` or `research`. */
             purpose: string;
         };
@@ -8146,7 +8461,12 @@ export interface components {
             consents?: components["schemas"]["DeskConsentFields"][];
             /** @description The patient knows of no allergies. Not together with `allergies`. */
             no_known_allergies?: boolean;
-            /** @description The notice version shown; the clinic's current notice (`v1 2026-10`) when left out. */
+            /**
+             * @description The published notice shown (`GET /consent-notices`); the clinic's current notice when
+             *     this and `notice_version` are left out.
+             */
+            notice_id?: string | null;
+            /** @description A notice label, for a notice that isn't published here (prefer `notice_id`). */
             notice_version?: string | null;
             patient?: components["schemas"]["NewPatient"] | null;
             /** @description A registered patient, such as one picked from the phone lookup. */
@@ -8499,6 +8819,67 @@ export interface operations {
             };
         };
     };
+    checkInAppointment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The appointment */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckInRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckedIn"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks intake.write, patients.write or appointments.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such appointment in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The appointment can't arrive from its status, or "No known allergies" with an allergy on record */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     setAppointmentStatus: {
         parameters: {
             query?: never;
@@ -8795,6 +9176,167 @@ export interface operations {
             };
             /** @description Too many reports from this address */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getClinicHours: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicHours"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setClinicHours: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClinicHoursChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicHours"];
+                };
+            };
+            /** @description Bad or overlapping shifts, or an unknown branch */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listConsentNotices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentNoticeList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    publishConsentNotice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishNotice"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentNotice"];
+                };
+            };
+            /** @description A bad label or text */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Another version was published at the same moment */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11943,6 +12485,81 @@ export interface operations {
             };
         };
     };
+    listPatientDuplicates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicateList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    dismissPatientDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The flag */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dismissed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such open flag in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     confirmPatientLink: {
         parameters: {
             query?: never;
@@ -13335,6 +13952,67 @@ export interface operations {
             };
             /** @description No such identifier in this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    mergePatient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The self-registered record to merge away */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Merged"];
+                };
+            };
+            /** @description Not a self-registered record, or the same patient */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already merged, or the record has clinical or billing data */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

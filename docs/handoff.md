@@ -29,6 +29,8 @@ Where the work stands and exactly what to do next. Update this file at the end o
 | 2 | G: notes and speech | Note original text and confirmed English (C3 API), phone dictation and ML Kit translation (C1–C2), Marathi/Hindi i18n layer for the portal (C4 web) |
 | 2 | H: web | Single loader on sign-in, auth pages in the public site's look, date and time pickers in `sakalya-web` |
 
+**Backend built on `feat/appointments-backend` (not merged; migrations 0330–0333):** clinic opening hours (`/clinic-hours`) used by chair utilization; appointment edit tests (the chair bug is in the portal, which sends the chair only with Move appointment); phone-duplicate flags, merge and dismiss (`/patient-duplicates`, `/patients/{id}/merge`), `registration_incomplete` and `POST /appointments/{id}/check-in`; clinic notice versions (`/consent-notices`); `app.may_contact` with the consent matrix. TS client regenerated. Their portal screens wait (see `backlog.md`).
+
 **Needs someone outside these sessions:**
 - WhatsApp and SMS (Meta templates, DLT, paid provider)
 - phone OTP

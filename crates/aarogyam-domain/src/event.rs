@@ -70,6 +70,10 @@ pub enum Event {
     QueueTokenIssued,
     /// Patients were imported from a file.
     PatientsImported,
+    /// A self-registered patient record was merged into an existing patient.
+    PatientsMerged,
+    /// A patient's registration was completed at check-in.
+    RegistrationCompleted,
     /// A chair, doctor, working hours or leave changed.
     ScheduleSetupChanged,
     /// A visit was started.
@@ -168,6 +172,8 @@ impl Event {
             Self::AppointmentStatusChanged => "appointment.status_changed",
             Self::QueueTokenIssued => "queue_token.issued",
             Self::PatientsImported => "patients.imported",
+            Self::PatientsMerged => "patients.merged",
+            Self::RegistrationCompleted => "registration.completed",
             Self::ScheduleSetupChanged => "schedule_setup.changed",
             Self::VisitStarted => "visit.started",
             Self::VisitClosed => "visit.closed",

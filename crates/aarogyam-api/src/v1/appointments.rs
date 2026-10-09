@@ -35,6 +35,9 @@ pub struct PatientBrief {
     pub sex: String,
     /// Age in whole years today.
     pub age_years: Option<u16>,
+    /// Registered through online booking and still missing sex or age: complete the
+    /// registration at check-in (`POST /appointments/{id}/check-in`).
+    pub registration_incomplete: bool,
 }
 
 /// A doctor as the calendar shows them.
@@ -126,6 +129,7 @@ impl From<AppointmentView> for Appointment {
                 full_name: row.patient_name,
                 sex: row.patient_sex,
                 age_years: view.patient_age_years,
+                registration_incomplete: row.patient_registration_incomplete,
             },
             practitioner: PractitionerBrief {
                 id: row.practitioner_id,

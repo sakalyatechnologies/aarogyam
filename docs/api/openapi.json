@@ -3792,6 +3792,76 @@
         ]
       }
     },
+    "/api/v1/patient-duplicates": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Self-registered records from online booking whose phone matches an existing patient, for\nthe front desk to merge or dismiss. Only flags whose two records are in reach.",
+        "operationId": "listPatientDuplicates",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicateList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patient-duplicates/{id}/dismiss": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Dismisses a flag: the two records are different people.",
+        "operationId": "dismissPatientDuplicate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The flag",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Dismissed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such open flag in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patient-links/{id}/confirm": {
       "post": {
         "tags": [
@@ -5265,6 +5335,67 @@
           },
           "404": {
             "description": "No such identifier in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/merge": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Merges a self-registered record (from online booking) into an existing patient: its\nappointments, queue tokens, patient-app links, identifiers and consents move, the existing\npatient gets its email if it has none, and the record is marked merged. Refused when the\nself-registered record has any clinical or billing record. Every change is audited.",
+        "operationId": "mergePatient",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The self-registered record to merge away",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Merged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a self-registered record, or the same patient"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "Already merged, or the record has clinical or billing data"
           }
         },
         "security": [
@@ -13088,6 +13219,22 @@
           }
         }
       },
+      "DuplicateList": {
+        "type": "object",
+        "description": "Open possible duplicates.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PossibleDuplicate"
+            },
+            "description": "Newest first, at most 200."
+          }
+        }
+      },
       "DuplicateRef": {
         "type": "object",
         "description": "The record a row duplicates.",
@@ -13113,6 +13260,43 @@
             ],
             "description": "Or an earlier row of the file.",
             "minimum": 0
+          }
+        }
+      },
+      "DuplicateSide": {
+        "type": "object",
+        "description": "One of the two records.",
+        "required": [
+          "id",
+          "number",
+          "full_name",
+          "sex"
+        ],
+        "properties": {
+          "age_years": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Age in whole years, when known.",
+            "minimum": 0
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Their name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "number": {
+            "type": "string",
+            "description": "Their number."
+          },
+          "sex": {
+            "type": "string",
+            "description": "`female`, `male`, `other` or `unknown`."
           }
         }
       },
@@ -15040,6 +15224,39 @@
           "name": {
             "type": "string",
             "description": "Their display name."
+          }
+        }
+      },
+      "MergeRequest": {
+        "type": "object",
+        "description": "Which patient to merge into.",
+        "required": [
+          "into_patient_id"
+        ],
+        "properties": {
+          "into_patient_id": {
+            "type": "string",
+            "description": "The existing patient that keeps its number and record."
+          }
+        },
+        "additionalProperties": false
+      },
+      "Merged": {
+        "type": "object",
+        "description": "What a merge did.",
+        "required": [
+          "patient_id",
+          "appointments_moved"
+        ],
+        "properties": {
+          "appointments_moved": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many appointments moved to it."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient that remains."
           }
         }
       },
@@ -16999,7 +17216,8 @@
           "id",
           "number",
           "full_name",
-          "sex"
+          "sex",
+          "registration_incomplete"
         ],
         "properties": {
           "age_years": {
@@ -17022,6 +17240,10 @@
           "number": {
             "type": "string",
             "description": "Readable number, such as `SD-1042`."
+          },
+          "registration_incomplete": {
+            "type": "boolean",
+            "description": "Registered through online booking and still missing sex or age: complete the\nregistration at check-in (`POST /appointments/{id}/check-in`)."
           },
           "sex": {
             "type": "string",
@@ -18173,6 +18395,39 @@
               "$ref": "#/components/schemas/Plan"
             },
             "description": "The plans."
+          }
+        }
+      },
+      "PossibleDuplicate": {
+        "type": "object",
+        "description": "A self-registered record that may be an existing patient.",
+        "required": [
+          "id",
+          "reason",
+          "flagged_at",
+          "patient",
+          "candidate"
+        ],
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/DuplicateSide",
+            "description": "The existing patient it may be."
+          },
+          "flagged_at": {
+            "type": "string",
+            "description": "When it was flagged (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The flag."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/DuplicateSide",
+            "description": "The self-registered record from online booking."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why: `phone` (same phone, no email match)."
           }
         }
       },

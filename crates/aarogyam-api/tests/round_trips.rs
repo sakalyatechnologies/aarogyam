@@ -436,6 +436,11 @@ fn hot_routes(
         Route::get("GET /practitioners", ALPHA, "/api/v1/practitioners".into()),
         Route::get("GET /rooms", ALPHA, "/api/v1/rooms".into()),
         Route::get("GET /clinic-hours", ALPHA, "/api/v1/clinic-hours".into()),
+        Route::get(
+            "GET /patient-duplicates",
+            ALPHA,
+            "/api/v1/patient-duplicates".into(),
+        ),
         Route::get("GET /price-items", ALPHA, "/api/v1/price-items".into()),
         Route::get("GET /letterhead", ALPHA, "/api/v1/letterhead".into()),
         // Over budget since scope enforcement (the scoped visit list, then the authors' names); to fold into one statement.

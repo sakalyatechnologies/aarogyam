@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select q.id, q.branch_id, q.day, q.token_number, q.status, q.issued_at, q.called_at, q.done_at,\n                  q.patient_id, p.number as patient_number, p.full_name as patient_name,\n                  p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,\n                  p.birth_date_estimated as patient_birth_date_estimated,\n                  q.appointment_id, q.practitioner_id, d.display_name as \"practitioner_name?\"\n           from aarogyam.queue_tokens q\n           join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id\n           left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id\n           where q.day = $1 and ($2::uuid is null or q.branch_id = $2)\n             and app.practitioner_in_reach(q.practitioner_id, $3)\n           order by q.branch_id, q.token_number",
+  "query": "select q.id, q.branch_id, q.day, q.token_number, q.status, q.issued_at, q.called_at, q.done_at,\n                  q.patient_id, p.number as patient_number, p.full_name as patient_name,\n                  p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,\n                  p.birth_date_estimated as patient_birth_date_estimated,\n                  ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))\n                    as \"patient_registration_incomplete!\",\n                  q.appointment_id, q.practitioner_id, d.display_name as \"practitioner_name?\"\n           from aarogyam.queue_tokens q\n           join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id\n           left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id\n           where q.id = $1 and app.practitioner_in_reach(q.practitioner_id, $2)",
   "describe": {
     "columns": [
       {
@@ -159,6 +159,12 @@
       },
       {
         "ordinal": 14,
+        "name": "patient_registration_incomplete!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 15,
         "name": "appointment_id",
         "type_info": "Uuid",
         "origin": {
@@ -169,7 +175,7 @@
         }
       },
       {
-        "ordinal": 15,
+        "ordinal": 16,
         "name": "practitioner_id",
         "type_info": "Uuid",
         "origin": {
@@ -180,7 +186,7 @@
         }
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "practitioner_name?",
         "type_info": "Text",
         "origin": {
@@ -193,7 +199,6 @@
     ],
     "parameters": {
       "Left": [
-        "Date",
         "Uuid",
         "Uuid"
       ]
@@ -213,10 +218,11 @@
       false,
       true,
       false,
+      null,
       true,
       true,
-      false
+      true
     ]
   },
-  "hash": "60f36447a73a0c1e673fdad947ce44a3ecb8bddfd4f07aad4ccee4b89c09a14e"
+  "hash": "f125cbc309670d2c76c1544bb15d8f2cbd8d9a14eb1cbe5ac3c81d0ce2d36cce"
 }

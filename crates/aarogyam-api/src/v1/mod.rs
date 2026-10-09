@@ -11,6 +11,7 @@ pub(crate) mod client_errors;
 pub(crate) mod clinic_hours;
 pub(crate) mod consents;
 pub(crate) mod console;
+pub(crate) mod duplicates;
 pub(crate) mod expenses;
 pub(crate) mod facts;
 pub(crate) mod files;
@@ -192,6 +193,12 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(consents::list).post(consents::record),
         )
         .route("/consents/{id}/withdraw", post(consents::withdraw))
+        .route("/patient-duplicates", get(duplicates::list))
+        .route(
+            "/patient-duplicates/{id}/dismiss",
+            post(duplicates::dismiss),
+        )
+        .route("/patients/{id}/merge", post(duplicates::merge))
         .route("/patients/{id}/app-access", get(patient_links::access))
         .route(
             "/patients/{id}/app-invitations",

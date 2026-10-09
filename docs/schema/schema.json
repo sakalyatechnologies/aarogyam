@@ -1982,6 +1982,7 @@
     "observations.verified_by",
     "patient_consents.recorded_by",
     "patient_consents.withdrawn_by",
+    "patient_duplicates.resolved_by",
     "patient_links.decided_by",
     "payments.received_by",
     "payments.voided_by",
@@ -2318,6 +2319,8 @@
     "messages.patient_id",
     "observations.patient_id",
     "patient_consents.patient_id",
+    "patient_duplicates.candidate_id",
+    "patient_duplicates.patient_id",
     "patient_gaps.patient_id",
     "patient_identifiers.patient_id",
     "patient_link_codes.patient_id",
@@ -8385,6 +8388,64 @@
      "type": "text",
      "nullable": true,
      "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "patient_duplicates",
+   "domain": "trust",
+   "purpose": "Possible duplicate patients for the front desk: a self-registered online record whose phone matches an existing patient.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0331). Online booking matches only by verified email; a phone match makes a new self-registered record and a row here, never a merge. GET /patient-duplicates lists open ones; POST /patients/{id}/merge moves the self-registered record's appointments, tokens, links, identifiers and consents to the existing patient and marks it merged (refused when it has any clinical or billing record); dismiss marks it a different person.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": "the self-registered record"
+    },
+    {
+     "name": "candidate_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": "the existing patient it may be"
+    },
+    {
+     "name": "reason",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "phone"
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "open, merged, dismissed"
+    },
+    {
+     "name": "resolved_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "resolved_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
      "note": ""
     }
    ],

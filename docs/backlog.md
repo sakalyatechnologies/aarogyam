@@ -58,6 +58,9 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 - **Campaigns:** choose all, active, or filtered patients (last visit, treatment, age, birthday month) and send an offer, camp or greeting; opt-out honoured, quiet hours, preview and count before sending, delivery report.
 - **Design notes:** WhatsApp Business API (Meta-approved templates for outbound) and SMS via the notification service and outbox (AGENTS.md rule 10, never direct from handlers); consent and opt-out stored per patient (DPDP); campaigns need a permission, rate limits and an audit; costs per message shown before sending.
 
+## Staff chat (8 Oct 2026)
+**Status (9 Oct): backend built, UI pending.** One-to-one and group chat between staff, plain text, optional patient reference, polled with cursors; `GET /me/badges` for the minute poll (docs/decisions.md, "Staff chat"). Waiting: portal, console and phone screens; push for new messages; archiving and renaming a group (columns exist, no endpoint); replies, Markdown, editing and an automatic clinic channel (cut from the first cut). The support-grant exclusion test for chat and the retention purge come with T6.
+
 ## Clinic notifications for online bookings (8 Oct 2026, important)
 **Status (8 Oct): backend built, UI pending.** Notifications written with the booking or patient cancellation, per-person read state and "handled by", scopes, the feed, count, read and inbox API, reminder then owner escalation in the outbox job, and `reminder_minutes` next to `auto_confirm` (docs/decisions.md, "Clinic notifications, reminders and escalation"). Waiting: the portal bell and list, Today's unhandled list, the staff app list, push (credentials), and real clinic opening hours for the job.
 

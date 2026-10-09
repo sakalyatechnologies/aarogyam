@@ -33,7 +33,7 @@ Tick a task only when its done criteria pass: tests, gates and parity sheet. Add
 | D6 | done |  | Booking: availability and `POST /appointments`; slot chips data. |
 | D7 | todo |  | Analytics calls and holder (three periods, Preview flags for the split data). Field map, required; done when no v7 number lacks a source: |
 | D8 | todo |  | Procedure → finding map, `ToothSheetStateHolder`, `record(visitId)`, Edit (after B1 and D8a). |
-| D8a | todo |  | Split `ChartStateHolder.kt` (430 lines) into a history/terms reducer and a recording part, each under 300 lines. The existing tests stay gre |
+| D8a | done |  | Split `ChartStateHolder.kt` (430 lines) into a history/terms reducer and a recording part, each under 300 lines. The existing tests stay gre |
 | D9 | todo |  | Visit start (queue or direct), `VisitStateHolder`, notes create/PATCH/sign, procedures, close, `RxSheetStateHolder.visitId` (after D9a). Rx  |
 | D9a | todo |  | Split `RxSheetStateHolder.kt` (445 lines) into a lines/drug-search reducer and an allergy-check/issue part, each under 300 lines. The existi |
 | D10 | todo |  | Expenses (validation, no automatic retry). |

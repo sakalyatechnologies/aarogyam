@@ -30,6 +30,7 @@ pub mod intake;
 pub mod inventory;
 pub mod invitations;
 pub mod letterhead;
+pub mod messaging;
 pub mod moved;
 pub mod notices;
 pub mod notifications;

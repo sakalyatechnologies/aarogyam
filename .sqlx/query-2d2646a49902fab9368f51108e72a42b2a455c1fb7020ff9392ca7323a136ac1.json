@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with patient as (\n             select p.id from aarogyam.patients p\n             where p.id = $1 and p.deleted_at is null and app.patient_in_reach(p.id, $2)\n           )\n           select exists (select 1 from patient) as \"found!\",\n                  coalesce((select jsonb_agg(to_jsonb(r) order by r.created_at desc, r.id desc)\n                            from (select m.id, m.channel, m.kind, m.purpose, m.template_key,\n                                         m.status, m.skip_reason, m.scheduled_for, m.sent_at,\n                                         m.delivery, m.attempts, m.created_at\n                                  from aarogyam.messages m\n                                  where m.patient_id in (select id from patient)\n                                  order by m.created_at desc, m.id desc limit $3) r),\n                           '[]'::jsonb) as \"items!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "items!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "2d2646a49902fab9368f51108e72a42b2a455c1fb7020ff9392ca7323a136ac1"
+}

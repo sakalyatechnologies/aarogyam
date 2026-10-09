@@ -37,6 +37,8 @@ pub mod json;
 pub mod legal_hold;
 pub mod lookups;
 pub mod merge;
+pub mod message_worker;
+pub mod messages;
 pub mod notices;
 pub mod notifications;
 pub mod outbox;

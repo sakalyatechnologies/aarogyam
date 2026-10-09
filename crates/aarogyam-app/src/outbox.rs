@@ -1,6 +1,7 @@
-//! Queuing a message with the change that causes it. The caller passes its clinic
-//! transaction, so the message commits or rolls back with the change; the
-//! notification worker (`aarogyam-notify`) delivers it later.
+//! Queuing an email to staff (or another non-patient) with the change that causes it. The
+//! caller passes its clinic transaction, so the message commits or rolls back with the change;
+//! the notification worker (`aarogyam-notify`) delivers it later. Messages to patients go to
+//! their own queue instead ([`crate::messaging`]), so no patient address sits in the outbox.
 
 use aarogyam_dal::outbox::{self as dal, NewMessage};
 use aarogyam_domain::ids::MessageId;
@@ -11,8 +12,8 @@ use serde_json::Value;
 
 use crate::error::AppError;
 
-/// An email to a member of staff (never a patient: patient messages will be addressed when
-/// sent, from the patient's id and consent).
+/// An email to a member of staff (never a patient: patient messages are
+/// [`crate::messaging::PatientEmail`], addressed when sent).
 #[derive(Debug, Clone)]
 pub struct StaffEmail<'a> {
     /// What it is about; picks the template.
@@ -23,21 +24,6 @@ pub struct StaffEmail<'a> {
     pub payload: Value,
     /// A one-time link secret it carries, kept only until it is sent or abandoned.
     pub secret: Option<&'a str>,
-}
-
-/// An email to a patient at the address on their record. The payload carries ids and
-/// non-patient values only: never the patient's name, medicines or diagnosis.
-pub type PatientEmail<'a> = StaffEmail<'a>;
-
-/// Queues an email to a patient in the caller's clinic transaction.
-///
-/// # Errors
-/// [`AppError::Db`] on database failures.
-pub async fn enqueue_patient_email(
-    tx: &mut ScopedTx,
-    email: &PatientEmail<'_>,
-) -> Result<MessageId, AppError> {
-    enqueue_staff_email(tx, email).await
 }
 
 /// Queues an email in the caller's clinic transaction.

@@ -52,6 +52,16 @@ impl PortalLinks {
         format!("{}/shared/{token}", self.pattern.replace("{host}", host))
     }
 
+    /// The one-click unsubscribe address for a reminder or promotional email: the API's public
+    /// route on the clinic's host. The token is opaque and names no patient.
+    #[must_use]
+    pub fn unsubscribe(&self, host: &str, token: &str) -> String {
+        format!(
+            "{}/api/v1/public/unsubscribe/{token}",
+            self.pattern.replace("{host}", host)
+        )
+    }
+
     /// The public page that verifies an issued prescription (its QR code points here).
     #[must_use]
     pub fn verify(&self, host: &str, token: &str) -> String {
@@ -81,6 +91,9 @@ pub struct Email {
     pub text: String,
     /// HTML body.
     pub html: String,
+    /// The one-click unsubscribe link for the `List-Unsubscribe` header (RFC 8058), on
+    /// reminders and promotional email.
+    pub list_unsubscribe: Option<String>,
 }
 
 impl fmt::Debug for Email {
@@ -89,7 +102,7 @@ impl fmt::Debug for Email {
     }
 }
 
-fn field<'a>(payload: &'a Value, key: &'static str) -> Result<&'a str, Failure> {
+pub(crate) fn field<'a>(payload: &'a Value, key: &'static str) -> Result<&'a str, Failure> {
     payload
         .get(key)
         .and_then(Value::as_str)
@@ -98,7 +111,7 @@ fn field<'a>(payload: &'a Value, key: &'static str) -> Result<&'a str, Failure> 
 }
 
 /// Escapes text for HTML.
-fn escape(text: &str) -> String {
+pub(crate) fn escape(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len());
     for c in text.chars() {
         match c {
@@ -162,6 +175,7 @@ fn render_booking(
         subject,
         text,
         html,
+        list_unsubscribe: None,
     })
 }
 
@@ -200,6 +214,7 @@ fn render_app_invitation(
         subject,
         text,
         html,
+        list_unsubscribe: None,
     })
 }
 
@@ -242,6 +257,7 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
                 subject,
                 text,
                 html,
+                list_unsubscribe: None,
             })
         }
         Some(MessageKind::PrescriptionShared) => {
@@ -283,6 +299,7 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
                 subject,
                 text,
                 html,
+                list_unsubscribe: None,
             })
         }
         Some(MessageKind::PatientAppInvited) => {
@@ -293,7 +310,10 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
             | MessageKind::BookingConfirmed
             | MessageKind::BookingDeclined),
         ) => render_booking(kind, to, &message.payload, links),
-        None => Err(Failure::permanent("unknown message kind")),
+        // Rendered by the patient message step (`patient_templates`), never from the outbox.
+        Some(MessageKind::AppointmentReminder | MessageKind::ClinicMessage) | None => {
+            Err(Failure::permanent("unknown message kind"))
+        }
     }
 }
 

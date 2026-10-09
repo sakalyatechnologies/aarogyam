@@ -81,6 +81,7 @@ pub mod import;
 pub mod import_map;
 pub mod inventory;
 pub mod letterhead;
+pub mod messaging;
 pub mod notification;
 pub mod onboarding;
 pub mod outbox;

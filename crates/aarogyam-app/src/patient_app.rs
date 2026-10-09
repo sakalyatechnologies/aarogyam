@@ -28,7 +28,7 @@ use crate::accounts::SignInAccounts;
 use crate::clock::clinic_offset;
 use crate::error::AppError;
 use crate::files::{Files, StorageKey};
-use crate::outbox::{PatientEmail, enqueue_patient_email};
+use crate::messaging::{PatientEmail, enqueue_patient_email};
 use crate::patients::mask_email;
 use crate::scope::{patient_account_scope, staff_scope};
 use crate::self_booking::read_settings;
@@ -578,13 +578,14 @@ pub async fn invite(
             tx,
             &PatientEmail {
                 kind: MessageKind::PatientAppInvited,
-                to: &email,
+                patient_id,
                 payload: json!({
                     "clinic_name": profile.name,
                     "portal_host": host,
                     "expires_on": expires_on.to_string(),
                 }),
                 secret: Some(&shown),
+                appointment_id: None,
             },
         )
         .await?;

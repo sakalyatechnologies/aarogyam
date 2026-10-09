@@ -24,6 +24,7 @@ pub(crate) mod invitations;
 pub(crate) mod letterhead;
 pub(crate) mod me;
 pub(crate) mod meta;
+pub(crate) mod notices;
 pub(crate) mod onboarding;
 pub(crate) mod patient_app;
 pub(crate) mod patient_links;
@@ -195,6 +196,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(consents::list).post(consents::record),
         )
         .route("/consents/{id}/withdraw", post(consents::withdraw))
+        .route(
+            "/consent-notices",
+            get(notices::list).post(notices::publish),
+        )
         .route("/patient-duplicates", get(duplicates::list))
         .route(
             "/patient-duplicates/{id}/dismiss",

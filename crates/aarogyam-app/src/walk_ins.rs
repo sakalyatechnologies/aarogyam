@@ -121,7 +121,7 @@ pub async fn register(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aarogyam_domain::consent::{DEFAULT_NOTICE_VERSION, Method};
+    use aarogyam_domain::consent::Method;
     use intake::{DeskConsent, MAX_ALLERGIES};
 
     fn walk_in(intake: Intake) -> NewWalkIn {
@@ -150,9 +150,10 @@ mod tests {
     }
 
     #[test]
-    fn the_default_notice_is_used_and_purposes_are_named_once() {
+    fn no_notice_is_needed_and_purposes_are_named_once() {
+        // No notice named: the clinic's current notice is chosen when recording.
         let checked = intake::check(&Intake::default()).map(|c| c.notice_version);
-        assert_eq!(checked.ok().as_deref(), Some(DEFAULT_NOTICE_VERSION));
+        assert_eq!(checked.ok(), Some(None));
         let care = DeskConsent {
             purpose: Purpose::Care,
             method: Method::Verbal,

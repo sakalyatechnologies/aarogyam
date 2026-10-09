@@ -437,6 +437,11 @@ fn hot_routes(
         Route::get("GET /rooms", ALPHA, "/api/v1/rooms".into()),
         Route::get("GET /clinic-hours", ALPHA, "/api/v1/clinic-hours".into()),
         Route::get(
+            "GET /consent-notices",
+            ALPHA,
+            "/api/v1/consent-notices".into(),
+        ),
+        Route::get(
             "GET /patient-duplicates",
             ALPHA,
             "/api/v1/patient-duplicates".into(),

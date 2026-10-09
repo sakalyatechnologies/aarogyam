@@ -1967,6 +1967,7 @@
     "clinical_notes.error_by",
     "clinical_notes.signed_by",
     "conditions.verified_by",
+    "consent_notices.published_by",
     "daily_closings.closed_by",
     "dental_terms.added_by",
     "document_extractions.confirmed_by",
@@ -8296,6 +8297,59 @@
    "offline": "server_only"
   },
   {
+   "name": "consent_notices",
+   "domain": "trust",
+   "purpose": "The clinic's own privacy notice text, one row per published version.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0332). GET /consent-notices (patients.read), POST to publish the next version (settings.manage). The newest is the current notice: consents (desk, walk-in, check-in) record it as notice_id unless another is named. Never edited.",
+   "cols": [
+    {
+     "name": "version",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "1, 2, 3 per clinic"
+    },
+    {
+     "name": "label",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "short, e.g. v2 2026-11"
+    },
+    {
+     "name": "body",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "up to 20,000 characters"
+    },
+    {
+     "name": "published_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "published_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "patient_consents.notice_id"
+   ],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
    "name": "patient_consents",
    "domain": "trust",
    "purpose": "DPDP notice and consent record: the patient was shown the clinic's notice and agreed to a purpose; later withdrawn.",
@@ -8325,7 +8379,14 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "the clinic's label for the notice text shown, e.g. v1 2026-10"
+     "note": "the label of the notice shown, e.g. v1 2026-10 (the notice's label when notice_id is set)"
+    },
+    {
+     "name": "notice_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "consent_notices",
+     "note": "the published notice text shown; null for consents recorded against a label only"
     },
     {
      "name": "given_at",

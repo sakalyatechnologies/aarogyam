@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.consent_notices (version, label, body, published_by)\n           select coalesce(max(version), 0) + 1, $1, $2, $3 from aarogyam.consent_notices\n           returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.consent_notices",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "cf4dc4b86fbdcf27e2e55300169b044a63d7fa502bfe06e2b9f95bd81240bf5c"
+}

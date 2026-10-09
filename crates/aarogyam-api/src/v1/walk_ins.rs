@@ -56,7 +56,10 @@ pub struct WalkInRequest {
     /// they are.
     #[serde(default)]
     pub consents: Vec<DeskConsentFields>,
-    /// The notice version shown; the clinic's current notice (`v1 2026-10`) when left out.
+    /// The published notice shown (`GET /consent-notices`); the clinic's current notice when
+    /// this and `notice_version` are left out.
+    pub notice_id: Option<String>,
+    /// A notice label, for a notice that isn't published here (prefer `notice_id`).
     pub notice_version: Option<String>,
 }
 
@@ -128,6 +131,11 @@ fn input(body: WalkInRequest) -> Result<NewWalkIn, ApiFailure> {
             allergies: body.allergies,
             no_known_allergies: body.no_known_allergies,
             consents,
+            notice_id: body
+                .notice_id
+                .as_deref()
+                .map(|text| parse_id("notice_id", text))
+                .transpose()?,
             notice_version: body.notice_version,
         },
     })

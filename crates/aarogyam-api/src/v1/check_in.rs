@@ -14,6 +14,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::appointments::Appointment;
+use super::parse_id;
 use super::patients::parse_date;
 use super::walk_ins::{DeskConsentFields, desk_consents};
 use crate::AppState;
@@ -41,7 +42,10 @@ pub struct CheckInRequest {
     /// Consents given at the desk, each purpose once.
     #[serde(default)]
     pub consents: Vec<DeskConsentFields>,
-    /// The notice version shown; the clinic's current notice when left out.
+    /// The published notice shown (`GET /consent-notices`); the clinic's current notice when
+    /// this and `notice_version` are left out.
+    pub notice_id: Option<String>,
+    /// A notice label, for a notice that isn't published here (prefer `notice_id`).
     pub notice_version: Option<String>,
 }
 
@@ -95,6 +99,11 @@ pub(crate) async fn check_in(
             allergies: body.allergies,
             no_known_allergies: body.no_known_allergies,
             consents: desk_consents(&body.consents)?,
+            notice_id: body
+                .notice_id
+                .as_deref()
+                .map(|text| parse_id("notice_id", text))
+                .transpose()?,
             notice_version: body.notice_version,
         },
     };

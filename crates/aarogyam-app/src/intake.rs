@@ -3,6 +3,7 @@
 //! check-in for a booked patient. Allergies recorded here are patient-reported until a
 //! clinician confirms them (docs/decisions.md, "Walk-in fast path").
 
+use aarogyam_dal::consents::NoticeChoice;
 use aarogyam_dal::{consents, facts};
 use aarogyam_domain::clinical::clinical_text;
 use aarogyam_domain::consent::{self, DEFAULT_NOTICE_VERSION, Method, Purpose};
@@ -10,6 +11,7 @@ use sakalya_db::ScopedTx;
 use uuid::Uuid;
 
 use crate::error::AppError;
+use crate::notices;
 use crate::visits::invalid;
 
 /// Most allergies one arrival may report.
@@ -33,7 +35,10 @@ pub struct Intake {
     pub no_known_allergies: bool,
     /// Consents given at the desk.
     pub consents: Vec<DeskConsent>,
-    /// The notice version shown; the default notice when absent.
+    /// The published notice shown; the clinic's current notice when neither this nor
+    /// `notice_version` is given.
+    pub notice_id: Option<Uuid>,
+    /// A notice label, for a notice that isn't published here.
     pub notice_version: Option<String>,
 }
 
@@ -43,7 +48,8 @@ pub(crate) struct Checked {
     allergies: Vec<String>,
     no_known_allergies: bool,
     consents: Vec<DeskConsent>,
-    pub(crate) notice_version: String,
+    notice_id: Option<Uuid>,
+    pub(crate) notice_version: Option<String>,
 }
 
 /// Checks the allergy list, the consents and the notice version.
@@ -77,14 +83,14 @@ pub(crate) fn check(input: &Intake) -> Result<Checked, AppError> {
     let version = input
         .notice_version
         .as_deref()
-        .unwrap_or(DEFAULT_NOTICE_VERSION);
-    let version = consent::version(version)
-        .map_err(|error| AppError::invalid("notice_version", error))?
-        .to_owned();
+        .map(|text| consent::version(text).map(str::to_owned))
+        .transpose()
+        .map_err(|error| AppError::invalid("notice_version", error))?;
     Ok(Checked {
         allergies,
         no_known_allergies: input.no_known_allergies,
         consents: input.consents.clone(),
+        notice_id: input.notice_id,
         notice_version: version,
     })
 }
@@ -124,12 +130,21 @@ pub(crate) async fn record(
         .iter()
         .map(|c| c.method.as_str().to_owned())
         .collect();
+    // Naming a notice costs a lookup; the usual case (the current notice) is in the insert.
+    let named = match (intake.notice_id, &intake.notice_version) {
+        (None, None) => None,
+        _ => Some(notices::resolve(tx, intake.notice_id, intake.notice_version.as_deref()).await?),
+    };
+    let notice = match &named {
+        Some((label, id)) => NoticeChoice::Named(label, *id),
+        None => NoticeChoice::Current(DEFAULT_NOTICE_VERSION),
+    };
     let recorded = consents::insert_many(
         tx.conn(),
         patient_id,
         &purposes,
         &methods,
-        &intake.notice_version,
+        notice,
         recorded_by,
     )
     .await?

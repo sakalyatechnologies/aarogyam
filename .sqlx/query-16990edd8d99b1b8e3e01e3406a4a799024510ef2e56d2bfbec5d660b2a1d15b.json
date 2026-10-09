@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select label from aarogyam.consent_notices where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.consent_notices",
+            "name": "label"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "16990edd8d99b1b8e3e01e3406a4a799024510ef2e56d2bfbec5d660b2a1d15b"
+}

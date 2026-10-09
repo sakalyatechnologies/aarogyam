@@ -675,6 +675,82 @@
         ]
       }
     },
+    "/api/v1/consent-notices": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Every version of the clinic's privacy notice, newest (current) first.",
+        "operationId": "listConsentNotices",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentNoticeList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Publishes a new version of the clinic's notice; it becomes the current one, which consents\nrecord from now on. Versions are never edited.",
+        "operationId": "publishConsentNotice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishNotice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentNotice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad label or text"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "409": {
+            "description": "Another version was published at the same moment"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/consents/{id}/withdraw": {
       "post": {
         "tags": [
@@ -11878,12 +11954,19 @@
             "type": "boolean",
             "description": "The patient knows of no allergies. Not together with `allergies`."
           },
+          "notice_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The published notice shown (`GET /consent-notices`); the clinic's current notice when\nthis and `notice_version` are left out."
+          },
           "notice_version": {
             "type": [
               "string",
               "null"
             ],
-            "description": "The notice version shown; the clinic's current notice when left out."
+            "description": "A notice label, for a notice that isn't published here (prefer `notice_id`)."
           },
           "sex": {
             "type": [
@@ -12837,6 +12920,13 @@
             ],
             "description": "A short remark."
           },
+          "notice_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic's published notice shown (`GET /consent-notices`); null for consents recorded\nagainst a label only."
+          },
           "notice_version": {
             "type": "string",
             "description": "The clinic's label for the notice text the patient was shown."
@@ -12896,6 +12986,63 @@
               "$ref": "#/components/schemas/Consent"
             },
             "description": "The consents, given and withdrawn."
+          }
+        }
+      },
+      "ConsentNotice": {
+        "type": "object",
+        "description": "One published version of the clinic's notice.",
+        "required": [
+          "id",
+          "version",
+          "label",
+          "body",
+          "published_at"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The notice text."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier; consents record it as `notice_id`."
+          },
+          "label": {
+            "type": "string",
+            "description": "The clinic's short label, such as `v2 2026-11`."
+          },
+          "published_at": {
+            "type": "string",
+            "description": "When it was published (RFC 3339)."
+          },
+          "published_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who published it."
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1 for the first version, then 2, 3, ..."
+          }
+        }
+      },
+      "ConsentNoticeList": {
+        "type": "object",
+        "description": "The clinic's notice versions.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsentNotice"
+            },
+            "description": "Newest first; the first is the current notice. Empty until the clinic publishes one\n(consents then record the template's label, `v1 2026-10`)."
           }
         }
       },
@@ -19188,6 +19335,25 @@
           }
         }
       },
+      "PublishNotice": {
+        "type": "object",
+        "description": "A new version to publish.",
+        "required": [
+          "label",
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The full notice text, up to 20,000 characters."
+          },
+          "label": {
+            "type": "string",
+            "description": "A short label, 1 to 40 characters, such as `v2 2026-11`."
+          }
+        },
+        "additionalProperties": false
+      },
       "QualityFailingTest": {
         "type": "object",
         "description": "A test failing in the newest run that recorded it.",
@@ -19812,7 +19978,6 @@
         "description": "A consent to record.",
         "required": [
           "purpose",
-          "notice_version",
           "method"
         ],
         "properties": {
@@ -19834,9 +19999,19 @@
             ],
             "description": "A short remark, up to 500 characters. No clinical detail."
           },
+          "notice_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The published notice shown (`GET /consent-notices`). Left out with `notice_version` also\nleft out, the clinic's current notice is recorded."
+          },
           "notice_version": {
-            "type": "string",
-            "description": "The clinic's label for the notice text shown, 1 to 40 characters, such as `v1 2026-10`."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A notice label such as `v1 2026-10`, for a notice that isn't published here (the\nearlier way; prefer `notice_id`)."
           },
           "purpose": {
             "type": "string",
@@ -22975,12 +23150,19 @@
             "type": "boolean",
             "description": "The patient knows of no allergies. Not together with `allergies`."
           },
+          "notice_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The published notice shown (`GET /consent-notices`); the clinic's current notice when\nthis and `notice_version` are left out."
+          },
           "notice_version": {
             "type": [
               "string",
               "null"
             ],
-            "description": "The notice version shown; the clinic's current notice (`v1 2026-10`) when left out."
+            "description": "A notice label, for a notice that isn't published here (prefer `notice_id`)."
           },
           "patient": {
             "oneOf": [

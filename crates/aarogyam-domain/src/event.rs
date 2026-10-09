@@ -72,6 +72,8 @@ pub enum Event {
     PatientsImported,
     /// A self-registered patient record was merged into an existing patient.
     PatientsMerged,
+    /// A clinic published a new version of its privacy notice.
+    ConsentNoticePublished,
     /// A patient's registration was completed at check-in.
     RegistrationCompleted,
     /// A chair, doctor, working hours or leave changed.
@@ -173,6 +175,7 @@ impl Event {
             Self::QueueTokenIssued => "queue_token.issued",
             Self::PatientsImported => "patients.imported",
             Self::PatientsMerged => "patients.merged",
+            Self::ConsentNoticePublished => "consent_notice.published",
             Self::RegistrationCompleted => "registration.completed",
             Self::ScheduleSetupChanged => "schedule_setup.changed",
             Self::VisitStarted => "visit.started",

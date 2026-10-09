@@ -15,6 +15,9 @@ pub struct ConsentRow {
     pub purpose: String,
     /// The notice version they were shown.
     pub notice_version: String,
+    /// The clinic's published notice they were shown; `None` for consents recorded against a
+    /// label only.
+    pub notice_id: Option<Uuid>,
     /// When they agreed.
     pub given_at: OffsetDateTime,
     /// `paper`, `verbal` or `app`.
@@ -60,7 +63,7 @@ pub async fn list(
     }
     let rows = sqlx::query_as!(
         ConsentRow,
-        r#"select c.id, c.purpose, c.notice_version, c.given_at, c.method, c.recorded_by,
+        r#"select c.id, c.purpose, c.notice_version, c.notice_id, c.given_at, c.method, c.recorded_by,
                   (select u.display_name from aarogyam.memberships m
                    join aarogyam.users u on u.id = m.user_id
                    where m.org_id = c.org_id and m.id = c.recorded_by) as recorded_by_name,
@@ -88,6 +91,8 @@ pub struct NewConsent<'a> {
     pub purpose: &'a str,
     /// The notice version shown.
     pub notice_version: &'a str,
+    /// The published notice shown, if any.
+    pub notice_id: Option<Uuid>,
     /// When they agreed; now when absent.
     pub given_at: Option<OffsetDateTime>,
     /// How.
@@ -108,8 +113,8 @@ pub async fn insert(
 ) -> Result<Option<Uuid>, DbError> {
     let id = sqlx::query_scalar!(
         r#"insert into aarogyam.patient_consents
-             (patient_id, purpose, notice_version, given_at, method, recorded_by, note)
-           values ($1, $2, $3, coalesce($4, now()), $5, $6, $7)
+             (patient_id, purpose, notice_version, given_at, method, recorded_by, note, notice_id)
+           values ($1, $2, $3, coalesce($4, now()), $5, $6, $7, $8)
            on conflict (org_id, patient_id, purpose) where status = 'given' do nothing
            returning id"#,
         new.patient_id,
@@ -118,7 +123,8 @@ pub async fn insert(
         new.given_at,
         new.method,
         new.recorded_by,
-        new.note
+        new.note,
+        new.notice_id
     )
     .fetch_optional(conn)
     .await?;
@@ -182,9 +188,19 @@ pub async fn withdraw(
     Ok(())
 }
 
-/// Records several consents of one patient given now, one per purpose, in one statement.
-/// Purposes that already have an active consent are left as they are. Returns the purposes
-/// recorded.
+/// The notice several consents record: `Named` (its label and id, already checked), or the
+/// clinic's `Current` published notice, falling back to the given label when it has none.
+#[derive(Debug, Clone, Copy)]
+pub enum NoticeChoice<'a> {
+    /// A label and, when it is a published notice, its id.
+    Named(&'a str, Option<Uuid>),
+    /// The newest published notice, or this label without an id when there is none.
+    Current(&'a str),
+}
+
+/// Records several consents of one patient given now, one per purpose, in one statement (the
+/// current notice is looked up in it). Purposes that already have an active consent are left
+/// as they are. Returns the purposes recorded.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -193,21 +209,32 @@ pub async fn insert_many(
     patient_id: Uuid,
     purposes: &[String],
     methods: &[String],
-    notice_version: &str,
+    notice: NoticeChoice<'_>,
     recorded_by: Uuid,
 ) -> Result<Vec<String>, DbError> {
+    let (label, id, current) = match notice {
+        NoticeChoice::Named(label, id) => (label, id, false),
+        NoticeChoice::Current(fallback) => (fallback, None, true),
+    };
     let rows = sqlx::query_scalar!(
-        r#"insert into aarogyam.patient_consents
-             (patient_id, purpose, notice_version, given_at, method, recorded_by)
-           select $1, c.purpose, $4, now(), c.method, $5
+        r#"with chosen as (
+             select n.id, n.label from aarogyam.consent_notices n
+             where $7 order by n.version desc limit 1
+           )
+           insert into aarogyam.patient_consents
+             (patient_id, purpose, notice_version, given_at, method, recorded_by, notice_id)
+           select $1, c.purpose, coalesce((select label from chosen), $4), now(), c.method, $5,
+                  coalesce((select id from chosen), $6)
            from unnest($2::text[], $3::text[]) as c(purpose, method)
            on conflict (org_id, patient_id, purpose) where status = 'given' do nothing
            returning purpose"#,
         patient_id,
         purposes,
         methods,
-        notice_version,
-        recorded_by
+        label,
+        recorded_by,
+        id,
+        current
     )
     .fetch_all(conn)
     .await?;

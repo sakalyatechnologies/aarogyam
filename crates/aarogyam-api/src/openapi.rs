@@ -83,6 +83,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::duplicates::list,
         crate::v1::duplicates::dismiss,
         crate::v1::duplicates::merge,
+        crate::v1::notices::list,
+        crate::v1::notices::publish,
         crate::v1::consents::list,
         crate::v1::consents::record,
         crate::v1::consents::withdraw,

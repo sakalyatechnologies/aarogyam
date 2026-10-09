@@ -59,12 +59,18 @@ pub struct DrainReport {
     pub messages_retrying: usize,
     /// Patient messages that failed for the last time.
     pub messages_failed: usize,
+    /// Reminders queued to labs about work due.
+    pub lab_reminders_queued: usize,
+    /// Reminders due to labs with no email address.
+    pub lab_reminders_skipped: usize,
+    /// Lab orders newly flagged overdue.
+    pub lab_orders_overdue: usize,
 }
 
 /// Makes new portal hosts work, reminds staff of unanswered booking requests (then the
-/// owners), delivers due outbox messages, then queues appointment reminders and sends due
-/// patient messages across clinics (local development only; later Cloud
-/// Scheduler with a Google-signed token).
+/// owners) and labs of work due, delivers due outbox messages, then queues appointment
+/// reminders and sends due patient messages across clinics (local development only; later
+/// Cloud Scheduler with a Google-signed token).
 #[utoipa::path(
     post,
     path = "/api/v1/internal/outbox/drain",
@@ -81,6 +87,8 @@ pub(crate) async fn drain_outbox(
         .await?;
     let reminders =
         aarogyam_notify::remind(state.db(), OffsetDateTime::now_utc(), OpenHours::DEFAULT).await?;
+    // Before delivery, so a reminder queued now goes out in this run.
+    let labs = aarogyam_notify::remind_labs(state.db(), OffsetDateTime::now_utc()).await?;
     let notifier = state.notifier();
     let report = notifier
         .drain(state.db(), OffsetDateTime::now_utc())
@@ -107,5 +115,8 @@ pub(crate) async fn drain_outbox(
         messages_deferred: report.messages.deferred,
         messages_retrying: report.messages.retrying,
         messages_failed: report.messages.failed,
+        lab_reminders_queued: labs.reminded,
+        lab_reminders_skipped: labs.skipped,
+        lab_orders_overdue: labs.overdue,
     }))
 }

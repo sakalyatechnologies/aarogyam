@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             (select count(*) from (\n                select 1 from aarogyam.conversation_members me\n                join aarogyam.chat_messages m\n                  on m.org_id = me.org_id and m.conversation_id = me.conversation_id\n                where me.membership_id = $1 and me.left_at is null and not me.muted\n                  and m.deleted_at is null and m.author_membership_id <> me.membership_id\n                  and (me.last_read_message_id is null or m.id > me.last_read_message_id)\n                limit $2) chat) as \"chat_unread!\",\n             case when $3 then (select count(*) from (\n                select 1 from aarogyam.staff_notifications n\n                join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id\n                where n.created_at > now() - make_interval(days => $5::int)\n                  and app.practitioner_in_reach(a.practitioner_id, $4)\n                  and not exists (select 1 from aarogyam.staff_notification_reads r\n                                  where r.org_id = n.org_id and r.notification_id = n.id\n                                    and r.membership_id = $1)\n                limit $2) unread) end as \"notifications_unread?\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "chat_unread!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "notifications_unread?",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8",
+        "Bool",
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "63abe9dbf703e043b26b838eb249730dac3e1baee1cca4563f8122581056f5c1"
+}

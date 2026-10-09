@@ -61,7 +61,10 @@ impl PatientMessage {
     #[must_use]
     pub const fn of(kind: MessageKind) -> Option<Self> {
         match kind {
-            MessageKind::StaffInvited | MessageKind::ClinicMessage => None,
+            // A lab contact is not a patient: no patient consent applies.
+            MessageKind::StaffInvited
+            | MessageKind::ClinicMessage
+            | MessageKind::LabOrderReminder => None,
             MessageKind::AppointmentReminder => Some(Self::AppointmentReminder),
             MessageKind::PrescriptionShared => Some(Self::PrescriptionLink),
             MessageKind::BookingRequested
@@ -107,6 +110,7 @@ mod tests {
     #[test]
     fn outbox_messages_map_to_patient_messages() {
         assert_eq!(PatientMessage::of(MessageKind::StaffInvited), None);
+        assert_eq!(PatientMessage::of(MessageKind::LabOrderReminder), None);
         assert_eq!(
             PatientMessage::of(MessageKind::BookingConfirmed),
             Some(PatientMessage::BookingConfirmation)

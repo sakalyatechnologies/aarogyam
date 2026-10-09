@@ -472,6 +472,7 @@ export type AnalyticsChair = Schemas["AnalyticsChair"];
 export type ChairUtilization = Schemas["ChairUtilization"];
 export type CategorySpend = Schemas["CategorySpend"];
 export type BusyHour = Schemas["BusyHour"];
+export type LabTurnaround = Schemas["LabTurnaround"];
 export type KeyCount = Schemas["KeyCount"];
 export type PatientMix = Schemas["PatientMix"];
 export type PatientBreakdown = Schemas["PatientBreakdown"];

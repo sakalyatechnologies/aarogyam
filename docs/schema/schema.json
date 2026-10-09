@@ -2090,11 +2090,13 @@
    ],
    "referenced_by": [
     "allergies.verified_by",
+    "chat_messages.author_membership_id",
     "clinical_notes.author_id",
     "clinical_notes.error_by",
     "clinical_notes.signed_by",
     "conditions.verified_by",
     "consent_notices.published_by",
+    "conversation_members.membership_id",
     "daily_closings.closed_by",
     "dental_terms.added_by",
     "dental_terms.retired_by",
@@ -2104,6 +2106,10 @@
     "expenses.voided_by",
     "invoices.issued_by",
     "invoices.voided_by",
+    "lab_order_events.actor_id",
+    "lab_orders.doctor_id",
+    "lab_payments.recorded_by",
+    "lab_payments.voided_by",
     "medical_history_items.verified_by",
     "member_setup.membership_id",
     "membership_branches.membership_id",
@@ -2464,6 +2470,7 @@
     "appointments.patient_id",
     "attachments.patient_id",
     "care_episodes.patient_id",
+    "chat_messages.patient_id",
     "clinical_notes.patient_id",
     "conditions.patient_id",
     "consent_forms.patient_id",
@@ -2971,7 +2978,6 @@
     "consents.grantee_practitioner_id",
     "consultant_fee_rules.practitioner_id",
     "consultant_payouts.practitioner_id",
-    "lab_orders.practitioner_id",
     "leave_blocks.practitioner_id",
     "queue_tokens.practitioner_id",
     "working_hours.practitioner_id"
@@ -3639,6 +3645,7 @@
     "clinical_notes.encounter_id",
     "conditions.encounter_id",
     "invoices.encounter_id",
+    "lab_orders.encounter_id",
     "observations.encounter_id",
     "prescriptions.encounter_id",
     "procedures.encounter_id",
@@ -4895,6 +4902,13 @@
      "nullable": false,
      "ref": null,
      "note": "shown in the patient app; never for audio"
+    },
+    {
+     "name": "lab_order_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "lab_orders",
+     "note": "the same patient's lab order (migration 0362; not read yet)"
     }
    ],
    "referenced_by": [
@@ -5466,14 +5480,97 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "soft_delete",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Built (migration 0361). labs.read / labs.write. Removing a lab removes its contacts; its orders and payments stay. Phone, email, address and note are masked in the change history.",
    "cols": [
     {
      "name": "name",
      "type": "text",
      "nullable": false,
+     "ref": null,
+     "note": "unique per clinic among live labs"
+    },
+    {
+     "name": "kind",
+     "type": "lab_kind",
+     "nullable": false,
+     "ref": null,
+     "note": "dental_lab, pathology, radiology, other"
+    },
+    {
+     "name": "phone_e164",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "email",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "address",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "note",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "lab_contacts.vendor_id",
+    "lab_orders.vendor_id",
+    "lab_payments.vendor_id"
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "lab_contacts",
+   "domain": "ops",
+   "purpose": "The people at a lab: several per lab, each reachable their own way.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0361). Not patients: reminders reach them through the outbox with recipient set. Name, phone and email are masked in the change history; retention class lab_contacts (365 days after removal).",
+   "cols": [
+    {
+     "name": "vendor_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "lab_vendors",
+     "note": ""
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "role",
+     "type": "text",
+     "nullable": true,
      "ref": null,
      "note": ""
     },
@@ -5485,37 +5582,57 @@
      "note": ""
     },
     {
-     "name": "kind",
-     "type": "lab_kind",
+     "name": "email",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "lab reminders go here"
+    },
+    {
+     "name": "whatsapp",
+     "type": "bool",
      "nullable": false,
      "ref": null,
-     "note": "dental_lab, pathology, radiology"
+     "note": "needs a phone"
+    },
+    {
+     "name": "preferred_channel",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "email, whatsapp, phone"
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     }
    ],
    "referenced_by": [
-    "lab_orders.vendor_id",
-    "lab_payments.vendor_id"
+    "lab_orders.contact_id"
    ],
-   "sensitivity": "internal",
+   "sensitivity": "personal",
    "offline": "server_only"
   },
   {
    "name": "lab_orders",
    "domain": "ops",
-   "purpose": "Work sent to a lab, its due date and status.",
+   "purpose": "Work sent to a lab for a patient, its due date and where it is.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
    "lifecycle": null,
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Built (migration 0361). Status moves forward only (draft -> sent/cancelled; sent -> in_progress/received/cancelled; in_progress -> received/cancelled; received -> fitted/returned_for_rework). The outbox job emails the lab two days before and on the due date, and flags overdue work, each once per due date (app.run_lab_reminders, migration 0363). Reminders never name the patient. Retention class lab_work (8 years).",
    "cols": [
     {
      "name": "number",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "LAB-<n> from number_sequences kind lab_order"
     },
     {
      "name": "vendor_id",
@@ -5525,6 +5642,13 @@
      "note": ""
     },
     {
+     "name": "contact_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "lab_contacts",
+     "note": "a contact of the same lab"
+    },
+    {
      "name": "patient_id",
      "type": "uuid",
      "nullable": false,
@@ -5532,32 +5656,46 @@
      "note": ""
     },
     {
-     "name": "practitioner_id",
+     "name": "doctor_id",
      "type": "uuid",
      "nullable": false,
-     "ref": "practitioners",
-     "note": ""
+     "ref": "memberships",
+     "note": "responsible; app.clinical_in_reach"
     },
     {
      "name": "procedure_id",
      "type": "uuid",
      "nullable": true,
      "ref": "procedures",
-     "note": ""
+     "note": "of the same patient"
     },
     {
-     "name": "work_type",
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": "of the same patient"
+    },
+    {
+     "name": "status",
+     "type": "lab_status",
+     "nullable": false,
+     "ref": null,
+     "note": "draft, sent, in_progress, received, fitted, returned_for_rework, cancelled"
+    },
+    {
+     "name": "stage",
      "type": "text",
-     "nullable": false,
+     "nullable": true,
      "ref": null,
-     "note": "crown, bridge, denture, blood test"
+     "note": "wax try-in, framework trial, bisque"
     },
     {
-     "name": "details",
-     "type": "jsonb",
-     "nullable": false,
+     "name": "instructions",
+     "type": "text",
+     "nullable": true,
      "ref": null,
-     "note": "shade, tooth"
+     "note": "masked in the change history"
     },
     {
      "name": "sent_at",
@@ -5567,8 +5705,8 @@
      "note": ""
     },
     {
-     "name": "due_at",
-     "type": "timestamptz",
+     "name": "due_on",
+     "type": "date",
      "nullable": true,
      "ref": null,
      "note": ""
@@ -5581,23 +5719,192 @@
      "note": ""
     },
     {
-     "name": "status",
-     "type": "lab_status",
-     "nullable": false,
-     "ref": null,
-     "note": "draft, sent, received, fitted, cancelled"
+     "name": "rework_of_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "lab_orders",
+     "note": "the order this one remakes, same patient"
     },
     {
-     "name": "cost_paise",
-     "type": "bigint",
-     "nullable": false,
+     "name": "due_soon_reminded_on",
+     "type": "date",
+     "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "due_today_reminded_on",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "overdue_flagged_on",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": "reminder steps; cleared when due_on changes (trigger)"
     }
    ],
    "referenced_by": [
+    "attachments.lab_order_id",
+    "lab_order_events.lab_order_id",
+    "lab_order_items.lab_order_id",
+    "lab_orders.rework_of_id",
     "lab_payments.lab_order_id"
    ],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "lab_order_items",
+   "domain": "ops",
+   "purpose": "What the lab makes on an order: a crown on 36 in A2 zirconia.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": null,
+   "schema": "aarogyam",
+   "notes": "Built (migration 0361). Work type, shade and material are masked in the change history.",
+   "cols": [
+    {
+     "name": "lab_order_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "lab_orders",
+     "note": ""
+    },
+    {
+     "name": "line_no",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": "1-50"
+    },
+    {
+     "name": "work_type",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "teeth",
+     "type": "smallint[]",
+     "nullable": false,
+     "ref": null,
+     "note": "FDI, up to 32"
+    },
+    {
+     "name": "shade",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "material",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "qty",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "1-100"
+    },
+    {
+     "name": "unit_cost_paise",
+     "type": "bigint",
+     "nullable": true,
+     "ref": null,
+     "note": "seen and set only with finance.view"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "lab_order_events",
+   "domain": "ops",
+   "purpose": "What happened to a lab order: created, status or stage or due date changed, reminded, overdue.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0361).",
+   "cols": [
+    {
+     "name": "lab_order_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "lab_orders",
+     "note": ""
+    },
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "created, status_changed, stage_changed, due_changed, reminded, reminder_skipped, overdue"
+    },
+    {
+     "name": "from_status",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "to_status",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "stage",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "due_on",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "reminder",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "due_soon, due_today, manual"
+    },
+    {
+     "name": "note",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "masked in the change history"
+    },
+    {
+     "name": "actor_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": "null for the reminder job"
+    }
+   ],
+   "referenced_by": [],
    "sensitivity": "health",
    "offline": "server_only"
   },
@@ -5608,9 +5915,9 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "finalizable",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Built (migration 0362). Recording one records an expense in the lab category in the same transaction; voiding it voids that expense (and the expense can't be voided alone). Needs expenses.write and finance.view. Not built yet: payment method.",
    "cols": [
     {
      "name": "vendor_id",
@@ -5624,6 +5931,13 @@
      "type": "uuid",
      "nullable": true,
      "ref": "lab_orders",
+     "note": "an order of the same lab"
+    },
+    {
+     "name": "paid_on",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
      "note": ""
     },
     {
@@ -5634,24 +5948,59 @@
      "note": ""
     },
     {
-     "name": "paid_at",
-     "type": "timestamptz",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "method",
-     "type": "payment_method",
-     "nullable": false,
-     "ref": null,
-     "note": ""
-    },
-    {
-     "name": "reference",
+     "name": "lab_invoice_ref",
      "type": "text",
      "nullable": true,
      "ref": null,
+     "note": "the lab's bill number"
+    },
+    {
+     "name": "note",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "expense_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "expenses",
+     "note": "its lab-category expense, unique"
+    },
+    {
+     "name": "recorded_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "recorded, void"
+    },
+    {
+     "name": "void_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "voided_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "voided_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
      "note": ""
     }
    ],
@@ -7050,7 +7399,9 @@
      "note": ""
     }
    ],
-   "referenced_by": [],
+   "referenced_by": [
+    "lab_payments.expense_id"
+   ],
    "sensitivity": "financial",
    "offline": "server_only"
   },
@@ -7449,6 +7800,178 @@
    ],
    "referenced_by": [],
    "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "conversations",
+   "domain": "notify",
+   "purpose": "Staff chat: a one-to-one (direct) or group conversation between members of a clinic.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0391). Only its active members see it: a restrictive policy asks app.chat_conversation_ids() (active clinic membership, not left).",
+   "cols": [
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "direct, group"
+    },
+    {
+     "name": "title",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "groups only, 1 to 80 characters"
+    },
+    {
+     "name": "direct_key",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the pair's membership ids, smaller first; unique per clinic for direct"
+    },
+    {
+     "name": "archived_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "chat_messages.conversation_id",
+    "conversation_members.conversation_id"
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "conversation_members",
+   "domain": "notify",
+   "purpose": "Who is in a conversation, their role, and how far they have read.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0391). Primary key (org_id, conversation_id, membership_id). The read pointer is left out of the change history.",
+   "cols": [
+    {
+     "name": "conversation_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "conversations",
+     "note": ""
+    },
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "role",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "member, admin"
+    },
+    {
+     "name": "joined_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "left_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "set on leaving or removal"
+    },
+    {
+     "name": "muted",
+     "type": "boolean",
+     "nullable": false,
+     "ref": null,
+     "note": "left out of the badge"
+    },
+    {
+     "name": "last_read_message_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "chat_messages",
+     "note": "unread counts start after it"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "chat_messages",
+   "domain": "notify",
+   "purpose": "A staff chat message: plain text, optionally about one patient.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0392). Body masked in the change history and never logged. Reading a message with a patient leaves an access-record entry (resource chat) once per reader, patient, conversation and day. Kept 365 days (retention class chat_messages).",
+   "cols": [
+    {
+     "name": "conversation_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "conversations",
+     "note": ""
+    },
+    {
+     "name": "author_membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "body",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "1 to 4000 characters; cleared on delete"
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "patients",
+     "note": "within the author's reach"
+    },
+    {
+     "name": "client_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": "unique per author: a retried post is not posted twice"
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "by the author only"
+    }
+   ],
+   "referenced_by": [
+    "conversation_members.last_read_message_id"
+   ],
+   "sensitivity": "health",
    "offline": "server_only"
   },
   {

@@ -310,6 +310,7 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
             | MessageKind::BookingConfirmed
             | MessageKind::BookingDeclined),
         ) => render_booking(kind, to, &message.payload, links),
+        Some(MessageKind::LabOrderReminder) => crate::lab::render_reminder(to, &message.payload),
         // Rendered by the patient message step (`patient_templates`), never from the outbox.
         Some(MessageKind::AppointmentReminder | MessageKind::ClinicMessage) | None => {
             Err(Failure::permanent("unknown message kind"))

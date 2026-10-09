@@ -190,5 +190,6 @@ export function buildAnalytics(input: AnalyticsInput): C.Analytics {
       referral_sources: kc([["patient", 180], ["doctor", 45], ["online", 120], ["walk_in", 70], ["camp", 25], ["insurance", 15], ["other", 10], ["unknown", 5]]),
     },
     busy_hours,
+    lab_turnaround: { orders_received: scale(48), average_days: 6.5 },
   };
 }

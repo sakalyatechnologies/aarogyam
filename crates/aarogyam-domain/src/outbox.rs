@@ -49,6 +49,8 @@ pub enum MessageKind {
     AppointmentReminder,
     /// A message staff wrote or chose (`POST /messages`); its template says what it is.
     ClinicMessage,
+    /// A lab was reminded of work due (to a lab contact, never a patient).
+    LabOrderReminder,
 }
 
 impl MessageKind {
@@ -64,6 +66,7 @@ impl MessageKind {
             Self::PatientAppInvited => "patient_app.invited",
             Self::AppointmentReminder => "appointment.reminder",
             Self::ClinicMessage => "clinic.message",
+            Self::LabOrderReminder => "lab_order.reminder",
         }
     }
 
@@ -79,6 +82,7 @@ impl MessageKind {
             "patient_app.invited" => Some(Self::PatientAppInvited),
             "appointment.reminder" => Some(Self::AppointmentReminder),
             "clinic.message" => Some(Self::ClinicMessage),
+            "lab_order.reminder" => Some(Self::LabOrderReminder),
             _ => None,
         }
     }

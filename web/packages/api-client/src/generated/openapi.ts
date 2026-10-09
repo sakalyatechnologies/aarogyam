@@ -464,6 +464,170 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's conversations with the newest message time and unread count of each: one
+         *     statement.
+         */
+        get: operations["listConversations"];
+        put?: never;
+        /**
+         * Starts a conversation. A direct one is idempotent: asking again (from either side) returns
+         *     the pair's conversation with `200`.
+         */
+        post: operations["startConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A conversation the caller is in, with its members. */
+        get: operations["getConversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Leaves a group: it disappears for the caller. A last admin hands the role on. */
+        post: operations["leaveConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adds members to a group the caller administers; someone who left joins again. */
+        post: operations["addConversationMembers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/members/{membership_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Takes a member out of a group: anyone, for a group admin; oneself is the same as leaving. */
+        delete: operations["removeConversationMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A page of a conversation, oldest first: the newest messages, those after a message (poll
+         *     with the last id you have) or those before one (scroll back with the first). One statement.
+         */
+        get: operations["listChatMessages"];
+        put?: never;
+        /** Posts a message. Idempotent by `client_id`: a retry returns the first message with `200`. */
+        post: operations["postChatMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/messages/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Deletes one of the caller's own messages: its text goes, and members see "deleted". */
+        delete: operations["deleteChatMessage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/mute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Mutes or unmutes a conversation for the caller only. */
+        put: operations["muteConversation"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marks the conversation read up to a message, for the caller only. */
+        post: operations["markConversationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dental-terms": {
         parameters: {
             query?: never;
@@ -795,7 +959,7 @@ export interface paths {
         put?: never;
         /**
          * Makes new portal hosts work, reminds staff of unanswered booking requests (then the
-         *     owners), then delivers due outbox messages across clinics (local development only; later Cloud
+         *     owners) and labs of work due, then delivers due outbox messages across clinics (local development only; later Cloud
          *     Scheduler with a Google-signed token).
          */
         post: operations["drainOutbox"];
@@ -935,6 +1099,203 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lab-contacts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Removes a lab contact. */
+        delete: operations["deleteLabContact"];
+        options?: never;
+        head?: never;
+        /** Changes a lab contact. */
+        patch: operations["updateLabContact"];
+        trace?: never;
+    };
+    "/api/v1/lab-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lab orders within reach, newest first. */
+        get: operations["listLabOrders"];
+        put?: never;
+        /** Records a lab order with its items, as a draft or sent to the lab now. */
+        post: operations["createLabOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lab-orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One lab order within reach, with its history. */
+        get: operations["getLabOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Changes a lab order's contact, stage, instructions or due date. */
+        patch: operations["updateLabOrder"];
+        trace?: never;
+    };
+    "/api/v1/lab-orders/{id}/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Emails the lab a reminder now, through the outbox. It names the clinic, the order number,
+         *     the work, teeth, shade and due date, never the patient.
+         */
+        post: operations["remindLab"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lab-orders/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Moves a lab order to another status, optionally with a new stage and a note. */
+        post: operations["setLabOrderStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lab-payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payments to labs, newest day first, voided ones included. */
+        get: operations["listLabPayments"];
+        put?: never;
+        /** Records a payment to a lab and its `lab` expense. */
+        post: operations["recordLabPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lab-payments/{id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Voids a payment to a lab and its expense, with a reason. */
+        post: operations["voidLabPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lab-vendors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's labs with their contacts. */
+        get: operations["listLabVendors"];
+        put?: never;
+        /** Adds a lab. */
+        post: operations["createLabVendor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lab-vendors/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One lab with its contacts. */
+        get: operations["getLabVendor"];
+        put?: never;
+        post?: never;
+        /** Removes a lab and its contacts from the lists; its orders and payments stay. */
+        delete: operations["deleteLabVendor"];
+        options?: never;
+        head?: never;
+        /** Changes a lab. */
+        patch: operations["updateLabVendor"];
+        trace?: never;
+    };
+    "/api/v1/lab-vendors/{id}/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What a lab has billed and been paid. */
+        get: operations["getLabBalance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lab-vendors/{id}/contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adds a contact to a lab. */
+        post: operations["createLabContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/leave-blocks": {
         parameters: {
             query?: never;
@@ -1019,6 +1380,23 @@ export interface paths {
         };
         /** The signed-in person's clinics, for the clinic switcher. */
         get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/badges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chat and notification unread counts for the minute poll, in one statement. */
+        get: operations["getBadges"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1975,6 +2353,23 @@ export interface paths {
         post?: never;
         /** Removes a number from a patient. */
         delete: operations["removePatientIdentifier"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/lab-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A patient's lab orders within reach, newest first. */
+        get: operations["listPatientLabOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3571,6 +3966,11 @@ export interface components {
             /** @description The standard roles, by name: presets for the roles editor. */
             templates: components["schemas"]["RoleTemplate"][];
         };
+        /** @description Members to add to a group. */
+        AddMembers: {
+            /** @description 1 to 100 active members of this clinic. */
+            membership_ids: string[];
+        };
         /** @description An addendum to a signed note. */
         Addendum: {
             /** @description Who wrote it. */
@@ -3722,6 +4122,8 @@ export interface components {
             chairs: components["schemas"]["AnalyticsChair"][];
             /** @description First day, `YYYY-MM-DD`. */
             from: string;
+            /** @description Lab work received back in the range. */
+            lab_turnaround: components["schemas"]["LabTurnaround"];
             /** @description Whether the money fields are filled (the caller has `finance.view`). */
             money_visible: boolean;
             /**
@@ -4025,6 +4427,20 @@ export interface components {
             /** @description Start of each free slot, RFC 3339 in the clinic's time zone. */
             slots: string[];
         };
+        /** @description The numbers the apps poll every minute. */
+        Badges: {
+            /**
+             * Format: int64
+             * @description Unread chat messages in conversations the caller hasn't muted, at most 100.
+             */
+            chat_unread: number;
+            /**
+             * Format: int64
+             * @description Unread notifications, as `GET /notifications/count` counts them; absent without
+             *     `appointments.read`.
+             */
+            notifications_unread?: number | null;
+        };
         /** @description A doctor patients may pick. */
         BookableDoctor: {
             /** @description The doctor. */
@@ -4222,6 +4638,39 @@ export interface components {
             tooth: number;
             /** @description The visit that recorded it. */
             visit_id?: string | null;
+        };
+        /** @description A chat message. */
+        ChatMessage: {
+            /** @description Who wrote it. */
+            author_membership_id: string;
+            /** @description Their display name. */
+            author_name?: string | null;
+            /** @description Plain text; absent once deleted. */
+            body?: string | null;
+            /** @description The author's idempotency key. */
+            client_id: string;
+            /** @description Its conversation. */
+            conversation_id: string;
+            /** @description When it was posted (RFC 3339). */
+            created_at: string;
+            /** @description Whether the author deleted it. */
+            deleted: boolean;
+            /** @description The message; a cursor for `after` and `before`. */
+            id: string;
+            /** @description The patient it is about; open `/patients/{id}` (the caller's own reach applies). */
+            patient_id?: string | null;
+        };
+        /** @description A page of messages, oldest first. */
+        ChatMessageList: {
+            /** @description The messages. */
+            items: components["schemas"]["ChatMessage"][];
+        };
+        /** @description The other member of a direct conversation. */
+        ChatPeer: {
+            /** @description Their membership. */
+            membership_id: string;
+            /** @description Their display name. */
+            name: string;
         };
         /**
          * @description What the desk records at check-in. Every field is optional; details left out stay as they
@@ -4684,6 +5133,73 @@ export interface components {
             /** @description Newest first. */
             items: components["schemas"]["ConsoleClinic"][];
         };
+        /** @description A conversation with its active members. */
+        Conversation: {
+            /** @description When it was archived (RFC 3339). */
+            archived_at?: string | null;
+            /** @description When it was started (RFC 3339). */
+            created_at: string;
+            /** @description The conversation. */
+            id: string;
+            /** @description `direct` or `group`. */
+            kind: string;
+            /** @description Who is in it, earliest joined first. */
+            members: components["schemas"]["ConversationMember"][];
+            /** @description A group's title. */
+            title?: string | null;
+        };
+        /** @description A conversation in the caller's list. */
+        ConversationItem: {
+            /** @description When it was archived (RFC 3339). */
+            archived_at?: string | null;
+            /** @description When it was started (RFC 3339). */
+            created_at: string;
+            /** @description The conversation. */
+            id: string;
+            /** @description `direct` or `group`. */
+            kind: string;
+            /** @description When it was posted (RFC 3339). */
+            last_message_at?: string | null;
+            /** @description The newest message; poll with `after` from here. */
+            last_message_id?: string | null;
+            /** @description The newest message the caller has read. */
+            last_read_message_id?: string | null;
+            /** @description Whether the caller muted it (not counted in the badge). */
+            muted: boolean;
+            /** @description The caller's role: `member` or `admin`. */
+            role: string;
+            /** @description A group's title. */
+            title?: string | null;
+            /**
+             * Format: int64
+             * @description Unread messages from others, at most 100 (show "99+" above 99).
+             */
+            unread: number;
+            with?: components["schemas"]["ChatPeer"] | null;
+        };
+        /** @description The caller's conversations, most recent activity first. */
+        ConversationList: {
+            /** @description The conversations. */
+            items: components["schemas"]["ConversationItem"][];
+        };
+        /** @description An active member of a conversation. */
+        ConversationMember: {
+            /** @description When they joined (RFC 3339). */
+            joined_at: string;
+            /** @description Their membership. */
+            membership_id: string;
+            /** @description Their display name. */
+            name: string;
+            /** @description `member` or `admin`. */
+            role: string;
+        };
+        /** @description The conversation started, or the pair's existing direct conversation. */
+        ConversationStarted: {
+            /** @description `false` when the direct conversation existed already. */
+            created: boolean;
+            /** @description The conversation. */
+            id: string;
+        };
         /** @description A clinic just created. `invite_token` is shown once; only its hash is stored. */
         CreatedClinic: {
             /** @description The clinic. */
@@ -4811,6 +5327,12 @@ export interface components {
             email_provider: string;
             /** @description Failed for the last time. */
             failed: number;
+            /** @description Lab orders newly flagged overdue. */
+            lab_orders_overdue: number;
+            /** @description Reminders queued to labs about work due. */
+            lab_reminders_queued: number;
+            /** @description Reminders due to labs with no email address. */
+            lab_reminders_skipped: number;
             /**
              * Format: int64
              * @description Old processed messages deleted.
@@ -5497,6 +6019,310 @@ export interface components {
             /** @description The key. */
             key: string;
         };
+        /** @description What a lab has billed and been paid. */
+        LabBalance: {
+            /**
+             * Format: int64
+             * @description Their items at the lab's prices, in paise (items without a price count as nothing).
+             */
+            billed_paise: number;
+            /**
+             * Format: int64
+             * @description Billed less paid, in paise: still owed, or (below zero) paid ahead.
+             */
+            due_paise: number;
+            /** @description Its name. */
+            name: string;
+            /**
+             * Format: int64
+             * @description Orders sent to it, not cancelled.
+             */
+            orders: number;
+            /**
+             * Format: int64
+             * @description Payments recorded, not void, in paise.
+             */
+            paid_paise: number;
+            /** @description The lab. */
+            vendor_id: string;
+        };
+        /** @description A person at a lab. */
+        LabContact: {
+            /** @description Email. */
+            email?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description Name. */
+            name: string;
+            /** @description Phone in E.164. */
+            phone?: string | null;
+            /** @description How they like to be reached. */
+            preferred_channel: components["schemas"]["LabContactChannel"];
+            /** @description What they do there. */
+            role?: string | null;
+            /** @description The lab. */
+            vendor_id: string;
+            /** @description Whether they use `WhatsApp` on that phone. */
+            whatsapp: boolean;
+        };
+        /**
+         * @description How a lab contact likes to be reached. Only email is sent today.
+         * @enum {string}
+         */
+        LabContactChannel: "email" | "whatsapp" | "phone";
+        /**
+         * @description A contact's values. On a change, fields left out stay as they are and an empty string
+         *     clears an optional one.
+         */
+        LabContactValues: {
+            /** @description Email; lab reminders go to it. */
+            email?: string | null;
+            /** @description Name, up to 120 characters; required for a new contact. */
+            name?: string | null;
+            /** @description Phone; +91 is assumed without a country code. */
+            phone?: string | null;
+            preferred_channel?: components["schemas"]["LabContactChannel"] | null;
+            /** @description What they do there, up to 80 characters. */
+            role?: string | null;
+            /** @description Whether they use `WhatsApp` on that phone. */
+            whatsapp?: boolean | null;
+        };
+        /** @description A lab order. */
+        LabOrder: {
+            /** @description Who at the lab. */
+            contact_id?: string | null;
+            /** @description Their name. */
+            contact_name?: string | null;
+            /** @description Whether unit costs are filled (the caller has `finance.view`). */
+            costs_visible: boolean;
+            /** @description When it was recorded (RFC 3339). */
+            created_at: string;
+            /** @description The membership responsible. */
+            doctor_id: string;
+            /** @description Their name. */
+            doctor_name?: string | null;
+            /** @description When it is due back, `YYYY-MM-DD`. */
+            due_on?: string | null;
+            /** @description The visit it came from. */
+            encounter_id?: string | null;
+            /** @description What happened to it, oldest first; filled only when one order is read. */
+            events: components["schemas"]["LabOrderEvent"][];
+            /** @description Identifier. */
+            id: string;
+            /** @description Instructions for the lab. */
+            instructions?: string | null;
+            /** @description What to make. */
+            items: components["schemas"]["LabOrderItem"][];
+            /** @description `LAB-<n>`. */
+            number: string;
+            /** @description The patient. */
+            patient_id: string;
+            /** @description Their name (never sent to the lab). */
+            patient_name: string;
+            /** @description Their clinic number. */
+            patient_number: string;
+            /** @description The procedure it is for. */
+            procedure_id?: string | null;
+            /** @description When it came back (RFC 3339). */
+            received_at?: string | null;
+            /** @description The order this one remakes. */
+            rework_of_id?: string | null;
+            /** @description When it went to the lab (RFC 3339). */
+            sent_at?: string | null;
+            /** @description Where the work is between trials: wax try-in, framework trial, bisque. */
+            stage?: string | null;
+            /** @description Where it is. */
+            status: components["schemas"]["LabOrderState"];
+            /** @description The lab. */
+            vendor_id: string;
+            /** @description Its name. */
+            vendor_name?: string | null;
+        };
+        /** @description A change to a lab order's details. Fields left out stay; an empty string clears. */
+        LabOrderChanges: {
+            /** @description Who at the lab: a contact of the order's lab. */
+            contact_id?: string | null;
+            /** @description When it is due back, `YYYY-MM-DD`; a new date runs the reminders again. */
+            due_on?: string | null;
+            /** @description Instructions, up to 2000 characters. */
+            instructions?: string | null;
+            /** @description Stage, up to 80 characters. */
+            stage?: string | null;
+        };
+        /** @description Something that happened to a lab order. */
+        LabOrderEvent: {
+            /** @description The membership; absent for the reminder job. */
+            actor_id?: string | null;
+            /** @description When (RFC 3339). */
+            at: string;
+            /** @description The due date, `YYYY-MM-DD`. */
+            due_on?: string | null;
+            from_status?: components["schemas"]["LabOrderState"] | null;
+            /** @description created, `status_changed`, `stage_changed`, `due_changed`, reminded, `reminder_skipped` or overdue. */
+            kind: string;
+            /** @description A note. */
+            note?: string | null;
+            /** @description `due_soon`, `due_today` or manual, for a reminder. */
+            reminder?: string | null;
+            /** @description The stage. */
+            stage?: string | null;
+            to_status?: components["schemas"]["LabOrderState"] | null;
+        };
+        /** @description An item on a lab order. */
+        LabOrderItem: {
+            /**
+             * Format: int32
+             * @description Position, from 1.
+             */
+            line_no: number;
+            /** @description Material. */
+            material?: string | null;
+            /**
+             * Format: int32
+             * @description How many.
+             */
+            qty: number;
+            /** @description Shade. */
+            shade?: string | null;
+            /** @description FDI tooth numbers. */
+            teeth: number[];
+            /**
+             * Format: int64
+             * @description Paise for one; absent without `finance.view`.
+             */
+            unit_cost_paise?: number | null;
+            /** @description What to make. */
+            work_type: string;
+        };
+        /** @description Lab orders. */
+        LabOrderList: {
+            /** @description Newest first. */
+            items: components["schemas"]["LabOrder"][];
+        };
+        /**
+         * @description Where a lab order is.
+         * @enum {string}
+         */
+        LabOrderState: "draft" | "sent" | "in_progress" | "received" | "fitted" | "returned_for_rework" | "cancelled";
+        /** @description A move to another status. */
+        LabOrderStatusChange: {
+            /** @description Why, up to 500 characters. */
+            note?: string | null;
+            /** @description A new stage, up to 80 characters. */
+            stage?: string | null;
+            /**
+             * @description The status to move to: draft to sent or cancelled; sent to `in_progress`, received or
+             *     cancelled; `in_progress` to received or cancelled; received to fitted or
+             *     `returned_for_rework`.
+             */
+            status: components["schemas"]["LabOrderState"];
+        };
+        /** @description Money paid to a lab. */
+        LabPayment: {
+            /**
+             * Format: int64
+             * @description Paise.
+             */
+            amount_paise: number;
+            /** @description When it was recorded (RFC 3339). */
+            created_at: string;
+            /** @description The `lab` expense recorded with it. */
+            expense_id: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description The lab's bill number. */
+            lab_invoice_ref?: string | null;
+            /** @description The order paid for. */
+            lab_order_id?: string | null;
+            /** @description A note. */
+            note?: string | null;
+            /** @description The clinic day, `YYYY-MM-DD`. */
+            paid_on: string;
+            /** @description The membership that recorded it. */
+            recorded_by: string;
+            /** @description `recorded` or `void`. */
+            status: string;
+            /** @description The lab. */
+            vendor_id: string;
+            /** @description Why it was voided. */
+            void_reason?: string | null;
+            /** @description When it was voided (RFC 3339). */
+            voided_at?: string | null;
+        };
+        /** @description Payments to labs. */
+        LabPaymentList: {
+            /** @description Newest day first, voided ones included. */
+            items: components["schemas"]["LabPayment"][];
+        };
+        /** @description A reminder queued to the lab. */
+        LabReminderQueued: {
+            /** @description The outbox message. */
+            message_id: string;
+        };
+        /**
+         * @description How long labs take: orders received back in the range, and their average days from sent to
+         *     received.
+         */
+        LabTurnaround: {
+            /**
+             * Format: double
+             * @description Average days at the lab, to one decimal; absent when none were received.
+             */
+            average_days?: number | null;
+            /**
+             * Format: int64
+             * @description Orders received back.
+             */
+            orders_received: number;
+        };
+        /** @description An outside lab with its contacts. */
+        LabVendor: {
+            /** @description Address. */
+            address?: string | null;
+            /** @description The people there, by name. */
+            contacts: components["schemas"]["LabContact"][];
+            /** @description When it was added (RFC 3339). */
+            created_at: string;
+            /** @description Email. */
+            email?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description What kind of lab. */
+            kind: components["schemas"]["LabVendorKind"];
+            /** @description Name. */
+            name: string;
+            /** @description A note. */
+            note?: string | null;
+            /** @description Phone in E.164. */
+            phone?: string | null;
+        };
+        /**
+         * @description What kind of lab.
+         * @enum {string}
+         */
+        LabVendorKind: "dental_lab" | "pathology" | "radiology" | "other";
+        /** @description The clinic's labs. */
+        LabVendorList: {
+            /** @description By name. */
+            items: components["schemas"]["LabVendor"][];
+        };
+        /**
+         * @description A lab's values. On a change, fields left out stay as they are and an empty string clears
+         *     an optional one.
+         */
+        LabVendorValues: {
+            /** @description Address, up to 500 characters. */
+            address?: string | null;
+            /** @description Email. */
+            email?: string | null;
+            kind?: components["schemas"]["LabVendorKind"] | null;
+            /** @description Name, up to 120 characters; required for a new lab. */
+            name?: string | null;
+            /** @description A note, up to 500 characters. */
+            note?: string | null;
+            /** @description Phone; +91 is assumed without a country code. */
+            phone?: string | null;
+        };
         /** @description Time a doctor is away. */
         Leave: {
             /** @description End (RFC 3339). */
@@ -5746,6 +6572,14 @@ export interface components {
             /** @description Their display name. */
             name: string;
         };
+        /** @description How many were added. */
+        MembersAdded: {
+            /**
+             * Format: int64
+             * @description Members who weren't in the group (or had left) and now are.
+             */
+            added: number;
+        };
         /** @description Which patient to merge into. */
         MergeRequest: {
             /** @description The existing patient that keeps its number and record. */
@@ -5810,6 +6644,11 @@ export interface components {
             current: Record<string, unknown>;
             /** @description The refusal. */
             error: components["schemas"]["ErrorDetail"];
+        };
+        /** @description Whether a conversation is muted. */
+        MuteBody: {
+            /** @description `true` leaves its unread messages out of the badge. */
+            muted: boolean;
         };
         /** @description A clinic the person belongs to. */
         MyClinic: {
@@ -5914,6 +6753,15 @@ export interface components {
              */
             tooth: number;
         };
+        /** @description A message to post. */
+        NewChatMessageBody: {
+            /** @description Plain text, 1 to 4000 characters. */
+            body: string;
+            /** @description Chosen by the client (any UUID); posting again with it returns the first message. */
+            client_id: string;
+            /** @description A patient it is about; needs `patients.read` reaching them. */
+            patient_id?: string | null;
+        };
         /** @description A clinic to create. */
         NewClinic: {
             /** @description The clinic's name. */
@@ -5931,6 +6779,17 @@ export interface components {
             email: string;
             /** @description A role of the clinic, such as `doctor` or `front_desk`. */
             role_key: string;
+        };
+        /** @description A conversation to start. */
+        NewConversationBody: {
+            /** @description `direct` (with `membership_id`) or `group` (with `title` and `member_ids`). */
+            kind: string;
+            /** @description Group: the other members (the caller is added as admin). */
+            member_ids?: string[] | null;
+            /** @description Direct: the other member. */
+            membership_id?: string | null;
+            /** @description Group: 1 to 80 characters. */
+            title?: string | null;
         };
         /** @description A procedure or material to add to the clinic's list. */
         NewDentalTerm: {
@@ -5989,6 +6848,72 @@ export interface components {
             place_of_supply?: string | null;
             /** @description The voided bill this one replaces. */
             replaces_invoice_id?: string | null;
+        };
+        /** @description A lab order to record. */
+        NewLabOrder: {
+            /** @description Who at the lab. */
+            contact_id?: string | null;
+            /** @description The membership responsible; the caller unless said. */
+            doctor_id?: string | null;
+            /** @description When it is due back, `YYYY-MM-DD`. */
+            due_on?: string | null;
+            /** @description The visit it came from, of this patient. */
+            encounter_id?: string | null;
+            /** @description Instructions for the lab, up to 2000 characters. */
+            instructions?: string | null;
+            /** @description What to make: 1 to 50 items. */
+            items: components["schemas"]["NewLabOrderItem"][];
+            /** @description The patient. */
+            patient_id: string;
+            /** @description The procedure it is for, of this patient. */
+            procedure_id?: string | null;
+            /** @description The order this one remakes, of this patient. */
+            rework_of_id?: string | null;
+            /** @description Whether it goes to the lab now; otherwise it is a draft. */
+            send?: boolean;
+            /** @description Stage, up to 80 characters. */
+            stage?: string | null;
+            /** @description The lab. */
+            vendor_id: string;
+        };
+        /** @description An item to make. */
+        NewLabOrderItem: {
+            /** @description Material, such as `zirconia`; up to 80 characters. */
+            material?: string | null;
+            /**
+             * Format: int32
+             * @description How many, 1 to 100 (default 1).
+             */
+            qty?: number | null;
+            /** @description Shade, such as `A2`; up to 20 characters. */
+            shade?: string | null;
+            /** @description FDI tooth numbers, each once, up to 32. */
+            teeth?: number[];
+            /**
+             * Format: int64
+             * @description Paise for one, 0 to 10,00,000 rupees; needs `finance.view`.
+             */
+            unit_cost_paise?: number | null;
+            /** @description What to make, such as `Crown`; up to 80 characters. */
+            work_type: string;
+        };
+        /** @description A payment to record. */
+        NewLabPayment: {
+            /**
+             * Format: int64
+             * @description Paise, more than zero and at most 1,00,00,000 rupees.
+             */
+            amount_paise: number;
+            /** @description The lab's bill number, up to 60 characters. */
+            lab_invoice_ref?: string | null;
+            /** @description The order paid for, at that lab. */
+            lab_order_id?: string | null;
+            /** @description Up to 300 characters. */
+            note?: string | null;
+            /** @description The clinic day, `YYYY-MM-DD`; today or earlier. */
+            paid_on: string;
+            /** @description The lab. */
+            vendor_id: string;
         };
         /** @description Leave to record. */
         NewLeave: {
@@ -7546,6 +8471,11 @@ export interface components {
             label: string;
             /** @description The line it writes. */
             text: string;
+        };
+        /** @description How far the caller has read. */
+        ReadUpTo: {
+            /** @description The newest message read; the pointer never moves back. */
+            message_id: string;
         };
         /** @description A reason, for voiding or cancelling. */
         Reason: {
@@ -10462,6 +11392,571 @@ export interface operations {
             };
         };
     };
+    listConversations: {
+        parameters: {
+            query?: {
+                /** @description 1 to 100 (default 50) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    startConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewConversationBody"];
+            };
+        };
+        responses: {
+            /** @description The existing direct conversation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationStarted"];
+                };
+            };
+            /** @description Started */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationStarted"];
+                };
+            };
+            /** @description Bad kind or title, oneself, or too many members */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A member isn't active staff of this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    leaveConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The group */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Left */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A direct conversation, which can't be left */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    addConversationMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The group */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddMembers"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembersAdded"];
+                };
+            };
+            /** @description No members, or too many */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use, or the caller isn't a group admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in, or a member isn't active staff here */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A direct conversation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    removeConversationMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The group */
+                id: string;
+                /** @description The member to take out */
+                membership_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use, or the caller isn't a group admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in, or the member isn't in it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A direct conversation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listChatMessages: {
+        parameters: {
+            query?: {
+                /** @description Only messages newer than this id */
+                after?: string;
+                /** @description Only messages older than this id */
+                before?: string;
+                /** @description 1 to 100 (default 50) */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageList"];
+                };
+            };
+            /** @description A cursor isn't an id, or both were given */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    postChatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewChatMessageBody"];
+            };
+        };
+        responses: {
+            /** @description Posted earlier with this client_id */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+            /** @description Posted */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+            /** @description Empty, too long or not plain text */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use, or patients.read for a patient */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in, or the patient is out of reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Archived, or the client_id was used for another message */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteChatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+                /** @description The message */
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use, or the message is someone else's */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such message the caller can see */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    muteConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MuteBody"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    markConversationRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadUpTo"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in, or the message isn't in it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listOwnDentalTerms: {
         parameters: {
             query?: never;
@@ -11954,6 +13449,907 @@ export interface operations {
             };
         };
     };
+    deleteLabContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The contact */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such contact in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateLabContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The contact */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabContactValues"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabContact"];
+                };
+            };
+            /** @description Invalid values */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such contact in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listLabOrders: {
+        parameters: {
+            query?: {
+                /** @description Only this status */
+                status?: components["schemas"]["LabOrderState"];
+                /** @description Only this lab */
+                vendor_id?: string;
+                /** @description Only this patient */
+                patient_id?: string;
+                /** @description Only work at the lab past its due date */
+                overdue?: boolean;
+                /** @description Most rows, 1 to 200 (default 200) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrderList"];
+                };
+            };
+            /** @description A bad filter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createLabOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewLabOrder"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrder"];
+                };
+            };
+            /** @description Invalid values or references */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write, or finance.view for costs */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic or within reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getLabOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The lab order */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrder"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lab order in this clinic or within reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateLabOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The lab order */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabOrderChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrder"];
+                };
+            };
+            /** @description Invalid values, or a contact at another lab */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lab order in this clinic or within reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The order is fitted, reworked or cancelled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    remindLab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The lab order */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabReminderQueued"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lab order in this clinic or within reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The work isn't at the lab, or the lab has no email */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setLabOrderStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The lab order */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabOrderStatusChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrder"];
+                };
+            };
+            /** @description A long stage or note */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lab order in this clinic or within reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The order's status doesn't allow that move */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listLabPayments: {
+        parameters: {
+            query?: {
+                /** @description Only this lab */
+                vendor_id?: string;
+                /** @description First clinic day, YYYY-MM-DD */
+                from?: string;
+                /** @description Last clinic day, included */
+                to?: string;
+                /** @description Most rows, 1 to 500 (default 500) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabPaymentList"];
+                };
+            };
+            /** @description A bad filter or a backwards range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    recordLabPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewLabPayment"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabPayment"];
+                };
+            };
+            /** @description Invalid amount, note, reference or day, or an order at another lab */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks expenses.write or finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lab in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    voidLabPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The payment */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reason"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabPayment"];
+                };
+            };
+            /** @description No reason given */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks expenses.write or finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such payment in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already void */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listLabVendors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabVendorList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createLabVendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabVendorValues"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabVendor"];
+                };
+            };
+            /** @description Invalid values */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A lab has this name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getLabVendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The lab */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabVendor"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lab in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteLabVendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The lab */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lab in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateLabVendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The lab */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabVendorValues"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabVendor"];
+                };
+            };
+            /** @description Invalid values */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lab in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A lab has this name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getLabBalance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The lab */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabBalance"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lab in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createLabContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The lab */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabContactValues"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabContact"];
+                };
+            };
+            /** @description Invalid values */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lab in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listLeaveBlocks: {
         parameters: {
             query: {
@@ -12191,6 +14587,39 @@ export interface operations {
             };
             /** @description Not signed in */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getBadges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Badges"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14993,6 +17422,49 @@ export interface operations {
                 content?: never;
             };
             /** @description No such identifier in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPatientLabOrders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrderList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic or within reach */
             404: {
                 headers: {
                     [name: string]: unknown;

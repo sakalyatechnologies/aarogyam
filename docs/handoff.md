@@ -29,6 +29,18 @@ Where the work stands and exactly what to do next. Update this file at the end o
 | 2 | G: notes and speech | Note original text and confirmed English (C3 API), phone dictation and ML Kit translation (C1–C2), Marathi/Hindi i18n layer for the portal (C4 web) |
 | 2 | H: web | Single loader on sign-in, auth pages in the public site's look, date and time pickers in `sakalya-web` |
 
+**Added 8 Oct (reviewed plan, backend only):** labs, staff chat and patient messaging. The full plan, with an independent review folded in, is at `~/.claude/plans/parallel-wibbling-thacker.md`.
+
+| Task | What | Depends on | Migrations |
+|---|---|---|---|
+| R1–R3 | Finish notifications (0320), appointments plus `app.may_contact` (0330s), platform: support grants, dental terms, patient sessions, erasure (0340s) | — | 0320–0359 |
+| T1 | **Labs:** vendors, contacts, orders with items, stages and rework, scopes, payments booked as lab expenses, reminder emails, attachments link, turnaround | `main` | 0360–0363 |
+| T2 | **Staff chat:** `chat.use`, direct and group conversations, membership RLS, cursor polling, unread counts, `/me/badges` | `main` | 0390–0392 |
+| T3 | **Messaging core:** `contact_preferences`, the `messages` queue, `messages_claim`, `message_dispatch`, send-time consent checks, quiet hours, email budget, direct messages, unsubscribe, Resend webhook, appointment reminders, existing patient emails moved off the outbox | R2 | 0370–0374 |
+| T4 | **WhatsApp:** templates, Meta Cloud API adapter (off until credentials), HMAC webhook, STOP handling, `docs/whatsapp.md` (shared Sakalya number for the pilot) | T3 | 0375–0377 |
+| T5 | **Campaigns:** audiences, count token, batched fan-out, frequency and daily caps, kill switch | T3 | 0380–0383 |
+| T6 | **Integration:** lab overdue alerts on the notifications feed, erasure registration, support exclusion for chat, retention check | all of the above | 0395–0399 |
+
 **Needs someone outside these sessions:**
 - WhatsApp and SMS (Meta templates, DLT, paid provider)
 - phone OTP

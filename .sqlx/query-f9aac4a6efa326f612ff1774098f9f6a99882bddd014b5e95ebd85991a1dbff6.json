@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.conversation_members set muted = $3\n           where conversation_id = $1 and membership_id = $2 and left_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f9aac4a6efa326f612ff1774098f9f6a99882bddd014b5e95ebd85991a1dbff6"
+}

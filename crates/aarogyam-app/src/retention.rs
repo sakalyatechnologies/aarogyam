@@ -55,6 +55,7 @@ pub async fn report(
             Class::ClinicApplications => {
                 dal::clinic_applications(db.pool(), cutoff, sample).await?
             }
+            Class::ChatMessages => dal::chat_messages(db.pool(), cutoff, sample).await?,
         };
         classes.push(ClassReport {
             class,

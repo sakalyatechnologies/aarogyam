@@ -2,6 +2,21 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-09: Staff chat
+
+**Decision.** Staff chat (migrations 0390 to 0392) is one-to-one (`direct`) or group conversations between members of one clinic, in plain text (1 to 4000 characters), polled; no live connection.
+
+- **Permission:** `chat.use`, on every standard role (backfilled). Not in the support-grant read set: Sakalya support never reads chat.
+- **Who sees what:** a restrictive policy on `conversations`, `conversation_members` and `chat_messages` lets only active members of a conversation see it (`app.chat_conversation_ids()`: the caller's active clinic membership and active user, member row not left). Leavers, removed members and deactivated staff get nothing, through the API (404) and directly. Inserts check the caller is an active member and the author; only the author deletes (text and patient cleared, row kept).
+- **Direct conversations** are one per pair (`direct_key` = both membership ids, smaller first, unique per clinic); starting one again from either side returns it (`200`). They can't be left. Groups have admins: the creator, then whoever an admin adds; a last admin who leaves hands the role to the earliest-joined member.
+- **API:** `GET/POST /conversations`, `GET /conversations/{id}`, `POST /conversations/{id}/members`, `DELETE /conversations/{id}/members/{membership_id}`, `POST /conversations/{id}/leave`, `PUT /conversations/{id}/mute`, `GET /conversations/{id}/messages?after|before&limit`, `POST /conversations/{id}/messages` (idempotent by `client_id`, unique per author), `POST /conversations/{id}/read`, `DELETE /conversations/{id}/messages/{message_id}`, `GET /me/badges` (chat unread in unmuted conversations plus the notifications count, in one statement). The list and each page are one statement.
+- **Patients:** a message may name one patient, within the author's `patients.read` reach (else 404). Fetching a page with such a message writes one access-record entry (resource `chat`, the conversation as resource id) per reader, patient, conversation and clinic day, in the same statement. Message text is masked in the change history and never logged; read pointers are left out of it. Erasure drops the patient reference and keeps the message.
+- **Retention:** `chat_messages`, 365 days from posting (the table above); the report lists them, no purge yet.
+
+**Why.** Clinics coordinate over personal WhatsApp groups, which puts patient details on phones the clinic doesn't control. Membership checked in the database means a bug in a handler can't leak a conversation.
+
+**Not done.** UI, push, archiving and renaming, and a purge job.
+
 ## 2026-10-08: Clinic notifications, reminders and escalation
 
 **Decision.** An online booking (public page or patient app) writes a `staff_notifications` row in the booking's transaction: `booking_requested` when the clinic waits for confirmation (`online_booking.auto_confirm` false, the default), `booking_confirmed_auto` otherwise. A patient cancelling in the app writes `booking_cancelled_by_patient` through `app.notify_patient_cancelled` (a patient account may not touch staff tables). Rows hold IDs only (migration 0320).
@@ -358,6 +373,7 @@ What `own` means, per record:
 | `access_log` | Who viewed a record | 3 years | Entry | Lets a clinic answer "who saw my record"; the DPDP Rules ask for logs to be kept at least 1 year |
 | `audit_events` | Who changed a record | 7 years | Entry | As the patient record it describes |
 | `clinic_applications` | Requests for access that were never approved | 365 days | Decision | Not needed after the decision |
+| `chat_messages` | Staff chat messages, which may name a patient | 365 days | When posted | Working messages, not the record; the record is the chart |
 
 A clinic may keep records longer where its profession or a dispute requires; per-clinic overrides, and a legal hold that stops erasure of a patient, come before erasure is built (backlog). Consent records stay with the patient record and for 3 years after it.
 

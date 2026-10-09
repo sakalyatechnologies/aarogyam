@@ -64,6 +64,7 @@ pub mod access;
 pub mod analytics;
 pub mod billing;
 pub mod booking;
+pub mod chat;
 pub mod client;
 pub mod client_id;
 pub mod clinic;

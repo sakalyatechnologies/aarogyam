@@ -7,6 +7,7 @@ pub(crate) mod appointments;
 pub(crate) mod auth;
 pub(crate) mod billing;
 pub(crate) mod chart;
+pub(crate) mod chat;
 pub(crate) mod check_in;
 pub(crate) mod client_errors;
 pub(crate) mod clinic_hours;
@@ -464,6 +465,25 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/notifications/read-all", post(notifications::read_all))
         .route("/notifications/{id}/read", post(notifications::read))
         .route("/inbox", get(notifications::inbox))
+        .route("/conversations", get(chat::list).post(chat::start))
+        .route("/conversations/{id}", get(chat::detail))
+        .route("/conversations/{id}/members", post(chat::add_members))
+        .route(
+            "/conversations/{id}/members/{membership_id}",
+            delete(chat::remove_member),
+        )
+        .route("/conversations/{id}/leave", post(chat::leave))
+        .route("/conversations/{id}/mute", put(chat::mute))
+        .route(
+            "/conversations/{id}/messages",
+            get(chat::messages).post(chat::post_message),
+        )
+        .route(
+            "/conversations/{id}/messages/{message_id}",
+            delete(chat::delete_message),
+        )
+        .route("/conversations/{id}/read", post(chat::mark_read))
+        .route("/me/badges", get(chat::badges))
         .route("/expenses", get(expenses::list).post(expenses::record))
         .route("/expenses/{id}/void", post(expenses::void))
         .route("/today/money", get(reports::today_money))

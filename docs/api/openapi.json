@@ -1362,6 +1362,598 @@
         ]
       }
     },
+    "/api/v1/conversations": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "The caller's conversations with the newest message time and unread count of each: one\nstatement.",
+        "operationId": "listConversations",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "1 to 100 (default 50)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Starts a conversation. A direct one is idempotent: asking again (from either side) returns\nthe pair's conversation with `200`.",
+        "operationId": "startConversation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewConversationBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The existing direct conversation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationStarted"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationStarted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad kind or title, oneself, or too many members"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use"
+          },
+          "404": {
+            "description": "A member isn't active staff of this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/conversations/{id}": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "A conversation the caller is in, with its members.",
+        "operationId": "getConversation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The conversation",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use"
+          },
+          "404": {
+            "description": "No such conversation the caller is in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/conversations/{id}/leave": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Leaves a group: it disappears for the caller. A last admin hands the role on.",
+        "operationId": "leaveConversation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The group",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Left"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use"
+          },
+          "404": {
+            "description": "No such conversation the caller is in"
+          },
+          "409": {
+            "description": "A direct conversation, which can't be left"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/conversations/{id}/members": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Adds members to a group the caller administers; someone who left joins again.",
+        "operationId": "addConversationMembers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The group",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddMembers"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembersAdded"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No members, or too many"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use, or the caller isn't a group admin"
+          },
+          "404": {
+            "description": "No such conversation the caller is in, or a member isn't active staff here"
+          },
+          "409": {
+            "description": "A direct conversation"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/conversations/{id}/members/{membership_id}": {
+      "delete": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Takes a member out of a group: anyone, for a group admin; oneself is the same as leaving.",
+        "operationId": "removeConversationMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The group",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "membership_id",
+            "in": "path",
+            "description": "The member to take out",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use, or the caller isn't a group admin"
+          },
+          "404": {
+            "description": "No such conversation the caller is in, or the member isn't in it"
+          },
+          "409": {
+            "description": "A direct conversation"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/conversations/{id}/messages": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "A page of a conversation, oldest first: the newest messages, those after a message (poll\nwith the last id you have) or those before one (scroll back with the first). One statement.",
+        "operationId": "listChatMessages",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The conversation",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "description": "Only messages newer than this id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "Only messages older than this id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "1 to 100 (default 50)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A cursor isn't an id, or both were given"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use"
+          },
+          "404": {
+            "description": "No such conversation the caller is in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Posts a message. Idempotent by `client_id`: a retry returns the first message with `200`.",
+        "operationId": "postChatMessage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The conversation",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewChatMessageBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Posted earlier with this client_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessage"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Posted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty, too long or not plain text"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use, or patients.read for a patient"
+          },
+          "404": {
+            "description": "No such conversation the caller is in, or the patient is out of reach"
+          },
+          "409": {
+            "description": "Archived, or the client_id was used for another message"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/conversations/{id}/messages/{message_id}": {
+      "delete": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Deletes one of the caller's own messages: its text goes, and members see \"deleted\".",
+        "operationId": "deleteChatMessage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The conversation",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "description": "The message",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use, or the message is someone else's"
+          },
+          "404": {
+            "description": "No such message the caller can see"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/conversations/{id}/mute": {
+      "put": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Mutes or unmutes a conversation for the caller only.",
+        "operationId": "muteConversation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The conversation",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MuteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Saved"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use"
+          },
+          "404": {
+            "description": "No such conversation the caller is in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/conversations/{id}/read": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Marks the conversation read up to a message, for the caller only.",
+        "operationId": "markConversationRead",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The conversation",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadUpTo"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Saved"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use"
+          },
+          "404": {
+            "description": "No such conversation the caller is in, or the message isn't in it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/dental-terms": {
       "get": {
         "tags": [
@@ -3119,6 +3711,37 @@
           },
           "401": {
             "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/badges": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Chat and notification unread counts for the minute poll, in one statement.",
+        "operationId": "getBadges",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Badges"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use"
           }
         },
         "security": [
@@ -11054,6 +11677,22 @@
           }
         }
       },
+      "AddMembers": {
+        "type": "object",
+        "description": "Members to add to a group.",
+        "required": [
+          "membership_ids"
+        ],
+        "properties": {
+          "membership_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "1 to 100 active members of this clinic."
+          }
+        }
+      },
       "Addendum": {
         "type": "object",
         "description": "An addendum to a signed note.",
@@ -12160,6 +12799,28 @@
           }
         }
       },
+      "Badges": {
+        "type": "object",
+        "description": "The numbers the apps poll every minute.",
+        "required": [
+          "chat_unread"
+        ],
+        "properties": {
+          "chat_unread": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unread chat messages in conversations the caller hasn't muted, at most 100."
+          },
+          "notifications_unread": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Unread notifications, as `GET /notifications/count` counts them; absent without\n`appointments.read`."
+          }
+        }
+      },
       "BookableDoctor": {
         "type": "object",
         "description": "A doctor patients may pick.",
@@ -12652,6 +13313,99 @@
               "null"
             ],
             "description": "The visit that recorded it."
+          }
+        }
+      },
+      "ChatMessage": {
+        "type": "object",
+        "description": "A chat message.",
+        "required": [
+          "id",
+          "conversation_id",
+          "author_membership_id",
+          "client_id",
+          "deleted",
+          "created_at"
+        ],
+        "properties": {
+          "author_membership_id": {
+            "type": "string",
+            "description": "Who wrote it."
+          },
+          "author_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their display name."
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Plain text; absent once deleted."
+          },
+          "client_id": {
+            "type": "string",
+            "description": "The author's idempotency key."
+          },
+          "conversation_id": {
+            "type": "string",
+            "description": "Its conversation."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was posted (RFC 3339)."
+          },
+          "deleted": {
+            "type": "boolean",
+            "description": "Whether the author deleted it."
+          },
+          "id": {
+            "type": "string",
+            "description": "The message; a cursor for `after` and `before`."
+          },
+          "patient_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The patient it is about; open `/patients/{id}` (the caller's own reach applies)."
+          }
+        }
+      },
+      "ChatMessageList": {
+        "type": "object",
+        "description": "A page of messages, oldest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatMessage"
+            },
+            "description": "The messages."
+          }
+        }
+      },
+      "ChatPeer": {
+        "type": "object",
+        "description": "The other member of a direct conversation.",
+        "required": [
+          "membership_id",
+          "name"
+        ],
+        "properties": {
+          "membership_id": {
+            "type": "string",
+            "description": "Their membership."
+          },
+          "name": {
+            "type": "string",
+            "description": "Their display name."
           }
         }
       },
@@ -13862,6 +14616,198 @@
               "$ref": "#/components/schemas/ConsoleClinic"
             },
             "description": "Newest first."
+          }
+        }
+      },
+      "Conversation": {
+        "type": "object",
+        "description": "A conversation with its active members.",
+        "required": [
+          "id",
+          "kind",
+          "created_at",
+          "members"
+        ],
+        "properties": {
+          "archived_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was archived (RFC 3339)."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was started (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The conversation."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`direct` or `group`."
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationMember"
+            },
+            "description": "Who is in it, earliest joined first."
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A group's title."
+          }
+        }
+      },
+      "ConversationItem": {
+        "type": "object",
+        "description": "A conversation in the caller's list.",
+        "required": [
+          "id",
+          "kind",
+          "created_at",
+          "role",
+          "muted",
+          "unread"
+        ],
+        "properties": {
+          "archived_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was archived (RFC 3339)."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was started (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The conversation."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`direct` or `group`."
+          },
+          "last_message_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was posted (RFC 3339)."
+          },
+          "last_message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The newest message; poll with `after` from here."
+          },
+          "last_read_message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The newest message the caller has read."
+          },
+          "muted": {
+            "type": "boolean",
+            "description": "Whether the caller muted it (not counted in the badge)."
+          },
+          "role": {
+            "type": "string",
+            "description": "The caller's role: `member` or `admin`."
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A group's title."
+          },
+          "unread": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unread messages from others, at most 100 (show \"99+\" above 99)."
+          },
+          "with": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChatPeer",
+                "description": "In a direct conversation, the other member."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ConversationList": {
+        "type": "object",
+        "description": "The caller's conversations, most recent activity first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationItem"
+            },
+            "description": "The conversations."
+          }
+        }
+      },
+      "ConversationMember": {
+        "type": "object",
+        "description": "An active member of a conversation.",
+        "required": [
+          "membership_id",
+          "role",
+          "joined_at",
+          "name"
+        ],
+        "properties": {
+          "joined_at": {
+            "type": "string",
+            "description": "When they joined (RFC 3339)."
+          },
+          "membership_id": {
+            "type": "string",
+            "description": "Their membership."
+          },
+          "name": {
+            "type": "string",
+            "description": "Their display name."
+          },
+          "role": {
+            "type": "string",
+            "description": "`member` or `admin`."
+          }
+        }
+      },
+      "ConversationStarted": {
+        "type": "object",
+        "description": "The conversation started, or the pair's existing direct conversation.",
+        "required": [
+          "id",
+          "created"
+        ],
+        "properties": {
+          "created": {
+            "type": "boolean",
+            "description": "`false` when the direct conversation existed already."
+          },
+          "id": {
+            "type": "string",
+            "description": "The conversation."
           }
         }
       },
@@ -16437,6 +17383,20 @@
           }
         }
       },
+      "MembersAdded": {
+        "type": "object",
+        "description": "How many were added.",
+        "required": [
+          "added"
+        ],
+        "properties": {
+          "added": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Members who weren't in the group (or had left) and now are."
+          }
+        }
+      },
       "MergeRequest": {
         "type": "object",
         "description": "Which patient to merge into.",
@@ -16557,6 +17517,19 @@
           "error": {
             "$ref": "#/components/schemas/ErrorDetail",
             "description": "The refusal."
+          }
+        }
+      },
+      "MuteBody": {
+        "type": "object",
+        "description": "Whether a conversation is muted.",
+        "required": [
+          "muted"
+        ],
+        "properties": {
+          "muted": {
+            "type": "boolean",
+            "description": "`true` leaves its unread messages out of the badge."
           }
         }
       },
@@ -16849,6 +17822,31 @@
           }
         }
       },
+      "NewChatMessageBody": {
+        "type": "object",
+        "description": "A message to post.",
+        "required": [
+          "client_id",
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "Plain text, 1 to 4000 characters."
+          },
+          "client_id": {
+            "type": "string",
+            "description": "Chosen by the client (any UUID); posting again with it returns the first message."
+          },
+          "patient_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A patient it is about; needs `patients.read` reaching them."
+          }
+        }
+      },
       "NewClinic": {
         "type": "object",
         "description": "A clinic to create.",
@@ -16896,6 +17894,43 @@
           "role_key": {
             "type": "string",
             "description": "A role of the clinic, such as `doctor` or `front_desk`."
+          }
+        }
+      },
+      "NewConversationBody": {
+        "type": "object",
+        "description": "A conversation to start.",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "`direct` (with `membership_id`) or `group` (with `title` and `member_ids`)."
+          },
+          "member_ids": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Group: the other members (the caller is added as admin)."
+          },
+          "membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Direct: the other member."
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Group: 1 to 80 characters."
           }
         }
       },
@@ -21033,6 +22068,19 @@
           }
         }
       },
+      "ReadUpTo": {
+        "type": "object",
+        "description": "How far the caller has read.",
+        "required": [
+          "message_id"
+        ],
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "The newest message read; the pointer never moves back."
+          }
+        }
+      },
       "Reason": {
         "type": "object",
         "description": "A reason, for voiding or cancelling.",
@@ -25020,6 +26068,10 @@
     {
       "name": "appointments",
       "description": "The calendar, appointments and Today; clinic host only"
+    },
+    {
+      "name": "chat",
+      "description": "Staff chat: conversations, members, messages polled by cursor, and the badge counts; clinic host only"
     },
     {
       "name": "notifications",

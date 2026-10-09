@@ -2091,11 +2091,13 @@
    ],
    "referenced_by": [
     "allergies.verified_by",
+    "chat_messages.author_membership_id",
     "clinical_notes.author_id",
     "clinical_notes.error_by",
     "clinical_notes.signed_by",
     "conditions.verified_by",
     "consent_notices.published_by",
+    "conversation_members.membership_id",
     "daily_closings.closed_by",
     "dental_terms.added_by",
     "dental_terms.retired_by",
@@ -2465,6 +2467,7 @@
     "appointments.patient_id",
     "attachments.patient_id",
     "care_episodes.patient_id",
+    "chat_messages.patient_id",
     "clinical_notes.patient_id",
     "conditions.patient_id",
     "consent_forms.patient_id",
@@ -7452,6 +7455,178 @@
    ],
    "referenced_by": [],
    "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "conversations",
+   "domain": "notify",
+   "purpose": "Staff chat: a one-to-one (direct) or group conversation between members of a clinic.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0391). Only its active members see it: a restrictive policy asks app.chat_conversation_ids() (active clinic membership, not left).",
+   "cols": [
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "direct, group"
+    },
+    {
+     "name": "title",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "groups only, 1 to 80 characters"
+    },
+    {
+     "name": "direct_key",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the pair's membership ids, smaller first; unique per clinic for direct"
+    },
+    {
+     "name": "archived_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "chat_messages.conversation_id",
+    "conversation_members.conversation_id"
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "conversation_members",
+   "domain": "notify",
+   "purpose": "Who is in a conversation, their role, and how far they have read.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0391). Primary key (org_id, conversation_id, membership_id). The read pointer is left out of the change history.",
+   "cols": [
+    {
+     "name": "conversation_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "conversations",
+     "note": ""
+    },
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "role",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "member, admin"
+    },
+    {
+     "name": "joined_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "left_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "set on leaving or removal"
+    },
+    {
+     "name": "muted",
+     "type": "boolean",
+     "nullable": false,
+     "ref": null,
+     "note": "left out of the badge"
+    },
+    {
+     "name": "last_read_message_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "chat_messages",
+     "note": "unread counts start after it"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "chat_messages",
+   "domain": "notify",
+   "purpose": "A staff chat message: plain text, optionally about one patient.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0392). Body masked in the change history and never logged. Reading a message with a patient leaves an access-record entry (resource chat) once per reader, patient, conversation and day. Kept 365 days (retention class chat_messages).",
+   "cols": [
+    {
+     "name": "conversation_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "conversations",
+     "note": ""
+    },
+    {
+     "name": "author_membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "body",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "1 to 4000 characters; cleared on delete"
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "patients",
+     "note": "within the author's reach"
+    },
+    {
+     "name": "client_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": "unique per author: a retried post is not posted twice"
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "by the author only"
+    }
+   ],
+   "referenced_by": [
+    "conversation_members.last_read_message_id"
+   ],
+   "sensitivity": "health",
    "offline": "server_only"
   },
   {

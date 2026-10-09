@@ -1,0 +1,97 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with conv as (\n             select c.org_id, c.id from aarogyam.conversations c where c.id = $1\n           ), page as (\n             (select m.id, m.author_membership_id, m.body, m.patient_id, m.client_id,\n                     m.deleted_at, m.created_at\n              from aarogyam.chat_messages m join conv on m.org_id = conv.org_id and m.conversation_id = conv.id\n              where $2::uuid is not null and m.id > $2\n              order by m.id limit $4)\n             union all\n             (select m.id, m.author_membership_id, m.body, m.patient_id, m.client_id,\n                     m.deleted_at, m.created_at\n              from aarogyam.chat_messages m join conv on m.org_id = conv.org_id and m.conversation_id = conv.id\n              where $2::uuid is null and ($3::uuid is null or m.id < $3)\n              order by m.id desc limit $4)\n           ), logged as (\n             insert into audit.access_log\n               (actor_user_id, actor_kind, patient_id, resource, resource_id, action, purpose, request_id)\n             select distinct $5::uuid, $6, p.patient_id, 'chat', $1::uuid, 'view', $7, $8\n             from page p\n             where p.patient_id is not null\n               and not exists (\n                 select 1 from audit.access_log l\n                 where l.org_id = (select app.tenant_id()) and l.patient_id = p.patient_id\n                   and l.at >= date_trunc('day', now(), $9) and l.resource = 'chat'\n                   and l.resource_id = $1 and l.actor_user_id = $5)\n           )\n           select conv.id as \"conversation_id!\", p.id as \"id?\",\n                  p.author_membership_id as \"author_membership_id?\",\n                  u.display_name as \"author_name?\", p.body as \"body?\", p.patient_id as \"patient_id?\",\n                  p.client_id as \"client_id?\", p.deleted_at as \"deleted_at?\",\n                  p.created_at as \"created_at?\"\n           from conv\n           left join page p on true\n           left join aarogyam.memberships am on am.org_id = conv.org_id and am.id = p.author_membership_id\n           left join aarogyam.users u on u.id = am.user_id\n           order by p.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "conversation_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.conversations",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "author_membership_id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "author_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.users",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "body?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "patient_id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "client_id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "deleted_at?",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at?",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int8",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "c6ec9fc438d6f8825c9e55762696d62d3ed5282ee3b673db615125440dea1a39"
+}

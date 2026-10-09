@@ -20,6 +20,7 @@ pub mod clinic;
 pub mod clinic_hours;
 pub mod consents;
 pub mod console;
+pub mod contact;
 pub mod dental_terms;
 pub mod duplicates;
 pub mod edge;

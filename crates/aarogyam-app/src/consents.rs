@@ -204,6 +204,10 @@ pub async fn withdraw(
             note,
         )
         .await?;
+        let purpose =
+            Purpose::parse(&found.purpose).map_err(|_| AppError::Internal("unknown purpose"))?;
+        // Stops the patient's queued messages of that purpose (none can be queued yet).
+        crate::contact::cancel_queued(PatientId::from_uuid(found.patient_id), purpose);
         let rows = dal::list(tx.conn(), found.patient_id, None)
             .await?
             .ok_or(AppError::NotFound("patient"))?;

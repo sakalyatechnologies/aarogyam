@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select patient_id, status from aarogyam.patient_consents\n           where id = $1 and app.patient_in_reach(patient_id, $2) for update",
+  "query": "select patient_id, purpose, status from aarogyam.patient_consents\n           where id = $1 and app.patient_in_reach(patient_id, $2) for update",
   "describe": {
     "columns": [
       {
@@ -16,6 +16,17 @@
       },
       {
         "ordinal": 1,
+        "name": "purpose",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patient_consents",
+            "name": "purpose"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
         "name": "status",
         "type_info": "Text",
         "origin": {
@@ -34,8 +45,9 @@
     },
     "nullable": [
       false,
+      false,
       false
     ]
   },
-  "hash": "557a6315ecfe10e737c6a1014371622a9e535c12526a2fd6cf1b16fa3998de1c"
+  "hash": "dea01b0c9837e812a74822980ca05832563fa1387c1d99365385d5fec2e760d7"
 }

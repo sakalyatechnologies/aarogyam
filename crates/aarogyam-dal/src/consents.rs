@@ -136,6 +136,8 @@ pub async fn insert(
 pub struct Found {
     /// The patient it belongs to.
     pub patient_id: Uuid,
+    /// The purpose key.
+    pub purpose: String,
     /// `given` or `withdrawn`.
     pub status: String,
 }
@@ -152,7 +154,7 @@ pub async fn lock(
 ) -> Result<Option<Found>, DbError> {
     let row = sqlx::query_as!(
         Found,
-        r#"select patient_id, status from aarogyam.patient_consents
+        r#"select patient_id, purpose, status from aarogyam.patient_consents
            where id = $1 and app.patient_in_reach(patient_id, $2) for update"#,
         id,
         member

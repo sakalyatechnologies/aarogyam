@@ -15,6 +15,7 @@ pub mod clinic_hours;
 pub mod clock;
 pub mod consents;
 pub mod console;
+pub mod contact;
 pub mod duplicates;
 pub mod error;
 pub mod expenses;

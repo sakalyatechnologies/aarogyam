@@ -492,12 +492,12 @@ pub(crate) async fn discard(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// A patient imported without some details.
+/// A patient missing some details: imported without them, or registered here with no age or sex.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct IncompletePatient {
-    /// The to-do entry.
-    #[schema(value_type = String)]
-    pub id: Uuid,
+    /// The to-do entry, for dismissing; null for a patient registered here (not imported).
+    #[schema(value_type = Option<String>)]
+    pub id: Option<Uuid>,
     /// The patient.
     #[schema(value_type = String)]
     pub patient_id: Uuid,
@@ -505,29 +505,30 @@ pub struct IncompletePatient {
     pub number: String,
     /// Their name.
     pub full_name: String,
-    /// Still missing: `phone`, `sex`, `date_of_birth`. Filling a detail removes it.
+    /// Still missing: `phone`, `sex`, `date_of_birth` (no date of birth and no age). Filling a
+    /// detail removes it. Patients registered here are listed for `sex` and `date_of_birth` only.
     pub missing: Vec<String>,
     /// The file they came from.
     pub file_name: Option<String>,
     /// Its sheet.
     pub sheet: Option<String>,
-    /// Their row in it.
-    pub row: usize,
-    /// When they were imported (RFC 3339).
-    pub imported_at: String,
+    /// Their row in it; null when not imported.
+    pub row: Option<usize>,
+    /// When they were imported (RFC 3339); null when not imported.
+    pub imported_at: Option<String>,
 }
 
 /// The front desk's to-do list.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct IncompleteList {
-    /// Oldest import first, at most 500.
+    /// Imported patients (oldest import first), then patients registered here, at most 500.
     pub items: Vec<IncompletePatient>,
 }
 
 impl From<Gap> for IncompletePatient {
     fn from(gap: Gap) -> Self {
         Self {
-            id: gap.id.uuid(),
+            id: gap.id.map(sakalya_types::Id::uuid),
             patient_id: gap.patient_id.uuid(),
             number: gap.number,
             full_name: gap.full_name,
@@ -535,12 +536,12 @@ impl From<Gap> for IncompletePatient {
             file_name: gap.file_name,
             sheet: gap.sheet_name,
             row: gap.row,
-            imported_at: rfc3339(gap.imported_at),
+            imported_at: gap.imported_at.map(rfc3339),
         }
     }
 }
 
-/// Imported patients still missing details, for the front desk to complete.
+/// Patients still missing details, for the front desk to complete.
 #[utoipa::path(
     get,
     path = "/api/v1/imports/incomplete",

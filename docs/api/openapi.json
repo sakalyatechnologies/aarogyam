@@ -1440,7 +1440,7 @@
         "tags": [
           "patients"
         ],
-        "summary": "Imported patients still missing details, for the front desk to complete.",
+        "summary": "Patients still missing details, for the front desk to complete.",
         "operationId": "listIncompletePatients",
         "responses": {
           "200": {
@@ -13572,21 +13572,18 @@
             "items": {
               "$ref": "#/components/schemas/IncompletePatient"
             },
-            "description": "Oldest import first, at most 500."
+            "description": "Imported patients (oldest import first), then patients registered here, at most 500."
           }
         }
       },
       "IncompletePatient": {
         "type": "object",
-        "description": "A patient imported without some details.",
+        "description": "A patient missing some details: imported without them, or registered here with no age or sex.",
         "required": [
-          "id",
           "patient_id",
           "number",
           "full_name",
-          "missing",
-          "row",
-          "imported_at"
+          "missing"
         ],
         "properties": {
           "file_name": {
@@ -13601,19 +13598,25 @@
             "description": "Their name."
           },
           "id": {
-            "type": "string",
-            "description": "The to-do entry."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The to-do entry, for dismissing; null for a patient registered here (not imported)."
           },
           "imported_at": {
-            "type": "string",
-            "description": "When they were imported (RFC 3339)."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When they were imported (RFC 3339); null when not imported."
           },
           "missing": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Still missing: `phone`, `sex`, `date_of_birth`. Filling a detail removes it."
+            "description": "Still missing: `phone`, `sex`, `date_of_birth` (no date of birth and no age). Filling a\ndetail removes it. Patients registered here are listed for `sex` and `date_of_birth` only."
           },
           "number": {
             "type": "string",
@@ -13624,8 +13627,11 @@
             "description": "The patient."
           },
           "row": {
-            "type": "integer",
-            "description": "Their row in it.",
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Their row in it; null when not imported.",
             "minimum": 0
           },
           "sheet": {
@@ -21589,6 +21595,13 @@
             "type": "integer",
             "description": "Appointments today, not counting cancelled ones.",
             "minimum": 0
+          },
+          "member_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The staff membership this doctor's profile belongs to, when linked. A staff list shown\nbeside the team uses it to show each person once."
           },
           "on_leave": {
             "type": "boolean",

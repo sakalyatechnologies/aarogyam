@@ -7,7 +7,7 @@ import type { Fixtures } from "@aarogyam/api-client/fake";
 
 import { PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
 import { PX_PER_HOUR, TIMELINE_HEIGHT, scrollTopForNow } from "./day-timeline.js";
-import { idleTitle } from "./today-page.js";
+import { idleTitle, staffBesideTeam } from "./today-page.js";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -269,5 +269,17 @@ describe("Alerts on Today", () => {
     if (!(alert instanceof HTMLElement)) throw new Error("expected an alert");
     await user.click(within(alert).getByRole("button", { name: "No-show" }));
     expect(await screen.findByText(/marked as no-show/)).toBeTruthy();
+  });
+});
+
+describe("staffBesideTeam", () => {
+  const doctor = (name: string, memberId: string | null) => ({ practitioner: { display_name: name }, member_id: memberId });
+  const member = (id: string, name: string) => ({ id, display_name: name, status: "active" });
+
+  it("shows a member with their own doctor profile once", () => {
+    const team = [doctor("Dr Asha Kulkarni", "m-asha"), doctor("Dr Dev Rao", null)];
+    const staff = [member("m-asha", "Asha K."), member("m-dev", "Dev Rao"), member("m-farah", "Farah Khan")];
+    // Asha by her membership, Dev (no linked profile) by name without the "Dr".
+    expect(staffBesideTeam(team, staff).map((m) => m.display_name)).toEqual(["Farah Khan"]);
   });
 });

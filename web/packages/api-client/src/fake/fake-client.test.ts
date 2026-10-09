@@ -96,6 +96,16 @@ describe("fake client: patients", () => {
     expect(visits).toEqual([...visits].sort().reverse());
   });
 
+  it("lists patients registered without an age or sex as missing details", async () => {
+    const { as } = setup();
+    const client = as(PEOPLE.farah, SUNRISE);
+    const created = value(await client.createPatient({ full_name: "Om Joshi" }));
+    const items = value(await client.listIncompletePatients()).items;
+    const entry = items.find((i) => i.patient_id === created.id);
+    expect(entry?.missing).toEqual(["sex", "date_of_birth"]);
+    expect(entry?.id).toBeNull();
+  });
+
   it("finds patients by name prefix, clinic number or phone digits", async () => {
     const { as, fixtures } = setup();
     const client = as(PEOPLE.farah, SUNRISE);
@@ -105,6 +115,9 @@ describe("fake client: patients", () => {
     expect(value(await client.searchPatients({ q: "SD-5" })).items[0]?.number).toBe("SD-5");
     const withPhone = fixtures.patients.find((p) => p.number.startsWith("SD-") && p.phone != null);
     expect(value(await client.searchPatients({ q: (withPhone?.phone ?? "").slice(-6) })).items.map((p) => p.id)).toContain(withPhone?.id);
+    // Digits from the middle of a phone are not its end, as in the API.
+    const middle = (withPhone?.phone ?? "").replace(/\D/g, "").slice(-8, -4);
+    expect(value(await client.searchPatients({ q: middle })).items.map((p) => p.id)).not.toContain(withPhone?.id);
     expect(value(await client.searchPatients({ q: "zzzz qqqq" })).items).toEqual([]);
   });
 

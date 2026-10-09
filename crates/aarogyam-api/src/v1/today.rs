@@ -98,6 +98,10 @@ pub struct TodayShift {
 pub struct TeamMemberToday {
     /// The doctor.
     pub practitioner: PractitionerBrief,
+    /// The staff membership this doctor's profile belongs to, when linked. A staff list shown
+    /// beside the team uses it to show each person once.
+    #[schema(value_type = Option<String>)]
+    pub member_id: Option<Uuid>,
     /// Specialty.
     pub specialty: Option<String>,
     /// Today's shifts.
@@ -192,6 +196,7 @@ impl From<TeamMember> for TeamMemberToday {
                 display_name: member.practitioner.display_name,
                 calendar_color: Some(member.practitioner.calendar_color),
             },
+            member_id: member.practitioner.membership_id,
             specialty: member.practitioner.specialty,
             shifts: member
                 .shifts
@@ -352,4 +357,34 @@ pub(crate) async fn today(
             .collect(),
         appointments,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use aarogyam_dal::schedule::PractitionerRow;
+
+    use super::*;
+
+    #[test]
+    fn a_doctor_carries_their_membership_so_staff_lists_show_them_once() {
+        let membership = Uuid::from_u128(7);
+        let member = TeamMember {
+            practitioner: PractitionerRow {
+                id: Uuid::from_u128(1),
+                membership_id: Some(membership),
+                display_name: "Dr Asha Kulkarni".into(),
+                registration_number: None,
+                qualifications: None,
+                specialty: Some("Orthodontics".into()),
+                calendar_color: "#136650".into(),
+                active: true,
+            },
+            shifts: Vec::new(),
+            on_leave: false,
+            appointments: 0,
+        };
+        let today = TeamMemberToday::from(member);
+        assert_eq!(today.member_id, Some(membership));
+        assert_eq!(today.specialty.as_deref(), Some("Orthodontics"));
+    }
 }

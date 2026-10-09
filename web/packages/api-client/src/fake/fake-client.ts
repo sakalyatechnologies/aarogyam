@@ -1549,6 +1549,15 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               imported_at: gap.importedAt,
             });
           }
+          // Then patients registered here with no age or sex, unless an import entry covers them.
+          for (const patient of clinicPatients(caller)) {
+            if (patient.status !== "active" || patientGaps.some((g) => g.patientId === patient.id)) continue;
+            const missing: C.IncompletePatient["missing"] = [];
+            if (patient.sex === "unknown") missing.push("sex");
+            if (patient.date_of_birth == null) missing.push("date_of_birth");
+            if (missing.length === 0) continue;
+            items.push({ id: null, patient_id: patient.id, number: patient.number, full_name: patient.full_name, missing, file_name: null, sheet: null, row: null, imported_at: null });
+          }
           return reply({ items } satisfies C.IncompleteList);
         }),
 
@@ -5478,7 +5487,7 @@ function deriveSlug(name: string): string {
     .replace(/-+$/, "");
 }
 
-/** Name (word prefixes, any order), clinic number, or at least four digits of the phone. */
+/** Name (word prefixes, any order, then any part), clinic number, or the phone's last four or more digits, like the API. */
 function searchPatients(patients: readonly FakePatient[], q: string): FakePatient[] {
   const query = q.trim().toLowerCase();
   const recent = (a: FakePatient, b: FakePatient) =>
@@ -5493,7 +5502,7 @@ function searchPatients(patients: readonly FakePatient[], q: string): FakePatien
     if (number === query || number.endsWith(`-${query}`)) return 4;
     const words = p.full_name.toLowerCase().split(/\s+/);
     if (tokens.every((t) => words.some((w) => w.startsWith(t)))) return 3;
-    if (digits.length >= 4 && digits === query.replace(/[\s+-]/g, "") && (p.phone ?? "").replace(/\D/g, "").includes(digits)) return 2;
+    if (digits.length >= 4 && digits === query.replace(/[\s+-]/g, "") && (p.phone ?? "").replace(/\D/g, "").endsWith(digits)) return 2;
     if (p.full_name.toLowerCase().includes(query) || number.includes(query)) return 1;
     return 0;
   };
@@ -6479,7 +6488,7 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date): C.TodayResp
         .map((s): C.TodayShift => ({ starts: s.starts, ends: s.ends }));
       const onLeave = state.leave.some((l) => l.clinic_id === clinic.id && l.practitioner_id === p.id && overlaps(l.starts_at, l.ends_at, dayStart, dayEnd));
       const appointments = wired.filter((a) => a.practitioner.id === p.id && a.status !== "cancelled").length;
-      return { practitioner: wirePractitionerBrief(p), specialty: p.specialty ?? null, on_leave: onLeave, appointments, shifts } satisfies C.TeamMemberToday;
+      return { practitioner: wirePractitionerBrief(p), member_id: p.membership_id ?? null, specialty: p.specialty ?? null, on_leave: onLeave, appointments, shifts } satisfies C.TeamMemberToday;
     })
     .filter((member) => member.shifts.length > 0);
 

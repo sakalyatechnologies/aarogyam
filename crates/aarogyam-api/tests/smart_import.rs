@@ -817,3 +817,61 @@ async fn import_routes_stay_within_their_round_trip_budget() {
     app.finish().await;
     assert!(over.is_empty(), "over budget: {over:?}{table}");
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn patients_registered_without_an_age_or_sex_are_on_the_to_do_list() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let list = "/api/v1/imports/incomplete";
+    let (no_age, _) = register(
+        &app,
+        &owner,
+        json!({ "full_name": "Kavya Rao", "sex": "female" }),
+    )
+    .await;
+    let (bare, _) = register(&app, &owner, json!({ "full_name": "Om Joshi" })).await;
+    register(
+        &app,
+        &owner,
+        json!({ "full_name": "Ira Sen", "sex": "female", "age_years": 40 }),
+    )
+    .await;
+
+    let (status, todo) = app.send(Method::GET, ALPHA, list, Some(&owner), None).await;
+    assert_eq!(status, StatusCode::OK, "{todo}");
+    let items = todo["items"].as_array().unwrap();
+    let missing: Vec<(&str, &Value)> = items
+        .iter()
+        .map(|item| (item["patient_id"].as_str().unwrap(), &item["missing"]))
+        .collect();
+    assert_eq!(
+        missing,
+        [
+            (no_age.as_str(), &json!(["date_of_birth"])),
+            (bare.as_str(), &json!(["sex", "date_of_birth"]))
+        ]
+    );
+    // Not imported: nothing to dismiss, no file row.
+    assert_eq!(items[0]["id"], Value::Null);
+    assert_eq!(items[0]["row"], Value::Null);
+    assert_eq!(items[0]["imported_at"], Value::Null);
+
+    // Giving an age takes them off; another clinic sees none of them.
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &format!("/api/v1/patients/{no_age}"),
+            Some(&owner),
+            Some(json!({ "age_years": 31 })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, todo) = app.send(Method::GET, ALPHA, list, Some(&owner), None).await;
+    assert_eq!(todo["items"].as_array().unwrap().len(), 1);
+    let beta = app.token(BETA_OWNER);
+    let (_, theirs) = app.send(Method::GET, BETA, list, Some(&beta), None).await;
+    assert_eq!(theirs["items"], json!([]));
+    app.finish().await;
+}

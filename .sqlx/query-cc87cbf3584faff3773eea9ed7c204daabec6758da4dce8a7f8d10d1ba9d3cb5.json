@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "with by_prefix as (\n             select id, row_number() over (order by search_name collate \"C\") as position\n             from aarogyam.patients\n             where (search_name collate \"C\") ^@ $1 and deleted_at is null\n               and app.patient_in_reach(id, $7)\n             order by search_name collate \"C\"\n             limit $2\n           ), close as (\n             select f.id, f.position\n             from app.search_patients($1, $3) with ordinality\n                  as f(id, number, full_name, sex, date_of_birth, birth_date_estimated,\n                       phone_e164, last_visit_at, similarity, position)\n             where $4 and (select count(*) from by_prefix) < 3\n               and f.id not in (select id from by_prefix)\n               and app.patient_in_reach(f.id, $7)\n           ), picked as (\n             select id, 0 as source, position from by_prefix\n             union all\n             select id, 1, position from close\n           )\n           select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,\n                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,\n                  s.next_starts_at, s.next_practitioner, s.balance_paise as \"balance_paise!\",\n                  s.lifetime_paid_paise as \"lifetime_paid_paise!\", s.recall_due as \"recall_due!\"\n           from picked\n           join aarogyam.patients p on p.id = picked.id\n           cross join lateral app.patient_summary(p.id, $5, $6) s\n           where p.deleted_at is null\n           order by picked.source, picked.position",
+  "query": "select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,\n                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,\n                  s.next_starts_at, s.next_practitioner, s.balance_paise as \"balance_paise!\",\n                  s.lifetime_paid_paise as \"lifetime_paid_paise!\", s.recall_due as \"recall_due!\"\n           from (select * from aarogyam.patients\n                 where (right(phone_e164, char_length($1)) = $1 or right(alt_phone_e164, char_length($1)) = $1)\n                   and deleted_at is null and app.patient_in_reach(id, $5)\n                 order by full_name\n                 limit $2) p\n           cross join lateral app.patient_summary(p.id, $3, $4) s\n           order by p.full_name",
   "describe": {
     "columns": [
       {
@@ -181,8 +181,6 @@
       "Left": [
         "Text",
         "Int8",
-        "Int4",
-        "Bool",
         "Timestamptz",
         "Date",
         "Uuid"
@@ -209,5 +207,5 @@
       null
     ]
   },
-  "hash": "adb65e47b6529e74335ed5cb25aba4fb1a21c2ba6d6604ba6440d3c77e820416"
+  "hash": "cc87cbf3584faff3773eea9ed7c204daabec6758da4dce8a7f8d10d1ba9d3cb5"
 }

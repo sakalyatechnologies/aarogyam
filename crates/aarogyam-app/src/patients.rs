@@ -473,7 +473,8 @@ pub async fn edit(
 }
 
 /// Finds patients by what the front desk typed: a number (`SD-1042` or `1042`), a phone
-/// number, or the start of a name, falling back to a fuzzy name match. An empty query lists
+/// number or its last four or more digits, or a name: its start, the start of any of its
+/// words, then (from three letters) any part of it, falling back to a fuzzy match. An empty query lists
 /// the most recently registered patients.
 ///
 /// # Errors
@@ -513,19 +514,39 @@ pub async fn search(
                     .into_iter()
                     .collect()
             }
-            Some(PatientQuery::NumberDigits(digits)) => {
-                let number = format!("{}-{digits}", actor.number_prefix);
-                patients::find_by_number(tx.conn(), &number, at, reach)
-                    .await?
-                    .into_iter()
-                    .collect()
+            Some(PatientQuery::Digits { number, phone_tail }) => {
+                // The patient with that number first, then phones ending in the digits.
+                let mut rows = match number {
+                    Some(digits) => {
+                        let number = format!("{}-{digits}", actor.number_prefix);
+                        patients::find_by_number(tx.conn(), &number, at, reach)
+                            .await?
+                            .into_iter()
+                            .collect()
+                    }
+                    None => Vec::new(),
+                };
+                if let Some(tail) = phone_tail {
+                    let by_phone =
+                        patients::search_phone_tail(tx.conn(), tail.as_str(), limit, at, reach)
+                            .await?;
+                    rows.extend(
+                        by_phone
+                            .into_iter()
+                            .filter(|row| rows.iter().all(|r| r.id != row.id))
+                            .collect::<Vec<_>>(),
+                    );
+                    rows.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
+                }
+                rows
             }
             Some(PatientQuery::Phone(phone)) => {
                 patients::search_phone(tx.conn(), phone.as_e164(), limit, at, reach).await?
             }
             Some(PatientQuery::NamePrefix(prefix)) => {
-                let fuzzy = prefix.chars().count() >= 3;
-                patients::search_name(tx.conn(), &prefix, limit, fuzzy, at, reach).await?
+                // Substrings and close spellings only from three letters; two match too much.
+                let loose = prefix.chars().count() >= 3;
+                patients::search_name(tx.conn(), &prefix, limit, loose, at, reach).await?
             }
         };
         let mut views: Vec<PatientView> = rows

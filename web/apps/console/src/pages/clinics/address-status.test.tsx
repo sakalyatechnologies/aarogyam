@@ -95,11 +95,13 @@ describe("Address status polling", () => {
     const table = await screen.findByRole("table", { name: "Clinics" });
 
     // The new clinic appears with Address pending.
-    expect(within(table).getByText("Address pending")).toBeTruthy();
+    // Under load the list can render before its refetch brings the new clinic; wait for it.
+    expect(await within(table).findByText("Address pending")).toBeTruthy();
 
     // After 10 s the query refetches but the fake backend still returns pending; polling continues.
     await vi.advanceTimersByTimeAsync(10_000);
-    expect(within(table).getByText("Address pending")).toBeTruthy();
+    // Under load the list can render before its refetch brings the new clinic; wait for it.
+    expect(await within(table).findByText("Address pending")).toBeTruthy();
   });
 
   it("stops polling the clinic detail once the address is ready", async () => {

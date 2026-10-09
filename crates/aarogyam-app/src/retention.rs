@@ -48,6 +48,7 @@ pub async fn report(
             }
             Class::Invoices => dal::invoices(db.pool(), cutoff, sample).await?,
             Class::Outbox => dal::outbox(db.pool(), cutoff, sample).await?,
+            Class::Messages => dal::messages(db.pool(), cutoff, sample).await?,
             Class::ShareLinks => dal::share_links(db.pool(), cutoff, sample).await?,
             Class::ImportSessions => dal::import_sessions(db.pool(), cutoff, sample).await?,
             Class::AccessLog => dal::access_log(db.pool(), cutoff, sample).await?,

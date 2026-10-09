@@ -353,6 +353,7 @@ What `own` means, per record:
 | `patient_record` | Patient and everything under them: visits, notes, prescriptions, files, charts | 7 years; children until 21 | Last visit, appointment or bill | Medical councils require records for at least 3 years; the Limitation Act (3 years from majority) and disputes argue for longer; 7 is the cautious default; DPDP section 8(7) says erase when the purpose ends |
 | `invoices` | Bills and payments | 8 years | Date issued | GST law (72 months) and company law (8 years) |
 | `outbox` | Sent or abandoned messages | 90 days | When sent or abandoned | Not needed once delivered; names recipients |
+| `messages` | Messages to patients (queued, sent, skipped) and their provider events | 365 days | Queued | Proof a reminder or notice went out; names the patient and holds free text |
 | `share_links` | Patient links, after expiry | 30 days | Expiry | Not needed once expired |
 | `import_sessions` | Uploaded spreadsheets of patients | 30 days | Upload | Working copy only; the patients are in the clinic's records |
 | `access_log` | Who viewed a record | 3 years | Entry | Lets a clinic answer "who saw my record"; the DPDP Rules ask for logs to be kept at least 1 year |

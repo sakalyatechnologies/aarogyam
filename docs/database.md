@@ -47,9 +47,9 @@ flowchart LR
   iam -->|1| people
   notify -->|1| billing
   notify -->|1| clinical
-  notify -->|2| iam
+  notify -->|1| iam
   notify -->|4| people
-  notify -->|2| scheduling
+  notify -->|3| scheduling
   notify -->|2| tenancy
   onboarding -->|2| people
   ops -->|2| billing
@@ -458,7 +458,7 @@ Anyone who signs in: staff, doctors, patients, Sakalya staff.
 | `status` | `user_status` | active, disabled |
 | `last_seen_at` | `timestamptz?` |  |
 
-Referenced by: `auth_handoffs.user_id`, `clinic_applications.decided_by`, `devices.user_id`, `invitations.invited_by`, `memberships.user_id`, `messages.user_id`, `notifications.user_id`, `platform_users.user_id`, `role_changes.changed_by`, `sessions.user_id`
+Referenced by: `auth_handoffs.user_id`, `clinic_applications.decided_by`, `devices.user_id`, `invitations.invited_by`, `memberships.user_id`, `notifications.user_id`, `platform_users.user_id`, `role_changes.changed_by`, `sessions.user_id`
 
 ### `sessions` (★ foundation)
 
@@ -1111,7 +1111,7 @@ A booked slot with a doctor, optionally in a room or chair.
 
 Online self-bookings start as requested (or confirmed when the clinic auto-confirms); a unique index on (doctor, start) for active self-bookings backs the per-doctor check. An exclusion constraint on (org_id, room_id, time range) for active rows (not cancelled, not no-show, not deleted) stops two bookings in one chair; a doctor in two chairs at once is a warning, not an error. Status changes follow the transition table in aarogyam_domain::schedule. Visits point at appointments, not the other way round.
 
-Referenced by: `appointment_events.appointment_id`, `booking_requests.appointment_id`, `encounters.appointment_id`, `queue_tokens.appointment_id`, `staff_inbox_messages.appointment_id`, `staff_notifications.appointment_id`, `teleconsult_sessions.appointment_id`
+Referenced by: `appointment_events.appointment_id`, `booking_requests.appointment_id`, `encounters.appointment_id`, `messages.appointment_id`, `queue_tokens.appointment_id`, `staff_inbox_messages.appointment_id`, `staff_notifications.appointment_id`, `teleconsult_sessions.appointment_id`
 
 ### `appointment_events` (★ foundation)
 
@@ -2204,11 +2204,11 @@ erDiagram
   audiences ||--o{ campaigns : "audience_id"
   message_templates ||--o{ campaigns : "template_id"
   promo_codes ||--o{ promo_redemptions : "promo_code_id"
-  message_templates ||--o{ messages : "template_id"
-  notification_rules |o--o{ messages : "rule_id"
-  campaigns |o--o{ messages : "campaign_id"
   messages ||--o{ message_events : "message_id"
   contact_preferences {
+    uuid id
+  }
+  notification_rules {
     uuid id
   }
   notifications {
@@ -2240,7 +2240,7 @@ Message text per channel and language. Clinic rows override platform defaults.
 
 org_id is null for platform defaults; this table allows that.
 
-Referenced by: `campaigns.template_id`, `messages.template_id`
+Referenced by: `campaigns.template_id`
 
 ### `notification_rules`
 
@@ -2258,25 +2258,23 @@ When to message: on an event, before an appointment, on birthdays, on recalls.
 | `conditions` | `jsonb?` |  |
 | `active` | `bool` |  |
 
-Referenced by: `messages.rule_id`
-
 ### `contact_preferences`
 
-Per patient and channel: may we message them, and was promotional consent given?
+What a patient asked for per channel and category: an opt-out, and for WhatsApp when they opted in.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
 | `patient_id` | `uuid` | → `patients` |
-| `channel` | `channel` |  |
-| `transactional_ok` | `bool` |  |
-| `promotional_ok` | `bool` |  |
-| `consented_at` | `timestamptz?` |  |
-| `consent_source` | `text?` |  |
+| `channel` | `text` | email, whatsapp, sms |
+| `category` | `text` | all, care, reminders, promotional |
+| `opted_out` | `bool` |  |
 | `opted_out_at` | `timestamptz?` |  |
+| `whatsapp_opt_in_at` | `timestamptz?` | WhatsApp only |
+| `source` | `text` | staff, patient, unsubscribe_link, bounce, complaint, stop_keyword |
 
-Primary key (org_id, patient_id, channel).
+Built (migration 0370). Unique (org_id, patient_id, channel, category). Consent for a purpose is patient_consents (app.may_contact); this is the patient not wanting a channel. Written by staff (POST /patients/{id}/contact-preferences), the unsubscribe link and Resend bounces or complaints (app.contact_opt_out). Erased with the patient.
 
 ### `staff_notifications`
 
@@ -2371,8 +2369,6 @@ A one-off or scheduled send to an audience: health tips, offers.
 | `status` | `campaign_status` | draft, scheduled, sending, sent, cancelled |
 | `cost_estimate_paise` | `bigint?` |  |
 
-Referenced by: `messages.campaign_id`
-
 ### `promo_codes`
 
 Discount codes a clinic can share.
@@ -2429,43 +2425,58 @@ Messages to send because of a change, written in the same transaction as the cha
 
 Guarantees a message is never lost or sent for a change that rolled back. The worker claims due rows across clinics with FOR UPDATE SKIP LOCKED through app.outbox_claim, retries with backoff, gives up after 5 attempts, and deletes rows 30 days after processing.
 
-### `messages` (partitioned)
+### `messages`
 
-Every message scheduled or sent, with its outcome and cost.
+The queue of messages to patients: one row per recipient and channel, addressed and consent-checked when sent.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
-| `patient_id` | `uuid?` | → `patients` |
-| `user_id` | `uuid?` | → `users` |
-| `channel` | `channel` |  |
-| `template_id` | `uuid` | → `message_templates` |
-| `rule_id` | `uuid?` | → `notification_rules` |
-| `campaign_id` | `uuid?` | → `campaigns` |
+| `patient_id` | `uuid` | → `patients` |
+| `channel` | `text` | email, whatsapp, sms |
+| `kind` | `text` | prescription.shared, booking.requested/confirmed/declined, patient_app.invited, appointment.reminder, clinic.message |
+| `purpose` | `text` | care, reminders, promotional (the consent it needs) |
+| `template_key` | `text` | the kind, or care.note, reminder.follow_up, promo.offer |
+| `variables` | `jsonb` | ids and non-patient template values |
+| `body` | `text?` | staff free text, email only |
+| `secret` | `text?` | a one-time link secret, cleared once processed |
+| `appointment_id` | `uuid?` | → `appointments` |
+| `status` | `text` | queued, sending, sent, failed, skipped |
+| `skip_reason` | `text?` | no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed... |
+| `dedupe_key` | `text?` | unique per clinic, e.g. reminder:appt:<id>:24h |
 | `scheduled_for` | `timestamptz` |  |
-| `status` | `message_status` | scheduled, queued, sent, delivered, read, failed, skipped |
-| `skip_reason` | `skip_reason?` | no_consent, quiet_hours, duplicate, quota |
-| `dedupe_key` | `text` | unique, e.g. reminder:appt-id:24h |
-| `provider` | `text?` |  |
-| `provider_message_id` | `text?` |  |
+| `lease_until` | `timestamptz?` | while sending |
+| `attempts` | `int` |  |
+| `last_error` | `text?` |  |
+| `provider` | `text?` | log, resend |
+| `provider_message_id` | `text?` | unique per clinic and provider |
 | `cost_paise` | `bigint?` |  |
+| `unsubscribe_hash` | `text?` | SHA-256 of the email's unsubscribe token |
+| `delivery` | `text?` | latest provider report |
+| `delivery_at` | `timestamptz?` |  |
 | `sent_at` | `timestamptz?` |  |
+| `processed_at` | `timestamptz?` |  |
+
+Built (migrations 0370 to 0373); not partitioned. Never holds an address. The outbox job claims due rows (app.messages_claim, lease and SKIP LOCKED, a daily budget per provider), reads each through app.message_dispatch (address, may_contact, opt-outs, quiet hours, patient state) and sends, skips or reschedules it. The change history masks body, variables, secret, error and the unsubscribe hash. Erased with the patient; retention 365 days from queuing.
 
 Referenced by: `message_events.message_id`
 
-### `message_events` (partitioned)
+### `message_events`
 
-Delivery receipts from providers: sent, delivered, read, failed.
+What providers reported about a sent message: delivered, bounced, complained.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: append only*
 
 | Column | Type | Notes |
 |---|---|---|
 | `message_id` | `uuid` | → `messages` |
-| `kind` | `text` |  |
-| `at` | `timestamptz` |  |
-| `details` | `jsonb?` |  |
+| `provider` | `text` |  |
+| `provider_event_id` | `text` | svix-id; unique per clinic and provider |
+| `kind` | `text` | sent, delivered, delayed, bounced, complained, failed, opened, clicked |
+| `occurred_at` | `timestamptz` |  |
+
+Built (migration 0370). Metadata only, never the payload; written by the Resend webhook through app.message_provider_event, once per event whatever the order.
 
 ### `notifications`
 

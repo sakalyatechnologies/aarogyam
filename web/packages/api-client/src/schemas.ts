@@ -445,6 +445,7 @@ export const patientBrief = z.object({
   full_name: z.string(),
   sex,
   age_years: count.nullable().exactOptional(),
+  registration_incomplete: z.boolean().default(false),
 }) satisfies z.ZodType<C.PatientBrief>;
 export type PatientBrief = z.output<typeof patientBrief>;
 
@@ -1958,7 +1959,9 @@ export const analytics = z.object({
   bucket: analyticsBucket,
   open_minutes_per_day: count,
   money_visible: z.boolean(),
-  chairs: z.array(z.object({ id: roomId, name: z.string() }) satisfies z.ZodType<C.AnalyticsChair>),
+  chairs: z.array(
+    z.object({ id: roomId, name: z.string(), uses_clinic_hours: z.boolean().default(false) }) satisfies z.ZodType<C.AnalyticsChair>,
+  ),
   buckets: z.array(analyticsBucketRow),
   patients: z.object({
     age_bands: z.array(keyCount),

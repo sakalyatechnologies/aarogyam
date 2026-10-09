@@ -37,6 +37,8 @@ pub struct ChairPeriod {
     pub room_id: Uuid,
     /// Its name.
     pub name: String,
+    /// Its branch.
+    pub branch_id: Option<Uuid>,
     /// Booked minutes.
     pub minutes: i64,
     /// Appointments.
@@ -50,6 +52,19 @@ pub struct Chair {
     pub room_id: Uuid,
     /// Its name.
     pub name: String,
+    /// Its branch.
+    pub branch_id: Option<Uuid>,
+}
+
+/// Minutes a branch is open on a weekday, from its opening hours.
+#[derive(Debug, Clone, Copy)]
+pub struct OpenDay {
+    /// The branch.
+    pub branch_id: Uuid,
+    /// ISO weekday, 1 Monday to 7 Sunday.
+    pub weekday: i64,
+    /// Minutes open.
+    pub minutes: i64,
 }
 
 /// An amount in a period, with a count.
@@ -128,6 +143,8 @@ pub struct AnalyticsRows {
     pub referrals: Vec<KeyCount>,
     /// Visits by weekday and hour.
     pub busy_hours: Vec<HourCount>,
+    /// Opening minutes per branch and weekday; empty when no hours are set.
+    pub open_days: Vec<OpenDay>,
 }
 
 /// The analytics figures for `query`, in one round trip.
@@ -162,54 +179,54 @@ pub async fn analytics(
            select 'chair'::text as "kind!", date_trunc($2, b.local_start)::date as period,
                   r.id::text as key, r.name as label,
                   sum(extract(epoch from b.ends_at - b.starts_at) / 60)::bigint as a,
-                  count(*)::bigint as b, 0::bigint as c
+                  count(*)::bigint as b, 0::bigint as c, r.branch_id as branch
            from booked b
            join aarogyam.rooms r on r.id = b.room_id
            where r.kind = 'chair'
-           group by 2, 3, 4
+           group by 2, 3, 4, 8
            union all
-           select 'room', null, r.id::text, r.name, 0, 0, 0
+           select 'room', null, r.id::text, r.name, 0, 0, 0, r.branch_id
            from aarogyam.rooms r
            where r.kind = 'chair' and r.active and r.deleted_at is null
            union all
            select 'income', date_trunc($2, m.received_at at time zone $1)::date, null, null,
-                  sum(m.amount_paise)::bigint, count(*), 0
+                  sum(m.amount_paise)::bigint, count(*), 0, null
            from aarogyam.payments m
            where $7 and m.status = 'received' and m.received_at >= $5 and m.received_at < $6
            group by 2
            union all
            select 'expense', date_trunc($2, e.spent_on::timestamp)::date, c.key, null,
-                  sum(e.amount_paise)::bigint, count(*), 0
+                  sum(e.amount_paise)::bigint, count(*), 0, null
            from aarogyam.expenses e
            join aarogyam.expense_categories c on c.org_id = e.org_id and c.id = e.category_id
            where $7 and e.status = 'recorded' and e.spent_on between $3 and $4
            group by 2, 3
            union all
            select 'stock', date_trunc($2, s.received_on::timestamp)::date, null, null,
-                  sum(s.received_quantity * s.unit_cost_paise)::bigint, count(*), 0
+                  sum(s.received_quantity * s.unit_cost_paise)::bigint, count(*), 0, null
            from aarogyam.stock_batches s
            where $7 and s.received_on between $3 and $4
            group by 2
            union all
            select 'patients', x.period, null, null,
                   count(distinct x.patient_id) filter (where x.first_period = x.period),
-                  count(distinct x.patient_id) filter (where x.first_period < x.period), 0
+                  count(distinct x.patient_id) filter (where x.first_period < x.period), 0, null
            from (select v.patient_id, date_trunc($2, v.local_start)::date as period,
                         date_trunc($2, f.first_at at time zone $1)::date as first_period
                  from visits v join firsts f on f.patient_id = v.patient_id) x
            group by x.period
            union all
            select 'age', null, null, null,
-                  extract(year from age($4::date, p.date_of_birth))::bigint, count(*), 0
+                  extract(year from age($4::date, p.date_of_birth))::bigint, count(*), 0, null
            from aarogyam.patients p
            where p.id in (select patient_id from visits)
            group by 5
            union all
-           select 'visit_kind', null, v.kind, null, count(*), 0, 0
+           select 'visit_kind', null, v.kind, null, count(*), 0, 0, null
            from visits v
            group by 3
            union all
-           select 'referral', null, s.kind, null, count(*), 0, 0
+           select 'referral', null, s.kind, null, count(*), 0, 0, null
            from firsts f
            join aarogyam.patients p on p.id = f.patient_id
            left join aarogyam.referral_sources s on s.org_id = p.org_id and s.id = p.referral_source_id
@@ -217,9 +234,14 @@ pub async fn analytics(
            group by 3
            union all
            select 'busy', null, null, null, extract(isodow from v.local_start)::bigint,
-                  extract(hour from v.local_start)::bigint, count(*)
+                  extract(hour from v.local_start)::bigint, count(*), null
            from visits v
-           group by 5, 6"#,
+           group by 5, 6
+           union all
+           select 'hours', null, null, null, h.weekday::bigint,
+                  sum(extract(epoch from h.ends - h.starts) / 60)::bigint, 0, h.branch_id
+           from aarogyam.clinic_hours h
+           group by 5, 8"#,
         query.timezone,
         query.bucket,
         query.from,
@@ -241,6 +263,7 @@ pub async fn analytics(
                         period,
                         room_id,
                         name,
+                        branch_id: row.branch,
                         minutes: a,
                         appointments: b,
                     });
@@ -248,7 +271,11 @@ pub async fn analytics(
             }
             ("room", _) => {
                 if let (Some(room_id), Some(name)) = (room_id, row.label) {
-                    out.chairs.push(Chair { room_id, name });
+                    out.chairs.push(Chair {
+                        room_id,
+                        name,
+                        branch_id: row.branch,
+                    });
                 }
             }
             (kind @ ("income" | "expense" | "stock"), Some(period)) => {
@@ -286,6 +313,15 @@ pub async fn analytics(
                 hour: b,
                 count: c,
             }),
+            ("hours", _) => {
+                if let Some(branch_id) = row.branch {
+                    out.open_days.push(OpenDay {
+                        branch_id,
+                        weekday: a,
+                        minutes: b,
+                    });
+                }
+            }
             _ => {}
         }
     }

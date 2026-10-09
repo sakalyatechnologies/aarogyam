@@ -1435,6 +1435,7 @@
    ],
    "referenced_by": [
     "appointments.branch_id",
+    "clinic_hours.branch_id",
     "daily_closings.branch_id",
     "encounters.branch_id",
     "equipment.branch_id",
@@ -2094,6 +2095,7 @@
     "clinical_notes.error_by",
     "clinical_notes.signed_by",
     "conditions.verified_by",
+    "consent_notices.published_by",
     "daily_closings.closed_by",
     "dental_terms.added_by",
     "dental_terms.retired_by",
@@ -2110,6 +2112,7 @@
     "observations.verified_by",
     "patient_consents.recorded_by",
     "patient_consents.withdrawn_by",
+    "patient_duplicates.resolved_by",
     "patient_links.decided_by",
     "payments.received_by",
     "payments.voided_by",
@@ -2478,6 +2481,8 @@
     "messages.patient_id",
     "observations.patient_id",
     "patient_consents.patient_id",
+    "patient_duplicates.candidate_id",
+    "patient_duplicates.patient_id",
     "patient_gaps.patient_id",
     "patient_identifiers.patient_id",
     "patient_link_codes.patient_id",
@@ -2984,7 +2989,7 @@
    "partitioned": false,
    "lifecycle": "ephemeral",
    "schema": "aarogyam",
-   "notes": "Replaced as a whole per doctor. Clinic hours and valid_from/valid_to are planned.",
+   "notes": "Replaced as a whole per doctor. Clinic opening hours are in clinic_hours. valid_from/valid_to are planned.",
    "cols": [
     {
      "name": "practitioner_id",
@@ -3025,6 +3030,50 @@
    "referenced_by": [],
    "sensitivity": "personal",
    "offline": "read_only"
+  },
+  {
+   "name": "clinic_hours",
+   "domain": "people",
+   "purpose": "When each branch of the clinic is open, by weekday. Split shifts are two rows.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0330). Replaced as a whole per branch (GET/PUT /clinic-hours). Chair utilization counts open minutes from it, nine hours a day when a branch has none. Clinics that existed got the union of their active doctors' hours.",
+   "cols": [
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "weekday",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": "1 Monday to 7 Sunday"
+    },
+    {
+     "name": "starts",
+     "type": "time",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "ends",
+     "type": "time",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "leave_blocks",
@@ -8568,6 +8617,59 @@
    "offline": "server_only"
   },
   {
+   "name": "consent_notices",
+   "domain": "trust",
+   "purpose": "The clinic's own privacy notice text, one row per published version.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0332). GET /consent-notices (patients.read), POST to publish the next version (settings.manage). The newest is the current notice: consents (desk, walk-in, check-in) record it as notice_id unless another is named. Never edited.",
+   "cols": [
+    {
+     "name": "version",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "1, 2, 3 per clinic"
+    },
+    {
+     "name": "label",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "short, e.g. v2 2026-11"
+    },
+    {
+     "name": "body",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "up to 20,000 characters"
+    },
+    {
+     "name": "published_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "published_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "patient_consents.notice_id"
+   ],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
    "name": "patient_consents",
    "domain": "trust",
    "purpose": "DPDP notice and consent record: the patient was shown the clinic's notice and agreed to a purpose; later withdrawn.",
@@ -8597,7 +8699,14 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "the clinic's label for the notice text shown, e.g. v1 2026-10"
+     "note": "the label of the notice shown, e.g. v1 2026-10 (the notice's label when notice_id is set)"
+    },
+    {
+     "name": "notice_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "consent_notices",
+     "note": "the published notice text shown; null for consents recorded against a label only"
     },
     {
      "name": "given_at",
@@ -8660,6 +8769,64 @@
      "type": "text",
      "nullable": true,
      "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "patient_duplicates",
+   "domain": "trust",
+   "purpose": "Possible duplicate patients for the front desk: a self-registered online record whose phone matches an existing patient.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0331). Online booking matches only by verified email; a phone match makes a new self-registered record and a row here, never a merge. GET /patient-duplicates lists open ones; POST /patients/{id}/merge moves the self-registered record's appointments, tokens, links, identifiers and consents to the existing patient and marks it merged (refused when it has any clinical or billing record); dismiss marks it a different person.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": "the self-registered record"
+    },
+    {
+     "name": "candidate_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": "the existing patient it may be"
+    },
+    {
+     "name": "reason",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "phone"
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "open, merged, dismissed"
+    },
+    {
+     "name": "resolved_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "resolved_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
      "note": ""
     }
    ],

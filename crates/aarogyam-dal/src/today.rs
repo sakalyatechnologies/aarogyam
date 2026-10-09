@@ -57,6 +57,9 @@ pub async fn today(
                            a.patient_id, p.number as patient_number, p.full_name as patient_name,
                            p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
                            p.birth_date_estimated as patient_birth_date_estimated,
+                           ('self_registered' = any(p.tags)
+                            and (p.sex = 'unknown' or p.date_of_birth is null))
+                             as patient_registration_incomplete,
                            a.practitioner_id, d.display_name as practitioner_name,
                            d.calendar_color as practitioner_color, q.token_number
                     from aarogyam.appointments a
@@ -73,6 +76,9 @@ pub async fn today(
                            p.full_name as patient_name, p.sex as patient_sex,
                            p.date_of_birth as patient_date_of_birth,
                            p.birth_date_estimated as patient_birth_date_estimated,
+                           ('self_registered' = any(p.tags)
+                            and (p.sex = 'unknown' or p.date_of_birth is null))
+                             as patient_registration_incomplete,
                            q.appointment_id, q.practitioner_id, d.display_name as practitioner_name
                     from aarogyam.queue_tokens q
                     join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id

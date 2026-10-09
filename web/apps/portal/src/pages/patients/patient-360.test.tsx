@@ -28,6 +28,27 @@ describe("Patient 360 header", () => {
     expect(screen.getByRole("link", { name: "Back to patients" }).getAttribute("href")).toBe("/patients");
   });
 
+  it("shows a name stored in lower case in title case, without changing it", async () => {
+    let path = "";
+    const backend = fakeApi((fixtures) => {
+      const patient = fixtures.patients[0];
+      if (patient !== undefined) {
+        patient.full_name = "ram kumar";
+        path = `/patients/${patient.id}`;
+      }
+    });
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    expect(await screen.findByRole("heading", { level: 1, name: "Ram Kumar" })).toBeTruthy();
+  });
+
+  it("names the record by its clinic number above the name, not \"Patient 360\"", async () => {
+    const { path, backend, number } = allergicPatient();
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    const summary = await screen.findByRole("region", { name: "Patient summary" });
+    expect(await within(summary).findByText(number)).toBeTruthy();
+    expect(within(summary).queryByText("Patient 360")).toBeNull();
+  });
+
   it("keeps clinical tabs and history away from people without clinical access", async () => {
     const { path, backend } = allergicPatient();
     renderPortal(path, { as: PEOPLE.farah, backend });

@@ -9,7 +9,7 @@ import { Tabs } from "@sakalya/ui";
 import { AppointmentActionButton, isOpenAppointment } from "../../components/appointment-action.js";
 import { Empty, Initials, ListRow, MkCard, Skeleton, StatusChip, Timeline } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
-import { ageSex, formatPhone, languageLabel, maskEmail, maskPhone, patientPath } from "../../lib/patients.js";
+import { ageSex, displayName, formatPhone, languageLabel, maskEmail, maskPhone, patientPath } from "../../lib/patients.js";
 import { usePatient, useTimeline, useToday } from "../../queries.js";
 import { rememberPatient } from "../../lib/recent-patients.js";
 import { usePlans } from "../treatment-plans/queries.js";
@@ -125,10 +125,11 @@ function PatientView({ patient }: { patient: Patient }) {
         <div className="mk-p360-who">
           <Initials name={patient.full_name} size="lg" />
           <div style={{ minWidth: 0 }}>
-            <div className="mk-ph-eyebrow">Patient 360</div>
-            <h1>{patient.full_name}</h1>
+            {/* The clinic number is the breadcrumb: it names the record without the internal "Patient 360". */}
+            <div className="mk-ph-eyebrow mk-mono">{patient.number}</div>
+            <h1>{displayName(patient.full_name)}</h1>
             <p>
-              {ageSex(age, patient.sex, patient.birth_date_estimated)} · <span className="mk-mono">{patient.number}</span>
+              {ageSex(age, patient.sex, patient.birth_date_estimated)}
               {patient.status === "active" ? "" : ` · ${patient.status === "inactive" ? "Inactive" : patient.status}`}
             </p>
             <ConsentLine patientId={patient.id} />

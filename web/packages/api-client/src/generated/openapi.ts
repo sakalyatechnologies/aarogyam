@@ -383,7 +383,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/support-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The support grants clinics have given the signed-in staff member. */
+        get: operations["listMySupportGrants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dental-terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The procedures and materials the clinic added, retired ones included. */
+        get: operations["listOwnDentalTerms"];
+        put?: never;
+        /**
+         * Adds a procedure or material to the clinic's list ("Add new" in the chart's dropdowns). A
+         *     label matching a seeded term or one the clinic has (ignoring case) returns that term with
+         *     `200`; a new one answers `201`.
+         */
+        post: operations["addDentalTerm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dental-terms/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Gives a term a new label. Old chart entries show the new label; the change history keeps
+         *     the old one. To change what a term means, retire it and add a new one.
+         */
+        patch: operations["renameDentalTerm"];
+        trace?: never;
+    };
+    "/api/v1/dental-terms/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Offers a retired term for new entries again. */
+        post: operations["restoreDentalTerm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dental-terms/{id}/retire": {
         parameters: {
             query?: never;
             header?: never;
@@ -393,11 +469,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Adds a procedure or material to the clinic's list ("Add new" in the chart's dropdowns). A
-         *     label matching a seeded term or one the clinic has (ignoring case) returns that term with
-         *     `200`; a new one answers `201`.
+         * Retires a term: it stays on old chart entries but is no longer offered for new ones.
+         *     Retiring twice keeps the first time. Adding the same label again brings it back.
          */
-        post: operations["addDentalTerm"];
+        post: operations["retireDentalTerm"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1108,6 +1183,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/patient/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Where the signed-in patient is signed in. */
+        get: operations["listMyPatientSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Signs out one of the patient's sessions; it gets `401` from its next request. */
+        delete: operations["revokeMyPatientSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/practitioner": {
         parameters: {
             query?: never;
@@ -1670,6 +1779,26 @@ export interface paths {
         post?: never;
         /** Removes a number from a patient. */
         delete: operations["removePatientIdentifier"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/legal-hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Puts the patient on legal hold, which stops their erasure, or releases them. Holding again
+         *     keeps the first time and takes the new reason.
+         */
+        put: operations["setPatientLegalHold"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2917,6 +3046,61 @@ export interface paths {
         head?: never;
         /** Changes a supplier. */
         patch: operations["updateSupplier"];
+        trace?: never;
+    };
+    "/api/v1/support-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's support grants, newest first. */
+        get: operations["listSupportGrants"];
+        put?: never;
+        /**
+         * Lets a Sakalya staff member read the clinic's records from now until `ends_at`, at most
+         *     seven days. Every request they make under it is recorded; they can't change anything.
+         */
+        post: operations["createSupportGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-grants/{id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What the staff member did under a grant, newest first. */
+        get: operations["listSupportGrantActions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-grants/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ends a grant now. */
+        post: operations["revokeSupportGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/today": {
@@ -4256,6 +4440,8 @@ export interface components {
             label: string;
             /** @description Added by the clinic rather than seeded. */
             own: boolean;
+            /** @description Retired: still shown on old entries, not offered for new ones. */
+            retired: boolean;
         };
         /** @description A consent the patient gives at the desk, recorded against the clinic's current notice. */
         DeskConsentFields: {
@@ -4942,6 +5128,15 @@ export interface components {
             /** @description By start. */
             items: components["schemas"]["Leave"][];
         };
+        /** @description A patient's legal hold. */
+        LegalHold: {
+            /** @description Whether erasure is stopped. */
+            held: boolean;
+            /** @description Why, while held. */
+            reason?: string | null;
+            /** @description Since when, while held (RFC 3339). */
+            since?: string | null;
+        };
         /** @description The letterhead printed on prescriptions, bills and receipts. */
         Letterhead: {
             /** @description Accent colour of the design, `#RRGGBB`; the brand colour when none. */
@@ -5547,6 +5742,15 @@ export interface components {
             /** @description The standard role it starts as a copy of, such as `assistant` (not `owner`). */
             template_key: string;
         };
+        /** @description A grant to make. */
+        NewSupportGrant: {
+            /** @description When access ends (RFC 3339): 15 minutes to 7 days from now. */
+            ends_at: string;
+            /** @description Why they need access, 3 to 500 characters. No patient details. */
+            reason: string;
+            /** @description The Sakalya staff member's sign-in email. */
+            staff_email: string;
+        };
         /** @description A visit to start. */
         NewVisit: {
             /** @description The appointment the patient came for; a walk-in has none. One visit per appointment. */
@@ -5713,6 +5917,30 @@ export interface components {
         OpenRequest: {
             /** @description The six digits printed on the paper. */
             pin: string;
+        };
+        /** @description A procedure or material the clinic added. */
+        OwnDentalTerm: {
+            /** @description When (RFC 3339). */
+            added_at: string;
+            /** @description Who added it. */
+            added_by?: string | null;
+            /** @description Identifier, as chart entries name it. */
+            id: string;
+            /** @description `procedure` or `material`. */
+            kind: string;
+            /** @description The current label; old chart entries show it too. */
+            label: string;
+            /** @description Retired: no longer offered for new entries. */
+            retired: boolean;
+            /** @description When it was retired (RFC 3339). */
+            retired_at?: string | null;
+            /** @description Who retired it. */
+            retired_by?: string | null;
+        };
+        /** @description The clinic's own terms. */
+        OwnDentalTermList: {
+            /** @description By list, then label; retired ones included. */
+            items: components["schemas"]["OwnDentalTerm"][];
         };
         /** @description A patient. Phone and email are masked (`+91******3210`) unless the role has `patients.contact`. */
         Patient: {
@@ -6191,6 +6419,24 @@ export interface components {
             strength?: string | null;
             /** @description `before_food`, `after_food`, `empty_stomach`, `bedtime`, `sos` or `as_directed`. */
             timing?: string | null;
+        };
+        /** @description A place the patient is signed in. */
+        PatientSession: {
+            /** @description When it signed in (RFC 3339). */
+            created_at: string;
+            /** @description The session making this request. */
+            current: boolean;
+            /** @description When the sign-in expires unless refreshed (RFC 3339). */
+            expires_at: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description When it was last used, to within five minutes (RFC 3339). */
+            last_active_at: string;
+        };
+        /** @description The patient's sessions. */
+        PatientSessionList: {
+            /** @description Live sessions, most recently used first, at most 50. */
+            items: components["schemas"]["PatientSession"][];
         };
         /** @description A payment and its receipt number. */
         Payment: {
@@ -6874,6 +7120,11 @@ export interface components {
             /** @description A short reason, for the console only. */
             reason?: string | null;
         };
+        /** @description A new label. */
+        RenameDentalTerm: {
+            /** @description 1 to 80 characters. */
+            label: string;
+        };
         /**
          * @description An owner invitation sent again. `invite_link` is shown once; it was also emailed, and the
          *     previous link no longer works.
@@ -7175,6 +7426,13 @@ export interface components {
             display_name: string;
             /** @description The user. */
             id: string;
+        };
+        /** @description Puts a patient on legal hold, or releases them. */
+        SetLegalHold: {
+            /** @description On or off. */
+            held: boolean;
+            /** @description Why, 3 to 300 characters; required when `held`. No clinical detail. */
+            reason?: string | null;
         };
         /** @description Where a first-run setup stands. */
         Setup: {
@@ -7650,6 +7908,36 @@ export interface components {
             /** @description Members, active first, then by name. */
             members: components["schemas"]["Member"][];
         };
+        /** @description A grant the staff member holds. */
+        StaffSupportGrant: {
+            /** @description What it allows: `read`. */
+            access: string;
+            /** @description The clinic. */
+            clinic_id: string;
+            /** @description Its name. */
+            clinic_name: string;
+            /** @description When it ends (RFC 3339). */
+            ends_at: string;
+            /** @description The clinic member who granted it. */
+            granted_by: string;
+            /** @description The grant. */
+            id: string;
+            /** @description The clinic's portal host, where the records are read. */
+            portal_host?: string | null;
+            /** @description Why the clinic granted it. */
+            reason: string;
+            /** @description Its subdomain. */
+            slug: string;
+            /** @description When it started (RFC 3339). */
+            starts_at: string;
+            /** @description `active`, `ended` or `revoked`. */
+            status: string;
+        };
+        /** @description The grants the staff member holds, newest end first. */
+        StaffSupportGrants: {
+            /** @description At most 100. */
+            items: components["schemas"]["StaffSupportGrant"][];
+        };
         /** @description A visit started from the queue. */
         StartedVisit: {
             /** @description Whether this request started the visit; false on a repeat. */
@@ -7819,6 +8107,57 @@ export interface components {
             name?: string | null;
             /** @description Phone; +91 is assumed without a country code. */
             phone?: string | null;
+        };
+        /** @description A request made under a grant. */
+        SupportAction: {
+            /** @description When (RFC 3339). */
+            at: string;
+            /** @description `GET`, `POST` ... */
+            method: string;
+            /** @description The route, such as `/api/v1/patients/{id}`: never a value from it. */
+            route: string;
+        };
+        /** @description What the staff member did under a grant, newest first. */
+        SupportActionList: {
+            /** @description At most 200. */
+            items: components["schemas"]["SupportAction"][];
+        };
+        /** @description The clinic's grants, newest first. */
+        SupportGrantList: {
+            /** @description Active, ended and revoked, at most 100. */
+            items: components["schemas"]["SupportGrantView"][];
+        };
+        /** @description A grant of read access to one Sakalya staff member. */
+        SupportGrantView: {
+            /** @description What it allows: `read` (records, read-only). */
+            access: string;
+            /**
+             * Format: int64
+             * @description Requests the staff member made under it.
+             */
+            actions: number;
+            /** @description When it ends by itself (RFC 3339). */
+            ends_at: string;
+            /** @description The member who granted it. */
+            granted_by?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description When they last used it (RFC 3339). */
+            last_action_at?: string | null;
+            /** @description Why it was granted. */
+            reason: string;
+            /** @description When it was revoked (RFC 3339). */
+            revoked_at?: string | null;
+            /** @description The member who revoked it. */
+            revoked_by?: string | null;
+            /** @description Their sign-in email. */
+            staff_email?: string | null;
+            /** @description The staff member's name. */
+            staff_name?: string | null;
+            /** @description When it started (RFC 3339). */
+            starts_at: string;
+            /** @description `active`, `ended` or `revoked`. */
+            status: string;
         };
         /** @description A doctor working today. */
         TeamMemberToday: {
@@ -9328,6 +9667,79 @@ export interface operations {
             };
         };
     };
+    listMySupportGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffSupportGrants"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Sakalya staff, or the authenticator step is missing */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the console host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listOwnDentalTerms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnDentalTermList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read and settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     addDentalTerm: {
         parameters: {
             query?: never;
@@ -9382,6 +9794,153 @@ export interface operations {
             };
             /** @description The same label was added at the same moment */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    renameDentalTerm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clinic's term */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameDentalTerm"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnDentalTerm"];
+                };
+            };
+            /** @description A bad label */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such term in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The list already has that label, or it is a standard term */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    restoreDentalTerm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clinic's term */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnDentalTerm"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such term in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retireDentalTerm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clinic's term */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnDentalTerm"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such term in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11401,6 +11960,74 @@ export interface operations {
             };
         };
     };
+    listMyPatientSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientSessionList"];
+                };
+            };
+            /** @description Not signed in, or this session was signed out */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the app host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revokeMyPatientSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The session */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in, or this session was signed out */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not one of this patient's sessions, or not the app host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getMyPractitioner: {
         parameters: {
             query?: never;
@@ -13334,6 +13961,60 @@ export interface operations {
                 content?: never;
             };
             /** @description No such identifier in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setPatientLegalHold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetLegalHold"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHold"];
+                };
+            };
+            /** @description A missing or bad reason */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -17567,6 +18248,183 @@ export interface operations {
                 content?: never;
             };
             /** @description A supplier has this name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listSupportGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportGrantList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks support.grant */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createSupportGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSupportGrant"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportGrantView"];
+                };
+            };
+            /** @description A bad email, reason or end, or the email isn't Sakalya support staff */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks support.grant */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description That person already has access; revoke it first */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listSupportGrantActions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The grant */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportActionList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks support.grant */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such grant in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revokeSupportGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The grant */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportGrantView"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks support.grant */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such grant in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description It already ended or was revoked */
             409: {
                 headers: {
                     [name: string]: unknown;

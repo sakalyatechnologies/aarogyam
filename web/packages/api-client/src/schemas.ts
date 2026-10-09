@@ -1460,6 +1460,8 @@ export const dentalTerm = z.object({
   kind: dentalTermKind,
   label: z.string().min(1),
   own: z.boolean(),
+  /** Retired: shown on old entries, not offered for new ones. Older servers don't send it. */
+  retired: z.boolean().default(false),
 }) satisfies z.ZodType<C.DentalTerm>;
 export type DentalTerm = z.output<typeof dentalTerm>;
 const dentalTermRef = dentalTerm.nullable().exactOptional();

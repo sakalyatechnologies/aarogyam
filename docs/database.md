@@ -2264,6 +2264,8 @@ Money the clinic spends.
 | `void_reason` | `text?` |  |
 | `voided_at` | `timestamptz?` |  |
 | `voided_by` | `uuid?` | → `memberships` |
+| `idempotency_key` | `text?` | the client's Idempotency-Key; unique per clinic (migration 0385) |
+| `request_hash` | `text?` | SHA-256 of the request sent with the key |
 
 Built (migration 0300). Recording needs expenses.write; listing and voiding need finance.view. Never edited: a mistake is voided with a reason (trigger). Stock deliveries are not copied in; the Analytics report counts stock_batches at cost as material. Not built yet: branch, payment method, vendor, receipt file.
 

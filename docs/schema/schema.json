@@ -7405,6 +7405,20 @@
      "nullable": true,
      "ref": "memberships",
      "note": ""
+    },
+    {
+     "name": "idempotency_key",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the client's Idempotency-Key; unique per clinic (migration 0385)"
+    },
+    {
+     "name": "request_hash",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "SHA-256 of the request sent with the key"
     }
    ],
    "referenced_by": [

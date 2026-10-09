@@ -143,6 +143,8 @@ pub async fn record(
                 amount_paise: amount.get(),
                 note: Some(&expense_note),
                 recorded_by: actor.membership_id.uuid(),
+                idempotency_key: None,
+                request_hash: None,
             },
         )
         .await?

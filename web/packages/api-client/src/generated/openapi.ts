@@ -751,7 +751,10 @@ export interface paths {
         /** Expenses spent on clinic days `from` to `to`, newest day first, voided ones included. */
         get: operations["listExpenses"];
         put?: never;
-        /** Records an expense. */
+        /**
+         * Records an expense. Send an `Idempotency-Key` header (a UUID per form) so a retry returns
+         *     the first expense (`200`) instead of recording another.
+         */
         post: operations["recordExpense"];
         delete?: never;
         options?: never;
@@ -12324,7 +12327,10 @@ export interface operations {
     recordExpense: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Unique per expense, 8 to 100 letters, digits, '-', '_', '.' or ':'; a retry sends the same key */
+                "Idempotency-Key"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -12334,6 +12340,16 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Already recorded with this key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            /** @description Recorded */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -12342,7 +12358,7 @@ export interface operations {
                     "application/json": components["schemas"]["Expense"];
                 };
             };
-            /** @description Invalid input: amount, note, or a day after today */
+            /** @description Invalid input: amount, note, a day after today, or a malformed key */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -12358,6 +12374,13 @@ export interface operations {
             };
             /** @description The role lacks expenses.write */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The key was used for a different expense */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -2331,8 +2331,22 @@
         "tags": [
           "billing"
         ],
-        "summary": "Records an expense.",
+        "summary": "Records an expense. Send an `Idempotency-Key` header (a UUID per form) so a retry returns\nthe first expense (`200`) instead of recording another.",
         "operationId": "recordExpense",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique per expense, 8 to 100 letters, digits, '-', '_', '.' or ':'; a retry sends the same key",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -2344,7 +2358,18 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Already recorded with this key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Expense"
+                }
+              }
+            }
+          },
           "201": {
+            "description": "Recorded",
             "content": {
               "application/json": {
                 "schema": {
@@ -2354,13 +2379,16 @@
             }
           },
           "400": {
-            "description": "Invalid input: amount, note, or a day after today"
+            "description": "Invalid input: amount, note, a day after today, or a malformed key"
           },
           "401": {
             "description": "Not signed in"
           },
           "403": {
             "description": "The role lacks expenses.write"
+          },
+          "409": {
+            "description": "The key was used for a different expense"
           }
         },
         "security": [

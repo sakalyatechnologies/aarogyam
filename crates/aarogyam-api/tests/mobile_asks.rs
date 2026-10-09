@@ -317,3 +317,66 @@ async fn seating_puts_the_patient_and_appointment_in_the_chosen_chair() {
     assert_eq!(status, StatusCode::FORBIDDEN);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn an_expense_retried_with_its_key_is_recorded_once() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let beta = app.token(BETA_OWNER);
+    let today = time::OffsetDateTime::now_utc()
+        .date()
+        .previous_day()
+        .unwrap()
+        .to_string();
+    let body = json!({ "category": "rent", "spent_on": today, "amount_paise": 2_500_000 });
+    let record = async |token: &str, host: &str, body: Value, key: &str| {
+        app.send_with(
+            Method::POST,
+            host,
+            "/api/v1/expenses",
+            Some(token),
+            Some(body),
+            &[("Idempotency-Key", key)],
+        )
+        .await
+    };
+
+    let (status, first) = record(&owner, ALPHA, body.clone(), "rent-0001-oct").await;
+    assert_eq!(status, StatusCode::CREATED, "{first}");
+    let (status, again) = record(&owner, ALPHA, body.clone(), "rent-0001-oct").await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert_eq!(again["id"], first["id"]);
+    // The same key for a different expense is refused; a malformed key is a 400.
+    let other = json!({ "category": "rent", "spent_on": today, "amount_paise": 100 });
+    let (status, _) = record(&owner, ALPHA, other, "rent-0001-oct").await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    let (status, _) = record(&owner, ALPHA, body.clone(), "short").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    // Without a key every request records an expense, as before.
+    for _ in 0..2 {
+        let (status, _) = app
+            .send(
+                Method::POST,
+                ALPHA,
+                "/api/v1/expenses",
+                Some(&owner),
+                Some(body.clone()),
+            )
+            .await;
+        assert_eq!(status, StatusCode::CREATED);
+    }
+    let count: i64 = sqlx::query_scalar("select count(*) from aarogyam.expenses")
+        .fetch_one(&app.owner)
+        .await
+        .unwrap();
+    assert_eq!(count, 3);
+
+    // Keys are per clinic: Beta's same key records Beta's own expense.
+    let (status, betas) = record(&beta, BETA, body.clone(), "rent-0001-oct").await;
+    assert_eq!(status, StatusCode::CREATED, "{betas}");
+    assert_ne!(betas["id"], first["id"]);
+    let (status, _) = record(&app.token(ALPHA_NOTHING), ALPHA, body, "rent-0002-oct").await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    app.finish().await;
+}

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "with c as (\n             select id, key, name from aarogyam.expense_categories where key = $2\n           ), e as (\n             insert into aarogyam.expenses (id, category_id, spent_on, amount_paise, note, recorded_by)\n             select $1, c.id, $3, $4, $5, $6 from c\n             returning id, category_id, spent_on, amount_paise, note, status, void_reason, voided_at,\n                       recorded_by, created_at\n           )\n           select e.id as \"id!\", e.category_id as \"category_id!\", c.key as \"category_key!\",\n                  c.name as \"category_name!\", e.spent_on as \"spent_on!\",\n                  e.amount_paise as \"amount_paise!\", e.note, e.status as \"status!\",\n                  e.void_reason, e.voided_at, e.recorded_by as \"recorded_by!\",\n                  e.created_at as \"created_at!\"\n           from e join c on c.id = e.category_id",
+  "query": "with c as (\n             select id, key, name from aarogyam.expense_categories where key = $2\n           ), e as (\n             insert into aarogyam.expenses (id, category_id, spent_on, amount_paise, note, recorded_by,\n                                            idempotency_key, request_hash)\n             select $1, c.id, $3, $4, $5, $6, $7, $8 from c\n             returning id, category_id, spent_on, amount_paise, note, status, void_reason, voided_at,\n                       recorded_by, created_at\n           )\n           select e.id as \"id!\", e.category_id as \"category_id!\", c.key as \"category_key!\",\n                  c.name as \"category_name!\", e.spent_on as \"spent_on!\",\n                  e.amount_paise as \"amount_paise!\", e.note, e.status as \"status!\",\n                  e.void_reason, e.voided_at, e.recorded_by as \"recorded_by!\",\n                  e.created_at as \"created_at!\"\n           from e join c on c.id = e.category_id",
   "describe": {
     "columns": [
       {
@@ -143,7 +143,9 @@
         "Date",
         "Int8",
         "Text",
-        "Uuid"
+        "Uuid",
+        "Text",
+        "Text"
       ]
     },
     "nullable": [
@@ -161,5 +163,5 @@
       false
     ]
   },
-  "hash": "887144a4c3134b617a06a8bdc55ee86bedba2cd3c829b386a942178719f2d274"
+  "hash": "9e50f9afcfb8f2538ec7d14f2e9b8832b18394b476bf0d076059658b3517a3a1"
 }

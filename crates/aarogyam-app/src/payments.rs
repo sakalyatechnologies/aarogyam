@@ -78,7 +78,7 @@ pub struct PaymentView {
 }
 
 /// Valid keys: 8 to 100 of letters, digits, `_`, `-`, `.` and `:` (a UUID works).
-fn check_key(key: &str) -> Result<String, AppError> {
+pub(crate) fn check_key(key: &str) -> Result<String, AppError> {
     let key = key.trim();
     let ok = (8..=100).contains(&key.len())
         && key

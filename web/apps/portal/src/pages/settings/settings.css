@@ -1,6 +1,16 @@
 /* Settings page: the tab bar and the clinic profile form. Uses the portal's own colour variables only. */
 
 .st-tabs > [role="tablist"] { margin-bottom: 4px; scrollbar-width: thin; }
+/*
+ * Nine tabs don't fit one row at 1280 px, so from tablet width up they wrap and every tab stays
+ * visible. The sliding indicator only knows left and width, so a wrapped row underlines the active
+ * tab itself instead. Phones keep the single sideways-scrolling row.
+ */
+@media (min-width: 641px) {
+  .st-tabs > [role="tablist"] { flex-wrap: wrap; overflow-x: visible; row-gap: 2px; }
+  .st-tabs > [role="tablist"] > :not([role="tab"]) { display: none; }
+  .st-tabs > [role="tablist"] > [role="tab"][data-active] { box-shadow: inset 0 -2px 0 var(--brand); }
+}
 
 /* Two cards side by side (Booking & notifications); one column on narrower screens. */
 .st-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }

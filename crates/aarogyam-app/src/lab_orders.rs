@@ -6,12 +6,12 @@ use aarogyam_dal::lab_orders::{self as dal, EventJson, ItemJson, OrderJson};
 use aarogyam_dal::{labs, patients};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::ids::{
-    EncounterId, LabContactId, LabOrderId, LabVendorId, MembershipId, MessageId, PatientId,
-    ProcedureId,
+    EncounterId, LabContactId, LabOrderId, LabOrderItemId, LabVendorId, MembershipId, MessageId,
+    PatientId, ProcedureId,
 };
 use aarogyam_domain::lab::{
-    LabError, LabEventKind, LabOrderStatus, LabReminder, MAX_ITEMS, check_qty, check_teeth,
-    check_unit_cost,
+    ContactLogChannel, ContactOutcome, LabError, LabEventKind, LabOrderStatus, LabReminder,
+    MAX_ITEMS, check_qty, check_teeth, check_unit_cost,
 };
 use aarogyam_domain::permission::Permission;
 use sakalya_db::{Db, ScopedTx};
@@ -28,6 +28,8 @@ use serde_json::json;
 /// An item on an order.
 #[derive(Debug, Clone)]
 pub struct ItemView {
+    /// Identifier.
+    pub id: LabOrderItemId,
     /// Position on the order, from 1.
     pub line_no: i16,
     /// What to make.
@@ -61,10 +63,38 @@ pub struct EventView {
     pub reminder: Option<LabReminder>,
     /// A note.
     pub note: Option<String>,
+    /// How the lab was contacted, for `contacted`.
+    pub channel: Option<ContactLogChannel>,
+    /// What came of it.
+    pub outcome: Option<ContactOutcome>,
+    /// Who at the lab.
+    pub contact_id: Option<LabContactId>,
+    /// The item's position, for an item change.
+    pub line_no: Option<i16>,
     /// Who; `None` for the reminder job.
     pub actor_id: Option<MembershipId>,
     /// When.
     pub at: OffsetDateTime,
+}
+
+/// How to reach the order's contact: phone, email, and whether they use `WhatsApp`.
+#[derive(Debug, Clone, Default)]
+pub struct ContactReach {
+    /// Phone, E.164.
+    pub phone: Option<String>,
+    /// Email.
+    pub email: Option<String>,
+    /// Whether they use `WhatsApp` on that phone.
+    pub whatsapp: bool,
+}
+
+/// When a member last contacted the lab about an order, and who.
+#[derive(Debug, Clone)]
+pub struct LastContact {
+    /// When.
+    pub at: OffsetDateTime,
+    /// Who, and their name.
+    pub by: Option<(MembershipId, Option<String>)>,
 }
 
 /// A lab order as the API shows it.
@@ -78,6 +108,12 @@ pub struct LabOrderView {
     pub vendor: (LabVendorId, Option<String>),
     /// Who at the lab, and their name.
     pub contact: Option<(LabContactId, Option<String>)>,
+    /// How to reach them.
+    pub contact_reach: ContactReach,
+    /// The lab's own phone.
+    pub vendor_phone: Option<String>,
+    /// When the lab was last contacted about it (contact log or manual reminder).
+    pub last_contact: Option<LastContact>,
     /// The patient, their clinic number and name.
     pub patient: (PatientId, String, String),
     /// The member responsible, and their name.
@@ -112,6 +148,7 @@ pub struct LabOrderView {
 
 fn item(row: ItemJson) -> ItemView {
     ItemView {
+        id: LabOrderItemId::from_uuid(row.id),
         line_no: row.line_no,
         work_type: row.work_type,
         teeth: row.teeth,
@@ -135,6 +172,10 @@ fn event(row: EventJson) -> EventView {
         due_on: row.due_on,
         reminder: row.reminder.and_then(|r| LabReminder::parse(&r).ok()),
         note: row.note,
+        channel: row.channel.and_then(|c| ContactLogChannel::parse(&c).ok()),
+        outcome: row.outcome.and_then(|o| ContactOutcome::parse(&o).ok()),
+        contact_id: row.contact_id.map(LabContactId::from_uuid),
+        line_no: row.line_no,
         actor_id: row.actor_id.map(MembershipId::from_uuid),
         at: row.created_at,
     }
@@ -148,6 +189,18 @@ fn view(row: OrderJson, costs_visible: bool) -> LabOrderView {
         contact: row
             .contact_id
             .map(|id| (LabContactId::from_uuid(id), row.contact_name)),
+        contact_reach: ContactReach {
+            phone: row.contact_phone,
+            email: row.contact_email,
+            whatsapp: row.contact_whatsapp.unwrap_or(false),
+        },
+        vendor_phone: row.vendor_phone,
+        last_contact: row.last_contacted_at.map(|at| LastContact {
+            at,
+            by: row
+                .last_contacted_by
+                .map(|id| (MembershipId::from_uuid(id), row.last_contacted_by_name)),
+        }),
         patient: (
             PatientId::from_uuid(row.patient_id),
             row.patient_number,
@@ -310,33 +363,57 @@ pub struct NewOrderInput {
     pub items: Vec<ItemInput>,
 }
 
+/// An item's values, checked.
+#[derive(Debug, Clone)]
+pub(crate) struct CheckedItem {
+    pub work_type: String,
+    pub teeth: Vec<i16>,
+    pub shade: Option<String>,
+    pub material: Option<String>,
+    pub qty: i32,
+    pub unit_cost_paise: Option<i64>,
+}
+
+/// Checks one item: FDI teeth, quantity, and a unit cost only with `finance.view` (`costs`).
+pub(crate) fn check_item(item: &ItemInput, costs: bool) -> Result<CheckedItem, AppError> {
+    let work_type = trimmed(Some(&item.work_type), "work_type", 80)?
+        .ok_or(AppError::invalid("work_type", "is required"))?;
+    let teeth = check_teeth(&item.teeth).map_err(|e| AppError::invalid("teeth", e))?;
+    let qty = check_qty(item.qty.unwrap_or(1)).map_err(|e| AppError::invalid("qty", e))?;
+    let unit_cost_paise = match item.unit_cost {
+        Some(_) if !costs => {
+            return Err(AppError::Forbidden("setting lab costs needs finance.view"));
+        }
+        Some(cost) => {
+            Some(check_unit_cost(cost.get()).map_err(|e| AppError::invalid("unit_cost_paise", e))?)
+        }
+        None => None,
+    };
+    Ok(CheckedItem {
+        work_type,
+        teeth,
+        shade: trimmed(item.shade.as_deref(), "shade", 20)?,
+        material: trimmed(item.material.as_deref(), "material", 80)?,
+        qty,
+        unit_cost_paise,
+    })
+}
+
 fn items_json(items: &[ItemInput], costs: bool) -> Result<serde_json::Value, AppError> {
     if items.is_empty() || items.len() > MAX_ITEMS {
         return Err(AppError::invalid("items", LabError::Items));
     }
     let mut out = Vec::with_capacity(items.len());
     for (index, item) in items.iter().enumerate() {
-        let work_type = trimmed(Some(&item.work_type), "work_type", 80)?
-            .ok_or(AppError::invalid("work_type", "is required"))?;
-        let teeth = check_teeth(&item.teeth).map_err(|e| AppError::invalid("teeth", e))?;
-        let qty = check_qty(item.qty.unwrap_or(1)).map_err(|e| AppError::invalid("qty", e))?;
-        let unit_cost = match item.unit_cost {
-            Some(_) if !costs => {
-                return Err(AppError::Forbidden("setting lab costs needs finance.view"));
-            }
-            Some(cost) => Some(
-                check_unit_cost(cost.get()).map_err(|e| AppError::invalid("unit_cost_paise", e))?,
-            ),
-            None => None,
-        };
+        let item = check_item(item, costs)?;
         out.push(json!({
             "line_no": index + 1,
-            "work_type": work_type,
-            "teeth": teeth,
-            "shade": trimmed(item.shade.as_deref(), "shade", 20)?,
-            "material": trimmed(item.material.as_deref(), "material", 80)?,
-            "qty": qty,
-            "unit_cost_paise": unit_cost,
+            "work_type": item.work_type,
+            "teeth": item.teeth,
+            "shade": item.shade,
+            "material": item.material,
+            "qty": item.qty,
+            "unit_cost_paise": item.unit_cost_paise,
         }));
     }
     Ok(serde_json::Value::Array(out))
@@ -440,7 +517,7 @@ pub async fn create(
     .await
 }
 
-async fn locked(
+pub(crate) async fn locked(
     tx: &mut ScopedTx,
     id: LabOrderId,
     member: Option<Uuid>,
@@ -453,7 +530,11 @@ async fn locked(
     Ok((row, status))
 }
 
-async fn reread(tx: &mut ScopedTx, id: LabOrderId, costs: bool) -> Result<LabOrderView, AppError> {
+pub(crate) async fn reread(
+    tx: &mut ScopedTx,
+    id: LabOrderId,
+    costs: bool,
+) -> Result<LabOrderView, AppError> {
     dal::get(tx.conn(), id.uuid(), None, costs)
         .await?
         .map(|row| view(row, costs))

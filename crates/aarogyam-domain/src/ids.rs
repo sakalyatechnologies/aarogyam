@@ -129,6 +129,8 @@ entities! {
     LabContact, LabContactId;
     /// Work sent to a lab.
     LabOrder, LabOrderId;
+    /// One piece of work on a lab order.
+    LabOrderItem, LabOrderItemId;
     /// Money paid to a lab.
     LabPayment, LabPaymentId;
 }

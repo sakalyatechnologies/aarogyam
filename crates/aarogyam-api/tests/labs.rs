@@ -645,6 +645,7 @@ fn routes(
     order: &str,
     patient: &str,
     payment: &str,
+    item: &str,
 ) -> Vec<(Method, String, Option<Value>)> {
     let body = Some(json!({}));
     vec![
@@ -689,6 +690,26 @@ fn routes(
             None,
         ),
         (
+            Method::POST,
+            format!("/api/v1/lab-orders/{order}/items"),
+            Some(json!({ "work_type": "Crown" })),
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/lab-orders/{order}/contacts-log"),
+            Some(json!({ "channel": "call" })),
+        ),
+        (
+            Method::PATCH,
+            format!("/api/v1/lab-order-items/{item}"),
+            Some(json!({ "qty": 2 })),
+        ),
+        (
+            Method::DELETE,
+            format!("/api/v1/lab-order-items/{item}"),
+            None,
+        ),
+        (
             Method::GET,
             format!("/api/v1/patients/{patient}/lab-orders"),
             None,
@@ -712,11 +733,16 @@ fn routes(
     ]
 }
 
-/// A lab, contact, patient, order and payment at Alpha.
-async fn alpha_world(app: &TestApp, owner: &str) -> (String, String, String, String, String) {
+/// A lab, contact, patient, order, payment and the order's item at Alpha.
+async fn alpha_world(
+    app: &TestApp,
+    owner: &str,
+) -> (String, String, String, String, String, String) {
     let (vendor, contact) = lab(app, owner, "Precision Dental Lab").await;
     let ravi = patient(app, owner, "Ravi Kumar").await;
-    let made = id(&order(app, owner, &vendor, &ravi, today() + Duration::days(5)).await);
+    let made = order(app, owner, &vendor, &ravi, today() + Duration::days(5)).await;
+    let item = id(&made["items"][0]);
+    let made = id(&made);
     let paid = post_ok(
         app,
         owner,
@@ -724,7 +750,7 @@ async fn alpha_world(app: &TestApp, owner: &str) -> (String, String, String, Str
         json!({ "vendor_id": vendor, "paid_on": today().to_string(), "amount_paise": 1000 }),
     )
     .await;
-    (vendor, contact, made, ravi, id(&paid))
+    (vendor, contact, made, ravi, id(&paid), item)
 }
 
 #[tokio::test]
@@ -732,9 +758,9 @@ async fn alpha_world(app: &TestApp, owner: &str) -> (String, String, String, Str
 async fn lab_records_stay_in_their_clinic() {
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);
-    let (vendor, contact, made, ravi, paid) = alpha_world(&app, &owner).await;
+    let (vendor, contact, made, ravi, paid, item) = alpha_world(&app, &owner).await;
     let beta = app.token(BETA_OWNER);
-    for (method, path, body) in routes(&vendor, &contact, &made, &ravi, &paid) {
+    for (method, path, body) in routes(&vendor, &contact, &made, &ravi, &paid, &item) {
         let (status, value) = app
             .send(method.clone(), BETA, &path, Some(&beta), body)
             .await;
@@ -797,11 +823,11 @@ async fn lab_records_stay_in_their_clinic() {
 async fn labs_need_their_permissions_and_costs_need_finance() {
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);
-    let (vendor, contact, made, ravi, paid) = alpha_world(&app, &owner).await;
+    let (vendor, contact, made, ravi, paid, item) = alpha_world(&app, &owner).await;
 
     // No permissions at all: every route refuses.
     let nobody = app.token(ALPHA_NOTHING);
-    for (method, path, body) in routes(&vendor, &contact, &made, &ravi, &paid) {
+    for (method, path, body) in routes(&vendor, &contact, &made, &ravi, &paid, &item) {
         let (status, _) = send(&app, &nobody, method.clone(), &path, body).await;
         assert_eq!(status, StatusCode::FORBIDDEN, "{method} {path}");
     }
@@ -954,6 +980,45 @@ async fn doctors_at_own_scope_reach_only_their_lab_orders() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
+    // Items and the contact log follow the order's reach.
+    let anils_item = id(&anils["items"][0]);
+    for (method, path, body) in [
+        (
+            Method::POST,
+            format!("/api/v1/lab-orders/{}/items", id(&anils)),
+            Some(json!({ "work_type": "Crown" })),
+        ),
+        (
+            Method::PATCH,
+            format!("/api/v1/lab-order-items/{anils_item}"),
+            Some(json!({ "qty": 2 })),
+        ),
+        (
+            Method::DELETE,
+            format!("/api/v1/lab-order-items/{anils_item}"),
+            None,
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/lab-orders/{}/contacts-log", id(&anils)),
+            Some(json!({ "channel": "call" })),
+        ),
+    ] {
+        let (status, _) = send(&app, &bela, method.clone(), &path, body.clone()).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{method} {path}");
+        let (status, _) = send(&app, &anil, method.clone(), &path, body).await;
+        let expected = if method == Method::DELETE {
+            StatusCode::OK
+        } else {
+            StatusCode::CREATED
+        };
+        let expected = if method == Method::PATCH {
+            StatusCode::OK
+        } else {
+            expected
+        };
+        assert_eq!(status, expected, "{method} {path}");
+    }
     // Ravi isn't Dr Bela's patient: no orders for him, nor a new one.
     let (status, _) = send(
         &app,
@@ -978,5 +1043,334 @@ async fn doctors_at_own_scope_reach_only_their_lab_orders() {
     // The owner, at `all`, reaches both.
     let (_, all) = send(&app, &owner, Method::GET, "/api/v1/lab-orders", None).await;
     assert_eq!(all["items"].as_array().unwrap().len(), 2);
+    app.finish().await;
+}
+
+async fn history_rows(app: &TestApp, row: &str) -> i64 {
+    sqlx::query_scalar("select count(*) from audit.audit_events where row_id = $1::uuid")
+        .bind(row)
+        .fetch_one(&app.owner)
+        .await
+        .unwrap()
+}
+
+fn last_event(order: &Value) -> &Value {
+    order["events"].as_array().unwrap().last().unwrap()
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn lab_order_items_change_until_the_order_is_final() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let (vendor, _) = lab(&app, &owner, "Precision Dental Lab").await;
+    let ravi = patient(&app, &owner, "Ravi Kumar").await;
+    let made = order(&app, &owner, &vendor, &ravi, today() + Duration::days(5)).await;
+    let order_id = id(&made);
+    let first = id(&made["items"][0]);
+    let items_path = format!("/api/v1/lab-orders/{order_id}/items");
+
+    let added = post_ok(
+        &app,
+        &owner,
+        &items_path,
+        json!({
+        "work_type": "Bridge", "teeth": [13, 11, 12], "unit_cost_paise": 500_000 }),
+    )
+    .await;
+    assert_eq!(added["items"].as_array().unwrap().len(), 2);
+    assert_eq!(added["items"][1]["line_no"], 2);
+    assert_eq!(added["items"][1]["teeth"], json!([11, 12, 13]));
+    assert_eq!(last_event(&added)["kind"], "item_added");
+    assert_eq!(last_event(&added)["line_no"], 2);
+    let second = id(&added["items"][1]);
+    for bad in [
+        json!({ "work_type": "Crown", "teeth": [19] }),
+        json!({ "work_type": "Crown", "qty": 0 }),
+        json!({ "work_type": " " }),
+    ] {
+        let (status, body) = send(&app, &owner, Method::POST, &items_path, Some(bad.clone())).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{bad} {body}");
+    }
+
+    let item_path = format!("/api/v1/lab-order-items/{second}");
+    let (status, changed) = send(
+        &app,
+        &owner,
+        Method::PATCH,
+        &item_path,
+        Some(json!({ "shade": "A3", "teeth": [21] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{changed}");
+    assert_eq!(changed["items"][1]["shade"], "A3");
+    assert_eq!(changed["items"][1]["teeth"], json!([21]));
+    assert_eq!(changed["items"][1]["unit_cost_paise"], 500_000);
+    assert_eq!(changed["items"][1]["work_type"], "Bridge");
+    assert_eq!(last_event(&changed)["kind"], "item_changed");
+    for bad in [
+        json!({ "qty": 101 }),
+        json!({ "teeth": [11, 11] }),
+        json!({ "unit_cost_paise": -1 }),
+    ] {
+        let (status, body) = send(&app, &owner, Method::PATCH, &item_path, Some(bad.clone())).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{bad} {body}");
+    }
+    assert!(
+        history_rows(&app, &second).await >= 2,
+        "added and changed are audited"
+    );
+
+    // The front desk changes work but never costs: a cost it can't see stays.
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let (status, seen) = send(
+        &app,
+        &desk,
+        Method::PATCH,
+        &item_path,
+        Some(json!({ "qty": 2 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(seen["items"][1]["unit_cost_paise"].is_null());
+    for body in [
+        json!({ "unit_cost_paise": 1 }),
+        json!({ "unit_cost_paise": null }),
+    ] {
+        let (status, _) = send(&app, &desk, Method::PATCH, &item_path, Some(body.clone())).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    }
+    let (status, _) = send(
+        &app,
+        &desk,
+        Method::POST,
+        &items_path,
+        Some(json!({ "work_type": "Crown", "unit_cost_paise": 1 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (_, kept) = send(
+        &app,
+        &owner,
+        Method::GET,
+        &format!("/api/v1/lab-orders/{order_id}"),
+        None,
+    )
+    .await;
+    assert_eq!(kept["items"][1]["qty"], 2);
+    assert_eq!(kept["items"][1]["unit_cost_paise"], 500_000);
+    let (status, cleared) = send(
+        &app,
+        &owner,
+        Method::PATCH,
+        &item_path,
+        Some(json!({ "unit_cost_paise": null })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(cleared["items"][1]["unit_cost_paise"].is_null());
+
+    let (status, removed) = send(
+        &app,
+        &owner,
+        Method::DELETE,
+        &format!("/api/v1/lab-order-items/{first}"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(removed["items"].as_array().unwrap().len(), 1);
+    assert_eq!(last_event(&removed)["kind"], "item_removed");
+    assert_eq!(last_event(&removed)["line_no"], 1);
+    let (status, _) = send(&app, &owner, Method::DELETE, &item_path, None).await;
+    assert_eq!(status, StatusCode::CONFLICT, "an order keeps one item");
+    let (status, _) = send(
+        &app,
+        &owner,
+        Method::DELETE,
+        &format!("/api/v1/lab-order-items/{first}"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // Fitted or cancelled: items no longer change.
+    let status_path = format!("/api/v1/lab-orders/{order_id}/status");
+    post_ok(&app, &owner, &status_path, json!({ "status": "received" })).await;
+    post_ok(&app, &owner, &status_path, json!({ "status": "fitted" })).await;
+    let cancelled = order(&app, &owner, &vendor, &ravi, today()).await;
+    post_ok(
+        &app,
+        &owner,
+        &format!("/api/v1/lab-orders/{}/status", id(&cancelled)),
+        json!({ "status": "cancelled" }),
+    )
+    .await;
+    for (method, path, body) in [
+        (
+            Method::POST,
+            items_path.clone(),
+            Some(json!({ "work_type": "Crown" })),
+        ),
+        (Method::PATCH, item_path.clone(), Some(json!({ "qty": 1 }))),
+        (Method::DELETE, item_path.clone(), None),
+        (
+            Method::POST,
+            format!("/api/v1/lab-orders/{}/items", id(&cancelled)),
+            Some(json!({ "work_type": "Crown" })),
+        ),
+    ] {
+        let (status, _) = send(&app, &owner, method.clone(), &path, body).await;
+        assert_eq!(status, StatusCode::CONFLICT, "{method} {path}");
+    }
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn contacting_the_lab_is_logged_and_can_move_the_due_date() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let (vendor, contact) = lab(&app, &owner, "Precision Dental Lab").await;
+    let ravi = patient(&app, &owner, "Ravi Kumar").await;
+    let made = order(&app, &owner, &vendor, &ravi, today() + Duration::days(1)).await;
+    let order_id = id(&made);
+    assert!(made["last_contacted_at"].is_null());
+    let path = format!("/api/v1/lab-orders/{order_id}/contacts-log");
+    // The reminder job already ran for the old date.
+    sqlx::query("update aarogyam.lab_orders set contact_id = $2::uuid, due_soon_reminded_on = current_date where id = $1::uuid")
+        .bind(&order_id).bind(&contact).execute(&app.owner).await.unwrap();
+
+    let promised = today() + Duration::days(4);
+    let logged = post_ok(
+        &app,
+        &owner,
+        &path,
+        json!({
+        "channel": "call", "contact_id": contact, "outcome": "promised_date",
+        "note": "Suresh says the crown is in glazing", "promised_on": promised.to_string() }),
+    )
+    .await;
+    assert!(logged["last_contacted_at"].is_string());
+    assert!(logged["last_contacted_by"].is_string());
+    assert!(logged["last_contacted_by_name"].is_string());
+    assert_eq!(logged["due_on"], promised.to_string());
+    assert_eq!(logged["contact_phone"], "+919876500001");
+    assert_eq!(logged["contact_email"], "suresh@lab.test");
+    assert_eq!(logged["contact_whatsapp"], false);
+    let event = last_event(&logged);
+    assert_eq!(event["kind"], "contacted");
+    assert_eq!(event["channel"], "call");
+    assert_eq!(event["outcome"], "promised_date");
+    assert_eq!(event["contact_id"], contact.as_str());
+    assert_eq!(event["due_on"], promised.to_string());
+    assert_eq!(event["actor_id"], logged["last_contacted_by"]);
+    let reminded: Option<Date> = sqlx::query_scalar(
+        "select due_soon_reminded_on from aarogyam.lab_orders where id = $1::uuid",
+    )
+    .bind(&order_id)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(reminded, None, "a promised date restarts the reminders");
+    let (_, list) = send(&app, &owner, Method::GET, "/api/v1/lab-orders", None).await;
+    assert_eq!(
+        list["items"][0]["last_contacted_by"],
+        logged["last_contacted_by"]
+    );
+    assert_eq!(list["items"][0]["contact_phone"], "+919876500001");
+
+    // A message without a date leaves the due date alone.
+    let again = post_ok(&app, &owner, &path, json!({ "channel": "whatsapp" })).await;
+    assert_eq!(again["due_on"], promised.to_string());
+    assert!(last_event(&again)["outcome"].is_null());
+    let (_, other_contact) = lab(&app, &owner, "Other Lab").await;
+    let long = "x".repeat(501);
+    for bad in [
+        json!({ "channel": "fax" }),
+        json!({}),
+        json!({ "channel": "call", "note": long }),
+        json!({ "channel": "call", "contact_id": other_contact }),
+        json!({ "channel": "call", "promised_on": "soon" }),
+    ] {
+        let (status, body) = send(&app, &owner, Method::POST, &path, Some(bad.clone())).await;
+        assert!(
+            status.is_client_error() && status != StatusCode::NOT_FOUND,
+            "{bad}: {status} {body}"
+        );
+    }
+
+    // A manual reminder counts as contact.
+    let fresh = order(&app, &owner, &vendor, &ravi, today() + Duration::days(9)).await;
+    let (status, _) = send(
+        &app,
+        &owner,
+        Method::POST,
+        &format!("/api/v1/lab-orders/{}/remind", id(&fresh)),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let (_, fresh) = send(
+        &app,
+        &owner,
+        Method::GET,
+        &format!("/api/v1/lab-orders/{}", id(&fresh)),
+        None,
+    )
+    .await;
+    assert!(fresh["last_contacted_at"].is_string());
+
+    // A final order logs contact but has no due date to move.
+    let fresh_path = format!("/api/v1/lab-orders/{}", id(&fresh));
+    post_ok(
+        &app,
+        &owner,
+        &format!("{fresh_path}/status"),
+        json!({ "status": "cancelled" }),
+    )
+    .await;
+    let (status, _) = send(
+        &app,
+        &owner,
+        Method::POST,
+        &format!("{fresh_path}/contacts-log"),
+        Some(json!({ "channel": "call", "promised_on": promised.to_string() })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    post_ok(
+        &app,
+        &owner,
+        &format!("{fresh_path}/contacts-log"),
+        json!({ "channel": "visit" }),
+    )
+    .await;
+
+    // Without labs.write, no contact log.
+    let nobody = app.token(ALPHA_NOTHING);
+    let (status, _) = send(
+        &app,
+        &nobody,
+        Method::POST,
+        &path,
+        Some(json!({ "channel": "call" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    // Erasing the patient clears the notes on the order's history.
+    let notes: i64 = sqlx::query_scalar(
+        "select count(*) from aarogyam.lab_order_events where lab_order_id = $1::uuid and note is not null")
+        .bind(&order_id).fetch_one(&app.owner).await.unwrap();
+    assert_eq!(notes, 1);
+    let erased: bool = sqlx::query_scalar(
+        "select app.erase_patient(p.org_id, p.id, gen_random_uuid()) from aarogyam.patients p where p.id = $1::uuid")
+        .bind(&ravi).fetch_one(&app.owner).await.unwrap();
+    assert!(erased);
+    let notes: i64 = sqlx::query_scalar(
+        "select count(*) from aarogyam.lab_order_events where lab_order_id = $1::uuid and note is not null")
+        .bind(&order_id).fetch_one(&app.owner).await.unwrap();
+    assert_eq!(notes, 0);
     app.finish().await;
 }

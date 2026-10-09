@@ -1117,6 +1117,24 @@ export interface paths {
         patch: operations["updateLabContact"];
         trace?: never;
     };
+    "/api/v1/lab-order-items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Removes a lab order item; an order keeps at least one. */
+        delete: operations["removeLabOrderItem"];
+        options?: never;
+        head?: never;
+        /** Changes a lab order item, with the checks of a new one. */
+        patch: operations["updateLabOrderItem"];
+        trace?: never;
+    };
     "/api/v1/lab-orders": {
         parameters: {
             query?: never;
@@ -1151,6 +1169,43 @@ export interface paths {
         head?: never;
         /** Changes a lab order's contact, stage, instructions or due date. */
         patch: operations["updateLabOrder"];
+        trace?: never;
+    };
+    "/api/v1/lab-orders/{id}/contacts-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logs a call, `WhatsApp` message, email or visit to the lab about an order: a `contacted`
+         *     event by the caller, the order's last contact, and a promised date as its due date.
+         */
+        post: operations["logLabContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lab-orders/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adds an item to a lab order that isn't fitted, reworked or cancelled. */
+        post: operations["addLabOrderItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/lab-orders/{id}/remind": {
@@ -6071,6 +6126,28 @@ export interface components {
          */
         LabContactChannel: "email" | "whatsapp" | "phone";
         /**
+         * @description How the lab was contacted.
+         * @enum {string}
+         */
+        LabContactLogChannel: "call" | "whatsapp" | "email" | "visit";
+        /** @description A call, message, email or visit to the lab about an order. */
+        LabContactLogEntry: {
+            /** @description How. */
+            channel: components["schemas"]["LabContactLogChannel"];
+            /** @description Who at the lab: a contact of the order's lab. */
+            contact_id?: string | null;
+            /** @description Up to 500 characters. */
+            note?: string | null;
+            outcome?: components["schemas"]["LabContactLogOutcome"] | null;
+            /** @description The date the lab promised, `YYYY-MM-DD`: becomes the due date and restarts reminders. */
+            promised_on?: string | null;
+        };
+        /**
+         * @description What came of contacting the lab.
+         * @enum {string}
+         */
+        LabContactLogOutcome: "reached" | "no_answer" | "promised_date" | "other";
+        /**
          * @description A contact's values. On a change, fields left out stay as they are and an empty string
          *     clears an optional one.
          */
@@ -6089,10 +6166,16 @@ export interface components {
         };
         /** @description A lab order. */
         LabOrder: {
+            /** @description Their email. */
+            contact_email?: string | null;
             /** @description Who at the lab. */
             contact_id?: string | null;
             /** @description Their name. */
             contact_name?: string | null;
+            /** @description Their phone, E.164, for a dialler. */
+            contact_phone?: string | null;
+            /** @description Whether they use `WhatsApp` on that phone. */
+            contact_whatsapp: boolean;
             /** @description Whether unit costs are filled (the caller has `finance.view`). */
             costs_visible: boolean;
             /** @description When it was recorded (RFC 3339). */
@@ -6113,6 +6196,15 @@ export interface components {
             instructions?: string | null;
             /** @description What to make. */
             items: components["schemas"]["LabOrderItem"][];
+            /**
+             * @description When a member last contacted the lab about it: the contact log or a manual reminder
+             *     (RFC 3339).
+             */
+            last_contacted_at?: string | null;
+            /** @description Who. */
+            last_contacted_by?: string | null;
+            /** @description Their name. */
+            last_contacted_by_name?: string | null;
             /** @description `LAB-<n>`. */
             number: string;
             /** @description The patient. */
@@ -6137,6 +6229,8 @@ export interface components {
             vendor_id: string;
             /** @description Its name. */
             vendor_name?: string | null;
+            /** @description The lab's own phone, E.164, when no contact is named. */
+            vendor_phone?: string | null;
         };
         /** @description A change to a lab order's details. Fields left out stay; an empty string clears. */
         LabOrderChanges: {
@@ -6155,13 +6249,27 @@ export interface components {
             actor_id?: string | null;
             /** @description When (RFC 3339). */
             at: string;
+            /** @description How the lab was contacted: call, whatsapp, email or visit (contacted only). */
+            channel?: string | null;
+            /** @description Who at the lab was contacted. */
+            contact_id?: string | null;
             /** @description The due date, `YYYY-MM-DD`. */
             due_on?: string | null;
             from_status?: components["schemas"]["LabOrderState"] | null;
-            /** @description created, `status_changed`, `stage_changed`, `due_changed`, reminded, `reminder_skipped` or overdue. */
+            /**
+             * @description created, `status_changed`, `stage_changed`, `due_changed`, reminded, `reminder_skipped`,
+             *     overdue, contacted, `item_added`, `item_changed` or `item_removed`.
+             */
             kind: string;
+            /**
+             * Format: int32
+             * @description The item's line, for an item change.
+             */
+            line_no?: number | null;
             /** @description A note. */
             note?: string | null;
+            /** @description reached, `no_answer`, `promised_date` or other (contacted only). */
+            outcome?: string | null;
             /** @description `due_soon`, `due_today` or manual, for a reminder. */
             reminder?: string | null;
             /** @description The stage. */
@@ -6170,6 +6278,8 @@ export interface components {
         };
         /** @description An item on a lab order. */
         LabOrderItem: {
+            /** @description Identifier, for `PATCH` and `DELETE /lab-order-items/{id}`. */
+            id: string;
             /**
              * Format: int32
              * @description Position, from 1.
@@ -6193,6 +6303,27 @@ export interface components {
             unit_cost_paise?: number | null;
             /** @description What to make. */
             work_type: string;
+        };
+        /** @description A change to a lab order item. Fields left out stay; an empty shade or material clears. */
+        LabOrderItemChanges: {
+            /** @description Material, up to 80 characters. */
+            material?: string | null;
+            /**
+             * Format: int32
+             * @description How many, 1 to 100.
+             */
+            qty?: number | null;
+            /** @description Shade, up to 20 characters. */
+            shade?: string | null;
+            /** @description FDI tooth numbers, each once, up to 32. */
+            teeth?: number[] | null;
+            /**
+             * Format: int64
+             * @description Paise for one; `null` clears. Setting or clearing needs `finance.view`.
+             */
+            unit_cost_paise?: number | null;
+            /** @description What to make, up to 80 characters. */
+            work_type?: string | null;
         };
         /** @description Lab orders. */
         LabOrderList: {
@@ -13545,6 +13676,117 @@ export interface operations {
             };
         };
     };
+    removeLabOrderItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The lab order item */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrder"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such item in this clinic or within reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The order is final, or this is its last item */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateLabOrderItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The lab order item */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabOrderItemChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrder"];
+                };
+            };
+            /** @description Invalid values */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write, or finance.view for a cost */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such item in this clinic or within reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The order is fitted, reworked or cancelled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listLabOrders: {
         parameters: {
             query?: {
@@ -13729,6 +13971,128 @@ export interface operations {
                 content?: never;
             };
             /** @description The role lacks labs.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lab order in this clinic or within reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The order is fitted, reworked or cancelled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    logLabContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The lab order */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabContactLogEntry"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrder"];
+                };
+            };
+            /** @description A long note, a bad date, or a contact at another lab */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lab order in this clinic or within reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A promised date on a fitted, reworked or cancelled order */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    addLabOrderItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The lab order */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewLabOrderItem"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrder"];
+                };
+            };
+            /** @description Invalid values, or the order has 50 items */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write, or finance.view for a cost */
             403: {
                 headers: {
                     [name: string]: unknown;

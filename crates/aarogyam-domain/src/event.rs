@@ -168,6 +168,8 @@ pub enum Event {
     LabOrderUpdated,
     /// A lab was reminded of an order.
     LabOrderReminded,
+    /// A member logged contacting a lab about an order.
+    LabOrderContacted,
     /// A payment to a lab was recorded.
     LabPaymentRecorded,
     /// A payment to a lab was voided.
@@ -261,6 +263,7 @@ impl Event {
             Self::LabOrderCreated => "lab_order.created",
             Self::LabOrderUpdated => "lab_order.updated",
             Self::LabOrderReminded => "lab_order.reminded",
+            Self::LabOrderContacted => "lab_order.contacted",
             Self::LabPaymentRecorded => "lab_payment.recorded",
             Self::LabPaymentVoided => "lab_payment.voided",
         }

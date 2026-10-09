@@ -3566,6 +3566,113 @@
         ]
       }
     },
+    "/api/v1/lab-order-items/{id}": {
+      "delete": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Removes a lab order item; an order keeps at least one.",
+        "operationId": "removeLabOrderItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab order item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrder"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such item in this clinic or within reach"
+          },
+          "409": {
+            "description": "The order is final, or this is its last item"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Changes a lab order item, with the checks of a new one.",
+        "operationId": "updateLabOrderItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab order item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabOrderItemChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid values"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write, or finance.view for a cost"
+          },
+          "404": {
+            "description": "No such item in this clinic or within reach"
+          },
+          "409": {
+            "description": "The order is fitted, reworked or cancelled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/lab-orders": {
       "get": {
         "tags": [
@@ -3782,6 +3889,128 @@
           },
           "403": {
             "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such lab order in this clinic or within reach"
+          },
+          "409": {
+            "description": "The order is fitted, reworked or cancelled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-orders/{id}/contacts-log": {
+      "post": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Logs a call, `WhatsApp` message, email or visit to the lab about an order: a `contacted`\nevent by the caller, the order's last contact, and a promised date as its due date.",
+        "operationId": "logLabContact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab order",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabContactLogEntry"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A long note, a bad date, or a contact at another lab"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such lab order in this clinic or within reach"
+          },
+          "409": {
+            "description": "A promised date on a fitted, reworked or cancelled order"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-orders/{id}/items": {
+      "post": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Adds an item to a lab order that isn't fitted, reworked or cancelled.",
+        "operationId": "addLabOrderItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab order",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewLabOrderItem"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid values, or the order has 50 items"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write, or finance.view for a cost"
           },
           "404": {
             "description": "No such lab order in this clinic or within reach"
@@ -17817,6 +18046,71 @@
           "phone"
         ]
       },
+      "LabContactLogChannel": {
+        "type": "string",
+        "description": "How the lab was contacted.",
+        "enum": [
+          "call",
+          "whatsapp",
+          "email",
+          "visit"
+        ]
+      },
+      "LabContactLogEntry": {
+        "type": "object",
+        "description": "A call, message, email or visit to the lab about an order.",
+        "required": [
+          "channel"
+        ],
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/LabContactLogChannel",
+            "description": "How."
+          },
+          "contact_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who at the lab: a contact of the order's lab."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Up to 500 characters."
+          },
+          "outcome": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LabContactLogOutcome",
+                "description": "What came of it."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promised_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The date the lab promised, `YYYY-MM-DD`: becomes the due date and restarts reminders."
+          }
+        }
+      },
+      "LabContactLogOutcome": {
+        "type": "string",
+        "description": "What came of contacting the lab.",
+        "enum": [
+          "reached",
+          "no_answer",
+          "promised_date",
+          "other"
+        ]
+      },
       "LabContactValues": {
         "type": "object",
         "description": "A contact's values. On a change, fields left out stay as they are and an empty string\nclears an optional one.",
@@ -17876,6 +18170,7 @@
           "id",
           "number",
           "vendor_id",
+          "contact_whatsapp",
           "patient_id",
           "patient_number",
           "patient_name",
@@ -17887,6 +18182,13 @@
           "events"
         ],
         "properties": {
+          "contact_email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their email."
+          },
           "contact_id": {
             "type": [
               "string",
@@ -17900,6 +18202,17 @@
               "null"
             ],
             "description": "Their name."
+          },
+          "contact_phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their phone, E.164, for a dialler."
+          },
+          "contact_whatsapp": {
+            "type": "boolean",
+            "description": "Whether they use `WhatsApp` on that phone."
           },
           "costs_visible": {
             "type": "boolean",
@@ -17958,6 +18271,27 @@
               "$ref": "#/components/schemas/LabOrderItem"
             },
             "description": "What to make."
+          },
+          "last_contacted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When a member last contacted the lab about it: the contact log or a manual reminder\n(RFC 3339)."
+          },
+          "last_contacted_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who."
+          },
+          "last_contacted_by_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their name."
           },
           "number": {
             "type": "string",
@@ -18024,6 +18358,13 @@
               "null"
             ],
             "description": "Its name."
+          },
+          "vendor_phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The lab's own phone, E.164, when no contact is named."
           }
         }
       },
@@ -18080,6 +18421,20 @@
             "type": "string",
             "description": "When (RFC 3339)."
           },
+          "channel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How the lab was contacted: call, whatsapp, email or visit (contacted only)."
+          },
+          "contact_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who at the lab was contacted."
+          },
           "due_on": {
             "type": [
               "string",
@@ -18100,7 +18455,15 @@
           },
           "kind": {
             "type": "string",
-            "description": "created, `status_changed`, `stage_changed`, `due_changed`, reminded, `reminder_skipped` or overdue."
+            "description": "created, `status_changed`, `stage_changed`, `due_changed`, reminded, `reminder_skipped`,\noverdue, contacted, `item_added`, `item_changed` or `item_removed`."
+          },
+          "line_no": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The item's line, for an item change."
           },
           "note": {
             "type": [
@@ -18108,6 +18471,13 @@
               "null"
             ],
             "description": "A note."
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "reached, `no_answer`, `promised_date` or other (contacted only)."
           },
           "reminder": {
             "type": [
@@ -18140,12 +18510,17 @@
         "type": "object",
         "description": "An item on a lab order.",
         "required": [
+          "id",
           "line_no",
           "work_type",
           "teeth",
           "qty"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifier, for `PATCH` and `DELETE /lab-order-items/{id}`."
+          },
           "line_no": {
             "type": "integer",
             "format": "int32",
@@ -18189,6 +18564,60 @@
           "work_type": {
             "type": "string",
             "description": "What to make."
+          }
+        }
+      },
+      "LabOrderItemChanges": {
+        "type": "object",
+        "description": "A change to a lab order item. Fields left out stay; an empty shade or material clears.",
+        "properties": {
+          "material": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Material, up to 80 characters."
+          },
+          "qty": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How many, 1 to 100."
+          },
+          "shade": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Shade, up to 20 characters."
+          },
+          "teeth": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "FDI tooth numbers, each once, up to 32."
+          },
+          "unit_cost_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Paise for one; `null` clears. Setting or clearing needs `finance.view`."
+          },
+          "work_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What to make, up to 80 characters."
           }
         }
       },

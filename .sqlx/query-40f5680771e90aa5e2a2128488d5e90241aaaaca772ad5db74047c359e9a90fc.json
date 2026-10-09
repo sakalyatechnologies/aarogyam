@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with o as (\n             select org_id, id from aarogyam.lab_orders\n             where id = $1 and status in ('sent', 'in_progress')\n               and app.clinical_in_reach(doctor_id, created_by, encounter_id, $2)\n           ), m as (\n             insert into aarogyam.outbox_events (id, event_key, channel, recipient, payload)\n             select $3, 'lab_order.reminder', 'email', c.email,\n                    app.lab_reminder_payload(o.org_id, o.id, 'manual')\n             from o cross join lateral app.lab_reminder_email(o.org_id, o.id) c\n             returning id\n           ), e as (\n             insert into aarogyam.lab_order_events (lab_order_id, kind, reminder, actor_id)\n             select $1, 'reminded', 'manual', $4 from m\n           ), c as (\n             update aarogyam.lab_orders set last_contacted_at = now(), last_contacted_by = $4\n             where id = $1 and exists (select 1 from m)\n           )\n           select id as \"id!\" from m",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.outbox_events",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "40f5680771e90aa5e2a2128488d5e90241aaaaca772ad5db74047c359e9a90fc"
+}

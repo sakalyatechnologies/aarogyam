@@ -24,6 +24,7 @@ pub(crate) mod imports;
 pub(crate) mod internal;
 pub(crate) mod inventory;
 pub(crate) mod invitations;
+pub(crate) mod lab_order_changes;
 pub(crate) mod lab_orders;
 pub(crate) mod lab_payments;
 pub(crate) mod labs;
@@ -515,6 +516,15 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/lab-orders/{id}/status", post(lab_orders::set_status))
         .route("/lab-orders/{id}/remind", post(lab_orders::remind))
+        .route("/lab-orders/{id}/items", post(lab_order_changes::add_item))
+        .route(
+            "/lab-orders/{id}/contacts-log",
+            post(lab_order_changes::log_contact),
+        )
+        .route(
+            "/lab-order-items/{id}",
+            patch(lab_order_changes::update_item).delete(lab_order_changes::remove_item),
+        )
         .route("/patients/{id}/lab-orders", get(lab_orders::for_patient))
         .route(
             "/lab-payments",

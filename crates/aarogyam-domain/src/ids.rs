@@ -119,4 +119,8 @@ entities! {
     SupportGrant, SupportGrantId;
     /// A patient app sign-in session.
     PatientSession, PatientSessionId;
+    /// A staff chat conversation, one to one or a group.
+    Conversation, ConversationId;
+    /// A message in a staff chat conversation.
+    ChatMessage, ChatMessageId;
 }

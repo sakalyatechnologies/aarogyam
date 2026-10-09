@@ -10,6 +10,7 @@ pub mod analytics;
 pub mod appointments;
 pub mod billing;
 pub mod chart;
+pub mod chat;
 pub mod check_in;
 pub mod clinic_hours;
 pub mod clock;

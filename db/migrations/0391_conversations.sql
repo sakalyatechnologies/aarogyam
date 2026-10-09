@@ -96,8 +96,21 @@ revoke execute on function app.chat_member_id(), app.chat_conversation_ids(boole
 grant execute on function app.chat_member_id(), app.chat_conversation_ids(boolean),
   app.chat_may_add(uuid) to app_user;
 
+-- Whether a conversation has had any members yet; false only inside the transaction creating it.
+create function app.chat_has_members(p_conversation_id uuid) returns boolean
+  language sql stable security definer set search_path = ''
+  as $$
+    select exists (select 1 from aarogyam.conversation_members cm
+                   where cm.org_id = app.tenant_id() and cm.conversation_id = p_conversation_id)
+  $$;
+revoke execute on function app.chat_has_members(uuid) from public;
+grant execute on function app.chat_has_members(uuid) to app_user;
+
+-- Its creator also sees a conversation before anyone is in it, which the insert's conflict check
+-- (one direct conversation per pair) needs.
 create policy chat_member on aarogyam.conversations as restrictive for select to app_user
-  using (id = any ((select app.chat_conversation_ids())::uuid[]));
+  using (id = any ((select app.chat_conversation_ids())::uuid[])
+         or (created_by = (select app.user_id()) and not app.chat_has_members(id)));
 create policy chat_member_update on aarogyam.conversations as restrictive for update to app_user
   using (id = any ((select app.chat_conversation_ids())::uuid[]));
 create policy chat_member_insert on aarogyam.conversations as restrictive for insert to app_user

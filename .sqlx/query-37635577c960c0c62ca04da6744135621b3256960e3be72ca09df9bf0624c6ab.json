@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with wanted as (\n             select m.id from aarogyam.memberships m where m.id = any($2) and m.status = 'active'\n           ), saved as (\n             insert into aarogyam.conversation_members (conversation_id, membership_id)\n             select $1, id from wanted\n             on conflict (org_id, conversation_id, membership_id) do update\n               set left_at = null, joined_at = now(), role = 'member'\n               where aarogyam.conversation_members.left_at is not null\n             returning 1\n           )\n           select (select count(*) from wanted) as \"found!\", (select count(*) from saved) as \"added!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "added!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "37635577c960c0c62ca04da6744135621b3256960e3be72ca09df9bf0624c6ab"
+}

@@ -244,6 +244,25 @@ async fn walk_in_routes(app: &TestApp, owner: &str) -> [Route; 4] {
 /// Edits sent with the `If-Match` version just read. Each repeats the record's own content, so
 /// the version stays put and the measured repeats succeed. Read-modify-write edits (read the
 /// record, check it, write it) take more trips than a read, each allowance below.
+/// What staff did under a support grant: the grant and its actions in one statement.
+async fn support_routes(app: &TestApp, owner: &str) -> [Route; 1] {
+    let ends_at = (OffsetDateTime::now_utc() + Duration::hours(2))
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    let grant = created(
+        app,
+        owner,
+        "/api/v1/support-grants",
+        json!({ "staff_email": "staff@sakalya.test", "reason": "Budget check", "ends_at": ends_at }),
+    )
+    .await;
+    [Route::get(
+        "GET /support-grants/{id}/actions",
+        ALPHA,
+        format!("/api/v1/support-grants/{grant}/actions"),
+    )]
+}
+
 async fn conditional_edits(
     app: &TestApp,
     owner: &str,
@@ -468,6 +487,11 @@ fn hot_routes(
         Route::get("GET /roles", ALPHA, "/api/v1/roles".into()),
         Route::get("GET /roles/{key}", ALPHA, "/api/v1/roles/doctor".into()),
         Route::get("GET /permissions", ALPHA, "/api/v1/permissions".into()),
+        Route::get(
+            "GET /support-grants",
+            ALPHA,
+            "/api/v1/support-grants".into(),
+        ),
         // The lock, the before and after lists, the writes and the change record: one statement.
         Route {
             method: Method::PUT,
@@ -547,12 +571,19 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
     let edits = conditional_edits(&app, &owner, &patient, &appointment, &starts_at).await;
     let routes = hot_routes(monday, sunday, tomorrow, &doctor, &patient);
     let walk_ins = walk_in_routes(&app, &owner).await;
+    let support = support_routes(&app, &owner).await;
 
     let mut table = String::from(
         "\nroute                     cold  warm  (cold: prepares, new connections; warm: pings, release checks)\n",
     );
     let mut over = Vec::new();
-    for route in edits.iter().chain(&moves).chain(&walk_ins).chain(&routes) {
+    for route in edits
+        .iter()
+        .chain(&moves)
+        .chain(&walk_ins)
+        .chain(&support)
+        .chain(&routes)
+    {
         // A state of its own warms the pool's connections and their statement caches, so
         // what is counted is the request, not connecting or preparing.
         let (db, trips) = app.counting_db().await;

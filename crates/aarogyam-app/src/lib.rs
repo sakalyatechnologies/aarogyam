@@ -47,6 +47,7 @@ pub mod setup;
 pub mod share;
 pub mod smart_import;
 pub mod staff;
+pub mod support;
 pub mod tabular;
 pub mod today;
 pub mod tokens;

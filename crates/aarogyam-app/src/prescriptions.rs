@@ -24,7 +24,7 @@ use crate::billing::PatientRef;
 use crate::clock::clinic_today;
 use crate::error::AppError;
 use crate::outbox::{PatientEmail, enqueue_patient_email};
-use crate::scope::{STAFF, staff_scope as scope};
+use crate::scope::staff_scope as scope;
 use crate::share;
 use crate::tokens::new_token;
 
@@ -987,7 +987,7 @@ async fn record_view(
         tx.conn(),
         &access::DocumentAccess {
             actor_user_id: Some(actor.user_id.uuid()),
-            actor_kind: STAFF.as_str(),
+            actor_kind: crate::scope::actor_kind(actor).as_str(),
             patient_id: view.patient.id.uuid(),
             share_link_id: None,
             resource: "prescription",

@@ -95,5 +95,6 @@ pub mod search;
 pub mod setup;
 pub mod share;
 pub mod staff;
+pub mod support;
 pub mod vitals;
 pub mod website;

@@ -111,4 +111,8 @@ entities! {
     PatientAccount, PatientAccountId;
     /// A patient account's link to a clinic's record.
     PatientLink, PatientLinkId;
+    /// A clinic's time-limited grant of read access to one Sakalya staff member.
+    SupportGrant, SupportGrantId;
+    /// A patient app sign-in session.
+    PatientSession, PatientSessionId;
 }

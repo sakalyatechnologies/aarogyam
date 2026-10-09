@@ -10,6 +10,7 @@ pub(crate) mod chart;
 pub(crate) mod client_errors;
 pub(crate) mod consents;
 pub(crate) mod console;
+pub(crate) mod console_support;
 pub(crate) mod expenses;
 pub(crate) mod facts;
 pub(crate) mod files;
@@ -41,6 +42,7 @@ pub(crate) mod settings;
 pub(crate) mod setup;
 pub(crate) mod smart_import;
 pub(crate) mod staff;
+pub(crate) mod support_grants;
 pub(crate) mod today;
 pub(crate) mod treatment;
 pub(crate) mod visits;
@@ -187,6 +189,12 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(consents::list).post(consents::record),
         )
         .route("/consents/{id}/withdraw", post(consents::withdraw))
+        .route(
+            "/support-grants",
+            get(support_grants::list).post(support_grants::create),
+        )
+        .route("/support-grants/{id}/revoke", post(support_grants::revoke))
+        .route("/support-grants/{id}/actions", get(support_grants::actions))
         .route("/patients/{id}/app-access", get(patient_links::access))
         .route(
             "/patients/{id}/app-invitations",
@@ -347,6 +355,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             post(onboarding::resend_owner_invitation),
         )
         .route("/console/slugs", get(console::check_slug))
+        .route("/console/support-grants", get(console_support::mine))
         .route("/console/applications", get(onboarding::applications))
         .route(
             "/console/applications/{id}/approve",

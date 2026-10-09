@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with target as (select id, revoked_at is null and ends_at > now() as open\n                           from aarogyam.support_grants where id = $1 for update),\n                done as (update aarogyam.support_grants g\n                         set revoked_at = now(), revoked_by = $2\n                         from target t where g.id = t.id and t.open\n                         returning g.id)\n           select (select open from target) as \"open?\" from (select 1) one\n           where exists (select 1 from target)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "open?",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8818144d620aa7c104f4d308f4ec87d45bd21eb0c4184254436d1c551fe61986"
+}

@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select g.id as \"grant_id!\", x.at as \"at?\", x.method as \"method?\", x.route as \"route?\"\n           from aarogyam.support_grants g\n           left join lateral (select a.at, a.method, a.route from audit.support_actions a\n                              where a.org_id = g.org_id and a.grant_id = g.id\n                              order by a.at desc limit 200) x on true\n           where g.id = $1\n           order by x.at desc nulls last",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "grant_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.support_grants",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "audit.support_actions",
+            "name": "at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "method?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "audit.support_actions",
+            "name": "method"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "route?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "audit.support_actions",
+            "name": "route"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "bed3efe72ca33221e99166b9399c3a1ba6166c93d50db4b01fbf16f84b9b270d"
+}

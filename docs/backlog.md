@@ -42,7 +42,7 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 - **Clinic addresses are an implementation detail:** people sign in on the website and never need to type a clinic's address; keep it out of emails and screens except where a clinic shares a booking link.
 
 ## Support access for Sakalya staff (6 Oct 2026)
-- `support_grants` exists only in the docs model, not as a migration. Build it: a clinic owner (or an approved request) grants a named staff member time-limited access to their clinic, visible to the clinic, audited, and ending automatically. Platform staff can't hold clinic memberships (migration 0172), so this is the only way for staff to help inside a clinic.
+- Backend built 8 Oct (decisions.md, "Support grants"): owner grants, revokes, per-request audit, console list, read-only access on the clinic host. Still to do: the portal Settings screen and the console screen, and a request-and-approve flow.
 
 ## One admin doctor across several clinics (6 Oct 2026)
 - An owner (admin doctor) of several clinics manages staff across all of them in one place: who has access to which clinic and with which role; grant or remove access to another clinic without switching clinics.

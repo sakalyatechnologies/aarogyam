@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::clock::{clinic_today, day_range};
 use crate::error::AppError;
-use crate::scope::{STAFF, staff_scope as scope};
+use crate::scope::staff_scope as scope;
 
 fn billing(field: &'static str) -> impl Fn(BillingError) -> AppError {
     move |error| AppError::invalid(field, error)
@@ -1004,7 +1004,7 @@ pub async fn get(
             tx.conn(),
             &access::DocumentAccess {
                 actor_user_id: Some(actor.user_id.uuid()),
-                actor_kind: STAFF.as_str(),
+                actor_kind: crate::scope::actor_kind(actor).as_str(),
                 patient_id: view.patient.id.uuid(),
                 share_link_id: None,
                 resource: "invoice",

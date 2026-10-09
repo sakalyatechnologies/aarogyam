@@ -47,9 +47,6 @@
     <string name="schedule_empty_message">New bookings will show here.</string>
     <string name="today_not_allowed_title">Today isn\'t available</string>
     <string name="today_not_allowed_message">Your role can\'t see the schedule at this clinic.</string>
-    <string name="switch_clinic">Switch clinic</string>
-    <string name="more">More</string>
-    <string name="language">Language</string>
     <string name="language_title">App language</string>
     <string name="language_system">Phone setting</string>
     <string name="language_english" translatable="false">English</string>
@@ -67,7 +64,6 @@
     <!-- Tabs -->
     <string name="tab_today">Today</string>
     <string name="tab_patients">Patients</string>
-    <string name="tab_calendar">Calendar</string>
     <string name="back">Back</string>
 
     <!-- Patients -->

@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -26,6 +27,7 @@ import com.aarogyam.staff.android.ui.chart.ChartTab
 import com.aarogyam.staff.android.ui.walkin.WalkInScreen
 import com.aarogyam.staff.clinic.ClinicBranding
 import com.sakalya.mobile.auth.SessionState
+import com.sakalya.mobile.core.Outcome
 import com.sakalya.mobile.designcompose.SkEmptyState
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.color
@@ -117,11 +119,16 @@ private fun Signed(graph: AppGraph) {
                     }
                     composable(Routes.MAIN) {
                         val open = clinic ?: return@composable
+                        val clinicCount by produceState(1, graph) {
+                            value = (graph.directory.clinics() as? Outcome.Success)?.value?.size ?: 1
+                        }
                         MainScreen(
                             graph,
                             open,
+                            clinicCount,
                             onOpenPatient = { nav.navigate("patient/${Uri.encode(it)}") },
                             onWalkIn = { nav.navigate(Routes.WALK_IN) },
+                            onAddExpense = {},
                             onSwitchClinic = {
                                 chose = true
                                 graph.directory.leave()

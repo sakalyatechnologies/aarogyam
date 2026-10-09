@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v7_tab_schedule">शेड्यूल</string>
+    <string name="v7_tab_expenses">खर्च</string>
+    <string name="v7_tab_more">और</string>
+    <string name="v7_action_walk_in">नया वॉक-इन</string>
+    <string name="v7_action_add_expense">खर्च जोड़ें</string>
+    <string name="v7_schedule_queue">कतार</string>
+    <string name="v7_schedule_day">दिन</string>
+    <string name="v7_schedule_week">सप्ताह</string>
+    <string name="v7_more_title">और</string>
+    <string name="v7_tile_analytics">विश्लेषण</string>
+    <string name="v7_tile_expenses">खर्च</string>
+    <string name="v7_tile_messages">संदेश</string>
+    <string name="v7_tile_stock">स्टॉक</string>
+    <string name="v7_tile_lab_work">लैब का काम</string>
+    <string name="v7_tile_team">टीम</string>
+    <string name="v7_tile_clinic_qr">क्लिनिक QR</string>
+    <string name="v7_tile_rx_sets">Rx सेट</string>
+    <string name="v7_tile_settings">सेटिंग्स</string>
+    <string name="v7_tile_switch_clinic">क्लिनिक बदलें</string>
+    <string name="v7_tile_language">भाषा</string>
+    <string name="v7_tile_help">मदद</string>
+    <string name="v7_tile_sign_out">साइन आउट</string>
+    <string name="v7_week_quiet">शांत</string>
+    <string name="v7_week_busy">व्यस्त</string>
+    <plurals name="v7_week_cell">
+        <item quantity="one">%1$s, %2$s: %3$d अपॉइंटमेंट</item>
+        <item quantity="other">%1$s, %2$s: %3$d अपॉइंटमेंट</item>
+    </plurals>
+    <string name="v7_soon">अगले अपडेट में आ रहा है</string>
+</resources>

@@ -53,11 +53,6 @@ fun TodayScreen(
         SkTopBar(
             title = stringResource(R.string.app_name),
             subtitle = loaded?.view?.let { greeting(it) },
-            actions = {
-                val onBar = SkTheme.colors.onBrandDark.color
-                BarAction(stringResource(R.string.walk_in_add), onBar, onWalkIn)
-                MoreMenu(onBar, onSwitchClinic, onSignOut)
-            },
         )
         PullToRefreshBox(
             isRefreshing = loaded?.refreshing == true || (state as? TodayState.MoneyOnly)?.refreshing == true,

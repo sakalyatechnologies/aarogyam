@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Machine-drafted; a native speaker reviews before the pilot (docs/backlog.md). -->
 <resources>
-    <string name="tab_queue">रांग</string>
     <string name="walk_in_add">+ वॉक-इन</string>
     <string name="walk_in_title">वॉक-इन</string>
     <string name="walk_in_subtitle">एकाच टप्प्यात नोंदणी करा आणि रांगेत जोडा</string>

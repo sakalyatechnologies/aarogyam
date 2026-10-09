@@ -45,6 +45,11 @@ export function ChairChart({ report, rows, animate }: { report: Analytics; rows:
           </div>
           <Legend items={chairs} />
           {latest === undefined ? null : (
+            <>
+            {/* Says which period the rows are, so they don't read as bare numbers beside the range's average. */}
+            <p className="an-chaircap" aria-hidden="true">
+              {`${bucketLabel(latest.start, report.bucket)}: % of open time booked`}
+            </p>
             <ul className="an-chairrows" aria-label={`Chair use, ${bucketLabel(latest.start, report.bucket)}`}>
               {chairs.map((chair) => {
                 const bps = latest.chair_utilization.find((u) => u.room_id === chair.id)?.utilization_bps ?? 0;
@@ -59,6 +64,7 @@ export function ChairChart({ report, rows, animate }: { report: Analytics; rows:
                 );
               })}
             </ul>
+            </>
           )}
         </>
       )}

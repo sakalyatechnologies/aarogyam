@@ -4,8 +4,8 @@
 //!
 //! Rules (see `docs/decisions.md`, "Analytics: chair utilization and material costs"):
 //! - utilization is a chair's booked minutes (appointments not cancelled and not unconfirmed
-//!   online requests; no-shows count, the chair was held) over open minutes, nine hours a day
-//!   on every calendar day, because clinic hours are not stored yet;
+//!   online requests; no-shows count, the chair was held) over open minutes, from the opening
+//!   hours of the chair's branch, or nine hours a day when the branch has none;
 //! - expenses are the recorded expense entries plus stock received at cost, which counts as
 //!   `material`;
 //! - a patient is new in the period of their first visit ever, and returning after it.
@@ -36,6 +36,9 @@ pub struct ChairRef {
     pub id: RoomId,
     /// Its name.
     pub name: String,
+    /// Minutes open per weekday (Monday first) from its branch's opening hours; `None` when the
+    /// branch has none and [`OPEN_MINUTES_PER_DAY`] is assumed.
+    pub week: Option<[i64; 7]>,
 }
 
 /// One chair's use in a period.
@@ -45,7 +48,7 @@ pub struct ChairUse {
     pub room_id: RoomId,
     /// Booked minutes.
     pub booked_minutes: i64,
-    /// Open minutes: [`OPEN_MINUTES_PER_DAY`] for each day of the period in the range.
+    /// Open minutes on the days of the period in the range, from [`ChairRef::week`].
     pub open_minutes: i64,
     /// Appointments.
     pub appointments: i64,
@@ -105,7 +108,7 @@ pub struct Analytics {
     pub to: Date,
     /// Months or weeks.
     pub bucket: Bucket,
-    /// The open minutes assumed per chair per day.
+    /// The open minutes assumed per day for a chair whose branch has no opening hours.
     pub open_minutes_per_day: i64,
     /// Whether money is filled in (the caller has `finance.view`).
     pub money_visible: bool,
@@ -192,6 +195,23 @@ pub async fn report(
     Ok(build(from, to, bucket, money, &rows))
 }
 
+/// Minutes open per weekday for a branch, from the opening hours read with the report.
+fn branch_week(rows: &AnalyticsRows, branch_id: Option<Uuid>) -> Option<[i64; 7]> {
+    let branch_id = branch_id?;
+    let mut week = [0_i64; 7];
+    let mut any = false;
+    for day in rows
+        .open_days
+        .iter()
+        .filter(|day| day.branch_id == branch_id)
+    {
+        let index = usize::try_from(day.weekday - 1).ok().filter(|d| *d < 7)?;
+        week[index] += day.minutes.max(0);
+        any = true;
+    }
+    any.then_some(week)
+}
+
 fn chairs_of(rows: &AnalyticsRows) -> Vec<ChairRef> {
     let mut chairs: Vec<ChairRef> = rows
         .chairs
@@ -199,6 +219,7 @@ fn chairs_of(rows: &AnalyticsRows) -> Vec<ChairRef> {
         .map(|chair| ChairRef {
             id: RoomId::from_uuid(chair.room_id),
             name: chair.name.clone(),
+            week: branch_week(rows, chair.branch_id),
         })
         .collect();
     for used in &rows.chair_periods {
@@ -206,6 +227,7 @@ fn chairs_of(rows: &AnalyticsRows) -> Vec<ChairRef> {
             chairs.push(ChairRef {
                 id: RoomId::from_uuid(used.room_id),
                 name: used.name.clone(),
+                week: branch_week(rows, used.branch_id),
             });
         }
     }
@@ -284,7 +306,6 @@ fn build(from: Date, to: Date, bucket: Bucket, money: bool, rows: &AnalyticsRows
         .periods(from, to)
         .into_iter()
         .map(|(start, first_day, last_day)| {
-            let open = open_minutes(first_day, last_day);
             let chair_uses = chairs
                 .iter()
                 .map(|chair| {
@@ -295,6 +316,7 @@ fn build(from: Date, to: Date, bucket: Bucket, money: bool, rows: &AnalyticsRows
                         .fold((0, 0), |(m, n), row| {
                             (m + row.minutes, n + row.appointments)
                         });
+                    let open = open_minutes(first_day, last_day, chair.week.as_ref());
                     ChairUse {
                         room_id: chair.id,
                         booked_minutes: booked,
@@ -367,7 +389,7 @@ fn build(from: Date, to: Date, bucket: Bucket, money: bool, rows: &AnalyticsRows
 mod tests {
     use super::*;
     use aarogyam_dal::analytics::{
-        AgeCount, Chair, ChairPeriod, KeyCount, PatientPeriod, PeriodAmount,
+        AgeCount, Chair, ChairPeriod, KeyCount, OpenDay, PatientPeriod, PeriodAmount,
     };
     use time::macros::date;
 
@@ -387,11 +409,13 @@ mod tests {
             chairs: vec![Chair {
                 room_id: chair,
                 name: "Chair 1".into(),
+                branch_id: None,
             }],
             chair_periods: vec![ChairPeriod {
                 period: date!(2026 - 10 - 01),
                 room_id: chair,
                 name: "Chair 1".into(),
+                branch_id: None,
                 minutes: 540,
                 appointments: 9,
             }],
@@ -425,6 +449,7 @@ mod tests {
                 count: 2,
             }],
             busy_hours: vec![],
+            open_days: vec![],
             lab_received: aarogyam_dal::analytics::LabTurnaround {
                 orders: 2,
                 total_minutes: 4 * 1440 + 720,
@@ -474,5 +499,47 @@ mod tests {
             &rows,
         );
         assert!(hidden.periods.iter().all(|p| p.money.is_none()));
+    }
+
+    #[test]
+    fn open_minutes_come_from_the_chair_branch_hours() {
+        let (main, annex) = (Uuid::from_u128(10), Uuid::from_u128(11));
+        let chair = |id: u128, name: &str, branch| Chair {
+            room_id: Uuid::from_u128(id),
+            name: name.into(),
+            branch_id: Some(branch),
+        };
+        let day = |weekday, minutes| OpenDay {
+            branch_id: main,
+            weekday,
+            minutes,
+        };
+        let rows = AnalyticsRows {
+            chairs: vec![chair(1, "Chair 1", main), chair(2, "Chair 2", annex)],
+            chair_periods: vec![ChairPeriod {
+                period: date!(2026 - 10 - 05),
+                room_id: Uuid::from_u128(1),
+                name: "Chair 1".into(),
+                branch_id: Some(main),
+                minutes: 300,
+                appointments: 5,
+            }],
+            // The main branch: Monday 10-13 and 17-20, Saturday 10-14. The annex has no hours.
+            open_days: vec![day(1, 360), day(6, 240)],
+            ..AnalyticsRows::default()
+        };
+        let report = build(
+            date!(2026 - 10 - 05),
+            date!(2026 - 10 - 11),
+            Bucket::Week,
+            false,
+            &rows,
+        );
+        let week = &report.periods[0];
+        assert_eq!(week.chairs[0].open_minutes, 600);
+        assert_eq!(week.chairs[0].utilization_bps, 5_000);
+        // Without hours for its branch a chair counts nine hours on each of the seven days.
+        assert_eq!(week.chairs[1].open_minutes, 7 * OPEN_MINUTES_PER_DAY);
+        assert_eq!(report.open_minutes_per_day, OPEN_MINUTES_PER_DAY);
     }
 }

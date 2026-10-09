@@ -76,6 +76,12 @@ pub enum Event {
     QueueTokenIssued,
     /// Patients were imported from a file.
     PatientsImported,
+    /// A self-registered patient record was merged into an existing patient.
+    PatientsMerged,
+    /// A clinic published a new version of its privacy notice.
+    ConsentNoticePublished,
+    /// A patient's registration was completed at check-in.
+    RegistrationCompleted,
     /// A chair, doctor, working hours or leave changed.
     ScheduleSetupChanged,
     /// A visit was started.
@@ -134,6 +140,20 @@ pub enum Event {
     WalkInRegistered,
     /// A clinician confirmed a patient-reported allergy.
     AllergyConfirmed,
+    /// A clinic granted a Sakalya staff member read access.
+    SupportGranted,
+    /// A clinic revoked a support grant.
+    SupportRevoked,
+    /// A clinic retired one of its own dental terms.
+    DentalTermRetired,
+    /// A clinic restored a retired dental term.
+    DentalTermRestored,
+    /// A clinic renamed one of its own dental terms.
+    DentalTermRenamed,
+    /// A patient signed out one of their own app sessions.
+    PatientSessionRevoked,
+    /// A patient's legal hold was put on or released.
+    LegalHoldChanged,
     /// A lab or a lab contact was added, changed or removed.
     LabChanged,
     /// A lab order was recorded.
@@ -189,6 +209,9 @@ impl Event {
             Self::AppointmentStatusChanged => "appointment.status_changed",
             Self::QueueTokenIssued => "queue_token.issued",
             Self::PatientsImported => "patients.imported",
+            Self::PatientsMerged => "patients.merged",
+            Self::ConsentNoticePublished => "consent_notice.published",
+            Self::RegistrationCompleted => "registration.completed",
             Self::ScheduleSetupChanged => "schedule_setup.changed",
             Self::VisitStarted => "visit.started",
             Self::VisitClosed => "visit.closed",
@@ -218,6 +241,13 @@ impl Event {
             Self::ExpenseVoided => "expense.voided",
             Self::WalkInRegistered => "walk_in.registered",
             Self::AllergyConfirmed => "allergy.confirmed",
+            Self::SupportGranted => "support.granted",
+            Self::SupportRevoked => "support.revoked",
+            Self::DentalTermRetired => "dental_term.retired",
+            Self::DentalTermRestored => "dental_term.restored",
+            Self::DentalTermRenamed => "dental_term.renamed",
+            Self::PatientSessionRevoked => "patient_session.revoked",
+            Self::LegalHoldChanged => "legal_hold.changed",
             Self::LabChanged => "lab.changed",
             Self::LabOrderCreated => "lab_order.created",
             Self::LabOrderUpdated => "lab_order.updated",

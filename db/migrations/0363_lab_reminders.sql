@@ -2,7 +2,8 @@
 -- two days and on the day, and flags work that is overdue; each step once per due date (the
 -- per-day columns, cleared when the due date changes), whatever runs at once. A reminder goes
 -- to a lab contact, not a patient, so it uses the outbox with `recipient` set. It names the
--- clinic, the order number, the work, teeth, shade and due date, never the patient.
+-- clinic, the order number, the work, teeth, shade and due date, never the patient. Also
+-- registers the lab tables with the erasure job (0345).
 set local lock_timeout = '5s';
 
 -- The clinic's calendar day at p_at; India's when the clinic's zone is unknown to Postgres.
@@ -117,3 +118,16 @@ revoke execute on function app.clinic_local_date(timestamptz, text) from public;
 grant execute on function app.lab_reminder_payload(uuid, uuid, text) to app_user;
 grant execute on function app.lab_reminder_email(uuid, uuid) to app_user;
 grant execute on function app.run_lab_reminders(timestamptz, int) to aarogyam_api;
+
+-- Erasing a patient (0345): their lab orders stay for the lab_work retention period (money was
+-- paid against them), with the free-text instructions cleared; items and history are kept and
+-- their change history scrubbed. Lab payments name no patient.
+insert into audit.erasure_steps (table_name, step_order, action, set_clause, filter, note) values
+  ('aarogyam.lab_orders', 95, 'update', 'instructions = null', 'patient_id = $2',
+   'lab orders kept for lab_work retention; instructions cleared'),
+  ('aarogyam.lab_order_items', 100, 'keep', null,
+   'lab_order_id in (select o.id from aarogyam.lab_orders o where o.patient_id = $2)',
+   'work, teeth and shade; no identity'),
+  ('aarogyam.lab_order_events', 100, 'keep', null,
+   'lab_order_id in (select o.id from aarogyam.lab_orders o where o.patient_id = $2)',
+   'order history; notes not yet erased (backlog)');

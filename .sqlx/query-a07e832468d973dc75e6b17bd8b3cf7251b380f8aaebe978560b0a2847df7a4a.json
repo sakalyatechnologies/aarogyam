@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.patient_duplicates (patient_id, candidate_id, reason)\n           select $1, p.id, 'phone'\n           from aarogyam.patients p\n           where (p.phone_e164 = $2 or p.alt_phone_e164 = $2) and p.id <> $1\n             and p.status = 'active' and p.deleted_at is null\n           on conflict do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a07e832468d973dc75e6b17bd8b3cf7251b380f8aaebe978560b0a2847df7a4a"
+}

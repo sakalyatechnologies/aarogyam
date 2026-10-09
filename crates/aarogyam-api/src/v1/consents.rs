@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use super::{bad, parse_instant, rfc3339};
+use super::{bad, parse_id, parse_instant, rfc3339};
 use crate::AppState;
 use crate::extract::Require;
 use crate::failure::ApiFailure;
@@ -29,6 +29,9 @@ pub struct Consent {
     pub purpose: String,
     /// The clinic's label for the notice text the patient was shown.
     pub notice_version: String,
+    /// The clinic's published notice shown (`GET /consent-notices`); null for consents recorded
+    /// against a label only.
+    pub notice_id: Option<String>,
     /// When the patient agreed (RFC 3339).
     pub given_at: String,
     /// `paper`, `verbal` or `app`.
@@ -55,6 +58,7 @@ impl From<ConsentView> for Consent {
             id: view.id,
             purpose: view.purpose.as_str().to_owned(),
             notice_version: view.notice_version,
+            notice_id: view.notice_id.map(|id| id.to_string()),
             given_at: rfc3339(view.given_at),
             method: view.method.as_str().to_owned(),
             recorded_by: view.recorded_by,
@@ -82,8 +86,12 @@ pub struct ConsentList {
 pub struct RecordConsent {
     /// `care`, `reminders`, `promotional`, `sharing` or `research`.
     pub purpose: String,
-    /// The clinic's label for the notice text shown, 1 to 40 characters, such as `v1 2026-10`.
-    pub notice_version: String,
+    /// The published notice shown (`GET /consent-notices`). Left out with `notice_version` also
+    /// left out, the clinic's current notice is recorded.
+    pub notice_id: Option<String>,
+    /// A notice label such as `v1 2026-10`, for a notice that isn't published here (the
+    /// earlier way; prefer `notice_id`).
+    pub notice_version: Option<String>,
     /// How: `paper`, `verbal` or `app`.
     pub method: String,
     /// When the patient agreed (RFC 3339); now when absent. Not in the future.
@@ -160,6 +168,11 @@ pub(crate) async fn record(
 ) -> Result<(StatusCode, Json<Consent>), ApiFailure> {
     let input = Give {
         purpose: Purpose::parse(&body.purpose).map_err(|_| bad("purpose", "unknown value"))?,
+        notice_id: body
+            .notice_id
+            .as_deref()
+            .map(|text| parse_id("notice_id", text))
+            .transpose()?,
         notice_version: body.notice_version,
         given_at: body
             .given_at

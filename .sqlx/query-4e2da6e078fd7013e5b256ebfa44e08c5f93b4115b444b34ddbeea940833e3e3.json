@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.patient_duplicates\n           set status = 'dismissed', resolved_at = now(), resolved_by = $2\n           where id = $1 and status = 'open'\n             and app.patient_in_reach(patient_id, $3) and app.patient_in_reach(candidate_id, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4e2da6e078fd7013e5b256ebfa44e08c5f93b4115b444b34ddbeea940833e3e3"
+}

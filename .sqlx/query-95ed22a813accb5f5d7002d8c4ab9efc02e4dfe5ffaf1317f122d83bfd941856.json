@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with appointments as (\n             update aarogyam.appointments set patient_id = $2 where patient_id = $1 returning id\n           ), tokens as (\n             update aarogyam.queue_tokens set patient_id = $2 where patient_id = $1\n           ), links as (\n             update aarogyam.patient_links set patient_id = $2 where patient_id = $1\n           ), identifiers as (\n             update aarogyam.patient_identifiers set patient_id = $2 where patient_id = $1\n           ), consents as (\n             update aarogyam.patient_consents c set patient_id = $2\n             where c.patient_id = $1 and c.status = 'given'\n               and not exists (select 1 from aarogyam.patient_consents t\n                               where t.patient_id = $2 and t.purpose = c.purpose\n                                 and t.status = 'given')\n           ), flags as (\n             update aarogyam.patient_duplicates\n             set status = 'merged', resolved_at = now(), resolved_by = $3\n             where (patient_id = $1 or candidate_id = $1) and status = 'open'\n           ), filled as (\n             update aarogyam.patients t set email = s.email\n             from aarogyam.patients s\n             where t.id = $2 and s.id = $1 and t.email is null and s.email is not null\n           ), merged as (\n             update aarogyam.patients set status = 'merged', merged_into_id = $2 where id = $1\n           )\n           select count(*) as \"moved!\" from appointments",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "moved!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "95ed22a813accb5f5d7002d8c4ab9efc02e4dfe5ffaf1317f122d83bfd941856"
+}

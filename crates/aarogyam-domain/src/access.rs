@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::ids::{ClinicId, MembershipId, UserId};
+use crate::ids::{ClinicId, MembershipId, SupportGrantId, UserId};
 use crate::permission::{Permission, PermissionSet, Scope};
 
 /// Who is acting, as recorded in the change history and the access record.
@@ -197,12 +197,37 @@ pub struct ClinicActor {
     pub number_prefix: String,
     /// The person.
     pub user_id: UserId,
-    /// Their membership.
+    /// Their membership; the nil id for Sakalya staff acting under a support grant, who have
+    /// none (a write naming it fails its foreign key).
     pub membership_id: MembershipId,
-    /// Their role key.
+    /// Their role key (`support` under a grant).
     pub role_key: String,
     /// What they may do.
     pub permissions: PermissionSet,
+    /// The support grant Sakalya staff act under; `None` for members.
+    pub support_grant: Option<SupportGrantId>,
+}
+
+/// What Sakalya staff may do in a clinic under a support grant: read the records a clinic
+/// member reads, at every record, and nothing else (`docs/decisions.md`, "Support grants").
+/// Contact details stay masked, money totals and the change history stay hidden.
+pub const SUPPORT_PERMISSIONS: PermissionSet = PermissionSet::EMPTY
+    .with(Permission::PatientsRead, Scope::All)
+    .with(Permission::AppointmentsRead, Scope::All)
+    .with(Permission::ClinicalRead, Scope::All)
+    .with(Permission::BillingRead, Scope::All)
+    .with(Permission::InventoryRead, Scope::All);
+
+/// What the database reported about Sakalya staff and a clinic (`app.support_authorize`): an
+/// active grant exists.
+#[derive(Debug, Clone, Copy)]
+pub struct SupportAuthorization {
+    /// The staff member's user.
+    pub user_id: UserId,
+    /// The grant they act under.
+    pub grant_id: SupportGrantId,
+    /// Whether this sign-in session was revoked.
+    pub session_revoked: bool,
 }
 
 impl ClinicActor {
@@ -228,7 +253,38 @@ impl ClinicActor {
             membership_id: authorization.membership_id,
             role_key: authorization.role_key,
             permissions: authorization.permissions,
+            support_grant: None,
         })
+    }
+
+    /// Decides whether a support grant lets Sakalya staff read in `clinic`.
+    ///
+    /// # Errors
+    /// [`Denied::SessionRevoked`] when the sign-in session was revoked.
+    pub fn support(clinic: ClinicPlace, access: SupportAuthorization) -> Result<Self, Denied> {
+        if access.session_revoked {
+            return Err(Denied::SessionRevoked);
+        }
+        Ok(Self {
+            clinic_id: clinic.id,
+            timezone: clinic.timezone,
+            number_prefix: clinic.number_prefix,
+            user_id: access.user_id,
+            membership_id: MembershipId::from_uuid(uuid::Uuid::nil()),
+            role_key: "support".into(),
+            permissions: SUPPORT_PERMISSIONS,
+            support_grant: Some(access.grant_id),
+        })
+    }
+
+    /// Who is acting, for the change history and the access record.
+    #[must_use]
+    pub const fn kind(&self) -> ActorKind {
+        if self.support_grant.is_some() {
+            ActorKind::Support
+        } else {
+            ActorKind::Staff
+        }
     }
 
     /// Checks one permission.
@@ -257,6 +313,9 @@ impl ClinicActor {
     /// Why this person is reading a patient's record, for the access record.
     #[must_use]
     pub fn access_purpose(&self) -> &'static str {
+        if self.support_grant.is_some() {
+            return "support";
+        }
         match self.role_key.as_str() {
             "front_desk" => "front_desk",
             "finance" => "billing",
@@ -365,6 +424,40 @@ mod tests {
             permissions: PermissionSet::EMPTY.with(Permission::PatientsRead, Scope::All),
             session_revoked: false,
         }
+    }
+
+    #[test]
+    fn support_reads_everything_and_writes_nothing() {
+        let grant = SupportGrantId::new_v7();
+        let access = SupportAuthorization {
+            user_id: UserId::new_v7(),
+            grant_id: grant,
+            session_revoked: false,
+        };
+        let actor = ClinicActor::support(place(), access).unwrap();
+        assert_eq!(actor.kind(), ActorKind::Support);
+        assert_eq!(actor.support_grant, Some(grant));
+        assert_eq!(actor.access_purpose(), "support");
+        assert_eq!(actor.reach(Permission::PatientsRead), Reach::All);
+        for permission in Permission::ALL {
+            let reads = matches!(
+                permission,
+                Permission::PatientsRead
+                    | Permission::AppointmentsRead
+                    | Permission::ClinicalRead
+                    | Permission::BillingRead
+                    | Permission::InventoryRead
+            );
+            assert_eq!(actor.require(permission).is_ok(), reads, "{permission}");
+        }
+        let revoked = SupportAuthorization {
+            session_revoked: true,
+            ..access
+        };
+        assert_eq!(
+            ClinicActor::support(place(), revoked).unwrap_err(),
+            Denied::SessionRevoked
+        );
     }
 
     #[test]

@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select platform_user_id as \"id!\", display_name as \"name!\"\n           from app.support_staff_by_email($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "f11114ce456a3aeb7192d1fc0584473b85d218f49b1dd9b84752a580735014bf"
+}

@@ -1779,7 +1779,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!method.success) {
             return invalid("method", "unknown value");
           }
-          const version = input.notice_version;
+          const version = input.notice_version ?? "v1 2026-10";
           if (version.length < 1 || version.length > 40 || version !== version.trim()) {
             return invalid("notice_version", "must be 1 to 40 characters, without spaces at either end");
           }
@@ -2590,7 +2590,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           const term = { id: fakeUuid(random, clock()), clinic_id: caller.clinic.id, kind: kind.data, label };
           (state.dentalTerms ??= []).push(term);
-          return reply({ id: term.id, kind: term.kind, label, own: true } satisfies C.DentalTerm);
+          return reply({ id: term.id, kind: term.kind, label, own: true, retired: false } satisfies C.DentalTerm);
         }),
 
       listAttachments: (id, opts) =>
@@ -4421,7 +4421,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               chairs: state.rooms
                 .filter((r) => r.clinic_id === clinicId && r.kind === "chair" && r.active)
                 .sort((a, b) => a.name.localeCompare(b.name))
-                .map((r) => ({ id: r.id, name: r.name })),
+                .map((r) => ({ id: r.id, name: r.name, uses_clinic_hours: false })),
               expenses: (state.expenses ?? []).filter((e) => e.clinic_id === clinicId),
               stockBatches: state.stockBatches.filter((b) => b.clinic_id === clinicId),
               payments: state.payments.filter((p) => p.clinic_id === clinicId && p.status === "received"),
@@ -5928,7 +5928,14 @@ function patientSummary(
 }
 
 function wirePatientBrief(p: FakePatient, now: Date): C.PatientBrief {
-  return { id: p.id, number: p.number, full_name: p.full_name, sex: p.sex, age_years: ageYears(p.date_of_birth, now) };
+  return {
+    id: p.id,
+    number: p.number,
+    full_name: p.full_name,
+    sex: p.sex,
+    age_years: ageYears(p.date_of_birth, now),
+    registration_incomplete: false,
+  };
 }
 
 function wireAppointment(appt: FakeAppointment, state: Fixtures, now: Date): C.Appointment | undefined {

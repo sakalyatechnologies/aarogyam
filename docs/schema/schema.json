@@ -768,54 +768,54 @@
   {
    "name": "support_grants",
    "domain": "platform",
-   "purpose": "Time-limited permission a clinic gives Sakalya support to look inside its data.",
-   "rls": "global",
+   "purpose": "Time-limited read access a clinic owner gives one named Sakalya staff member (support.grant).",
+   "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Platform staff can't hold memberships (0172); a grant is their only way into a clinic. While active, app.support_authorize admits them on the clinic host through routes that name a permission, with read permissions only, actor kind support (the database refuses their writes in app.set_row_meta), and records each request in support_actions. A trigger allows one change: revocation. Ends by itself at ends_at.",
    "cols": [
-    {
-     "name": "org_id",
-     "type": "uuid",
-     "nullable": false,
-     "ref": "organizations",
-     "note": ""
-    },
-    {
-     "name": "granted_by",
-     "type": "uuid",
-     "nullable": false,
-     "ref": "users",
-     "note": ""
-    },
     {
      "name": "platform_user_id",
      "type": "uuid",
-     "nullable": true,
+     "nullable": false,
      "ref": "platform_users",
-     "note": "null means any support agent"
+     "note": "one named person, owner or support role"
     },
     {
-     "name": "scope",
-     "type": "support_scope",
+     "name": "access",
+     "type": "support_access",
      "nullable": false,
      "ref": null,
-     "note": "settings_only, read_records"
+     "note": "read (records, read-only)"
+    },
+    {
+     "name": "reason",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "3 to 500 characters, shown to the staff member"
     },
     {
      "name": "starts_at",
      "type": "timestamptz",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "now when granted"
     },
     {
-     "name": "expires_at",
+     "name": "ends_at",
      "type": "timestamptz",
      "nullable": false,
      "ref": null,
+     "note": "at most 7 days after starts_at"
+    },
+    {
+     "name": "granted_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
      "note": ""
     },
     {
@@ -824,6 +824,71 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "revoked_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "support_actions",
+   "domain": "platform",
+   "purpose": "Every request Sakalya staff made under a support grant: the grant, method and route template.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": true,
+   "lifecycle": "append_only",
+   "schema": "audit",
+   "notes": "Primary key (org_id, at, id), partitioned by month. Written by app.support_authorize only; the clinic reads its own rows (GET /support-grants/{id}/actions).",
+   "cols": [
+    {
+     "name": "grant_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": "the support grant"
+    },
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": "the staff member"
+    },
+    {
+     "name": "method",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "GET, POST ..."
+    },
+    {
+     "name": "route",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "the route template, never a value"
+    },
+    {
+     "name": "at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "request_id",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "joins the change history and access record"
     }
    ],
    "referenced_by": [],
@@ -1031,8 +1096,7 @@
     "notifications.user_id",
     "platform_users.user_id",
     "role_changes.changed_by",
-    "sessions.user_id",
-    "support_grants.granted_by"
+    "sessions.user_id"
    ],
    "sensitivity": "personal",
    "offline": "server_only"
@@ -1103,6 +1167,64 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
+   "name": "patient_sessions",
+   "domain": "iam",
+   "purpose": "Patient app sign-in sessions, so a patient can see where they are signed in and sign one out.",
+   "rls": "user",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Recorded by app.patient_access on every patient request, which also refuses a revoked session; GET /me/patient/sessions and DELETE /me/patient/sessions/{id}. Staff sessions stay in sessions (patient accounts are not users).",
+   "cols": [
+    {
+     "name": "account_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patient_accounts",
+     "note": ""
+    },
+    {
+     "name": "provider_session_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": "session_id claim in the JWT, unique"
+    },
+    {
+     "name": "last_active_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": "refreshed at most every 5 minutes"
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "revoked_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "revoke_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "signed_out"
     }
    ],
    "referenced_by": [],
@@ -1245,7 +1367,6 @@
     "org_domains.org_id",
     "saas_invoices.org_id",
     "subscriptions.org_id",
-    "support_grants.org_id",
     "usage_counters.org_id"
    ],
    "sensitivity": "internal",
@@ -1314,6 +1435,7 @@
    ],
    "referenced_by": [
     "appointments.branch_id",
+    "clinic_hours.branch_id",
     "daily_closings.branch_id",
     "encounters.branch_id",
     "equipment.branch_id",
@@ -1598,6 +1720,13 @@
      "nullable": false,
      "ref": null,
      "note": "online booking: enabled, slot_minutes, buffer_minutes, auto_confirm, horizon_days, min_notice_minutes"
+    },
+    {
+     "name": "patient_retention_years",
+     "type": "smallint",
+     "nullable": true,
+     "ref": null,
+     "note": "7 to 50; null keeps the default 7 years"
     }
    ],
    "referenced_by": [],
@@ -1966,8 +2095,10 @@
     "clinical_notes.error_by",
     "clinical_notes.signed_by",
     "conditions.verified_by",
+    "consent_notices.published_by",
     "daily_closings.closed_by",
     "dental_terms.added_by",
+    "dental_terms.retired_by",
     "document_extractions.confirmed_by",
     "encounters.clinician_id",
     "expenses.recorded_by",
@@ -1985,6 +2116,7 @@
     "observations.verified_by",
     "patient_consents.recorded_by",
     "patient_consents.withdrawn_by",
+    "patient_duplicates.resolved_by",
     "patient_links.decided_by",
     "payments.received_by",
     "payments.voided_by",
@@ -1999,6 +2131,8 @@
     "staff_advances.membership_id",
     "staff_notification_reads.membership_id",
     "staff_notifications.handled_by",
+    "support_grants.granted_by",
+    "support_grants.revoked_by",
     "treatment_plans.clinician_id"
    ],
    "sensitivity": "internal",
@@ -2264,7 +2398,7 @@
      "type": "patient_status",
      "nullable": false,
      "ref": null,
-     "note": "active, inactive, deceased, merged"
+     "note": "active, inactive, deceased, merged, erased"
     },
     {
      "name": "merged_into_id",
@@ -2300,6 +2434,34 @@
      "nullable": false,
      "ref": null,
      "note": "starts at 1 and goes up when the record changes; sent as the ETag, checked against If-Match on edits"
+    },
+    {
+     "name": "legal_hold",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "stops erasure (PUT /patients/{id}/legal-hold)"
+    },
+    {
+     "name": "legal_hold_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "legal_hold_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "erased_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "set with status erased: a tombstone with identity cleared"
     }
    ],
    "referenced_by": [
@@ -2323,6 +2485,8 @@
     "messages.patient_id",
     "observations.patient_id",
     "patient_consents.patient_id",
+    "patient_duplicates.candidate_id",
+    "patient_duplicates.patient_id",
     "patient_gaps.patient_id",
     "patient_identifiers.patient_id",
     "patient_link_codes.patient_id",
@@ -2599,7 +2763,8 @@
     }
    ],
    "referenced_by": [
-    "patient_links.account_id"
+    "patient_links.account_id",
+    "patient_sessions.account_id"
    ],
    "sensitivity": "personal",
    "offline": "server_only"
@@ -2827,7 +2992,7 @@
    "partitioned": false,
    "lifecycle": "ephemeral",
    "schema": "aarogyam",
-   "notes": "Replaced as a whole per doctor. Clinic hours and valid_from/valid_to are planned.",
+   "notes": "Replaced as a whole per doctor. Clinic opening hours are in clinic_hours. valid_from/valid_to are planned.",
    "cols": [
     {
      "name": "practitioner_id",
@@ -2868,6 +3033,50 @@
    "referenced_by": [],
    "sensitivity": "personal",
    "offline": "read_only"
+  },
+  {
+   "name": "clinic_hours",
+   "domain": "people",
+   "purpose": "When each branch of the clinic is open, by weekday. Split shifts are two rows.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0330). Replaced as a whole per branch (GET/PUT /clinic-hours). Chair utilization counts open minutes from it, nine hours a day when a branch has none. Clinics that existed got the union of their active doctors' hours.",
+   "cols": [
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "weekday",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": "1 Monday to 7 Sunday"
+    },
+    {
+     "name": "starts",
+     "type": "time",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "ends",
+     "type": "time",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "leave_blocks",
@@ -4903,9 +5112,9 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": "append_only",
+   "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Chart entries name a term by id: a seeded id such as zirconia, or one of these UUIDs. The list arrives with the chart and clients filter it as the clinician types.",
+   "notes": "Chart entries name a term by id: a seeded id such as zirconia, or one of these UUIDs, and are never rewritten, so a rename shows on old entries; the change history keeps old labels. Only label and retirement change (column grants and a trigger); never deleted. The list arrives with the chart (retired terms left out) and clients filter it as the clinician types.",
    "cols": [
     {
      "name": "kind",
@@ -4919,12 +5128,26 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "unique per list ignoring case"
+     "note": "unique per list ignoring case; may be renamed"
     },
     {
      "name": "added_by",
      "type": "uuid",
      "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "retired_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "no longer offered for new entries"
+    },
+    {
+     "name": "retired_by",
+     "type": "uuid",
+     "nullable": true,
      "ref": "memberships",
      "note": ""
     }
@@ -8742,6 +8965,59 @@
    "offline": "server_only"
   },
   {
+   "name": "consent_notices",
+   "domain": "trust",
+   "purpose": "The clinic's own privacy notice text, one row per published version.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0332). GET /consent-notices (patients.read), POST to publish the next version (settings.manage). The newest is the current notice: consents (desk, walk-in, check-in) record it as notice_id unless another is named. Never edited.",
+   "cols": [
+    {
+     "name": "version",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "1, 2, 3 per clinic"
+    },
+    {
+     "name": "label",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "short, e.g. v2 2026-11"
+    },
+    {
+     "name": "body",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "up to 20,000 characters"
+    },
+    {
+     "name": "published_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "published_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "patient_consents.notice_id"
+   ],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
    "name": "patient_consents",
    "domain": "trust",
    "purpose": "DPDP notice and consent record: the patient was shown the clinic's notice and agreed to a purpose; later withdrawn.",
@@ -8771,7 +9047,14 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "the clinic's label for the notice text shown, e.g. v1 2026-10"
+     "note": "the label of the notice shown, e.g. v1 2026-10 (the notice's label when notice_id is set)"
+    },
+    {
+     "name": "notice_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "consent_notices",
+     "note": "the published notice text shown; null for consents recorded against a label only"
     },
     {
      "name": "given_at",
@@ -8834,6 +9117,64 @@
      "type": "text",
      "nullable": true,
      "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "patient_duplicates",
+   "domain": "trust",
+   "purpose": "Possible duplicate patients for the front desk: a self-registered online record whose phone matches an existing patient.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0331). Online booking matches only by verified email; a phone match makes a new self-registered record and a row here, never a merge. GET /patient-duplicates lists open ones; POST /patients/{id}/merge moves the self-registered record's appointments, tokens, links, identifiers and consents to the existing patient and marks it merged (refused when it has any clinical or billing record); dismiss marks it a different person.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": "the self-registered record"
+    },
+    {
+     "name": "candidate_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": "the existing patient it may be"
+    },
+    {
+     "name": "reason",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "phone"
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "open, merged, dismissed"
+    },
+    {
+     "name": "resolved_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "resolved_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
      "note": ""
     }
    ],
@@ -9085,7 +9426,7 @@
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "staff, patient, support, system"
+     "note": "staff, patient, patient_account, support (reading under a grant), platform (the console), system"
     },
     {
      "name": "changes",
@@ -9155,6 +9496,108 @@
    ],
    "referenced_by": [],
    "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "erasure_steps",
+   "domain": "trust",
+   "purpose": "What erasing a patient does to each table: how to find their rows and whether to delete, update or keep them.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "audit",
+   "notes": "Owner only. A new table with patient data registers here in its own migration; a test fails while a table with patient_id isn't listed. The change history of every listed row is scrubbed whatever the action.",
+   "cols": [
+    {
+     "name": "table_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "primary key, schema-qualified"
+    },
+    {
+     "name": "step_order",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "action",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "delete, update, keep"
+    },
+    {
+     "name": "set_clause",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "for update"
+    },
+    {
+     "name": "filter",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "the patient's rows, $2 being the patient id; patient_id = $2 by default"
+    },
+    {
+     "name": "note",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "erasure_log",
+   "domain": "trust",
+   "purpose": "Patients erased, by id, so a restore from backup can be replayed.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "audit",
+   "notes": "Primary key (org_id, patient_id). The job also appends each id to a log file kept outside the database, which is what `aarogyam erase --replay` reads after a restore.",
+   "cols": [
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "run_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "erased_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
    "offline": "server_only"
   },
   {

@@ -21,8 +21,10 @@ use crate::console::{
 use crate::error::AppError;
 use crate::staff::{InviteStaff, Invited, invite_in_scope};
 
-// Evaluated at compile time: a bad literal fails the build, never a request.
-const SUPPORT: ActorKind = match ActorKind::new("support") {
+// Evaluated at compile time: a bad literal fails the build, never a request. Sakalya staff
+// acting from the console write as `platform`; `support` is reading under a support grant,
+// which the database keeps read-only.
+const PLATFORM: ActorKind = match ActorKind::new("platform") {
     Ok(kind) => kind,
     Err(_) => panic!("invalid actor kind"),
 };
@@ -323,7 +325,7 @@ pub async fn invite(
     }
     let scope = Scope::tenant(clinic_id.uuid())
         .with_user(staff.user_id.uuid())
-        .with_actor_kind(SUPPORT);
+        .with_actor_kind(PLATFORM);
     let scope = match request_id {
         Some(id) => scope.with_request_id(id),
         None => scope,

@@ -244,6 +244,25 @@ async fn walk_in_routes(app: &TestApp, owner: &str) -> [Route; 4] {
 /// Edits sent with the `If-Match` version just read. Each repeats the record's own content, so
 /// the version stays put and the measured repeats succeed. Read-modify-write edits (read the
 /// record, check it, write it) take more trips than a read, each allowance below.
+/// What staff did under a support grant: the grant and its actions in one statement.
+async fn support_routes(app: &TestApp, owner: &str) -> [Route; 1] {
+    let ends_at = (OffsetDateTime::now_utc() + Duration::hours(2))
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    let grant = created(
+        app,
+        owner,
+        "/api/v1/support-grants",
+        json!({ "staff_email": "staff@sakalya.test", "reason": "Budget check", "ends_at": ends_at }),
+    )
+    .await;
+    [Route::get(
+        "GET /support-grants/{id}/actions",
+        ALPHA,
+        format!("/api/v1/support-grants/{grant}/actions"),
+    )]
+}
+
 async fn conditional_edits(
     app: &TestApp,
     owner: &str,
@@ -490,6 +509,17 @@ fn hot_routes(
         Route::get("GET /staff", ALPHA, "/api/v1/staff".into()),
         Route::get("GET /practitioners", ALPHA, "/api/v1/practitioners".into()),
         Route::get("GET /rooms", ALPHA, "/api/v1/rooms".into()),
+        Route::get("GET /clinic-hours", ALPHA, "/api/v1/clinic-hours".into()),
+        Route::get(
+            "GET /consent-notices",
+            ALPHA,
+            "/api/v1/consent-notices".into(),
+        ),
+        Route::get(
+            "GET /patient-duplicates",
+            ALPHA,
+            "/api/v1/patient-duplicates".into(),
+        ),
         Route::get("GET /price-items", ALPHA, "/api/v1/price-items".into()),
         Route::get("GET /letterhead", ALPHA, "/api/v1/letterhead".into()),
         // Over budget since scope enforcement (the scoped visit list, then the authors' names); to fold into one statement.
@@ -523,6 +553,11 @@ fn hot_routes(
         Route::get("GET /roles", ALPHA, "/api/v1/roles".into()),
         Route::get("GET /roles/{key}", ALPHA, "/api/v1/roles/doctor".into()),
         Route::get("GET /permissions", ALPHA, "/api/v1/permissions".into()),
+        Route::get(
+            "GET /support-grants",
+            ALPHA,
+            "/api/v1/support-grants".into(),
+        ),
         // The lock, the before and after lists, the writes and the change record: one statement.
         Route {
             method: Method::PUT,
@@ -602,6 +637,7 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
     let edits = conditional_edits(&app, &owner, &patient, &appointment, &starts_at).await;
     let routes = hot_routes(monday, sunday, tomorrow, &doctor, &patient);
     let walk_ins = walk_in_routes(&app, &owner).await;
+    let support = support_routes(&app, &owner).await;
     let labs = lab_routes(&app, &owner, &patient).await;
 
     let mut table = String::from(
@@ -612,6 +648,7 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
         .iter()
         .chain(&moves)
         .chain(&walk_ins)
+        .chain(&support)
         .chain(&labs)
         .chain(&routes)
     {
@@ -703,6 +740,12 @@ async fn patient_app_reads_stay_within_their_round_trip_budget() {
     let routes = [
         // The account and its links only.
         Route::get("GET /me/patient", host, "/api/v1/me/patient".into()),
+        // The account (recording the session), then the sessions: no clinic transaction.
+        Route::get(
+            "GET /me/patient/sessions",
+            host,
+            "/api/v1/me/patient/sessions".into(),
+        ),
         Route::get(
             "GET /me/patient/home",
             host,

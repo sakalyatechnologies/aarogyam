@@ -49,6 +49,9 @@ pub enum Permission {
     /// Record patient-reported allergies and "No known allergies" at registration. Grants no
     /// clinical reading.
     IntakeWrite,
+    /// Let a named Sakalya staff member read the clinic's records for up to 7 days, and revoke
+    /// that access.
+    SupportGrant,
     /// See labs, their contacts and lab orders.
     LabsRead,
     /// Keep labs and contacts, record lab orders and remind labs.
@@ -57,7 +60,7 @@ pub enum Permission {
 
 impl Permission {
     /// Every permission, in catalogue order.
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 24] = [
         Self::PatientsRead,
         Self::PatientsWrite,
         Self::PatientsContact,
@@ -79,6 +82,7 @@ impl Permission {
         Self::ExpensesWrite,
         Self::AnalyticsView,
         Self::IntakeWrite,
+        Self::SupportGrant,
         Self::LabsRead,
         Self::LabsWrite,
     ];
@@ -108,6 +112,7 @@ impl Permission {
             Self::ExpensesWrite => "expenses.write",
             Self::AnalyticsView => "analytics.view",
             Self::IntakeWrite => "intake.write",
+            Self::SupportGrant => "support.grant",
             Self::LabsRead => "labs.read",
             Self::LabsWrite => "labs.write",
         }
@@ -329,6 +334,7 @@ required!(
     ExpensesWrite,
     AnalyticsView,
     IntakeWrite,
+    SupportGrant,
     LabsRead,
     LabsWrite,
 );

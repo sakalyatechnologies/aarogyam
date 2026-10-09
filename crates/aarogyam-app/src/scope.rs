@@ -10,12 +10,28 @@ pub(crate) const STAFF: ActorKind = match ActorKind::new("staff") {
     Err(_) => panic!("invalid actor kind"),
 };
 
-/// The scope for a member acting in their clinic: row-level security limits every query to
-/// the clinic, and the change history records the member and the request.
+pub(crate) const SUPPORT: ActorKind = match ActorKind::new("support") {
+    Ok(kind) => kind,
+    Err(_) => panic!("invalid actor kind"),
+};
+
+/// The actor kind the change history and the access record show for `actor`: `support` for
+/// Sakalya staff under a grant (the database refuses their writes), else `staff`.
+pub(crate) const fn actor_kind(actor: &ClinicActor) -> ActorKind {
+    if actor.support_grant.is_some() {
+        SUPPORT
+    } else {
+        STAFF
+    }
+}
+
+/// The scope for a member (or Sakalya staff under a support grant) acting in a clinic:
+/// row-level security limits every query to the clinic, and the change history records the
+/// person and the request.
 pub(crate) fn staff_scope(actor: &ClinicActor, request_id: Option<Uuid>) -> Scope {
     let scope = Scope::tenant(actor.clinic_id.uuid())
         .with_user(actor.user_id.uuid())
-        .with_actor_kind(STAFF);
+        .with_actor_kind(actor_kind(actor));
     match request_id {
         Some(id) => scope.with_request_id(id),
         None => scope,

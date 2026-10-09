@@ -1,0 +1,90 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select t.id, t.kind, t.label,\n                  (select u.display_name from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = t.org_id and m.id = t.added_by) as added_by_name,\n                  t.created_at, t.retired_at,\n                  (select u.display_name from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = t.org_id and m.id = t.retired_by) as retired_by_name\n           from aarogyam.dental_terms t\n           where $1::uuid is null or t.id = $1\n           order by t.kind, lower(t.label)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.dental_terms",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.dental_terms",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.dental_terms",
+            "name": "label"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "added_by_name",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.dental_terms",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "retired_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.dental_terms",
+            "name": "retired_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "retired_by_name",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      false,
+      true,
+      null
+    ]
+  },
+  "hash": "f18f6a054b5dd67e1a669ffa2021072e7948b9c3abf5b80a4948de0aec6d7b80"
+}

@@ -6,7 +6,7 @@ Requests from the founder and clinics that are not built yet. Read this before d
 
 ### Clinic list upkeep (6 Oct 2026, follow-up)
 - Built: procedures and materials per surface on one or several teeth (seeded in `specialties/dental/vocabulary.json`, clinic additions in `dental_terms`), type-ahead and "Add new" on web, Android and iOS, and oval compact charts in the website demo.
-- Still to do: retiring or renaming a clinic's own term (the table is append-only today), and a settings screen listing the clinic's additions.
+- Retiring, renaming and listing a clinic's own terms: backend built 8 Oct (decisions.md). Still to do: the settings screen.
 
 ## Today dashboard visuals (6 Oct 2026)
 - Chair utilisation over time (per chair, per day and week).
@@ -42,7 +42,7 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 - **Clinic addresses are an implementation detail:** people sign in on the website and never need to type a clinic's address; keep it out of emails and screens except where a clinic shares a booking link.
 
 ## Support access for Sakalya staff (6 Oct 2026)
-- `support_grants` exists only in the docs model, not as a migration. Build it: a clinic owner (or an approved request) grants a named staff member time-limited access to their clinic, visible to the clinic, audited, and ending automatically. Platform staff can't hold clinic memberships (migration 0172), so this is the only way for staff to help inside a clinic.
+- Backend built 8 Oct (decisions.md, "Support grants"): owner grants, revokes, per-request audit, console list, read-only access on the clinic host. Still to do: the portal Settings screen and the console screen, and a request-and-approve flow.
 
 ## One admin doctor across several clinics (6 Oct 2026)
 - An owner (admin doctor) of several clinics manages staff across all of them in one place: who has access to which clinic and with which role; grant or remove access to another clinic without switching clinics.
@@ -93,7 +93,8 @@ Founder testing: a patient booked online from the clinic website and the booking
   - the chair change is lost unless you press Move appointment
   - reason, visit kind and length can't be edited
   - no patient phone or email
-- **Online sign-ups:** registered with name, email and phone only; complete age, sex, allergies and consent at Mark arrived, and also match duplicates by phone.
+- **Online sign-ups:** backend built 8 Oct 2026 (`POST /appointments/{id}/check-in`, `registration_incomplete`, `GET /patient-duplicates`, merge and dismiss; `decisions.md`, "Online sign-ups"). Still to build: the portal check-in form at Mark arrived and the duplicates screen.
+- **Appointment edits:** backend already edits chair alone, reason, kind and length (tests 8 Oct 2026); the portal must send the chair with every save, not only Move appointment.
 - **Date and time fields:** the shared `sakalya-web` date field is the browser default (US order, no shortcuts) and time is typed as text. Build a proper date picker and slot-based time picker there, then use it everywhere.
 
 ## Labs (8 Oct 2026) - backend built on feat/labs
@@ -150,7 +151,7 @@ Two walkthroughs of the live Sunrise portal (all tabs, then a Patients deep-dive
 ## Analytics tab (6 Oct 2026)
 - A dedicated Analytics area for the owner/admin doctor (not staff), on web and the same on mobile. The founder will share a dashboard mock-up; plan from that, review, then build.
 - **Design notes:** owner-only by default via a new permission; one query per chart within the round-trip budget; respects scopes.
-- **Backend built (7 Oct 2026):** `analytics.view` (owner), `GET /reports/analytics` (chair utilization, income, expenses with stock as material, new vs returning, age band, visit kind, referral source, busy hours; one statement), and expenses (`expenses.write` for owner and finance; `GET/POST /expenses`, `POST /expenses/{id}/void`). Rules in `decisions.md`, "Analytics: chair utilization and material costs". The portal Analytics page and Billing → Expenses tab were built on 8 Oct 2026. Still to build: mobile, clinic opening hours (utilization assumes 9 h a day), custom expense categories, branch/vendor/receipt on expenses.
+- **Backend built (7 Oct 2026):** `analytics.view` (owner), `GET /reports/analytics` (chair utilization, income, expenses with stock as material, new vs returning, age band, visit kind, referral source, busy hours; one statement), and expenses (`expenses.write` for owner and finance; `GET/POST /expenses`, `POST /expenses/{id}/void`). Rules in `decisions.md`, "Analytics: chair utilization and material costs". The portal Analytics page and Billing → Expenses tab were built on 8 Oct 2026. Clinic opening hours (`GET/PUT /clinic-hours`, migration 0330) drive chair utilization since 8 Oct 2026; the setup wizard and a Settings screen for them are still to build (UI). Still to build: mobile, custom expense categories, branch/vendor/receipt on expenses.
 
 ## Referral programme (later)
 - Clinics refer other clinics and earn a discount (e.g. 10–50% of the next month) when the referred clinic subscribes; tracking codes, a referrals page, and terms to decide with pricing.
@@ -184,7 +185,7 @@ Review prompts are in `~/project/ux-review/ux-review-prompts.md` (outside the re
 - **Self sign-up:** Supabase sign-ups are off, so only patients a clinic invited (or who exist already) can sign in; a throttled, Turnstile-checked patient sign-up would let a patient ask for a match first.
 - **Scan the QR in the app** (camera), and open the app from an emailed link (app links on the product domain).
 - **File viewer:** the app lists shared files; viewing images and PDFs in the app, and patients uploading old reports.
-- **Patient session registry:** patient sessions aren't in `sessions`, so they can't be listed or revoked from the app yet (staff revocation of the same Supabase session still applies).
+- **Patient session registry:** backend built 8 Oct (`patient_sessions`, `GET /me/patient/sessions`, `DELETE /me/patient/sessions/{id}`, refused on the next request). Still to do: the app screen.
 - **Family profiles** (one account, several records), push reminders (no health data in payloads), "who viewed my record" from `access_log`, doctor-approved visit summaries (D3).
 - **Move generic mobile code to sakalya-mobile:** the email-code sign-in holder, `ScreenError` and host config are copied between the staff and patient apps.
 
@@ -195,8 +196,10 @@ Review prompts are in `~/project/ux-review/ux-review-prompts.md` (outside the re
 
 ## Privacy and compliance follow-ups (7 Oct 2026)
 - **Optional MFA for clinic users** (owner and doctors), reusing the console's authenticator step; a clinic setting could later make it required for roles that see finance or export data.
-- **Erasure and anonymisation** as designed in decisions.md (Retention): legal-hold flag, per-clinic retention override, the erase job with `--apply --clinic`, scrubbing `audit_events.changes`, and an erasure log replayed after a restore.
+- **Erasure and anonymisation:** the job, legal hold, per-clinic override, history scrub and replayable log are built (decisions.md, "Erasure job"). Still to do: erasing clinical content and files, the `erased` status in the portal, a legal-hold control in Patient 360, and a patient's own erasure request.
 - **Consent drives messaging:** withdrawing `reminders` or `promotional` consent should switch off those messages (link `patient_consents` to `consent_channels`); patient self-service consent in the patient app; clinic-authored notice text with versions instead of a free label.
+- **Erasure and anonymisation** as designed in decisions.md (Retention): legal-hold flag, per-clinic retention override, the erase job with `--apply --clinic`, scrubbing `audit_events.changes`, and an erasure log replayed after a restore.
+- **Consent drives messaging:** built 8 Oct 2026: `app.may_contact` and the consent matrix (`decisions.md`, "Notice and consent records"); clinic-authored notice versions (`/consent-notices`, migration 0332). Still to build: the reminder and campaign senders must call it, and cancel queued `messages` rows on withdrawal once that table exists; patient self-service consent in the patient app; the portal screens for notices.
 - **Legal pages for clinics' own use:** clinics' own notice printed with the clinic's letterhead; lawyer-reviewed Hindi and Marathi versions.
 
 - **Built so far (7 Oct 2026):** the patient account and verified per-clinic links, and the patient app showing every linked clinic's appointments, prescriptions, bills and shared files together (`docs/patient-access.md`, "Built"). Still to build: a patient granting one clinic access to another clinic's history (consent artefacts, time-limited, audited both sides).

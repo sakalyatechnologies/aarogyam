@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select provider_session_id as \"id!\" from app.revoke_patient_session($1, $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f4e5c7a29342be83c33aac30a5c0562d2469e47155a59b782aee6a233535ac0e"
+}

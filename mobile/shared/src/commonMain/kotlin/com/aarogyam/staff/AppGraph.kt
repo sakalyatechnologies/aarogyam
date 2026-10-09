@@ -25,8 +25,18 @@ import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.queue.QueueStateHolder
 import com.aarogyam.staff.schedule.ScheduleStateHolder
 import com.aarogyam.staff.schedule.WeekStateHolder
+import com.aarogyam.staff.signin.InviteStateHolder
+import com.aarogyam.staff.signin.RegistrationStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
+import com.aarogyam.staff.team.BadgesStateHolder
+import com.aarogyam.staff.team.ChatListStateHolder
+import com.aarogyam.staff.team.ChatThreadStateHolder
+import com.aarogyam.staff.team.InboxStateHolder
+import com.aarogyam.staff.team.NotificationsStateHolder
+import com.aarogyam.staff.team.StockStateHolder
+import com.aarogyam.staff.team.TeamStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
+import com.aarogyam.staff.visit.VisitStateHolder
 import com.aarogyam.staff.walkin.WalkInStateHolder
 import com.sakalya.mobile.auth.PublishableKey
 import com.sakalya.mobile.auth.SecureSessionStore
@@ -133,13 +143,14 @@ class AppGraph private constructor(
         scope: CoroutineScope,
     ): RxListStateHolder = RxListStateHolder(clinic, patientId, scope, logger("aarogyam.rxlist"))
 
-    /** [allergies] are the patient's recorded ones, from Patient 360's banner. */
+    /** [allergies] are the patient's recorded ones, from Patient 360's banner; [visitId] links it to an open visit. */
     fun rxSheet(
         clinic: ClinicContext,
         patientId: String,
         allergies: List<AllergyView>,
         scope: CoroutineScope,
-    ): RxSheetStateHolder = RxSheetStateHolder(clinic, patientId, allergies, scope, logger("aarogyam.rxsheet"))
+        visitId: String? = null,
+    ): RxSheetStateHolder = RxSheetStateHolder(clinic, patientId, allergies, scope, visitId, logger("aarogyam.rxsheet"))
 
     fun billing(
         clinic: ClinicContext,
@@ -198,6 +209,61 @@ class AppGraph private constructor(
         visitId: String?,
         scope: CoroutineScope,
     ): ToothSheetStateHolder = ToothSheetStateHolder(clinic, chart, visitId, scope, logger("aarogyam.toothsheet"))
+
+    /** Start treatment: the Visit screen, from [tokenId] when the patient is queued. */
+    fun visit(
+        clinic: ClinicContext,
+        patientId: String,
+        tokenId: String?,
+        appointmentId: String?,
+        scope: CoroutineScope,
+    ): VisitStateHolder =
+        VisitStateHolder(clinic, patientId, tokenId, appointmentId, dictation, scope, logger("aarogyam.visit"))
+
+    /** Joining from an invitation [link] (or one pasted later); the token stays in memory. */
+    fun invite(
+        scope: CoroutineScope,
+        link: String?,
+    ): InviteStateHolder = InviteStateHolder(directory, scope, link, logger("aarogyam.invite"))
+
+    fun registration(scope: CoroutineScope): RegistrationStateHolder =
+        RegistrationStateHolder(directory.appApi(), scope, logger("aarogyam.registration"))
+
+    fun chatList(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): ChatListStateHolder = ChatListStateHolder(clinic, scope, logger("aarogyam.chat"))
+
+    fun chatThread(
+        clinic: ClinicContext,
+        conversationId: String,
+        scope: CoroutineScope,
+    ): ChatThreadStateHolder = ChatThreadStateHolder(clinic, conversationId, scope, logger("aarogyam.chat"))
+
+    fun team(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): TeamStateHolder = TeamStateHolder(clinic, scope, logger("aarogyam.team"))
+
+    fun stock(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): StockStateHolder = StockStateHolder(clinic, scope, logger("aarogyam.stock"))
+
+    fun notifications(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): NotificationsStateHolder = NotificationsStateHolder(clinic, scope, logger("aarogyam.notifications"))
+
+    fun inbox(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): InboxStateHolder = InboxStateHolder(clinic, scope, logger("aarogyam.inbox"))
+
+    fun badges(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): BadgesStateHolder = BadgesStateHolder(clinic, scope)
 
     /** Restores the session again, after secure storage was unavailable. */
     fun restore() {

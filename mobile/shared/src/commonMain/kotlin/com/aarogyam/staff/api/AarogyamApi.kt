@@ -57,7 +57,7 @@ import io.ktor.http.encodeURLPathPart
 
 /** Calls on the app host, which knows the person but no clinic. */
 class AppApi(
-    private val client: HttpClient,
+    internal val client: HttpClient,
 ) {
     /** `GET /api/v1/me` (`getMe`): the clinics the person belongs to, with their hosts. */
     suspend fun me(): Outcome<Me, ApiError> = client.call { url("api/v1/me") }

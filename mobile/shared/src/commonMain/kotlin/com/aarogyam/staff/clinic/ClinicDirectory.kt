@@ -61,6 +61,9 @@ class ClinicDirectory(
         }
     }
 
+    /** Calls on the app host (registration, invitations), or null when this build has none. */
+    fun appApi(): AppApi? = hosts.app()?.let { AppApi(clientFor(it)) }
+
     /** Opens [clinic]: loads its session once, then makes it [current]. */
     suspend fun open(clinic: MyClinic): Outcome<ClinicContext, ApiError> {
         val cached = contexts[clinic.slug]

@@ -22,8 +22,18 @@ import com.aarogyam.staff.prescriptions.RxListStateHolder
 import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.queue.QueueStateHolder
 import com.aarogyam.staff.schedule.ScheduleStateHolder
+import com.aarogyam.staff.signin.InviteStateHolder
+import com.aarogyam.staff.signin.RegistrationStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
+import com.aarogyam.staff.team.BadgesStateHolder
+import com.aarogyam.staff.team.ChatListStateHolder
+import com.aarogyam.staff.team.ChatThreadStateHolder
+import com.aarogyam.staff.team.InboxStateHolder
+import com.aarogyam.staff.team.NotificationsStateHolder
+import com.aarogyam.staff.team.StockStateHolder
+import com.aarogyam.staff.team.TeamStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
+import com.aarogyam.staff.visit.VisitStateHolder
 import com.aarogyam.staff.walkin.WalkInStateHolder
 import com.sakalya.mobile.design.ThemeMode
 import com.sakalya.mobile.http.PathNetworkMonitor
@@ -202,3 +212,73 @@ fun AppGraph.toothSheet(
     visitId: String?,
     screen: ScreenScope,
 ): ToothSheetStateHolder = toothSheet(clinic, chart, visitId, screen.scope)
+
+/** The Rx sheet for a prescription written inside [visitId], living as long as [screen]. */
+fun AppGraph.rxSheetInVisit(
+    clinic: ClinicContext,
+    patientId: String,
+    allergies: List<AllergyView>,
+    visitId: String,
+    screen: ScreenScope,
+): RxSheetStateHolder = rxSheet(clinic, patientId, allergies, screen.scope, visitId)
+
+/** Start treatment and the Visit screen, living as long as [screen]. */
+fun AppGraph.visit(
+    clinic: ClinicContext,
+    patientId: String,
+    tokenId: String?,
+    appointmentId: String?,
+    screen: ScreenScope,
+): VisitStateHolder = visit(clinic, patientId, tokenId, appointmentId, screen.scope)
+
+/** Joining from an invitation [link], living as long as [screen]. */
+fun AppGraph.invite(
+    link: String?,
+    screen: ScreenScope,
+): InviteStateHolder = invite(screen.scope, link)
+
+/** "Register your clinic", living as long as [screen]. */
+fun AppGraph.registration(screen: ScreenScope): RegistrationStateHolder = registration(screen.scope)
+
+/** The team chat list, living as long as [screen]. */
+fun AppGraph.chatList(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): ChatListStateHolder = chatList(clinic, screen.scope)
+
+/** One conversation, living as long as [screen]. */
+fun AppGraph.chatThread(
+    clinic: ClinicContext,
+    conversationId: String,
+    screen: ScreenScope,
+): ChatThreadStateHolder = chatThread(clinic, conversationId, screen.scope)
+
+/** The team list, living as long as [screen]. */
+fun AppGraph.team(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): TeamStateHolder = team(clinic, screen.scope)
+
+/** Low stock, living as long as [screen]. */
+fun AppGraph.stock(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): StockStateHolder = stock(clinic, screen.scope)
+
+/** The notifications sheet, living as long as [screen]. */
+fun AppGraph.notifications(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): NotificationsStateHolder = notifications(clinic, screen.scope)
+
+/** The Messages page, living as long as [screen]. */
+fun AppGraph.inbox(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): InboxStateHolder = inbox(clinic, screen.scope)
+
+/** Unread badges, living as long as [screen]. */
+fun AppGraph.badges(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): BadgesStateHolder = badges(clinic, screen.scope)

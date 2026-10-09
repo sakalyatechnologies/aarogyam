@@ -1993,6 +1993,8 @@
     "salary_structures.membership_id",
     "specialty_records.verified_by",
     "staff_advances.membership_id",
+    "staff_notification_reads.membership_id",
+    "staff_notifications.handled_by",
     "treatment_plans.clinician_id"
    ],
    "sensitivity": "internal",
@@ -3044,6 +3046,8 @@
     "booking_requests.appointment_id",
     "encounters.appointment_id",
     "queue_tokens.appointment_id",
+    "staff_inbox_messages.appointment_id",
+    "staff_notifications.appointment_id",
     "teleconsult_sessions.appointment_id"
    ],
    "sensitivity": "personal",
@@ -7083,6 +7087,148 @@
    ],
    "referenced_by": [],
    "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
+   "name": "staff_notifications",
+   "domain": "notify",
+   "purpose": "Something clinic staff are told about: an online booking waiting for an answer, one confirmed automatically, or one the patient cancelled.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor.",
+   "cols": [
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "booking_requested, booking_confirmed_auto, booking_cancelled_by_patient"
+    },
+    {
+     "name": "appointment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "appointments",
+     "note": ""
+    },
+    {
+     "name": "handled_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "set when the appointment is confirmed, declined or cancelled"
+    },
+    {
+     "name": "handled_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": "null when the patient cancelled"
+    },
+    {
+     "name": "reminded_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "the reminder job reminded everyone"
+    },
+    {
+     "name": "escalated_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "the reminder job told the owners"
+    }
+   ],
+   "referenced_by": [
+    "staff_inbox_messages.notification_id",
+    "staff_notification_reads.notification_id"
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "staff_notification_reads",
+   "domain": "notify",
+   "purpose": "Which member has read which notification: read state is per person.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0320). Primary key (org_id, notification_id, membership_id). The change history keeps metadata only.",
+   "cols": [
+    {
+     "name": "notification_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "staff_notifications",
+     "note": ""
+    },
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "read_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "staff_inbox_messages",
+   "domain": "notify",
+   "purpose": "The clinic inbox: a reminder about a booking request nobody answered, or its escalation to the owners. Open until the booking is handled.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0320). Written by the outbox job (app.record_booking_request_step), at most one of each kind per notification. IDs only.",
+   "cols": [
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "booking_reminder, booking_escalation"
+    },
+    {
+     "name": "audience",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "clinic (everyone who sees the notification) or owners"
+    },
+    {
+     "name": "notification_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "staff_notifications",
+     "note": ""
+    },
+    {
+     "name": "appointment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "appointments",
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
    "offline": "server_only"
   },
   {

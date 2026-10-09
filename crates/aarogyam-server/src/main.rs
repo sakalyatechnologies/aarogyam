@@ -379,7 +379,7 @@ async fn token_check(config: &Config, local: bool) -> anyhow::Result<TokenCheck>
 fn notifier(config: &Config, local: bool) -> anyhow::Result<Notifier> {
     let links = PortalLinks::new(&config.email.portal_link)
         .context("email.portal_link must look like https://{host}")?;
-    Ok(if let Some(key) = config.email.resend_api_key.clone() {
+    let notifier = if let Some(key) = config.email.resend_api_key.clone() {
         Notifier::resend(key, &config.email.from, links)
             .context("could not set up email through Resend")?
     } else {
@@ -387,6 +387,11 @@ fn notifier(config: &Config, local: bool) -> anyhow::Result<Notifier> {
             tracing::warn!("email.resend_api_key is not set: email goes to the log only");
         }
         Notifier::log(links)
+    };
+    let notifier = notifier.with_daily_budget(config.email.daily_budget);
+    Ok(match config.email.resend_webhook_secret.clone() {
+        Some(secret) => notifier.with_resend_webhook_secret(secret),
+        None => notifier,
     })
 }
 
@@ -553,6 +558,12 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
                 retrying = report.retrying,
                 failed = report.failed,
                 purged = report.purged,
+                reminders_queued = report.messages.reminders_queued,
+                patient_sent = report.messages.sent,
+                patient_skipped = report.messages.skipped,
+                patient_rescheduled = report.messages.rescheduled,
+                patient_deferred = report.messages.deferred,
+                patient_failed = report.messages.failed,
                 "outbox drained"
             ),
             Err(error) if interval.is_some() => {

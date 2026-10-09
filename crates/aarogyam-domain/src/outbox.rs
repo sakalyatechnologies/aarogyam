@@ -45,6 +45,10 @@ pub enum MessageKind {
     BookingDeclined,
     /// A clinic invited a patient to the patient app with a link code.
     PatientAppInvited,
+    /// A reminder about an appointment, about a day before it.
+    AppointmentReminder,
+    /// A message staff wrote or chose (`POST /messages`); its template says what it is.
+    ClinicMessage,
     /// A lab was reminded of work due (to a lab contact, never a patient).
     LabOrderReminder,
 }
@@ -60,6 +64,8 @@ impl MessageKind {
             Self::BookingConfirmed => "booking.confirmed",
             Self::BookingDeclined => "booking.declined",
             Self::PatientAppInvited => "patient_app.invited",
+            Self::AppointmentReminder => "appointment.reminder",
+            Self::ClinicMessage => "clinic.message",
             Self::LabOrderReminder => "lab_order.reminder",
         }
     }
@@ -74,6 +80,8 @@ impl MessageKind {
             "booking.confirmed" => Some(Self::BookingConfirmed),
             "booking.declined" => Some(Self::BookingDeclined),
             "patient_app.invited" => Some(Self::PatientAppInvited),
+            "appointment.reminder" => Some(Self::AppointmentReminder),
+            "clinic.message" => Some(Self::ClinicMessage),
             "lab_order.reminder" => Some(Self::LabOrderReminder),
             _ => None,
         }

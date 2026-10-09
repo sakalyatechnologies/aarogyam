@@ -642,6 +642,32 @@ fn hot_routes(
             ALPHA,
             format!("/api/v1/patients/{patient}"),
         ),
+        // The patient in reach and their messages' metadata: one statement.
+        Route::get(
+            "GET /patients/{id}/messages",
+            ALPHA,
+            format!("/api/v1/patients/{patient}/messages"),
+        ),
+        // The patients in reach and every copy queued: one statement, all or none.
+        Route {
+            method: Method::POST,
+            body: Some(json!({
+                "patient_ids": [patient], "channel": "email", "template_key": "care.note",
+                "variables": { "subject": "About your visit" }, "body": "Hello",
+                "batch_id": "0192f1c4-0000-7000-8000-000000000001"
+            })),
+            ..Route::get("POST /messages", ALPHA, "/api/v1/messages".into())
+        },
+        // The preference saved, queued messages skipped and the list: one statement.
+        Route {
+            method: Method::POST,
+            body: Some(json!({ "channel": "email", "category": "promotional", "opted_out": true })),
+            ..Route::get(
+                "POST /patients/{id}/contact-preferences",
+                ALPHA,
+                format!("/api/v1/patients/{patient}/contact-preferences"),
+            )
+        },
         // The patient in reach, then the links and the waiting code: one over.
         Route::get(
             "GET /patients/{id}/app-access",

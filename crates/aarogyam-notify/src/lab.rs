@@ -116,6 +116,7 @@ pub(crate) fn render_reminder(to: String, payload: &Value) -> Result<Email, Fail
         subject,
         text,
         html,
+        list_unsubscribe: None,
     })
 }
 

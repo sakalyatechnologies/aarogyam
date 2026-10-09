@@ -34,13 +34,23 @@ pub async fn may_send(
     .await?)
 }
 
-/// Cancels the patient's queued messages that need `purpose`, after a withdrawal, and returns
-/// how many. Nothing is queued per patient and purpose yet: the `messages` table
-/// (docs/database.md) doesn't exist and today's outbox holds only care messages, so this
-/// cancels nothing; the send-time [`may_send`] check is what stops a withdrawn purpose.
+/// Marks the patient's queued messages that need `purpose` skipped (reason
+/// `consent_withdrawn`), in the withdrawal's transaction, and returns how many. A message already
+/// claimed by the worker is stopped by the send-time check ([`may_send`] in
+/// `app.message_dispatch`).
 ///
-/// TODO(messaging): when `messages` lands, mark this patient's pending rows for `purpose`
-/// skipped (reason `consent_withdrawn`) here, in the withdrawal's transaction.
-pub(crate) const fn cancel_queued(_patient_id: PatientId, _purpose: Purpose) -> u64 {
-    0
+/// # Errors
+/// [`AppError::Db`] on database failures.
+pub(crate) async fn cancel_queued(
+    tx: &mut ScopedTx,
+    patient_id: PatientId,
+    purpose: Purpose,
+) -> Result<u64, AppError> {
+    Ok(aarogyam_dal::messages::skip_queued(
+        tx.conn(),
+        patient_id.uuid(),
+        purpose.as_str(),
+        aarogyam_domain::messaging::SkipReason::ConsentWithdrawn.as_str(),
+    )
+    .await?)
 }

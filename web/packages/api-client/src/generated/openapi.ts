@@ -959,8 +959,9 @@ export interface paths {
         put?: never;
         /**
          * Makes new portal hosts work, reminds staff of unanswered booking requests (then the
-         *     owners) and labs of work due, then delivers due outbox messages across clinics (local development only; later Cloud
-         *     Scheduler with a Google-signed token).
+         *     owners) and labs of work due, delivers due outbox messages, then queues appointment
+         *     reminders and sends due patient messages across clinics (local development only; later
+         *     Cloud Scheduler with a Google-signed token).
          */
         post: operations["drainOutbox"];
         delete?: never;
@@ -1810,6 +1811,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queues a message to each patient. Messages go out when the outbox job next runs, after the
+         *     send-time checks: consent for the template's purpose, opt-outs, quiet hours for reminders and
+         *     promotional messages, and the provider's daily budget.
+         */
+        post: operations["sendMessages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/meta": {
         parameters: {
             query?: never;
@@ -2356,6 +2378,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/contact-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Records a contact preference: an opt-out of a channel for some or all messages (queued ones
+         *     it covers are skipped), opting back in, or a `WhatsApp` opt-in. Consent for a purpose is
+         *     separate (`POST /patients/{id}/consents`).
+         */
+        post: operations["setPatientContactPreference"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/dental-chart": {
         parameters: {
             query?: never;
@@ -2466,6 +2509,23 @@ export interface paths {
          *     self-registered record has any clinical or billing record. Every change is audited.
          */
         post: operations["mergePatient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patient's newest messages and what became of them: metadata only. */
+        get: operations["listPatientMessages"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3001,6 +3061,26 @@ export interface paths {
         get: operations["getPublicSitePhoto"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/unsubscribe/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One-click unsubscribe (RFC 8058) from a reminder or promotional email: the patient stops
+         *     getting email of that kind from the clinic. Safe to repeat.
+         */
+        post: operations["unsubscribe"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3972,6 +4052,28 @@ export interface paths {
          *     consents they give at the desk, and a queue token.
          */
         post: operations["registerWalkIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend's delivery events, signed by Svix (`svix-id`, `svix-timestamp`, `svix-signature` over
+         *     the raw body; five minutes' tolerance). A bounce or complaint opts the patient out of email.
+         *     Each event counts once, in any order. Answers 200 quickly for every authentic event, including
+         *     ones about email this table doesn't hold (staff email).
+         */
+        post: operations["resendWebhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5188,6 +5290,28 @@ export interface components {
             /** @description Newest first. */
             items: components["schemas"]["ConsoleClinic"][];
         };
+        /** @description One of a patient's contact preferences. */
+        ContactPreference: {
+            /** @description `all`, `care`, `reminders` or `promotional`. */
+            category: string;
+            /** @description `email`, `whatsapp` or `sms`. */
+            channel: string;
+            /** @description Whether the patient opted out. */
+            opted_out: boolean;
+            /** @description Since when (RFC 3339). */
+            opted_out_at?: string | null;
+            /** @description `staff`, `patient`, `unsubscribe_link`, `bounce`, `complaint` or `stop_keyword`. */
+            source: string;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+            /** @description When they opted in to `WhatsApp` (RFC 3339). */
+            whatsapp_opt_in_at?: string | null;
+        };
+        /** @description The patient's contact preferences. */
+        ContactPreferences: {
+            /** @description One per channel and category recorded. */
+            items: components["schemas"]["ContactPreference"][];
+        };
         /** @description A conversation with its active members. */
         Conversation: {
             /** @description When it was archived (RFC 3339). */
@@ -5388,11 +5512,30 @@ export interface components {
             lab_reminders_queued: number;
             /** @description Reminders due to labs with no email address. */
             lab_reminders_skipped: number;
+            /** @description Patient messages claimed to send now. */
+            messages_claimed: number;
+            /** @description Patient messages moved to tomorrow because the daily email budget was spent. */
+            messages_deferred: number;
+            /** @description Patient messages that failed for the last time. */
+            messages_failed: number;
+            /** @description Patient messages put back: quiet hours, or a reminder whose appointment moved. */
+            messages_rescheduled: number;
+            /** @description Patient messages that failed and will be tried again. */
+            messages_retrying: number;
+            /** @description Patient messages sent. */
+            messages_sent: number;
+            /** @description Patient messages not sent, for a reason (consent, an opt-out, no address). */
+            messages_skipped: number;
             /**
              * Format: int64
              * @description Old processed messages deleted.
              */
             purged: number;
+            /**
+             * Format: int32
+             * @description Appointment reminders queued for patients.
+             */
+            reminders_queued: number;
             /** @description Failed, to be tried again later. */
             retrying: number;
             /** @description Delivered. */
@@ -6725,6 +6868,58 @@ export interface components {
             appointments_moved: number;
             /** @description The patient that remains. */
             patient_id: string;
+        };
+        /** @description A patient's messages, newest first. */
+        MessageList: {
+            /** @description Up to 100 messages. */
+            items: components["schemas"]["MessageSummary"][];
+        };
+        /** @description A message as a patient's list shows it: never its text, address or link secret. */
+        MessageSummary: {
+            /**
+             * Format: int32
+             * @description Delivery attempts.
+             */
+            attempts: number;
+            /** @description `email`, `whatsapp` or `sms`. */
+            channel: string;
+            /** @description When it was queued (RFC 3339). */
+            created_at: string;
+            /** @description What the provider last reported: `delivered`, `bounced`, `complained`... */
+            delivery?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description `prescription.shared`, `booking.confirmed`, `appointment.reminder`, `clinic.message`... */
+            kind: string;
+            /** @description The consent purpose it needs: `care`, `reminders` or `promotional`. */
+            purpose: string;
+            /** @description When it is or was due (RFC 3339). */
+            scheduled_for: string;
+            /** @description When it was handed to the provider (RFC 3339). */
+            sent_at?: string | null;
+            /** @description Why it was skipped: `no_consent`, `consent_withdrawn`, `opted_out`, `no_address`... */
+            skip_reason?: string | null;
+            /** @description `queued`, `sending`, `sent`, `failed` or `skipped`. */
+            status: string;
+            /** @description Its template. */
+            template_key: string;
+        };
+        /** @description What sending queued. */
+        MessagesQueued: {
+            /**
+             * Format: int64
+             * @description Messages an earlier try of the same batch already queued.
+             */
+            already_queued: number;
+            /** @description The batch; send it again to retry safely. */
+            batch_id: string;
+            /**
+             * Format: int64
+             * @description Messages queued now.
+             */
+            queued: number;
+            /** @description Patients asked for, without repeats. */
+            requested: number;
         };
         /** @description What the API serves. */
         Meta: {
@@ -8957,6 +9152,29 @@ export interface components {
             /** @description Only patients with a balance on issued bills (needs `billing.read`). */
             with_balance?: boolean;
         };
+        /** @description A message to send to patients. */
+        SendMessages: {
+            /** @description Send the same batch id again after a lost answer: nothing is queued twice. */
+            batch_id?: string | null;
+            /** @description Free text, email only, up to 5000 characters; blank lines separate paragraphs. */
+            body?: string | null;
+            /** @description `email` (`WhatsApp` and SMS come later). */
+            channel: string;
+            /** @description 1 to 50 patients; repeats count once. */
+            patient_ids: string[];
+            /**
+             * @description `care.note` (care; needs `body` and `subject`), `reminder.follow_up` (reminders; optional
+             *     `due_on`) or `promo.offer` (promotional; needs `body` and `subject`).
+             */
+            template_key: string;
+            /**
+             * @description The template's variables, by name; anything else is refused. Values are one line of up
+             *     to 120 characters.
+             */
+            variables?: {
+                [key: string]: string;
+            };
+        };
         /** @description Service health for the console dashboard. */
         ServiceMetrics: {
             /** @description This instance's API requests, error rates and latency. */
@@ -9007,6 +9225,17 @@ export interface components {
             display_name: string;
             /** @description The user. */
             id: string;
+        };
+        /** @description A contact preference to record, on the patient's word. */
+        SetContactPreference: {
+            /** @description `all`, `care`, `reminders` or `promotional`. */
+            category: string;
+            /** @description `email`, `whatsapp` or `sms`. */
+            channel: string;
+            /** @description True to opt out; false to opt back in. */
+            opted_out: boolean;
+            /** @description `WhatsApp` only: whether the patient opted in to `WhatsApp` messages. */
+            whatsapp_opt_in?: boolean | null;
         };
         /** @description Puts a patient on legal hold, or releases them. */
         SetLegalHold: {
@@ -9896,6 +10125,11 @@ export interface components {
              * @description Unread notifications from the last 30 days, at most 100; show "99+" above 99.
              */
             unread: number;
+        };
+        /** @description The answer to an unsubscribe: nothing about who was unsubscribed. */
+        Unsubscribed: {
+            /** @description Always true. */
+            unsubscribed: boolean;
         };
         /** @description The form an upload sends (`multipart/form-data`). */
         UploadForm: {
@@ -15838,6 +16072,57 @@ export interface operations {
             };
         };
     };
+    sendMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendMessages"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagesQueued"];
+                };
+            };
+            /** @description Bad patients, channel, template, variables or body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks messages.send */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A patient isn't in this clinic or out of the role's reach; nothing was queued */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getMeta: {
         parameters: {
             query?: never;
@@ -17532,6 +17817,60 @@ export interface operations {
             };
         };
     };
+    setPatientContactPreference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetContactPreference"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactPreferences"];
+                };
+            };
+            /** @description An unknown channel or category, or a WhatsApp opt-in on another channel */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic, or out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getDentalChart: {
         parameters: {
             query?: {
@@ -17945,6 +18284,49 @@ export interface operations {
             };
             /** @description Already merged, or the record has clinical or billing data */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPatientMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic, or out of the role's reach */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19859,6 +20241,35 @@ export interface operations {
             };
             /** @description Too many requests from this address */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    unsubscribe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The opaque token from the email */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Unsubscribed"];
+                };
+            };
+            /** @description The link is not valid */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -22915,6 +23326,45 @@ export interface operations {
             };
             /** @description "No known allergies" for a patient with an allergy on record */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resendWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentic but not a Resend event */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The signature is missing, wrong or too old */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The body is too large */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };

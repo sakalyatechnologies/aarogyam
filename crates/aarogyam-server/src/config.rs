@@ -404,6 +404,12 @@ pub struct EmailSettings {
     /// Where links in messages point, with `{host}` for the clinic's portal host
     /// (`ARO_EMAIL__PORTAL_LINK`). Default `https://{host}`; locally `http://{host}:5173`.
     pub portal_link: String,
+    /// Patient emails sent a day across the platform before the rest wait for the next day
+    /// (`ARO_EMAIL__DAILY_BUDGET`). Default 100, Resend's free tier.
+    pub daily_budget: u32,
+    /// The Resend webhook's signing secret, `whsec_...` (`ARO_EMAIL__RESEND_WEBHOOK_SECRET`).
+    /// Without it `POST /api/v1/webhooks/resend` refuses every request.
+    pub resend_webhook_secret: Option<SecretString>,
 }
 
 impl Default for EmailSettings {
@@ -412,6 +418,8 @@ impl Default for EmailSettings {
             resend_api_key: None,
             from: "Aarogyam <no-reply@aarogyam.example>".to_owned(),
             portal_link: "https://{host}".to_owned(),
+            daily_budget: 100,
+            resend_webhook_secret: None,
         }
     }
 }

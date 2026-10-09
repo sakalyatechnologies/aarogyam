@@ -55,12 +55,17 @@ impl PatientMessage {
         matches!(self.purpose(), Purpose::Care)
     }
 
-    /// The patient message an outbox message is, if it goes to a patient.
+    /// The patient message a message kind is, if it goes to a patient. A message staff sent
+    /// (`clinic.message`) has none: its template decides its purpose
+    /// ([`crate::messaging::Template::purpose`]).
     #[must_use]
     pub const fn of(kind: MessageKind) -> Option<Self> {
         match kind {
             // A lab contact is not a patient: no patient consent applies.
-            MessageKind::StaffInvited | MessageKind::LabOrderReminder => None,
+            MessageKind::StaffInvited
+            | MessageKind::ClinicMessage
+            | MessageKind::LabOrderReminder => None,
+            MessageKind::AppointmentReminder => Some(Self::AppointmentReminder),
             MessageKind::PrescriptionShared => Some(Self::PrescriptionLink),
             MessageKind::BookingRequested
             | MessageKind::BookingConfirmed

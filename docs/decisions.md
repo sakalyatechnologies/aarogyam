@@ -2,6 +2,25 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-09: Patient messaging core
+
+**Decision.** Every message to a patient is a row in its own queue, `messages` (migrations 0370 to 0373), not the outbox. **This is an exception to AGENTS.md rule 10** ("handlers write an outbox row"): handlers write a `messages` row instead, in the same transaction, and still never call a provider. The outbox stays for staff, system and lab email and is unchanged (no `patient_id`, `outbox_claim` untouched). Booking answers, prescription links and app invitations moved over, so no patient address sits in the outbox: a message holds the patient's id and is addressed when sent.
+
+- **Send time decides.** The outbox job (`aarogyam outbox drain`) queues appointment reminders, claims due messages (`app.messages_claim`, lease plus `SKIP LOCKED`), and reads each through one definer function, `app.message_dispatch(org_id, message_id)`: the address, `app.may_contact` for the message's purpose, opt-outs, the patient's state (erased, merged, deleted, deceased), the end of quiet hours, the clinic and the appointment. `aarogyam_domain::messaging::decide` turns that into send, skip (with `skip_reason`) or wait. The worker never reads `patients` itself.
+- **Consent.** A withdrawal skips the patient's queued messages of that purpose (`consent_withdrawn`, in the withdrawal's transaction); a message already claimed is stopped by the send-time check (`no_consent`).
+- **Quiet hours** are per clinic in `org_settings.notifications.quiet_hours` (`{"start": "21:00", "end": "09:00"}` by default, clinic time). Reminders and promotional messages inside them wait until the end; care messages go at once. No settings screen yet.
+- **Re-runs never send twice:** `unique (org_id, dedupe_key)`. Reminders use `reminder:appt:<id>:24h`; staff batches `manual:<batch_id>:<patient_id>`, so resending a batch after a lost answer queues nothing new.
+- **Budget.** A platform-wide daily budget per provider (`ARO_EMAIL__DAILY_BUDGET`, default 100, Resend's free tier), counted in UTC days inside the claim; due messages beyond it move to the next day.
+- **Staff sending:** `POST /messages`, 1 to 50 patients, `messages.send` (owner, doctor, front desk; backfilled). Templates are fixed in code (`messaging::Template`): `care.note` and `promo.offer` take free text and a `subject` (email only), `reminder.follow_up` an optional `due_on`; other variables are refused. WhatsApp and SMS are refused until T4.
+- **Reading and preferences:** `GET /patients/{id}/messages` (metadata only, `patients.read`); `POST /patients/{id}/contact-preferences` (per channel and category `all`, `care`, `reminders`, `promotional`; `patients.write`; opting out skips queued messages it covers; `whatsapp_opt_in_at` for WhatsApp).
+- **Unsubscribe:** reminder and promotional email carry `List-Unsubscribe` and `List-Unsubscribe-Post` (RFC 8058) pointing at `POST /api/v1/public/unsubscribe/{token}` on the clinic host. The token is 24 random bytes, stored only as its SHA-256; the answer names nobody. It opts the patient out of email for that purpose.
+- **Resend webhook:** `POST /api/v1/webhooks/resend`, Svix signature over the raw body (`svix-id`, `svix-timestamp`, `svix-signature`, 5 minutes' tolerance, constant-time compare, 64 KB cap, `ARO_EMAIL__RESEND_WEBHOOK_SECRET`). The message is found by a definer lookup on `(provider, provider_message_id)`; each event is stored once (metadata only, keyed by `svix-id`), the latest report by time is kept, and a bounce or complaint opts the patient out of email altogether. Events about outbox email are accepted and ignored.
+- **Data rules:** every table has `org_id`, RLS, composite keys and the restrictive `patient_account` deny; the change history masks the body, variables, secret, error and unsubscribe hash, and keeps provider events as metadata only; erasure deletes a patient's messages, events and preferences; retention class `messages`, 365 days from queuing (report only; a purge comes later). No partitioning.
+
+**Why.** The review asked that patient messages be addressed and consent-checked at send time, with their own per-recipient queue, so the outbox stays simple and holds no patient addresses.
+
+**Not done.** The portal composer and list, a page for the unsubscribe link in the body, the quiet-hours setting screen, WhatsApp (T4), campaigns and caps (T5), and the lab and chat parts of the plan.
+
 ## 2026-10-09: Staff chat
 
 **Decision.** Staff chat (migrations 0390 to 0392) is one-to-one (`direct`) or group conversations between members of one clinic, in plain text (1 to 4000 characters), polled; no live connection.
@@ -386,6 +405,7 @@ What `own` means, per record:
 | `patient_record` | Patient and everything under them: visits, notes, prescriptions, files, charts | 7 years; children until 21 | Last visit, appointment or bill | Medical councils require records for at least 3 years; the Limitation Act (3 years from majority) and disputes argue for longer; 7 is the cautious default; DPDP section 8(7) says erase when the purpose ends |
 | `invoices` | Bills and payments | 8 years | Date issued | GST law (72 months) and company law (8 years) |
 | `outbox` | Sent or abandoned messages | 90 days | When sent or abandoned | Not needed once delivered; names recipients |
+| `messages` | Messages to patients (queued, sent, skipped) and their provider events | 365 days | Queued | Proof a reminder or notice went out; names the patient and holds free text |
 | `share_links` | Patient links, after expiry | 30 days | Expiry | Not needed once expired |
 | `import_sessions` | Uploaded spreadsheets of patients | 30 days | Upload | Working copy only; the patients are in the clinic's records |
 | `access_log` | Who viewed a record | 3 years | Entry | Lets a clinic answer "who saw my record"; the DPDP Rules ask for logs to be kept at least 1 year |

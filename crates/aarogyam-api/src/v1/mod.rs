@@ -31,6 +31,8 @@ pub(crate) mod labs;
 pub(crate) mod legal_hold;
 pub(crate) mod letterhead;
 pub(crate) mod me;
+pub(crate) mod message_feedback;
+pub(crate) mod messages;
 pub(crate) mod meta;
 pub(crate) mod notices;
 pub(crate) mod notifications;
@@ -212,6 +214,26 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(consents::list).post(consents::record),
         )
         .route("/consents/{id}/withdraw", post(consents::withdraw))
+        // Messages to patients: staff send, the patient's list and contact preferences.
+        .route("/messages", post(messages::send))
+        .route("/patients/{id}/messages", get(messages::list))
+        .route(
+            "/patients/{id}/contact-preferences",
+            post(messages::set_preference),
+        )
+        // Public, no sign-in: the one-click unsubscribe link (an opaque token, throttled per IP)
+        // and Resend's signed webhook (Svix signature, size cap).
+        .route(
+            "/public/unsubscribe/{token}",
+            post(message_feedback::unsubscribe).layer(DefaultBodyLimit::max(
+                message_feedback::MAX_UNSUBSCRIBE_BODY,
+            )),
+        )
+        .route(
+            "/webhooks/resend",
+            post(message_feedback::resend_webhook)
+                .layer(DefaultBodyLimit::max(message_feedback::MAX_WEBHOOK_BODY)),
+        )
         .route("/patients/{id}/legal-hold", put(legal_hold::set))
         .route(
             "/support-grants",

@@ -8,9 +8,9 @@ import { useClinic } from "../../clinic.js";
 import { useDismissIncomplete, useIncompletePatients } from "../../queries.js";
 import { EmptyState, PageHeader } from "../../components/mk/index.js";
 
-const MISSING_LABELS: Readonly<Record<string, string>> = { phone: "Phone", sex: "Sex", date_of_birth: "Date of birth" };
+const MISSING_LABELS: Readonly<Record<string, string>> = { phone: "Phone", sex: "Sex", date_of_birth: "Age" };
 
-/** Patients -> Missing details: imported patients the front desk still has to complete. */
+/** Patients -> Missing details: imported patients, and patients registered with no age or sex, still to complete. */
 export function IncompletePage() {
   const { session, can } = useClinic();
   useDocumentTitle("Missing details", session.clinic.name);
@@ -21,9 +21,7 @@ export function IncompletePage() {
 }
 
 function IncompleteList({ canEdit }: { canEdit: boolean }) {
-  const toast = useToast();
   const list = useIncompletePatients();
-  const dismiss = useDismissIncomplete();
   const columns: DataTableColumn<IncompletePatient>[] = [
     {
       id: "patient",
@@ -50,7 +48,8 @@ function IncompleteList({ canEdit }: { canEdit: boolean }) {
     {
       id: "source",
       header: "From",
-      cell: (p) => [p.file_name, p.sheet, `row ${String(p.row)}`].filter((part) => part != null && part !== "").join(" · "),
+      cell: (p) =>
+        p.id == null ? "Registered here" : [p.file_name, p.sheet, p.row == null ? null : `row ${String(p.row)}`].filter((part) => part != null && part !== "").join(" · "),
     },
   ];
   if (canEdit) {
@@ -62,34 +61,49 @@ function IncompleteList({ canEdit }: { canEdit: boolean }) {
           <Link to={`/patients/${p.patient_id}/edit`} className="text-sm font-semibold underline">
             Fill in
           </Link>
-          <Button
-            variant="ghost"
-            disabled={dismiss.isPending}
-            onClick={() => {
-              dismiss.mutate(p.id, {
-                onError: (thrown) => {
-                  toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't update the list.", tone: "danger" });
-                },
-              });
-            }}
-          >
-            Can't get these
-          </Button>
+          {p.id == null ? null : <DismissButton id={p.id} />}
         </span>
       ),
     });
   }
+  return <IncompleteTable columns={columns} rows={list.data?.items ?? []} loading={list.isPending} />;
+}
+
+function DismissButton({ id }: { id: NonNullable<IncompletePatient["id"]> }) {
+  const toast = useToast();
+  const dismiss = useDismissIncomplete();
+  return (
+    <Button
+      variant="ghost"
+      disabled={dismiss.isPending}
+      onClick={() => {
+        dismiss.mutate(id, {
+          onError: (thrown) => {
+            toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't update the list.", tone: "danger" });
+          },
+        });
+      }}
+    >
+      Can't get these
+    </Button>
+  );
+}
+
+function IncompleteTable({ columns, rows, loading }: { columns: DataTableColumn<IncompletePatient>[]; rows: readonly IncompletePatient[]; loading: boolean }) {
   return (
     <>
-      <PageHeader title="Missing details" subtitle="Patients imported without a phone, sex or date of birth. Filling a detail takes them off this list." />
+      <PageHeader
+        title="Missing details"
+        subtitle="Imported patients without a phone, sex or age, and patients registered without an age or sex. Filling a detail takes them off this list."
+      />
       <Card>
         <DataTable
           caption="Patients missing details"
           columns={columns}
-          rows={list.data?.items ?? []}
-          rowKey={(p) => p.id}
-          loading={list.isPending}
-          empty={{ title: "Nothing to finish", description: "Every imported patient has their details." }}
+          rows={rows}
+          rowKey={(p) => p.id ?? p.patient_id}
+          loading={loading}
+          empty={{ title: "Nothing to finish", description: "Every patient has a sex and an age, and every imported patient a phone." }}
           pageSize={25}
         />
       </Card>

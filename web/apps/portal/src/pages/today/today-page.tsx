@@ -134,8 +134,7 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
   const firstName = session.user.display_name.replace(/^dr\.?\s+/i, "Dr ").split(" ").slice(0, session.user.display_name.toLowerCase().startsWith("dr") ? 2 : 1).join(" ");
   const pendingItems = money.data?.pending ?? [];
   const staff = useStaff(can("staff.manage"));
-  const doctorNames = new Set(today.team.map((t) => t.practitioner.display_name.toLowerCase()));
-  const staffOthers = (staff.data?.members ?? []).filter((m) => m.status === "active" && !doctorNames.has(m.display_name.toLowerCase())).length;
+  const staffOthers = staffBesideTeam(today.team, staff.data?.members ?? []).length;
   const comingUp = booked
     .filter((a) => a.status !== "completed" && a.status !== "no_show")
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
@@ -641,10 +640,22 @@ function PendingPayments({ pending }: { pending: readonly PendingItem[] | undefi
   );
 }
 
+/** A name without a leading "Dr", lower-cased: "Dr. Asha Kulkarni" and "Asha Kulkarni" are one person. */
+const personKey = (name: string) => name.trim().replace(/^dr\.?\s+/i, "").toLowerCase();
+
+/** Active staff who are not already on the team: matched by membership, or by name when a doctor has none. */
+export function staffBesideTeam<M extends { id: string; display_name: string; status: string }>(
+  team: readonly { member_id?: string | null; practitioner: { display_name: string } }[],
+  staff: readonly M[],
+): M[] {
+  const members = new Set(team.flatMap((t) => (t.member_id == null ? [] : [t.member_id])));
+  const names = new Set(team.map((t) => personKey(t.practitioner.display_name)));
+  return staff.filter((m) => m.status === "active" && !members.has(m.id) && !names.has(personKey(m.display_name)));
+}
+
 /** Who is on duty: the doctors (from today's schedule) and, for those who may see them, the clinic's other active staff. */
 export function TeamToday({ team, staff }: { team: readonly TodayTeamMember[]; staff: readonly Member[] }) {
-  const doctorNames = new Set(team.map((t) => t.practitioner.display_name.toLowerCase()));
-  const others = staff.filter((m) => m.status === "active" && !doctorNames.has(m.display_name.toLowerCase()));
+  const others = staffBesideTeam(team, staff);
   if (team.length === 0 && others.length === 0) {
     return <Empty art="team" title="Team today isn't available yet">Shows once a doctor has working hours set for today.</Empty>;
   }

@@ -1549,6 +1549,15 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               imported_at: gap.importedAt,
             });
           }
+          // Then patients registered here with no age or sex, unless an import entry covers them.
+          for (const patient of clinicPatients(caller)) {
+            if (patient.status !== "active" || patientGaps.some((g) => g.patientId === patient.id)) continue;
+            const missing: C.IncompletePatient["missing"] = [];
+            if (patient.sex === "unknown") missing.push("sex");
+            if (patient.date_of_birth == null) missing.push("date_of_birth");
+            if (missing.length === 0) continue;
+            items.push({ id: null, patient_id: patient.id, number: patient.number, full_name: patient.full_name, missing, file_name: null, sheet: null, row: null, imported_at: null });
+          }
           return reply({ items } satisfies C.IncompleteList);
         }),
 
@@ -6479,7 +6488,7 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date): C.TodayResp
         .map((s): C.TodayShift => ({ starts: s.starts, ends: s.ends }));
       const onLeave = state.leave.some((l) => l.clinic_id === clinic.id && l.practitioner_id === p.id && overlaps(l.starts_at, l.ends_at, dayStart, dayEnd));
       const appointments = wired.filter((a) => a.practitioner.id === p.id && a.status !== "cancelled").length;
-      return { practitioner: wirePractitionerBrief(p), specialty: p.specialty ?? null, on_leave: onLeave, appointments, shifts } satisfies C.TeamMemberToday;
+      return { practitioner: wirePractitionerBrief(p), member_id: p.membership_id ?? null, specialty: p.specialty ?? null, on_leave: onLeave, appointments, shifts } satisfies C.TeamMemberToday;
     })
     .filter((member) => member.shifts.length > 0);
 

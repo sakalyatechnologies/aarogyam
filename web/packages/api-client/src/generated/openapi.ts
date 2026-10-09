@@ -497,7 +497,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Imported patients still missing details, for the front desk to complete. */
+        /** Patients still missing details, for the front desk to complete. */
         get: operations["listIncompletePatients"];
         put?: never;
         post?: never;
@@ -4597,27 +4597,30 @@ export interface components {
         };
         /** @description The front desk's to-do list. */
         IncompleteList: {
-            /** @description Oldest import first, at most 500. */
+            /** @description Imported patients (oldest import first), then patients registered here, at most 500. */
             items: components["schemas"]["IncompletePatient"][];
         };
-        /** @description A patient imported without some details. */
+        /** @description A patient missing some details: imported without them, or registered here with no age or sex. */
         IncompletePatient: {
             /** @description The file they came from. */
             file_name?: string | null;
             /** @description Their name. */
             full_name: string;
-            /** @description The to-do entry. */
-            id: string;
-            /** @description When they were imported (RFC 3339). */
-            imported_at: string;
-            /** @description Still missing: `phone`, `sex`, `date_of_birth`. Filling a detail removes it. */
+            /** @description The to-do entry, for dismissing; null for a patient registered here (not imported). */
+            id?: string | null;
+            /** @description When they were imported (RFC 3339); null when not imported. */
+            imported_at?: string | null;
+            /**
+             * @description Still missing: `phone`, `sex`, `date_of_birth` (no date of birth and no age). Filling a
+             *     detail removes it. Patients registered here are listed for `sex` and `date_of_birth` only.
+             */
             missing: string[];
             /** @description Their number. */
             number: string;
             /** @description The patient. */
             patient_id: string;
-            /** @description Their row in it. */
-            row: number;
+            /** @description Their row in it; null when not imported. */
+            row?: number | null;
             /** @description Its sheet. */
             sheet?: string | null;
         };
@@ -7821,6 +7824,11 @@ export interface components {
         TeamMemberToday: {
             /** @description Appointments today, not counting cancelled ones. */
             appointments: number;
+            /**
+             * @description The staff membership this doctor's profile belongs to, when linked. A staff list shown
+             *     beside the team uses it to show each person once.
+             */
+            member_id?: string | null;
             /** @description Whether they have leave today. */
             on_leave: boolean;
             /** @description The doctor. */

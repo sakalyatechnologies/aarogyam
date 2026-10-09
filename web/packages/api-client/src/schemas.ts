@@ -641,6 +641,8 @@ export type TodayShift = z.output<typeof todayShift>;
 
 const teamMemberToday = z.object({
   practitioner: practitionerBrief,
+  /** The staff membership behind this doctor, when linked: one row per person beside a staff list. */
+  member_id: membershipId.nullable().exactOptional(),
   specialty: optionalText,
   on_leave: z.boolean(),
   appointments: count,
@@ -824,15 +826,16 @@ export const patientGapId = z.uuid().brand<"PatientGapId">();
 export type PatientGapId = z.output<typeof patientGapId>;
 
 const incompletePatient = z.object({
-  id: patientGapId,
+  /** Null for a patient registered here (not imported): nothing to dismiss. */
+  id: patientGapId.nullable().exactOptional(),
   patient_id: patientId,
   number: patientNumber,
   full_name: z.string(),
   missing: z.array(missingDetail),
   file_name: z.string().nullable().exactOptional(),
   sheet: z.string().nullable().exactOptional(),
-  row: z.number().int().positive(),
-  imported_at: timestamp,
+  row: z.number().int().positive().nullable().exactOptional(),
+  imported_at: timestamp.nullable().exactOptional(),
 }) satisfies z.ZodType<C.IncompletePatient>;
 export type IncompletePatient = z.output<typeof incompletePatient>;
 

@@ -96,6 +96,16 @@ describe("fake client: patients", () => {
     expect(visits).toEqual([...visits].sort().reverse());
   });
 
+  it("lists patients registered without an age or sex as missing details", async () => {
+    const { as } = setup();
+    const client = as(PEOPLE.farah, SUNRISE);
+    const created = value(await client.createPatient({ full_name: "Om Joshi" }));
+    const items = value(await client.listIncompletePatients()).items;
+    const entry = items.find((i) => i.patient_id === created.id);
+    expect(entry?.missing).toEqual(["sex", "date_of_birth"]);
+    expect(entry?.id).toBeNull();
+  });
+
   it("finds patients by name prefix, clinic number or phone digits", async () => {
     const { as, fixtures } = setup();
     const client = as(PEOPLE.farah, SUNRISE);

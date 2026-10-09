@@ -80,6 +80,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::consents::list,
         crate::v1::consents::record,
         crate::v1::consents::withdraw,
+        crate::v1::patient_sessions::list,
+        crate::v1::patient_sessions::revoke,
         crate::v1::dental_terms::list,
         crate::v1::dental_terms::rename,
         crate::v1::dental_terms::retire,

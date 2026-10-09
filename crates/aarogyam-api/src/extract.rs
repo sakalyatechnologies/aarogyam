@@ -361,7 +361,16 @@ async fn patient_access(
 ) -> Result<aarogyam_app::patient_app::PatientAccess, ApiFailure> {
     use aarogyam_app::patient_app::{self as patient_app, AccessRefusal};
     let session = claims.session_id().ok_or_else(ApiError::unauthenticated)?;
-    match patient_app::access(state.db(), claims.subject().uuid(), claims.email(), session).await? {
+    let expires_at = time::OffsetDateTime::from_unix_timestamp(claims.expires_at())
+        .map_err(|_| ApiError::unauthenticated())?;
+    let found = patient_app::access(
+        state.db(),
+        claims.subject().uuid(),
+        claims.email(),
+        (session, expires_at),
+    )
+    .await?;
+    match found {
         Ok(access) => {
             sakalya_telemetry::record_user(access.account_id.uuid());
             Ok(access)
@@ -385,6 +394,8 @@ async fn patient_access(
 pub struct PatientRequest {
     /// The account and its linked clinics.
     pub access: aarogyam_app::patient_app::PatientAccess,
+    /// The sign-in session's provider id (the token's `session_id`).
+    pub session_id: Uuid,
     /// The request ID, for the access record.
     pub request_id: Option<Uuid>,
 }
@@ -402,6 +413,7 @@ impl FromRequestParts<AppState> for PatientRequest {
         }
         Ok(Self {
             access: patient_access(state, &claims).await?,
+            session_id: claims.session_id().ok_or_else(ApiError::unauthenticated)?,
             request_id: request_id(parts),
         })
     }

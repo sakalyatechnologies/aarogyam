@@ -1174,6 +1174,64 @@
    "offline": "server_only"
   },
   {
+   "name": "patient_sessions",
+   "domain": "iam",
+   "purpose": "Patient app sign-in sessions, so a patient can see where they are signed in and sign one out.",
+   "rls": "user",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Recorded by app.patient_access on every patient request, which also refuses a revoked session; GET /me/patient/sessions and DELETE /me/patient/sessions/{id}. Staff sessions stay in sessions (patient accounts are not users).",
+   "cols": [
+    {
+     "name": "account_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patient_accounts",
+     "note": ""
+    },
+    {
+     "name": "provider_session_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": null,
+     "note": "session_id claim in the JWT, unique"
+    },
+    {
+     "name": "last_active_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": "refreshed at most every 5 minutes"
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "revoked_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "revoke_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "signed_out"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
    "name": "devices",
    "domain": "iam",
    "purpose": "Phones and browsers a user signs in from, with push tokens.",
@@ -2659,7 +2717,8 @@
     }
    ],
    "referenced_by": [
-    "patient_links.account_id"
+    "patient_links.account_id",
+    "patient_sessions.account_id"
    ],
    "sensitivity": "personal",
    "offline": "server_only"

@@ -27,6 +27,7 @@ pub(crate) mod onboarding;
 pub(crate) mod patient_app;
 pub(crate) mod patient_links;
 pub(crate) mod patient_notes;
+pub(crate) mod patient_sessions;
 pub(crate) mod patients;
 pub(crate) mod payments;
 pub(crate) mod prescriptions;
@@ -93,6 +94,11 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         // clinic's host, which must have linked the account.
         .route("/me/patient", get(patient_app::me))
         .route("/me/patient/home", get(patient_app::home))
+        .route("/me/patient/sessions", get(patient_sessions::list))
+        .route(
+            "/me/patient/sessions/{id}",
+            delete(patient_sessions::revoke),
+        )
         .route("/me/patient/appointments", get(patient_app::appointments))
         .route("/me/patient/prescriptions", get(patient_app::prescriptions))
         .route("/me/patient/bills", get(patient_app::bills))

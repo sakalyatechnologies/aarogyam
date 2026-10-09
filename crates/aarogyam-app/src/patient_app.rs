@@ -96,14 +96,14 @@ pub async fn access(
     db: &Db,
     auth_uid: Uuid,
     email: Option<&str>,
-    session_id: Uuid,
+    session: (Uuid, OffsetDateTime),
 ) -> Result<Result<PatientAccess, AccessRefusal>, AppError> {
     let email = email.and_then(|text| Email::parse(text).ok());
     let Some(row) = dal::access(
         db.pool(),
         auth_uid,
         email.as_ref().map(Email::as_str),
-        session_id,
+        session,
     )
     .await?
     else {

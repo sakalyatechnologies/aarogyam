@@ -3381,6 +3381,73 @@
         ]
       }
     },
+    "/api/v1/me/patient/sessions": {
+      "get": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "Where the signed-in patient is signed in.",
+        "operationId": "listMyPatientSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientSessionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or this session was signed out"
+          },
+          "404": {
+            "description": "Not the app host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/sessions/{id}": {
+      "delete": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "Signs out one of the patient's sessions; it gets `401` from its next request.",
+        "operationId": "revokeMyPatientSession",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Signed out"
+          },
+          "401": {
+            "description": "Not signed in, or this session was signed out"
+          },
+          "404": {
+            "description": "Not one of this patient's sessions, or not the app host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/practitioner": {
       "get": {
         "tags": [
@@ -17997,6 +18064,55 @@
               "null"
             ],
             "description": "`before_food`, `after_food`, `empty_stomach`, `bedtime`, `sos` or `as_directed`."
+          }
+        }
+      },
+      "PatientSession": {
+        "type": "object",
+        "description": "A place the patient is signed in.",
+        "required": [
+          "id",
+          "created_at",
+          "last_active_at",
+          "expires_at",
+          "current"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it signed in (RFC 3339)."
+          },
+          "current": {
+            "type": "boolean",
+            "description": "The session making this request."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When the sign-in expires unless refreshed (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "last_active_at": {
+            "type": "string",
+            "description": "When it was last used, to within five minutes (RFC 3339)."
+          }
+        }
+      },
+      "PatientSessionList": {
+        "type": "object",
+        "description": "The patient's sessions.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientSession"
+            },
+            "description": "Live sessions, most recently used first, at most 50."
           }
         }
       },

@@ -672,6 +672,12 @@ async fn patient_app_reads_stay_within_their_round_trip_budget() {
     let routes = [
         // The account and its links only.
         Route::get("GET /me/patient", host, "/api/v1/me/patient".into()),
+        // The account (recording the session), then the sessions: no clinic transaction.
+        Route::get(
+            "GET /me/patient/sessions",
+            host,
+            "/api/v1/me/patient/sessions".into(),
+        ),
         Route::get(
             "GET /me/patient/home",
             host,

@@ -34,6 +34,7 @@ pub mod lookups;
 pub mod outbox;
 pub mod patient_app;
 pub mod patient_notes;
+pub mod patient_sessions;
 pub mod patients;
 pub mod prescriptions;
 pub mod queue;

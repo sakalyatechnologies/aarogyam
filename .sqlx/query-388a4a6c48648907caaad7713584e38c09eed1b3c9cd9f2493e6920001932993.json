@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select account_id as \"account_id!\", account_status as \"account_status!\",\n                  account_email as \"account_email!\", session_revoked as \"session_revoked!\",\n                  link_id, org_id, slug, clinic_name, portal_host, timezone, number_prefix,\n                  branding, patient_id, patient_number, linked_at\n           from app.patient_access($1, $2, $3)",
+  "query": "select account_id as \"account_id!\", account_status as \"account_status!\",\n                  account_email as \"account_email!\", session_revoked as \"session_revoked!\",\n                  link_id, org_id, slug, clinic_name, portal_host, timezone, number_prefix,\n                  branding, patient_id, patient_number, linked_at\n           from app.patient_access($1, $2, $3, $4)",
   "describe": {
     "columns": [
       {
@@ -98,7 +98,8 @@
       "Left": [
         "Uuid",
         "Text",
-        "Uuid"
+        "Uuid",
+        "Timestamptz"
       ]
     },
     "nullable": [
@@ -119,5 +120,5 @@
       null
     ]
   },
-  "hash": "8aa6d6f9d354ce03919d44db77a2b633c8b124f0ee5b8d82eb9c451fcdf6be84"
+  "hash": "388a4a6c48648907caaad7713584e38c09eed1b3c9cd9f2493e6920001932993"
 }

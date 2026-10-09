@@ -29,6 +29,7 @@ pub mod onboarding;
 pub mod outbox;
 pub mod patient_app;
 pub mod patient_notes;
+pub mod patient_sessions;
 pub mod patients;
 pub mod payments;
 pub mod prescriptions;

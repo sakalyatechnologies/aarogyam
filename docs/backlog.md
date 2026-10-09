@@ -178,7 +178,7 @@ Review prompts are in `~/project/ux-review/ux-review-prompts.md` (outside the re
 - **Self sign-up:** Supabase sign-ups are off, so only patients a clinic invited (or who exist already) can sign in; a throttled, Turnstile-checked patient sign-up would let a patient ask for a match first.
 - **Scan the QR in the app** (camera), and open the app from an emailed link (app links on the product domain).
 - **File viewer:** the app lists shared files; viewing images and PDFs in the app, and patients uploading old reports.
-- **Patient session registry:** patient sessions aren't in `sessions`, so they can't be listed or revoked from the app yet (staff revocation of the same Supabase session still applies).
+- **Patient session registry:** backend built 8 Oct (`patient_sessions`, `GET /me/patient/sessions`, `DELETE /me/patient/sessions/{id}`, refused on the next request). Still to do: the app screen.
 - **Family profiles** (one account, several records), push reminders (no health data in payloads), "who viewed my record" from `access_log`, doctor-approved visit summaries (D3).
 - **Move generic mobile code to sakalya-mobile:** the email-code sign-in holder, `ScreenError` and host config are copied between the staff and patient apps.
 

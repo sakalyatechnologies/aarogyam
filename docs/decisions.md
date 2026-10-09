@@ -2,6 +2,14 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-08: Retiring and renaming dental terms
+
+**Decision.** A clinic's own dental terms (`dental_terms`) can be renamed and retired (migration 0342, expand only). `GET /dental-terms` lists the clinic's additions with who added and retired them (`clinical.read` or `settings.manage`); `PATCH /dental-terms/{id}` renames, `POST /dental-terms/{id}/retire` and `/restore` retire and bring back (`settings.manage`, owner by default).
+
+- **History shows the current label.** Chart entries name a term by id and are never rewritten, so a rename shows on old entries too. Renaming is for fixing how the same thing is written ("Lithium silcate" to "Lithium silicate"); the change history keeps every old label. To change what a term means, retire it and add a new one. A rename to a standard term's label or to another of the clinic's labels is refused (`409`).
+- **Retired** terms leave the chart's type-ahead and are refused for new entries, but old entries keep showing them, as retired seeded terms already do. Adding the same label again brings the term back instead of making a twin.
+- The table is now mutable for `label`, `retired_at` and `retired_by` only (column grants and a trigger); nothing is ever deleted.
+
 ## 2026-10-08: Support grants
 
 **Decision.** Sakalya staff read a clinic's records only under a support grant (migrations 0340 to 0341). A clinic owner (`support.grant`, owner only by default, backfilled for existing owners) names one active staff member by sign-in email (platform role `owner` or `support`), gives a reason (3 to 500 characters) and an end 15 minutes to 7 days away; the grant starts at once. `POST /support-grants`, `GET /support-grants`, `POST /support-grants/{id}/revoke` and `GET /support-grants/{id}/actions` are on the clinic host; `GET /console/support-grants` lists a staff member's grants on the console host. One active grant per staff member per clinic. Nothing about a grant changes except its revocation (a trigger), and it ends by itself at `ends_at`.

@@ -11,6 +11,7 @@ pub(crate) mod client_errors;
 pub(crate) mod consents;
 pub(crate) mod console;
 pub(crate) mod console_support;
+pub(crate) mod dental_terms;
 pub(crate) mod expenses;
 pub(crate) mod facts;
 pub(crate) mod files;
@@ -246,7 +247,13 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/patients/{id}/dental-chart",
             get(chart::get).post(chart::record),
         )
-        .route("/dental-terms", post(chart::add_term))
+        .route(
+            "/dental-terms",
+            get(dental_terms::list).post(chart::add_term),
+        )
+        .route("/dental-terms/{id}", patch(dental_terms::rename))
+        .route("/dental-terms/{id}/retire", post(dental_terms::retire))
+        .route("/dental-terms/{id}/restore", post(dental_terms::restore))
         .route("/visits/{id}/procedures", post(treatment::record_procedure))
         .route("/patients/{id}/procedures", get(treatment::procedures))
         .route("/procedures/{id}/complete", post(treatment::complete))

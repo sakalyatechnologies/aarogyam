@@ -6,7 +6,7 @@ Requests from the founder and clinics that are not built yet. Read this before d
 
 ### Clinic list upkeep (6 Oct 2026, follow-up)
 - Built: procedures and materials per surface on one or several teeth (seeded in `specialties/dental/vocabulary.json`, clinic additions in `dental_terms`), type-ahead and "Add new" on web, Android and iOS, and oval compact charts in the website demo.
-- Still to do: retiring or renaming a clinic's own term (the table is append-only today), and a settings screen listing the clinic's additions.
+- Retiring, renaming and listing a clinic's own terms: backend built 8 Oct (decisions.md). Still to do: the settings screen.
 
 ## Today dashboard visuals (6 Oct 2026)
 - Chair utilisation over time (per chair, per day and week).

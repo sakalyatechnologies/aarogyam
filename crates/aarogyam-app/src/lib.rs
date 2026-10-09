@@ -13,6 +13,7 @@ pub mod chart;
 pub mod clock;
 pub mod consents;
 pub mod console;
+pub mod dental_terms;
 pub mod error;
 pub mod expenses;
 pub mod facts;

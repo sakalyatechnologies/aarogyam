@@ -2031,6 +2031,7 @@
     "conditions.verified_by",
     "daily_closings.closed_by",
     "dental_terms.added_by",
+    "dental_terms.retired_by",
     "document_extractions.confirmed_by",
     "encounters.clinician_id",
     "expenses.recorded_by",
@@ -4953,9 +4954,9 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": "append_only",
+   "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Chart entries name a term by id: a seeded id such as zirconia, or one of these UUIDs. The list arrives with the chart and clients filter it as the clinician types.",
+   "notes": "Chart entries name a term by id: a seeded id such as zirconia, or one of these UUIDs, and are never rewritten, so a rename shows on old entries; the change history keeps old labels. Only label and retirement change (column grants and a trigger); never deleted. The list arrives with the chart (retired terms left out) and clients filter it as the clinician types.",
    "cols": [
     {
      "name": "kind",
@@ -4969,12 +4970,26 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "unique per list ignoring case"
+     "note": "unique per list ignoring case; may be renamed"
     },
     {
      "name": "added_by",
      "type": "uuid",
      "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "retired_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "no longer offered for new entries"
+    },
+    {
+     "name": "retired_by",
+     "type": "uuid",
+     "nullable": true,
      "ref": "memberships",
      "note": ""
     }

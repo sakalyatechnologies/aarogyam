@@ -43,7 +43,7 @@ flowchart LR
   billing -->|9| tenancy
   clinical -->|16| people
   clinical -->|2| scheduling
-  clinical -->|17| tenancy
+  clinical -->|18| tenancy
   notify -->|1| billing
   notify -->|1| clinical
   notify -->|2| iam
@@ -762,7 +762,7 @@ A user's place in a clinic: role, branches, status. The link between users and c
 
 Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize().
 
-Referenced by: `allergies.verified_by`, `clinical_notes.author_id`, `clinical_notes.error_by`, `clinical_notes.signed_by`, `conditions.verified_by`, `daily_closings.closed_by`, `dental_terms.added_by`, `document_extractions.confirmed_by`, `encounters.clinician_id`, `expenses.recorded_by`, `expenses.voided_by`, `invoices.issued_by`, `invoices.voided_by`, `medical_history_items.verified_by`, `member_setup.membership_id`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `patient_consents.recorded_by`, `patient_consents.withdrawn_by`, `patient_links.decided_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `procedures.clinician_id`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`, `support_grants.granted_by`, `support_grants.revoked_by`, `treatment_plans.clinician_id`
+Referenced by: `allergies.verified_by`, `clinical_notes.author_id`, `clinical_notes.error_by`, `clinical_notes.signed_by`, `conditions.verified_by`, `daily_closings.closed_by`, `dental_terms.added_by`, `dental_terms.retired_by`, `document_extractions.confirmed_by`, `encounters.clinician_id`, `expenses.recorded_by`, `expenses.voided_by`, `invoices.issued_by`, `invoices.voided_by`, `medical_history_items.verified_by`, `member_setup.membership_id`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `patient_consents.recorded_by`, `patient_consents.withdrawn_by`, `patient_links.decided_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `procedures.clinician_id`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`, `support_grants.granted_by`, `support_grants.revoked_by`, `treatment_plans.clinician_id`
 
 ### `membership_branches` (★ foundation)
 
@@ -1566,15 +1566,17 @@ Referenced by: `specialty_records.supersedes_id`
 
 A clinic's own dental procedures and materials, beside the seeded vocabulary in specialties/dental/vocabulary.json.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: health · offline: server only · lifecycle: append only*
+*Clinic-scoped: org_id + row-level security · sensitivity: health · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
 | `kind` | `text` | procedure, material |
-| `label` | `text` | unique per list ignoring case |
+| `label` | `text` | unique per list ignoring case; may be renamed |
 | `added_by` | `uuid` | → `memberships` |
+| `retired_at` | `timestamptz?` | no longer offered for new entries |
+| `retired_by` | `uuid?` | → `memberships` |
 
-Chart entries name a term by id: a seeded id such as zirconia, or one of these UUIDs. The list arrives with the chart and clients filter it as the clinician types.
+Chart entries name a term by id: a seeded id such as zirconia, or one of these UUIDs, and are never rewritten, so a rename shows on old entries; the change history keeps old labels. Only label and retirement change (column grants and a trigger); never deleted. The list arrives with the chart (retired terms left out) and clients filter it as the clinician types.
 
 ### `document_templates` (★ foundation)
 

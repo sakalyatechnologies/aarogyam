@@ -1153,6 +1153,35 @@
       }
     },
     "/api/v1/dental-terms": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The procedures and materials the clinic added, retired ones included.",
+        "operationId": "listOwnDentalTerms",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnDentalTermList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read and settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
       "post": {
         "tags": [
           "clinical"
@@ -1201,6 +1230,157 @@
           },
           "409": {
             "description": "The same label was added at the same moment"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dental-terms/{id}": {
+      "patch": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Gives a term a new label. Old chart entries show the new label; the change history keeps\nthe old one. To change what a term means, retire it and add a new one.",
+        "operationId": "renameDentalTerm",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The clinic's term",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameDentalTerm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnDentalTerm"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad label"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such term in this clinic"
+          },
+          "409": {
+            "description": "The list already has that label, or it is a standard term"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dental-terms/{id}/restore": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Offers a retired term for new entries again.",
+        "operationId": "restoreDentalTerm",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The clinic's term",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnDentalTerm"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such term in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dental-terms/{id}/retire": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Retires a term: it stays on old chart entries but is no longer offered for new ones.\nRetiring twice keeps the first time. Adding the same label again brings it back.",
+        "operationId": "retireDentalTerm",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The clinic's term",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnDentalTerm"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such term in this clinic"
           }
         },
         "security": [
@@ -12916,7 +13096,8 @@
           "id",
           "kind",
           "label",
-          "own"
+          "own",
+          "retired"
         ],
         "properties": {
           "id": {
@@ -12934,6 +13115,10 @@
           "own": {
             "type": "boolean",
             "description": "Added by the clinic rather than seeded."
+          },
+          "retired": {
+            "type": "boolean",
+            "description": "Retired: still shown on old entries, not offered for new ones."
           }
         }
       },
@@ -16551,6 +16736,76 @@
           }
         }
       },
+      "OwnDentalTerm": {
+        "type": "object",
+        "description": "A procedure or material the clinic added.",
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "added_at",
+          "retired"
+        ],
+        "properties": {
+          "added_at": {
+            "type": "string",
+            "description": "When (RFC 3339)."
+          },
+          "added_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who added it."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier, as chart entries name it."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`procedure` or `material`."
+          },
+          "label": {
+            "type": "string",
+            "description": "The current label; old chart entries show it too."
+          },
+          "retired": {
+            "type": "boolean",
+            "description": "Retired: no longer offered for new entries."
+          },
+          "retired_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was retired (RFC 3339)."
+          },
+          "retired_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who retired it."
+          }
+        }
+      },
+      "OwnDentalTermList": {
+        "type": "object",
+        "description": "The clinic's own terms.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OwnDentalTerm"
+            },
+            "description": "By list, then label; retired ones included."
+          }
+        }
+      },
       "Patient": {
         "type": "object",
         "description": "A patient. Phone and email are masked (`+91******3210`) unless the role has `patients.contact`.",
@@ -19543,6 +19798,19 @@
               "null"
             ],
             "description": "A short reason, for the console only."
+          }
+        }
+      },
+      "RenameDentalTerm": {
+        "type": "object",
+        "description": "A new label.",
+        "required": [
+          "label"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "1 to 80 characters."
           }
         }
       },

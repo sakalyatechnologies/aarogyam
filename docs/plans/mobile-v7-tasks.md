@@ -39,7 +39,7 @@ Tick a task only when its done criteria pass: tests, gates and parity sheet. Add
 | D10 | done |  | Expenses (validation, no automatic retry). |
 | D11 | done |  | Registration; invite parse and accept (token kept in memory); clinic switch reload. |
 | D12 | partial: team, chat, stock, notifications, inbox done; labs holders next |  | Staff list and stock low; `LabsRepository`, `ChatRepository`, notifications and messages Preview holders. |
-| D13 | todo |  | Product art and icons as path data in shared (the v7 icon map, avatars, illustrations, jaw geometry), with parse tests. |
+| D13 | done |  | Product art and icons as path data in shared (the v7 icon map, avatars, illustrations, jaw geometry), with parse tests. |
 | D14 | todo |  | `AttachmentsRepository`, built on the existing `uploadAttachment` / `POST /patients/{id}/attachments` with labels Old Rx / X-ray / Report an |
 | D15 | done |  | Queue summary: compute avg wait and no-shows from the `/queue` and `/today` data already loaded. Anything that can't be computed is Preview  |
 | A1 | todo |  | Shell: floating bar from `NavModel`, rail when wide, tab fade-through, push shared axis, tab bar hide and return, shared avatar flight. Remo |

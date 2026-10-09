@@ -7,6 +7,7 @@ Newest first. Change a decision by adding an entry that supersedes it.
 **Decision.** Additions the staff phone apps asked for (migrations 0384 to 0389), all additive: no field or route is removed or renamed.
 
 - **Chart corrections across surfaces:** a new chart entry may carry `supersedes_id`, a current dental entry of the same patient on any tooth or surface. That entry is superseded (the freeze rule still allows only `current` → `superseded`) and the new one links to it; the current entry for the new entry's own tooth and surface is superseded as before, without the link. Another patient's or clinic's entry is a 400, one no longer current a 409. The status change is audited by the table's audit trigger.
+- **Seating in a chosen chair:** `POST /queue/{id}/status` takes an optional `room_id` with `in_chair` only. The room must be active and in the token's branch (else 400); it is stored on the token (`queue_tokens.room_id`, migration 0384) and the token's appointment moves to it, with a `changed` appointment event (`{"room_id": [old, new]}`). A chair already booked at the appointment's time is a 409. Sending `in_chair` again with another chair moves the patient; with the same chair it is a repeat.
 
 **Why.** A finding charted on the wrong tooth or surface could only be marked in error and charted again, losing the link between the two.
 

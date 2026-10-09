@@ -2791,7 +2791,7 @@ export interface paths {
         /**
          * Moves a token along. A token with an appointment moves the appointment too. Asking for the
          *     status the token already has changes nothing and returns it, so a retry after a lost answer
-         *     is safe.
+         *     is safe. With `room_id` the patient is seated in that chair.
          */
         post: operations["setQueueTokenStatus"];
         delete?: never;
@@ -7812,6 +7812,8 @@ export interface components {
             /** @description The patient. */
             patient: components["schemas"]["PatientBrief"];
             practitioner?: components["schemas"]["PractitionerBrief"] | null;
+            /** @description The chair the patient was seated in, when one was chosen. */
+            room_id?: string | null;
             /** @description `waiting`, `in_chair`, `done` or `left`. */
             status: string;
             /**
@@ -9170,6 +9172,12 @@ export interface components {
         };
         /** @description A token status change. */
         TokenStatusChange: {
+            /**
+             * @description With `in_chair` only: the chair (a room of the token's branch) to seat the patient in.
+             *     The token's appointment moves to it too. Sending it again with another chair while in
+             *     the chair moves the patient.
+             */
+            room_id?: string | null;
             /** @description `in_chair`, `done` or `left`. */
             status: string;
         };
@@ -18153,7 +18161,7 @@ export interface operations {
                     "application/json": components["schemas"]["QueueToken"];
                 };
             };
-            /** @description Unknown status */
+            /** @description Unknown status, or a `room_id` with another status or not a chair of the token's branch */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -18181,7 +18189,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description A move the table doesn't allow; `current` is the token as it is */
+            /** @description A move the table doesn't allow (`current` is the token as it is), or the appointment can't take that chair at its time */
             409: {
                 headers: {
                     [name: string]: unknown;

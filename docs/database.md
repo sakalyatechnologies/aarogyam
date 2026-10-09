@@ -60,7 +60,7 @@ flowchart LR
   platform -->|3| iam
   platform -->|2| tenancy
   scheduling -->|4| people
-  scheduling -->|3| tenancy
+  scheduling -->|4| tenancy
   tenancy -->|3| iam
   trust -->|1| billing
   trust -->|1| clinical
@@ -635,7 +635,7 @@ Chairs, rooms and labs that appointments can be booked into.
 | `active` | `bool` |  |
 | `sort_order` | `smallint` |  |
 
-Referenced by: `appointments.room_id`
+Referenced by: `appointments.room_id`, `queue_tokens.room_id`
 
 ### `org_modules`
 
@@ -1147,6 +1147,7 @@ Walk-in tokens shown on the waiting-room screen.
 | `issued_at` | `timestamptz` |  |
 | `called_at` | `timestamptz?` |  |
 | `done_at` | `timestamptz?` |  |
+| `room_id` | `uuid?` | → `rooms`. the chair chosen when seated; a room of the token's branch (migration 0384) |
 
 Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done.
 

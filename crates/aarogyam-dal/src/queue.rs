@@ -51,6 +51,9 @@ pub struct TokenRow {
     pub practitioner_id: Option<Uuid>,
     /// Their name.
     pub practitioner_name: Option<String>,
+    /// The chair they were seated in, when chosen.
+    #[serde(default)]
+    pub room_id: Option<Uuid>,
 }
 
 /// Issues the next token number of a branch's day (`app.next_number`, kind `queue_token`).
@@ -134,7 +137,8 @@ pub async fn list(
                   p.birth_date_estimated as patient_birth_date_estimated,
                   ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))
                     as "patient_registration_incomplete!",
-                  q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?"
+                  q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?",
+                  q.room_id
            from aarogyam.queue_tokens q
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
            left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
@@ -301,13 +305,38 @@ pub async fn get(
                   p.birth_date_estimated as patient_birth_date_estimated,
                   ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))
                     as "patient_registration_incomplete!",
-                  q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?"
+                  q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?",
+                  q.room_id
            from aarogyam.queue_tokens q
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
            left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
            where q.id = $1 and app.practitioner_in_reach(q.practitioner_id, $2)"#,
         id,
         member
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// Seats a token in a room of its own branch (active, not deleted). Returns the token's
+/// appointment (`Some(None)` for a walk-in), or `None` when the room isn't in the branch.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn seat_in_room(
+    conn: &mut PgConnection,
+    id: Uuid,
+    room_id: Uuid,
+) -> Result<Option<Option<Uuid>>, DbError> {
+    let row = sqlx::query_scalar!(
+        r#"update aarogyam.queue_tokens q set room_id = r.id
+           from aarogyam.rooms r
+           where q.id = $1 and r.id = $2 and r.branch_id = q.branch_id
+             and r.active and r.deleted_at is null
+           returning q.appointment_id"#,
+        id,
+        room_id
     )
     .fetch_optional(conn)
     .await?;

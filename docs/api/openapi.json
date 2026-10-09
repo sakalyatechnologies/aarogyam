@@ -8815,7 +8815,7 @@
         "tags": [
           "queue"
         ],
-        "summary": "Moves a token along. A token with an appointment moves the appointment too. Asking for the\nstatus the token already has changes nothing and returns it, so a retry after a lost answer\nis safe.",
+        "summary": "Moves a token along. A token with an appointment moves the appointment too. Asking for the\nstatus the token already has changes nothing and returns it, so a retry after a lost answer\nis safe. With `room_id` the patient is seated in that chair.",
         "operationId": "setQueueTokenStatus",
         "parameters": [
           {
@@ -8849,7 +8849,7 @@
             }
           },
           "400": {
-            "description": "Unknown status"
+            "description": "Unknown status, or a `room_id` with another status or not a chair of the token's branch"
           },
           "401": {
             "description": "Not signed in"
@@ -8861,7 +8861,7 @@
             "description": "No such token in this clinic"
           },
           "409": {
-            "description": "A move the table doesn't allow; `current` is the token as it is",
+            "description": "A move the table doesn't allow (`current` is the token as it is), or the appointment can't take that chair at its time",
             "content": {
               "application/json": {
                 "schema": {
@@ -21880,6 +21880,13 @@
               }
             ]
           },
+          "room_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The chair the patient was seated in, when one was chosen."
+          },
           "status": {
             "type": "string",
             "description": "`waiting`, `in_chair`, `done` or `left`."
@@ -25205,6 +25212,13 @@
           "status"
         ],
         "properties": {
+          "room_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "With `in_chair` only: the chair (a room of the token's branch) to seat the patient in.\nThe token's appointment moves to it too. Sending it again with another chair while in\nthe chair moves the patient."
+          },
           "status": {
             "type": "string",
             "description": "`in_chair`, `done` or `left`."

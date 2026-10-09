@@ -511,3 +511,30 @@ pub async fn leave_spans(
     .await?;
     Ok(rows.into_iter().map(|r| (r.starts_at, r.ends_at)).collect())
 }
+
+/// Moves an appointment to another room. Returns the room it was in (`Some(None)` when it had
+/// none), or `None` when it is already there.
+///
+/// # Errors
+/// [`DbError`] on a database failure; a conflict (constraint `appointments_room_overlap`)
+/// when the room is taken at that time.
+pub async fn set_room(
+    conn: &mut PgConnection,
+    id: Uuid,
+    room_id: Uuid,
+) -> Result<Option<Option<Uuid>>, DbError> {
+    let row = sqlx::query_scalar!(
+        r#"with old as (
+             select id, room_id from aarogyam.appointments where id = $1 for update
+           )
+           update aarogyam.appointments a set room_id = $2
+           from old
+           where a.id = old.id and old.room_id is distinct from $2
+           returning old.room_id"#,
+        id,
+        room_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}

@@ -1633,7 +1633,8 @@
     }
    ],
    "referenced_by": [
-    "appointments.room_id"
+    "appointments.room_id",
+    "queue_tokens.room_id"
    ],
    "sensitivity": "internal",
    "offline": "read_only"
@@ -3410,6 +3411,13 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "room_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "rooms",
+     "note": "the chair chosen when seated; a room of the token's branch (migration 0384)"
     }
    ],
    "referenced_by": [

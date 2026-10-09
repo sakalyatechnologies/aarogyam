@@ -18,7 +18,7 @@ const val PICKS_JSON =
        "complaints":[],"findings":[],"procedures":[],"advice":[],"medicine_sets":[]}"""
 
 const val MATCHES_JSON =
-    """{"items":[{"id":"p1","number":"SD-1042","full_name":"Meera Shah","sex":"female","age_years":34}]}"""
+    """{"items":[{"id":"p1","number":"SD-1042","full_name":"Meera Shah","sex":"female","registration_incomplete":false,"age_years":34}]}"""
 
 fun tokenJson(
     id: String = "t1",
@@ -29,11 +29,11 @@ fun tokenJson(
 ): String =
     """{"id":"$id","branch_id":"b1","day":"2026-10-08","token_number":$number,"status":"$status",
        "issued_at":"2026-10-08T04:00:00Z","wait_minutes":12,
-       "patient":{"id":"$patientId","number":"SD-1042","full_name":"$name","sex":"female","age_years":34},
+       "patient":{"id":"$patientId","number":"SD-1042","full_name":"$name","sex":"female","registration_incomplete":false,"age_years":34},
        "practitioner":{"id":"d1","display_name":"Dr. Patil","calendar_color":null}}"""
 
 fun walkInJson(registered: Boolean = true): String =
-    """{"patient":{"id":"p9","number":"SD-1050","full_name":"Ravi Kulkarni","sex":"male","age_years":40,
+    """{"patient":{"id":"p9","number":"SD-1050","full_name":"Ravi Kulkarni","sex":"male","registration_incomplete":false,"age_years":40,
        "birth_date_estimated":true,"preferred_language":"en-IN","status":"active","created_at":"2026-10-08T04:00:00Z",
        "recall_due":false,"row_version":1},"registered":$registered,"token":${tokenJson(
         patientId = "p9",

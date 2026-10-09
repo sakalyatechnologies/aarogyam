@@ -19,13 +19,13 @@ Tick a task only when its done criteria pass: tests, gates and parity sheet. Add
 | K5 | done | kit c46dce4 | Generic path-command model, parser tests, and Compose/SwiftUI renderers. |
 | K6 | done | kit a48b5c5 | `SkAvatar` (slot and shape), `RoundedPolygon` cookie and blob morph, live pulse dot, badge dot, draw-on check mark, spinning shape, and the  |
 | K7 | done | kit eee8c42 | `SkSegmented` (with swap animation), `SkChoiceChips`, `SkKeypad`. |
-| K8 | todo |  | `SkStatGroup`, `SkTicket`, `SkLoadingIndicator`, `SkToast` (icon, message, spring). |
-| K9 | todo |  | Chart geometry (pure, tested), `SkBarChart` (ghost tracks, grow-in, tooltip, selection), `SkSplitBar` (grow-in), `SkSparkline`. |
-| K10 | todo |  | `SkGauge` (segmented arc sweep), `SkProgressRing` (fill on entry), `SkAreaChart` (gradient, line draw), `SkRadarChart` (pop-in), `SkHeatmap` |
-| K11 | todo |  | `SkFloatingNavBar` (active pill stretch, trailing action, hide on scroll) and `SkCollapsingTopBar` (large to inline past 34 px), as document |
-| K12 | todo |  | Motion and feedback kit: |
-| K13 | todo |  | READMEs, architecture doc, CHANGELOG 0.2.0; tag `v0.2.0-dev.1`. |
-| D1 | todo |  | All new schemas in `apiModels`, including `PatientMix`, `KeyCount`, `PatientBreakdown`, `TodayMoney` and the visit, note, procedure and plan |
+| K8 | done | kit 0a477ae | `SkStatGroup`, `SkTicket`, `SkLoadingIndicator`, `SkToast` (icon, message, spring). |
+| K9 | done | kit db44ae1 | Chart geometry (pure, tested), `SkBarChart` (ghost tracks, grow-in, tooltip, selection), `SkSplitBar` (grow-in), `SkSparkline`. |
+| K10 | done | kit fd65762 | `SkGauge` (segmented arc sweep), `SkProgressRing` (fill on entry), `SkAreaChart` (gradient, line draw), `SkRadarChart` (pop-in), `SkHeatmap` |
+| K11 | done | kit 15cdf90 | `SkFloatingNavBar` (active pill stretch, trailing action, hide on scroll) and `SkCollapsingTopBar` (large to inline past 34 px), as document |
+| K12 | done | kit 49efbb7 | Motion and feedback kit: |
+| K13 | done | kit ef151c2 (tag v0.2.0-dev.1) | READMEs, architecture doc, CHANGELOG 0.2.0; tag `v0.2.0-dev.1`. |
+| D1 | done |  | All new schemas in `apiModels`, including `PatientMix`, `KeyCount`, `PatientBreakdown`, `TodayMoney` and the visit, note, procedure and plan |
 | D2 | todo |  | `Preferences` and `Dictation` interfaces, fakes, `AppGraph` and `IosApp` wiring. |
 | D3 | todo |  | `NavModel`: tabs and tiles per role and multi-clinic; tests for all 6 roles. |
 | D4 | todo |  | Today "Me" and "My schedule" (membership → team member → practitioner); finance via `/today/money`. Field map, required; done when no v7 num |

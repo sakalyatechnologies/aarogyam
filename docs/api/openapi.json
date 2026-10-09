@@ -1760,12 +1760,77 @@
         ]
       }
     },
+    "/api/v1/inbox": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "The caller's inbox: reminders about booking requests within their scope, and escalations\ntoo for owners, newest first.",
+        "operationId": "listInbox",
+        "parameters": [
+          {
+            "name": "open_only",
+            "in": "query",
+            "description": "Only messages whose booking is still unhandled",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Page size, 1 to 100 (default 30)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "Only those older than this message id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`before` is not an id"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/internal/outbox/drain": {
       "post": {
         "tags": [
           "internal"
         ],
-        "summary": "Makes new portal hosts work, then delivers due outbox messages across clinics (local development only; later Cloud\nScheduler with a Google-signed token).",
+        "summary": "Makes new portal hosts work, reminds staff of unanswered booking requests (then the\nowners), then delivers due outbox messages across clinics (local development only; later Cloud\nScheduler with a Google-signed token).",
         "operationId": "drainOutbox",
         "responses": {
           "200": {
@@ -3649,6 +3714,172 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "The caller's notifications about appointments within their scope, newest first, with their\nown read state and who handled each one. The portal checks every minute.",
+        "operationId": "listNotifications",
+        "parameters": [
+          {
+            "name": "unread_only",
+            "in": "query",
+            "description": "Only unread ones, from the last 30 days",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Page size, 1 to 100 (default 30)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "Only those older than this notification id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`before` is not an id"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications/count": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "How many notifications the caller hasn't read: one cheap query for the bell.",
+        "operationId": "countUnreadNotifications",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadCount"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Marks every notification the caller can see read, for the caller only.",
+        "operationId": "markAllNotificationsRead",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkedRead"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Marks one notification read for the caller only; others still see it unread. Repeating it\nchanges nothing.",
+        "operationId": "markNotificationRead",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The notification",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Read"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "No such notification in this clinic, or its appointment is out of the role's reach"
           }
         },
         "security": [
@@ -12822,7 +13053,10 @@
           "address_provider",
           "addresses_ready",
           "addresses_retrying",
-          "addresses_failed"
+          "addresses_failed",
+          "booking_requests_open",
+          "booking_requests_reminded",
+          "booking_requests_escalated"
         ],
         "properties": {
           "address_provider": {
@@ -12842,6 +13076,21 @@
           "addresses_retrying": {
             "type": "integer",
             "description": "Portal hosts that failed and will be tried again.",
+            "minimum": 0
+          },
+          "booking_requests_escalated": {
+            "type": "integer",
+            "description": "Escalations written to the owners' inbox.",
+            "minimum": 0
+          },
+          "booking_requests_open": {
+            "type": "integer",
+            "description": "Booking requests nobody has answered that were looked at.",
+            "minimum": 0
+          },
+          "booking_requests_reminded": {
+            "type": "integer",
+            "description": "Reminders written to the clinic inbox.",
             "minimum": 0
           },
           "claimed": {
@@ -13220,6 +13469,33 @@
           }
         }
       },
+      "HandledBy": {
+        "type": "object",
+        "description": "Who handled a notification: confirmed, declined or cancelled its appointment.",
+        "required": [
+          "at"
+        ],
+        "properties": {
+          "at": {
+            "type": "string",
+            "description": "When (RFC 3339)."
+          },
+          "membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member; absent when the patient cancelled."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their display name, such as `Farah Desk`."
+          }
+        }
+      },
       "Handoff": {
         "type": "object",
         "description": "A one-time code for that host. Send the person to `redirect_url`: the code is in the URL\nfragment, which browsers never send to a server.",
@@ -13557,6 +13833,87 @@
               "null"
             ],
             "description": "The workbook sheet to read; the first when left out."
+          }
+        }
+      },
+      "InboxList": {
+        "type": "object",
+        "description": "A page of the inbox, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboxMessage"
+            },
+            "description": "The messages."
+          }
+        }
+      },
+      "InboxMessage": {
+        "type": "object",
+        "description": "A message in the clinic inbox: a booking request still waiting. It stays open until the\nbooking is confirmed, declined or cancelled.",
+        "required": [
+          "id",
+          "kind",
+          "audience",
+          "created_at",
+          "notification_id",
+          "open",
+          "appointment_id",
+          "starts_at",
+          "practitioner_id",
+          "practitioner_name"
+        ],
+        "properties": {
+          "appointment_id": {
+            "type": "string",
+            "description": "The appointment."
+          },
+          "audience": {
+            "type": "string",
+            "description": "`clinic` or `owners`."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was written (RFC 3339)."
+          },
+          "handled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the booking was handled (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier; pass as `before` for the next page."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`booking_reminder` (for everyone who handles the appointment) or `booking_escalation`\n(for the owners)."
+          },
+          "notification_id": {
+            "type": "string",
+            "description": "The notification it is about."
+          },
+          "open": {
+            "type": "boolean",
+            "description": "Whether the booking has been handled."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "Its doctor."
+          },
+          "practitioner_name": {
+            "type": "string",
+            "description": "The doctor's name."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Its start (RFC 3339, the clinic's offset)."
           }
         }
       },
@@ -14786,6 +15143,21 @@
           "unit": {
             "type": "string",
             "description": "Its unit."
+          }
+        }
+      },
+      "MarkedRead": {
+        "type": "object",
+        "description": "What \"mark all read\" did.",
+        "required": [
+          "marked"
+        ],
+        "properties": {
+          "marked": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Notifications that were unread and are now read.",
+            "minimum": 0
           }
         }
       },
@@ -16122,6 +16494,125 @@
           }
         }
       },
+      "Notification": {
+        "type": "object",
+        "description": "A notification as the caller sees it.",
+        "required": [
+          "id",
+          "kind",
+          "created_at",
+          "read",
+          "appointment"
+        ],
+        "properties": {
+          "appointment": {
+            "$ref": "#/components/schemas/NotifiedAppointment",
+            "description": "The appointment."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it happened (RFC 3339)."
+          },
+          "escalated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the owners were told (RFC 3339)."
+          },
+          "handled": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/HandledBy",
+                "description": "Who handled it and when; absent while nobody has."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier; pass as `before` for the next page."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`booking_requested`, `booking_confirmed_auto` or `booking_cancelled_by_patient`."
+          },
+          "read": {
+            "type": "boolean",
+            "description": "Whether the caller has read it."
+          },
+          "read_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the caller read it (RFC 3339)."
+          },
+          "reminded_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When everyone was reminded because nobody had answered (RFC 3339)."
+          }
+        }
+      },
+      "NotificationList": {
+        "type": "object",
+        "description": "A page of the caller's notifications, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Notification"
+            },
+            "description": "The notifications."
+          }
+        }
+      },
+      "NotifiedAppointment": {
+        "type": "object",
+        "description": "The appointment a notification is about.",
+        "required": [
+          "id",
+          "starts_at",
+          "ends_at",
+          "status",
+          "practitioner_id",
+          "practitioner_name"
+        ],
+        "properties": {
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339, the clinic's offset)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The appointment; open it at `/appointments/{id}`."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "Its doctor."
+          },
+          "practitioner_name": {
+            "type": "string",
+            "description": "The doctor's name as shown on the calendar."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339, the clinic's offset)."
+          },
+          "status": {
+            "type": "string",
+            "description": "Its status now, such as `requested` or `confirmed`."
+          }
+        }
+      },
       "Observation": {
         "type": "object",
         "description": "A measurement. Values never change: a correction is a new reading whose `supersedes_id`\nnames the old one, which stays with status `corrected`.",
@@ -16219,7 +16710,8 @@
           "buffer_minutes",
           "auto_confirm",
           "horizon_days",
-          "min_notice_minutes"
+          "min_notice_minutes",
+          "reminder_minutes"
         ],
         "properties": {
           "auto_confirm": {
@@ -16246,6 +16738,12 @@
             "type": "integer",
             "format": "int32",
             "description": "How soon before a slot it stops being offered, in minutes (0 to 10080).",
+            "minimum": 0
+          },
+          "reminder_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Minutes a booking request may wait, in opening hours, before everyone who handles\nappointments is reminded (5 to 240, default 15); owners are told after as long again.",
             "minimum": 0
           },
           "slot_minutes": {
@@ -16299,6 +16797,15 @@
             ],
             "format": "int32",
             "description": "Minimum notice in minutes.",
+            "minimum": 0
+          },
+          "reminder_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Reminder wait in minutes.",
             "minimum": 0
           },
           "slot_minutes": {
@@ -21956,6 +22463,20 @@
           }
         }
       },
+      "UnreadCount": {
+        "type": "object",
+        "description": "The bell's number.",
+        "required": [
+          "unread"
+        ],
+        "properties": {
+          "unread": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unread notifications from the last 30 days, at most 100; show \"99+\" above 99."
+          }
+        }
+      },
       "UploadForm": {
         "type": "object",
         "description": "The form an upload sends (`multipart/form-data`).",
@@ -22799,6 +23320,10 @@
     {
       "name": "appointments",
       "description": "The calendar, appointments and Today; clinic host only"
+    },
+    {
+      "name": "notifications",
+      "description": "Staff notifications about online bookings, read state and the clinic inbox; clinic host only"
     },
     {
       "name": "queue",

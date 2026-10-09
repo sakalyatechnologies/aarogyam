@@ -24,6 +24,7 @@ pub mod inventory;
 pub mod invitations;
 pub mod letterhead;
 pub mod moved;
+pub mod notifications;
 pub mod onboarding;
 pub mod outbox;
 pub mod patient_app;

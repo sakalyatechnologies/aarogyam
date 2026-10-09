@@ -24,6 +24,12 @@ pub enum Event {
     MessageRetried,
     /// A queued message failed for the last time.
     MessageFailed,
+    /// Staff were reminded of a booking request nobody had answered.
+    BookingReminded,
+    /// The owners were told of a booking request still unanswered after the reminder.
+    BookingEscalated,
+    /// A member marked notifications read.
+    NotificationsRead,
     /// A central sign-in handed a session over to a clinic or console host.
     HandoffCreated,
     /// A handoff code was redeemed for a session.
@@ -144,6 +150,9 @@ impl Event {
             Self::SessionRevoked => "session.revoked",
             Self::MessageSent => "message.sent",
             Self::MessageRetried => "message.retried",
+            Self::BookingReminded => "booking.reminded",
+            Self::BookingEscalated => "booking.escalated",
+            Self::NotificationsRead => "notifications.read",
             Self::MessageFailed => "message.failed",
             Self::HandoffCreated => "handoff.created",
             Self::HandoffRedeemed => "handoff.redeemed",

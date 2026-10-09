@@ -433,7 +433,15 @@ pub async fn close(
             && let Some(token) = aarogyam_dal::queue::lock(tx.conn(), token_id).await?
             && matches!(token.status.as_str(), "waiting" | "in_chair")
         {
-            crate::queue::move_token(tx, &actor.timezone, &token, QueueStatus::Done, now).await?;
+            crate::queue::move_token(
+                tx,
+                &actor.timezone,
+                &token,
+                QueueStatus::Done,
+                actor.membership_id,
+                now,
+            )
+            .await?;
         }
         let names = Names::load(tx, [row.clinician_id]).await?;
         visit_view(row, &names)

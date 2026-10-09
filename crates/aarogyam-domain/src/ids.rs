@@ -111,4 +111,8 @@ entities! {
     PatientAccount, PatientAccountId;
     /// A patient account's link to a clinic's record.
     PatientLink, PatientLinkId;
+    /// Something clinic staff are told about, such as an online booking.
+    StaffNotification, StaffNotificationId;
+    /// A message in the clinic's inbox, such as a reminder about a waiting booking.
+    InboxMessage, InboxMessageId;
 }

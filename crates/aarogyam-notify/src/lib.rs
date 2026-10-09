@@ -11,11 +11,14 @@
 //! Logs never carry addresses, names or link secrets.
 //!
 //! The same job makes new clinics' portal addresses work at the edge first ([`PortalAddresses`],
-//! in `addresses.rs`), so an invitation link works by the time its email arrives.
+//! in `addresses.rs`), so an invitation link works by the time its email arrives, and reminds
+//! staff of booking requests nobody has answered, then tells the owners ([`remind`], in
+//! `staff.rs`, which also holds the delivery seam for push).
 
 mod addresses;
 pub mod cloudflare;
 mod resend;
+mod staff;
 mod templates;
 
 use aarogyam_dal::outbox::{self, Claimed};
@@ -27,6 +30,7 @@ use time::OffsetDateTime;
 
 pub use addresses::{AddressReport, PortalAddresses, WorkersDev};
 pub use resend::Resend;
+pub use staff::{ReminderReport, StaffAlert, StaffChannel, remind};
 pub use templates::{Email, PortalLinks};
 
 /// Most messages one drain delivers.

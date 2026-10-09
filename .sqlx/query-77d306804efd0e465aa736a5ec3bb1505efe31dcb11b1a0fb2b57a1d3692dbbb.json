@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.notify_patient_cancelled($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "notify_patient_cancelled",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "77d306804efd0e465aa736a5ec3bb1505efe31dcb11b1a0fb2b57a1d3692dbbb"
+}

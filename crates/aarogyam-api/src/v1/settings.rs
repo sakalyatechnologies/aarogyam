@@ -209,6 +209,9 @@ pub struct OnlineBooking {
     pub horizon_days: u16,
     /// How soon before a slot it stops being offered, in minutes (0 to 10080).
     pub min_notice_minutes: u16,
+    /// Minutes a booking request may wait, in opening hours, before everyone who handles
+    /// appointments is reminded (5 to 240, default 15); owners are told after as long again.
+    pub reminder_minutes: u16,
 }
 
 /// Changes to online booking; settings left out stay as they are.
@@ -226,6 +229,8 @@ pub struct OnlineBookingChanges {
     pub horizon_days: Option<u16>,
     /// Minimum notice in minutes.
     pub min_notice_minutes: Option<u16>,
+    /// Reminder wait in minutes.
+    pub reminder_minutes: Option<u16>,
 }
 
 /// The clinic's settings.
@@ -286,6 +291,7 @@ impl From<app::ClinicSettings> for ClinicSettings {
                 auto_confirm: settings.booking.auto_confirm,
                 horizon_days: settings.booking.horizon_days,
                 min_notice_minutes: settings.booking.min_notice_minutes,
+                reminder_minutes: settings.booking.reminder_minutes,
             },
             letterhead: settings.letterhead.into(),
         }
@@ -394,6 +400,7 @@ pub(crate) async fn update_clinic(
                 auto_confirm: b.auto_confirm,
                 horizon_days: b.horizon_days,
                 min_notice_minutes: b.min_notice_minutes,
+                reminder_minutes: b.reminder_minutes,
             }),
         letterhead: body.letterhead.map(Into::into),
     };

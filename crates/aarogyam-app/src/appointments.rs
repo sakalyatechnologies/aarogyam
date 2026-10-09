@@ -6,7 +6,9 @@
 use aarogyam_dal::appointments::{self as dal, AppointmentRow, Booking};
 use aarogyam_dal::{clinic, patients, queue, schedule};
 use aarogyam_domain::access::{ClinicActor, Reach};
-use aarogyam_domain::ids::{AppointmentId, BranchId, PatientId, PractitionerId, RoomId};
+use aarogyam_domain::ids::{
+    AppointmentId, BranchId, MembershipId, PatientId, PractitionerId, RoomId,
+};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::{
     AppointmentKind, AppointmentStatus, BookingSource, DateSpan, QueueStatus, Reason,
@@ -640,6 +642,7 @@ pub(crate) async fn apply_status(
     current: &AppointmentRow,
     to: AppointmentStatus,
     reason: Option<&Reason>,
+    by: Option<MembershipId>,
     now: OffsetDateTime,
 ) -> Result<Option<Uuid>, AppError> {
     let from = AppointmentStatus::parse(&current.status)
@@ -670,6 +673,7 @@ pub(crate) async fn apply_status(
         },
     )
     .await?;
+    crate::notifications::on_status(tx, current, to, by, now).await?;
     let token = queue::for_appointment(tx.conn(), current.id).await?;
     match (token, QueueStatus::for_appointment(to)) {
         (None, Some(QueueStatus::Waiting)) => {
@@ -762,7 +766,16 @@ pub async fn set_status(
                 });
             }
             StatusPlan::Move(reason) => {
-                apply_status(tx, &profile.timezone, &current, to, reason.as_ref(), now).await?
+                apply_status(
+                    tx,
+                    &profile.timezone,
+                    &current,
+                    to,
+                    reason.as_ref(),
+                    Some(actor.membership_id),
+                    now,
+                )
+                .await?
             }
         };
         if current.source == BookingSource::Website.as_str()

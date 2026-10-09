@@ -2,6 +2,22 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-08: Clinic notifications, reminders and escalation
+
+**Decision.** An online booking (public page or patient app) writes a `staff_notifications` row in the booking's transaction: `booking_requested` when the clinic waits for confirmation (`online_booking.auto_confirm` false, the default), `booking_confirmed_auto` otherwise. A patient cancelling in the app writes `booking_cancelled_by_patient` through `app.notify_patient_cancelled` (a patient account may not touch staff tables). Rows hold IDs only (migration 0320).
+
+- **Who sees one** is decided when reading, not fanned out: every member whose role has `appointments.read` and whose scope reaches the appointment's doctor (`app.practitioner_in_reach`). At `own`, only their own doctor's bookings. Read state is per member (`staff_notification_reads`).
+- **Handled** is set in the status change's transaction when staff confirm, decline or cancel an online or requested booking (`handled_by` is the member, shown by display name), and with no member when the patient cancels.
+- **API:** `GET /notifications` (feed, `unread_only`, `limit`, `before` = last id), `GET /notifications/count` (one statement; last 30 days, at most 100), `POST /notifications/{id}/read`, `POST /notifications/read-all`, `GET /inbox`. All need `appointments.read`. The portal polls; no live connection.
+- **Reminders and escalation** are a step of the outbox job (`aarogyam outbox drain`, every 2 minutes, `aarogyam_notify::remind`). A `booking_requested` still unhandled after `online_booking.reminder_minutes` (default 15, 5 to 240) while the clinic is open by its own clock gets `reminded_at` and a `booking_reminder` inbox message for the clinic (same audience as the notification). After as long again since the reminder it gets `escalated_at` and a `booking_escalation` message addressed to members with the owner role. So a night booking is reminded at opening and escalated N minutes later, never both at once. Each step is recorded once (`app.record_booking_request_step`), whatever runs overlap. Requests whose appointment already started, and suspended clinics, are skipped.
+- **Inbox** (`staff_inbox_messages`) is append-only; a message is open until its notification is handled.
+- **Opening hours:** clinics can't set them yet, so the job uses 09:00 to 21:00 in the clinic's time zone (`OpenHours::DEFAULT`). When clinic opening hours exist (Track B), pass them instead.
+- **Push** plugs in at `StaffChannel` in `aarogyam-notify` (in-app only now; the rows are the delivery). FCM/APNs payloads will carry `StaffAlert`'s IDs only.
+
+**Why.** Founder testing found online bookings went unnoticed. Deciding visibility at read time keeps scope changes and new staff correct without backfills; IDs only keep notifications safe to push and log.
+
+**Not done.** Portal bell, Today's unhandled list, and the staff app list and push (UI and credentials pending).
+
 ## 2026-10-07: Analytics: chair utilization and material costs
 
 **Decision.** `GET /api/v1/reports/analytics` (`analytics.view`, owner by default; money figures null without `finance.view`) reads everything in one statement in one clinic transaction.

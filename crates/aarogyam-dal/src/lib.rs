@@ -31,6 +31,7 @@ pub mod inventory;
 pub mod invitations;
 pub mod json;
 pub mod lookups;
+pub mod notifications;
 pub mod outbox;
 pub mod patient_app;
 pub mod patient_notes;

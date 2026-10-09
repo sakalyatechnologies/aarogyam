@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.staff_notification_reads (notification_id, membership_id)\n           select n.id, $1 from aarogyam.staff_notifications n\n           join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id\n           where app.practitioner_in_reach(a.practitioner_id, $2)\n           on conflict do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5f8134b959ecac59dda8b823cbc30e5f8795e87e0be8778d8f17ea8670e3cf06"
+}

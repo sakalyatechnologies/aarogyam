@@ -21,6 +21,7 @@ pub(crate) mod invitations;
 pub(crate) mod letterhead;
 pub(crate) mod me;
 pub(crate) mod meta;
+pub(crate) mod notifications;
 pub(crate) mod onboarding;
 pub(crate) mod patient_app;
 pub(crate) mod patient_links;
@@ -415,6 +416,11 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/reports/collections", get(reports::collections))
         .route("/reports/pending", get(reports::pending))
         .route("/reports/analytics", get(analytics::analytics))
+        .route("/notifications", get(notifications::list))
+        .route("/notifications/count", get(notifications::count))
+        .route("/notifications/read-all", post(notifications::read_all))
+        .route("/notifications/{id}/read", post(notifications::read))
+        .route("/inbox", get(notifications::inbox))
         .route("/expenses", get(expenses::list).post(expenses::record))
         .route("/expenses/{id}/void", post(expenses::void))
         .route("/today/money", get(reports::today_money))

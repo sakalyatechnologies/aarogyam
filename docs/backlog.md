@@ -59,6 +59,8 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 - **Design notes:** WhatsApp Business API (Meta-approved templates for outbound) and SMS via the notification service and outbox (AGENTS.md rule 10, never direct from handlers); consent and opt-out stored per patient (DPDP); campaigns need a permission, rate limits and an audit; costs per message shown before sending.
 
 ## Clinic notifications for online bookings (8 Oct 2026, important)
+**Status (8 Oct): backend built, UI pending.** Notifications written with the booking or patient cancellation, per-person read state and "handled by", scopes, the feed, count, read and inbox API, reminder then owner escalation in the outbox job, and `reminder_minutes` next to `auto_confirm` (docs/decisions.md, "Clinic notifications, reminders and escalation"). Waiting: the portal bell and list, Today's unhandled list, the staff app list, push (credentials), and real clinic opening hours for the job.
+
 Founder testing: a patient booked online from the clinic website and the booking appeared on the calendar, but nobody at the clinic was told. The bell in the top bar is a placeholder; it always says "You're all caught up".
 
 **Who sees it**

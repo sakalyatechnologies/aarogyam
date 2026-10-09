@@ -59,6 +59,8 @@ struct TodayScreen: View {
             )
         case .loaded(let loaded):
             TodayContent(state: loaded)
+        case .moneyOnly(let money):
+            MoneyTiles(money: money.money).padding(.horizontal, SkSpacing.l)
         }
     }
 
@@ -96,13 +98,7 @@ private struct TodayContent: View {
                 SkStatTile(value: "\(view.counts.waiting)", label: String(localized: "today.stat.waiting"))
                 SkStatTile(value: "\(view.counts.done)", label: String(localized: "today.stat.done"))
             }
-            if let money = view.money {
-                HStack(spacing: SkSpacing.m) {
-                    SkStatTile(value: ClinicFormat.rupees(paise: money.collectedPaise), label: String(localized: "today.stat.collected"))
-                    SkStatTile(value: ClinicFormat.rupees(paise: money.pendingDuesPaise), label: String(localized: "today.stat.dues"))
-                    SkStatTile(value: money.upiShareText, label: String(localized: "today.stat.upi"))
-                }
-            }
+            if let money = view.money { MoneyTiles(money: money) }
             Text("today.schedule").skTextStyle(SkTypeScale.label).foregroundStyle(p.textMuted.color)
                 .textCase(.uppercase)
                 .padding(.horizontal, SkSpacing.xs)
@@ -127,6 +123,19 @@ private struct TodayContent: View {
                     }
                 }
             }
+        }
+    }
+}
+
+/// Collected, dues and UPI share; the whole of Today for a finance-only role until the v7 Today lands.
+private struct MoneyTiles: View {
+    let money: MoneyView
+
+    var body: some View {
+        HStack(spacing: SkSpacing.m) {
+            SkStatTile(value: ClinicFormat.rupees(paise: money.collectedPaise), label: String(localized: "today.stat.collected"))
+            SkStatTile(value: ClinicFormat.rupees(paise: money.pendingDuesPaise), label: String(localized: "today.stat.dues"))
+            SkStatTile(value: money.upiShareText, label: String(localized: "today.stat.upi"))
         }
     }
 }

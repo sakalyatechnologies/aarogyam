@@ -43,6 +43,18 @@ data class MoneyView(
     val pendingDuesPaise: Long,
     val pendingDuesPatients: Int,
     val upiShareBps: Long,
+    val collectedThisMonthPaise: Long = 0,
+    /** This month's revenue by category, largest first. */
+    val mix: List<MixShare> = emptyList(),
+    /** Recorded expenses today, or null when they could not be loaded. */
+    val expensesTodayPaise: Long? = null,
+)
+
+/** One category of the month's revenue. */
+data class MixShare(
+    val category: String,
+    val amountPaise: Long,
+    val shareBps: Long,
 )
 
 internal fun TodayMoney.toView() =
@@ -52,6 +64,16 @@ internal fun TodayMoney.toView() =
         pendingDuesPaise = pendingDuesPaise,
         pendingDuesPatients = pendingDuesPatients,
         upiShareBps = upiShareBps,
+        collectedThisMonthPaise = collectedThisMonthPaise,
+        mix =
+            revenueMix
+                .map {
+                    MixShare(
+                        it.category,
+                        it.amountPaise,
+                        it.shareBps,
+                    )
+                }.sortedByDescending { it.amountPaise },
     )
 
 /** Everything the Today screen draws, in the clinic's time zone. */
@@ -66,12 +88,24 @@ data class TodayView(
     val schedule: List<ScheduleItem>,
     /** Null without `finance.view`, or when the money request failed (the rest of Today still shows). */
     val money: MoneyView? = null,
-)
+    /** The signed-in member's own day. */
+    val me: MeView? = null,
+) {
+    /** Done of all today's visits, 0 to 1, for the progress ring. */
+    val progress: Float get() = if (counts.visits == 0) 0f else counts.done.toFloat() / counts.visits
+
+    companion object {
+        /** What Today shows as "needs server support". */
+        val PREVIEWS: Set<TodayPreview> = TodayPreview.entries.toSet()
+    }
+}
 
 internal fun TodayResponse.toView(
     clinicName: String,
     memberName: String,
     zone: TimeZone,
+    membershipId: String = "",
+    roleKey: String = "",
 ): TodayView {
     val asOf = parseInstant(asOf)?.toLocalDateTime(zone)
     val items =
@@ -96,6 +130,7 @@ internal fun TodayResponse.toView(
         heroKind = if (now != null) HeroKind.Now else next?.let { HeroKind.UpNext },
         hero = now ?: next,
         schedule = items,
+        me = me(membershipId, memberName, roleKey, zone, items),
     )
 }
 

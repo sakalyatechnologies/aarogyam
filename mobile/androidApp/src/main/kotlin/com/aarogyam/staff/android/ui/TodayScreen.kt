@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.today.DayPart
 import com.aarogyam.staff.today.HeroKind
+import com.aarogyam.staff.today.MoneyView
 import com.aarogyam.staff.today.ScheduleItem
 import com.aarogyam.staff.today.TodayState
 import com.aarogyam.staff.today.TodayStateHolder
@@ -59,7 +60,7 @@ fun TodayScreen(
             },
         )
         PullToRefreshBox(
-            isRefreshing = loaded?.refreshing == true,
+            isRefreshing = loaded?.refreshing == true || (state as? TodayState.MoneyOnly)?.refreshing == true,
             onRefresh = holder::refresh,
             modifier = Modifier.weight(1f),
         ) {
@@ -86,6 +87,10 @@ fun TodayScreen(
 
                 is TodayState.Loaded -> {
                     TodayContent(current)
+                }
+
+                is TodayState.MoneyOnly -> {
+                    MoneyTiles(current.money)
                 }
             }
         }
@@ -128,26 +133,7 @@ private fun TodayContent(state: TodayState.Loaded) {
                 SkStatTile(view.counts.done.toString(), stringResource(R.string.stat_done), Modifier.weight(1f))
             }
         }
-        view.money?.let { money ->
-            item {
-                Row(
-                    Modifier.padding(horizontal = Spacing.ML.dp, vertical = Spacing.M.dp),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.M.dp),
-                ) {
-                    SkStatTile(
-                        money.collectedPaise.rupees(),
-                        stringResource(R.string.stat_collected),
-                        Modifier.weight(1f),
-                    )
-                    SkStatTile(money.pendingDuesPaise.rupees(), stringResource(R.string.stat_dues), Modifier.weight(1f))
-                    SkStatTile(
-                        "${money.upiShareBps / BPS_PER_PERCENT}%",
-                        stringResource(R.string.stat_upi),
-                        Modifier.weight(1f),
-                    )
-                }
-            }
-        }
+        view.money?.let { money -> item { MoneyTiles(money) } }
         val hero = view.hero
         if (hero != null) {
             item {
@@ -161,6 +147,19 @@ private fun TodayContent(state: TodayState.Loaded) {
             }
         }
         item { Schedule(view.schedule) }
+    }
+}
+
+/** Collected, dues and UPI share; the whole of Today for a finance-only role until the v7 Today lands. */
+@Composable
+private fun MoneyTiles(money: MoneyView) {
+    Row(
+        Modifier.padding(horizontal = Spacing.ML.dp, vertical = Spacing.M.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.M.dp),
+    ) {
+        SkStatTile(money.collectedPaise.rupees(), stringResource(R.string.stat_collected), Modifier.weight(1f))
+        SkStatTile(money.pendingDuesPaise.rupees(), stringResource(R.string.stat_dues), Modifier.weight(1f))
+        SkStatTile("${money.upiShareBps / BPS_PER_PERCENT}%", stringResource(R.string.stat_upi), Modifier.weight(1f))
     }
 }
 

@@ -96,6 +96,10 @@ Founder testing: a patient booked online from the clinic website and the booking
 - **Online sign-ups:** registered with name, email and phone only; complete age, sex, allergies and consent at Mark arrived, and also match duplicates by phone.
 - **Date and time fields:** the shared `sakalya-web` date field is the browser default (US order, no shortcuts) and time is typed as text. Build a proper date picker and slot-based time picker there, then use it everywhere.
 
+## Labs (8 Oct 2026) - backend built on feat/labs
+- Built: labs and contacts, lab orders with items, status and stage, reminders to the lab by email, payments that record a lab expense, a lab's balance, and lab turnaround in Analytics (see `decisions.md`, "Labs").
+- Still to do: portal, console and phone screens; editing an order's items; STL scans over 10 MB (files are capped at 10 MB); WhatsApp to labs once the messaging service exists; the overdue staff alert (T6); payment method on lab payments; pathology and radiology requisitions, printed or shared, never in a reminder.
+
 ## Sign-in from the public website: one smooth step (8 Oct 2026)
 - **Problem:** after signing in on the public Aarogyam website, several different screens flash by while it redirects to the clinic portal, and it takes a while. Today the path goes from the website's sign-in, through the handoff, then the portal's own loading screens ("Loading your clinics", "Opening the clinic"), then the setup gate, then the page.
 - **Wanted:** one simple loader from the moment you press Sign in until the clinic page is ready. It should be the same full-screen, branded loader with one line of text, such as "Opening Sunrise Dental…", and no intermediate screens.

@@ -28,6 +28,10 @@ export const PERMISSIONS = [
   "analytics.view",
   /** Record patient-reported allergies and "No known allergies" at a walk-in; reads nothing clinical. */
   "intake.write",
+  /** Labs, their contacts and lab orders (costs also need finance.view). */
+  "labs.read",
+  /** Keep labs and contacts, record and move lab orders, remind a lab. */
+  "labs.write",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

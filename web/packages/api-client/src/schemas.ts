@@ -1966,6 +1966,10 @@ export const analytics = z.object({
   busy_hours: z.array(
     z.object({ weekday: z.number().int().min(1).max(7), hour: z.number().int().min(0).max(23), visits: count }) satisfies z.ZodType<C.BusyHour>,
   ),
+  lab_turnaround: z.object({
+    orders_received: count,
+    average_days: z.number().min(0).nullable().exactOptional(),
+  }) satisfies z.ZodType<C.LabTurnaround>,
 }) satisfies z.ZodType<C.Analytics>;
 export type Analytics = z.output<typeof analytics>;
 

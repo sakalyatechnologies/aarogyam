@@ -46,6 +46,27 @@ pub struct OrderJson {
     pub contact_id: Option<Uuid>,
     /// Their name.
     pub contact_name: Option<String>,
+    /// Their phone, E.164.
+    #[serde(default)]
+    pub contact_phone: Option<String>,
+    /// Their email.
+    #[serde(default)]
+    pub contact_email: Option<String>,
+    /// Whether they use `WhatsApp` on that phone.
+    #[serde(default)]
+    pub contact_whatsapp: Option<bool>,
+    /// The lab's own phone, E.164.
+    #[serde(default)]
+    pub vendor_phone: Option<String>,
+    /// When a member last contacted the lab about it (contact log or manual reminder).
+    #[serde(default, with = "crate::json::timestamp::option")]
+    pub last_contacted_at: Option<OffsetDateTime>,
+    /// Who.
+    #[serde(default)]
+    pub last_contacted_by: Option<Uuid>,
+    /// Their name.
+    #[serde(default)]
+    pub last_contacted_by_name: Option<String>,
     /// The patient.
     pub patient_id: Uuid,
     /// Their clinic number.
@@ -105,6 +126,18 @@ pub struct EventJson {
     pub reminder: Option<String>,
     /// A note.
     pub note: Option<String>,
+    /// How the lab was contacted.
+    #[serde(default)]
+    pub channel: Option<String>,
+    /// What came of it.
+    #[serde(default)]
+    pub outcome: Option<String>,
+    /// Who at the lab.
+    #[serde(default)]
+    pub contact_id: Option<Uuid>,
+    /// The item's position, for an item change.
+    #[serde(default)]
+    pub line_no: Option<i16>,
     /// Who; `None` for the reminder job.
     pub actor_id: Option<Uuid>,
     /// When.
@@ -177,7 +210,9 @@ pub async fn get(
                     (select jsonb_agg(jsonb_build_object(
                               'kind', e.kind, 'from_status', e.from_status, 'to_status', e.to_status,
                               'stage', e.stage, 'due_on', e.due_on, 'reminder', e.reminder,
-                              'note', e.note, 'actor_id', e.actor_id, 'created_at', e.created_at)
+                              'note', e.note, 'channel', e.channel, 'outcome', e.outcome,
+                              'contact_id', e.contact_id, 'line_no', e.line_no,
+                              'actor_id', e.actor_id, 'created_at', e.created_at)
                             order by e.id)
                      from aarogyam.lab_order_events e where e.lab_order_id = o.id), '[]'::jsonb))
                   as "order!: Json<OrderJson>"
@@ -521,8 +556,8 @@ pub async fn update_details(
     Ok(())
 }
 
-/// Queues a reminder email to the lab of an order at the lab and within reach, and records it;
-/// `None` when the order isn't at the lab, isn't within reach, or its lab has no email.
+/// Queues a reminder email to the lab of an order at the lab and within reach, records it and
+/// marks the lab contacted now by `actor`; `None` when the order isn't at the lab, isn't within reach, or its lab has no email.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -547,6 +582,9 @@ pub async fn remind(
            ), e as (
              insert into aarogyam.lab_order_events (lab_order_id, kind, reminder, actor_id)
              select $1, 'reminded', 'manual', $4 from m
+           ), c as (
+             update aarogyam.lab_orders set last_contacted_at = now(), last_contacted_by = $4
+             where id = $1 and exists (select 1 from m)
            )
            select id as "id!" from m"#,
         id,

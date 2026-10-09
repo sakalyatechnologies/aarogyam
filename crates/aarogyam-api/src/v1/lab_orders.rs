@@ -77,6 +77,9 @@ impl From<LabOrderState> for LabOrderStatus {
 /// An item on a lab order.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct LabOrderItem {
+    /// Identifier, for `PATCH` and `DELETE /lab-order-items/{id}`.
+    #[schema(value_type = String)]
+    pub id: Uuid,
     /// Position, from 1.
     pub line_no: i16,
     /// What to make.
@@ -96,7 +99,8 @@ pub struct LabOrderItem {
 /// Something that happened to a lab order.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct LabOrderEvent {
-    /// created, `status_changed`, `stage_changed`, `due_changed`, reminded, `reminder_skipped` or overdue.
+    /// created, `status_changed`, `stage_changed`, `due_changed`, reminded, `reminder_skipped`,
+    /// overdue, contacted, `item_added`, `item_changed` or `item_removed`.
     pub kind: String,
     /// The status before a change.
     pub from_status: Option<LabOrderState>,
@@ -110,6 +114,15 @@ pub struct LabOrderEvent {
     pub reminder: Option<String>,
     /// A note.
     pub note: Option<String>,
+    /// How the lab was contacted: call, whatsapp, email or visit (contacted only).
+    pub channel: Option<String>,
+    /// reached, `no_answer`, `promised_date` or other (contacted only).
+    pub outcome: Option<String>,
+    /// Who at the lab was contacted.
+    #[schema(value_type = Option<String>)]
+    pub contact_id: Option<Uuid>,
+    /// The item's line, for an item change.
+    pub line_no: Option<i16>,
     /// The membership; absent for the reminder job.
     #[schema(value_type = Option<String>)]
     pub actor_id: Option<Uuid>,
@@ -127,6 +140,10 @@ impl From<EventView> for LabOrderEvent {
             due_on: view.due_on.map(|d| d.to_string()),
             reminder: view.reminder.map(|r| r.as_str().to_owned()),
             note: view.note,
+            channel: view.channel.map(|c| c.as_str().to_owned()),
+            outcome: view.outcome.map(|o| o.as_str().to_owned()),
+            contact_id: view.contact_id.map(LabContactId::uuid),
+            line_no: view.line_no,
             actor_id: view.actor_id.map(MembershipId::uuid),
             at: rfc3339(view.at),
         }
@@ -151,6 +168,22 @@ pub struct LabOrder {
     pub contact_id: Option<Uuid>,
     /// Their name.
     pub contact_name: Option<String>,
+    /// Their phone, E.164, for a dialler.
+    pub contact_phone: Option<String>,
+    /// Their email.
+    pub contact_email: Option<String>,
+    /// Whether they use `WhatsApp` on that phone.
+    pub contact_whatsapp: bool,
+    /// The lab's own phone, E.164, when no contact is named.
+    pub vendor_phone: Option<String>,
+    /// When a member last contacted the lab about it: the contact log or a manual reminder
+    /// (RFC 3339).
+    pub last_contacted_at: Option<String>,
+    /// Who.
+    #[schema(value_type = Option<String>)]
+    pub last_contacted_by: Option<Uuid>,
+    /// Their name.
+    pub last_contacted_by_name: Option<String>,
     /// The patient.
     #[schema(value_type = String)]
     pub patient_id: Uuid,
@@ -199,6 +232,13 @@ impl From<LabOrderView> for LabOrder {
         let (contact_id, contact_name) = view
             .contact
             .map_or((None, None), |(id, name)| (Some(id.uuid()), name));
+        let (last_contacted_at, last_contacted_by, last_contacted_by_name) =
+            view.last_contact.map_or((None, None, None), |last| {
+                let (by, name) = last
+                    .by
+                    .map_or((None, None), |(id, name)| (Some(id.uuid()), name));
+                (Some(rfc3339(last.at)), by, name)
+            });
         Self {
             id: view.id.uuid(),
             number: view.number,
@@ -206,6 +246,13 @@ impl From<LabOrderView> for LabOrder {
             vendor_name: view.vendor.1,
             contact_id,
             contact_name,
+            contact_phone: view.contact_reach.phone,
+            contact_email: view.contact_reach.email,
+            contact_whatsapp: view.contact_reach.whatsapp,
+            vendor_phone: view.vendor_phone,
+            last_contacted_at,
+            last_contacted_by,
+            last_contacted_by_name,
             patient_id: view.patient.0.uuid(),
             patient_number: view.patient.1,
             patient_name: view.patient.2,
@@ -226,6 +273,7 @@ impl From<LabOrderView> for LabOrder {
                 .items
                 .into_iter()
                 .map(|i| LabOrderItem {
+                    id: i.id.uuid(),
                     line_no: i.line_no,
                     work_type: i.work_type,
                     teeth: i.teeth,

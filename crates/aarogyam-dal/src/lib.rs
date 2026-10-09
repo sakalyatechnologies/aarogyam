@@ -35,6 +35,7 @@ pub mod imports;
 pub mod inventory;
 pub mod invitations;
 pub mod json;
+pub mod lab_order_changes;
 pub mod lab_orders;
 pub mod lab_payments;
 pub mod labs;

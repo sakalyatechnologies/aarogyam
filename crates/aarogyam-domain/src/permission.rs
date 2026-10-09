@@ -49,11 +49,15 @@ pub enum Permission {
     /// Record patient-reported allergies and "No known allergies" at registration. Grants no
     /// clinical reading.
     IntakeWrite,
+    /// See labs, their contacts and lab orders.
+    LabsRead,
+    /// Keep labs and contacts, record lab orders and remind labs.
+    LabsWrite,
 }
 
 impl Permission {
     /// Every permission, in catalogue order.
-    pub const ALL: [Self; 21] = [
+    pub const ALL: [Self; 23] = [
         Self::PatientsRead,
         Self::PatientsWrite,
         Self::PatientsContact,
@@ -75,6 +79,8 @@ impl Permission {
         Self::ExpensesWrite,
         Self::AnalyticsView,
         Self::IntakeWrite,
+        Self::LabsRead,
+        Self::LabsWrite,
     ];
 
     /// The catalogue key, such as `patients.read`.
@@ -102,6 +108,8 @@ impl Permission {
             Self::ExpensesWrite => "expenses.write",
             Self::AnalyticsView => "analytics.view",
             Self::IntakeWrite => "intake.write",
+            Self::LabsRead => "labs.read",
+            Self::LabsWrite => "labs.write",
         }
     }
 
@@ -123,7 +131,9 @@ impl Permission {
             | Self::AppointmentsWrite
             | Self::ClinicalRead
             | Self::ClinicalWrite
-            | Self::PrescriptionsIssue => &[Scope::All, Scope::Own, Scope::Assigned],
+            | Self::PrescriptionsIssue
+            | Self::LabsRead
+            | Self::LabsWrite => &[Scope::All, Scope::Own, Scope::Assigned],
             _ => &[Scope::All],
         }
     }
@@ -319,6 +329,8 @@ required!(
     ExpensesWrite,
     AnalyticsView,
     IntakeWrite,
+    LabsRead,
+    LabsWrite,
 );
 
 #[cfg(test)]

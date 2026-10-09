@@ -10854,7 +10854,8 @@
             ],
             "description": "New start (RFC 3339)."
           }
-        }
+        },
+        "additionalProperties": false
       },
       "AppointmentList": {
         "type": "object",

@@ -333,6 +333,7 @@ pub(crate) async fn book(
 /// Changes to an appointment. Fields left out stay as they are; an empty `room_id`, `reason`
 /// or `notes` clears it. A new start without a new end keeps the length.
 #[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AppointmentChanges {
     /// Another doctor.
     pub practitioner_id: Option<String>,

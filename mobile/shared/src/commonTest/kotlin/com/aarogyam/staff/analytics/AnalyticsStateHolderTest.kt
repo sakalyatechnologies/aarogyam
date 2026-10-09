@@ -34,7 +34,7 @@ class AnalyticsStateHolderTest {
         vararg buckets: String,
     ) = """{"from":"2026-08-01","to":"2026-10-09","bucket":"month","open_minutes_per_day":540,"money_visible":$money,
            "chairs":[{"id":"r1","name":"Chair 1","uses_clinic_hours":true}],"buckets":[${buckets.joinToString(",")}],
-           "busy_hours":[{"weekday":1,"hour":10,"visits":4}],
+           "busy_hours":[{"weekday":1,"hour":10,"visits":4}],"lab_turnaround":{"orders_received":0,"average_days":null},
            "patients":{"age_bands":[{"key":"18_34","count":9}],"visit_kinds":[{"key":"new","count":3},{"key":"procedure","count":5}],
            "referral_sources":[]}}"""
 

@@ -5749,6 +5749,7 @@ const BOOKING_DEFAULTS: C.OnlineBooking = {
   auto_confirm: false,
   horizon_days: 30,
   min_notice_minutes: 60,
+  reminder_minutes: 15,
 };
 /** Most open self-bookings one verified person may hold in a clinic. */
 const MAX_OPEN_SELF_BOOKINGS = 2;
@@ -5766,7 +5767,7 @@ const UPI_ID = /^[\w.-]{2,256}@[a-zA-Z]{2,64}$/;
 const GSTIN = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
 function validateOnlineBooking(changes: C.OnlineBookingChanges): Outcome | null {
-  const { slot_minutes: slot, buffer_minutes: buffer, horizon_days: horizon, min_notice_minutes: notice } = changes;
+  const { slot_minutes: slot, buffer_minutes: buffer, horizon_days: horizon, min_notice_minutes: notice, reminder_minutes: reminder } = changes;
   if (slot != null && (slot < 5 || slot > 240 || slot % 5 !== 0)) {
     return invalid("booking.slot_minutes", "must be 5 to 240 minutes, in steps of 5");
   }
@@ -5778,6 +5779,9 @@ function validateOnlineBooking(changes: C.OnlineBookingChanges): Outcome | null 
   }
   if (notice != null && (notice < 0 || notice > 10_080)) {
     return invalid("booking.min_notice_minutes", "must be 0 to 10080 minutes");
+  }
+  if (reminder != null && (reminder < 5 || reminder > 240)) {
+    return invalid("booking.reminder_minutes", "must be 5 to 240 minutes");
   }
   return null;
 }

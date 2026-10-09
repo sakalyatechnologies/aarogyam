@@ -625,6 +625,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's inbox: reminders about booking requests within their scope, and escalations
+         *     too for owners, newest first.
+         */
+        get: operations["listInbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/internal/outbox/drain": {
         parameters: {
             query?: never;
@@ -635,7 +655,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Makes new portal hosts work, then delivers due outbox messages across clinics (local development only; later Cloud
+         * Makes new portal hosts work, reminds staff of unanswered booking requests (then the
+         *     owners), then delivers due outbox messages across clinics (local development only; later Cloud
          *     Scheduler with a Google-signed token).
          */
         post: operations["drainOutbox"];
@@ -1275,6 +1296,80 @@ export interface paths {
          *     already signed changes nothing and returns it again, so a retry after a lost answer is safe.
          */
         post: operations["signNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's notifications about appointments within their scope, newest first, with their
+         *     own read state and who handled each one. The portal checks every minute.
+         */
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many notifications the caller hasn't read: one cheap query for the bell. */
+        get: operations["countUnreadNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marks every notification the caller can see read, for the caller only. */
+        post: operations["markAllNotificationsRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marks one notification read for the caller only; others still see it unread. Repeating it
+         *     changes nothing.
+         */
+        post: operations["markNotificationRead"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4298,6 +4393,12 @@ export interface components {
             addresses_ready: number;
             /** @description Portal hosts that failed and will be tried again. */
             addresses_retrying: number;
+            /** @description Escalations written to the owners' inbox. */
+            booking_requests_escalated: number;
+            /** @description Booking requests nobody has answered that were looked at. */
+            booking_requests_open: number;
+            /** @description Reminders written to the clinic inbox. */
+            booking_requests_reminded: number;
             /** @description Messages claimed. */
             claimed: number;
             /** @description `resend`, or `log` when no Resend key is configured. */
@@ -4452,6 +4553,15 @@ export interface components {
             /** @description True to show it in the patient's app. */
             shared_with_patient: boolean;
         };
+        /** @description Who handled a notification: confirmed, declined or cancelled its appointment. */
+        HandledBy: {
+            /** @description When (RFC 3339). */
+            at: string;
+            /** @description The member; absent when the patient cancelled. */
+            membership_id?: string | null;
+            /** @description Their display name, such as `Farah Desk`. */
+            name?: string | null;
+        };
         /**
          * @description A one-time code for that host. Send the person to `redirect_url`: the code is in the URL
          *     fragment, which browsers never send to a server.
@@ -4594,6 +4704,42 @@ export interface components {
             file: string;
             /** @description The workbook sheet to read; the first when left out. */
             sheet?: string | null;
+        };
+        /** @description A page of the inbox, newest first. */
+        InboxList: {
+            /** @description The messages. */
+            items: components["schemas"]["InboxMessage"][];
+        };
+        /**
+         * @description A message in the clinic inbox: a booking request still waiting. It stays open until the
+         *     booking is confirmed, declined or cancelled.
+         */
+        InboxMessage: {
+            /** @description The appointment. */
+            appointment_id: string;
+            /** @description `clinic` or `owners`. */
+            audience: string;
+            /** @description When it was written (RFC 3339). */
+            created_at: string;
+            /** @description When the booking was handled (RFC 3339). */
+            handled_at?: string | null;
+            /** @description Identifier; pass as `before` for the next page. */
+            id: string;
+            /**
+             * @description `booking_reminder` (for everyone who handles the appointment) or `booking_escalation`
+             *     (for the owners).
+             */
+            kind: string;
+            /** @description The notification it is about. */
+            notification_id: string;
+            /** @description Whether the booking has been handled. */
+            open: boolean;
+            /** @description Its doctor. */
+            practitioner_id: string;
+            /** @description The doctor's name. */
+            practitioner_name: string;
+            /** @description Its start (RFC 3339, the clinic's offset). */
+            starts_at: string;
         };
         /** @description The front desk's to-do list. */
         IncompleteList: {
@@ -5096,6 +5242,14 @@ export interface components {
             status: string;
             /** @description Its unit. */
             unit: string;
+        };
+        /** @description What "mark all read" did. */
+        MarkedRead: {
+            /**
+             * Format: int64
+             * @description Notifications that were unread and are now read.
+             */
+            marked: number;
         };
         /** @description The signed-in person's clinics. */
         Me: {
@@ -5619,6 +5773,46 @@ export interface components {
             /** @description What the patient reports. */
             subjective?: string | null;
         };
+        /** @description A notification as the caller sees it. */
+        Notification: {
+            /** @description The appointment. */
+            appointment: components["schemas"]["NotifiedAppointment"];
+            /** @description When it happened (RFC 3339). */
+            created_at: string;
+            /** @description When the owners were told (RFC 3339). */
+            escalated_at?: string | null;
+            handled?: components["schemas"]["HandledBy"] | null;
+            /** @description Identifier; pass as `before` for the next page. */
+            id: string;
+            /** @description `booking_requested`, `booking_confirmed_auto` or `booking_cancelled_by_patient`. */
+            kind: string;
+            /** @description Whether the caller has read it. */
+            read: boolean;
+            /** @description When the caller read it (RFC 3339). */
+            read_at?: string | null;
+            /** @description When everyone was reminded because nobody had answered (RFC 3339). */
+            reminded_at?: string | null;
+        };
+        /** @description A page of the caller's notifications, newest first. */
+        NotificationList: {
+            /** @description The notifications. */
+            items: components["schemas"]["Notification"][];
+        };
+        /** @description The appointment a notification is about. */
+        NotifiedAppointment: {
+            /** @description End (RFC 3339, the clinic's offset). */
+            ends_at: string;
+            /** @description The appointment; open it at `/appointments/{id}`. */
+            id: string;
+            /** @description Its doctor. */
+            practitioner_id: string;
+            /** @description The doctor's name as shown on the calendar. */
+            practitioner_name: string;
+            /** @description Start (RFC 3339, the clinic's offset). */
+            starts_at: string;
+            /** @description Its status now, such as `requested` or `confirmed`. */
+            status: string;
+        };
         /**
          * @description A measurement. Values never change: a correction is a new reading whose `supersedes_id`
          *     names the old one, which stays with status `corrected`.
@@ -5678,6 +5872,12 @@ export interface components {
             min_notice_minutes: number;
             /**
              * Format: int32
+             * @description Minutes a booking request may wait, in opening hours, before everyone who handles
+             *     appointments is reminded (5 to 240, default 15); owners are told after as long again.
+             */
+            reminder_minutes: number;
+            /**
+             * Format: int32
              * @description Slot length in minutes (5 to 240, steps of 5).
              */
             slot_minutes: number;
@@ -5703,6 +5903,11 @@ export interface components {
              * @description Minimum notice in minutes.
              */
             min_notice_minutes?: number | null;
+            /**
+             * Format: int32
+             * @description Reminder wait in minutes.
+             */
+            reminder_minutes?: number | null;
             /**
              * Format: int32
              * @description Slot length in minutes.
@@ -7969,6 +8174,14 @@ export interface components {
             /** @description `in_chair`, `done` or `left`. */
             status: string;
         };
+        /** @description The bell's number. */
+        UnreadCount: {
+            /**
+             * Format: int64
+             * @description Unread notifications from the last 30 days, at most 100; show "99+" above 99.
+             */
+            unread: number;
+        };
         /** @description The form an upload sends (`multipart/form-data`). */
         UploadForm: {
             /** @description The uploader's addendum to a signed note, which the recording belongs to. */
@@ -9962,6 +10175,53 @@ export interface operations {
             };
         };
     };
+    listInbox: {
+        parameters: {
+            query?: {
+                /** @description Only messages whose booking is still unhandled */
+                open_only?: boolean;
+                /** @description Page size, 1 to 100 (default 30) */
+                limit?: number;
+                /** @description Only those older than this message id */
+                before?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxList"];
+                };
+            };
+            /** @description `before` is not an id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     drainOutbox: {
         parameters: {
             query?: never;
@@ -11879,6 +12139,161 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MoveRefused"];
                 };
+            };
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: {
+                /** @description Only unread ones, from the last 30 days */
+                unread_only?: boolean;
+                /** @description Page size, 1 to 100 (default 30) */
+                limit?: number;
+                /** @description Only those older than this notification id */
+                before?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationList"];
+                };
+            };
+            /** @description `before` is not an id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    countUnreadNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCount"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    markAllNotificationsRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkedRead"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    markNotificationRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The notification */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Read */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such notification in this clinic, or its appointment is out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

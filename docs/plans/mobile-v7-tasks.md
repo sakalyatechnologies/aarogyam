@@ -30,7 +30,7 @@ Tick a task only when its done criteria pass: tests, gates and parity sheet. Add
 | D3 | done |  | `NavModel`: tabs and tiles per role and multi-clinic; tests for all 6 roles. |
 | D4 | done |  | Today "Me" and "My schedule" (membership → team member → practitioner); finance via `/today/money`. Field map, required; done when no v7 num |
 | D5 | done |  | `ScheduleStateHolder`: queue actions (call in, seat, done, left, start visit), day view, week density and slots. |
-| D6 | todo |  | Booking: availability and `POST /appointments`; slot chips data. |
+| D6 | done |  | Booking: availability and `POST /appointments`; slot chips data. |
 | D7 | todo |  | Analytics calls and holder (three periods, Preview flags for the split data). Field map, required; done when no v7 number lacks a source: |
 | D8 | todo |  | Procedure → finding map, `ToothSheetStateHolder`, `record(visitId)`, Edit (after B1 and D8a). |
 | D8a | todo |  | Split `ChartStateHolder.kt` (430 lines) into a history/terms reducer and a recording part, each under 300 lines. The existing tests stay gre |

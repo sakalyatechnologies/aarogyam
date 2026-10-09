@@ -56,7 +56,7 @@ flowchart LR
   ops -->|3| billing
   ops -->|2| clinical
   ops -->|3| people
-  ops -->|8| tenancy
+  ops -->|9| tenancy
   people -->|5| tenancy
   platform -->|3| iam
   platform -->|2| tenancy
@@ -787,7 +787,7 @@ A user's place in a clinic: role, branches, status. The link between users and c
 
 Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize().
 
-Referenced by: `allergies.verified_by`, `chat_messages.author_membership_id`, `clinical_notes.author_id`, `clinical_notes.error_by`, `clinical_notes.signed_by`, `conditions.verified_by`, `consent_notices.published_by`, `conversation_members.membership_id`, `daily_closings.closed_by`, `dental_terms.added_by`, `dental_terms.retired_by`, `document_extractions.confirmed_by`, `encounters.clinician_id`, `expenses.recorded_by`, `expenses.voided_by`, `invoices.issued_by`, `invoices.voided_by`, `lab_order_events.actor_id`, `lab_orders.doctor_id`, `lab_payments.recorded_by`, `lab_payments.voided_by`, `medical_history_items.verified_by`, `member_setup.membership_id`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `patient_consents.recorded_by`, `patient_consents.withdrawn_by`, `patient_duplicates.resolved_by`, `patient_links.decided_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `procedures.clinician_id`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`, `staff_notification_reads.membership_id`, `staff_notifications.handled_by`, `support_grants.granted_by`, `support_grants.revoked_by`, `treatment_plans.clinician_id`
+Referenced by: `allergies.verified_by`, `chat_messages.author_membership_id`, `clinical_notes.author_id`, `clinical_notes.error_by`, `clinical_notes.signed_by`, `conditions.verified_by`, `consent_notices.published_by`, `conversation_members.membership_id`, `daily_closings.closed_by`, `dental_terms.added_by`, `dental_terms.retired_by`, `document_extractions.confirmed_by`, `encounters.clinician_id`, `expenses.recorded_by`, `expenses.voided_by`, `invoices.issued_by`, `invoices.voided_by`, `lab_order_events.actor_id`, `lab_orders.doctor_id`, `lab_orders.last_contacted_by`, `lab_payments.recorded_by`, `lab_payments.voided_by`, `medical_history_items.verified_by`, `member_setup.membership_id`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `patient_consents.recorded_by`, `patient_consents.withdrawn_by`, `patient_duplicates.resolved_by`, `patient_links.decided_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `procedures.clinician_id`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`, `staff_notification_reads.membership_id`, `staff_notifications.handled_by`, `support_grants.granted_by`, `support_grants.revoked_by`, `treatment_plans.clinician_id`
 
 ### `membership_branches` (★ foundation)
 
@@ -1726,6 +1726,7 @@ erDiagram
   lab_orders |o--o{ lab_orders : "rework_of_id"
   lab_orders ||--o{ lab_order_items : "lab_order_id"
   lab_orders ||--o{ lab_order_events : "lab_order_id"
+  lab_contacts |o--o{ lab_order_events : "contact_id"
   lab_vendors ||--o{ lab_payments : "vendor_id"
   lab_orders |o--o{ lab_payments : "lab_order_id"
   inventory_items ||--o{ stock_batches : "item_id"
@@ -1790,7 +1791,7 @@ The people at a lab: several per lab, each reachable their own way.
 
 Built (migration 0361). Not patients: reminders reach them through the outbox with recipient set. Name, phone and email are masked in the change history; retention class lab_contacts (365 days after removal).
 
-Referenced by: `lab_orders.contact_id`
+Referenced by: `lab_order_events.contact_id`, `lab_orders.contact_id`
 
 ### `lab_orders`
 
@@ -1817,6 +1818,8 @@ Work sent to a lab for a patient, its due date and where it is.
 | `due_soon_reminded_on` | `date?` |  |
 | `due_today_reminded_on` | `date?` |  |
 | `overdue_flagged_on` | `date?` | reminder steps; cleared when due_on changes (trigger) |
+| `last_contacted_at` | `timestamptz?` | contact log or manual reminder (migration 0364) |
+| `last_contacted_by` | `uuid?` | → `memberships` |
 
 Built (migration 0361). Status moves forward only (draft -> sent/cancelled; sent -> in_progress/received/cancelled; in_progress -> received/cancelled; received -> fitted/returned_for_rework). The outbox job emails the lab two days before and on the due date, and flags overdue work, each once per due date (app.run_lab_reminders, migration 0363). Reminders never name the patient. Retention class lab_work (8 years).
 
@@ -1826,7 +1829,7 @@ Referenced by: `attachments.lab_order_id`, `lab_order_events.lab_order_id`, `lab
 
 What the lab makes on an order: a crown on 36 in A2 zirconia.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: health · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: health · offline: server only · lifecycle: ephemeral*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -1839,7 +1842,7 @@ What the lab makes on an order: a crown on 36 in A2 zirconia.
 | `qty` | `int` | 1-100 |
 | `unit_cost_paise` | `bigint?` | seen and set only with finance.view |
 
-Built (migration 0361). Work type, shade and material are masked in the change history.
+Built (migration 0361). Added, changed and removed after creation until the order is final (migration 0364; ephemeral so removal is possible, each change audited and recorded as an event). Work type, shade and material are masked in the change history.
 
 ### `lab_order_events`
 
@@ -1850,16 +1853,20 @@ What happened to a lab order: created, status or stage or due date changed, remi
 | Column | Type | Notes |
 |---|---|---|
 | `lab_order_id` | `uuid` | → `lab_orders` |
-| `kind` | `text` | created, status_changed, stage_changed, due_changed, reminded, reminder_skipped, overdue |
+| `kind` | `text` | created, status_changed, stage_changed, due_changed, reminded, reminder_skipped, overdue, contacted, item_added, item_changed, item_removed |
 | `from_status` | `text?` |  |
 | `to_status` | `text?` |  |
 | `stage` | `text?` |  |
-| `due_on` | `date?` |  |
+| `due_on` | `date?` | for contacted, the date the lab promised |
 | `reminder` | `text?` | due_soon, due_today, manual |
-| `note` | `text?` | masked in the change history |
+| `channel` | `text?` | call, whatsapp, email, visit; set exactly for contacted |
+| `outcome` | `text?` | reached, no_answer, promised_date, other |
+| `contact_id` | `uuid?` | → `lab_contacts`. who at the lab was contacted |
+| `line_no` | `smallint?` | the item, for item events |
+| `note` | `text?` | masked in the change history; cleared on patient erasure |
 | `actor_id` | `uuid?` | → `memberships`. null for the reminder job |
 
-Built (migration 0361).
+Built (migrations 0361, 0364). Also the contact log: POST /lab-orders/{id}/contacts-log.
 
 ### `lab_payments`
 

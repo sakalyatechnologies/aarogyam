@@ -2109,6 +2109,7 @@
     "invoices.voided_by",
     "lab_order_events.actor_id",
     "lab_orders.doctor_id",
+    "lab_orders.last_contacted_by",
     "lab_payments.recorded_by",
     "lab_payments.voided_by",
     "medical_history_items.verified_by",
@@ -5611,6 +5612,7 @@
     }
    ],
    "referenced_by": [
+    "lab_order_events.contact_id",
     "lab_orders.contact_id"
    ],
    "sensitivity": "personal",
@@ -5745,6 +5747,20 @@
      "nullable": true,
      "ref": null,
      "note": "reminder steps; cleared when due_on changes (trigger)"
+    },
+    {
+     "name": "last_contacted_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "contact log or manual reminder (migration 0364)"
+    },
+    {
+     "name": "last_contacted_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
     }
    ],
    "referenced_by": [
@@ -5764,9 +5780,9 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "ephemeral",
    "schema": "aarogyam",
-   "notes": "Built (migration 0361). Work type, shade and material are masked in the change history.",
+   "notes": "Built (migration 0361). Added, changed and removed after creation until the order is final (migration 0364; ephemeral so removal is possible, each change audited and recorded as an event). Work type, shade and material are masked in the change history.",
    "cols": [
     {
      "name": "lab_order_id",
@@ -5838,7 +5854,7 @@
    "partitioned": false,
    "lifecycle": "append_only",
    "schema": "aarogyam",
-   "notes": "Built (migration 0361).",
+   "notes": "Built (migrations 0361, 0364). Also the contact log: POST /lab-orders/{id}/contacts-log.",
    "cols": [
     {
      "name": "lab_order_id",
@@ -5852,7 +5868,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "created, status_changed, stage_changed, due_changed, reminded, reminder_skipped, overdue"
+     "note": "created, status_changed, stage_changed, due_changed, reminded, reminder_skipped, overdue, contacted, item_added, item_changed, item_removed"
     },
     {
      "name": "from_status",
@@ -5880,7 +5896,7 @@
      "type": "date",
      "nullable": true,
      "ref": null,
-     "note": ""
+     "note": "for contacted, the date the lab promised"
     },
     {
      "name": "reminder",
@@ -5890,11 +5906,39 @@
      "note": "due_soon, due_today, manual"
     },
     {
+     "name": "channel",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "call, whatsapp, email, visit; set exactly for contacted"
+    },
+    {
+     "name": "outcome",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "reached, no_answer, promised_date, other"
+    },
+    {
+     "name": "contact_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "lab_contacts",
+     "note": "who at the lab was contacted"
+    },
+    {
+     "name": "line_no",
+     "type": "smallint",
+     "nullable": true,
+     "ref": null,
+     "note": "the item, for item events"
+    },
+    {
      "name": "note",
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "masked in the change history"
+     "note": "masked in the change history; cleared on patient erasure"
     },
     {
      "name": "actor_id",

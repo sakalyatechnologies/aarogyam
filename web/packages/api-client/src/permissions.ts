@@ -30,6 +30,8 @@ export const PERMISSIONS = [
   "intake.write",
   /** Let a named Sakalya staff member read the clinic for up to 7 days (owner only by default). */
   "support.grant",
+  /** Chat with other staff of the clinic (every standard role). */
+  "chat.use",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

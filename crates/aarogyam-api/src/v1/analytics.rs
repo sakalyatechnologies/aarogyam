@@ -45,6 +45,9 @@ pub struct AnalyticsChair {
     pub id: Uuid,
     /// Its name.
     pub name: String,
+    /// Whether its open minutes come from its branch's opening hours (`GET /clinic-hours`);
+    /// otherwise `open_minutes_per_day` is assumed on every day.
+    pub uses_clinic_hours: bool,
 }
 
 /// One chair's use in a period.
@@ -56,7 +59,8 @@ pub struct ChairUtilization {
     /// Minutes booked: appointments not cancelled and not unconfirmed online requests
     /// (no-shows count).
     pub booked_minutes: i64,
-    /// Minutes open: `open_minutes_per_day` for each day of the period inside the range.
+    /// Minutes open on the days of the period inside the range: from the chair's branch opening
+    /// hours (closed days count zero), or `open_minutes_per_day` a day without them.
     pub open_minutes: i64,
     /// Appointments.
     pub appointments: i64,
@@ -151,7 +155,7 @@ pub struct Analytics {
     pub to: String,
     /// Months or weeks.
     pub bucket: AnalyticsBucket,
-    /// Minutes a chair is assumed open each day (540: clinic hours are not stored yet).
+    /// Minutes a chair is assumed open each day when its branch has no opening hours (540).
     pub open_minutes_per_day: i64,
     /// Whether the money fields are filled (the caller has `finance.view`).
     pub money_visible: bool,
@@ -284,6 +288,7 @@ pub(crate) async fn analytics(
             .into_iter()
             .map(|chair| AnalyticsChair {
                 id: chair.id.uuid(),
+                uses_clinic_hours: chair.week.is_some(),
                 name: chair.name,
             })
             .collect(),

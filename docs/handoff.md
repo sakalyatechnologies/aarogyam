@@ -40,6 +40,7 @@ Where the work stands and exactly what to do next. Update this file at the end o
 | T4 | **WhatsApp:** templates, Meta Cloud API adapter (off until credentials), HMAC webhook, STOP handling, `docs/whatsapp.md` (shared Sakalya number for the pilot) | T3 | 0375–0377 |
 | T5 | **Campaigns:** audiences, count token, batched fan-out, frequency and daily caps, kill switch | T3 | 0380–0383 |
 | T6 | **Integration:** lab overdue alerts on the notifications feed, erasure registration, support exclusion for chat, retention check | all of the above | 0395–0399 |
+**Backend built on `feat/appointments-backend` (not merged; migrations 0330–0333):** clinic opening hours (`/clinic-hours`) used by chair utilization; appointment edit tests (the chair bug is in the portal, which sends the chair only with Move appointment); phone-duplicate flags, merge and dismiss (`/patient-duplicates`, `/patients/{id}/merge`), `registration_incomplete` and `POST /appointments/{id}/check-in`; clinic notice versions (`/consent-notices`); `app.may_contact` with the consent matrix. TS client regenerated. Their portal screens wait (see `backlog.md`).
 
 **Needs someone outside these sessions:**
 - WhatsApp and SMS (Meta templates, DLT, paid provider)

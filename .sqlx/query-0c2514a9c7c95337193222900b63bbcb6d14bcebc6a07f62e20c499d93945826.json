@@ -1,0 +1,172 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select d.id, d.reason, d.created_at,\n                  p.id as patient_id, p.number as patient_number, p.full_name as patient_name,\n                  p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,\n                  c.id as candidate_id, c.number as candidate_number,\n                  c.full_name as candidate_name, c.sex as candidate_sex,\n                  c.date_of_birth as candidate_date_of_birth\n           from aarogyam.patient_duplicates d\n           join aarogyam.patients p on p.org_id = d.org_id and p.id = d.patient_id\n           join aarogyam.patients c on c.org_id = d.org_id and c.id = d.candidate_id\n           where d.status = 'open' and p.deleted_at is null and c.deleted_at is null\n             and app.patient_in_reach(p.id, $1) and app.patient_in_reach(c.id, $1)\n           order by d.created_at desc, d.id desc\n           limit 200",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patient_duplicates",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patient_duplicates",
+            "name": "reason"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patient_duplicates",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "patient_number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "patient_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "full_name"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "patient_sex",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "sex"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "patient_date_of_birth",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "date_of_birth"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "candidate_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "candidate_number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "candidate_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "full_name"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "candidate_sex",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "sex"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "candidate_date_of_birth",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "date_of_birth"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "0c2514a9c7c95337193222900b63bbcb6d14bcebc6a07f62e20c499d93945826"
+}

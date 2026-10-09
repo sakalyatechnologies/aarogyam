@@ -58,6 +58,9 @@ pub struct AppointmentRow {
     pub patient_date_of_birth: Option<Date>,
     /// Whether it was estimated.
     pub patient_birth_date_estimated: bool,
+    /// Self-registered online and still missing sex or age: complete it at check-in.
+    #[serde(default)]
+    pub patient_registration_incomplete: bool,
     /// The doctor.
     pub practitioner_id: Uuid,
     /// Their name.
@@ -93,6 +96,8 @@ pub async fn list(
                   a.patient_id, p.number as patient_number, p.full_name as patient_name,
                   p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
                   p.birth_date_estimated as patient_birth_date_estimated,
+                  ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))
+                    as "patient_registration_incomplete!",
                   a.practitioner_id, d.display_name as practitioner_name,
                   d.calendar_color as practitioner_color, q.token_number as "token_number?", q.id as "token_id?"
            from aarogyam.appointments a
@@ -133,6 +138,8 @@ pub async fn get(
                   a.patient_id, p.number as patient_number, p.full_name as patient_name,
                   p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
                   p.birth_date_estimated as patient_birth_date_estimated,
+                  ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))
+                    as "patient_registration_incomplete!",
                   a.practitioner_id, d.display_name as practitioner_name,
                   d.calendar_color as practitioner_color, q.token_number as "token_number?", q.id as "token_id?"
            from aarogyam.appointments a

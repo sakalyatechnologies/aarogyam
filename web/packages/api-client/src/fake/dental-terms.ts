@@ -10,7 +10,7 @@ export interface FakeDentalTerm {
 }
 
 const seed = (kind: C.DentalTermKind, terms: readonly (readonly [string, string])[]): C.DentalTerm[] =>
-  terms.map(([id, label]) => ({ id, kind, label, own: false }));
+  terms.map(([id, label]) => ({ id, kind, label, own: false, retired: false }));
 
 export const SEEDED_TERMS: readonly C.DentalTerm[] = [
   ...seed("procedure", [
@@ -48,7 +48,7 @@ export const SEEDED_TERMS: readonly C.DentalTerm[] = [
 export function clinicTerms(own: readonly FakeDentalTerm[] | undefined, clinicId: string): C.DentalTerm[] {
   const mine = (own ?? [])
     .filter((t) => t.clinic_id === clinicId)
-    .map((t): C.DentalTerm => ({ id: t.id, kind: t.kind, label: t.label, own: true }))
+    .map((t): C.DentalTerm => ({ id: t.id, kind: t.kind, label: t.label, own: true, retired: false }))
     .sort((a, b) => a.kind.localeCompare(b.kind) || a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
   return [...SEEDED_TERMS, ...mine];
 }

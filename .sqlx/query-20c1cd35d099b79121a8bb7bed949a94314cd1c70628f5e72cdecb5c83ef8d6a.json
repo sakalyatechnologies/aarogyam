@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select author_membership_id, deleted_at is not null as \"deleted!\"\n           from aarogyam.chat_messages where conversation_id = $1 and id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "author_membership_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_messages",
+            "name": "author_membership_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "deleted!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "20c1cd35d099b79121a8bb7bed949a94314cd1c70628f5e72cdecb5c83ef8d6a"
+}

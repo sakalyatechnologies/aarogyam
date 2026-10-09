@@ -246,6 +246,7 @@ fn chair_appointment(appointment: &Appointment) -> ChairAppointment {
             full_name: appointment.patient.full_name.clone(),
             sex: appointment.patient.sex.clone(),
             age_years: appointment.patient.age_years,
+            registration_incomplete: appointment.patient.registration_incomplete,
         },
         practitioner: PractitionerBrief {
             id: appointment.practitioner.id,

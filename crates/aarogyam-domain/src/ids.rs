@@ -111,4 +111,16 @@ entities! {
     PatientAccount, PatientAccountId;
     /// A patient account's link to a clinic's record.
     PatientLink, PatientLinkId;
+    /// Something clinic staff are told about, such as an online booking.
+    StaffNotification, StaffNotificationId;
+    /// A message in the clinic's inbox, such as a reminder about a waiting booking.
+    InboxMessage, InboxMessageId;
+    /// A clinic's time-limited grant of read access to one Sakalya staff member.
+    SupportGrant, SupportGrantId;
+    /// A patient app sign-in session.
+    PatientSession, PatientSessionId;
+    /// A staff chat conversation, one to one or a group.
+    Conversation, ConversationId;
+    /// A message in a staff chat conversation.
+    ChatMessage, ChatMessageId;
 }

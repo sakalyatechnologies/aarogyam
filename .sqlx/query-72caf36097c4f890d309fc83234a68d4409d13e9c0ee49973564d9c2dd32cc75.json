@@ -1,0 +1,169 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select c.id, c.kind, c.title, c.archived_at, c.created_at, me.role, me.muted,\n                  me.last_read_message_id, last.id as \"last_message_id?\",\n                  last.created_at as \"last_message_at?\",\n                  (select count(*) from (\n                     select 1 from aarogyam.chat_messages m\n                     where m.org_id = c.org_id and m.conversation_id = c.id\n                       and m.deleted_at is null and m.author_membership_id <> me.membership_id\n                       and (me.last_read_message_id is null or m.id > me.last_read_message_id)\n                     limit $2) u) as \"unread!\",\n                  other.membership_id as \"other_membership_id?\", other.display_name as \"other_name?\"\n           from aarogyam.conversation_members me\n           join aarogyam.conversations c on c.org_id = me.org_id and c.id = me.conversation_id\n           left join lateral (\n             select m.id, m.created_at from aarogyam.chat_messages m\n             where m.org_id = c.org_id and m.conversation_id = c.id\n             order by m.id desc limit 1) last on true\n           left join lateral (\n             select o.membership_id, u.display_name from aarogyam.conversation_members o\n             join aarogyam.memberships om on om.org_id = o.org_id and om.id = o.membership_id\n             join aarogyam.users u on u.id = om.user_id\n             where c.kind = 'direct' and o.org_id = c.org_id and o.conversation_id = c.id\n               and o.membership_id <> me.membership_id\n             limit 1) other on true\n           where me.membership_id = $1 and me.left_at is null\n           order by coalesce(last.created_at, c.created_at) desc, c.id desc\n           limit $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.conversations",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.conversations",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.conversations",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "archived_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.conversations",
+            "name": "archived_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.conversations",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "role",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.conversation_members",
+            "name": "role"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "muted",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.conversation_members",
+            "name": "muted"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "last_read_message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.conversation_members",
+            "name": "last_read_message_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "last_message_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_messages",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "last_message_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_messages",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "unread!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 11,
+        "name": "other_membership_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.conversation_members",
+            "name": "membership_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "other_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.users",
+            "name": "display_name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      null,
+      false,
+      false
+    ]
+  },
+  "hash": "72caf36097c4f890d309fc83234a68d4409d13e9c0ee49973564d9c2dd32cc75"
+}

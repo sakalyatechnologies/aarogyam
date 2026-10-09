@@ -1,0 +1,55 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select p.id, p.status, 'self_registered' = any(p.tags) as \"self_registered!\",\n                  (p.allergies_reviewed <> 'unknown'\n                   or exists (select 1 from aarogyam.encounters x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.allergies x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.conditions x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.observations x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.clinical_notes x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.procedures x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.specialty_records x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.treatment_plans x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.prescriptions x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.attachments x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.patient_notes x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.recalls x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.invoices x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.payments x where x.patient_id = p.id)\n                   or exists (select 1 from aarogyam.share_links x where x.patient_id = p.id)\n                  ) as \"has_clinical!\"\n           from aarogyam.patients p\n           where p.id = $1 and p.deleted_at is null and app.patient_in_reach(p.id, $2)\n           for update of p",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "self_registered!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "has_clinical!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "8b79ff49b413638ffb93a8ef246e9bc4cb3ef94bb6ee62e68b7dac91b8d1930f"
+}

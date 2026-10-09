@@ -495,6 +495,39 @@ async fn analytics_counts_chairs_money_and_patients() {
         .map(|h| h["visits"].as_i64().unwrap())
         .sum();
     assert_eq!(busy, 2);
+    assert_eq!(report["chairs"][0]["uses_clinic_hours"], false);
+
+    // With opening hours set (10:00-13:00 and 17:00-19:00 every day), a chair is open five
+    // hours a day instead of the assumed nine.
+    let shifts: Vec<Value> = (1..=7)
+        .flat_map(|day| {
+            [
+                json!({ "weekday": day, "starts": "10:00", "ends": "13:00" }),
+                json!({ "weekday": day, "starts": "17:00", "ends": "19:00" }),
+            ]
+        })
+        .collect();
+    let (status, body) = app
+        .send(
+            Method::PUT,
+            ALPHA,
+            "/api/v1/clinic-hours",
+            Some(&owner),
+            Some(json!({ "shifts": shifts })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (_, hours) = app
+        .send(Method::GET, ALPHA, &path, Some(&owner), None)
+        .await;
+    assert_eq!(hours["chairs"][0]["uses_clinic_hours"], true);
+    let open: i64 = hours["buckets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["chair_utilization"][0]["open_minutes"].as_i64().unwrap())
+        .sum();
+    assert_eq!(open, 2 * 300);
 
     // With analytics.view but not finance.view, the money is null.
     grant_nothing_role(&app, &["analytics.view"]).await;
@@ -520,7 +553,7 @@ async fn analytics_counts_chairs_money_and_patients() {
             assert!(bucket[field].is_null(), "{field}");
         }
     }
-    assert_eq!(hidden["chairs"], report["chairs"]);
+    assert_eq!(hidden["chairs"], hours["chairs"]);
 
     // The default range is twelve months; bad input is refused.
     let (status, default) = app

@@ -5,9 +5,11 @@
 pub const MAX_VERSION: usize = 40;
 /// Longest note.
 pub const MAX_NOTE: usize = 500;
-/// The notice version recorded when the caller names none (a walk-in at the desk). Clinics
-/// can't set their own yet; until they can, this is the label of the template notice
-/// (`web/apps/website` legal pages).
+/// Longest notice text, in characters.
+pub const MAX_NOTICE: usize = 20_000;
+/// The notice label recorded when the caller names none and the clinic has published no
+/// notice of its own (`consent_notices`): the label of the template notice (`web/apps/website`
+/// legal pages).
 pub const DEFAULT_NOTICE_VERSION: &str = "v1 2026-10";
 
 text_value! {
@@ -57,6 +59,28 @@ pub enum ConsentError {
     /// The note is too long or has control characters.
     #[error("must be at most {MAX_NOTE} characters of plain text")]
     Note,
+    /// The notice text is empty, too long or has control characters.
+    #[error("must be 1 to {MAX_NOTICE} characters of plain text")]
+    NoticeText,
+}
+
+/// Checks a notice's text: trimmed, 1 to [`MAX_NOTICE`] characters, line breaks and tabs
+/// allowed.
+///
+/// # Errors
+/// [`ConsentError::NoticeText`] otherwise.
+pub fn notice_text(text: &str) -> Result<&str, ConsentError> {
+    let text = text.trim();
+    let length = text.chars().count();
+    if length == 0
+        || length > MAX_NOTICE
+        || text
+            .chars()
+            .any(|c| c.is_control() && !matches!(c, '\n' | '\r' | '\t'))
+    {
+        return Err(ConsentError::NoticeText);
+    }
+    Ok(text)
 }
 
 /// Checks a notice-version label such as `v1 2026-10`.
@@ -107,6 +131,20 @@ mod tests {
         assert_eq!(note(Some("  ")), Ok(None));
         assert_eq!(note(Some(" signed form 12 ")), Ok(Some("signed form 12")));
         assert_eq!(note(Some(&"a".repeat(501))), Err(ConsentError::Note));
+    }
+
+    #[test]
+    fn notice_text_is_bounded_plain_text() {
+        assert_eq!(
+            notice_text("  We keep your record.\n\nContact us. "),
+            Ok("We keep your record.\n\nContact us.")
+        );
+        assert_eq!(notice_text("   "), Err(ConsentError::NoticeText));
+        assert_eq!(notice_text("a\u{7}b"), Err(ConsentError::NoticeText));
+        assert_eq!(
+            notice_text(&"a".repeat(MAX_NOTICE + 1)),
+            Err(ConsentError::NoticeText)
+        );
     }
 
     #[test]

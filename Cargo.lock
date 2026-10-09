@@ -123,6 +123,7 @@ dependencies = [
  "sakalya-types",
  "secrecy",
  "serde",
+ "serde_json",
  "time",
  "tokio",
  "tracing",

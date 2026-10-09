@@ -2,8 +2,8 @@
 //! past retention. The schedule is documented in `docs/decisions.md`; this is the same table in
 //! code, so the report and the document cannot drift apart without a test noticing.
 //!
-//! Nothing here deletes. A class past retention is only listed; erasure and anonymisation are
-//! designed in `docs/decisions.md` and not built.
+//! Nothing here deletes. Patient records past retention are erased by the operator job
+//! `aarogyam erase` (`aarogyam-app/src/erasure.rs`); other classes are only listed.
 
 use time::{Date, Duration, Month, OffsetDateTime};
 
@@ -27,6 +27,8 @@ text_value! {
         AuditEvents => "audit_events",
         /// Requests for access from clinics that were never approved.
         ClinicApplications => "clinic_applications",
+        /// Staff chat messages, which may name a patient.
+        ChatMessages => "chat_messages",
     }
 }
 
@@ -64,7 +66,7 @@ impl Class {
             Self::Outbox => Period::Days(90),
             Self::ShareLinks | Self::ImportSessions => Period::Days(30),
             Self::AccessLog => Period::Years(3),
-            Self::ClinicApplications => Period::Days(365),
+            Self::ClinicApplications | Self::ChatMessages => Period::Days(365),
         }
     }
 
@@ -81,6 +83,7 @@ impl Class {
             Self::ImportSessions => "when the upload was made",
             Self::AccessLog | Self::AuditEvents => "when the entry was written",
             Self::ClinicApplications => "when the request was decided (or made, if undecided)",
+            Self::ChatMessages => "when the message was posted",
         }
     }
 
@@ -115,6 +118,51 @@ pub fn years_before(at: OffsetDateTime, years: i32) -> OffsetDateTime {
 #[must_use]
 pub fn adult_born_on_or_before(now: OffsetDateTime) -> Date {
     years_before(now, i32::from(MINOR_RULE_AGE_YEARS)).date()
+}
+
+/// How long one clinic keeps patient records: the default (7 years) or longer, never shorter,
+/// up to 50 years (`org_settings.patient_retention_years`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PatientRetentionYears(u8);
+
+impl PatientRetentionYears {
+    /// The longest a clinic may choose.
+    pub const MAX: u8 = 50;
+
+    /// Validates a clinic's choice.
+    ///
+    /// # Errors
+    /// The allowed range, when `years` is shorter than the default or longer than 50.
+    pub fn new(years: u8) -> Result<Self, String> {
+        let least = match Class::PatientRecord.period() {
+            Period::Years(years) => years,
+            Period::Days(_) => 0,
+        };
+        if (least..=Self::MAX).contains(&years) {
+            Ok(Self(years))
+        } else {
+            Err(format!("must be {least} to {} years", Self::MAX))
+        }
+    }
+
+    /// The years.
+    #[must_use]
+    pub const fn get(self) -> u8 {
+        self.0
+    }
+}
+
+/// Why a patient is on legal hold: 3 to 300 characters, trimmed. Never a diagnosis.
+///
+/// # Errors
+/// When empty or too long.
+pub fn legal_hold_reason(text: &str) -> Result<String, &'static str> {
+    let text = text.trim();
+    if (3..=300).contains(&text.chars().count()) {
+        Ok(text.to_owned())
+    } else {
+        Err("must be 3 to 300 characters")
+    }
 }
 
 #[cfg(test)]
@@ -160,6 +208,16 @@ mod tests {
                 class.period().describe()
             );
         }
+    }
+
+    #[test]
+    fn clinics_keep_patient_records_longer_never_shorter() {
+        assert!(PatientRetentionYears::new(6).is_err());
+        assert_eq!(PatientRetentionYears::new(7).unwrap().get(), 7);
+        assert!(PatientRetentionYears::new(50).is_ok());
+        assert!(PatientRetentionYears::new(51).is_err());
+        assert!(legal_hold_reason(" x ").is_err());
+        assert_eq!(legal_hold_reason(" Court case ").unwrap(), "Court case");
     }
 
     #[test]

@@ -4,6 +4,7 @@
 //! they are deployed, Cloud Scheduler will call them with a Google-signed OIDC token whose
 //! audience and service account the API checks, and they will refuse every other caller.
 
+use aarogyam_domain::notification::OpenHours;
 use axum::Json;
 use axum::extract::State;
 use serde::Serialize;
@@ -36,9 +37,16 @@ pub struct DrainReport {
     pub addresses_retrying: usize,
     /// Portal hosts that failed for the last time.
     pub addresses_failed: usize,
+    /// Booking requests nobody has answered that were looked at.
+    pub booking_requests_open: usize,
+    /// Reminders written to the clinic inbox.
+    pub booking_requests_reminded: usize,
+    /// Escalations written to the owners' inbox.
+    pub booking_requests_escalated: usize,
 }
 
-/// Makes new portal hosts work, then delivers due outbox messages across clinics (local development only; later Cloud
+/// Makes new portal hosts work, reminds staff of unanswered booking requests (then the
+/// owners), then delivers due outbox messages across clinics (local development only; later Cloud
 /// Scheduler with a Google-signed token).
 #[utoipa::path(
     post,
@@ -54,6 +62,8 @@ pub(crate) async fn drain_outbox(
     let hosts = addresses
         .provision(state.db(), OffsetDateTime::now_utc())
         .await?;
+    let reminders =
+        aarogyam_notify::remind(state.db(), OffsetDateTime::now_utc(), OpenHours::DEFAULT).await?;
     let notifier = state.notifier();
     let report = notifier
         .drain(state.db(), OffsetDateTime::now_utc())
@@ -69,5 +79,8 @@ pub(crate) async fn drain_outbox(
         addresses_ready: hosts.ready,
         addresses_retrying: hosts.retrying,
         addresses_failed: hosts.failed,
+        booking_requests_open: reminders.open,
+        booking_requests_reminded: reminders.reminded,
+        booking_requests_escalated: reminders.escalated,
     }))
 }

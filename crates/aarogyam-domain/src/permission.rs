@@ -49,11 +49,16 @@ pub enum Permission {
     /// Record patient-reported allergies and "No known allergies" at registration. Grants no
     /// clinical reading.
     IntakeWrite,
+    /// Let a named Sakalya staff member read the clinic's records for up to 7 days, and revoke
+    /// that access.
+    SupportGrant,
+    /// Chat with other staff of the clinic.
+    ChatUse,
 }
 
 impl Permission {
     /// Every permission, in catalogue order.
-    pub const ALL: [Self; 21] = [
+    pub const ALL: [Self; 23] = [
         Self::PatientsRead,
         Self::PatientsWrite,
         Self::PatientsContact,
@@ -75,6 +80,8 @@ impl Permission {
         Self::ExpensesWrite,
         Self::AnalyticsView,
         Self::IntakeWrite,
+        Self::SupportGrant,
+        Self::ChatUse,
     ];
 
     /// The catalogue key, such as `patients.read`.
@@ -102,6 +109,8 @@ impl Permission {
             Self::ExpensesWrite => "expenses.write",
             Self::AnalyticsView => "analytics.view",
             Self::IntakeWrite => "intake.write",
+            Self::SupportGrant => "support.grant",
+            Self::ChatUse => "chat.use",
         }
     }
 
@@ -319,6 +328,8 @@ required!(
     ExpensesWrite,
     AnalyticsView,
     IntakeWrite,
+    SupportGrant,
+    ChatUse,
 );
 
 #[cfg(test)]

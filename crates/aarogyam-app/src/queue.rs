@@ -4,7 +4,9 @@
 use aarogyam_dal::queue::{self as dal, TokenRow, TokenState};
 use aarogyam_dal::{appointments, clinic, patients, schedule, visits};
 use aarogyam_domain::access::{ClinicActor, Reach};
-use aarogyam_domain::ids::{BranchId, EncounterId, PatientId, PractitionerId, QueueTokenId};
+use aarogyam_domain::ids::{
+    BranchId, EncounterId, MembershipId, PatientId, PractitionerId, QueueTokenId,
+};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::{QueueStatus, minutes_between};
 use sakalya_db::{Db, ScopedTx};
@@ -258,7 +260,9 @@ pub async fn set_status(
                 current: view(tx, token.id, now, today).await?,
             });
         }
-        if let Some(reason) = move_token(tx, &actor.timezone, &token, to, now).await? {
+        if let Some(reason) =
+            move_token(tx, &actor.timezone, &token, to, actor.membership_id, now).await?
+        {
             return Ok(Moved::Refused {
                 reason,
                 current: view(tx, token.id, now, today).await?,
@@ -276,6 +280,7 @@ pub(crate) async fn move_token(
     timezone: &str,
     token: &TokenState,
     to: QueueStatus,
+    by: MembershipId,
     now: OffsetDateTime,
 ) -> Result<Option<String>, AppError> {
     match (token.appointment_id, to.appointment_status()) {
@@ -287,7 +292,8 @@ pub(crate) async fn move_token(
             let reason = (to == QueueStatus::Left).then_some(LEFT_REASON);
             match plan_status(&current.status, next, reason)? {
                 StatusPlan::Move(reason) => {
-                    apply_status(tx, timezone, &current, next, reason.as_ref(), now).await?;
+                    apply_status(tx, timezone, &current, next, reason.as_ref(), Some(by), now)
+                        .await?;
                 }
                 // The appointment is already there: bring the token along.
                 StatusPlan::Same => {
@@ -345,9 +351,16 @@ pub async fn start_visit(
             ));
         }
         if status == QueueStatus::Waiting
-            && move_token(tx, &actor.timezone, &token.state, QueueStatus::InChair, now)
-                .await?
-                .is_some()
+            && move_token(
+                tx,
+                &actor.timezone,
+                &token.state,
+                QueueStatus::InChair,
+                actor.membership_id,
+                now,
+            )
+            .await?
+            .is_some()
         {
             return Err(AppError::Conflict(
                 "the appointment can't move to the chair from its status",

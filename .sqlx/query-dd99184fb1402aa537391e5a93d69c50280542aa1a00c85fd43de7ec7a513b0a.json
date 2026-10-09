@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with gone as (\n             delete from aarogyam.clinic_hours where branch_id = $1\n           )\n           insert into aarogyam.clinic_hours (branch_id, weekday, starts, ends)\n           select $1, w, s, e\n           from unnest($2::smallint[], $3::time[], $4::time[]) as t(w, s, e)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2Array",
+        "TimeArray",
+        "TimeArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dd99184fb1402aa537391e5a93d69c50280542aa1a00c85fd43de7ec7a513b0a"
+}

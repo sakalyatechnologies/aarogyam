@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with target as (\n             select m.id from aarogyam.chat_messages m where m.conversation_id = $1 and m.id = $2\n           ), moved as (\n             update aarogyam.conversation_members cm set last_read_message_id = t.id\n             from target t\n             where cm.conversation_id = $1 and cm.membership_id = $3 and cm.left_at is null\n               and (cm.last_read_message_id is null or cm.last_read_message_id < t.id)\n           )\n           select exists (select 1 from target) as \"found!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "64bf915958a371ce53ed9f20d081e8be68b06919c4cad59c8a3c368cb931febe"
+}

@@ -1897,7 +1897,8 @@ async fn dental_terms_are_seeded_added_per_clinic_and_named_by_entries() {
     }
     let error = db
         .scoped(&Scope::tenant(alpha_id), async |tx| {
-            sqlx::query("update aarogyam.dental_terms set label = 'Changed'")
+            // Labels may be renamed (tests/dental_terms.rs); the list a term is in never changes.
+            sqlx::query("update aarogyam.dental_terms set added_by = added_by, kind = 'procedure'")
                 .execute(tx.conn())
                 .await
                 .map_err(DbError::from)
@@ -2029,6 +2030,12 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
     let attachment = file["id"].as_str().unwrap().to_owned();
     let sections = json!({ "sections": { "plan": "x" } });
     let reason = json!({ "reason": "wrong patient" });
+    let term = create(
+        app,
+        "/api/v1/dental-terms",
+        json!({ "kind": "procedure", "label": "Maryland bridge" }),
+    )
+    .await;
     vec![
         (
             Method::GET,
@@ -2188,6 +2195,21 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             Some(json!({ "body": "## History\n- **Diabetic**" })),
         ),
         (Method::POST, format!("/api/v1/visits/{visit}/close"), None),
+        (
+            Method::PATCH,
+            format!("/api/v1/dental-terms/{term}"),
+            Some(json!({ "label": "Bridge, Maryland" })),
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/dental-terms/{term}/retire"),
+            None,
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/dental-terms/{term}/restore"),
+            None,
+        ),
     ]
 }
 

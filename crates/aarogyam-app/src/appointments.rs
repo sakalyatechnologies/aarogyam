@@ -6,7 +6,9 @@
 use aarogyam_dal::appointments::{self as dal, AppointmentRow, Booking};
 use aarogyam_dal::{clinic, patients, queue, schedule};
 use aarogyam_domain::access::{ClinicActor, Reach};
-use aarogyam_domain::ids::{AppointmentId, BranchId, PatientId, PractitionerId, RoomId};
+use aarogyam_domain::ids::{
+    AppointmentId, BranchId, MembershipId, PatientId, PractitionerId, RoomId,
+};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::{
     AppointmentKind, AppointmentStatus, BookingSource, DateSpan, QueueStatus, Reason,
@@ -450,7 +452,7 @@ fn history_changes(current: &AppointmentRow, next: &Booking<'_>) -> Map<String, 
 
 /// The appointment, locked until the transaction ends so changes apply one after the other.
 /// Not found when out of the member's `appointments.write` reach.
-async fn locked(
+pub(crate) async fn locked(
     tx: &mut ScopedTx,
     actor: &ClinicActor,
     id: AppointmentId,
@@ -640,6 +642,7 @@ pub(crate) async fn apply_status(
     current: &AppointmentRow,
     to: AppointmentStatus,
     reason: Option<&Reason>,
+    by: Option<MembershipId>,
     now: OffsetDateTime,
 ) -> Result<Option<Uuid>, AppError> {
     let from = AppointmentStatus::parse(&current.status)
@@ -670,6 +673,7 @@ pub(crate) async fn apply_status(
         },
     )
     .await?;
+    crate::notifications::on_status(tx, current, to, by, now).await?;
     let token = queue::for_appointment(tx.conn(), current.id).await?;
     match (token, QueueStatus::for_appointment(to)) {
         (None, Some(QueueStatus::Waiting)) => {
@@ -699,7 +703,7 @@ pub(crate) async fn apply_status(
 
 /// An appointment as a status request leaves it, with its queue token once the patient has
 /// arrived.
-async fn status_changed(
+pub(crate) async fn status_changed(
     tx: &mut ScopedTx,
     id: Uuid,
     today: Date,
@@ -762,7 +766,16 @@ pub async fn set_status(
                 });
             }
             StatusPlan::Move(reason) => {
-                apply_status(tx, &profile.timezone, &current, to, reason.as_ref(), now).await?
+                apply_status(
+                    tx,
+                    &profile.timezone,
+                    &current,
+                    to,
+                    reason.as_ref(),
+                    Some(actor.membership_id),
+                    now,
+                )
+                .await?
             }
         };
         if current.source == BookingSource::Website.as_str()

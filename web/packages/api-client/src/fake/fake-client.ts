@@ -1779,7 +1779,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!method.success) {
             return invalid("method", "unknown value");
           }
-          const version = input.notice_version;
+          const version = input.notice_version ?? "v1 2026-10";
           if (version.length < 1 || version.length > 40 || version !== version.trim()) {
             return invalid("notice_version", "must be 1 to 40 characters, without spaces at either end");
           }
@@ -2590,7 +2590,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           const term = { id: fakeUuid(random, clock()), clinic_id: caller.clinic.id, kind: kind.data, label };
           (state.dentalTerms ??= []).push(term);
-          return reply({ id: term.id, kind: term.kind, label, own: true } satisfies C.DentalTerm);
+          return reply({ id: term.id, kind: term.kind, label, own: true, retired: false } satisfies C.DentalTerm);
         }),
 
       listAttachments: (id, opts) =>
@@ -4421,7 +4421,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               chairs: state.rooms
                 .filter((r) => r.clinic_id === clinicId && r.kind === "chair" && r.active)
                 .sort((a, b) => a.name.localeCompare(b.name))
-                .map((r) => ({ id: r.id, name: r.name })),
+                .map((r) => ({ id: r.id, name: r.name, uses_clinic_hours: false })),
               expenses: (state.expenses ?? []).filter((e) => e.clinic_id === clinicId),
               stockBatches: state.stockBatches.filter((b) => b.clinic_id === clinicId),
               payments: state.payments.filter((p) => p.clinic_id === clinicId && p.status === "received"),
@@ -5749,6 +5749,7 @@ const BOOKING_DEFAULTS: C.OnlineBooking = {
   auto_confirm: false,
   horizon_days: 30,
   min_notice_minutes: 60,
+  reminder_minutes: 15,
 };
 /** Most open self-bookings one verified person may hold in a clinic. */
 const MAX_OPEN_SELF_BOOKINGS = 2;
@@ -5766,7 +5767,7 @@ const UPI_ID = /^[\w.-]{2,256}@[a-zA-Z]{2,64}$/;
 const GSTIN = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
 function validateOnlineBooking(changes: C.OnlineBookingChanges): Outcome | null {
-  const { slot_minutes: slot, buffer_minutes: buffer, horizon_days: horizon, min_notice_minutes: notice } = changes;
+  const { slot_minutes: slot, buffer_minutes: buffer, horizon_days: horizon, min_notice_minutes: notice, reminder_minutes: reminder } = changes;
   if (slot != null && (slot < 5 || slot > 240 || slot % 5 !== 0)) {
     return invalid("booking.slot_minutes", "must be 5 to 240 minutes, in steps of 5");
   }
@@ -5778,6 +5779,9 @@ function validateOnlineBooking(changes: C.OnlineBookingChanges): Outcome | null 
   }
   if (notice != null && (notice < 0 || notice > 10_080)) {
     return invalid("booking.min_notice_minutes", "must be 0 to 10080 minutes");
+  }
+  if (reminder != null && (reminder < 5 || reminder > 240)) {
+    return invalid("booking.reminder_minutes", "must be 5 to 240 minutes");
   }
   return null;
 }
@@ -5924,7 +5928,14 @@ function patientSummary(
 }
 
 function wirePatientBrief(p: FakePatient, now: Date): C.PatientBrief {
-  return { id: p.id, number: p.number, full_name: p.full_name, sex: p.sex, age_years: ageYears(p.date_of_birth, now) };
+  return {
+    id: p.id,
+    number: p.number,
+    full_name: p.full_name,
+    sex: p.sex,
+    age_years: ageYears(p.date_of_birth, now),
+    registration_incomplete: false,
+  };
 }
 
 function wireAppointment(appt: FakeAppointment, state: Fixtures, now: Date): C.Appointment | undefined {

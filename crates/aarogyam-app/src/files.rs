@@ -799,7 +799,8 @@ pub struct DownloadLink {
 /// Issues a five-minute download link for a file the member may see.
 ///
 /// # Errors
-/// [`AppError::NotFound`] when the file isn't in this clinic.
+/// [`AppError::NotFound`] when the file isn't in this clinic; [`AppError::Forbidden`] for
+/// Sakalya staff under a support grant, who see that files exist but don't download them.
 pub async fn link(
     db: &Db,
     files: &Files,
@@ -809,6 +810,11 @@ pub async fn link(
     now: OffsetDateTime,
 ) -> Result<DownloadLink, AppError> {
     actor.require(Permission::ClinicalRead)?;
+    if actor.support_grant.is_some() {
+        return Err(AppError::Forbidden(
+            "Support access doesn't download files.",
+        ));
+    }
     db.scoped(&scope(actor, request_id), async |tx| {
         let reach = actor.reach(Permission::ClinicalRead).member();
         attachments::get(tx.conn(), attachment_id.uuid(), reach)

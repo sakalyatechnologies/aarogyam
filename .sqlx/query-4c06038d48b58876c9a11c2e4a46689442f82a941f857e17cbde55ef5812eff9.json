@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.conversation_members set left_at = now()\n           where conversation_id = $1 and membership_id = $2 and left_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4c06038d48b58876c9a11c2e4a46689442f82a941f857e17cbde55ef5812eff9"
+}

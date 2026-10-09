@@ -110,6 +110,8 @@ pub struct BookingChanges {
     pub horizon_days: Option<u16>,
     /// Minimum notice in minutes.
     pub min_notice_minutes: Option<u16>,
+    /// Minutes a booking request waits, in opening hours, before staff are reminded.
+    pub reminder_minutes: Option<u16>,
 }
 
 fn text(object: &Value, key: &str) -> Option<String> {
@@ -255,12 +257,16 @@ fn apply(mut row: SettingsRow, changes: &SettingsChanges) -> Result<SettingsRow,
     settings.min_notice_minutes = booking
         .min_notice_minutes
         .unwrap_or(settings.min_notice_minutes);
+    settings.reminder_minutes = booking
+        .reminder_minutes
+        .unwrap_or(settings.reminder_minutes);
     row.booking = settings_value(&settings.validate().map_err(|error| {
         let field = match error {
             BookingError::SlotMinutes => "booking.slot_minutes",
             BookingError::BufferMinutes => "booking.buffer_minutes",
             BookingError::HorizonDays => "booking.horizon_days",
             BookingError::MinNotice => "booking.min_notice_minutes",
+            BookingError::ReminderMinutes => "booking.reminder_minutes",
         };
         AppError::invalid(field, error)
     })?);

@@ -154,6 +154,14 @@ Run it after the first backup and then monthly; add the date to `docs/handoff.md
 
 ### Erasure
 
+Patient records past retention are erased with `aarogyam erase` (docs/decisions.md, "Erasure
+job"): a dry run by default, then `aarogyam erase --apply --clinic <slug> --log-file <path>` once the
+clinic owner has confirmed. Keep every log file outside the database (with the backups' secrets).
+**After any restore** of production, before opening it to clinics, replay every log written since
+the dump was taken: `aarogyam erase --replay <path>` (it erases again whoever the restore brought
+back; erasing twice changes nothing). `aarogyam admin retention-years --clinic <slug> --years N`
+sets a clinic's longer retention.
+
 A patient file deleted in the product is deleted in Supabase Storage, but its copy stays in
 `files/` (and any database or accounts dump stays until it ages out, 14 or 56 days). When a
 deletion must be total, also run

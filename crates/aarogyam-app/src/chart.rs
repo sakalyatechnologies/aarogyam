@@ -62,6 +62,8 @@ pub struct TermView {
     pub label: String,
     /// Added by the clinic rather than seeded.
     pub own: bool,
+    /// Retired: shown on old entries, not offered for new ones.
+    pub retired: bool,
 }
 
 impl TermView {
@@ -71,6 +73,7 @@ impl TermView {
             kind: term.kind,
             label: term.label.clone(),
             own: false,
+            retired: term.retired,
         }
     }
 
@@ -81,6 +84,7 @@ impl TermView {
                 .map_err(|_| AppError::Internal("a stored dental term is malformed"))?,
             label: row.label,
             own: true,
+            retired: row.retired,
         })
     }
 }
@@ -208,7 +212,7 @@ async fn load(
         .iter()
         .filter(|t| !t.retired)
         .map(TermView::seeded)
-        .chain(own)
+        .chain(own.into_iter().filter(|t| !t.retired))
         .collect();
     Ok(DentalChart {
         current,
@@ -301,7 +305,7 @@ async fn check_own_terms(tx: &mut ScopedTx, entries: &[ChartEntry]) -> Result<()
     for (kind, id) in wanted {
         if !found
             .iter()
-            .any(|row| row.id == id.uuid() && row.kind == kind.as_str())
+            .any(|row| row.id == id.uuid() && row.kind == kind.as_str() && !row.retired)
         {
             return Err(AppError::invalid(
                 "entries",

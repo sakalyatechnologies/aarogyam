@@ -1,0 +1,140 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select i.id, i.kind, i.audience, i.created_at, i.notification_id, n.handled_at,\n                  a.id as appointment_id, a.starts_at, p.id as practitioner_id,\n                  p.display_name as practitioner_name\n           from aarogyam.staff_inbox_messages i\n           join aarogyam.staff_notifications n on n.org_id = i.org_id and n.id = i.notification_id\n           join aarogyam.appointments a on a.org_id = i.org_id and a.id = i.appointment_id\n           join aarogyam.practitioners p on p.org_id = a.org_id and p.id = a.practitioner_id\n           where (i.audience = 'clinic' or $2)\n             and app.practitioner_in_reach(a.practitioner_id, $1)\n             and (not $3 or n.handled_at is null)\n             and ($4::uuid is null or i.id < $4)\n           order by i.id desc\n           limit $5",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.staff_inbox_messages",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.staff_inbox_messages",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "audience",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.staff_inbox_messages",
+            "name": "audience"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.staff_inbox_messages",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "notification_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.staff_inbox_messages",
+            "name": "notification_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "handled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.staff_notifications",
+            "name": "handled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "appointment_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "practitioner_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "practitioner_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "display_name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Bool",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "69ad18c2bf51f0a7d4504461a065b14e9a1370880e7a71c0225851b7ad9c4a55"
+}

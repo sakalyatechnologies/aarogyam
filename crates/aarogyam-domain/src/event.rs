@@ -24,6 +24,12 @@ pub enum Event {
     MessageRetried,
     /// A queued message failed for the last time.
     MessageFailed,
+    /// Staff were reminded of a booking request nobody had answered.
+    BookingReminded,
+    /// The owners were told of a booking request still unanswered after the reminder.
+    BookingEscalated,
+    /// A member marked notifications read.
+    NotificationsRead,
     /// A central sign-in handed a session over to a clinic or console host.
     HandoffCreated,
     /// A handoff code was redeemed for a session.
@@ -70,6 +76,12 @@ pub enum Event {
     QueueTokenIssued,
     /// Patients were imported from a file.
     PatientsImported,
+    /// A self-registered patient record was merged into an existing patient.
+    PatientsMerged,
+    /// A clinic published a new version of its privacy notice.
+    ConsentNoticePublished,
+    /// A patient's registration was completed at check-in.
+    RegistrationCompleted,
     /// A chair, doctor, working hours or leave changed.
     ScheduleSetupChanged,
     /// A visit was started.
@@ -128,6 +140,26 @@ pub enum Event {
     WalkInRegistered,
     /// A clinician confirmed a patient-reported allergy.
     AllergyConfirmed,
+    /// A clinic granted a Sakalya staff member read access.
+    SupportGranted,
+    /// A clinic revoked a support grant.
+    SupportRevoked,
+    /// A clinic retired one of its own dental terms.
+    DentalTermRetired,
+    /// A clinic restored a retired dental term.
+    DentalTermRestored,
+    /// A clinic renamed one of its own dental terms.
+    DentalTermRenamed,
+    /// A patient signed out one of their own app sessions.
+    PatientSessionRevoked,
+    /// A patient's legal hold was put on or released.
+    LegalHoldChanged,
+    /// A staff chat conversation was started.
+    ConversationStarted,
+    /// A staff chat message was posted.
+    ChatMessagePosted,
+    /// A staff chat message was deleted by its author.
+    ChatMessageDeleted,
 }
 
 impl Event {
@@ -144,6 +176,9 @@ impl Event {
             Self::SessionRevoked => "session.revoked",
             Self::MessageSent => "message.sent",
             Self::MessageRetried => "message.retried",
+            Self::BookingReminded => "booking.reminded",
+            Self::BookingEscalated => "booking.escalated",
+            Self::NotificationsRead => "notifications.read",
             Self::MessageFailed => "message.failed",
             Self::HandoffCreated => "handoff.created",
             Self::HandoffRedeemed => "handoff.redeemed",
@@ -168,6 +203,9 @@ impl Event {
             Self::AppointmentStatusChanged => "appointment.status_changed",
             Self::QueueTokenIssued => "queue_token.issued",
             Self::PatientsImported => "patients.imported",
+            Self::PatientsMerged => "patients.merged",
+            Self::ConsentNoticePublished => "consent_notice.published",
+            Self::RegistrationCompleted => "registration.completed",
             Self::ScheduleSetupChanged => "schedule_setup.changed",
             Self::VisitStarted => "visit.started",
             Self::VisitClosed => "visit.closed",
@@ -197,6 +235,16 @@ impl Event {
             Self::ExpenseVoided => "expense.voided",
             Self::WalkInRegistered => "walk_in.registered",
             Self::AllergyConfirmed => "allergy.confirmed",
+            Self::SupportGranted => "support.granted",
+            Self::SupportRevoked => "support.revoked",
+            Self::DentalTermRetired => "dental_term.retired",
+            Self::DentalTermRestored => "dental_term.restored",
+            Self::DentalTermRenamed => "dental_term.renamed",
+            Self::PatientSessionRevoked => "patient_session.revoked",
+            Self::LegalHoldChanged => "legal_hold.changed",
+            Self::ConversationStarted => "conversation.started",
+            Self::ChatMessagePosted => "chat_message.posted",
+            Self::ChatMessageDeleted => "chat_message.deleted",
         }
     }
 }

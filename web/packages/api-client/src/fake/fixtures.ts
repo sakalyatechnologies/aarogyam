@@ -646,6 +646,7 @@ export const ROLES = {
     key: "owner",
     name: "Owner",
     permissions: [
+      "support.grant",
       "patients.read",
       "patients.write",
       "patients.contact",
@@ -733,6 +734,7 @@ export const PERMISSION_CATALOGUE: readonly { key: Permission; module: string; d
   { key: "roles.manage", module: "roles", description: "Choose what each role can see and do", scopes: ["all"] },
   { key: "settings.manage", module: "settings", description: "Change clinic settings, branding and templates", scopes: ["all"] },
   { key: "staff.manage", module: "staff", description: "Invite staff and change their roles", scopes: ["all"] },
+  { key: "support.grant", module: "support", description: "Let a named Sakalya staff member read the clinic's records for up to 7 days", scopes: ["all"] },
 ];
 
 /** Builds the full synthetic data set. Deterministic for a given seed and `now`. */

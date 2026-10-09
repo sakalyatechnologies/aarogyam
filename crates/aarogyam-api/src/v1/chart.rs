@@ -82,6 +82,8 @@ pub struct DentalTerm {
     pub label: String,
     /// Added by the clinic rather than seeded.
     pub own: bool,
+    /// Retired: still shown on old entries, not offered for new ones.
+    pub retired: bool,
 }
 
 impl From<TermView> for DentalTerm {
@@ -91,6 +93,7 @@ impl From<TermView> for DentalTerm {
             kind: view.kind.as_str().to_owned(),
             label: view.label,
             own: view.own,
+            retired: view.retired,
         }
     }
 }

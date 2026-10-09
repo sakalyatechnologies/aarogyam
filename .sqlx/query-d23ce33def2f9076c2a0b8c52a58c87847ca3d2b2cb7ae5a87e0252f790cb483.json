@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.conversation_members cm set role = 'admin'\n           where cm.conversation_id = $1\n             and cm.membership_id = (\n               select o.membership_id from aarogyam.conversation_members o\n               where o.conversation_id = $1 and o.left_at is null and o.membership_id <> $2\n               order by o.joined_at, o.membership_id limit 1)\n             and not exists (\n               select 1 from aarogyam.conversation_members a\n               where a.conversation_id = $1 and a.left_at is null and a.role = 'admin'\n                 and a.membership_id <> $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d23ce33def2f9076c2a0b8c52a58c87847ca3d2b2cb7ae5a87e0252f790cb483"
+}

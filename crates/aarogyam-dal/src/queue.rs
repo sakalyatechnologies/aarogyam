@@ -42,6 +42,9 @@ pub struct TokenRow {
     pub patient_date_of_birth: Option<Date>,
     /// Whether it was estimated.
     pub patient_birth_date_estimated: bool,
+    /// Self-registered online and still missing sex or age: complete it at check-in.
+    #[serde(default)]
+    pub patient_registration_incomplete: bool,
     /// The appointment, unless a walk-in.
     pub appointment_id: Option<Uuid>,
     /// The doctor, if known.
@@ -129,6 +132,8 @@ pub async fn list(
                   q.patient_id, p.number as patient_number, p.full_name as patient_name,
                   p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
                   p.birth_date_estimated as patient_birth_date_estimated,
+                  ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))
+                    as "patient_registration_incomplete!",
                   q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?"
            from aarogyam.queue_tokens q
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
@@ -294,6 +299,8 @@ pub async fn get(
                   q.patient_id, p.number as patient_number, p.full_name as patient_name,
                   p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
                   p.birth_date_estimated as patient_birth_date_estimated,
+                  ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))
+                    as "patient_registration_incomplete!",
                   q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?"
            from aarogyam.queue_tokens q
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id

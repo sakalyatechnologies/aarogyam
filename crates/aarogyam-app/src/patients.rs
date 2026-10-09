@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::clock::{clinic_today, day_bounds};
 use crate::error::AppError;
-use crate::scope::{STAFF, staff_scope as scope};
+use crate::scope::staff_scope as scope;
 
 /// Most results a search returns.
 pub const MAX_RESULTS: i64 = 50;
@@ -446,30 +446,42 @@ pub async fn edit(
     }
     db.scoped(&scope(actor, request_id), async |tx| {
         let today = clinic_today(&actor.timezone, now);
-        // The edit answers with the record, so it reaches only patients the member can read.
-        let reach = actor.reach(Permission::PatientsRead).member();
-        let current = patients::get_for_update(tx.conn(), patient_id.uuid(), reach)
-            .await?
-            .ok_or(AppError::NotFound("patient"))?;
-        AppError::check_version(expected_version, current.row_version)?;
-        let edited = apply_edit(&current, &input, today)?;
-        let row = patients::update(
-            tx.conn(),
-            current.id,
-            &patients::PatientDetails {
-                full_name: &edited.full_name,
-                sex: &edited.sex,
-                date_of_birth: edited.date_of_birth,
-                birth_date_estimated: edited.birth_date_estimated,
-                phone_e164: edited.phone_e164.as_deref(),
-                email: edited.email.as_deref(),
-                preferred_language: &edited.preferred_language,
-            },
-        )
-        .await?;
-        Ok(view(row, actor, today))
+        edit_in(tx, actor, patient_id, &input, expected_version, today).await
     })
     .await
+}
+
+/// Applies [`edit`] inside an open transaction; the caller has checked the permissions.
+pub(crate) async fn edit_in(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    patient_id: PatientId,
+    input: &EditPatient,
+    expected_version: Option<i64>,
+    today: Date,
+) -> Result<PatientView, AppError> {
+    // The edit answers with the record, so it reaches only patients the member can read.
+    let reach = actor.reach(Permission::PatientsRead).member();
+    let current = patients::get_for_update(tx.conn(), patient_id.uuid(), reach)
+        .await?
+        .ok_or(AppError::NotFound("patient"))?;
+    AppError::check_version(expected_version, current.row_version)?;
+    let edited = apply_edit(&current, input, today)?;
+    let row = patients::update(
+        tx.conn(),
+        current.id,
+        &patients::PatientDetails {
+            full_name: &edited.full_name,
+            sex: &edited.sex,
+            date_of_birth: edited.date_of_birth,
+            birth_date_estimated: edited.birth_date_estimated,
+            phone_e164: edited.phone_e164.as_deref(),
+            email: edited.email.as_deref(),
+            preferred_language: &edited.preferred_language,
+        },
+    )
+    .await?;
+    Ok(view(row, actor, today))
 }
 
 /// Finds patients by what the front desk typed: a number (`SD-1042` or `1042`), a phone
@@ -585,7 +597,7 @@ pub async fn open(
             patient_id.uuid(),
             &patients::AccessEntry {
                 actor_user_id: actor.user_id.uuid(),
-                actor_kind: STAFF.as_str(),
+                actor_kind: crate::scope::actor_kind(actor).as_str(),
                 patient_id: patient_id.uuid(),
                 resource: "chart",
                 action: "view",

@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.conversations (id, kind, title, direct_key)\n           select $1, $2, $3, $4\n           where $5::uuid is null\n              or exists (select 1 from aarogyam.memberships m where m.id = $5 and m.status = 'active')\n           on conflict (org_id, direct_key) where kind = 'direct' do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d1e3ccca37d4953cb2e4ecb28d1262462d5ac62e734d7dabad4c75e0a97cc9df"
+}

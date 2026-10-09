@@ -1,0 +1,60 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select org_id as \"org_id!\", id as \"id!\", created_at as \"created_at!\", reminded_at,\n                  local_now as \"local_now!\", booking as \"booking!\"\n           from app.open_booking_requests($1, $2, $3)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "org_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "reminded_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "local_now!",
+        "type_info": "Time",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "booking!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "fc2747be811b75116b1fe535611259a8379705aab317a2b696c110489f3247b0"
+}

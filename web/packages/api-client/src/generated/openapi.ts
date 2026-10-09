@@ -46,6 +46,28 @@ export interface paths {
         patch: operations["updateAppointment"];
         trace?: never;
     };
+    "/api/v1/appointments/{id}/check-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Checks in a booked patient in one step: completes their registration (sex, age or date of
+         *     birth), records reported allergies or "No known allergies" and desk consents, and marks the
+         *     appointment arrived, issuing its queue token. For online sign-ups, which arrive with only a
+         *     name, email and phone. Checking in again records the details without a second token.
+         */
+        post: operations["checkInAppointment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/appointments/{id}/status": {
         parameters: {
             query?: never;
@@ -174,6 +196,48 @@ export interface paths {
         put?: never;
         /** Logs an error from a web app (public, throttled, nothing stored). */
         post: operations["reportClientError"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clinic-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's opening hours, every branch. */
+        get: operations["getClinicHours"];
+        /**
+         * Replaces one branch's opening hours and returns them. The Analytics page counts chair
+         *     utilization against them; without any it assumes nine hours a day.
+         */
+        put: operations["setClinicHours"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/consent-notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every version of the clinic's privacy notice, newest (current) first. */
+        get: operations["listConsentNotices"];
+        put?: never;
+        /**
+         * Publishes a new version of the clinic's notice; it becomes the current one, which consents
+         *     record from now on. Versions are never edited.
+         */
+        post: operations["publishConsentNotice"];
         delete?: never;
         options?: never;
         head?: never;
@@ -383,7 +447,247 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/support-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The support grants clinics have given the signed-in staff member. */
+        get: operations["listMySupportGrants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's conversations with the newest message time and unread count of each: one
+         *     statement.
+         */
+        get: operations["listConversations"];
+        put?: never;
+        /**
+         * Starts a conversation. A direct one is idempotent: asking again (from either side) returns
+         *     the pair's conversation with `200`.
+         */
+        post: operations["startConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A conversation the caller is in, with its members. */
+        get: operations["getConversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Leaves a group: it disappears for the caller. A last admin hands the role on. */
+        post: operations["leaveConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adds members to a group the caller administers; someone who left joins again. */
+        post: operations["addConversationMembers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/members/{membership_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Takes a member out of a group: anyone, for a group admin; oneself is the same as leaving. */
+        delete: operations["removeConversationMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A page of a conversation, oldest first: the newest messages, those after a message (poll
+         *     with the last id you have) or those before one (scroll back with the first). One statement.
+         */
+        get: operations["listChatMessages"];
+        put?: never;
+        /** Posts a message. Idempotent by `client_id`: a retry returns the first message with `200`. */
+        post: operations["postChatMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/messages/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Deletes one of the caller's own messages: its text goes, and members see "deleted". */
+        delete: operations["deleteChatMessage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/mute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Mutes or unmutes a conversation for the caller only. */
+        put: operations["muteConversation"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marks the conversation read up to a message, for the caller only. */
+        post: operations["markConversationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dental-terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The procedures and materials the clinic added, retired ones included. */
+        get: operations["listOwnDentalTerms"];
+        put?: never;
+        /**
+         * Adds a procedure or material to the clinic's list ("Add new" in the chart's dropdowns). A
+         *     label matching a seeded term or one the clinic has (ignoring case) returns that term with
+         *     `200`; a new one answers `201`.
+         */
+        post: operations["addDentalTerm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dental-terms/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Gives a term a new label. Old chart entries show the new label; the change history keeps
+         *     the old one. To change what a term means, retire it and add a new one.
+         */
+        patch: operations["renameDentalTerm"];
+        trace?: never;
+    };
+    "/api/v1/dental-terms/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Offers a retired term for new entries again. */
+        post: operations["restoreDentalTerm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dental-terms/{id}/retire": {
         parameters: {
             query?: never;
             header?: never;
@@ -393,11 +697,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Adds a procedure or material to the clinic's list ("Add new" in the chart's dropdowns). A
-         *     label matching a seeded term or one the clinic has (ignoring case) returns that term with
-         *     `200`; a new one answers `201`.
+         * Retires a term: it stays on old chart entries but is no longer offered for new ones.
+         *     Retiring twice keeps the first time. Adding the same label again brings it back.
          */
-        post: operations["addDentalTerm"];
+        post: operations["retireDentalTerm"];
         delete?: never;
         options?: never;
         head?: never;
@@ -625,6 +928,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's inbox: reminders about booking requests within their scope, and escalations
+         *     too for owners, newest first.
+         */
+        get: operations["listInbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/internal/outbox/drain": {
         parameters: {
             query?: never;
@@ -635,7 +958,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Makes new portal hosts work, then delivers due outbox messages across clinics (local development only; later Cloud
+         * Makes new portal hosts work, reminds staff of unanswered booking requests (then the
+         *     owners), then delivers due outbox messages across clinics (local development only; later Cloud
          *     Scheduler with a Google-signed token).
          */
         post: operations["drainOutbox"];
@@ -859,6 +1183,23 @@ export interface paths {
         };
         /** The signed-in person's clinics, for the clinic switcher. */
         get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/badges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chat and notification unread counts for the minute poll, in one statement. */
+        get: operations["getBadges"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1108,6 +1449,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/patient/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Where the signed-in patient is signed in. */
+        get: operations["listMyPatientSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Signs out one of the patient's sessions; it gets `401` from its next request. */
+        delete: operations["revokeMyPatientSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/practitioner": {
         parameters: {
             query?: never;
@@ -1281,6 +1656,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's notifications about appointments within their scope, newest first, with their
+         *     own read state and who handled each one. The portal checks every minute.
+         */
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many notifications the caller hasn't read: one cheap query for the bell. */
+        get: operations["countUnreadNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marks every notification the caller can see read, for the caller only. */
+        post: operations["markAllNotificationsRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marks one notification read for the caller only; others still see it unread. Repeating it
+         *     changes nothing.
+         */
+        post: operations["markNotificationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/observations/{id}/entered-in-error": {
         parameters: {
             query?: never;
@@ -1292,6 +1741,43 @@ export interface paths {
         put?: never;
         /** Marks a reading entered in error with a reason. It stays in the record, marked. */
         post: operations["markObservationEnteredInError"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patient-duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Self-registered records from online booking whose phone matches an existing patient, for
+         *     the front desk to merge or dismiss. Only flags whose two records are in reach.
+         */
+        get: operations["listPatientDuplicates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patient-duplicates/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismisses a flag: the two records are different people. */
+        post: operations["dismissPatientDuplicate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1670,6 +2156,48 @@ export interface paths {
         post?: never;
         /** Removes a number from a patient. */
         delete: operations["removePatientIdentifier"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/legal-hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Puts the patient on legal hold, which stops their erasure, or releases them. Holding again
+         *     keeps the first time and takes the new reason.
+         */
+        put: operations["setPatientLegalHold"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merges a self-registered record (from online booking) into an existing patient: its
+         *     appointments, queue tokens, patient-app links, identifiers and consents move, the existing
+         *     patient gets its email if it has none, and the record is marked merged. Refused when the
+         *     self-registered record has any clinical or billing record. Every change is audited.
+         */
+        post: operations["mergePatient"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2919,6 +3447,61 @@ export interface paths {
         patch: operations["updateSupplier"];
         trace?: never;
     };
+    "/api/v1/support-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's support grants, newest first. */
+        get: operations["listSupportGrants"];
+        put?: never;
+        /**
+         * Lets a Sakalya staff member read the clinic's records from now until `ends_at`, at most
+         *     seven days. Every request they make under it is recorded; they can't change anything.
+         */
+        post: operations["createSupportGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-grants/{id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What the staff member did under a grant, newest first. */
+        get: operations["listSupportGrantActions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-grants/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ends a grant now. */
+        post: operations["revokeSupportGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/today": {
         parameters: {
             query?: never;
@@ -3169,6 +3752,11 @@ export interface components {
             /** @description The standard roles, by name: presets for the roles editor. */
             templates: components["schemas"]["RoleTemplate"][];
         };
+        /** @description Members to add to a group. */
+        AddMembers: {
+            /** @description 1 to 100 active members of this clinic. */
+            membership_ids: string[];
+        };
         /** @description An addendum to a signed note. */
         Addendum: {
             /** @description Who wrote it. */
@@ -3324,7 +3912,7 @@ export interface components {
             money_visible: boolean;
             /**
              * Format: int64
-             * @description Minutes a chair is assumed open each day (540: clinic hours are not stored yet).
+             * @description Minutes a chair is assumed open each day when its branch has no opening hours (540).
              */
             open_minutes_per_day: number;
             /** @description Who the patients are. */
@@ -3378,6 +3966,11 @@ export interface components {
             id: string;
             /** @description Its name. */
             name: string;
+            /**
+             * @description Whether its open minutes come from its branch's opening hours (`GET /clinic-hours`);
+             *     otherwise `open_minutes_per_day` is assumed on every day.
+             */
+            uses_clinic_hours: boolean;
         };
         /** @description A clinic's application. */
         Application: {
@@ -3618,6 +4211,20 @@ export interface components {
             /** @description Start of each free slot, RFC 3339 in the clinic's time zone. */
             slots: string[];
         };
+        /** @description The numbers the apps poll every minute. */
+        Badges: {
+            /**
+             * Format: int64
+             * @description Unread chat messages in conversations the caller hasn't muted, at most 100.
+             */
+            chat_unread: number;
+            /**
+             * Format: int64
+             * @description Unread notifications, as `GET /notifications/count` counts them; absent without
+             *     `appointments.read`.
+             */
+            notifications_unread?: number | null;
+        };
         /** @description A doctor patients may pick. */
         BookableDoctor: {
             /** @description The doctor. */
@@ -3776,7 +4383,8 @@ export interface components {
             booked_minutes: number;
             /**
              * Format: int64
-             * @description Minutes open: `open_minutes_per_day` for each day of the period inside the range.
+             * @description Minutes open on the days of the period inside the range: from the chair's branch opening
+             *     hours (closed days count zero), or `open_minutes_per_day` a day without them.
              */
             open_minutes: number;
             /** @description The chair. */
@@ -3814,6 +4422,87 @@ export interface components {
             tooth: number;
             /** @description The visit that recorded it. */
             visit_id?: string | null;
+        };
+        /** @description A chat message. */
+        ChatMessage: {
+            /** @description Who wrote it. */
+            author_membership_id: string;
+            /** @description Their display name. */
+            author_name?: string | null;
+            /** @description Plain text; absent once deleted. */
+            body?: string | null;
+            /** @description The author's idempotency key. */
+            client_id: string;
+            /** @description Its conversation. */
+            conversation_id: string;
+            /** @description When it was posted (RFC 3339). */
+            created_at: string;
+            /** @description Whether the author deleted it. */
+            deleted: boolean;
+            /** @description The message; a cursor for `after` and `before`. */
+            id: string;
+            /** @description The patient it is about; open `/patients/{id}` (the caller's own reach applies). */
+            patient_id?: string | null;
+        };
+        /** @description A page of messages, oldest first. */
+        ChatMessageList: {
+            /** @description The messages. */
+            items: components["schemas"]["ChatMessage"][];
+        };
+        /** @description The other member of a direct conversation. */
+        ChatPeer: {
+            /** @description Their membership. */
+            membership_id: string;
+            /** @description Their display name. */
+            name: string;
+        };
+        /**
+         * @description What the desk records at check-in. Every field is optional; details left out stay as they
+         *     are.
+         */
+        CheckInRequest: {
+            /**
+             * Format: int32
+             * @description Age in years, when the date of birth is unknown.
+             */
+            age_years?: number | null;
+            /**
+             * @description Substances the patient says they are allergic to (at most 20), recorded as
+             *     patient-reported until a clinician confirms them.
+             */
+            allergies?: string[];
+            /** @description Consents given at the desk, each purpose once. */
+            consents?: components["schemas"]["DeskConsentFields"][];
+            /** @description Date of birth, `YYYY-MM-DD`. Not with `age_years`. */
+            date_of_birth?: string | null;
+            /** @description The patient knows of no allergies. Not together with `allergies`. */
+            no_known_allergies?: boolean;
+            /**
+             * @description The published notice shown (`GET /consent-notices`); the clinic's current notice when
+             *     this and `notice_version` are left out.
+             */
+            notice_id?: string | null;
+            /** @description A notice label, for a notice that isn't published here (prefer `notice_id`). */
+            notice_version?: string | null;
+            /** @description `female`, `male`, `other` or `unknown`. */
+            sex?: string | null;
+        };
+        /** @description What a check-in did. */
+        CheckedIn: {
+            /**
+             * Format: int64
+             * @description How many allergies were recorded.
+             */
+            allergies_recorded: number;
+            /**
+             * @description The appointment, arrived; its patient's `registration_incomplete` says whether sex or
+             *     age is still missing.
+             */
+            appointment: components["schemas"]["Appointment"];
+            /** @description The purposes whose consent was recorded. */
+            consents_recorded: string[];
+            /** @description Its queue token. */
+            queue_token_id?: string | null;
         };
         /** @description What a page sends when something fails. */
         ClientError: {
@@ -3884,6 +4573,18 @@ export interface components {
             status: string;
             /** @description Its time zone. */
             timezone: string;
+        };
+        /** @description The clinic's opening hours. */
+        ClinicHours: {
+            /** @description By branch, weekday and start; split shifts are two entries. Empty when not set. */
+            shifts: components["schemas"]["OpeningShift"][];
+        };
+        /** @description A branch's new week. */
+        ClinicHoursChange: {
+            /** @description Branch; the default branch when left out. */
+            branch_id?: string | null;
+            /** @description Shifts, at most 28, none overlapping on a day. Empty clears the branch's hours. */
+            shifts: components["schemas"]["OpeningTime"][];
         };
         /** @description An invitation not yet accepted. */
         ClinicInvitation: {
@@ -4129,6 +4830,11 @@ export interface components {
             method: string;
             /** @description A short remark. */
             note?: string | null;
+            /**
+             * @description The clinic's published notice shown (`GET /consent-notices`); null for consents recorded
+             *     against a label only.
+             */
+            notice_id?: string | null;
             /** @description The clinic's label for the notice text the patient was shown. */
             notice_version: string;
             /** @description `care`, `reminders`, `promotional`, `sharing` or `research`. */
@@ -4150,6 +4856,32 @@ export interface components {
         ConsentList: {
             /** @description The consents, given and withdrawn. */
             items: components["schemas"]["Consent"][];
+        };
+        /** @description One published version of the clinic's notice. */
+        ConsentNotice: {
+            /** @description The notice text. */
+            body: string;
+            /** @description Identifier; consents record it as `notice_id`. */
+            id: string;
+            /** @description The clinic's short label, such as `v2 2026-11`. */
+            label: string;
+            /** @description When it was published (RFC 3339). */
+            published_at: string;
+            /** @description Who published it. */
+            published_by?: string | null;
+            /**
+             * Format: int32
+             * @description 1 for the first version, then 2, 3, ...
+             */
+            version: number;
+        };
+        /** @description The clinic's notice versions. */
+        ConsentNoticeList: {
+            /**
+             * @description Newest first; the first is the current notice. Empty until the clinic publishes one
+             *     (consents then record the template's label, `v1 2026-10`).
+             */
+            items: components["schemas"]["ConsentNotice"][];
         };
         /** @description A clinic, with counts only. */
         ConsoleClinic: {
@@ -4184,6 +4916,73 @@ export interface components {
         ConsoleClinics: {
             /** @description Newest first. */
             items: components["schemas"]["ConsoleClinic"][];
+        };
+        /** @description A conversation with its active members. */
+        Conversation: {
+            /** @description When it was archived (RFC 3339). */
+            archived_at?: string | null;
+            /** @description When it was started (RFC 3339). */
+            created_at: string;
+            /** @description The conversation. */
+            id: string;
+            /** @description `direct` or `group`. */
+            kind: string;
+            /** @description Who is in it, earliest joined first. */
+            members: components["schemas"]["ConversationMember"][];
+            /** @description A group's title. */
+            title?: string | null;
+        };
+        /** @description A conversation in the caller's list. */
+        ConversationItem: {
+            /** @description When it was archived (RFC 3339). */
+            archived_at?: string | null;
+            /** @description When it was started (RFC 3339). */
+            created_at: string;
+            /** @description The conversation. */
+            id: string;
+            /** @description `direct` or `group`. */
+            kind: string;
+            /** @description When it was posted (RFC 3339). */
+            last_message_at?: string | null;
+            /** @description The newest message; poll with `after` from here. */
+            last_message_id?: string | null;
+            /** @description The newest message the caller has read. */
+            last_read_message_id?: string | null;
+            /** @description Whether the caller muted it (not counted in the badge). */
+            muted: boolean;
+            /** @description The caller's role: `member` or `admin`. */
+            role: string;
+            /** @description A group's title. */
+            title?: string | null;
+            /**
+             * Format: int64
+             * @description Unread messages from others, at most 100 (show "99+" above 99).
+             */
+            unread: number;
+            with?: components["schemas"]["ChatPeer"] | null;
+        };
+        /** @description The caller's conversations, most recent activity first. */
+        ConversationList: {
+            /** @description The conversations. */
+            items: components["schemas"]["ConversationItem"][];
+        };
+        /** @description An active member of a conversation. */
+        ConversationMember: {
+            /** @description When they joined (RFC 3339). */
+            joined_at: string;
+            /** @description Their membership. */
+            membership_id: string;
+            /** @description Their display name. */
+            name: string;
+            /** @description `member` or `admin`. */
+            role: string;
+        };
+        /** @description The conversation started, or the pair's existing direct conversation. */
+        ConversationStarted: {
+            /** @description `false` when the direct conversation existed already. */
+            created: boolean;
+            /** @description The conversation. */
+            id: string;
         };
         /** @description A clinic just created. `invite_token` is shown once; only its hash is stored. */
         CreatedClinic: {
@@ -4256,6 +5055,8 @@ export interface components {
             label: string;
             /** @description Added by the clinic rather than seeded. */
             own: boolean;
+            /** @description Retired: still shown on old entries, not offered for new ones. */
+            retired: boolean;
         };
         /** @description A consent the patient gives at the desk, recorded against the clinic's current notice. */
         DeskConsentFields: {
@@ -4298,6 +5099,12 @@ export interface components {
             addresses_ready: number;
             /** @description Portal hosts that failed and will be tried again. */
             addresses_retrying: number;
+            /** @description Escalations written to the owners' inbox. */
+            booking_requests_escalated: number;
+            /** @description Booking requests nobody has answered that were looked at. */
+            booking_requests_open: number;
+            /** @description Reminders written to the clinic inbox. */
+            booking_requests_reminded: number;
             /** @description Messages claimed. */
             claimed: number;
             /** @description `resend`, or `log` when no Resend key is configured. */
@@ -4353,6 +5160,11 @@ export interface components {
             /** @description Part of a name or strength, such as `amox` or `500`. */
             q?: string;
         };
+        /** @description Open possible duplicates. */
+        DuplicateList: {
+            /** @description Newest first, at most 200. */
+            items: components["schemas"]["PossibleDuplicate"][];
+        };
         /** @description The record a row duplicates. */
         DuplicateRef: {
             /** @description Their number. */
@@ -4361,6 +5173,22 @@ export interface components {
             patient_id?: string | null;
             /** @description Or an earlier row of the file. */
             row?: number | null;
+        };
+        /** @description One of the two records. */
+        DuplicateSide: {
+            /**
+             * Format: int32
+             * @description Age in whole years, when known.
+             */
+            age_years?: number | null;
+            /** @description Their name. */
+            full_name: string;
+            /** @description The patient. */
+            id: string;
+            /** @description Their number. */
+            number: string;
+            /** @description `female`, `male`, `other` or `unknown`. */
+            sex: string;
         };
         /** @description Why a record is being marked entered in error. */
         EnteredInError: {
@@ -4451,6 +5279,15 @@ export interface components {
         FileSharing: {
             /** @description True to show it in the patient's app. */
             shared_with_patient: boolean;
+        };
+        /** @description Who handled a notification: confirmed, declined or cancelled its appointment. */
+        HandledBy: {
+            /** @description When (RFC 3339). */
+            at: string;
+            /** @description The member; absent when the patient cancelled. */
+            membership_id?: string | null;
+            /** @description Their display name, such as `Farah Desk`. */
+            name?: string | null;
         };
         /**
          * @description A one-time code for that host. Send the person to `redirect_url`: the code is in the URL
@@ -4594,6 +5431,42 @@ export interface components {
             file: string;
             /** @description The workbook sheet to read; the first when left out. */
             sheet?: string | null;
+        };
+        /** @description A page of the inbox, newest first. */
+        InboxList: {
+            /** @description The messages. */
+            items: components["schemas"]["InboxMessage"][];
+        };
+        /**
+         * @description A message in the clinic inbox: a booking request still waiting. It stays open until the
+         *     booking is confirmed, declined or cancelled.
+         */
+        InboxMessage: {
+            /** @description The appointment. */
+            appointment_id: string;
+            /** @description `clinic` or `owners`. */
+            audience: string;
+            /** @description When it was written (RFC 3339). */
+            created_at: string;
+            /** @description When the booking was handled (RFC 3339). */
+            handled_at?: string | null;
+            /** @description Identifier; pass as `before` for the next page. */
+            id: string;
+            /**
+             * @description `booking_reminder` (for everyone who handles the appointment) or `booking_escalation`
+             *     (for the owners).
+             */
+            kind: string;
+            /** @description The notification it is about. */
+            notification_id: string;
+            /** @description Whether the booking has been handled. */
+            open: boolean;
+            /** @description Its doctor. */
+            practitioner_id: string;
+            /** @description The doctor's name. */
+            practitioner_name: string;
+            /** @description Its start (RFC 3339, the clinic's offset). */
+            starts_at: string;
         };
         /** @description The front desk's to-do list. */
         IncompleteList: {
@@ -4942,6 +5815,15 @@ export interface components {
             /** @description By start. */
             items: components["schemas"]["Leave"][];
         };
+        /** @description A patient's legal hold. */
+        LegalHold: {
+            /** @description Whether erasure is stopped. */
+            held: boolean;
+            /** @description Why, while held. */
+            reason?: string | null;
+            /** @description Since when, while held (RFC 3339). */
+            since?: string | null;
+        };
         /** @description The letterhead printed on prescriptions, bills and receipts. */
         Letterhead: {
             /** @description Accent colour of the design, `#RRGGBB`; the brand colour when none. */
@@ -5097,6 +5979,14 @@ export interface components {
             /** @description Its unit. */
             unit: string;
         };
+        /** @description What "mark all read" did. */
+        MarkedRead: {
+            /**
+             * Format: int64
+             * @description Notifications that were unread and are now read.
+             */
+            marked: number;
+        };
         /** @description The signed-in person's clinics. */
         Me: {
             /** @description Clinics they are invited to or active in, by name. */
@@ -5156,6 +6046,29 @@ export interface components {
             /** @description Their display name. */
             name: string;
         };
+        /** @description How many were added. */
+        MembersAdded: {
+            /**
+             * Format: int64
+             * @description Members who weren't in the group (or had left) and now are.
+             */
+            added: number;
+        };
+        /** @description Which patient to merge into. */
+        MergeRequest: {
+            /** @description The existing patient that keeps its number and record. */
+            into_patient_id: string;
+        };
+        /** @description What a merge did. */
+        Merged: {
+            /**
+             * Format: int64
+             * @description How many appointments moved to it.
+             */
+            appointments_moved: number;
+            /** @description The patient that remains. */
+            patient_id: string;
+        };
         /** @description What the API serves. */
         Meta: {
             /** @description Each app the server tracks versions of; empty when every version is served. */
@@ -5205,6 +6118,11 @@ export interface components {
             current: Record<string, unknown>;
             /** @description The refusal. */
             error: components["schemas"]["ErrorDetail"];
+        };
+        /** @description Whether a conversation is muted. */
+        MuteBody: {
+            /** @description `true` leaves its unread messages out of the badge. */
+            muted: boolean;
         };
         /** @description A clinic the person belongs to. */
         MyClinic: {
@@ -5309,6 +6227,15 @@ export interface components {
              */
             tooth: number;
         };
+        /** @description A message to post. */
+        NewChatMessageBody: {
+            /** @description Plain text, 1 to 4000 characters. */
+            body: string;
+            /** @description Chosen by the client (any UUID); posting again with it returns the first message. */
+            client_id: string;
+            /** @description A patient it is about; needs `patients.read` reaching them. */
+            patient_id?: string | null;
+        };
         /** @description A clinic to create. */
         NewClinic: {
             /** @description The clinic's name. */
@@ -5326,6 +6253,17 @@ export interface components {
             email: string;
             /** @description A role of the clinic, such as `doctor` or `front_desk`. */
             role_key: string;
+        };
+        /** @description A conversation to start. */
+        NewConversationBody: {
+            /** @description `direct` (with `membership_id`) or `group` (with `title` and `member_ids`). */
+            kind: string;
+            /** @description Group: the other members (the caller is added as admin). */
+            member_ids?: string[] | null;
+            /** @description Direct: the other member. */
+            membership_id?: string | null;
+            /** @description Group: 1 to 80 characters. */
+            title?: string | null;
         };
         /** @description A procedure or material to add to the clinic's list. */
         NewDentalTerm: {
@@ -5547,6 +6485,15 @@ export interface components {
             /** @description The standard role it starts as a copy of, such as `assistant` (not `owner`). */
             template_key: string;
         };
+        /** @description A grant to make. */
+        NewSupportGrant: {
+            /** @description When access ends (RFC 3339): 15 minutes to 7 days from now. */
+            ends_at: string;
+            /** @description Why they need access, 3 to 500 characters. No patient details. */
+            reason: string;
+            /** @description The Sakalya staff member's sign-in email. */
+            staff_email: string;
+        };
         /** @description A visit to start. */
         NewVisit: {
             /** @description The appointment the patient came for; a walk-in has none. One visit per appointment. */
@@ -5619,6 +6566,46 @@ export interface components {
             /** @description What the patient reports. */
             subjective?: string | null;
         };
+        /** @description A notification as the caller sees it. */
+        Notification: {
+            /** @description The appointment. */
+            appointment: components["schemas"]["NotifiedAppointment"];
+            /** @description When it happened (RFC 3339). */
+            created_at: string;
+            /** @description When the owners were told (RFC 3339). */
+            escalated_at?: string | null;
+            handled?: components["schemas"]["HandledBy"] | null;
+            /** @description Identifier; pass as `before` for the next page. */
+            id: string;
+            /** @description `booking_requested`, `booking_confirmed_auto` or `booking_cancelled_by_patient`. */
+            kind: string;
+            /** @description Whether the caller has read it. */
+            read: boolean;
+            /** @description When the caller read it (RFC 3339). */
+            read_at?: string | null;
+            /** @description When everyone was reminded because nobody had answered (RFC 3339). */
+            reminded_at?: string | null;
+        };
+        /** @description A page of the caller's notifications, newest first. */
+        NotificationList: {
+            /** @description The notifications. */
+            items: components["schemas"]["Notification"][];
+        };
+        /** @description The appointment a notification is about. */
+        NotifiedAppointment: {
+            /** @description End (RFC 3339, the clinic's offset). */
+            ends_at: string;
+            /** @description The appointment; open it at `/appointments/{id}`. */
+            id: string;
+            /** @description Its doctor. */
+            practitioner_id: string;
+            /** @description The doctor's name as shown on the calendar. */
+            practitioner_name: string;
+            /** @description Start (RFC 3339, the clinic's offset). */
+            starts_at: string;
+            /** @description Its status now, such as `requested` or `confirmed`. */
+            status: string;
+        };
         /**
          * @description A measurement. Values never change: a correction is a new reading whose `supersedes_id`
          *     names the old one, which stays with status `corrected`.
@@ -5678,6 +6665,12 @@ export interface components {
             min_notice_minutes: number;
             /**
              * Format: int32
+             * @description Minutes a booking request may wait, in opening hours, before everyone who handles
+             *     appointments is reminded (5 to 240, default 15); owners are told after as long again.
+             */
+            reminder_minutes: number;
+            /**
+             * Format: int32
              * @description Slot length in minutes (5 to 240, steps of 5).
              */
             slot_minutes: number;
@@ -5705,6 +6698,11 @@ export interface components {
             min_notice_minutes?: number | null;
             /**
              * Format: int32
+             * @description Reminder wait in minutes.
+             */
+            reminder_minutes?: number | null;
+            /**
+             * Format: int32
              * @description Slot length in minutes.
              */
             slot_minutes?: number | null;
@@ -5713,6 +6711,56 @@ export interface components {
         OpenRequest: {
             /** @description The six digits printed on the paper. */
             pin: string;
+        };
+        /** @description A stretch of the week the clinic is open. */
+        OpeningShift: {
+            /** @description The branch. */
+            branch_id: string;
+            /** @description Closing time, `HH:MM`. */
+            ends: string;
+            /** @description Opening time, `HH:MM`. */
+            starts: string;
+            /**
+             * Format: int32
+             * @description 1 Monday to 7 Sunday.
+             */
+            weekday: number;
+        };
+        /** @description One opening shift to save. */
+        OpeningTime: {
+            /** @description Closing time, `HH:MM`, after the opening time. */
+            ends: string;
+            /** @description Opening time, `HH:MM`. */
+            starts: string;
+            /**
+             * Format: int32
+             * @description 1 Monday to 7 Sunday.
+             */
+            weekday: number;
+        };
+        /** @description A procedure or material the clinic added. */
+        OwnDentalTerm: {
+            /** @description When (RFC 3339). */
+            added_at: string;
+            /** @description Who added it. */
+            added_by?: string | null;
+            /** @description Identifier, as chart entries name it. */
+            id: string;
+            /** @description `procedure` or `material`. */
+            kind: string;
+            /** @description The current label; old chart entries show it too. */
+            label: string;
+            /** @description Retired: no longer offered for new entries. */
+            retired: boolean;
+            /** @description When it was retired (RFC 3339). */
+            retired_at?: string | null;
+            /** @description Who retired it. */
+            retired_by?: string | null;
+        };
+        /** @description The clinic's own terms. */
+        OwnDentalTermList: {
+            /** @description By list, then label; retired ones included. */
+            items: components["schemas"]["OwnDentalTerm"][];
         };
         /** @description A patient. Phone and email are masked (`+91******3210`) unless the role has `patients.contact`. */
         Patient: {
@@ -5939,6 +6987,11 @@ export interface components {
             id: string;
             /** @description Readable number, such as `SD-1042`. */
             number: string;
+            /**
+             * @description Registered through online booking and still missing sex or age: complete the
+             *     registration at check-in (`POST /appointments/{id}/check-in`).
+             */
+            registration_incomplete: boolean;
             /** @description `female`, `male`, `other` or `unknown`. */
             sex: string;
         };
@@ -6192,6 +7245,24 @@ export interface components {
             /** @description `before_food`, `after_food`, `empty_stomach`, `bedtime`, `sos` or `as_directed`. */
             timing?: string | null;
         };
+        /** @description A place the patient is signed in. */
+        PatientSession: {
+            /** @description When it signed in (RFC 3339). */
+            created_at: string;
+            /** @description The session making this request. */
+            current: boolean;
+            /** @description When the sign-in expires unless refreshed (RFC 3339). */
+            expires_at: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description When it was last used, to within five minutes (RFC 3339). */
+            last_active_at: string;
+        };
+        /** @description The patient's sessions. */
+        PatientSessionList: {
+            /** @description Live sessions, most recently used first, at most 50. */
+            items: components["schemas"]["PatientSession"][];
+        };
         /** @description A payment and its receipt number. */
         Payment: {
             /**
@@ -6395,6 +7466,19 @@ export interface components {
         PlanList: {
             /** @description The plans. */
             items: components["schemas"]["Plan"][];
+        };
+        /** @description A self-registered record that may be an existing patient. */
+        PossibleDuplicate: {
+            /** @description The existing patient it may be. */
+            candidate: components["schemas"]["DuplicateSide"];
+            /** @description When it was flagged (RFC 3339). */
+            flagged_at: string;
+            /** @description The flag. */
+            id: string;
+            /** @description The self-registered record from online booking. */
+            patient: components["schemas"]["DuplicateSide"];
+            /** @description Why: `phone` (same phone, no email match). */
+            reason: string;
         };
         /** @description A doctor who sees patients. */
         Practitioner: {
@@ -6619,6 +7703,13 @@ export interface components {
             /** @description The procedures. */
             items: components["schemas"]["Procedure"][];
         };
+        /** @description A new version to publish. */
+        PublishNotice: {
+            /** @description The full notice text, up to 20,000 characters. */
+            body: string;
+            /** @description A short label, 1 to 40 characters, such as `v2 2026-11`. */
+            label: string;
+        };
         /** @description A test failing in the newest run that recorded it. */
         QualityFailingTest: {
             message: string;
@@ -6789,6 +7880,11 @@ export interface components {
             /** @description The line it writes. */
             text: string;
         };
+        /** @description How far the caller has read. */
+        ReadUpTo: {
+            /** @description The newest message read; the pointer never moves back. */
+            message_id: string;
+        };
         /** @description A reason, for voiding or cancelling. */
         Reason: {
             /** @description Why, 3 to 500 characters. */
@@ -6847,8 +7943,16 @@ export interface components {
             method: string;
             /** @description A short remark, up to 500 characters. No clinical detail. */
             note?: string | null;
-            /** @description The clinic's label for the notice text shown, 1 to 40 characters, such as `v1 2026-10`. */
-            notice_version: string;
+            /**
+             * @description The published notice shown (`GET /consent-notices`). Left out with `notice_version` also
+             *     left out, the clinic's current notice is recorded.
+             */
+            notice_id?: string | null;
+            /**
+             * @description A notice label such as `v1 2026-10`, for a notice that isn't published here (the
+             *     earlier way; prefer `notice_id`).
+             */
+            notice_version?: string | null;
             /** @description `care`, `reminders`, `promotional`, `sharing` or `research`. */
             purpose: string;
         };
@@ -6873,6 +7977,11 @@ export interface components {
         RejectApplication: {
             /** @description A short reason, for the console only. */
             reason?: string | null;
+        };
+        /** @description A new label. */
+        RenameDentalTerm: {
+            /** @description 1 to 80 characters. */
+            label: string;
         };
         /**
          * @description An owner invitation sent again. `invite_link` is shown once; it was also emailed, and the
@@ -7175,6 +8284,13 @@ export interface components {
             display_name: string;
             /** @description The user. */
             id: string;
+        };
+        /** @description Puts a patient on legal hold, or releases them. */
+        SetLegalHold: {
+            /** @description On or off. */
+            held: boolean;
+            /** @description Why, 3 to 300 characters; required when `held`. No clinical detail. */
+            reason?: string | null;
         };
         /** @description Where a first-run setup stands. */
         Setup: {
@@ -7650,6 +8766,36 @@ export interface components {
             /** @description Members, active first, then by name. */
             members: components["schemas"]["Member"][];
         };
+        /** @description A grant the staff member holds. */
+        StaffSupportGrant: {
+            /** @description What it allows: `read`. */
+            access: string;
+            /** @description The clinic. */
+            clinic_id: string;
+            /** @description Its name. */
+            clinic_name: string;
+            /** @description When it ends (RFC 3339). */
+            ends_at: string;
+            /** @description The clinic member who granted it. */
+            granted_by: string;
+            /** @description The grant. */
+            id: string;
+            /** @description The clinic's portal host, where the records are read. */
+            portal_host?: string | null;
+            /** @description Why the clinic granted it. */
+            reason: string;
+            /** @description Its subdomain. */
+            slug: string;
+            /** @description When it started (RFC 3339). */
+            starts_at: string;
+            /** @description `active`, `ended` or `revoked`. */
+            status: string;
+        };
+        /** @description The grants the staff member holds, newest end first. */
+        StaffSupportGrants: {
+            /** @description At most 100. */
+            items: components["schemas"]["StaffSupportGrant"][];
+        };
         /** @description A visit started from the queue. */
         StartedVisit: {
             /** @description Whether this request started the visit; false on a repeat. */
@@ -7820,6 +8966,57 @@ export interface components {
             /** @description Phone; +91 is assumed without a country code. */
             phone?: string | null;
         };
+        /** @description A request made under a grant. */
+        SupportAction: {
+            /** @description When (RFC 3339). */
+            at: string;
+            /** @description `GET`, `POST` ... */
+            method: string;
+            /** @description The route, such as `/api/v1/patients/{id}`: never a value from it. */
+            route: string;
+        };
+        /** @description What the staff member did under a grant, newest first. */
+        SupportActionList: {
+            /** @description At most 200. */
+            items: components["schemas"]["SupportAction"][];
+        };
+        /** @description The clinic's grants, newest first. */
+        SupportGrantList: {
+            /** @description Active, ended and revoked, at most 100. */
+            items: components["schemas"]["SupportGrantView"][];
+        };
+        /** @description A grant of read access to one Sakalya staff member. */
+        SupportGrantView: {
+            /** @description What it allows: `read` (records, read-only). */
+            access: string;
+            /**
+             * Format: int64
+             * @description Requests the staff member made under it.
+             */
+            actions: number;
+            /** @description When it ends by itself (RFC 3339). */
+            ends_at: string;
+            /** @description The member who granted it. */
+            granted_by?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description When they last used it (RFC 3339). */
+            last_action_at?: string | null;
+            /** @description Why it was granted. */
+            reason: string;
+            /** @description When it was revoked (RFC 3339). */
+            revoked_at?: string | null;
+            /** @description The member who revoked it. */
+            revoked_by?: string | null;
+            /** @description Their sign-in email. */
+            staff_email?: string | null;
+            /** @description The staff member's name. */
+            staff_name?: string | null;
+            /** @description When it started (RFC 3339). */
+            starts_at: string;
+            /** @description `active`, `ended` or `revoked`. */
+            status: string;
+        };
         /** @description A doctor working today. */
         TeamMemberToday: {
             /** @description Appointments today, not counting cancelled ones. */
@@ -7968,6 +9165,14 @@ export interface components {
         TokenStatusChange: {
             /** @description `in_chair`, `done` or `left`. */
             status: string;
+        };
+        /** @description The bell's number. */
+        UnreadCount: {
+            /**
+             * Format: int64
+             * @description Unread notifications from the last 30 days, at most 100; show "99+" above 99.
+             */
+            unread: number;
         };
         /** @description The form an upload sends (`multipart/form-data`). */
         UploadForm: {
@@ -8146,7 +9351,12 @@ export interface components {
             consents?: components["schemas"]["DeskConsentFields"][];
             /** @description The patient knows of no allergies. Not together with `allergies`. */
             no_known_allergies?: boolean;
-            /** @description The notice version shown; the clinic's current notice (`v1 2026-10`) when left out. */
+            /**
+             * @description The published notice shown (`GET /consent-notices`); the clinic's current notice when
+             *     this and `notice_version` are left out.
+             */
+            notice_id?: string | null;
+            /** @description A notice label, for a notice that isn't published here (prefer `notice_id`). */
             notice_version?: string | null;
             patient?: components["schemas"]["NewPatient"] | null;
             /** @description A registered patient, such as one picked from the phone lookup. */
@@ -8499,6 +9709,67 @@ export interface operations {
             };
         };
     };
+    checkInAppointment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The appointment */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckInRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckedIn"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks intake.write, patients.write or appointments.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such appointment in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The appointment can't arrive from its status, or "No known allergies" with an allergy on record */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     setAppointmentStatus: {
         parameters: {
             query?: never;
@@ -8795,6 +10066,167 @@ export interface operations {
             };
             /** @description Too many reports from this address */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getClinicHours: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicHours"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setClinicHours: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClinicHoursChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicHours"];
+                };
+            };
+            /** @description Bad or overlapping shifts, or an unknown branch */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listConsentNotices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentNoticeList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    publishConsentNotice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishNotice"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentNotice"];
+                };
+            };
+            /** @description A bad label or text */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Another version was published at the same moment */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9328,6 +10760,644 @@ export interface operations {
             };
         };
     };
+    listMySupportGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffSupportGrants"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Sakalya staff, or the authenticator step is missing */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the console host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listConversations: {
+        parameters: {
+            query?: {
+                /** @description 1 to 100 (default 50) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    startConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewConversationBody"];
+            };
+        };
+        responses: {
+            /** @description The existing direct conversation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationStarted"];
+                };
+            };
+            /** @description Started */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationStarted"];
+                };
+            };
+            /** @description Bad kind or title, oneself, or too many members */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A member isn't active staff of this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    leaveConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The group */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Left */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A direct conversation, which can't be left */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    addConversationMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The group */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddMembers"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembersAdded"];
+                };
+            };
+            /** @description No members, or too many */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use, or the caller isn't a group admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in, or a member isn't active staff here */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A direct conversation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    removeConversationMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The group */
+                id: string;
+                /** @description The member to take out */
+                membership_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use, or the caller isn't a group admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in, or the member isn't in it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A direct conversation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listChatMessages: {
+        parameters: {
+            query?: {
+                /** @description Only messages newer than this id */
+                after?: string;
+                /** @description Only messages older than this id */
+                before?: string;
+                /** @description 1 to 100 (default 50) */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageList"];
+                };
+            };
+            /** @description A cursor isn't an id, or both were given */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    postChatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewChatMessageBody"];
+            };
+        };
+        responses: {
+            /** @description Posted earlier with this client_id */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+            /** @description Posted */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+            /** @description Empty, too long or not plain text */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use, or patients.read for a patient */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in, or the patient is out of reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Archived, or the client_id was used for another message */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteChatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+                /** @description The message */
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use, or the message is someone else's */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such message the caller can see */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    muteConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MuteBody"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    markConversationRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadUpTo"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in, or the message isn't in it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listOwnDentalTerms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnDentalTermList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read and settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     addDentalTerm: {
         parameters: {
             query?: never;
@@ -9382,6 +11452,153 @@ export interface operations {
             };
             /** @description The same label was added at the same moment */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    renameDentalTerm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clinic's term */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameDentalTerm"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnDentalTerm"];
+                };
+            };
+            /** @description A bad label */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such term in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The list already has that label, or it is a standard term */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    restoreDentalTerm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clinic's term */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnDentalTerm"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such term in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retireDentalTerm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clinic's term */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnDentalTerm"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such term in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9955,6 +12172,53 @@ export interface operations {
             };
             /** @description The session has ended or was already imported */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listInbox: {
+        parameters: {
+            query?: {
+                /** @description Only messages whose booking is still unhandled */
+                open_only?: boolean;
+                /** @description Page size, 1 to 100 (default 30) */
+                limit?: number;
+                /** @description Only those older than this message id */
+                before?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxList"];
+                };
+            };
+            /** @description `before` is not an id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10837,6 +13101,39 @@ export interface operations {
             };
         };
     };
+    getBadges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Badges"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getMySetup: {
         parameters: {
             query?: never;
@@ -11401,6 +13698,74 @@ export interface operations {
             };
         };
     };
+    listMyPatientSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientSessionList"];
+                };
+            };
+            /** @description Not signed in, or this session was signed out */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the app host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revokeMyPatientSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The session */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in, or this session was signed out */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not one of this patient's sessions, or not the app host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getMyPractitioner: {
         parameters: {
             query?: never;
@@ -11882,6 +14247,161 @@ export interface operations {
             };
         };
     };
+    listNotifications: {
+        parameters: {
+            query?: {
+                /** @description Only unread ones, from the last 30 days */
+                unread_only?: boolean;
+                /** @description Page size, 1 to 100 (default 30) */
+                limit?: number;
+                /** @description Only those older than this notification id */
+                before?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationList"];
+                };
+            };
+            /** @description `before` is not an id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    countUnreadNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCount"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    markAllNotificationsRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkedRead"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    markNotificationRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The notification */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Read */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such notification in this clinic, or its appointment is out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     markObservationEnteredInError: {
         parameters: {
             query?: never;
@@ -11936,6 +14456,81 @@ export interface operations {
             };
             /** @description Already corrected or marked */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPatientDuplicates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicateList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    dismissPatientDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The flag */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dismissed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such open flag in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13335,6 +15930,121 @@ export interface operations {
             };
             /** @description No such identifier in this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setPatientLegalHold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetLegalHold"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHold"];
+                };
+            };
+            /** @description A missing or bad reason */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    mergePatient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The self-registered record to merge away */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Merged"];
+                };
+            };
+            /** @description Not a self-registered record, or the same patient */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already merged, or the record has clinical or billing data */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -17567,6 +20277,183 @@ export interface operations {
                 content?: never;
             };
             /** @description A supplier has this name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listSupportGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportGrantList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks support.grant */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createSupportGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSupportGrant"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportGrantView"];
+                };
+            };
+            /** @description A bad email, reason or end, or the email isn't Sakalya support staff */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks support.grant */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description That person already has access; revoke it first */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listSupportGrantActions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The grant */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportActionList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks support.grant */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such grant in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revokeSupportGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The grant */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportGrantView"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks support.grant */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such grant in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description It already ended or was revoked */
             409: {
                 headers: {
                     [name: string]: unknown;

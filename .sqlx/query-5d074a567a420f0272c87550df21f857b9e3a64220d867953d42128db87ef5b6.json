@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.dental_terms\n           set retired_at = case when $2::uuid is null then null else coalesce(retired_at, now()) end,\n               retired_by = case when $2::uuid is null then null else coalesce(retired_by, $2) end\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5d074a567a420f0272c87550df21f857b9e3a64220d867953d42128db87ef5b6"
+}

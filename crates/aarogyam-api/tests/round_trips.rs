@@ -244,6 +244,74 @@ async fn walk_in_routes(app: &TestApp, owner: &str) -> [Route; 4] {
 /// Edits sent with the `If-Match` version just read. Each repeats the record's own content, so
 /// the version stays put and the measured repeats succeed. Read-modify-write edits (read the
 /// record, check it, write it) take more trips than a read, each allowance below.
+/// What staff did under a support grant: the grant and its actions in one statement.
+async fn support_routes(app: &TestApp, owner: &str) -> [Route; 1] {
+    let ends_at = (OffsetDateTime::now_utc() + Duration::hours(2))
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    let grant = created(
+        app,
+        owner,
+        "/api/v1/support-grants",
+        json!({ "staff_email": "staff@sakalya.test", "reason": "Budget check", "ends_at": ends_at }),
+    )
+    .await;
+    [Route::get(
+        "GET /support-grants/{id}/actions",
+        ALPHA,
+        format!("/api/v1/support-grants/{grant}/actions"),
+    )]
+}
+
+/// A direct conversation with a message naming a patient: the chat list, a page (with its
+/// access record in the same statement), the conversation and the badges, one statement each.
+async fn chat_routes(app: &TestApp, owner: &str, patient: &str) -> [Route; 4] {
+    let (_, staff) = app
+        .send(Method::GET, ALPHA, "/api/v1/staff", Some(owner), None)
+        .await;
+    let arun = staff["members"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|member| member["display_name"] == "Arun Assistant")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let (status, conversation) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/conversations",
+            Some(owner),
+            Some(json!({ "kind": "direct", "membership_id": arun })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{conversation}");
+    let id = conversation["id"].as_str().unwrap().to_owned();
+    created(
+        app,
+        owner,
+        &format!("/api/v1/conversations/{id}/messages"),
+        json!({ "client_id": uuid::Uuid::now_v7(), "body": "Crown ready?", "patient_id": patient }),
+    )
+    .await;
+    [
+        Route::get("GET /conversations", ALPHA, "/api/v1/conversations".into()),
+        Route::get(
+            "GET /conversations/{id}/messages",
+            ALPHA,
+            format!("/api/v1/conversations/{id}/messages"),
+        ),
+        Route::get(
+            "GET /conversations/{id}",
+            ALPHA,
+            format!("/api/v1/conversations/{id}"),
+        ),
+        Route::get("GET /me/badges", ALPHA, "/api/v1/me/badges".into()),
+    ]
+}
+
 async fn conditional_edits(
     app: &TestApp,
     owner: &str,
@@ -423,6 +491,13 @@ fn hot_routes(
             "/api/v1/reports/analytics".into(),
         ),
         Route::get("GET /expenses", ALPHA, "/api/v1/expenses".into()),
+        // The bell's count and the feed: one statement each, with the read state and names.
+        Route::get(
+            "GET /notifications/count",
+            ALPHA,
+            "/api/v1/notifications/count".into(),
+        ),
+        Route::get("GET /notifications", ALPHA, "/api/v1/notifications".into()),
         Route::get("GET /invoices", ALPHA, "/api/v1/invoices".into()),
         Route::get("GET /stock", ALPHA, "/api/v1/stock".into()),
         Route::get(
@@ -435,6 +510,17 @@ fn hot_routes(
         Route::get("GET /staff", ALPHA, "/api/v1/staff".into()),
         Route::get("GET /practitioners", ALPHA, "/api/v1/practitioners".into()),
         Route::get("GET /rooms", ALPHA, "/api/v1/rooms".into()),
+        Route::get("GET /clinic-hours", ALPHA, "/api/v1/clinic-hours".into()),
+        Route::get(
+            "GET /consent-notices",
+            ALPHA,
+            "/api/v1/consent-notices".into(),
+        ),
+        Route::get(
+            "GET /patient-duplicates",
+            ALPHA,
+            "/api/v1/patient-duplicates".into(),
+        ),
         Route::get("GET /price-items", ALPHA, "/api/v1/price-items".into()),
         Route::get("GET /letterhead", ALPHA, "/api/v1/letterhead".into()),
         // Over budget since scope enforcement (the scoped visit list, then the authors' names); to fold into one statement.
@@ -468,6 +554,11 @@ fn hot_routes(
         Route::get("GET /roles", ALPHA, "/api/v1/roles".into()),
         Route::get("GET /roles/{key}", ALPHA, "/api/v1/roles/doctor".into()),
         Route::get("GET /permissions", ALPHA, "/api/v1/permissions".into()),
+        Route::get(
+            "GET /support-grants",
+            ALPHA,
+            "/api/v1/support-grants".into(),
+        ),
         // The lock, the before and after lists, the writes and the change record: one statement.
         Route {
             method: Method::PUT,
@@ -547,12 +638,21 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
     let edits = conditional_edits(&app, &owner, &patient, &appointment, &starts_at).await;
     let routes = hot_routes(monday, sunday, tomorrow, &doctor, &patient);
     let walk_ins = walk_in_routes(&app, &owner).await;
+    let support = support_routes(&app, &owner).await;
+    let chat = chat_routes(&app, &owner, &patient).await;
 
     let mut table = String::from(
         "\nroute                     cold  warm  (cold: prepares, new connections; warm: pings, release checks)\n",
     );
     let mut over = Vec::new();
-    for route in edits.iter().chain(&moves).chain(&walk_ins).chain(&routes) {
+    for route in edits
+        .iter()
+        .chain(&moves)
+        .chain(&walk_ins)
+        .chain(&support)
+        .chain(&chat)
+        .chain(&routes)
+    {
         // A state of its own warms the pool's connections and their statement caches, so
         // what is counted is the request, not connecting or preparing.
         let (db, trips) = app.counting_db().await;
@@ -641,6 +741,12 @@ async fn patient_app_reads_stay_within_their_round_trip_budget() {
     let routes = [
         // The account and its links only.
         Route::get("GET /me/patient", host, "/api/v1/me/patient".into()),
+        // The account (recording the session), then the sessions: no clinic transaction.
+        Route::get(
+            "GET /me/patient/sessions",
+            host,
+            "/api/v1/me/patient/sessions".into(),
+        ),
         Route::get(
             "GET /me/patient/home",
             host,

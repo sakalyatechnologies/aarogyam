@@ -1,6 +1,8 @@
 //! The `aarogyam` binary: `serve` runs the HTTP API, `migrate` applies the database migrations,
 //! `admin` and `outbox` are operator commands.
 
+mod erase;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -9,6 +11,7 @@ use aarogyam_app::accounts::{SignInAccounts as _, SupabaseAdmin};
 use aarogyam_app::files::{Files, LinkSigner, LocalDisk, Storage, SupabaseStorage};
 use aarogyam_domain::access::PlatformRole;
 use aarogyam_domain::client::ClientPolicy;
+use aarogyam_domain::notification::OpenHours;
 use aarogyam_domain::patient::Email;
 use aarogyam_notify::cloudflare::{API_BASE, AccountId, WorkersApi};
 use aarogyam_notify::{Notifier, PortalAddresses, PortalLinks, WorkersDev};
@@ -62,9 +65,26 @@ enum Command {
         /// Identifiers to show per clinic and class (0 to 20).
         #[arg(long, default_value_t = 3, value_parser = clap::value_parser!(i32).range(0..=20))]
         sample: i32,
-        /// Erase or anonymise what is listed. Not built yet: refused.
+        /// Refused: erasure is `aarogyam erase`.
         #[arg(long)]
         apply: bool,
+    },
+    /// Erases patient records past their clinic's retention period and not on legal hold (a dry
+    /// run unless --apply), over the schema owner's connection. See docs/decisions.md.
+    Erase {
+        /// The clinic's slug; required with --apply.
+        #[arg(long)]
+        clinic: Option<String>,
+        /// Erase, instead of listing what would be erased.
+        #[arg(long)]
+        apply: bool,
+        /// Where to append the erasure log (JSON lines of ids); required with --apply. Keep it
+        /// outside the database: it is replayed after a restore.
+        #[arg(long)]
+        log_file: Option<PathBuf>,
+        /// Erase again every patient an erasure log names (after a restore from backup).
+        #[arg(long, value_name = "LOG_FILE")]
+        replay: Option<PathBuf>,
     },
     /// The outgoing-message queue.
     Outbox {
@@ -141,6 +161,18 @@ enum Admin {
         #[arg(long)]
         name: Option<String>,
     },
+    /// How long a clinic keeps patient records: 7 (the default) to 50 years, or --default.
+    RetentionYears {
+        /// The clinic's slug.
+        #[arg(long)]
+        clinic: String,
+        /// Years after the last visit, appointment or bill.
+        #[arg(long, value_parser = clap::value_parser!(u8).range(7..=50), conflicts_with = "default")]
+        years: Option<u8>,
+        /// Go back to the default.
+        #[arg(long)]
+        default: bool,
+    },
 }
 
 #[tokio::main]
@@ -154,6 +186,20 @@ async fn main() -> anyhow::Result<()> {
         Command::Admin { action } => admin(config, action).await,
         Command::Platform { action } => platform(config, action).await,
         Command::Retention { sample, apply } => retention(&config, sample, apply).await,
+        Command::Erase {
+            clinic,
+            apply,
+            log_file,
+            replay,
+        } => {
+            let args = erase::EraseArgs {
+                clinic,
+                apply,
+                log_file,
+                replay,
+            };
+            erase::run(&owner_db(&config)?, args).await
+        }
         Command::Outbox {
             action: Outbox::Drain { every },
         } => drain(config, every).await,
@@ -446,8 +492,8 @@ async fn addresses(config: Config, clinic: Option<&str>) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Makes new portal hosts work, then delivers due outbox messages, over the API connection,
-/// once or on a fixed interval.
+/// Makes new portal hosts work, reminds staff of unanswered booking requests (then the owners),
+/// then delivers due outbox messages, over the API connection, once or on a fixed interval.
 async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
     let local = config.environment == Environment::Local;
     let notifier = notifier(&config, local)?;
@@ -474,6 +520,19 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             ),
             Ok(_) => {}
             Err(error) => tracing::warn!(error = %error, "could not provision portal addresses"),
+        }
+        // Booking requests nobody has answered: remind staff, then tell the owners.
+        match aarogyam_notify::remind(&db, time::OffsetDateTime::now_utc(), OpenHours::DEFAULT)
+            .await
+        {
+            Ok(report) if report.reminded + report.escalated > 0 => tracing::info!(
+                open = report.open,
+                reminded = report.reminded,
+                escalated = report.escalated,
+                "booking requests reminded"
+            ),
+            Ok(_) => {}
+            Err(error) => tracing::warn!(error = %error, "could not remind booking requests"),
         }
         match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) => tracing::info!(
@@ -534,6 +593,27 @@ async fn admin(config: Config, action: Admin) -> anyhow::Result<()> {
             .context("could not add the member")?
             .context("no clinic with that --clinic slug, or it has no role with that --role key")?;
             tracing::info!(%membership_id, auth_uid = %person.auth_uid, role = role.trim(), "member added");
+        }
+        Admin::RetentionYears {
+            clinic,
+            years,
+            default,
+        } => {
+            anyhow::ensure!(years.is_some() != default, "give --years N or --default");
+            let years = years
+                .map(aarogyam_domain::retention::PatientRetentionYears::new)
+                .transpose()
+                .map_err(|error| anyhow::anyhow!("--years {error}"))?;
+            let db = owner_db(&config)?;
+            let id = aarogyam_app::erasure::clinic(&db, clinic.trim())
+                .await?
+                .context("no clinic with that --clinic slug")?;
+            aarogyam_app::erasure::set_patient_years(&db, id, years).await?;
+            tracing::info!(
+                clinic = clinic.trim(),
+                years = years.map_or(0, aarogyam_domain::retention::PatientRetentionYears::get),
+                "patient record retention set (0: the default)"
+            );
         }
     }
     Ok(())
@@ -635,7 +715,7 @@ impl Person {
 async fn retention(config: &Config, sample: i32, apply: bool) -> anyhow::Result<()> {
     anyhow::ensure!(
         !apply,
-        "--apply is not built yet: erasure and anonymisation are designed in docs/decisions.md (Retention). Nothing was changed."
+        "retention is a report only: erase patient records with `aarogyam erase` (a dry run unless --apply --clinic <slug>). Nothing was changed."
     );
     let db = owner_db(config)?;
     let now = time::OffsetDateTime::now_utc();

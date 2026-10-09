@@ -73,6 +73,7 @@ impl From<TokenView> for QueueToken {
                 full_name: row.patient_name,
                 sex: row.patient_sex,
                 age_years: view.patient_age_years,
+                registration_incomplete: row.patient_registration_incomplete,
             },
             practitioner: row.practitioner_id.zip(row.practitioner_name).map(
                 |(id, display_name)| PractitionerBrief {

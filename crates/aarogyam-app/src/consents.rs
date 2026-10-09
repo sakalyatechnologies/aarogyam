@@ -11,6 +11,7 @@ use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::error::AppError;
+use crate::notices;
 use crate::scope::staff_scope as scope;
 use crate::visits::require_patient;
 
@@ -26,6 +27,8 @@ pub struct ConsentView {
     pub purpose: Purpose,
     /// The notice version they were shown.
     pub notice_version: String,
+    /// The clinic's published notice they were shown, when recorded against one.
+    pub notice_id: Option<Uuid>,
     /// When they agreed.
     pub given_at: OffsetDateTime,
     /// How.
@@ -52,6 +55,7 @@ fn view(row: ConsentRow) -> Result<ConsentView, AppError> {
         id: row.id,
         purpose: Purpose::parse(&row.purpose).map_err(unknown("purpose"))?,
         notice_version: row.notice_version,
+        notice_id: row.notice_id,
         given_at: row.given_at,
         method: Method::parse(&row.method).map_err(unknown("method"))?,
         recorded_by: row.recorded_by_name.unwrap_or_default(),
@@ -98,8 +102,11 @@ pub async fn list(
 pub struct Give {
     /// What the patient agreed to.
     pub purpose: Purpose,
-    /// The notice version they were shown.
-    pub notice_version: String,
+    /// The published notice they were shown; the clinic's current notice when neither this
+    /// nor `notice_version` is given.
+    pub notice_id: Option<Uuid>,
+    /// A notice label, for consents taken against a notice that isn't published here.
+    pub notice_version: Option<String>,
     /// When they agreed; now when absent.
     pub given_at: Option<OffsetDateTime>,
     /// How.
@@ -122,8 +129,6 @@ pub async fn give(
     input: &Give,
 ) -> Result<ConsentView, AppError> {
     actor.require(Permission::PatientsWrite)?;
-    let version = consent::version(&input.notice_version)
-        .map_err(|error| AppError::invalid("notice_version", error))?;
     let note =
         consent::note(input.note.as_deref()).map_err(|error| AppError::invalid("note", error))?;
     if input
@@ -134,12 +139,15 @@ pub async fn give(
     }
     db.scoped(&scope(actor, request_id), async |tx| {
         require_patient(tx, patient_id, actor.reach(Permission::PatientsWrite)).await?;
+        let (version, notice_id) =
+            notices::resolve(tx, input.notice_id, input.notice_version.as_deref()).await?;
         let id = dal::insert(
             tx.conn(),
             &NewConsent {
                 patient_id: patient_id.uuid(),
                 purpose: input.purpose.as_str(),
-                notice_version: version,
+                notice_version: &version,
+                notice_id,
                 given_at: input.given_at,
                 method: input.method.as_str(),
                 recorded_by: actor.membership_id.uuid(),
@@ -196,6 +204,10 @@ pub async fn withdraw(
             note,
         )
         .await?;
+        let purpose =
+            Purpose::parse(&found.purpose).map_err(|_| AppError::Internal("unknown purpose"))?;
+        // Stops the patient's queued messages of that purpose (none can be queued yet).
+        crate::contact::cancel_queued(PatientId::from_uuid(found.patient_id), purpose);
         let rows = dal::list(tx.conn(), found.patient_id, None)
             .await?
             .ok_or(AppError::NotFound("patient"))?;

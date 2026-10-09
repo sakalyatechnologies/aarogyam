@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select c.id, c.purpose, c.notice_version, c.given_at, c.method, c.recorded_by,\n                  (select u.display_name from aarogyam.memberships m\n                   join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = c.org_id and m.id = c.recorded_by) as recorded_by_name,\n                  c.status, c.withdrawn_at,\n                  (select u.display_name from aarogyam.memberships m\n                   join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = c.org_id and m.id = c.withdrawn_by) as withdrawn_by_name,\n                  c.withdrawn_method, c.note, c.withdrawal_note\n           from aarogyam.patient_consents c\n           where c.patient_id = $1\n           order by c.given_at desc, c.id desc",
+  "query": "select c.id, c.purpose, c.notice_version, c.notice_id, c.given_at, c.method, c.recorded_by,\n                  (select u.display_name from aarogyam.memberships m\n                   join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = c.org_id and m.id = c.recorded_by) as recorded_by_name,\n                  c.status, c.withdrawn_at,\n                  (select u.display_name from aarogyam.memberships m\n                   join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = c.org_id and m.id = c.withdrawn_by) as withdrawn_by_name,\n                  c.withdrawn_method, c.note, c.withdrawal_note\n           from aarogyam.patient_consents c\n           where c.patient_id = $1\n           order by c.given_at desc, c.id desc",
   "describe": {
     "columns": [
       {
@@ -38,6 +38,17 @@
       },
       {
         "ordinal": 3,
+        "name": "notice_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patient_consents",
+            "name": "notice_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
         "name": "given_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -48,7 +59,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "method",
         "type_info": "Text",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "recorded_by",
         "type_info": "Uuid",
         "origin": {
@@ -70,13 +81,13 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "recorded_by_name",
         "type_info": "Text",
         "origin": "Expression"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "status",
         "type_info": "Text",
         "origin": {
@@ -87,7 +98,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "withdrawn_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -98,13 +109,13 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "withdrawn_by_name",
         "type_info": "Text",
         "origin": "Expression"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "withdrawn_method",
         "type_info": "Text",
         "origin": {
@@ -115,7 +126,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "note",
         "type_info": "Text",
         "origin": {
@@ -126,7 +137,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "withdrawal_note",
         "type_info": "Text",
         "origin": {
@@ -146,6 +157,7 @@
       false,
       false,
       false,
+      true,
       false,
       false,
       false,
@@ -158,5 +170,5 @@
       true
     ]
   },
-  "hash": "548e140adda76a87a474384bde6985f6d653889530640dfc2a21a19e0472b667"
+  "hash": "d43a09aed5ab6ab7c4740d7f4a616b136c8e3090e4ca5f7d365e0053d5aa1dee"
 }

@@ -218,6 +218,67 @@
         ]
       }
     },
+    "/api/v1/appointments/{id}/check-in": {
+      "post": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Checks in a booked patient in one step: completes their registration (sex, age or date of\nbirth), records reported allergies or \"No known allergies\" and desk consents, and marks the\nappointment arrived, issuing its queue token. For online sign-ups, which arrive with only a\nname, email and phone. Checking in again records the details without a second token.",
+        "operationId": "checkInAppointment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The appointment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckedIn"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks intake.write, patients.write or appointments.write"
+          },
+          "404": {
+            "description": "No such appointment in this clinic"
+          },
+          "409": {
+            "description": "The appointment can't arrive from its status, or \"No known allergies\" with an allergy on record"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/appointments/{id}/status": {
       "post": {
         "tags": [
@@ -539,6 +600,155 @@
             "description": "Too many reports from this address"
           }
         }
+      }
+    },
+    "/api/v1/clinic-hours": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "The clinic's opening hours, every branch.",
+        "operationId": "getClinicHours",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicHours"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Replaces one branch's opening hours and returns them. The Analytics page counts chair\nutilization against them; without any it assumes nine hours a day.",
+        "operationId": "setClinicHours",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClinicHoursChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicHours"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad or overlapping shifts, or an unknown branch"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/consent-notices": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Every version of the clinic's privacy notice, newest (current) first.",
+        "operationId": "listConsentNotices",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentNoticeList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Publishes a new version of the clinic's notice; it becomes the current one, which consents\nrecord from now on. Versions are never edited.",
+        "operationId": "publishConsentNotice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishNotice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentNotice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad label or text"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "409": {
+            "description": "Another version was published at the same moment"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
       }
     },
     "/api/v1/consents/{id}/withdraw": {
@@ -4231,6 +4441,76 @@
         ]
       }
     },
+    "/api/v1/patient-duplicates": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Self-registered records from online booking whose phone matches an existing patient, for\nthe front desk to merge or dismiss. Only flags whose two records are in reach.",
+        "operationId": "listPatientDuplicates",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicateList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patient-duplicates/{id}/dismiss": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Dismisses a flag: the two records are different people.",
+        "operationId": "dismissPatientDuplicate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The flag",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Dismissed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such open flag in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patient-links/{id}/confirm": {
       "post": {
         "tags": [
@@ -5762,6 +6042,67 @@
           },
           "404": {
             "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/merge": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Merges a self-registered record (from online booking) into an existing patient: its\nappointments, queue tokens, patient-app links, identifiers and consents move, the existing\npatient gets its email if it has none, and the record is marked merged. Refused when the\nself-registered record has any clinical or billing record. Every change is audited.",
+        "operationId": "mergePatient",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The self-registered record to merge away",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Merged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a self-registered record, or the same patient"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "Already merged, or the record has clinical or billing data"
           }
         },
         "security": [
@@ -11101,7 +11442,7 @@
           "open_minutes_per_day": {
             "type": "integer",
             "format": "int64",
-            "description": "Minutes a chair is assumed open each day (540: clinic hours are not stored yet)."
+            "description": "Minutes a chair is assumed open each day when its branch has no opening hours (540)."
           },
           "patients": {
             "$ref": "#/components/schemas/PatientBreakdown",
@@ -11204,7 +11545,8 @@
         "description": "A chair in the report.",
         "required": [
           "id",
-          "name"
+          "name",
+          "uses_clinic_hours"
         ],
         "properties": {
           "id": {
@@ -11214,6 +11556,10 @@
           "name": {
             "type": "string",
             "description": "Its name."
+          },
+          "uses_clinic_hours": {
+            "type": "boolean",
+            "description": "Whether its open minutes come from its branch's opening hours (`GET /clinic-hours`);\notherwise `open_minutes_per_day` is assumed on every day."
           }
         }
       },
@@ -11515,7 +11861,8 @@
             ],
             "description": "New start (RFC 3339)."
           }
-        }
+        },
+        "additionalProperties": false
       },
       "AppointmentList": {
         "type": "object",
@@ -12203,7 +12550,7 @@
           "open_minutes": {
             "type": "integer",
             "format": "int64",
-            "description": "Minutes open: `open_minutes_per_day` for each day of the period inside the range."
+            "description": "Minutes open on the days of the period inside the range: from the chair's branch opening\nhours (closed days count zero), or `open_minutes_per_day` a day without them."
           },
           "room_id": {
             "type": "string",
@@ -12305,6 +12652,103 @@
               "null"
             ],
             "description": "The visit that recorded it."
+          }
+        }
+      },
+      "CheckInRequest": {
+        "type": "object",
+        "description": "What the desk records at check-in. Every field is optional; details left out stay as they\nare.",
+        "properties": {
+          "age_years": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Age in years, when the date of birth is unknown.",
+            "minimum": 0
+          },
+          "allergies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Substances the patient says they are allergic to (at most 20), recorded as\npatient-reported until a clinician confirms them."
+          },
+          "consents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeskConsentFields"
+            },
+            "description": "Consents given at the desk, each purpose once."
+          },
+          "date_of_birth": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Date of birth, `YYYY-MM-DD`. Not with `age_years`."
+          },
+          "no_known_allergies": {
+            "type": "boolean",
+            "description": "The patient knows of no allergies. Not together with `allergies`."
+          },
+          "notice_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The published notice shown (`GET /consent-notices`); the clinic's current notice when\nthis and `notice_version` are left out."
+          },
+          "notice_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A notice label, for a notice that isn't published here (prefer `notice_id`)."
+          },
+          "sex": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`female`, `male`, `other` or `unknown`."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CheckedIn": {
+        "type": "object",
+        "description": "What a check-in did.",
+        "required": [
+          "appointment",
+          "allergies_recorded",
+          "consents_recorded"
+        ],
+        "properties": {
+          "allergies_recorded": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many allergies were recorded.",
+            "minimum": 0
+          },
+          "appointment": {
+            "$ref": "#/components/schemas/Appointment",
+            "description": "The appointment, arrived; its patient's `registration_incomplete` says whether sex or\nage is still missing."
+          },
+          "consents_recorded": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The purposes whose consent was recorded."
+          },
+          "queue_token_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its queue token."
           }
         }
       },
@@ -12489,6 +12933,46 @@
             "description": "Its time zone."
           }
         }
+      },
+      "ClinicHours": {
+        "type": "object",
+        "description": "The clinic's opening hours.",
+        "required": [
+          "shifts"
+        ],
+        "properties": {
+          "shifts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OpeningShift"
+            },
+            "description": "By branch, weekday and start; split shifts are two entries. Empty when not set."
+          }
+        }
+      },
+      "ClinicHoursChange": {
+        "type": "object",
+        "description": "A branch's new week.",
+        "required": [
+          "shifts"
+        ],
+        "properties": {
+          "branch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Branch; the default branch when left out."
+          },
+          "shifts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OpeningTime"
+            },
+            "description": "Shifts, at most 28, none overlapping on a day. Empty clears the branch's hours."
+          }
+        },
+        "additionalProperties": false
       },
       "ClinicInvitation": {
         "type": "object",
@@ -13175,6 +13659,13 @@
             ],
             "description": "A short remark."
           },
+          "notice_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic's published notice shown (`GET /consent-notices`); null for consents recorded\nagainst a label only."
+          },
           "notice_version": {
             "type": "string",
             "description": "The clinic's label for the notice text the patient was shown."
@@ -13234,6 +13725,63 @@
               "$ref": "#/components/schemas/Consent"
             },
             "description": "The consents, given and withdrawn."
+          }
+        }
+      },
+      "ConsentNotice": {
+        "type": "object",
+        "description": "One published version of the clinic's notice.",
+        "required": [
+          "id",
+          "version",
+          "label",
+          "body",
+          "published_at"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The notice text."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier; consents record it as `notice_id`."
+          },
+          "label": {
+            "type": "string",
+            "description": "The clinic's short label, such as `v2 2026-11`."
+          },
+          "published_at": {
+            "type": "string",
+            "description": "When it was published (RFC 3339)."
+          },
+          "published_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who published it."
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1 for the first version, then 2, 3, ..."
+          }
+        }
+      },
+      "ConsentNoticeList": {
+        "type": "object",
+        "description": "The clinic's notice versions.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsentNotice"
+            },
+            "description": "Newest first; the first is the current notice. Empty until the clinic publishes one\n(consents then record the template's label, `v1 2026-10`)."
           }
         }
       },
@@ -13731,6 +14279,22 @@
           }
         }
       },
+      "DuplicateList": {
+        "type": "object",
+        "description": "Open possible duplicates.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PossibleDuplicate"
+            },
+            "description": "Newest first, at most 200."
+          }
+        }
+      },
       "DuplicateRef": {
         "type": "object",
         "description": "The record a row duplicates.",
@@ -13756,6 +14320,43 @@
             ],
             "description": "Or an earlier row of the file.",
             "minimum": 0
+          }
+        }
+      },
+      "DuplicateSide": {
+        "type": "object",
+        "description": "One of the two records.",
+        "required": [
+          "id",
+          "number",
+          "full_name",
+          "sex"
+        ],
+        "properties": {
+          "age_years": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Age in whole years, when known.",
+            "minimum": 0
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Their name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "number": {
+            "type": "string",
+            "description": "Their number."
+          },
+          "sex": {
+            "type": "string",
+            "description": "`female`, `male`, `other` or `unknown`."
           }
         }
       },
@@ -15836,6 +16437,39 @@
           }
         }
       },
+      "MergeRequest": {
+        "type": "object",
+        "description": "Which patient to merge into.",
+        "required": [
+          "into_patient_id"
+        ],
+        "properties": {
+          "into_patient_id": {
+            "type": "string",
+            "description": "The existing patient that keeps its number and record."
+          }
+        },
+        "additionalProperties": false
+      },
+      "Merged": {
+        "type": "object",
+        "description": "What a merge did.",
+        "required": [
+          "patient_id",
+          "appointments_moved"
+        ],
+        "properties": {
+          "appointments_moved": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many appointments moved to it."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient that remains."
+          }
+        }
+      },
       "Meta": {
         "type": "object",
         "description": "What the API serves.",
@@ -17395,6 +18029,62 @@
           }
         }
       },
+      "OpeningShift": {
+        "type": "object",
+        "description": "A stretch of the week the clinic is open.",
+        "required": [
+          "branch_id",
+          "weekday",
+          "starts",
+          "ends"
+        ],
+        "properties": {
+          "branch_id": {
+            "type": "string",
+            "description": "The branch."
+          },
+          "ends": {
+            "type": "string",
+            "description": "Closing time, `HH:MM`."
+          },
+          "starts": {
+            "type": "string",
+            "description": "Opening time, `HH:MM`."
+          },
+          "weekday": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1 Monday to 7 Sunday.",
+            "minimum": 0
+          }
+        }
+      },
+      "OpeningTime": {
+        "type": "object",
+        "description": "One opening shift to save.",
+        "required": [
+          "weekday",
+          "starts",
+          "ends"
+        ],
+        "properties": {
+          "ends": {
+            "type": "string",
+            "description": "Closing time, `HH:MM`, after the opening time."
+          },
+          "starts": {
+            "type": "string",
+            "description": "Opening time, `HH:MM`."
+          },
+          "weekday": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1 Monday to 7 Sunday.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "OwnDentalTerm": {
         "type": "object",
         "description": "A procedure or material the clinic added.",
@@ -17964,7 +18654,8 @@
           "id",
           "number",
           "full_name",
-          "sex"
+          "sex",
+          "registration_incomplete"
         ],
         "properties": {
           "age_years": {
@@ -17987,6 +18678,10 @@
           "number": {
             "type": "string",
             "description": "Readable number, such as `SD-1042`."
+          },
+          "registration_incomplete": {
+            "type": "boolean",
+            "description": "Registered through online booking and still missing sex or age: complete the\nregistration at check-in (`POST /appointments/{id}/check-in`)."
           },
           "sex": {
             "type": "string",
@@ -19190,6 +19885,39 @@
           }
         }
       },
+      "PossibleDuplicate": {
+        "type": "object",
+        "description": "A self-registered record that may be an existing patient.",
+        "required": [
+          "id",
+          "reason",
+          "flagged_at",
+          "patient",
+          "candidate"
+        ],
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/DuplicateSide",
+            "description": "The existing patient it may be."
+          },
+          "flagged_at": {
+            "type": "string",
+            "description": "When it was flagged (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The flag."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/DuplicateSide",
+            "description": "The self-registered record from online booking."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why: `phone` (same phone, no email match)."
+          }
+        }
+      },
       "Practitioner": {
         "type": "object",
         "description": "A doctor who sees patients.",
@@ -19795,6 +20523,25 @@
             "description": "The procedures."
           }
         }
+      },
+      "PublishNotice": {
+        "type": "object",
+        "description": "A new version to publish.",
+        "required": [
+          "label",
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The full notice text, up to 20,000 characters."
+          },
+          "label": {
+            "type": "string",
+            "description": "A short label, 1 to 40 characters, such as `v2 2026-11`."
+          }
+        },
+        "additionalProperties": false
       },
       "QualityFailingTest": {
         "type": "object",
@@ -20420,7 +21167,6 @@
         "description": "A consent to record.",
         "required": [
           "purpose",
-          "notice_version",
           "method"
         ],
         "properties": {
@@ -20442,9 +21188,19 @@
             ],
             "description": "A short remark, up to 500 characters. No clinical detail."
           },
+          "notice_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The published notice shown (`GET /consent-notices`). Left out with `notice_version` also\nleft out, the clinic's current notice is recorded."
+          },
           "notice_version": {
-            "type": "string",
-            "description": "The clinic's label for the notice text shown, 1 to 40 characters, such as `v1 2026-10`."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A notice label such as `v1 2026-10`, for a notice that isn't published here (the\nearlier way; prefer `notice_id`)."
           },
           "purpose": {
             "type": "string",
@@ -23852,12 +24608,19 @@
             "type": "boolean",
             "description": "The patient knows of no allergies. Not together with `allergies`."
           },
+          "notice_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The published notice shown (`GET /consent-notices`); the clinic's current notice when\nthis and `notice_version` are left out."
+          },
           "notice_version": {
             "type": [
               "string",
               "null"
             ],
-            "description": "The notice version shown; the clinic's current notice (`v1 2026-10`) when left out."
+            "description": "A notice label, for a notice that isn't published here (prefer `notice_id`)."
           },
           "patient": {
             "oneOf": [

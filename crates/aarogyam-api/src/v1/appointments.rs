@@ -35,6 +35,9 @@ pub struct PatientBrief {
     pub sex: String,
     /// Age in whole years today.
     pub age_years: Option<u16>,
+    /// Registered through online booking and still missing sex or age: complete the
+    /// registration at check-in (`POST /appointments/{id}/check-in`).
+    pub registration_incomplete: bool,
 }
 
 /// A doctor as the calendar shows them.
@@ -126,6 +129,7 @@ impl From<AppointmentView> for Appointment {
                 full_name: row.patient_name,
                 sex: row.patient_sex,
                 age_years: view.patient_age_years,
+                registration_incomplete: row.patient_registration_incomplete,
             },
             practitioner: PractitionerBrief {
                 id: row.practitioner_id,
@@ -333,6 +337,7 @@ pub(crate) async fn book(
 /// Changes to an appointment. Fields left out stay as they are; an empty `room_id`, `reason`
 /// or `notes` clears it. A new start without a new end keeps the length.
 #[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AppointmentChanges {
     /// Another doctor.
     pub practitioner_id: Option<String>,

@@ -1,8 +1,9 @@
 //! A walk-in in one step: register or pick the patient, record reported allergies and desk
 //! consents, and issue a queue token.
 
+use aarogyam_app::intake::{DeskConsent, Intake};
 use aarogyam_app::patients::RegisterPatient;
-use aarogyam_app::walk_ins::{self as app, DeskConsent, NewWalkIn, WalkInPatient, WalkInView};
+use aarogyam_app::walk_ins::{self as app, NewWalkIn, WalkInPatient, WalkInView};
 use aarogyam_domain::consent::{Method, Purpose};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{BranchId, PatientId, PractitionerId};
@@ -55,7 +56,10 @@ pub struct WalkInRequest {
     /// they are.
     #[serde(default)]
     pub consents: Vec<DeskConsentFields>,
-    /// The notice version shown; the clinic's current notice (`v1 2026-10`) when left out.
+    /// The published notice shown (`GET /consent-notices`); the clinic's current notice when
+    /// this and `notice_version` are left out.
+    pub notice_id: Option<String>,
+    /// A notice label, for a notice that isn't published here (prefer `notice_id`).
     pub notice_version: Option<String>,
 }
 
@@ -110,16 +114,7 @@ fn input(body: WalkInRequest) -> Result<NewWalkIn, ApiFailure> {
         }
         _ => return Err(bad("patient", "give either patient or patient_id").into()),
     };
-    let consents = body
-        .consents
-        .iter()
-        .map(|c| {
-            Ok(DeskConsent {
-                purpose: Purpose::parse(&c.purpose).map_err(|_| bad("purpose", "unknown value"))?,
-                method: Method::parse(&c.method).map_err(|_| bad("method", "unknown value"))?,
-            })
-        })
-        .collect::<Result<Vec<_>, ApiFailure>>()?;
+    let consents = desk_consents(&body.consents)?;
     Ok(NewWalkIn {
         patient,
         practitioner_id: body
@@ -132,11 +127,31 @@ fn input(body: WalkInRequest) -> Result<NewWalkIn, ApiFailure> {
             .as_deref()
             .map(|text| parse_id("branch_id", text).map(BranchId::from_uuid))
             .transpose()?,
-        allergies: body.allergies,
-        no_known_allergies: body.no_known_allergies,
-        consents,
-        notice_version: body.notice_version,
+        intake: Intake {
+            allergies: body.allergies,
+            no_known_allergies: body.no_known_allergies,
+            consents,
+            notice_id: body
+                .notice_id
+                .as_deref()
+                .map(|text| parse_id("notice_id", text))
+                .transpose()?,
+            notice_version: body.notice_version,
+        },
     })
+}
+
+/// Parses consents given at the desk.
+pub(crate) fn desk_consents(fields: &[DeskConsentFields]) -> Result<Vec<DeskConsent>, ApiFailure> {
+    fields
+        .iter()
+        .map(|c| {
+            Ok(DeskConsent {
+                purpose: Purpose::parse(&c.purpose).map_err(|_| bad("purpose", "unknown value"))?,
+                method: Method::parse(&c.method).map_err(|_| bad("method", "unknown value"))?,
+            })
+        })
+        .collect()
 }
 
 /// Registers a walk-in in one step, in one transaction: the patient (new, or registered and

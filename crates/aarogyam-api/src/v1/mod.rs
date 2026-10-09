@@ -7,11 +7,14 @@ pub(crate) mod appointments;
 pub(crate) mod auth;
 pub(crate) mod billing;
 pub(crate) mod chart;
+pub(crate) mod check_in;
 pub(crate) mod client_errors;
+pub(crate) mod clinic_hours;
 pub(crate) mod consents;
 pub(crate) mod console;
 pub(crate) mod console_support;
 pub(crate) mod dental_terms;
+pub(crate) mod duplicates;
 pub(crate) mod expenses;
 pub(crate) mod facts;
 pub(crate) mod files;
@@ -24,6 +27,7 @@ pub(crate) mod legal_hold;
 pub(crate) mod letterhead;
 pub(crate) mod me;
 pub(crate) mod meta;
+pub(crate) mod notices;
 pub(crate) mod notifications;
 pub(crate) mod onboarding;
 pub(crate) mod patient_app;
@@ -172,6 +176,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(schedule::hours).put(schedule::set_hours),
         )
         .route(
+            "/clinic-hours",
+            get(clinic_hours::hours).put(clinic_hours::set_hours),
+        )
+        .route(
             "/leave-blocks",
             get(schedule::leave).post(schedule::add_leave),
         )
@@ -182,6 +190,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/appointments/{id}", patch(appointments::change))
         .route("/appointments/{id}/status", post(appointments::set_status))
+        .route("/appointments/{id}/check-in", post(check_in::check_in))
         .route("/queue", get(queue::list).post(queue::walk_in))
         .route("/queue/{id}/status", post(queue::set_status))
         .route("/queue/{id}/start-visit", post(queue::start_visit))
@@ -205,6 +214,16 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/support-grants/{id}/revoke", post(support_grants::revoke))
         .route("/support-grants/{id}/actions", get(support_grants::actions))
+        .route(
+            "/consent-notices",
+            get(notices::list).post(notices::publish),
+        )
+        .route("/patient-duplicates", get(duplicates::list))
+        .route(
+            "/patient-duplicates/{id}/dismiss",
+            post(duplicates::dismiss),
+        )
+        .route("/patients/{id}/merge", post(duplicates::merge))
         .route("/patients/{id}/app-access", get(patient_links::access))
         .route(
             "/patients/{id}/app-invitations",

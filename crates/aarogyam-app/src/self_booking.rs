@@ -345,6 +345,8 @@ async fn patient_for(
         },
     )
     .await?;
+    // Same phone, no email match: never merged here; the front desk resolves the flag.
+    crate::duplicates::flag_by_phone(tx, row.id, phone).await?;
     Ok((row.id, "new"))
 }
 

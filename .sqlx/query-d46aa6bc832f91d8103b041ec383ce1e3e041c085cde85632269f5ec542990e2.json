@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.may_contact($1, $2, $3) as \"allowed!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "allowed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d46aa6bc832f91d8103b041ec383ce1e3e041c085cde85632269f5ec542990e2"
+}

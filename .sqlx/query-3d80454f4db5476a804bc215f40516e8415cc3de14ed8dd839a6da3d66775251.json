@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select a.id, a.branch_id, a.room_id, r.name as \"room_name?\", a.starts_at, a.ends_at,\n                  a.status, a.kind, a.reason, a.notes, a.source, a.cancel_reason, a.arrived_at,\n                  a.seated_at, a.completed_at, a.row_version,\n                  a.patient_id, p.number as patient_number, p.full_name as patient_name,\n                  p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,\n                  p.birth_date_estimated as patient_birth_date_estimated,\n                  a.practitioner_id, d.display_name as practitioner_name,\n                  d.calendar_color as practitioner_color, q.token_number as \"token_number?\", q.id as \"token_id?\"\n           from aarogyam.appointments a\n           join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id\n           join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id\n           left join aarogyam.rooms r on r.org_id = a.org_id and r.id = a.room_id\n           left join aarogyam.queue_tokens q on q.org_id = a.org_id and q.appointment_id = a.id\n           where a.id = $1 and a.deleted_at is null\n             and app.practitioner_in_reach(a.practitioner_id, $2)",
+  "query": "select a.id, a.branch_id, a.room_id, r.name as \"room_name?\", a.starts_at, a.ends_at,\n                  a.status, a.kind, a.reason, a.notes, a.source, a.cancel_reason, a.arrived_at,\n                  a.seated_at, a.completed_at, a.row_version,\n                  a.patient_id, p.number as patient_number, p.full_name as patient_name,\n                  p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,\n                  p.birth_date_estimated as patient_birth_date_estimated,\n                  ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))\n                    as \"patient_registration_incomplete!\",\n                  a.practitioner_id, d.display_name as practitioner_name,\n                  d.calendar_color as practitioner_color, q.token_number as \"token_number?\", q.id as \"token_id?\"\n           from aarogyam.appointments a\n           join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id\n           join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id\n           left join aarogyam.rooms r on r.org_id = a.org_id and r.id = a.room_id\n           left join aarogyam.queue_tokens q on q.org_id = a.org_id and q.appointment_id = a.id\n           where a.deleted_at is null and a.starts_at >= $1 and a.starts_at < $2\n             and ($3::uuid is null or a.room_id = $3)\n             and ($4::uuid is null or a.practitioner_id = $4)\n             and app.practitioner_in_reach(a.practitioner_id, $5)\n           order by a.starts_at, r.name, a.id",
   "describe": {
     "columns": [
       {
@@ -247,6 +247,12 @@
       },
       {
         "ordinal": 22,
+        "name": "patient_registration_incomplete!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 23,
         "name": "practitioner_id",
         "type_info": "Uuid",
         "origin": {
@@ -257,7 +263,7 @@
         }
       },
       {
-        "ordinal": 23,
+        "ordinal": 24,
         "name": "practitioner_name",
         "type_info": "Text",
         "origin": {
@@ -268,7 +274,7 @@
         }
       },
       {
-        "ordinal": 24,
+        "ordinal": 25,
         "name": "practitioner_color",
         "type_info": "Text",
         "origin": {
@@ -279,7 +285,7 @@
         }
       },
       {
-        "ordinal": 25,
+        "ordinal": 26,
         "name": "token_number?",
         "type_info": "Int4",
         "origin": {
@@ -290,7 +296,7 @@
         }
       },
       {
-        "ordinal": 26,
+        "ordinal": 27,
         "name": "token_id?",
         "type_info": "Uuid",
         "origin": {
@@ -303,6 +309,9 @@
     ],
     "parameters": {
       "Left": [
+        "Timestamptz",
+        "Timestamptz",
+        "Uuid",
         "Uuid",
         "Uuid"
       ]
@@ -311,31 +320,32 @@
       false,
       false,
       true,
-      true,
-      false,
-      false,
-      false,
-      false,
-      true,
-      true,
-      false,
-      true,
-      true,
-      true,
-      true,
       false,
       false,
       false,
       false,
       false,
       true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
       false,
       false,
       false,
       false,
       true,
-      true
+      false,
+      null,
+      false,
+      false,
+      false,
+      false,
+      false
     ]
   },
-  "hash": "8b8fc47aa87a2fdce6d26ffc1ffb7204fdc3cb5c8e4df57067a991ff6e854b34"
+  "hash": "3d80454f4db5476a804bc215f40516e8415cc3de14ed8dd839a6da3d66775251"
 }

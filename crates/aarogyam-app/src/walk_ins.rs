@@ -3,10 +3,8 @@
 //! in one clinic transaction. Allergies recorded here are patient-reported until a clinician
 //! confirms them (docs/decisions.md, "Walk-in fast path").
 
-use aarogyam_dal::{consents, facts};
 use aarogyam_domain::access::ClinicActor;
-use aarogyam_domain::clinical::clinical_text;
-use aarogyam_domain::consent::{self, DEFAULT_NOTICE_VERSION, Method, Purpose};
+use aarogyam_domain::consent::Purpose;
 use aarogyam_domain::ids::{BranchId, PatientId, PractitionerId};
 use aarogyam_domain::permission::Permission;
 use sakalya_db::Db;
@@ -15,14 +13,11 @@ use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
+use crate::intake::{self, Intake};
 use crate::patients::{PatientView, RegisterPatient, existing, insert_new, validate};
 use crate::queue::{TokenView, check_doctor, issue_token, view as token_view};
 use crate::schedule::resolve_branch;
 use crate::scope::staff_scope as scope;
-use crate::visits::invalid;
-
-/// Most allergies one walk-in may report.
-pub const MAX_ALLERGIES: usize = 20;
 
 /// Who the walk-in is.
 #[derive(Debug, Clone)]
@@ -31,15 +26,6 @@ pub enum WalkInPatient {
     New(RegisterPatient),
     /// A patient already registered (found by the phone lookup).
     Existing(PatientId),
-}
-
-/// A consent given at the desk.
-#[derive(Debug, Clone, Copy)]
-pub struct DeskConsent {
-    /// What the patient agreed to.
-    pub purpose: Purpose,
-    /// How: usually verbal at the desk.
-    pub method: Method,
 }
 
 /// A walk-in as received.
@@ -51,14 +37,8 @@ pub struct NewWalkIn {
     pub practitioner_id: Option<PractitionerId>,
     /// Branch; the default branch when absent.
     pub branch_id: Option<BranchId>,
-    /// Substances the patient says they are allergic to.
-    pub allergies: Vec<String>,
-    /// The patient knows of no allergies. Not with `allergies`.
-    pub no_known_allergies: bool,
-    /// Consents given at the desk.
-    pub consents: Vec<DeskConsent>,
-    /// The notice version shown; the default notice when absent.
-    pub notice_version: Option<String>,
+    /// Allergies or "No known allergies", and desk consents.
+    pub intake: Intake,
 }
 
 /// What a walk-in did.
@@ -74,42 +54,6 @@ pub struct WalkInView {
     pub allergies_recorded: u64,
     /// The purposes whose consent was recorded (ones already in force are left as they are).
     pub consents_recorded: Vec<Purpose>,
-}
-
-/// Checks what doesn't need the database: the allergy list, the consents and the notice version.
-fn check(input: &NewWalkIn) -> Result<(Vec<String>, String), AppError> {
-    if input.no_known_allergies && !input.allergies.is_empty() {
-        return Err(AppError::invalid(
-            "no_known_allergies",
-            "can't be given together with allergies",
-        ));
-    }
-    if input.allergies.len() > MAX_ALLERGIES {
-        return Err(AppError::invalid(
-            "allergies",
-            format!("at most {MAX_ALLERGIES}"),
-        ));
-    }
-    let allergies = input
-        .allergies
-        .iter()
-        .map(|text| clinical_text(text, 1, 200).map_err(invalid("allergies")))
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut purposes: Vec<Purpose> = input.consents.iter().map(|c| c.purpose).collect();
-    purposes.sort_by_key(|p| p.as_str());
-    purposes.dedup();
-    if purposes.len() != input.consents.len() {
-        return Err(AppError::invalid("consents", "name each purpose once"));
-    }
-    let version = consent::version(
-        input
-            .notice_version
-            .as_deref()
-            .unwrap_or(DEFAULT_NOTICE_VERSION),
-    )
-    .map_err(|error| AppError::invalid("notice_version", error))?
-    .to_owned();
-    Ok((allergies, version))
 }
 
 /// Registers (or takes) the patient, records allergies or "No known allergies" and the desk
@@ -130,7 +74,7 @@ pub async fn register(
     actor.require(Permission::PatientsWrite)?;
     actor.require(Permission::AppointmentsWrite)?;
     actor.require(Permission::IntakeWrite)?;
-    let (allergies, version) = check(&input)?;
+    let intake = intake::check(&input.intake)?;
     let today = clinic_today(&actor.timezone, now);
     let new_patient = match &input.patient {
         WalkInPatient::New(details) => Some(validate(details, today)?),
@@ -149,42 +93,8 @@ pub async fn register(
             }
         };
         let patient_id = patient.id.uuid();
-        let allergies_recorded = if allergies.is_empty() {
-            0
-        } else {
-            facts::insert_reported(tx.conn(), patient_id, &allergies).await?
-        };
-        if input.no_known_allergies && !facts::mark_none_known(tx.conn(), patient_id).await? {
-            return Err(AppError::Conflict(
-                "this patient has an allergy on record; a doctor must review it first",
-            ));
-        }
-        let consents_recorded = if input.consents.is_empty() {
-            Vec::new()
-        } else {
-            let purposes: Vec<String> = input
-                .consents
-                .iter()
-                .map(|c| c.purpose.as_str().to_owned())
-                .collect();
-            let methods: Vec<String> = input
-                .consents
-                .iter()
-                .map(|c| c.method.as_str().to_owned())
-                .collect();
-            consents::insert_many(
-                tx.conn(),
-                patient_id,
-                &purposes,
-                &methods,
-                &version,
-                actor.membership_id.uuid(),
-            )
-            .await?
-            .iter()
-            .map(|key| Purpose::parse(key).map_err(|_| AppError::Internal("unknown purpose")))
-            .collect::<Result<Vec<_>, _>>()?
-        };
+        let (allergies_recorded, consents_recorded) =
+            intake::record(tx, patient_id, &intake, actor.membership_id.uuid()).await?;
         let branch_id = resolve_branch(tx, input.branch_id).await?;
         let token_id = issue_token(
             tx,
@@ -211,28 +121,27 @@ pub async fn register(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aarogyam_domain::consent::Method;
+    use intake::{DeskConsent, MAX_ALLERGIES};
 
-    fn walk_in() -> NewWalkIn {
+    fn walk_in(intake: Intake) -> NewWalkIn {
         NewWalkIn {
             patient: WalkInPatient::Existing(PatientId::new_v7()),
             practitioner_id: None,
             branch_id: None,
-            allergies: Vec::new(),
-            no_known_allergies: false,
-            consents: Vec::new(),
-            notice_version: None,
+            intake,
         }
     }
 
     #[test]
     fn allergies_and_none_known_exclude_each_other() {
-        let input = NewWalkIn {
+        let input = walk_in(Intake {
             allergies: vec!["Penicillin".into()],
             no_known_allergies: true,
-            ..walk_in()
-        };
+            ..Intake::default()
+        });
         assert!(matches!(
-            check(&input),
+            intake::check(&input.intake),
             Err(AppError::Invalid {
                 field: "no_known_allergies",
                 ..
@@ -241,19 +150,20 @@ mod tests {
     }
 
     #[test]
-    fn the_default_notice_is_used_and_purposes_are_named_once() {
-        let (_, version) = check(&walk_in()).unwrap_or_default();
-        assert_eq!(version, DEFAULT_NOTICE_VERSION);
+    fn no_notice_is_needed_and_purposes_are_named_once() {
+        // No notice named: the clinic's current notice is chosen when recording.
+        let checked = intake::check(&Intake::default()).map(|c| c.notice_version);
+        assert_eq!(checked.ok(), Some(None));
         let care = DeskConsent {
             purpose: Purpose::Care,
             method: Method::Verbal,
         };
-        let twice = NewWalkIn {
+        let twice = Intake {
             consents: vec![care, care],
-            ..walk_in()
+            ..Intake::default()
         };
         assert!(matches!(
-            check(&twice),
+            intake::check(&twice),
             Err(AppError::Invalid {
                 field: "consents",
                 ..
@@ -263,15 +173,15 @@ mod tests {
 
     #[test]
     fn blank_or_too_many_allergies_are_refused() {
-        let blank = NewWalkIn {
+        let blank = Intake {
             allergies: vec!["  ".into()],
-            ..walk_in()
+            ..Intake::default()
         };
-        assert!(check(&blank).is_err());
-        let many = NewWalkIn {
+        assert!(intake::check(&blank).is_err());
+        let many = Intake {
             allergies: vec!["Dust".into(); MAX_ALLERGIES + 1],
-            ..walk_in()
+            ..Intake::default()
         };
-        assert!(check(&many).is_err());
+        assert!(intake::check(&many).is_err());
     }
 }

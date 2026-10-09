@@ -661,8 +661,9 @@ pub async fn open(
     Ok(row)
 }
 
-/// The oldest active patient of the current clinic with this email, if any. Callers pass an
-/// address that was verified; the clinic's records are never matched on an unverified one.
+/// The oldest active patient of the current clinic with this email, if any, counting a record
+/// merged into an active patient as that patient. Callers pass an address that was verified;
+/// the clinic's records are never matched on an unverified one.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -672,11 +673,14 @@ pub async fn find_by_email(
 ) -> Result<Option<PatientRow>, DbError> {
     let row = sqlx::query_as!(
         PatientRow,
-        r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
-                  preferred_language, status, created_at, last_visit_at, row_version
-           from aarogyam.patients
-           where email = $1 and status = 'active' and deleted_at is null
-           order by created_at, id
+        r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at,
+                  p.last_visit_at, p.row_version
+           from aarogyam.patients m
+           join aarogyam.patients p on p.org_id = m.org_id and p.id = coalesce(m.merged_into_id, m.id)
+           where m.email = $1 and m.status in ('active', 'merged') and m.deleted_at is null
+             and p.status = 'active' and p.deleted_at is null
+           order by p.created_at, p.id
            limit 1"#,
         email
     )

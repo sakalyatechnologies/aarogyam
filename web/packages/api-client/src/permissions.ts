@@ -36,6 +36,8 @@ export const PERMISSIONS = [
   "labs.read",
   /** Keep labs and contacts, record and move lab orders, remind a lab. */
   "labs.write",
+  /** Send patients email messages from the clinic (owner, doctor and front desk by default). */
+  "messages.send",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

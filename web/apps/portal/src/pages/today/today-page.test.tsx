@@ -7,6 +7,7 @@ import type { Fixtures } from "@aarogyam/api-client/fake";
 
 import { PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
 import { PX_PER_HOUR, TIMELINE_HEIGHT, scrollTopForNow } from "./day-timeline.js";
+import { idleTitle } from "./today-page.js";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -74,6 +75,41 @@ describe("Team today", () => {
     expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Name", "Role", "Status"]);
     expect(within(table).getAllByText(/^(In|On leave|Active)$/).length).toBeGreaterThan(0);
     expect(await within(table).findAllByText("Active")).not.toHaveLength(0);
+  });
+});
+
+describe("Today's hero with nobody next", () => {
+  const counts = { total: 3, booked: 0, arrived: 0, in_chair: 0, done: 0, cancelled: 0, no_shows: 0, waiting: 0 };
+  it("never says nobody is booked beside a full ring", () => {
+    expect(idleTitle({ ...counts, total: 0 }, false)).toBe("No appointments booked today");
+    expect(idleTitle({ ...counts, done: 3 }, false)).toBe("All of today's appointments are done.");
+    expect(idleTitle({ ...counts, done: 3 }, true)).toBe("All of today's appointments are done.");
+    expect(idleTitle({ ...counts, done: 2, no_shows: 1 }, false)).toBe("No more appointments today");
+    expect(idleTitle({ ...counts, done: 1, arrived: 2 }, true)).toBe("Everyone booked today has arrived");
+  });
+});
+
+describe("Recent patients on Today", () => {
+  const headers = async () => {
+    const table = await screen.findByRole("table", { name: "Recent patients" });
+    return within(table).getAllByRole("columnheader").map((h) => h.textContent);
+  };
+
+  it("drops the Treatment and Bill columns when no row has either", async () => {
+    const backend = fakeApi((fixtures) => {
+      for (const a of fixtures.appointments) a.reason = null;
+      fixtures.invoices = fixtures.invoices.filter((i) => i.status !== "issued");
+    });
+    renderPortal("/today", { as: PEOPLE.asha, backend });
+    expect(await headers()).toEqual(["Patient", "Status"]);
+  });
+
+  it("keeps Treatment when some row has one", async () => {
+    const backend = fakeApi((fixtures) => {
+      fixtures.invoices = fixtures.invoices.filter((i) => i.status !== "issued");
+    });
+    renderPortal("/today", { as: PEOPLE.asha, backend });
+    expect(await headers()).toEqual(["Patient", "Treatment", "Status"]);
   });
 });
 

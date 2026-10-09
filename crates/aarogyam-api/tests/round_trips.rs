@@ -263,6 +263,55 @@ async fn support_routes(app: &TestApp, owner: &str) -> [Route; 1] {
     )]
 }
 
+/// A direct conversation with a message naming a patient: the chat list, a page (with its
+/// access record in the same statement), the conversation and the badges, one statement each.
+async fn chat_routes(app: &TestApp, owner: &str, patient: &str) -> [Route; 4] {
+    let (_, staff) = app
+        .send(Method::GET, ALPHA, "/api/v1/staff", Some(owner), None)
+        .await;
+    let arun = staff["members"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|member| member["display_name"] == "Arun Assistant")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let (status, conversation) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/conversations",
+            Some(owner),
+            Some(json!({ "kind": "direct", "membership_id": arun })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{conversation}");
+    let id = conversation["id"].as_str().unwrap().to_owned();
+    created(
+        app,
+        owner,
+        &format!("/api/v1/conversations/{id}/messages"),
+        json!({ "client_id": uuid::Uuid::now_v7(), "body": "Crown ready?", "patient_id": patient }),
+    )
+    .await;
+    [
+        Route::get("GET /conversations", ALPHA, "/api/v1/conversations".into()),
+        Route::get(
+            "GET /conversations/{id}/messages",
+            ALPHA,
+            format!("/api/v1/conversations/{id}/messages"),
+        ),
+        Route::get(
+            "GET /conversations/{id}",
+            ALPHA,
+            format!("/api/v1/conversations/{id}"),
+        ),
+        Route::get("GET /me/badges", ALPHA, "/api/v1/me/badges".into()),
+    ]
+}
+
 async fn conditional_edits(
     app: &TestApp,
     owner: &str,
@@ -590,6 +639,7 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
     let routes = hot_routes(monday, sunday, tomorrow, &doctor, &patient);
     let walk_ins = walk_in_routes(&app, &owner).await;
     let support = support_routes(&app, &owner).await;
+    let chat = chat_routes(&app, &owner, &patient).await;
 
     let mut table = String::from(
         "\nroute                     cold  warm  (cold: prepares, new connections; warm: pings, release checks)\n",
@@ -600,6 +650,7 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
         .chain(&moves)
         .chain(&walk_ins)
         .chain(&support)
+        .chain(&chat)
         .chain(&routes)
     {
         // A state of its own warms the pool's connections and their statement caches, so

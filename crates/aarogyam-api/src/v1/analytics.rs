@@ -163,6 +163,18 @@ pub struct Analytics {
     pub patients: PatientBreakdown,
     /// Visits by weekday and hour; only non-zero cells.
     pub busy_hours: Vec<BusyHour>,
+    /// Lab work received back in the range.
+    pub lab_turnaround: LabTurnaround,
+}
+
+/// How long labs take: orders received back in the range, and their average days from sent to
+/// received.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct LabTurnaround {
+    /// Orders received back.
+    pub orders_received: i64,
+    /// Average days at the lab, to one decimal; absent when none were received.
+    pub average_days: Option<f64>,
 }
 
 /// The range and grouping of the report.
@@ -302,5 +314,9 @@ pub(crate) async fn analytics(
                 visits,
             })
             .collect(),
+        lab_turnaround: LabTurnaround {
+            orders_received: report.lab_orders_received,
+            average_days: report.lab_turnaround_days,
+        },
     }))
 }

@@ -121,6 +121,22 @@ pub struct Analytics {
     pub referral_sources: Vec<(ReferralKind, i64)>,
     /// Visits by ISO weekday (1 Monday) and hour in clinic time; only non-zero cells.
     pub busy_hours: Vec<(u8, u8, i64)>,
+    /// Lab orders received back in the range.
+    pub lab_orders_received: i64,
+    /// Their average days from sent to received, to one decimal; `None` when there were none.
+    pub lab_turnaround_days: Option<f64>,
+}
+
+/// Average days at the lab, to one decimal.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "minutes in a report fit an f64 exactly"
+)]
+fn average_days(orders: i64, total_minutes: i64) -> Option<f64> {
+    (orders > 0).then(|| {
+        let days = total_minutes as f64 / orders as f64 / 1440.0;
+        (days * 10.0).round() / 10.0
+    })
 }
 
 /// The report for clinic days `from` to `to` by `bucket` (months by default). The last twelve
@@ -339,6 +355,11 @@ fn build(from: Date, to: Date, bucket: Bucket, money: bool, rows: &AnalyticsRows
         visit_kinds,
         referral_sources,
         busy_hours,
+        lab_orders_received: rows.lab_received.orders,
+        lab_turnaround_days: average_days(
+            rows.lab_received.orders,
+            rows.lab_received.total_minutes,
+        ),
     }
 }
 
@@ -404,6 +425,10 @@ mod tests {
                 count: 2,
             }],
             busy_hours: vec![],
+            lab_received: aarogyam_dal::analytics::LabTurnaround {
+                orders: 2,
+                total_minutes: 4 * 1440 + 720,
+            },
         };
         let report = build(
             date!(2026 - 09 - 21),
@@ -413,6 +438,8 @@ mod tests {
             &rows,
         );
         assert_eq!(report.periods.len(), 2);
+        assert_eq!(report.lab_orders_received, 2);
+        assert_eq!(report.lab_turnaround_days, Some(2.3));
         let october = &report.periods[1];
         assert_eq!(october.first_day, date!(2026 - 10 - 01));
         // Two days open, nine hours each: 540 of 1,080 minutes booked.

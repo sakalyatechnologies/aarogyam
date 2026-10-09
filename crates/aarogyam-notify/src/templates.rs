@@ -89,7 +89,7 @@ impl fmt::Debug for Email {
     }
 }
 
-fn field<'a>(payload: &'a Value, key: &'static str) -> Result<&'a str, Failure> {
+pub(crate) fn field<'a>(payload: &'a Value, key: &'static str) -> Result<&'a str, Failure> {
     payload
         .get(key)
         .and_then(Value::as_str)
@@ -98,7 +98,7 @@ fn field<'a>(payload: &'a Value, key: &'static str) -> Result<&'a str, Failure> 
 }
 
 /// Escapes text for HTML.
-fn escape(text: &str) -> String {
+pub(crate) fn escape(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len());
     for c in text.chars() {
         match c {
@@ -293,6 +293,7 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
             | MessageKind::BookingConfirmed
             | MessageKind::BookingDeclined),
         ) => render_booking(kind, to, &message.payload, links),
+        Some(MessageKind::LabOrderReminder) => crate::lab::render_reminder(to, &message.payload),
         None => Err(Failure::permanent("unknown message kind")),
     }
 }

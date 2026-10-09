@@ -447,8 +447,8 @@ async fn addresses(config: Config, clinic: Option<&str>) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Makes new portal hosts work, reminds staff of unanswered booking requests (then the owners),
-/// then delivers due outbox messages, over the API connection, once or on a fixed interval.
+/// Makes new portal hosts work, reminds staff of unanswered booking requests (then the owners)
+/// and labs of work due, then delivers due outbox messages, over the API connection, once or on a fixed interval.
 async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
     let local = config.environment == Environment::Local;
     let notifier = notifier(&config, local)?;
@@ -488,6 +488,17 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             ),
             Ok(_) => {}
             Err(error) => tracing::warn!(error = %error, "could not remind booking requests"),
+        }
+        // Lab work due in two days or today: email the lab; flag work overdue.
+        match aarogyam_notify::remind_labs(&db, time::OffsetDateTime::now_utc()).await {
+            Ok(report) if report.reminded + report.skipped + report.overdue > 0 => tracing::info!(
+                reminded = report.reminded,
+                skipped = report.skipped,
+                overdue = report.overdue,
+                "labs reminded"
+            ),
+            Ok(_) => {}
+            Err(error) => tracing::warn!(error = %error, "could not remind labs"),
         }
         match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) => tracing::info!(

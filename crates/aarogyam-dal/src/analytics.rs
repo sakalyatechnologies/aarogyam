@@ -128,6 +128,17 @@ pub struct AnalyticsRows {
     pub referrals: Vec<KeyCount>,
     /// Visits by weekday and hour.
     pub busy_hours: Vec<HourCount>,
+    /// Lab orders received back in the range, and their minutes from sent to received.
+    pub lab_received: LabTurnaround,
+}
+
+/// Lab orders received back in a range.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LabTurnaround {
+    /// How many.
+    pub orders: i64,
+    /// Their minutes at the lab, added up.
+    pub total_minutes: i64,
 }
 
 /// The analytics figures for `query`, in one round trip.
@@ -216,6 +227,11 @@ pub async fn analytics(
            where f.first_at >= $5
            group by 3
            union all
+           select 'lab', null, null, null, count(*)::bigint,
+                  coalesce(sum(extract(epoch from l.received_at - l.sent_at) / 60), 0)::bigint, 0
+           from aarogyam.lab_orders l
+           where l.received_at >= $5 and l.received_at < $6 and l.sent_at is not null
+           union all
            select 'busy', null, null, null, extract(isodow from v.local_start)::bigint,
                   extract(hour from v.local_start)::bigint, count(*)
            from visits v
@@ -281,6 +297,12 @@ pub async fn analytics(
                 key: row.key,
                 count: a,
             }),
+            ("lab", _) => {
+                out.lab_received = LabTurnaround {
+                    orders: a,
+                    total_minutes: b,
+                };
+            }
             ("busy", _) => out.busy_hours.push(HourCount {
                 weekday: a,
                 hour: b,

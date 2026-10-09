@@ -1,0 +1,49 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select v.name,\n                  (select count(*) from aarogyam.lab_orders o where o.vendor_id = v.id\n                     and o.status not in ('draft', 'cancelled')) as \"orders!\",\n                  (select coalesce(sum(i.qty * coalesce(i.unit_cost_paise, 0)), 0)::bigint\n                   from aarogyam.lab_order_items i\n                   join aarogyam.lab_orders o on o.org_id = i.org_id and o.id = i.lab_order_id\n                   where o.vendor_id = v.id and o.status not in ('draft', 'cancelled'))\n                    as \"billed_paise!\",\n                  (select coalesce(sum(p.amount_paise), 0)::bigint from aarogyam.lab_payments p\n                   where p.vendor_id = v.id and p.status = 'recorded') as \"paid_paise!\"\n           from aarogyam.lab_vendors v\n           where v.id = $1 and v.deleted_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_vendors",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "orders!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "billed_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "paid_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "8a4f4400d4827878b5ef68cc12bb83ef81353e6a02be56dc9ba917eea05e0960"
+}

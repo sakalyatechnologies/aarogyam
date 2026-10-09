@@ -120,7 +120,7 @@ pub async fn list(
 }
 
 /// Voids a recorded expense, in one statement. `None` when there is no recorded expense with
-/// `id` (unknown or already void; see [`status`]).
+/// `id` (unknown or already void; see [`status`]) or it belongs to a recorded lab payment.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -137,6 +137,10 @@ pub async fn void(
              update aarogyam.expenses
              set status = 'void', void_reason = $2, voided_at = $3, voided_by = $4
              where id = $1 and status = 'recorded'
+               -- A lab payment's expense is voided with the payment, never alone.
+               and not exists (select 1 from aarogyam.lab_payments p
+                               where p.org_id = expenses.org_id and p.expense_id = expenses.id
+                                 and p.status = 'recorded')
              returning org_id, id, category_id, spent_on, amount_paise, note, status, void_reason,
                        voided_at, recorded_by, created_at
            )

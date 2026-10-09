@@ -147,7 +147,7 @@ pub async fn list(
 ///
 /// # Errors
 /// [`AppError::Denied`] without `finance.view`; [`AppError::Invalid`] without a reason;
-/// [`AppError::NotFound`]; [`AppError::Conflict`] when already void.
+/// [`AppError::NotFound`]; [`AppError::Conflict`] when already void or a lab payment's.
 pub async fn void(
     db: &Db,
     actor: &ClinicActor,
@@ -172,6 +172,9 @@ pub async fn void(
         }
         match dal::status(tx.conn(), id.uuid()).await? {
             None => Err(AppError::NotFound("expense")),
+            Some(status) if status == ExpenseStatus::Recorded.as_str() => Err(AppError::Conflict(
+                "this expense is a lab payment: void the payment instead",
+            )),
             Some(_) => Err(AppError::Conflict("this expense is already void")),
         }
     })

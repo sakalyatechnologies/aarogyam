@@ -450,7 +450,7 @@ fn history_changes(current: &AppointmentRow, next: &Booking<'_>) -> Map<String, 
 
 /// The appointment, locked until the transaction ends so changes apply one after the other.
 /// Not found when out of the member's `appointments.write` reach.
-async fn locked(
+pub(crate) async fn locked(
     tx: &mut ScopedTx,
     actor: &ClinicActor,
     id: AppointmentId,
@@ -699,7 +699,7 @@ pub(crate) async fn apply_status(
 
 /// An appointment as a status request leaves it, with its queue token once the patient has
 /// arrived.
-async fn status_changed(
+pub(crate) async fn status_changed(
     tx: &mut ScopedTx,
     id: Uuid,
     today: Date,

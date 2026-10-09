@@ -91,7 +91,8 @@ Founder testing: a patient booked online from the clinic website and the booking
   - the chair change is lost unless you press Move appointment
   - reason, visit kind and length can't be edited
   - no patient phone or email
-- **Online sign-ups:** registered with name, email and phone only; complete age, sex, allergies and consent at Mark arrived, and also match duplicates by phone.
+- **Online sign-ups:** backend built 8 Oct 2026 (`POST /appointments/{id}/check-in`, `registration_incomplete`, `GET /patient-duplicates`, merge and dismiss; `decisions.md`, "Online sign-ups"). Still to build: the portal check-in form at Mark arrived and the duplicates screen.
+- **Appointment edits:** backend already edits chair alone, reason, kind and length (tests 8 Oct 2026); the portal must send the chair with every save, not only Move appointment.
 - **Date and time fields:** the shared `sakalya-web` date field is the browser default (US order, no shortcuts) and time is typed as text. Build a proper date picker and slot-based time picker there, then use it everywhere.
 
 ## Sign-in from the public website: one smooth step (8 Oct 2026)

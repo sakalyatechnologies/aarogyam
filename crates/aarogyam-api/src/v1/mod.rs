@@ -7,6 +7,7 @@ pub(crate) mod appointments;
 pub(crate) mod auth;
 pub(crate) mod billing;
 pub(crate) mod chart;
+pub(crate) mod check_in;
 pub(crate) mod client_errors;
 pub(crate) mod clinic_hours;
 pub(crate) mod consents;
@@ -177,6 +178,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/appointments/{id}", patch(appointments::change))
         .route("/appointments/{id}/status", post(appointments::set_status))
+        .route("/appointments/{id}/check-in", post(check_in::check_in))
         .route("/queue", get(queue::list).post(queue::walk_in))
         .route("/queue/{id}/status", post(queue::set_status))
         .route("/queue/{id}/start-visit", post(queue::start_visit))

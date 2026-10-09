@@ -68,6 +68,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::appointments::book,
         crate::v1::appointments::change,
         crate::v1::appointments::set_status,
+        crate::v1::check_in::check_in,
         crate::v1::queue::list,
         crate::v1::queue::walk_in,
         crate::v1::queue::set_status,

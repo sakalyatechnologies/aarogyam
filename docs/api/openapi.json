@@ -218,6 +218,67 @@
         ]
       }
     },
+    "/api/v1/appointments/{id}/check-in": {
+      "post": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Checks in a booked patient in one step: completes their registration (sex, age or date of\nbirth), records reported allergies or \"No known allergies\" and desk consents, and marks the\nappointment arrived, issuing its queue token. For online sign-ups, which arrive with only a\nname, email and phone. Checking in again records the details without a second token.",
+        "operationId": "checkInAppointment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The appointment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckedIn"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks intake.write, patients.write or appointments.write"
+          },
+          "404": {
+            "description": "No such appointment in this clinic"
+          },
+          "409": {
+            "description": "The appointment can't arrive from its status, or \"No known allergies\" with an allergy on record"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/appointments/{id}/status": {
       "post": {
         "tags": [
@@ -11776,6 +11837,96 @@
               "null"
             ],
             "description": "The visit that recorded it."
+          }
+        }
+      },
+      "CheckInRequest": {
+        "type": "object",
+        "description": "What the desk records at check-in. Every field is optional; details left out stay as they\nare.",
+        "properties": {
+          "age_years": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Age in years, when the date of birth is unknown.",
+            "minimum": 0
+          },
+          "allergies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Substances the patient says they are allergic to (at most 20), recorded as\npatient-reported until a clinician confirms them."
+          },
+          "consents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeskConsentFields"
+            },
+            "description": "Consents given at the desk, each purpose once."
+          },
+          "date_of_birth": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Date of birth, `YYYY-MM-DD`. Not with `age_years`."
+          },
+          "no_known_allergies": {
+            "type": "boolean",
+            "description": "The patient knows of no allergies. Not together with `allergies`."
+          },
+          "notice_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The notice version shown; the clinic's current notice when left out."
+          },
+          "sex": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`female`, `male`, `other` or `unknown`."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CheckedIn": {
+        "type": "object",
+        "description": "What a check-in did.",
+        "required": [
+          "appointment",
+          "allergies_recorded",
+          "consents_recorded"
+        ],
+        "properties": {
+          "allergies_recorded": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many allergies were recorded.",
+            "minimum": 0
+          },
+          "appointment": {
+            "$ref": "#/components/schemas/Appointment",
+            "description": "The appointment, arrived; its patient's `registration_incomplete` says whether sex or\nage is still missing."
+          },
+          "consents_recorded": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The purposes whose consent was recorded."
+          },
+          "queue_token_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its queue token."
           }
         }
       },

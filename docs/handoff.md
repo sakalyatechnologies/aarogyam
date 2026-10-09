@@ -16,7 +16,7 @@ Where the work stands and exactly what to do next. Update this file at the end o
 - **Staff phone app** (on `main`, no store build): walk-in, the Queue tab, Marathi and Hindi screens.
 - **Demo data:** Sunrise's night-time rows were moved into clinic hours (`scripts/demo-refresh.sh --clinic-hours`).
 
-**Founder's ask (8 Oct):** finish every backlog item that code alone can finish (backend and e2e) in two sessions.
+**Founder's ask (8 Oct):** finish every backlog item that code alone can finish, **backend and e2e only: no app or UI development** (portal, console and phone screens wait). The UI parts of the tracks below stay in the backlog.
 
 | Session | Track | Items |
 |---|---|---|

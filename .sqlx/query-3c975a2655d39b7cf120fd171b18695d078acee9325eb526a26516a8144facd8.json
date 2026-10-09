@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with o as (\n             update aarogyam.lab_orders\n             set contact_id = $2, stage = $3, instructions = $4, due_on = $5\n             where id = $1\n             returning id\n           )\n           insert into aarogyam.lab_order_events (lab_order_id, kind, stage, due_on, actor_id)\n           select o.id, k.kind, $3, $5, $8 from o\n           cross join (values ('stage_changed', $6::boolean), ('due_changed', $7::boolean)) k(kind, yes)\n           where k.yes",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Date",
+        "Bool",
+        "Bool",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3c975a2655d39b7cf120fd171b18695d078acee9325eb526a26516a8144facd8"
+}

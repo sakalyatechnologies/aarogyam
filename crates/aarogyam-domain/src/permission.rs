@@ -54,11 +54,15 @@ pub enum Permission {
     SupportGrant,
     /// Chat with other staff of the clinic.
     ChatUse,
+    /// See labs, their contacts and lab orders.
+    LabsRead,
+    /// Keep labs and contacts, record lab orders and remind labs.
+    LabsWrite,
 }
 
 impl Permission {
     /// Every permission, in catalogue order.
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 25] = [
         Self::PatientsRead,
         Self::PatientsWrite,
         Self::PatientsContact,
@@ -82,6 +86,8 @@ impl Permission {
         Self::IntakeWrite,
         Self::SupportGrant,
         Self::ChatUse,
+        Self::LabsRead,
+        Self::LabsWrite,
     ];
 
     /// The catalogue key, such as `patients.read`.
@@ -111,6 +117,8 @@ impl Permission {
             Self::IntakeWrite => "intake.write",
             Self::SupportGrant => "support.grant",
             Self::ChatUse => "chat.use",
+            Self::LabsRead => "labs.read",
+            Self::LabsWrite => "labs.write",
         }
     }
 
@@ -132,7 +140,9 @@ impl Permission {
             | Self::AppointmentsWrite
             | Self::ClinicalRead
             | Self::ClinicalWrite
-            | Self::PrescriptionsIssue => &[Scope::All, Scope::Own, Scope::Assigned],
+            | Self::PrescriptionsIssue
+            | Self::LabsRead
+            | Self::LabsWrite => &[Scope::All, Scope::Own, Scope::Assigned],
             _ => &[Scope::All],
         }
     }
@@ -330,6 +340,8 @@ required!(
     IntakeWrite,
     SupportGrant,
     ChatUse,
+    LabsRead,
+    LabsWrite,
 );
 
 #[cfg(test)]

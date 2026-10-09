@@ -2846,7 +2846,7 @@
         "tags": [
           "internal"
         ],
-        "summary": "Makes new portal hosts work, reminds staff of unanswered booking requests (then the\nowners), then delivers due outbox messages across clinics (local development only; later Cloud\nScheduler with a Google-signed token).",
+        "summary": "Makes new portal hosts work, reminds staff of unanswered booking requests (then the\nowners) and labs of work due, then delivers due outbox messages across clinics (local development only; later Cloud\nScheduler with a Google-signed token).",
         "operationId": "drainOutbox",
         "responses": {
           "200": {
@@ -3462,6 +3462,940 @@
           },
           "409": {
             "description": "Already void, or payments still count towards it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-contacts/{id}": {
+      "delete": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Removes a lab contact.",
+        "operationId": "deleteLabContact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The contact",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such contact in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Changes a lab contact.",
+        "operationId": "updateLabContact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The contact",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabContactValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabContact"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid values"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such contact in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-orders": {
+      "get": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Lab orders within reach, newest first.",
+        "operationId": "listLabOrders",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only this status",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/LabOrderState"
+            }
+          },
+          {
+            "name": "vendor_id",
+            "in": "query",
+            "description": "Only this lab",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patient_id",
+            "in": "query",
+            "description": "Only this patient",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "overdue",
+            "in": "query",
+            "description": "Only work at the lab past its due date",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Most rows, 1 to 200 (default 200)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrderList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad filter"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Records a lab order with its items, as a draft or sent to the lab now.",
+        "operationId": "createLabOrder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewLabOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid values or references"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write, or finance.view for costs"
+          },
+          "404": {
+            "description": "No such patient in this clinic or within reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-orders/{id}": {
+      "get": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "One lab order within reach, with its history.",
+        "operationId": "getLabOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab order",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrder"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.read"
+          },
+          "404": {
+            "description": "No such lab order in this clinic or within reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Changes a lab order's contact, stage, instructions or due date.",
+        "operationId": "updateLabOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab order",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabOrderChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid values, or a contact at another lab"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such lab order in this clinic or within reach"
+          },
+          "409": {
+            "description": "The order is fitted, reworked or cancelled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-orders/{id}/remind": {
+      "post": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Emails the lab a reminder now, through the outbox. It names the clinic, the order number,\nthe work, teeth, shade and due date, never the patient.",
+        "operationId": "remindLab",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab order",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabReminderQueued"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such lab order in this clinic or within reach"
+          },
+          "409": {
+            "description": "The work isn't at the lab, or the lab has no email"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-orders/{id}/status": {
+      "post": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Moves a lab order to another status, optionally with a new stage and a note.",
+        "operationId": "setLabOrderStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab order",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabOrderStatusChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A long stage or note"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such lab order in this clinic or within reach"
+          },
+          "409": {
+            "description": "The order's status doesn't allow that move"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-payments": {
+      "get": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Payments to labs, newest day first, voided ones included.",
+        "operationId": "listLabPayments",
+        "parameters": [
+          {
+            "name": "vendor_id",
+            "in": "query",
+            "description": "Only this lab",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First clinic day, YYYY-MM-DD",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last clinic day, included",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Most rows, 1 to 500 (default 500)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabPaymentList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad filter or a backwards range"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks finance.view"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Records a payment to a lab and its `lab` expense.",
+        "operationId": "recordLabPayment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewLabPayment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabPayment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid amount, note, reference or day, or an order at another lab"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks expenses.write or finance.view"
+          },
+          "404": {
+            "description": "No such lab in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-payments/{id}/void": {
+      "post": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Voids a payment to a lab and its expense, with a reason.",
+        "operationId": "voidLabPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The payment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reason"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabPayment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No reason given"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks expenses.write or finance.view"
+          },
+          "404": {
+            "description": "No such payment in this clinic"
+          },
+          "409": {
+            "description": "Already void"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-vendors": {
+      "get": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "The clinic's labs with their contacts.",
+        "operationId": "listLabVendors",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabVendorList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Adds a lab.",
+        "operationId": "createLabVendor",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabVendorValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabVendor"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid values"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "409": {
+            "description": "A lab has this name"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-vendors/{id}": {
+      "get": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "One lab with its contacts.",
+        "operationId": "getLabVendor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabVendor"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.read"
+          },
+          "404": {
+            "description": "No such lab in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Removes a lab and its contacts from the lists; its orders and payments stay.",
+        "operationId": "deleteLabVendor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such lab in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Changes a lab.",
+        "operationId": "updateLabVendor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabVendorValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabVendor"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid values"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such lab in this clinic"
+          },
+          "409": {
+            "description": "A lab has this name"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-vendors/{id}/balance": {
+      "get": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "What a lab has billed and been paid.",
+        "operationId": "getLabBalance",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabBalance"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks finance.view"
+          },
+          "404": {
+            "description": "No such lab in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-vendors/{id}/contacts": {
+      "post": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Adds a contact to a lab.",
+        "operationId": "createLabContact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabContactValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabContact"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid values"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such lab in this clinic"
           }
         },
         "security": [
@@ -6607,6 +7541,51 @@
           },
           "404": {
             "description": "No such identifier in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/lab-orders": {
+      "get": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "A patient's lab orders within reach, newest first.",
+        "operationId": "listPatientLabOrders",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrderList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic or within reach"
           }
         },
         "security": [
@@ -12042,7 +13021,8 @@
           "chairs",
           "buckets",
           "patients",
-          "busy_hours"
+          "busy_hours",
+          "lab_turnaround"
         ],
         "properties": {
           "bucket": {
@@ -12073,6 +13053,10 @@
           "from": {
             "type": "string",
             "description": "First day, `YYYY-MM-DD`."
+          },
+          "lab_turnaround": {
+            "$ref": "#/components/schemas/LabTurnaround",
+            "description": "Lab work received back in the range."
           },
           "money_visible": {
             "type": "boolean",
@@ -15063,7 +16047,10 @@
           "addresses_failed",
           "booking_requests_open",
           "booking_requests_reminded",
-          "booking_requests_escalated"
+          "booking_requests_escalated",
+          "lab_reminders_queued",
+          "lab_reminders_skipped",
+          "lab_orders_overdue"
         ],
         "properties": {
           "address_provider": {
@@ -15112,6 +16099,21 @@
           "failed": {
             "type": "integer",
             "description": "Failed for the last time.",
+            "minimum": 0
+          },
+          "lab_orders_overdue": {
+            "type": "integer",
+            "description": "Lab orders newly flagged overdue.",
+            "minimum": 0
+          },
+          "lab_reminders_queued": {
+            "type": "integer",
+            "description": "Reminders queued to labs about work due.",
+            "minimum": 0
+          },
+          "lab_reminders_skipped": {
+            "type": "integer",
+            "description": "Reminders due to labs with no email address.",
             "minimum": 0
           },
           "purged": {
@@ -16710,6 +17712,819 @@
           }
         }
       },
+      "LabBalance": {
+        "type": "object",
+        "description": "What a lab has billed and been paid.",
+        "required": [
+          "vendor_id",
+          "name",
+          "orders",
+          "billed_paise",
+          "paid_paise",
+          "due_paise"
+        ],
+        "properties": {
+          "billed_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Their items at the lab's prices, in paise (items without a price count as nothing)."
+          },
+          "due_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Billed less paid, in paise: still owed, or (below zero) paid ahead."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "orders": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Orders sent to it, not cancelled."
+          },
+          "paid_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Payments recorded, not void, in paise."
+          },
+          "vendor_id": {
+            "type": "string",
+            "description": "The lab."
+          }
+        }
+      },
+      "LabContact": {
+        "type": "object",
+        "description": "A person at a lab.",
+        "required": [
+          "id",
+          "vendor_id",
+          "name",
+          "whatsapp",
+          "preferred_channel"
+        ],
+        "properties": {
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Phone in E.164."
+          },
+          "preferred_channel": {
+            "$ref": "#/components/schemas/LabContactChannel",
+            "description": "How they like to be reached."
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What they do there."
+          },
+          "vendor_id": {
+            "type": "string",
+            "description": "The lab."
+          },
+          "whatsapp": {
+            "type": "boolean",
+            "description": "Whether they use `WhatsApp` on that phone."
+          }
+        }
+      },
+      "LabContactChannel": {
+        "type": "string",
+        "description": "How a lab contact likes to be reached. Only email is sent today.",
+        "enum": [
+          "email",
+          "whatsapp",
+          "phone"
+        ]
+      },
+      "LabContactValues": {
+        "type": "object",
+        "description": "A contact's values. On a change, fields left out stay as they are and an empty string\nclears an optional one.",
+        "properties": {
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email; lab reminders go to it."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name, up to 120 characters; required for a new contact."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Phone; +91 is assumed without a country code."
+          },
+          "preferred_channel": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LabContactChannel",
+                "description": "How they like to be reached; must match a phone, email or `WhatsApp` given."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What they do there, up to 80 characters."
+          },
+          "whatsapp": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether they use `WhatsApp` on that phone."
+          }
+        }
+      },
+      "LabOrder": {
+        "type": "object",
+        "description": "A lab order.",
+        "required": [
+          "id",
+          "number",
+          "vendor_id",
+          "patient_id",
+          "patient_number",
+          "patient_name",
+          "doctor_id",
+          "status",
+          "created_at",
+          "costs_visible",
+          "items",
+          "events"
+        ],
+        "properties": {
+          "contact_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who at the lab."
+          },
+          "contact_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their name."
+          },
+          "costs_visible": {
+            "type": "boolean",
+            "description": "Whether unit costs are filled (the caller has `finance.view`)."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was recorded (RFC 3339)."
+          },
+          "doctor_id": {
+            "type": "string",
+            "description": "The membership responsible."
+          },
+          "doctor_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their name."
+          },
+          "due_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it is due back, `YYYY-MM-DD`."
+          },
+          "encounter_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it came from."
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabOrderEvent"
+            },
+            "description": "What happened to it, oldest first; filled only when one order is read."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Instructions for the lab."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabOrderItem"
+            },
+            "description": "What to make."
+          },
+          "number": {
+            "type": "string",
+            "description": "`LAB-<n>`."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "patient_name": {
+            "type": "string",
+            "description": "Their name (never sent to the lab)."
+          },
+          "patient_number": {
+            "type": "string",
+            "description": "Their clinic number."
+          },
+          "procedure_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The procedure it is for."
+          },
+          "received_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it came back (RFC 3339)."
+          },
+          "rework_of_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The order this one remakes."
+          },
+          "sent_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it went to the lab (RFC 3339)."
+          },
+          "stage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Where the work is between trials: wax try-in, framework trial, bisque."
+          },
+          "status": {
+            "$ref": "#/components/schemas/LabOrderState",
+            "description": "Where it is."
+          },
+          "vendor_id": {
+            "type": "string",
+            "description": "The lab."
+          },
+          "vendor_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its name."
+          }
+        }
+      },
+      "LabOrderChanges": {
+        "type": "object",
+        "description": "A change to a lab order's details. Fields left out stay; an empty string clears.",
+        "properties": {
+          "contact_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who at the lab: a contact of the order's lab."
+          },
+          "due_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it is due back, `YYYY-MM-DD`; a new date runs the reminders again."
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Instructions, up to 2000 characters."
+          },
+          "stage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Stage, up to 80 characters."
+          }
+        }
+      },
+      "LabOrderEvent": {
+        "type": "object",
+        "description": "Something that happened to a lab order.",
+        "required": [
+          "kind",
+          "at"
+        ],
+        "properties": {
+          "actor_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The membership; absent for the reminder job."
+          },
+          "at": {
+            "type": "string",
+            "description": "When (RFC 3339)."
+          },
+          "due_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The due date, `YYYY-MM-DD`."
+          },
+          "from_status": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LabOrderState",
+                "description": "The status before a change."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "description": "created, `status_changed`, `stage_changed`, `due_changed`, reminded, `reminder_skipped` or overdue."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A note."
+          },
+          "reminder": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`due_soon`, `due_today` or manual, for a reminder."
+          },
+          "stage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The stage."
+          },
+          "to_status": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LabOrderState",
+                "description": "The status after."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "LabOrderItem": {
+        "type": "object",
+        "description": "An item on a lab order.",
+        "required": [
+          "line_no",
+          "work_type",
+          "teeth",
+          "qty"
+        ],
+        "properties": {
+          "line_no": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Position, from 1."
+          },
+          "material": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Material."
+          },
+          "qty": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How many."
+          },
+          "shade": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Shade."
+          },
+          "teeth": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "FDI tooth numbers."
+          },
+          "unit_cost_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Paise for one; absent without `finance.view`."
+          },
+          "work_type": {
+            "type": "string",
+            "description": "What to make."
+          }
+        }
+      },
+      "LabOrderList": {
+        "type": "object",
+        "description": "Lab orders.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabOrder"
+            },
+            "description": "Newest first."
+          }
+        }
+      },
+      "LabOrderState": {
+        "type": "string",
+        "description": "Where a lab order is.",
+        "enum": [
+          "draft",
+          "sent",
+          "in_progress",
+          "received",
+          "fitted",
+          "returned_for_rework",
+          "cancelled"
+        ]
+      },
+      "LabOrderStatusChange": {
+        "type": "object",
+        "description": "A move to another status.",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why, up to 500 characters."
+          },
+          "stage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A new stage, up to 80 characters."
+          },
+          "status": {
+            "$ref": "#/components/schemas/LabOrderState",
+            "description": "The status to move to: draft to sent or cancelled; sent to `in_progress`, received or\ncancelled; `in_progress` to received or cancelled; received to fitted or\n`returned_for_rework`."
+          }
+        }
+      },
+      "LabPayment": {
+        "type": "object",
+        "description": "Money paid to a lab.",
+        "required": [
+          "id",
+          "vendor_id",
+          "paid_on",
+          "amount_paise",
+          "expense_id",
+          "status",
+          "recorded_by",
+          "created_at"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was recorded (RFC 3339)."
+          },
+          "expense_id": {
+            "type": "string",
+            "description": "The `lab` expense recorded with it."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "lab_invoice_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The lab's bill number."
+          },
+          "lab_order_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The order paid for."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A note."
+          },
+          "paid_on": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`."
+          },
+          "recorded_by": {
+            "type": "string",
+            "description": "The membership that recorded it."
+          },
+          "status": {
+            "type": "string",
+            "description": "`recorded` or `void`."
+          },
+          "vendor_id": {
+            "type": "string",
+            "description": "The lab."
+          },
+          "void_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was voided."
+          },
+          "voided_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was voided (RFC 3339)."
+          }
+        }
+      },
+      "LabPaymentList": {
+        "type": "object",
+        "description": "Payments to labs.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabPayment"
+            },
+            "description": "Newest day first, voided ones included."
+          }
+        }
+      },
+      "LabReminderQueued": {
+        "type": "object",
+        "description": "A reminder queued to the lab.",
+        "required": [
+          "message_id"
+        ],
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "The outbox message."
+          }
+        }
+      },
+      "LabTurnaround": {
+        "type": "object",
+        "description": "How long labs take: orders received back in the range, and their average days from sent to\nreceived.",
+        "required": [
+          "orders_received"
+        ],
+        "properties": {
+          "average_days": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Average days at the lab, to one decimal; absent when none were received."
+          },
+          "orders_received": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Orders received back."
+          }
+        }
+      },
+      "LabVendor": {
+        "type": "object",
+        "description": "An outside lab with its contacts.",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "contacts",
+          "created_at"
+        ],
+        "properties": {
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Address."
+          },
+          "contacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabContact"
+            },
+            "description": "The people there, by name."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was added (RFC 3339)."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "kind": {
+            "$ref": "#/components/schemas/LabVendorKind",
+            "description": "What kind of lab."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A note."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Phone in E.164."
+          }
+        }
+      },
+      "LabVendorKind": {
+        "type": "string",
+        "description": "What kind of lab.",
+        "enum": [
+          "dental_lab",
+          "pathology",
+          "radiology",
+          "other"
+        ]
+      },
+      "LabVendorList": {
+        "type": "object",
+        "description": "The clinic's labs.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabVendor"
+            },
+            "description": "By name."
+          }
+        }
+      },
+      "LabVendorValues": {
+        "type": "object",
+        "description": "A lab's values. On a change, fields left out stay as they are and an empty string clears\nan optional one.",
+        "properties": {
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Address, up to 500 characters."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email."
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LabVendorKind",
+                "description": "What kind; a new lab is a dental lab unless said."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name, up to 120 characters; required for a new lab."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A note, up to 500 characters."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Phone; +91 is assumed without a country code."
+          }
+        }
+      },
       "Leave": {
         "type": "object",
         "description": "Time a doctor is away.",
@@ -18084,6 +19899,188 @@
               "null"
             ],
             "description": "The voided bill this one replaces."
+          }
+        }
+      },
+      "NewLabOrder": {
+        "type": "object",
+        "description": "A lab order to record.",
+        "required": [
+          "vendor_id",
+          "patient_id",
+          "items"
+        ],
+        "properties": {
+          "contact_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who at the lab."
+          },
+          "doctor_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The membership responsible; the caller unless said."
+          },
+          "due_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it is due back, `YYYY-MM-DD`."
+          },
+          "encounter_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it came from, of this patient."
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Instructions for the lab, up to 2000 characters."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewLabOrderItem"
+            },
+            "description": "What to make: 1 to 50 items."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "procedure_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The procedure it is for, of this patient."
+          },
+          "rework_of_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The order this one remakes, of this patient."
+          },
+          "send": {
+            "type": "boolean",
+            "description": "Whether it goes to the lab now; otherwise it is a draft."
+          },
+          "stage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Stage, up to 80 characters."
+          },
+          "vendor_id": {
+            "type": "string",
+            "description": "The lab."
+          }
+        }
+      },
+      "NewLabOrderItem": {
+        "type": "object",
+        "description": "An item to make.",
+        "required": [
+          "work_type"
+        ],
+        "properties": {
+          "material": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Material, such as `zirconia`; up to 80 characters."
+          },
+          "qty": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How many, 1 to 100 (default 1)."
+          },
+          "shade": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Shade, such as `A2`; up to 20 characters."
+          },
+          "teeth": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "FDI tooth numbers, each once, up to 32."
+          },
+          "unit_cost_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Paise for one, 0 to 10,00,000 rupees; needs `finance.view`."
+          },
+          "work_type": {
+            "type": "string",
+            "description": "What to make, such as `Crown`; up to 80 characters."
+          }
+        }
+      },
+      "NewLabPayment": {
+        "type": "object",
+        "description": "A payment to record.",
+        "required": [
+          "vendor_id",
+          "paid_on",
+          "amount_paise"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise, more than zero and at most 1,00,00,000 rupees."
+          },
+          "lab_invoice_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The lab's bill number, up to 60 characters."
+          },
+          "lab_order_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The order paid for, at that lab."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Up to 300 characters."
+          },
+          "paid_on": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`; today or earlier."
+          },
+          "vendor_id": {
+            "type": "string",
+            "description": "The lab."
           }
         }
       },
@@ -26133,6 +28130,10 @@
     {
       "name": "billing",
       "description": "Price list, bills, payments, receipts and expenses; clinic host only"
+    },
+    {
+      "name": "labs",
+      "description": "Outside labs, their contacts, lab orders, reminders and payments; clinic host only"
     },
     {
       "name": "reports",

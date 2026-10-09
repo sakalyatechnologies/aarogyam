@@ -160,6 +160,18 @@ pub enum Event {
     ChatMessagePosted,
     /// A staff chat message was deleted by its author.
     ChatMessageDeleted,
+    /// A lab or a lab contact was added, changed or removed.
+    LabChanged,
+    /// A lab order was recorded.
+    LabOrderCreated,
+    /// A lab order moved to another status or stage, or got a new due date.
+    LabOrderUpdated,
+    /// A lab was reminded of an order.
+    LabOrderReminded,
+    /// A payment to a lab was recorded.
+    LabPaymentRecorded,
+    /// A payment to a lab was voided.
+    LabPaymentVoided,
 }
 
 impl Event {
@@ -245,6 +257,12 @@ impl Event {
             Self::ConversationStarted => "conversation.started",
             Self::ChatMessagePosted => "chat_message.posted",
             Self::ChatMessageDeleted => "chat_message.deleted",
+            Self::LabChanged => "lab.changed",
+            Self::LabOrderCreated => "lab_order.created",
+            Self::LabOrderUpdated => "lab_order.updated",
+            Self::LabOrderReminded => "lab_order.reminded",
+            Self::LabPaymentRecorded => "lab_payment.recorded",
+            Self::LabPaymentVoided => "lab_payment.voided",
         }
     }
 }

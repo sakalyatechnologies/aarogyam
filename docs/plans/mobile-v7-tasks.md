@@ -29,7 +29,7 @@ Tick a task only when its done criteria pass: tests, gates and parity sheet. Add
 | D2 | done |  | `Preferences` and `Dictation` interfaces, fakes, `AppGraph` and `IosApp` wiring. |
 | D3 | done |  | `NavModel`: tabs and tiles per role and multi-clinic; tests for all 6 roles. |
 | D4 | done |  | Today "Me" and "My schedule" (membership → team member → practitioner); finance via `/today/money`. Field map, required; done when no v7 num |
-| D5 | todo |  | `ScheduleStateHolder`: queue actions (call in, seat, done, left, start visit), day view, week density and slots. |
+| D5 | done |  | `ScheduleStateHolder`: queue actions (call in, seat, done, left, start visit), day view, week density and slots. |
 | D6 | todo |  | Booking: availability and `POST /appointments`; slot chips data. |
 | D7 | todo |  | Analytics calls and holder (three periods, Preview flags for the split data). Field map, required; done when no v7 number lacks a source: |
 | D8 | todo |  | Procedure → finding map, `ToothSheetStateHolder`, `record(visitId)`, Edit (after B1 and D8a). |

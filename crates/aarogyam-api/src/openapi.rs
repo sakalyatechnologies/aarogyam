@@ -59,6 +59,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::schedule::remove_practitioner,
         crate::v1::schedule::hours,
         crate::v1::schedule::set_hours,
+        crate::v1::clinic_hours::hours,
+        crate::v1::clinic_hours::set_hours,
         crate::v1::schedule::leave,
         crate::v1::schedule::add_leave,
         crate::v1::schedule::remove_leave,

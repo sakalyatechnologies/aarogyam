@@ -10,6 +10,7 @@ pub mod analytics;
 pub mod appointments;
 pub mod billing;
 pub mod chart;
+pub mod clinic_hours;
 pub mod clock;
 pub mod consents;
 pub mod console;

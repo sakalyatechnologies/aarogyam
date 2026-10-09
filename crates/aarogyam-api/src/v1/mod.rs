@@ -8,6 +8,7 @@ pub(crate) mod auth;
 pub(crate) mod billing;
 pub(crate) mod chart;
 pub(crate) mod client_errors;
+pub(crate) mod clinic_hours;
 pub(crate) mod consents;
 pub(crate) mod console;
 pub(crate) mod expenses;
@@ -159,6 +160,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route(
             "/practitioners/{id}/working-hours",
             get(schedule::hours).put(schedule::set_hours),
+        )
+        .route(
+            "/clinic-hours",
+            get(clinic_hours::hours).put(clinic_hours::set_hours),
         )
         .route(
             "/leave-blocks",

@@ -1314,6 +1314,7 @@
    ],
    "referenced_by": [
     "appointments.branch_id",
+    "clinic_hours.branch_id",
     "daily_closings.branch_id",
     "encounters.branch_id",
     "equipment.branch_id",
@@ -2822,7 +2823,7 @@
    "partitioned": false,
    "lifecycle": "ephemeral",
    "schema": "aarogyam",
-   "notes": "Replaced as a whole per doctor. Clinic hours and valid_from/valid_to are planned.",
+   "notes": "Replaced as a whole per doctor. Clinic opening hours are in clinic_hours. valid_from/valid_to are planned.",
    "cols": [
     {
      "name": "practitioner_id",
@@ -2863,6 +2864,50 @@
    "referenced_by": [],
    "sensitivity": "personal",
    "offline": "read_only"
+  },
+  {
+   "name": "clinic_hours",
+   "domain": "people",
+   "purpose": "When each branch of the clinic is open, by weekday. Split shifts are two rows.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0330). Replaced as a whole per branch (GET/PUT /clinic-hours). Chair utilization counts open minutes from it, nine hours a day when a branch has none. Clinics that existed got the union of their active doctors' hours.",
+   "cols": [
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "weekday",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": "1 Monday to 7 Sunday"
+    },
+    {
+     "name": "starts",
+     "type": "time",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "ends",
+     "type": "time",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
   },
   {
    "name": "leave_blocks",

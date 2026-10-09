@@ -17,6 +17,7 @@ pub mod billing;
 pub mod booking;
 pub mod chart;
 pub mod clinic;
+pub mod clinic_hours;
 pub mod consents;
 pub mod console;
 pub mod dental_terms;

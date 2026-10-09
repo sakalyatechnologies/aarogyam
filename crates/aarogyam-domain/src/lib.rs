@@ -81,6 +81,7 @@ pub mod ids;
 pub mod import;
 pub mod import_map;
 pub mod inventory;
+pub mod lab;
 pub mod letterhead;
 pub mod notification;
 pub mod onboarding;

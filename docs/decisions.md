@@ -17,6 +17,23 @@ Newest first. Change a decision by adding an entry that supersedes it.
 
 **Not done.** UI, push, archiving and renaming, and a purge job.
 
+## 2026-10-09: Labs
+
+**Decision.** Clinics keep their outside labs, the people there, the work sent, and what they pay (migrations 0360 to 0363). Backend only; the portal, console and phone screens come later.
+
+- **Tables:** `lab_vendors` (kind `dental_lab`, `pathology`, `radiology`, `other`) and `lab_contacts` (several per lab; phone, email, WhatsApp flag, preferred channel), both soft-deleted; `lab_orders` (number `LAB-<n>` from `number_sequences` kind `lab_order`; lab, contact of that lab, patient, doctor as a membership, optional procedure and visit of the same patient; status, stage, instructions, sent, due, received; `rework_of_id` for a remake of the same patient's order), `lab_order_items` (work type, FDI teeth, shade, material, qty, unit cost), append-only `lab_order_events`, and finalizable `lab_payments`. `attachments.lab_order_id` is a nullable expand column; nothing reads it yet.
+- **Statuses** move forward only: draft to sent or cancelled; sent to in_progress, received or cancelled; in_progress to received or cancelled; received to fitted or returned_for_rework. A remake is a new order pointing at the old one.
+- **Permissions:** `labs.read` and `labs.write` (owner, doctor, assistant, front desk; backfilled to existing clinics). Both can be narrowed to `own`: the orders a member is the doctor on, created, or treats the visit of (`app.clinical_in_reach`); a new order's patient must be in reach (`app.patient_in_reach`). Unit costs are shown and accepted only with `finance.view` (setting one without it is 403). Payments need `expenses.write` and `finance.view`; listing payments and a lab's balance need `finance.view`.
+- **Payments and expenses:** recording a payment records an expense in the clinic's `lab` category in the same transaction (note "Lab: <lab>, bill <ref>"); voiding the payment voids that expense, and the expense can't be voided on its own (409). The balance is the items of sent, not cancelled, orders at the lab's prices less recorded payments.
+- **Reminders** are a step of the outbox job (`aarogyam_notify::remind_labs`, every 2 minutes, before delivery) through the definer function `app.run_lab_reminders`: while the clinic's own clock is 09:00 to 20:00, work still at the lab gets an email two days before its due date (`due_soon`) and on the day (`due_today`), and is flagged once when overdue (no email; the staff alert comes with T6). Each step is a conditional update of its per-day column, so it runs once per due date whatever runs overlap; a new due date clears the columns (trigger). `POST /lab-orders/{id}/remind` queues one now. Lab contacts are not patients, so these go through the outbox with `recipient` set, to the order's contact if they have an email, else the lab's first contact with one; a lab without one gets a `reminder_skipped` event and the manual remind is refused (409). The payload (`app.lab_reminder_payload`) has the clinic name, order number, work types, teeth, shades and due date, and no patient field at all. Pathology and radiology requisitions, which need patient identity, are printed or shared later and never sent in a reminder.
+- **Analytics** gains `lab_turnaround`: orders received in the range and their average days from sent to received (no money; `analytics.view`).
+- **Reads** are one statement each (`app.lab_order_json` builds an order with its lab, patient, doctor and items), within the round-trip budget. Reading a patient's lab orders writes no access-log entry: they are work orders, not the clinical record. Revisit if clinics treat them as clinical.
+- **Retention:** `lab_work` (orders, items, history and payments, 8 years from the order) and `lab_contacts` (365 days after removal); see the schedule below. Audit masks: contact names, phones and emails, lab phone, email, address and note, order instructions, item work type, shade and material, event and payment notes.
+
+**Why.** The founder asked to keep lab contacts, record lab work, remind labs and pay them. Recording the expense with the payment keeps one source of truth for lab spending in Analytics; keeping the patient out of the reminder payload means a lab email can never leak who the work is for.
+
+**Not done.** Editing items after an order is created, STL scans over 10 MB, WhatsApp to labs (comes with the messaging service), the overdue staff alert (T6), payment method on lab payments, and registering lab tables with the erasure job (T6).
+
 ## 2026-10-08: Clinic notifications, reminders and escalation
 
 **Decision.** An online booking (public page or patient app) writes a `staff_notifications` row in the booking's transaction: `booking_requested` when the clinic waits for confirmation (`online_booking.auto_confirm` false, the default), `booking_confirmed_auto` otherwise. A patient cancelling in the app writes `booking_cancelled_by_patient` through `app.notify_patient_cancelled` (a patient account may not touch staff tables). Rows hold IDs only (migration 0320).
@@ -374,6 +391,9 @@ What `own` means, per record:
 | `audit_events` | Who changed a record | 7 years | Entry | As the patient record it describes |
 | `clinic_applications` | Requests for access that were never approved | 365 days | Decision | Not needed after the decision |
 | `chat_messages` | Staff chat messages, which may name a patient | 365 days | When posted | Working messages, not the record; the record is the chart |
+
+| `lab_work` | Lab orders with their items, history and payments | 8 years | Order recorded | The payments are clinic accounts (as bills); the orders describe work on a patient |
+| `lab_contacts` | People at labs, after the clinic removes them | 365 days | Removal | Business contacts, named with phone and email; not needed once removed |
 
 A clinic may keep records longer where its profession or a dispute requires; per-clinic overrides, and a legal hold that stops erasure of a patient, come before erasure is built (backlog). Consent records stay with the patient record and for 3 years after it.
 

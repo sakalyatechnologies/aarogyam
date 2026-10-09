@@ -1,0 +1,72 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             exists (select 1 from aarogyam.patients p where p.id = $1 and p.deleted_at is null\n                     and app.patient_in_reach(p.id, $8)) as \"patient!\",\n             exists (select 1 from aarogyam.lab_vendors v where v.id = $2 and v.deleted_at is null)\n               as \"vendor!\",\n             ($3::uuid is null or exists (select 1 from aarogyam.lab_contacts c where c.id = $3\n                                          and c.vendor_id = $2 and c.deleted_at is null)) as \"contact!\",\n             exists (select 1 from aarogyam.memberships m where m.id = $4 and m.status = 'active')\n               as \"doctor!\",\n             ($5::uuid is null or exists (select 1 from aarogyam.procedures x where x.id = $5\n                                          and x.patient_id = $1)) as \"procedure!\",\n             ($6::uuid is null or exists (select 1 from aarogyam.encounters e where e.id = $6\n                                          and e.patient_id = $1)) as \"encounter!\",\n             ($7::uuid is null or exists (select 1 from aarogyam.lab_orders o where o.id = $7\n                                          and o.patient_id = $1\n                                          and app.clinical_in_reach(o.doctor_id, o.created_by,\n                                                                    o.encounter_id, $8))) as \"rework!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "patient!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "vendor!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "contact!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "doctor!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "procedure!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "encounter!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "rework!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "f3074fcbb7840dbd238d4c9ab1b90dbe90d92cbd56b3ef910db07f302f4d9c23"
+}

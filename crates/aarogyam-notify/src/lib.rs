@@ -13,10 +13,12 @@
 //! The same job makes new clinics' portal addresses work at the edge first ([`PortalAddresses`],
 //! in `addresses.rs`), so an invitation link works by the time its email arrives, and reminds
 //! staff of booking requests nobody has answered, then tells the owners ([`remind`], in
-//! `staff.rs`, which also holds the delivery seam for push).
+//! `staff.rs`, which also holds the delivery seam for push), and reminds labs of work due
+//! ([`remind_labs`], in `lab.rs`).
 
 mod addresses;
 pub mod cloudflare;
+mod lab;
 mod resend;
 mod staff;
 mod templates;
@@ -29,6 +31,7 @@ use secrecy::SecretString;
 use time::OffsetDateTime;
 
 pub use addresses::{AddressReport, PortalAddresses, WorkersDev};
+pub use lab::{LabReminderReport, remind_labs};
 pub use resend::Resend;
 pub use staff::{ReminderReport, StaffAlert, StaffChannel, remind};
 pub use templates::{Email, PortalLinks};

@@ -32,6 +32,10 @@ export const PERMISSIONS = [
   "support.grant",
   /** Chat with other staff of the clinic (every standard role). */
   "chat.use",
+  /** Labs, their contacts and lab orders (costs also need finance.view). */
+  "labs.read",
+  /** Keep labs and contacts, record and move lab orders, remind a lab. */
+  "labs.write",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

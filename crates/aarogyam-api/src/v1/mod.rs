@@ -24,6 +24,9 @@ pub(crate) mod imports;
 pub(crate) mod internal;
 pub(crate) mod inventory;
 pub(crate) mod invitations;
+pub(crate) mod lab_orders;
+pub(crate) mod lab_payments;
+pub(crate) mod labs;
 pub(crate) mod legal_hold;
 pub(crate) mod letterhead;
 pub(crate) mod me;
@@ -486,6 +489,38 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/me/badges", get(chat::badges))
         .route("/expenses", get(expenses::list).post(expenses::record))
         .route("/expenses/{id}/void", post(expenses::void))
+        .route(
+            "/lab-vendors",
+            get(labs::list_vendors).post(labs::create_vendor),
+        )
+        .route(
+            "/lab-vendors/{id}",
+            get(labs::get_vendor)
+                .patch(labs::update_vendor)
+                .delete(labs::delete_vendor),
+        )
+        .route("/lab-vendors/{id}/contacts", post(labs::create_contact))
+        .route("/lab-vendors/{id}/balance", get(labs::balance))
+        .route(
+            "/lab-contacts/{id}",
+            patch(labs::update_contact).delete(labs::delete_contact),
+        )
+        .route(
+            "/lab-orders",
+            get(lab_orders::list).post(lab_orders::create),
+        )
+        .route(
+            "/lab-orders/{id}",
+            get(lab_orders::get).patch(lab_orders::update),
+        )
+        .route("/lab-orders/{id}/status", post(lab_orders::set_status))
+        .route("/lab-orders/{id}/remind", post(lab_orders::remind))
+        .route("/patients/{id}/lab-orders", get(lab_orders::for_patient))
+        .route(
+            "/lab-payments",
+            get(lab_payments::list).post(lab_payments::record),
+        )
+        .route("/lab-payments/{id}/void", post(lab_payments::void))
         .route("/today/money", get(reports::today_money))
         .route("/patients/{id}/recalls", post(recalls::create))
         .route("/recalls", get(recalls::due))

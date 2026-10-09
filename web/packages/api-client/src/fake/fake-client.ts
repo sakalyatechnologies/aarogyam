@@ -5478,7 +5478,7 @@ function deriveSlug(name: string): string {
     .replace(/-+$/, "");
 }
 
-/** Name (word prefixes, any order), clinic number, or at least four digits of the phone. */
+/** Name (word prefixes, any order, then any part), clinic number, or the phone's last four or more digits, like the API. */
 function searchPatients(patients: readonly FakePatient[], q: string): FakePatient[] {
   const query = q.trim().toLowerCase();
   const recent = (a: FakePatient, b: FakePatient) =>
@@ -5493,7 +5493,7 @@ function searchPatients(patients: readonly FakePatient[], q: string): FakePatien
     if (number === query || number.endsWith(`-${query}`)) return 4;
     const words = p.full_name.toLowerCase().split(/\s+/);
     if (tokens.every((t) => words.some((w) => w.startsWith(t)))) return 3;
-    if (digits.length >= 4 && digits === query.replace(/[\s+-]/g, "") && (p.phone ?? "").replace(/\D/g, "").includes(digits)) return 2;
+    if (digits.length >= 4 && digits === query.replace(/[\s+-]/g, "") && (p.phone ?? "").replace(/\D/g, "").endsWith(digits)) return 2;
     if (p.full_name.toLowerCase().includes(query) || number.includes(query)) return 1;
     return 0;
   };

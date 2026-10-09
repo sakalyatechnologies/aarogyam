@@ -105,6 +105,9 @@ describe("fake client: patients", () => {
     expect(value(await client.searchPatients({ q: "SD-5" })).items[0]?.number).toBe("SD-5");
     const withPhone = fixtures.patients.find((p) => p.number.startsWith("SD-") && p.phone != null);
     expect(value(await client.searchPatients({ q: (withPhone?.phone ?? "").slice(-6) })).items.map((p) => p.id)).toContain(withPhone?.id);
+    // Digits from the middle of a phone are not its end, as in the API.
+    const middle = (withPhone?.phone ?? "").replace(/\D/g, "").slice(-8, -4);
+    expect(value(await client.searchPatients({ q: middle })).items.map((p) => p.id)).not.toContain(withPhone?.id);
     expect(value(await client.searchPatients({ q: "zzzz qqqq" })).items).toEqual([]);
   });
 

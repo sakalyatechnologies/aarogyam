@@ -40,9 +40,6 @@
     <string name="schedule_empty_message">नई बुकिंग यहां दिखेंगी.</string>
     <string name="today_not_allowed_title">आज का पेज उपलब्ध नहीं है</string>
     <string name="today_not_allowed_message">इस क्लिनिक में आपकी भूमिका शेड्यूल नहीं देख सकती.</string>
-    <string name="switch_clinic">क्लिनिक बदलें</string>
-    <string name="more">और</string>
-    <string name="language">भाषा</string>
     <string name="language_title">ऐप की भाषा</string>
     <string name="language_system">फ़ोन की भाषा</string>
     <string name="status_booked">बुक</string>
@@ -55,7 +52,6 @@
     <string name="status_unknown">तय</string>
     <string name="tab_today">आज</string>
     <string name="tab_patients">मरीज़</string>
-    <string name="tab_calendar">कैलेंडर</string>
     <string name="back">वापस</string>
     <string name="patients_title">मरीज़</string>
     <string name="patients_search">नाम, फ़ोन या फ़ाइल नंबर खोजें</string>

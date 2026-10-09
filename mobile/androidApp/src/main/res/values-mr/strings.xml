@@ -40,9 +40,6 @@
     <string name="schedule_empty_message">नवीन बुकिंग इथे दिसतील.</string>
     <string name="today_not_allowed_title">आजचे पान उपलब्ध नाही</string>
     <string name="today_not_allowed_message">या क्लिनिकमध्ये तुमच्या भूमिकेला वेळापत्रक पाहता येत नाही.</string>
-    <string name="switch_clinic">क्लिनिक बदला</string>
-    <string name="more">अधिक</string>
-    <string name="language">भाषा</string>
     <string name="language_title">ॲपची भाषा</string>
     <string name="language_system">फोनची भाषा</string>
     <string name="status_booked">बुक केले</string>
@@ -55,7 +52,6 @@
     <string name="status_unknown">नियोजित</string>
     <string name="tab_today">आज</string>
     <string name="tab_patients">रुग्ण</string>
-    <string name="tab_calendar">कॅलेंडर</string>
     <string name="back">मागे</string>
     <string name="patients_title">रुग्ण</string>
     <string name="patients_search">नाव, फोन किंवा फाइल नंबर शोधा</string>

@@ -10,6 +10,8 @@ pub(crate) mod chart;
 pub(crate) mod client_errors;
 pub(crate) mod consents;
 pub(crate) mod console;
+pub(crate) mod console_support;
+pub(crate) mod dental_terms;
 pub(crate) mod expenses;
 pub(crate) mod facts;
 pub(crate) mod files;
@@ -18,6 +20,7 @@ pub(crate) mod imports;
 pub(crate) mod internal;
 pub(crate) mod inventory;
 pub(crate) mod invitations;
+pub(crate) mod legal_hold;
 pub(crate) mod letterhead;
 pub(crate) mod me;
 pub(crate) mod meta;
@@ -26,6 +29,7 @@ pub(crate) mod onboarding;
 pub(crate) mod patient_app;
 pub(crate) mod patient_links;
 pub(crate) mod patient_notes;
+pub(crate) mod patient_sessions;
 pub(crate) mod patients;
 pub(crate) mod payments;
 pub(crate) mod prescriptions;
@@ -42,6 +46,7 @@ pub(crate) mod settings;
 pub(crate) mod setup;
 pub(crate) mod smart_import;
 pub(crate) mod staff;
+pub(crate) mod support_grants;
 pub(crate) mod today;
 pub(crate) mod treatment;
 pub(crate) mod visits;
@@ -91,6 +96,11 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         // clinic's host, which must have linked the account.
         .route("/me/patient", get(patient_app::me))
         .route("/me/patient/home", get(patient_app::home))
+        .route("/me/patient/sessions", get(patient_sessions::list))
+        .route(
+            "/me/patient/sessions/{id}",
+            delete(patient_sessions::revoke),
+        )
         .route("/me/patient/appointments", get(patient_app::appointments))
         .route("/me/patient/prescriptions", get(patient_app::prescriptions))
         .route("/me/patient/bills", get(patient_app::bills))
@@ -188,6 +198,13 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(consents::list).post(consents::record),
         )
         .route("/consents/{id}/withdraw", post(consents::withdraw))
+        .route("/patients/{id}/legal-hold", put(legal_hold::set))
+        .route(
+            "/support-grants",
+            get(support_grants::list).post(support_grants::create),
+        )
+        .route("/support-grants/{id}/revoke", post(support_grants::revoke))
+        .route("/support-grants/{id}/actions", get(support_grants::actions))
         .route("/patients/{id}/app-access", get(patient_links::access))
         .route(
             "/patients/{id}/app-invitations",
@@ -239,7 +256,13 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/patients/{id}/dental-chart",
             get(chart::get).post(chart::record),
         )
-        .route("/dental-terms", post(chart::add_term))
+        .route(
+            "/dental-terms",
+            get(dental_terms::list).post(chart::add_term),
+        )
+        .route("/dental-terms/{id}", patch(dental_terms::rename))
+        .route("/dental-terms/{id}/retire", post(dental_terms::retire))
+        .route("/dental-terms/{id}/restore", post(dental_terms::restore))
         .route("/visits/{id}/procedures", post(treatment::record_procedure))
         .route("/patients/{id}/procedures", get(treatment::procedures))
         .route("/procedures/{id}/complete", post(treatment::complete))
@@ -348,6 +371,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             post(onboarding::resend_owner_invitation),
         )
         .route("/console/slugs", get(console::check_slug))
+        .route("/console/support-grants", get(console_support::mine))
         .route("/console/applications", get(onboarding::applications))
         .route(
             "/console/applications/{id}/approve",

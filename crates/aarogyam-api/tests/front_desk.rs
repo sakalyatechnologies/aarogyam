@@ -129,6 +129,7 @@ async fn owner_actor(app: &TestApp) -> ClinicActor {
             .fold(PermissionSet::EMPTY, |set, permission| {
                 set.with(permission, Scope::All)
             }),
+        support_grant: None,
     }
 }
 

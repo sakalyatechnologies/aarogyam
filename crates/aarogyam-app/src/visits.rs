@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::moved::Moved;
-use crate::scope::{STAFF, staff_scope as scope};
+use crate::scope::staff_scope as scope;
 
 /// Most visits a list returns.
 pub const MAX_VISITS: i64 = 200;
@@ -84,7 +84,7 @@ pub(crate) async fn record_access(
         tx.conn(),
         &visits::Access {
             actor_user_id: actor.user_id.uuid(),
-            actor_kind: STAFF.as_str(),
+            actor_kind: crate::scope::actor_kind(actor).as_str(),
             patient_id,
             resource,
             resource_id,

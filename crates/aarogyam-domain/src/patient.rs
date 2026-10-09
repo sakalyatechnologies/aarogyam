@@ -95,6 +95,8 @@ text_enum!(
         Deceased => "deceased",
         /// Merged into another record; reads resolve to that one.
         Merged => "merged",
+        /// Erased after its retention period: a tombstone with the number only.
+        Erased => "erased",
     }
 );
 

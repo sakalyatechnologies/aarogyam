@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, kind, label from aarogyam.dental_terms order by kind, lower(label)",
+  "query": "select id, kind, label, retired_at is not null as \"retired!\"\n           from aarogyam.dental_terms order by kind, lower(label)",
   "describe": {
     "columns": [
       {
@@ -35,6 +35,12 @@
             "name": "label"
           }
         }
+      },
+      {
+        "ordinal": 3,
+        "name": "retired!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -43,8 +49,9 @@
     "nullable": [
       false,
       false,
-      false
+      false,
+      null
     ]
   },
-  "hash": "6dab397aab78ed4f879de887e870652a71e373db2ec4409a77005e8b4689dbbd"
+  "hash": "4b529ef39af1c0f10a7b177a281d51ca0759f20801fc8347515b92b48fa48309"
 }

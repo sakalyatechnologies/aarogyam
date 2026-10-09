@@ -2590,7 +2590,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           const term = { id: fakeUuid(random, clock()), clinic_id: caller.clinic.id, kind: kind.data, label };
           (state.dentalTerms ??= []).push(term);
-          return reply({ id: term.id, kind: term.kind, label, own: true } satisfies C.DentalTerm);
+          return reply({ id: term.id, kind: term.kind, label, own: true, retired: false } satisfies C.DentalTerm);
         }),
 
       listAttachments: (id, opts) =>

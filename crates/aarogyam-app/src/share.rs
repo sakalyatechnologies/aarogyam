@@ -17,7 +17,7 @@ use uuid::Uuid;
 use crate::clock::clinic_today;
 use crate::error::AppError;
 use crate::prescriptions::{RxView, load};
-use crate::scope::{PATIENT, STAFF, public_scope, staff_scope};
+use crate::scope::{PATIENT, public_scope, staff_scope};
 use crate::tokens::{hash_token, new_token};
 
 /// A new link: the token for the URL and the PIN for the paper. Shown once; only hashes are
@@ -112,7 +112,7 @@ pub(crate) async fn create_in(
         tx.conn(),
         &access::DocumentAccess {
             actor_user_id: Some(actor.user_id.uuid()),
-            actor_kind: STAFF.as_str(),
+            actor_kind: crate::scope::actor_kind(actor).as_str(),
             patient_id,
             share_link_id: Some(id.uuid()),
             resource: "prescription",

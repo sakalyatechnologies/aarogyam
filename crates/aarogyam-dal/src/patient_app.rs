@@ -52,7 +52,7 @@ pub struct LinkRow {
 }
 
 /// The account for a verified sign-in (made on first use when `email` is given), whether the
-/// session was revoked, and its active links. `None` when there is no account and no email.
+/// session (recorded here, so the patient can list and sign it out) was revoked, and its active links. `None` when there is no account and no email.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -60,17 +60,18 @@ pub async fn access(
     pool: &PgPool,
     auth_uid: Uuid,
     email: Option<&str>,
-    session_id: Uuid,
+    session: (Uuid, OffsetDateTime),
 ) -> Result<Option<AccessRow>, DbError> {
     let rows = sqlx::query!(
         r#"select account_id as "account_id!", account_status as "account_status!",
                   account_email as "account_email!", session_revoked as "session_revoked!",
                   link_id, org_id, slug, clinic_name, portal_host, timezone, number_prefix,
                   branding, patient_id, patient_number, linked_at
-           from app.patient_access($1, $2, $3)"#,
+           from app.patient_access($1, $2, $3, $4)"#,
         auth_uid,
         email,
-        session_id
+        session.0,
+        session.1
     )
     .fetch_all(pool)
     .await?;

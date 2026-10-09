@@ -115,4 +115,8 @@ entities! {
     StaffNotification, StaffNotificationId;
     /// A message in the clinic's inbox, such as a reminder about a waiting booking.
     InboxMessage, InboxMessageId;
+    /// A clinic's time-limited grant of read access to one Sakalya staff member.
+    SupportGrant, SupportGrantId;
+    /// A patient app sign-in session.
+    PatientSession, PatientSessionId;
 }

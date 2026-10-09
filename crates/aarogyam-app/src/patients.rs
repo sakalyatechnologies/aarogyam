@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::clock::{clinic_today, day_bounds};
 use crate::error::AppError;
-use crate::scope::{STAFF, staff_scope as scope};
+use crate::scope::staff_scope as scope;
 
 /// Most results a search returns.
 pub const MAX_RESULTS: i64 = 50;
@@ -585,7 +585,7 @@ pub async fn open(
             patient_id.uuid(),
             &patients::AccessEntry {
                 actor_user_id: actor.user_id.uuid(),
-                actor_kind: STAFF.as_str(),
+                actor_kind: crate::scope::actor_kind(actor).as_str(),
                 patient_id: patient_id.uuid(),
                 resource: "chart",
                 action: "view",

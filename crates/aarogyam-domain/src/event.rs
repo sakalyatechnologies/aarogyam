@@ -134,6 +134,20 @@ pub enum Event {
     WalkInRegistered,
     /// A clinician confirmed a patient-reported allergy.
     AllergyConfirmed,
+    /// A clinic granted a Sakalya staff member read access.
+    SupportGranted,
+    /// A clinic revoked a support grant.
+    SupportRevoked,
+    /// A clinic retired one of its own dental terms.
+    DentalTermRetired,
+    /// A clinic restored a retired dental term.
+    DentalTermRestored,
+    /// A clinic renamed one of its own dental terms.
+    DentalTermRenamed,
+    /// A patient signed out one of their own app sessions.
+    PatientSessionRevoked,
+    /// A patient's legal hold was put on or released.
+    LegalHoldChanged,
 }
 
 impl Event {
@@ -206,6 +220,13 @@ impl Event {
             Self::ExpenseVoided => "expense.voided",
             Self::WalkInRegistered => "walk_in.registered",
             Self::AllergyConfirmed => "allergy.confirmed",
+            Self::SupportGranted => "support.granted",
+            Self::SupportRevoked => "support.revoked",
+            Self::DentalTermRetired => "dental_term.retired",
+            Self::DentalTermRestored => "dental_term.restored",
+            Self::DentalTermRenamed => "dental_term.renamed",
+            Self::PatientSessionRevoked => "patient_session.revoked",
+            Self::LegalHoldChanged => "legal_hold.changed",
         }
     }
 }

@@ -4,7 +4,7 @@ import type { DentalTerm } from "@aarogyam/api-client";
 
 import { hasLabel, matchTerms } from "./terms.js";
 
-const term = (id: string, kind: DentalTerm["kind"], label: string, own = false): DentalTerm => ({ id, kind, label, own });
+const term = (id: string, kind: DentalTerm["kind"], label: string, own = false): DentalTerm => ({ id, kind, label, own, retired: false });
 const TERMS: DentalTerm[] = [
   term("crown", "procedure", "Crown"),
   term("zirconia", "material", "Zirconia"),

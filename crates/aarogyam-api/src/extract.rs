@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 use aarogyam_dal::lookups::{self, HostClinic, PlatformAccess};
 use aarogyam_domain::access::{ClinicActor, ClinicStatus, Denied};
 use aarogyam_domain::permission::Required;
-use axum::extract::FromRequestParts;
+use axum::extract::{FromRequestParts, MatchedPath};
 use axum::http::header;
 use axum::http::request::Parts;
 use sakalya_auth::{AssuranceLevel, Claims};
@@ -86,17 +86,30 @@ impl FromRequestParts<AppState> for ClinicRequest {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
+        Self::admit(parts, state, false).await
+    }
+}
+
+impl ClinicRequest {
+    /// Checks the host, the token and the membership. With `allow_support`, Sakalya staff with
+    /// an active support grant at the clinic are admitted too, read-only: only routes that name
+    /// a permission ([`Require`], [`RequireEither`]) allow them, never member-only routes.
+    async fn admit(
+        parts: &Parts,
+        state: &AppState,
+        allow_support: bool,
+    ) -> Result<Self, ApiFailure> {
         let host = edge(parts)?.host().as_str().to_owned();
         let hosts = state.hosts();
         if host == hosts.console || host == hosts.app {
             return Err(ApiFailure::Error(not_found()));
         }
         let is_open = |clinic: &HostClinic| clinic.status.is_some_and(ClinicStatus::is_open);
-        let (clinic, authorization) = if let Some(clinic) = state.cached_host(&host) {
+        let (clinic, authorization, claims) = if let Some(clinic) = state.cached_host(&host) {
             let clinic = Some(clinic).filter(is_open).ok_or(Denied::UnknownClinic)?;
             let claims = state.claims(&parts.headers).await?;
             let authorization = state.authorization(clinic.clinic_id, &claims).await?;
-            (clinic, authorization)
+            (clinic, authorization, claims)
         } else {
             // Nothing cached: the host and the member in one round trip. An unknown or closed
             // host still answers 404 before a bad token's 401, as when they were two lookups.
@@ -116,10 +129,16 @@ impl FromRequestParts<AppState> for ClinicRequest {
                 .await?
                 .ok_or(Denied::UnknownClinic)?;
             let clinic = Some(clinic).filter(is_open).ok_or(Denied::UnknownClinic)?;
-            (clinic, authorization)
+            (clinic, authorization, claims)
         };
-        let authorization = authorization.ok_or(Denied::NotAMember)?;
-        let actor = ClinicActor::admit(clinic.place(), authorization)?;
+        let actor = match authorization.map(|found| ClinicActor::admit(clinic.place(), found)) {
+            Some(Ok(actor)) => actor,
+            Some(Err(Denied::NotAMember)) | None if allow_support => {
+                support_actor(parts, state, &clinic, &claims).await?
+            }
+            Some(Err(denied)) => return Err(denied.into()),
+            None => return Err(Denied::NotAMember.into()),
+        };
         sakalya_telemetry::record_tenant(actor.clinic_id.uuid());
         sakalya_telemetry::record_user(actor.user_id.uuid());
         Ok(Self {
@@ -127,6 +146,47 @@ impl FromRequestParts<AppState> for ClinicRequest {
             request_id: request_id(parts),
         })
     }
+}
+
+/// Sakalya staff with an active support grant at `clinic`, recording this request under the
+/// grant (method and route template only). Anyone else is a non-member (`404`).
+async fn support_actor(
+    parts: &Parts,
+    state: &AppState,
+    clinic: &HostClinic,
+    claims: &Claims,
+) -> Result<ClinicActor, ApiFailure> {
+    let session = claims.session_id().ok_or_else(ApiError::unauthenticated)?;
+    let expires_at = time::OffsetDateTime::from_unix_timestamp(claims.expires_at())
+        .map_err(|_| ApiError::unauthenticated())?;
+    let route = parts
+        .extensions
+        .get::<MatchedPath>()
+        .map_or("unknown", MatchedPath::as_str);
+    let request_text = request_id(parts).map(|id| id.to_string());
+    let action = aarogyam_dal::support::Action {
+        method: parts.method.as_str(),
+        route,
+        request_id: request_text.as_deref(),
+    };
+    let access = aarogyam_app::support::authorize(
+        state.db(),
+        clinic.clinic_id,
+        claims.subject().uuid(),
+        (session, expires_at),
+        action,
+    )
+    .await?
+    .ok_or(Denied::NotAMember)?;
+    // As in the console: reading a clinic's records needs the second step.
+    if state.staff_mfa() && claims.assurance_level() != AssuranceLevel::Aal2 {
+        return Err(ApiError::forbidden(
+            "mfa_required",
+            "Support access needs your authenticator code. Open the console to enter it.",
+        )
+        .into());
+    }
+    Ok(ClinicActor::support(clinic.place(), access)?)
 }
 
 /// The open clinic named by the host, for routes that carry their own proof of access instead
@@ -183,7 +243,7 @@ impl<P: Required> FromRequestParts<AppState> for Require<P> {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let request = ClinicRequest::from_request_parts(parts, state).await?;
+        let request = ClinicRequest::admit(parts, state, true).await?;
         request.actor.require(P::PERMISSION)?;
         Ok(Self {
             request,
@@ -208,7 +268,7 @@ impl<A: Required, B: Required> FromRequestParts<AppState> for RequireEither<A, B
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let request = ClinicRequest::from_request_parts(parts, state).await?;
+        let request = ClinicRequest::admit(parts, state, true).await?;
         if request.actor.require(A::PERMISSION).is_err() {
             request.actor.require(B::PERMISSION)?;
         }
@@ -301,7 +361,16 @@ async fn patient_access(
 ) -> Result<aarogyam_app::patient_app::PatientAccess, ApiFailure> {
     use aarogyam_app::patient_app::{self as patient_app, AccessRefusal};
     let session = claims.session_id().ok_or_else(ApiError::unauthenticated)?;
-    match patient_app::access(state.db(), claims.subject().uuid(), claims.email(), session).await? {
+    let expires_at = time::OffsetDateTime::from_unix_timestamp(claims.expires_at())
+        .map_err(|_| ApiError::unauthenticated())?;
+    let found = patient_app::access(
+        state.db(),
+        claims.subject().uuid(),
+        claims.email(),
+        (session, expires_at),
+    )
+    .await?;
+    match found {
         Ok(access) => {
             sakalya_telemetry::record_user(access.account_id.uuid());
             Ok(access)
@@ -325,6 +394,8 @@ async fn patient_access(
 pub struct PatientRequest {
     /// The account and its linked clinics.
     pub access: aarogyam_app::patient_app::PatientAccess,
+    /// The sign-in session's provider id (the token's `session_id`).
+    pub session_id: Uuid,
     /// The request ID, for the access record.
     pub request_id: Option<Uuid>,
 }
@@ -342,6 +413,7 @@ impl FromRequestParts<AppState> for PatientRequest {
         }
         Ok(Self {
             access: patient_access(state, &claims).await?,
+            session_id: claims.session_id().ok_or_else(ApiError::unauthenticated)?,
             request_id: request_id(parts),
         })
     }

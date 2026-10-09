@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-drafted; a native speaker reviews before the pilot (docs/backlog.md). -->
+<resources>
+    <string name="tab_queue">रांग</string>
+    <string name="walk_in_add">+ वॉक-इन</string>
+    <string name="walk_in_title">वॉक-इन</string>
+    <string name="walk_in_subtitle">एकाच टप्प्यात नोंदणी करा आणि रांगेत जोडा</string>
+    <string name="walk_in_close">बंद करा</string>
+    <string name="walk_in_not_allowed_title">फक्त रिसेप्शनसाठी</string>
+    <string name="walk_in_not_allowed_message">तुमच्या भूमिकेला वॉक-इन नोंदवता येत नाही. गरज असल्यास क्लिनिकच्या मालकांना विचारा.</string>
+    <string name="walk_in_mobile">मोबाइल नंबर</string>
+    <string name="walk_in_mobile_hint">कुटुंबात अनेकदा एकच नंबर असतो: योग्य व्यक्ती निवडा.</string>
+    <string name="walk_in_looking">शोधत आहे…</string>
+    <string name="walk_in_no_match">या नंबरवर अजून कोणाची नोंदणी नाही.</string>
+    <string name="walk_in_lookup_failed">हा नंबर तपासता आला नाही. तरीही नोंदणी करू शकता.</string>
+    <string name="walk_in_someone_new">नवीन व्यक्ती</string>
+    <string name="walk_in_selected">निवडले</string>
+    <string name="walk_in_name">पूर्ण नाव</string>
+    <string name="walk_in_age">वय (वर्षे)</string>
+    <string name="walk_in_sex">लिंग</string>
+    <string name="walk_in_allergies">ॲलर्जी</string>
+    <string name="walk_in_no_known_allergies">कोणतीही ॲलर्जी माहीत नाही</string>
+    <string name="walk_in_allergies_hint">रुग्णाने सांगितल्याप्रमाणे नोंदवले जाते. डॉक्टर भेटीत खात्री करतात.</string>
+    <string name="walk_in_consent">संमती</string>
+    <string name="walk_in_consent_read">मोठ्याने वाचा: “तुमच्यावर उपचार करण्यासाठी क्लिनिक तुमची आरोग्य नोंद ठेवते, आणि भेटींची आठवण SMS किंवा WhatsApp वर करून देऊ शकते. तुम्ही ही संमती कधीही मागे घेऊ शकता.”</string>
+    <string name="walk_in_consent_care">उपचारांना आणि नोंद ठेवण्यास संमती</string>
+    <string name="walk_in_consent_reminders">भेटीच्या आठवणींना संमती</string>
+    <string name="walk_in_doctor">डॉक्टर</string>
+    <string name="walk_in_doctor_any">अजून ठरले नाही</string>
+    <string name="walk_in_submit">रांगेत जोडा</string>
+    <string name="walk_in_submitting">जोडत आहे…</string>
+    <string name="walk_in_problem_pick">रुग्ण निवडा, किंवा नवीन व्यक्ती निवडा.</string>
+    <string name="walk_in_problem_name">रुग्णाचे नाव टाका.</string>
+    <string name="walk_in_problem_age">वय वर्षांमध्ये आकड्यात टाका.</string>
+    <string name="walk_in_done_title">टोकन %1$d</string>
+    <string name="walk_in_done_message">%1$s रांगेत आहेत.</string>
+    <string name="walk_in_another">पुढचे वॉक-इन</string>
+    <string name="queue_title">रांग</string>
+    <string name="queue_not_allowed_title">रांग पाहण्याची परवानगी नाही</string>
+    <string name="queue_not_allowed_message">तुमच्या भूमिकेला प्रतीक्षा कक्ष पाहता येत नाही.</string>
+    <string name="queue_empty_title">कोणीही प्रतीक्षेत नाही</string>
+    <string name="queue_empty_message">वॉक-इन आणि आलेले रुग्ण इथे दिसतील.</string>
+    <string name="queue_waiting">क्लिनिकमध्ये</string>
+    <string name="queue_finished">तपासले किंवा गेले</string>
+    <string name="queue_token">#%1$d</string>
+    <string name="queue_wait_minutes">%1$d\u00A0मि.</string>
+    <string name="queue_status_waiting">प्रतीक्षेत</string>
+    <string name="queue_status_in_chair">खुर्चीत</string>
+    <string name="queue_status_done">झाले</string>
+    <string name="queue_status_left">गेले</string>
+    <string name="queue_seat">बसवा</string>
+    <string name="queue_done">झाले</string>
+    <string name="queue_left">गेले</string>
+    <string name="queue_start_visit">भेट सुरू करा</string>
+</resources>

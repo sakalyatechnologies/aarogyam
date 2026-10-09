@@ -55,8 +55,7 @@ fun TodayScreen(
             actions = {
                 val onBar = SkTheme.colors.onBrandDark.color
                 BarAction(stringResource(R.string.walk_in_add), onBar, onWalkIn)
-                BarAction(stringResource(R.string.switch_clinic), onBar, onSwitchClinic)
-                BarAction(stringResource(R.string.sign_out), onBar, onSignOut)
+                MoreMenu(onBar, onSwitchClinic, onSignOut)
             },
         )
         PullToRefreshBox(

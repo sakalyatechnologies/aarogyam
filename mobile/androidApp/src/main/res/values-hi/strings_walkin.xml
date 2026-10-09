@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-drafted; a native speaker reviews before the pilot (docs/backlog.md). -->
+<resources>
+    <string name="tab_queue">कतार</string>
+    <string name="walk_in_add">+ वॉक-इन</string>
+    <string name="walk_in_title">वॉक-इन</string>
+    <string name="walk_in_subtitle">एक ही बार में रजिस्टर करें और कतार में जोड़ें</string>
+    <string name="walk_in_close">बंद करें</string>
+    <string name="walk_in_not_allowed_title">सिर्फ़ रिसेप्शन के लिए</string>
+    <string name="walk_in_not_allowed_message">आपकी भूमिका वॉक-इन रजिस्टर नहीं कर सकती. ज़रूरत हो तो क्लिनिक के मालिक से पूछें.</string>
+    <string name="walk_in_mobile">मोबाइल नंबर</string>
+    <string name="walk_in_mobile_hint">परिवारों में अक्सर एक ही नंबर होता है: सही व्यक्ति चुनें.</string>
+    <string name="walk_in_looking">खोज रहे हैं…</string>
+    <string name="walk_in_no_match">इस नंबर पर अभी कोई रजिस्टर नहीं है.</string>
+    <string name="walk_in_lookup_failed">यह नंबर जांचा नहीं जा सका. फिर भी रजिस्टर कर सकते हैं.</string>
+    <string name="walk_in_someone_new">नया व्यक्ति</string>
+    <string name="walk_in_selected">चुना गया</string>
+    <string name="walk_in_name">पूरा नाम</string>
+    <string name="walk_in_age">उम्र (साल)</string>
+    <string name="walk_in_sex">लिंग</string>
+    <string name="walk_in_allergies">एलर्जी</string>
+    <string name="walk_in_no_known_allergies">कोई ज्ञात एलर्जी नहीं</string>
+    <string name="walk_in_allergies_hint">मरीज़ के बताए अनुसार दर्ज होती है. डॉक्टर विज़िट में पुष्टि करते हैं.</string>
+    <string name="walk_in_consent">सहमति</string>
+    <string name="walk_in_consent_read">पढ़कर सुनाएं: “इलाज के लिए क्लिनिक आपका हेल्थ रिकॉर्ड रखता है, और विज़िट की याद SMS या WhatsApp पर दिला सकता है. आप यह सहमति कभी भी वापस ले सकते हैं.”</string>
+    <string name="walk_in_consent_care">इलाज और रिकॉर्ड रखने के लिए सहमत</string>
+    <string name="walk_in_consent_reminders">विज़िट रिमाइंडर के लिए सहमत</string>
+    <string name="walk_in_doctor">डॉक्टर</string>
+    <string name="walk_in_doctor_any">अभी तय नहीं</string>
+    <string name="walk_in_submit">कतार में जोड़ें</string>
+    <string name="walk_in_submitting">जोड़ रहे हैं…</string>
+    <string name="walk_in_problem_pick">मरीज़ चुनें, या नया व्यक्ति चुनें.</string>
+    <string name="walk_in_problem_name">मरीज़ का नाम डालें.</string>
+    <string name="walk_in_problem_age">उम्र सालों में अंकों में डालें.</string>
+    <string name="walk_in_done_title">टोकन %1$d</string>
+    <string name="walk_in_done_message">%1$s कतार में हैं.</string>
+    <string name="walk_in_another">अगला वॉक-इन</string>
+    <string name="queue_title">कतार</string>
+    <string name="queue_not_allowed_title">कतार देखने की अनुमति नहीं</string>
+    <string name="queue_not_allowed_message">आपकी भूमिका वेटिंग रूम नहीं देख सकती.</string>
+    <string name="queue_empty_title">कोई इंतज़ार में नहीं</string>
+    <string name="queue_empty_message">वॉक-इन और आए हुए मरीज़ यहां दिखेंगे.</string>
+    <string name="queue_waiting">क्लिनिक में</string>
+    <string name="queue_finished">देख लिया या चले गए</string>
+    <string name="queue_token">#%1$d</string>
+    <string name="queue_wait_minutes">%1$d\u00A0मिनट</string>
+    <string name="queue_status_waiting">इंतज़ार में</string>
+    <string name="queue_status_in_chair">कुर्सी पर</string>
+    <string name="queue_status_done">हो गया</string>
+    <string name="queue_status_left">चले गए</string>
+    <string name="queue_seat">बिठाएं</string>
+    <string name="queue_done">हो गया</string>
+    <string name="queue_left">चले गए</string>
+    <string name="queue_start_visit">विज़िट शुरू करें</string>
+</resources>

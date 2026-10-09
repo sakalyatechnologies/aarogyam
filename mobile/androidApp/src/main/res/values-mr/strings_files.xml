@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-drafted; a native speaker reviews before the pilot (docs/backlog.md). -->
+<resources>
+    <string name="patient_tab_files">फाइल्स</string>
+    <string name="files_not_allowed">तुमच्या भूमिकेला रुग्णाच्या फाइल्स पाहता येत नाहीत.</string>
+    <string name="files_empty_title">अजून फाइल्स नाहीत</string>
+    <string name="files_empty_message">फोटो आणि एक्स-रे इथे दिसतील.</string>
+    <string name="files_take_photo">फोटो काढा</string>
+    <string name="files_choose_photo">गॅलरीतून निवडा</string>
+    <string name="files_unlabelled">नाव नाही</string>
+    <string name="files_tooth">दात %1$d</string>
+    <string name="files_not_image">फाइल</string>
+    <string name="files_label_title">या फोटोला नाव द्या</string>
+    <string name="files_label_custom">किंवा स्वतःचे नाव टाइप करा</string>
+    <string name="files_tooth_field">दात (ऐच्छिक, उदा. 36)</string>
+    <string name="files_send">पाठवा</string>
+    <string name="files_cancel">रद्द करा</string>
+    <string name="files_uploading">पाठवत आहे…</string>
+    <string name="files_problem_label">नाव जास्तीत जास्त 60 अक्षरांचे असू शकते.</string>
+    <string name="files_problem_tooth">दात 11 ते 48 असा नंबर हवा, किंवा दुधाच्या दातांसाठी 51 ते 85.</string>
+    <string name="files_problem_large">हा फोटो पाठवण्यासाठी खूप मोठा आहे.</string>
+    <string name="files_problem_failed">फोटो पाठवता आला नाही. पुन्हा प्रयत्न करा.</string>
+    <string name="files_problem_read">हा फोटो वाचता आला नाही.</string>
+</resources>

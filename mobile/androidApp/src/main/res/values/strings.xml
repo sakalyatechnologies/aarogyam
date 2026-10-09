@@ -48,6 +48,13 @@
     <string name="today_not_allowed_title">Today isn\'t available</string>
     <string name="today_not_allowed_message">Your role can\'t see the schedule at this clinic.</string>
     <string name="switch_clinic">Switch clinic</string>
+    <string name="more">More</string>
+    <string name="language">Language</string>
+    <string name="language_title">App language</string>
+    <string name="language_system">Phone setting</string>
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_marathi" translatable="false">मराठी</string>
+    <string name="language_hindi" translatable="false">हिंदी</string>
     <string name="status_booked">Booked</string>
     <string name="status_confirmed">Confirmed</string>
     <string name="status_waiting">Waiting</string>

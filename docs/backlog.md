@@ -102,3 +102,8 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 - **Legal pages for clinics' own use:** clinics' own notice printed with the clinic's letterhead; lawyer-reviewed Hindi and Marathi versions.
 
 - **Built so far (7 Oct 2026):** the patient account and verified per-clinic links, and the patient app showing every linked clinic's appointments, prescriptions, bills and shared files together (`docs/patient-access.md`, "Built"). Still to build: a patient granting one clinic access to another clinic's history (consent artefacts, time-limited, audited both sides).
+
+## Phone screens in Marathi and Hindi (8 Oct 2026)
+- **Built (machine-drafted):** the staff app's screens in Marathi and Hindi: Android `values-mr` and `values-hi` for every string file, `mr` and `hi` in the iOS String Catalogs. The app follows the phone's language; Android also has an in-app choice (Today → More → Language: phone setting, English, मराठी, हिंदी) through `AppCompatDelegate.setApplicationLocales`; iOS opens Settings, where each app has its own language.
+- **Before the pilot:** a native Marathi speaker and a native Hindi speaker who know clinic work review every string (clinical terms such as caries, crown and the tooth surfaces are transliterated for now; dentists may prefer the English words), and check the screens for truncation. Until then the translations are drafts.
+- **Not yet:** the portal (its i18n layer is part C4 of the walk-in plan), patient-facing text (prescriptions, the patient app), and a check that fails the build when a string has no Marathi or Hindi version on iOS (Android lint already does).

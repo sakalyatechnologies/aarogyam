@@ -10,6 +10,18 @@
             "state": "translated",
             "value": "Adult"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वयस्क"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "प्रौढ"
+          }
         }
       }
     },
@@ -20,6 +32,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancel"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रद्द करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रद्द करा"
           }
         }
       }
@@ -32,6 +56,18 @@
             "state": "translated",
             "value": "Child"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बच्चा"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मूल"
+          }
         }
       }
     },
@@ -42,6 +78,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dismiss"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बंद करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बंद करा"
           }
         }
       }
@@ -54,6 +102,18 @@
             "state": "translated",
             "value": "Entered in error"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "गलती से दर्ज"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चुकून नोंदवले"
+          }
         }
       }
     },
@@ -64,6 +124,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Finding"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जांच"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "निरीक्षण"
           }
         }
       }
@@ -76,6 +148,18 @@
             "state": "translated",
             "value": "Tap more teeth to add them, or a picked tooth to remove it."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "और दांत जोड़ने के लिए उन पर टैप करें, या चुना हुआ दांत हटाने के लिए उस पर टैप करें."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आणखी दात जोडण्यासाठी त्यावर टॅप करा, किंवा निवडलेला दात काढण्यासाठी त्यावर टॅप करा."
+          }
         }
       }
     },
@@ -86,6 +170,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld teeth selected"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld दांत चुने"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld दात निवडले"
           }
         }
       }
@@ -98,6 +194,18 @@
             "state": "translated",
             "value": "History"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इतिहास"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इतिहास"
+          }
         }
       }
     },
@@ -108,6 +216,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn’t load this tooth’s history."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस दांत का इतिहास लोड नहीं हुआ."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या दाताचा इतिहास लोड झाला नाही."
           }
         }
       }
@@ -120,6 +240,18 @@
             "state": "translated",
             "value": "Nothing recorded yet."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अभी कुछ दर्ज नहीं है."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अजून काहीही नोंदवलेले नाही."
+          }
         }
       }
     },
@@ -130,6 +262,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Legend"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संकेत"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सूची"
           }
         }
       }
@@ -142,6 +286,18 @@
             "state": "translated",
             "value": "LOWER ARCH"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "निचला जबड़ा"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खालचा जबडा"
+          }
         }
       }
     },
@@ -152,6 +308,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Material"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मटीरियल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साहित्य"
           }
         }
       }
@@ -164,6 +332,18 @@
             "state": "translated",
             "value": "Need care: %d/%d"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इलाज चाहिए: %1$d/%2$d"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उपचार हवे: %1$d/%2$d"
+          }
         }
       }
     },
@@ -174,6 +354,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your role can’t see clinical records at this clinic."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस क्लिनिक में आपकी भूमिका क्लिनिकल रिकॉर्ड नहीं देख सकती."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या क्लिनिकमध्ये तुमच्या भूमिकेला क्लिनिकल नोंदी पाहता येत नाहीत."
           }
         }
       }
@@ -186,6 +378,18 @@
             "state": "translated",
             "value": "The chart isn’t available"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चार्ट उपलब्ध नहीं है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चार्ट उपलब्ध नाही"
+          }
         }
       }
     },
@@ -196,6 +400,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remark"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टिप्पणी"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "शेरा"
           }
         }
       }
@@ -208,6 +424,18 @@
             "state": "translated",
             "value": "Now"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अभी"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सध्या"
+          }
         }
       }
     },
@@ -218,6 +446,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tap a tooth to see its history."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इतिहास देखने के लिए दांत पर टैप करें."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इतिहास पाहण्यासाठी दातावर टॅप करा."
           }
         }
       }
@@ -230,6 +470,18 @@
             "state": "translated",
             "value": "Procedure"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "प्रक्रिया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उपचार"
+          }
         }
       }
     },
@@ -240,6 +492,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Record a finding"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जांच दर्ज करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "निरीक्षण नोंदवा"
           }
         }
       }
@@ -252,6 +516,18 @@
             "state": "translated",
             "value": "Couldn’t save that finding, so the chart is back as it was. %@"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह जांच सहेजी नहीं जा सकी, इसलिए चार्ट पहले जैसा कर दिया. %@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हे निरीक्षण जतन झाले नाही, म्हणून चार्ट पूर्वीसारखा केला. %@"
+          }
         }
       }
     },
@@ -262,6 +538,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Record for %lld teeth"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld दांतों के लिए दर्ज करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld दातांसाठी नोंदवा"
           }
         }
       }
@@ -274,6 +562,18 @@
             "state": "translated",
             "value": "Record a finding · tooth %d"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जांच दर्ज करें · दांत %d"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "निरीक्षण नोंदवा · दात %d"
+          }
         }
       }
     },
@@ -284,6 +584,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Record a finding · teeth %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जांच दर्ज करें · दांत %@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "निरीक्षण नोंदवा · दात %@"
           }
         }
       }
@@ -296,6 +608,18 @@
             "state": "translated",
             "value": "Reset zoom"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ज़ूम रीसेट करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "झूम रीसेट करा"
+          }
         }
       }
     },
@@ -306,6 +630,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Save"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सहेजें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जतन करा"
           }
         }
       }
@@ -318,6 +654,18 @@
             "state": "translated",
             "value": "Saving…"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सहेज रहे हैं…"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जतन करत आहे…"
+          }
         }
       }
     },
@@ -328,6 +676,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Select several"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कई चुनें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अनेक निवडा"
           }
         }
       }
@@ -340,6 +700,18 @@
             "state": "translated",
             "value": "Superseded"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बदला गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बदललेले"
+          }
         }
       }
     },
@@ -350,6 +722,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Surface"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सतह"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पृष्ठभाग"
           }
         }
       }
@@ -362,6 +746,18 @@
             "state": "translated",
             "value": "Surfaces"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सतहें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पृष्ठभाग"
+          }
         }
       }
     },
@@ -372,6 +768,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add “%@”"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” जोड़ें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” जोडा"
           }
         }
       }
@@ -384,6 +792,18 @@
             "state": "translated",
             "value": "Couldn't add that. %@"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह जोड़ा नहीं जा सका. %@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हे जोडता आले नाही. %@"
+          }
         }
       }
     },
@@ -394,6 +814,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nothing matches."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कुछ मेल नहीं खाता."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "काहीही जुळत नाही."
           }
         }
       }
@@ -406,6 +838,18 @@
             "state": "translated",
             "value": "%@ · this clinic"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · यह क्लिनिक"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · हे क्लिनिक"
+          }
         }
       }
     },
@@ -416,6 +860,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dental chart"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दांतों का चार्ट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दातांचा चार्ट"
           }
         }
       }
@@ -428,6 +884,18 @@
             "state": "translated",
             "value": "Tooth %d"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दांत %d"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दात %d"
+          }
         }
       }
     },
@@ -438,6 +906,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tooth %d, %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दांत %1$d, %2$@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दात %1$d, %2$@"
           }
         }
       }
@@ -450,6 +930,18 @@
             "state": "translated",
             "value": "Type to find a material"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मटीरियल खोजने के लिए टाइप करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साहित्य शोधण्यासाठी टाइप करा"
+          }
         }
       }
     },
@@ -460,6 +952,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Type to find a procedure"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "प्रक्रिया खोजने के लिए टाइप करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उपचार शोधण्यासाठी टाइप करा"
           }
         }
       }
@@ -472,6 +976,18 @@
             "state": "translated",
             "value": "UPPER ARCH"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ऊपरी जबड़ा"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वरचा जबडा"
+          }
         }
       }
     },
@@ -482,6 +998,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Whole tooth"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पूरा दांत"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संपूर्ण दात"
           }
         }
       }
@@ -494,6 +1022,18 @@
             "state": "translated",
             "value": "Pinch to zoom, then tap a surface."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ज़ूम के लिए पिंच करें, फिर सतह पर टैप करें."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "झूम करण्यासाठी चिमटा घ्या, मग पृष्ठभागावर टॅप करा."
+          }
         }
       }
     },
@@ -504,6 +1044,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bridge"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ब्रिज"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ब्रिज"
           }
         }
       }
@@ -516,6 +1068,18 @@
             "state": "translated",
             "value": "Caries"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सड़न"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कीड"
+          }
         }
       }
     },
@@ -526,6 +1090,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Crown"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्राउन"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्राउन"
           }
         }
       }
@@ -538,6 +1114,18 @@
             "state": "translated",
             "value": "Filled"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भरा हुआ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भरलेला"
+          }
         }
       }
     },
@@ -548,6 +1136,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fractured"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टूटा हुआ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुटलेला"
           }
         }
       }
@@ -560,6 +1160,18 @@
             "state": "translated",
             "value": "Implant"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इम्प्लांट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इम्प्लांट"
+          }
         }
       }
     },
@@ -570,6 +1182,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Missing"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "गायब"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नाही"
           }
         }
       }
@@ -582,6 +1206,18 @@
             "state": "translated",
             "value": "Root canal"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रूट कैनाल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रूट कॅनाल"
+          }
         }
       }
     },
@@ -592,6 +1228,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sound"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्वस्थ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "निरोगी"
           }
         }
       }
@@ -604,6 +1252,18 @@
             "state": "translated",
             "value": "Watch"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "निगरानी"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लक्ष ठेवा"
+          }
         }
       }
     },
@@ -614,6 +1274,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "canine"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कैनाइन"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सुळा"
           }
         }
       }
@@ -626,6 +1298,18 @@
             "state": "translated",
             "value": "incisor"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कृंतक"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पटाशी दात"
+          }
         }
       }
     },
@@ -636,6 +1320,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "molar"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दाढ़"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दाढ"
           }
         }
       }
@@ -648,6 +1344,18 @@
             "state": "translated",
             "value": "premolar"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "प्रीमोलर"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उपदाढ"
+          }
         }
       }
     },
@@ -658,6 +1366,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Billing"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बिलिंग"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बिलिंग"
           }
         }
       }
@@ -670,6 +1390,18 @@
             "state": "translated",
             "value": "Chart"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चार्ट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चार्ट"
+          }
         }
       }
     },
@@ -680,6 +1412,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Coming in this build"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस बिल्ड में जल्द"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या बिल्डमध्ये लवकरच"
           }
         }
       }
@@ -692,6 +1436,18 @@
             "state": "translated",
             "value": "Buccal"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बक्कल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बक्कल"
+          }
         }
       }
     },
@@ -702,6 +1458,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Buccal / labial"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बक्कल / लेबियल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बक्कल / लेबियल"
           }
         }
       }
@@ -714,6 +1482,18 @@
             "state": "translated",
             "value": "Distal"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "डिस्टल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "डिस्टल"
+          }
         }
       }
     },
@@ -724,6 +1504,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Facial"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फ़ेशियल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फेशियल"
           }
         }
       }
@@ -736,6 +1528,18 @@
             "state": "translated",
             "value": "Incisal"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंसाइज़ल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इन्सायझल"
+          }
         }
       }
     },
@@ -746,6 +1550,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lingual"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लिंगुअल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लिंग्वल"
           }
         }
       }
@@ -758,6 +1574,18 @@
             "state": "translated",
             "value": "Lingual / palatal"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लिंगुअल / पैलेटल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लिंग्वल / पॅलेटल"
+          }
         }
       }
     },
@@ -768,6 +1596,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mesial"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मेसियल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मेसियल"
           }
         }
       }
@@ -780,6 +1620,18 @@
             "state": "translated",
             "value": "Occlusal"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ऑक्लूज़ल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ऑक्लूजल"
+          }
         }
       }
     },
@@ -791,6 +1643,18 @@
             "state": "translated",
             "value": "Occlusal / incisal"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ऑक्लूज़ल / इंसाइज़ल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ऑक्लूजल / इन्सायझल"
+          }
         }
       }
     },
@@ -801,6 +1665,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Palatal"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पैलेटल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पॅलेटल"
           }
         }
       }

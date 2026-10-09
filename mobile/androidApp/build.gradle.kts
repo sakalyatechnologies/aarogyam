@@ -90,6 +90,8 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.activity.compose)
+    // Per-app language (AppCompatDelegate.setApplicationLocales), back to API 26.
+    implementation(libs.appcompat)
     implementation(libs.exifinterface)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)

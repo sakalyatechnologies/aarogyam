@@ -23,6 +23,10 @@ struct TodayScreen: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button(String(localized: "today.switch_clinic"), systemImage: "building.2", action: onSwitchClinic)
+                    // iOS keeps the per-app language in Settings (Aarogyam > Language).
+                    Button(String(localized: "today.language"), systemImage: "globe") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                    }
                     Button(String(localized: "sign_out"), systemImage: "rectangle.portrait.and.arrow.right", role: .destructive, action: onSignOut)
                 } label: {
                     Image(systemName: "ellipsis.circle").accessibilityLabel(Text("today.more"))

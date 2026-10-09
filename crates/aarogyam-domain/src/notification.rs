@@ -55,6 +55,8 @@ stored_enum!(
         BookingConfirmedAuto => "booking_confirmed_auto",
         /// A patient cancelled an appointment themselves.
         BookingCancelledByPatient => "booking_cancelled_by_patient",
+        /// Lab work is past its due date and still at the lab.
+        LabOverdue => "lab_overdue",
     }
 );
 

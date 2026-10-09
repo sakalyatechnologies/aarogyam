@@ -11,7 +11,6 @@ use aarogyam_domain::chat::{
     message_body, page_size,
 };
 use aarogyam_domain::ids::{ChatMessageId, ConversationId, MembershipId, PatientId};
-use aarogyam_domain::notification::UNREAD_WINDOW_DAYS;
 use aarogyam_domain::permission::Permission;
 use sakalya_db::Db;
 use time::OffsetDateTime;
@@ -618,15 +617,7 @@ pub async fn badges(
 ) -> Result<BadgeCounts, AppError> {
     actor.require(Permission::ChatUse)?;
     let me = actor.membership_id.uuid();
-    let notifications = actor
-        .permissions
-        .allows(Permission::AppointmentsRead)
-        .then(|| {
-            (
-                actor.reach(Permission::AppointmentsRead).member(),
-                UNREAD_WINDOW_DAYS,
-            )
-        });
+    let notifications = crate::notifications::viewer(actor);
     db.scoped(&scope(actor, request_id), async |tx| {
         let counts = dal::badges(tx.conn(), me, UNREAD_CAP, notifications).await?;
         Ok(BadgeCounts {

@@ -18,7 +18,7 @@ Tick a task only when its done criteria pass: tests, gates and parity sheet. Add
 | K4 | done | kit fd42625 | Motion tokens (durations, easing, springs, 60 ms stagger), `skPressable`, reduced motion. |
 | K5 | done | kit c46dce4 | Generic path-command model, parser tests, and Compose/SwiftUI renderers. |
 | K6 | done | kit a48b5c5 | `SkAvatar` (slot and shape), `RoundedPolygon` cookie and blob morph, live pulse dot, badge dot, draw-on check mark, spinning shape, and the  |
-| K7 | todo |  | `SkSegmented` (with swap animation), `SkChoiceChips`, `SkKeypad`. |
+| K7 | done | kit eee8c42 | `SkSegmented` (with swap animation), `SkChoiceChips`, `SkKeypad`. |
 | K8 | todo |  | `SkStatGroup`, `SkTicket`, `SkLoadingIndicator`, `SkToast` (icon, message, spring). |
 | K9 | todo |  | Chart geometry (pure, tested), `SkBarChart` (ghost tracks, grow-in, tooltip, selection), `SkSplitBar` (grow-in), `SkSparkline`. |
 | K10 | todo |  | `SkGauge` (segmented arc sweep), `SkProgressRing` (fill on entry), `SkAreaChart` (gradient, line draw), `SkRadarChart` (pop-in), `SkHeatmap` |

@@ -464,6 +464,170 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's conversations with the newest message time and unread count of each: one
+         *     statement.
+         */
+        get: operations["listConversations"];
+        put?: never;
+        /**
+         * Starts a conversation. A direct one is idempotent: asking again (from either side) returns
+         *     the pair's conversation with `200`.
+         */
+        post: operations["startConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A conversation the caller is in, with its members. */
+        get: operations["getConversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Leaves a group: it disappears for the caller. A last admin hands the role on. */
+        post: operations["leaveConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adds members to a group the caller administers; someone who left joins again. */
+        post: operations["addConversationMembers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/members/{membership_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Takes a member out of a group: anyone, for a group admin; oneself is the same as leaving. */
+        delete: operations["removeConversationMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A page of a conversation, oldest first: the newest messages, those after a message (poll
+         *     with the last id you have) or those before one (scroll back with the first). One statement.
+         */
+        get: operations["listChatMessages"];
+        put?: never;
+        /** Posts a message. Idempotent by `client_id`: a retry returns the first message with `200`. */
+        post: operations["postChatMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/messages/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Deletes one of the caller's own messages: its text goes, and members see "deleted". */
+        delete: operations["deleteChatMessage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/mute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Mutes or unmutes a conversation for the caller only. */
+        put: operations["muteConversation"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marks the conversation read up to a message, for the caller only. */
+        post: operations["markConversationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dental-terms": {
         parameters: {
             query?: never;
@@ -1019,6 +1183,23 @@ export interface paths {
         };
         /** The signed-in person's clinics, for the clinic switcher. */
         get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/badges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chat and notification unread counts for the minute poll, in one statement. */
+        get: operations["getBadges"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3571,6 +3752,11 @@ export interface components {
             /** @description The standard roles, by name: presets for the roles editor. */
             templates: components["schemas"]["RoleTemplate"][];
         };
+        /** @description Members to add to a group. */
+        AddMembers: {
+            /** @description 1 to 100 active members of this clinic. */
+            membership_ids: string[];
+        };
         /** @description An addendum to a signed note. */
         Addendum: {
             /** @description Who wrote it. */
@@ -4025,6 +4211,20 @@ export interface components {
             /** @description Start of each free slot, RFC 3339 in the clinic's time zone. */
             slots: string[];
         };
+        /** @description The numbers the apps poll every minute. */
+        Badges: {
+            /**
+             * Format: int64
+             * @description Unread chat messages in conversations the caller hasn't muted, at most 100.
+             */
+            chat_unread: number;
+            /**
+             * Format: int64
+             * @description Unread notifications, as `GET /notifications/count` counts them; absent without
+             *     `appointments.read`.
+             */
+            notifications_unread?: number | null;
+        };
         /** @description A doctor patients may pick. */
         BookableDoctor: {
             /** @description The doctor. */
@@ -4222,6 +4422,39 @@ export interface components {
             tooth: number;
             /** @description The visit that recorded it. */
             visit_id?: string | null;
+        };
+        /** @description A chat message. */
+        ChatMessage: {
+            /** @description Who wrote it. */
+            author_membership_id: string;
+            /** @description Their display name. */
+            author_name?: string | null;
+            /** @description Plain text; absent once deleted. */
+            body?: string | null;
+            /** @description The author's idempotency key. */
+            client_id: string;
+            /** @description Its conversation. */
+            conversation_id: string;
+            /** @description When it was posted (RFC 3339). */
+            created_at: string;
+            /** @description Whether the author deleted it. */
+            deleted: boolean;
+            /** @description The message; a cursor for `after` and `before`. */
+            id: string;
+            /** @description The patient it is about; open `/patients/{id}` (the caller's own reach applies). */
+            patient_id?: string | null;
+        };
+        /** @description A page of messages, oldest first. */
+        ChatMessageList: {
+            /** @description The messages. */
+            items: components["schemas"]["ChatMessage"][];
+        };
+        /** @description The other member of a direct conversation. */
+        ChatPeer: {
+            /** @description Their membership. */
+            membership_id: string;
+            /** @description Their display name. */
+            name: string;
         };
         /**
          * @description What the desk records at check-in. Every field is optional; details left out stay as they
@@ -4683,6 +4916,73 @@ export interface components {
         ConsoleClinics: {
             /** @description Newest first. */
             items: components["schemas"]["ConsoleClinic"][];
+        };
+        /** @description A conversation with its active members. */
+        Conversation: {
+            /** @description When it was archived (RFC 3339). */
+            archived_at?: string | null;
+            /** @description When it was started (RFC 3339). */
+            created_at: string;
+            /** @description The conversation. */
+            id: string;
+            /** @description `direct` or `group`. */
+            kind: string;
+            /** @description Who is in it, earliest joined first. */
+            members: components["schemas"]["ConversationMember"][];
+            /** @description A group's title. */
+            title?: string | null;
+        };
+        /** @description A conversation in the caller's list. */
+        ConversationItem: {
+            /** @description When it was archived (RFC 3339). */
+            archived_at?: string | null;
+            /** @description When it was started (RFC 3339). */
+            created_at: string;
+            /** @description The conversation. */
+            id: string;
+            /** @description `direct` or `group`. */
+            kind: string;
+            /** @description When it was posted (RFC 3339). */
+            last_message_at?: string | null;
+            /** @description The newest message; poll with `after` from here. */
+            last_message_id?: string | null;
+            /** @description The newest message the caller has read. */
+            last_read_message_id?: string | null;
+            /** @description Whether the caller muted it (not counted in the badge). */
+            muted: boolean;
+            /** @description The caller's role: `member` or `admin`. */
+            role: string;
+            /** @description A group's title. */
+            title?: string | null;
+            /**
+             * Format: int64
+             * @description Unread messages from others, at most 100 (show "99+" above 99).
+             */
+            unread: number;
+            with?: components["schemas"]["ChatPeer"] | null;
+        };
+        /** @description The caller's conversations, most recent activity first. */
+        ConversationList: {
+            /** @description The conversations. */
+            items: components["schemas"]["ConversationItem"][];
+        };
+        /** @description An active member of a conversation. */
+        ConversationMember: {
+            /** @description When they joined (RFC 3339). */
+            joined_at: string;
+            /** @description Their membership. */
+            membership_id: string;
+            /** @description Their display name. */
+            name: string;
+            /** @description `member` or `admin`. */
+            role: string;
+        };
+        /** @description The conversation started, or the pair's existing direct conversation. */
+        ConversationStarted: {
+            /** @description `false` when the direct conversation existed already. */
+            created: boolean;
+            /** @description The conversation. */
+            id: string;
         };
         /** @description A clinic just created. `invite_token` is shown once; only its hash is stored. */
         CreatedClinic: {
@@ -5746,6 +6046,14 @@ export interface components {
             /** @description Their display name. */
             name: string;
         };
+        /** @description How many were added. */
+        MembersAdded: {
+            /**
+             * Format: int64
+             * @description Members who weren't in the group (or had left) and now are.
+             */
+            added: number;
+        };
         /** @description Which patient to merge into. */
         MergeRequest: {
             /** @description The existing patient that keeps its number and record. */
@@ -5810,6 +6118,11 @@ export interface components {
             current: Record<string, unknown>;
             /** @description The refusal. */
             error: components["schemas"]["ErrorDetail"];
+        };
+        /** @description Whether a conversation is muted. */
+        MuteBody: {
+            /** @description `true` leaves its unread messages out of the badge. */
+            muted: boolean;
         };
         /** @description A clinic the person belongs to. */
         MyClinic: {
@@ -5914,6 +6227,15 @@ export interface components {
              */
             tooth: number;
         };
+        /** @description A message to post. */
+        NewChatMessageBody: {
+            /** @description Plain text, 1 to 4000 characters. */
+            body: string;
+            /** @description Chosen by the client (any UUID); posting again with it returns the first message. */
+            client_id: string;
+            /** @description A patient it is about; needs `patients.read` reaching them. */
+            patient_id?: string | null;
+        };
         /** @description A clinic to create. */
         NewClinic: {
             /** @description The clinic's name. */
@@ -5931,6 +6253,17 @@ export interface components {
             email: string;
             /** @description A role of the clinic, such as `doctor` or `front_desk`. */
             role_key: string;
+        };
+        /** @description A conversation to start. */
+        NewConversationBody: {
+            /** @description `direct` (with `membership_id`) or `group` (with `title` and `member_ids`). */
+            kind: string;
+            /** @description Group: the other members (the caller is added as admin). */
+            member_ids?: string[] | null;
+            /** @description Direct: the other member. */
+            membership_id?: string | null;
+            /** @description Group: 1 to 80 characters. */
+            title?: string | null;
         };
         /** @description A procedure or material to add to the clinic's list. */
         NewDentalTerm: {
@@ -7546,6 +7879,11 @@ export interface components {
             label: string;
             /** @description The line it writes. */
             text: string;
+        };
+        /** @description How far the caller has read. */
+        ReadUpTo: {
+            /** @description The newest message read; the pointer never moves back. */
+            message_id: string;
         };
         /** @description A reason, for voiding or cancelling. */
         Reason: {
@@ -10462,6 +10800,571 @@ export interface operations {
             };
         };
     };
+    listConversations: {
+        parameters: {
+            query?: {
+                /** @description 1 to 100 (default 50) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    startConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewConversationBody"];
+            };
+        };
+        responses: {
+            /** @description The existing direct conversation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationStarted"];
+                };
+            };
+            /** @description Started */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationStarted"];
+                };
+            };
+            /** @description Bad kind or title, oneself, or too many members */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A member isn't active staff of this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    leaveConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The group */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Left */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A direct conversation, which can't be left */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    addConversationMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The group */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddMembers"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembersAdded"];
+                };
+            };
+            /** @description No members, or too many */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use, or the caller isn't a group admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in, or a member isn't active staff here */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A direct conversation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    removeConversationMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The group */
+                id: string;
+                /** @description The member to take out */
+                membership_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use, or the caller isn't a group admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in, or the member isn't in it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A direct conversation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listChatMessages: {
+        parameters: {
+            query?: {
+                /** @description Only messages newer than this id */
+                after?: string;
+                /** @description Only messages older than this id */
+                before?: string;
+                /** @description 1 to 100 (default 50) */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageList"];
+                };
+            };
+            /** @description A cursor isn't an id, or both were given */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    postChatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewChatMessageBody"];
+            };
+        };
+        responses: {
+            /** @description Posted earlier with this client_id */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+            /** @description Posted */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+            /** @description Empty, too long or not plain text */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use, or patients.read for a patient */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in, or the patient is out of reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Archived, or the client_id was used for another message */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteChatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+                /** @description The message */
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use, or the message is someone else's */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such message the caller can see */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    muteConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MuteBody"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    markConversationRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadUpTo"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in, or the message isn't in it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listOwnDentalTerms: {
         parameters: {
             query?: never;
@@ -12191,6 +13094,39 @@ export interface operations {
             };
             /** @description Not signed in */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getBadges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Badges"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

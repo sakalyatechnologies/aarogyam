@@ -24,7 +24,7 @@ final class AppModel {
     func start() async {
         guard case .starting = phase else { return }
         let config = BuildSettings.current()
-        guard let graph = try? await IosAppKt.createAppGraph(config: config) else {
+        guard let graph = try? await IosAppKt.createAppGraph(config: config, dictation: DictationNone.shared) else {
             phase = .notConfigured
             return
         }

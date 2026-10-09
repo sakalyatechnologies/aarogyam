@@ -8,6 +8,9 @@ import com.aarogyam.staff.clinic.ClinicDirectory
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.Hosts
+import com.aarogyam.staff.device.Dictation
+import com.aarogyam.staff.device.MemoryPreferences
+import com.aarogyam.staff.device.Preferences
 import com.aarogyam.staff.files.FilesStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.patients.AllergyView
@@ -57,6 +60,10 @@ class AppGraph private constructor(
     private val factory: HttpClientFactory,
     val sessions: SessionManager,
     private val logger: (String) -> Logger,
+    /** Small device settings: avatar choice, dictation language. */
+    val preferences: Preferences,
+    /** The platform speech recogniser for voice notes. */
+    val dictation: Dictation,
 ) {
     private val clients = mutableMapOf<BaseUrl, HttpClient>()
 
@@ -168,7 +175,8 @@ class AppGraph private constructor(
         /**
          * Builds the graph and starts restoring the session. Fails only when this build has no
          * valid Supabase URL. [store] holds the session and the device ID; every log line goes to
-         * [logSink] (tests pass a `MemoryLogSink`).
+         * [logSink] (tests pass a `MemoryLogSink`). [preferences] and [dictation] are the platform's
+         * (in memory and none by default).
          */
         suspend fun create(
             config: AppConfig,
@@ -178,6 +186,8 @@ class AppGraph private constructor(
             engine: HttpClientEngine = platformHttpEngine(),
             clock: Clock = Clock.System,
             logSink: LogSink = platformLogSink(),
+            preferences: Preferences = MemoryPreferences(),
+            dictation: Dictation = Dictation.None,
         ): AppGraph? {
             val level = if (config.debug) LogLevel.Debug else LogLevel.Info
             val logger = { tag: String -> Logger(tag, logSink, level) }
@@ -202,7 +212,16 @@ class AppGraph private constructor(
                     clock,
                 )
             val sessions = SessionManager(auth, SecureSessionStore(store), clock, logger("sakalya.auth"))
-            val graph = AppGraph(config, scope, HttpClientFactory(settings, engine, network, clock), sessions, logger)
+            val graph =
+                AppGraph(
+                    config,
+                    scope,
+                    HttpClientFactory(settings, engine, network, clock),
+                    sessions,
+                    logger,
+                    preferences,
+                    dictation,
+                )
             scope.launch { sessions.restore() }
             return graph
         }

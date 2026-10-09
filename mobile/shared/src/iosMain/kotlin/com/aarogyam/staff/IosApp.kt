@@ -7,6 +7,8 @@ import com.aarogyam.staff.clinic.ClinicBranding
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
+import com.aarogyam.staff.device.Dictation
+import com.aarogyam.staff.device.UserDefaultsPreferences
 import com.aarogyam.staff.files.FilesStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.patients.AllergyView
@@ -35,10 +37,21 @@ private val appScope: CoroutineScope = MainScope()
 
 /**
  * Builds the app graph on iOS: Keychain storage, `NWPathMonitor` connectivity and the unified
- * log. Returns null when this build has no Supabase settings.
+ * log, UserDefaults for small settings, and the Swift speech recogniser as [dictation]. Returns
+ * null when this build has no Supabase settings.
  */
-suspend fun createAppGraph(config: AppConfig): AppGraph? =
-    AppGraph.create(config, PlatformSecureStore(KEYCHAIN_SERVICE), appScope, PathNetworkMonitor())
+suspend fun createAppGraph(
+    config: AppConfig,
+    dictation: Dictation = Dictation.None,
+): AppGraph? =
+    AppGraph.create(
+        config,
+        PlatformSecureStore(KEYCHAIN_SERVICE),
+        appScope,
+        PathNetworkMonitor(),
+        preferences = UserDefaultsPreferences(),
+        dictation = dictation,
+    )
 
 /** One screen's coroutine scope: the SwiftUI view that owns a state holder closes it when it goes. */
 class ScreenScope {

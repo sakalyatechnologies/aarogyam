@@ -26,7 +26,7 @@ Tick a task only when its done criteria pass: tests, gates and parity sheet. Add
 | K12 | done | kit 49efbb7 | Motion and feedback kit: |
 | K13 | done | kit ef151c2 (tag v0.2.0-dev.1) | READMEs, architecture doc, CHANGELOG 0.2.0; tag `v0.2.0-dev.1`. |
 | D1 | done |  | All new schemas in `apiModels`, including `PatientMix`, `KeyCount`, `PatientBreakdown`, `TodayMoney` and the visit, note, procedure and plan |
-| D2 | todo |  | `Preferences` and `Dictation` interfaces, fakes, `AppGraph` and `IosApp` wiring. |
+| D2 | done |  | `Preferences` and `Dictation` interfaces, fakes, `AppGraph` and `IosApp` wiring. |
 | D3 | todo |  | `NavModel`: tabs and tiles per role and multi-clinic; tests for all 6 roles. |
 | D4 | todo |  | Today "Me" and "My schedule" (membership → team member → practitioner); finance via `/today/money`. Field map, required; done when no v7 num |
 | D5 | todo |  | `ScheduleStateHolder`: queue actions (call in, seat, done, left, start visit), day view, week density and slots. |

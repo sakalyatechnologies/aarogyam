@@ -2,6 +2,7 @@ package com.aarogyam.staff.android
 
 import android.app.Application
 import com.aarogyam.staff.AppGraph
+import com.aarogyam.staff.android.device.SharedPreferencesStore
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.AppEnvironment
 import com.sakalya.mobile.http.ConnectivityNetworkMonitor
@@ -50,6 +51,7 @@ class AarogyamApp : Application() {
                     PlatformSecureStore(this@AarogyamApp, "aarogyam"),
                     scope,
                     ConnectivityNetworkMonitor(this@AarogyamApp),
+                    preferences = SharedPreferencesStore(this@AarogyamApp),
                 )
             mutableGraph.value = graph?.let(GraphState::Ready) ?: GraphState.NotConfigured
         }

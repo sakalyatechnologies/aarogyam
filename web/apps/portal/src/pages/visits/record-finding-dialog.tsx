@@ -50,7 +50,9 @@ export function RecordFindingDialog({
   initialSurface?: ToothSurface | undefined;
   onOpenChange: () => void;
 }) {
-  const [finding, setFinding] = useState<ChartFinding>("caries");
+  // Nothing is preselected: a click on a sound tooth must not become "Caries" by accident.
+  const [finding, setFinding] = useState<ChartFinding | "">("");
+  const [missingFinding, setMissingFinding] = useState(false);
   const [surfaces, setSurfaces] = useState<readonly ToothSurface[]>(initialSurface === undefined ? [] : [initialSurface]);
   const [procedure, setProcedure] = useState<DentalTerm | undefined>(undefined);
   const [material, setMaterial] = useState<DentalTerm | undefined>(undefined);
@@ -61,7 +63,7 @@ export function RecordFindingDialog({
   const toast = useToast();
 
   // Crown, root canal, missing, implant and bridge cover the whole tooth; the API refuses a surface for them.
-  const wholeOnly = isWholeToothFinding(finding);
+  const wholeOnly = finding !== "" && isWholeToothFinding(finding);
   const chosen = wholeOnly ? [] : surfaces;
   const sound = finding === "sound";
   const one = teeth.length === 1 ? teeth[0] : undefined;
@@ -70,6 +72,10 @@ export function RecordFindingDialog({
 
   const submit = () => {
     setError(undefined);
+    if (finding === "") {
+      setMissingFinding(true);
+      return;
+    }
     const detail = {
       finding,
       ...(sound || procedure === undefined ? {} : { procedure: procedure.id }),
@@ -99,19 +105,15 @@ export function RecordFindingDialog({
       onOpenChange={onOpenChange}
       title={`Record a finding: ${title}`}
       footer={
-        <>
-          <Button variant="secondary" onClick={onOpenChange}>
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={record.isPending}>
-            {record.isPending ? "Saving…" : "Save"}
-          </Button>
-        </>
+        // The dialog's own Close button dismisses it, so there is no second Cancel here.
+        <Button onClick={submit} disabled={record.isPending}>
+          {record.isPending ? "Saving…" : "Save"}
+        </Button>
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="Finding">
-          <Select options={FINDINGS} value={finding} onValueChange={setFinding} />
+        <Field label="Finding" required error={missingFinding && finding === "" ? "Choose a finding." : undefined}>
+          <Select options={FINDINGS} value={finding} placeholder="Choose a finding" onValueChange={setFinding} />
         </Field>
         <div role="group" aria-label="Surfaces">
           <p className="mb-1.5 text-sm font-semibold">Surfaces</p>

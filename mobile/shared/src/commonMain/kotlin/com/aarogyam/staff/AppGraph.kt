@@ -1,8 +1,11 @@
 package com.aarogyam.staff
 
+import com.aarogyam.staff.analytics.AnalyticsStateHolder
 import com.aarogyam.staff.billing.BillingStateHolder
+import com.aarogyam.staff.booking.BookingStateHolder
 import com.aarogyam.staff.calendar.CalendarStateHolder
 import com.aarogyam.staff.chart.ChartStateHolder
+import com.aarogyam.staff.chart.ToothSheetStateHolder
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicDirectory
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
@@ -11,6 +14,7 @@ import com.aarogyam.staff.config.Hosts
 import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.MemoryPreferences
 import com.aarogyam.staff.device.Preferences
+import com.aarogyam.staff.expenses.ExpensesStateHolder
 import com.aarogyam.staff.files.FilesStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.patients.AllergyView
@@ -19,6 +23,8 @@ import com.aarogyam.staff.patients.PatientsStateHolder
 import com.aarogyam.staff.prescriptions.RxListStateHolder
 import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.queue.QueueStateHolder
+import com.aarogyam.staff.schedule.ScheduleStateHolder
+import com.aarogyam.staff.schedule.WeekStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
 import com.aarogyam.staff.walkin.WalkInStateHolder
@@ -49,6 +55,7 @@ import io.ktor.client.engine.HttpClientEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDate
 
 /**
  * The app's object graph (manual DI): one HTTP engine, one session, one client per host.
@@ -154,6 +161,43 @@ class AppGraph private constructor(
         clinic: ClinicContext,
         scope: CoroutineScope,
     ): CalendarStateHolder = CalendarStateHolder(clinic, scope, logger("aarogyam.calendar"))
+
+    /** The Schedule tab: Queue, Day and Week, each made the first time it shows. */
+    fun schedule(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): ScheduleStateHolder =
+        ScheduleStateHolder(
+            makeQueue = { queue(clinic, scope) },
+            makeDay = { calendar(clinic, scope) },
+            makeWeek = { WeekStateHolder(clinic, scope, logger("aarogyam.week")) },
+        )
+
+    /** The booking sheet for [patientId], opening on [date]. */
+    fun booking(
+        clinic: ClinicContext,
+        patientId: String,
+        date: LocalDate,
+        scope: CoroutineScope,
+    ): BookingStateHolder = BookingStateHolder(clinic, patientId, date, scope, logger("aarogyam.booking"))
+
+    fun analytics(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): AnalyticsStateHolder = AnalyticsStateHolder(clinic, scope, logger("aarogyam.analytics"))
+
+    fun expenses(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): ExpensesStateHolder = ExpensesStateHolder(clinic, scope, logger("aarogyam.expenses"))
+
+    /** The tooth sheet's Add treatment form over [chart]; inside [visitId] it also logs visit procedures. */
+    fun toothSheet(
+        clinic: ClinicContext,
+        chart: ChartStateHolder,
+        visitId: String?,
+        scope: CoroutineScope,
+    ): ToothSheetStateHolder = ToothSheetStateHolder(clinic, chart, visitId, scope, logger("aarogyam.toothsheet"))
 
     /** Restores the session again, after secure storage was unavailable. */
     fun restore() {

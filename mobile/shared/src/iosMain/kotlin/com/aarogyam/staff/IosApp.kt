@@ -1,14 +1,18 @@
 package com.aarogyam.staff
 
+import com.aarogyam.staff.analytics.AnalyticsStateHolder
 import com.aarogyam.staff.billing.BillingStateHolder
+import com.aarogyam.staff.booking.BookingStateHolder
 import com.aarogyam.staff.calendar.CalendarStateHolder
 import com.aarogyam.staff.chart.ChartStateHolder
+import com.aarogyam.staff.chart.ToothSheetStateHolder
 import com.aarogyam.staff.clinic.ClinicBranding
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.UserDefaultsPreferences
+import com.aarogyam.staff.expenses.ExpensesStateHolder
 import com.aarogyam.staff.files.FilesStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.patients.AllergyView
@@ -17,6 +21,7 @@ import com.aarogyam.staff.patients.PatientsStateHolder
 import com.aarogyam.staff.prescriptions.RxListStateHolder
 import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.queue.QueueStateHolder
+import com.aarogyam.staff.schedule.ScheduleStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
 import com.aarogyam.staff.walkin.WalkInStateHolder
@@ -163,3 +168,37 @@ fun AppGraph.queue(
     clinic: ClinicContext,
     screen: ScreenScope,
 ): QueueStateHolder = queue(clinic, screen.scope)
+
+/** The Schedule tab for [clinic], living as long as [screen]. */
+fun AppGraph.schedule(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): ScheduleStateHolder = schedule(clinic, screen.scope)
+
+/** The booking sheet for [patientId] on [date], living as long as [screen]. */
+fun AppGraph.booking(
+    clinic: ClinicContext,
+    patientId: String,
+    date: LocalDate,
+    screen: ScreenScope,
+): BookingStateHolder = booking(clinic, patientId, date, screen.scope)
+
+/** The Analytics page for [clinic], living as long as [screen]. */
+fun AppGraph.analytics(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): AnalyticsStateHolder = analytics(clinic, screen.scope)
+
+/** The Expenses page for [clinic], living as long as [screen]. */
+fun AppGraph.expenses(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): ExpensesStateHolder = expenses(clinic, screen.scope)
+
+/** The tooth sheet's treatment form over [chart], living as long as [screen]. */
+fun AppGraph.toothSheet(
+    clinic: ClinicContext,
+    chart: ChartStateHolder,
+    visitId: String?,
+    screen: ScreenScope,
+): ToothSheetStateHolder = toothSheet(clinic, chart, visitId, screen.scope)

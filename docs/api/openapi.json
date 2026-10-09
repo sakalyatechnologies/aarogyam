@@ -10435,7 +10435,7 @@
           "open_minutes_per_day": {
             "type": "integer",
             "format": "int64",
-            "description": "Minutes a chair is assumed open each day (540: clinic hours are not stored yet)."
+            "description": "Minutes a chair is assumed open each day when its branch has no opening hours (540)."
           },
           "patients": {
             "$ref": "#/components/schemas/PatientBreakdown",
@@ -10538,7 +10538,8 @@
         "description": "A chair in the report.",
         "required": [
           "id",
-          "name"
+          "name",
+          "uses_clinic_hours"
         ],
         "properties": {
           "id": {
@@ -10548,6 +10549,10 @@
           "name": {
             "type": "string",
             "description": "Its name."
+          },
+          "uses_clinic_hours": {
+            "type": "boolean",
+            "description": "Whether its open minutes come from its branch's opening hours (`GET /clinic-hours`);\notherwise `open_minutes_per_day` is assumed on every day."
           }
         }
       },
@@ -11537,7 +11542,7 @@
           "open_minutes": {
             "type": "integer",
             "format": "int64",
-            "description": "Minutes open: `open_minutes_per_day` for each day of the period inside the range."
+            "description": "Minutes open on the days of the period inside the range: from the chair's branch opening\nhours (closed days count zero), or `open_minutes_per_day` a day without them."
           },
           "room_id": {
             "type": "string",

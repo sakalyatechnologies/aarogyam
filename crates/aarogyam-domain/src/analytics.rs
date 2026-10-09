@@ -3,8 +3,10 @@
 
 use time::{Date, Duration, Month};
 
-/// Minutes a chair counts as open on each calendar day. Clinic opening hours are not stored
-/// yet, so every day counts as nine hours open (for example 10:00 to 19:00).
+use crate::schedule::Shift;
+
+/// Minutes a chair counts as open on each calendar day when its branch has no opening hours
+/// set: nine hours (for example 10:00 to 19:00).
 pub const OPEN_MINUTES_PER_DAY: i64 = 9 * 60;
 
 /// The longest range the report covers, in days (about 24 months).
@@ -85,14 +87,38 @@ pub fn default_from(to: Date) -> Date {
         .unwrap_or(to)
 }
 
-/// Minutes a chair is open from `first` to `last`, both included.
+/// Minutes open on each weekday (index 0 is Monday) from a branch's opening shifts; `None`
+/// when there are none, so the caller assumes [`OPEN_MINUTES_PER_DAY`].
 #[must_use]
-pub fn open_minutes(first: Date, last: Date) -> i64 {
-    ((last - first).whole_days() + 1).max(0) * OPEN_MINUTES_PER_DAY
+pub fn week_minutes(shifts: &[Shift]) -> Option<[i64; 7]> {
+    let mut week = [0_i64; 7];
+    for shift in shifts {
+        let day = usize::from(shift.weekday)
+            .checked_sub(1)
+            .filter(|d| *d < 7)?;
+        week[day] += (shift.ends - shift.starts).whole_minutes().max(0);
+    }
+    (!shifts.is_empty()).then_some(week)
+}
+
+/// Minutes a chair is open from `first` to `last`, both included: each day's minutes from
+/// `week` (see [`week_minutes`]), or [`OPEN_MINUTES_PER_DAY`] every day without one.
+#[must_use]
+pub fn open_minutes(first: Date, last: Date, week: Option<&[i64; 7]>) -> i64 {
+    let Some(week) = week else {
+        return ((last - first).whole_days() + 1).max(0) * OPEN_MINUTES_PER_DAY;
+    };
+    let mut total = 0;
+    let mut day = first;
+    while day <= last {
+        total += week[usize::from(day.weekday().number_days_from_monday())];
+        day += Duration::DAY;
+    }
+    total
 }
 
 /// Booked minutes as a share of open minutes, in basis points (10,000 is fully booked). Can
-/// pass 10,000 when a chair is booked for longer than the assumed nine hours.
+/// pass 10,000 when a chair is booked for longer than it is open.
 #[must_use]
 pub fn utilization_bps(booked_minutes: i64, open_minutes: i64) -> i64 {
     if open_minutes <= 0 {
@@ -227,17 +253,51 @@ mod tests {
     #[test]
     fn utilization_is_booked_over_open() {
         assert_eq!(
-            open_minutes(date!(2026 - 10 - 01), date!(2026 - 10 - 01)),
+            open_minutes(date!(2026 - 10 - 01), date!(2026 - 10 - 01), None),
             540
         );
         assert_eq!(
-            open_minutes(date!(2026 - 10 - 01), date!(2026 - 10 - 10)),
+            open_minutes(date!(2026 - 10 - 01), date!(2026 - 10 - 10), None),
             5_400
         );
         assert_eq!(utilization_bps(270, 540), 5_000);
         assert_eq!(utilization_bps(0, 540), 0);
         assert_eq!(utilization_bps(100, 0), 0);
         assert_eq!(utilization_bps(1_080, 540), 20_000);
+    }
+
+    #[test]
+    fn open_minutes_follow_the_clinic_week() {
+        let at = |h, m| time::Time::from_hms(h, m, 0).unwrap_or(time::Time::MIDNIGHT);
+        // Monday 10:00-13:00 and 17:00-20:00 (six hours), Saturday 10:00-14:00, else closed.
+        let shifts = [
+            Shift {
+                weekday: 1,
+                starts: at(10, 0),
+                ends: at(13, 0),
+            },
+            Shift {
+                weekday: 1,
+                starts: at(17, 0),
+                ends: at(20, 0),
+            },
+            Shift {
+                weekday: 6,
+                starts: at(10, 0),
+                ends: at(14, 0),
+            },
+        ];
+        let week = week_minutes(&shifts);
+        assert_eq!(week, Some([360, 0, 0, 0, 0, 240, 0]));
+        // 5 October 2026 is a Monday; that week has one Monday and one Saturday.
+        let open = open_minutes(date!(2026 - 10 - 05), date!(2026 - 10 - 11), week.as_ref());
+        assert_eq!(open, 600);
+        // A closed day alone is open for no minutes.
+        assert_eq!(
+            open_minutes(date!(2026 - 10 - 06), date!(2026 - 10 - 06), week.as_ref()),
+            0
+        );
+        assert_eq!(week_minutes(&[]), None);
     }
 
     #[test]

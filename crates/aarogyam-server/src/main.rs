@@ -9,6 +9,7 @@ use aarogyam_app::accounts::{SignInAccounts as _, SupabaseAdmin};
 use aarogyam_app::files::{Files, LinkSigner, LocalDisk, Storage, SupabaseStorage};
 use aarogyam_domain::access::PlatformRole;
 use aarogyam_domain::client::ClientPolicy;
+use aarogyam_domain::notification::OpenHours;
 use aarogyam_domain::patient::Email;
 use aarogyam_notify::cloudflare::{API_BASE, AccountId, WorkersApi};
 use aarogyam_notify::{Notifier, PortalAddresses, PortalLinks, WorkersDev};
@@ -446,8 +447,8 @@ async fn addresses(config: Config, clinic: Option<&str>) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Makes new portal hosts work, then delivers due outbox messages, over the API connection,
-/// once or on a fixed interval.
+/// Makes new portal hosts work, reminds staff of unanswered booking requests (then the owners),
+/// then delivers due outbox messages, over the API connection, once or on a fixed interval.
 async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
     let local = config.environment == Environment::Local;
     let notifier = notifier(&config, local)?;
@@ -474,6 +475,19 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             ),
             Ok(_) => {}
             Err(error) => tracing::warn!(error = %error, "could not provision portal addresses"),
+        }
+        // Booking requests nobody has answered: remind staff, then tell the owners.
+        match aarogyam_notify::remind(&db, time::OffsetDateTime::now_utc(), OpenHours::DEFAULT)
+            .await
+        {
+            Ok(report) if report.reminded + report.escalated > 0 => tracing::info!(
+                open = report.open,
+                reminded = report.reminded,
+                escalated = report.escalated,
+                "booking requests reminded"
+            ),
+            Ok(_) => {}
+            Err(error) => tracing::warn!(error = %error, "could not remind booking requests"),
         }
         match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) => tracing::info!(

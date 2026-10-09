@@ -23,6 +23,8 @@ pub enum BookingError {
     HorizonDays,
     /// Minimum notice is not 0 to 10 080 minutes (a week).
     MinNotice,
+    /// The reminder wait is not 5 to 240 minutes.
+    ReminderMinutes,
 }
 
 impl fmt::Display for BookingError {
@@ -32,6 +34,7 @@ impl fmt::Display for BookingError {
             Self::BufferMinutes => "must be 0 to 120 minutes",
             Self::HorizonDays => "must be 1 to 180 days",
             Self::MinNotice => "must be 0 to 10080 minutes",
+            Self::ReminderMinutes => "must be 5 to 240 minutes",
         })
     }
 }
@@ -53,6 +56,9 @@ pub struct BookingSettings {
     pub horizon_days: u16,
     /// How soon before a slot it stops being offered, in minutes.
     pub min_notice_minutes: u16,
+    /// How long a booking request may wait, in opening hours, before staff are reminded; the
+    /// owners are told after as long again.
+    pub reminder_minutes: u16,
 }
 
 impl Default for BookingSettings {
@@ -64,6 +70,7 @@ impl Default for BookingSettings {
             auto_confirm: false,
             horizon_days: 30,
             min_notice_minutes: 60,
+            reminder_minutes: crate::notification::DEFAULT_REMINDER_MINUTES,
         }
     }
 }
@@ -87,7 +94,54 @@ impl BookingSettings {
         if self.min_notice_minutes > 10_080 {
             return Err(BookingError::MinNotice);
         }
+        if self.reminder_minutes < 5 || self.reminder_minutes > 240 {
+            return Err(BookingError::ReminderMinutes);
+        }
         Ok(self)
+    }
+
+    /// Reads the stored settings object, using the default for anything missing or invalid.
+    #[must_use]
+    pub fn from_stored(stored: &serde_json::Value) -> Self {
+        let defaults = Self::default();
+        let number = |key: &str, default: u16| {
+            stored
+                .get(key)
+                .and_then(serde_json::Value::as_u64)
+                .and_then(|n| u16::try_from(n).ok())
+                .unwrap_or(default)
+        };
+        let flag = |key: &str, default: bool| {
+            stored
+                .get(key)
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(default)
+        };
+        Self {
+            enabled: flag("enabled", defaults.enabled),
+            slot_minutes: number("slot_minutes", defaults.slot_minutes),
+            buffer_minutes: number("buffer_minutes", defaults.buffer_minutes),
+            auto_confirm: flag("auto_confirm", defaults.auto_confirm),
+            horizon_days: number("horizon_days", defaults.horizon_days),
+            min_notice_minutes: number("min_notice_minutes", defaults.min_notice_minutes),
+            reminder_minutes: number("reminder_minutes", defaults.reminder_minutes),
+        }
+        .validate()
+        .unwrap_or(defaults)
+    }
+
+    /// The settings as the stored object.
+    #[must_use]
+    pub fn to_stored(&self) -> serde_json::Value {
+        serde_json::json!({
+            "enabled": self.enabled,
+            "slot_minutes": self.slot_minutes,
+            "buffer_minutes": self.buffer_minutes,
+            "auto_confirm": self.auto_confirm,
+            "horizon_days": self.horizon_days,
+            "min_notice_minutes": self.min_notice_minutes,
+            "reminder_minutes": self.reminder_minutes,
+        })
     }
 
     /// Whether `day` may be booked on `today`: from today to `horizon_days` days.

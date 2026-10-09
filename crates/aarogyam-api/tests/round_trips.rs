@@ -423,6 +423,13 @@ fn hot_routes(
             "/api/v1/reports/analytics".into(),
         ),
         Route::get("GET /expenses", ALPHA, "/api/v1/expenses".into()),
+        // The bell's count and the feed: one statement each, with the read state and names.
+        Route::get(
+            "GET /notifications/count",
+            ALPHA,
+            "/api/v1/notifications/count".into(),
+        ),
+        Route::get("GET /notifications", ALPHA, "/api/v1/notifications".into()),
         Route::get("GET /invoices", ALPHA, "/api/v1/invoices".into()),
         Route::get("GET /stock", ALPHA, "/api/v1/stock".into()),
         Route::get(

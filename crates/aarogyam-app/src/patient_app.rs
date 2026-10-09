@@ -375,6 +375,8 @@ pub async fn cancel(
             },
         )
         .await?;
+        // Tells the clinic, and closes the booking's open notifications, in this transaction.
+        aarogyam_dal::notifications::patient_cancelled(tx.conn(), appointment_id.uuid()).await?;
         Ok(to)
     })
     .await

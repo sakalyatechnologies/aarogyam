@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.staff_notifications (id, kind, appointment_id) values ($1, $2, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "df73f220d051c5bbd5a1aa224e899e59f89cfcf1db05faaad1f6f374896022e7"
+}

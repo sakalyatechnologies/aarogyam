@@ -12,6 +12,7 @@ use aarogyam_domain::booking::{
     Asked, BookingSettings, Commitments, MAX_OPEN_SELF_BOOKINGS, free_slots,
 };
 use aarogyam_domain::ids::{AppointmentId, ClinicId, PatientId, PractitionerId};
+use aarogyam_domain::notification::NotificationKind;
 use aarogyam_domain::outbox::MessageKind;
 use aarogyam_domain::patient::{Email, Language, NumberPrefix, PatientNumber, PersonName};
 use aarogyam_domain::schedule::{AppointmentStatus, Shift};
@@ -38,39 +39,13 @@ pub const TOO_MANY_OPEN: &str = "you already have the most upcoming booking requ
 /// Reads the stored settings object, using the default for anything missing or invalid.
 #[must_use]
 pub fn read_settings(stored: &Value) -> BookingSettings {
-    let defaults = BookingSettings::default();
-    let number = |key: &str, default: u16| {
-        stored
-            .get(key)
-            .and_then(Value::as_u64)
-            .and_then(|n| u16::try_from(n).ok())
-            .unwrap_or(default)
-    };
-    let flag =
-        |key: &str, default: bool| stored.get(key).and_then(Value::as_bool).unwrap_or(default);
-    BookingSettings {
-        enabled: flag("enabled", defaults.enabled),
-        slot_minutes: number("slot_minutes", defaults.slot_minutes),
-        buffer_minutes: number("buffer_minutes", defaults.buffer_minutes),
-        auto_confirm: flag("auto_confirm", defaults.auto_confirm),
-        horizon_days: number("horizon_days", defaults.horizon_days),
-        min_notice_minutes: number("min_notice_minutes", defaults.min_notice_minutes),
-    }
-    .validate()
-    .unwrap_or(defaults)
+    BookingSettings::from_stored(stored)
 }
 
 /// The settings as the stored object.
 #[must_use]
 pub fn settings_value(settings: &BookingSettings) -> Value {
-    json!({
-        "enabled": settings.enabled,
-        "slot_minutes": settings.slot_minutes,
-        "buffer_minutes": settings.buffer_minutes,
-        "auto_confirm": settings.auto_confirm,
-        "horizon_days": settings.horizon_days,
-        "min_notice_minutes": settings.min_notice_minutes,
-    })
+    settings.to_stored()
 }
 
 /// A doctor patients may pick.
@@ -484,6 +459,36 @@ async fn whose(
     }
 }
 
+/// The booking's history entry, and the notification every member who handles this doctor's
+/// appointments sees, in the booking's transaction.
+async fn record_booked(
+    tx: &mut ScopedTx,
+    id: AppointmentId,
+    auto_confirmed: bool,
+    now: OffsetDateTime,
+) -> Result<(), AppError> {
+    dal::insert_event(
+        tx.conn(),
+        &dal::NewEvent {
+            appointment_id: id.uuid(),
+            kind: "booked",
+            from_status: None,
+            to_status: None,
+            changes: None,
+            note: Some("online"),
+            at: now,
+        },
+    )
+    .await?;
+    let kind = if auto_confirmed {
+        NotificationKind::BookingConfirmedAuto
+    } else {
+        NotificationKind::BookingRequested
+    };
+    crate::notifications::notify(tx, kind, id).await?;
+    Ok(())
+}
+
 async fn book_slot(
     db: &Db,
     clinic_id: ClinicId,
@@ -550,19 +555,7 @@ async fn book_slot(
         .map_err(|error| {
             AppError::on_constraint(error, "appointments_self_booking_slot", SLOT_TAKEN)
         })?;
-        dal::insert_event(
-            tx.conn(),
-            &dal::NewEvent {
-                appointment_id: id.uuid(),
-                kind: "booked",
-                from_status: None,
-                to_status: None,
-                changes: None,
-                note: Some("online"),
-                at: now,
-            },
-        )
-        .await?;
+        record_booked(tx, id, settings.auto_confirm, now).await?;
         let message = if settings.auto_confirm {
             MessageKind::BookingConfirmed
         } else {

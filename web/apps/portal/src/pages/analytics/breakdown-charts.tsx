@@ -42,7 +42,7 @@ export function DonutCard({ title, hint, area, data, labels, unit, animate }: { 
                 <span className="an-sw" style={swatch(s.color)} aria-hidden="true" />
                 <span>{s.name}</span>
                 <b>
-                  {s.value} · {Math.round((s.value / total) * 100)}%
+                  {`${String(s.value)} (${String(Math.round((s.value / total) * 100))}%)`}
                 </b>
               </li>
             ))}

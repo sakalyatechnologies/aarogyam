@@ -13,7 +13,7 @@ export default defineProject({
     server: { deps: { inline: [/@base-ui\/react/] } },
     // The default 5s budget flakes when the machine is busy (e.g. a concurrent cargo build).
     testTimeout: 15_000,
-    // The stylesheet test reads mockup.css as text.
-    css: { include: [/mockup\.css/] },
+    // The stylesheet tests read mockup.css and settings.css as text.
+    css: { include: [/mockup\.css/, /settings\.css/] },
   },
 });

@@ -68,3 +68,12 @@ export function maskEmail(email: string): string {
   const at = email.indexOf("@");
   return at <= 0 ? "•••" : `${email.charAt(0)}•••${email.slice(at)}`;
 }
+
+/**
+ * A name for display: one stored all in lower case ("ram kumar") shows as "Ram Kumar"; any other
+ * casing is the patient's own and stays ("D'Souza", "McKenzie", "SNEHA"). Stored data never changes.
+ */
+export function displayName(name: string): string {
+  if (name !== name.toLowerCase() || name === name.toUpperCase()) return name;
+  return name.replace(/(^|[\s'’.-])(\p{Ll})/gu, (_, before: string, letter: string) => `${before}${letter.toUpperCase()}`);
+}

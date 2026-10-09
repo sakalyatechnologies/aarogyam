@@ -9,7 +9,7 @@ import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTi
 import { EmptyState, Initials, MkCard, PageHeader, SkeletonList, StatusChip, rowLink } from "../../components/mk/index.js";
 import { StaggerItem, StaggerList } from "../../components/mk/motion.js";
 import { useClinic } from "../../clinic.js";
-import { patientPath } from "../../lib/patients.js";
+import { displayName, patientPath } from "../../lib/patients.js";
 import { recentPatientIds } from "../../lib/recent-patients.js";
 import { usePatientList } from "./queries.js";
 
@@ -195,7 +195,7 @@ export function PatientsPage() {
                         <span className="mk-pname">
                           <Initials name={row.full_name} size="sm" />
                           <span className="mk-dir-name">
-                            <Link to={patientPath(row)}>{row.full_name}</Link>
+                            <Link to={patientPath(row)}>{displayName(row.full_name)}</Link>
                             <small>{row.age_years == null ? "Age not recorded" : `${String(row.age_years)} years`}</small>
                           </span>
                         </span>
@@ -277,7 +277,7 @@ function RecentlyViewed() {
             <Link to={patientPath(patient)} className="mk-recent-card">
               <Initials name={patient.full_name} />
               <span>
-                <strong>{patient.full_name}</strong>
+                <strong>{displayName(patient.full_name)}</strong>
                 <small>
                   {patient.number}
                   {patient.last_visit_at == null ? "" : ` · Last visit ${formatDate(patient.last_visit_at)}`}

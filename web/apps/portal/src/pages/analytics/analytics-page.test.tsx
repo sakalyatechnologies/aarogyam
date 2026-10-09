@@ -68,6 +68,25 @@ describe("Analytics", () => {
     expect(screen.getByRole("heading", { name: "Busy hours" })).toBeTruthy();
   });
 
+  it("shows ₹0, not a blank, for expenses in a range without any, and counts with their share in the legends", async () => {
+    const backend = fakeApi((fixtures) => {
+      fixtures.expenses = [];
+      fixtures.stockBatches.length = 0;
+    });
+    renderPortal("/analytics", { as: PEOPLE.asha, backend });
+    const kpis = await screen.findByRole("list", { name: "Totals for the range" });
+    const tile = (label: string) => within(kpis).getByText(label).closest(".mk-stat")?.querySelector(".mk-stat-v")?.textContent;
+    expect(tile("Expenses")).toBe("₹0");
+    expect(tile("Net")).toBe(tile("Income"));
+    expect(tile("Avg chair use")).toMatch(/^\d+%$/);
+    for (const value of within(screen.getByRole("list", { name: "Visit kind" })).getAllByText(/\d/)) {
+      expect(value.textContent).toMatch(/^\d+ \(\d+%\)$/);
+    }
+    for (const row of within(screen.getByRole("list", { name: /^Chair use,/ })).getAllByRole("listitem")) {
+      expect(row.querySelector("b")?.textContent).toMatch(/^\d+%$/);
+    }
+  });
+
   it("hides money from a role without finance.view", async () => {
     const user = userEvent.setup();
     renderPortal("/analytics", { as: PEOPLE.dev, backend: doctorWithAnalytics() });

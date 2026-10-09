@@ -28,7 +28,7 @@ import { useClinic } from "../../clinic.js";
 import { usePatientPeek } from "../../layout/peek.js";
 import { DayTimeline } from "./day-timeline.js";
 import { FinishSetupCard } from "../setup/finish-card.js";
-import { patientPath } from "../../lib/patients.js";
+import { displayName, patientPath } from "../../lib/patients.js";
 import { compactRupees } from "../../lib/money.js";
 import { usePatient, useSetAppointmentStatus, useStaff, useToday } from "../../queries.js";
 import { useTodayMoney } from "../billing/queries.js";
@@ -222,7 +222,7 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
                   key={a.id}
                   lead={formatTime(a.starts_at, timeZone)}
                   name={a.patient.full_name}
-                  title={a.patient.full_name}
+                  title={displayName(a.patient.full_name)}
                   subtitle={[a.reason, a.room].filter((part) => part != null && part !== "").join(" · ") || a.practitioner.display_name}
                   trailing={<StatusChip tone={APPOINTMENT_CHIP[a.status].tone}>{APPOINTMENT_CHIP[a.status].label}</StatusChip>}
                   onClick={() => {
@@ -331,7 +331,7 @@ function NextCard({ target, frontDesk, current, today, timeZone }: { target: Tod
       <HeroCard
         label={frontDesk ? "Next arrival" : "Next consultation"}
         eyebrow={frontDesk ? "Next arrival" : "Next consultation"}
-        title={today.counts.total === 0 ? "No appointments booked today" : "Nobody else is booked today"}
+        title={idleTitle(today.counts, frontDesk)}
         detail="Walk-ins can be added from the queue."
         ring={ring}
         action={
@@ -347,7 +347,7 @@ function NextCard({ target, frontDesk, current, today, timeZone }: { target: Tod
     <HeroCard
       label={frontDesk ? "Next arrival" : current ? "Current consultation" : "Next consultation"}
       eyebrow={`${frontDesk ? "Next arrival" : current ? "Now in clinic" : "Next consultation"} · ${formatTime(target.starts_at, timeZone)}`}
-      title={target.patient.full_name}
+      title={displayName(target.patient.full_name)}
       detail={[target.reason, target.room, target.practitioner.display_name].filter((part) => part != null && part !== "").join(" · ")}
       meta={`${target.patient.number} · ${APPOINTMENT_CHIP[target.status].label}`}
       ring={ring}
@@ -363,6 +363,18 @@ function NextCard({ target, frontDesk, current, today, timeZone }: { target: Tod
       }
     />
   );
+}
+
+/**
+ * The hero's title when nobody is next, worded so it never contradicts the ring beside it:
+ * a finished day says so, and people still in the clinic are not called "nobody".
+ */
+export function idleTitle(counts: Today["counts"], frontDesk: boolean): string {
+  if (counts.total === 0) return "No appointments booked today";
+  if (counts.done >= counts.total) return "All of today's appointments are done.";
+  if (counts.done + counts.no_shows >= counts.total) return "No more appointments today";
+  if (frontDesk) return "Everyone booked today has arrived";
+  return "No one is waiting for you right now";
 }
 
 /** Whether a phone number from the API is a real, dialable one (without `patients.contact` it arrives masked). */
@@ -518,7 +530,7 @@ function ChairStatus({ chairs, timeZone }: { chairs: readonly TodayChair[]; time
           <b>{chair.name}</b>
           <div>
             {chair.current
-              ? `${chair.current.patient.full_name} · ${formatTime(chair.current.starts_at, timeZone)}`
+              ? `${displayName(chair.current.patient.full_name)} · ${formatTime(chair.current.starts_at, timeZone)}`
               : chair.next
                 ? `Free · next ${formatTime(chair.next.starts_at, timeZone)}`
                 : "Free"}
@@ -534,6 +546,14 @@ function RecentPatients({ tokens, appointments, pending }: { tokens: readonly To
   if (tokens.length === 0) {
     return <Empty art="queue" title="Nobody has come in yet">Patients who arrive today will show here.</Empty>;
   }
+  const rows = tokens.slice(0, 6).map((t) => ({
+    token: t,
+    treatment: appointments.find((a) => a.patient.id === t.patient.id)?.reason ?? undefined,
+    owed: pending.filter((p) => p.patient.id === t.patient.id).reduce((sum, p) => sum + p.balance_paise, 0),
+  }));
+  // A column of nothing but dashes is noise: show Treatment and Bill only when some row has one.
+  const showTreatment = rows.some((r) => r.treatment != null && r.treatment !== "");
+  const showBill = rows.some((r) => r.owed > 0);
   return (
     <div className="mk-tablewrap">
       <table className="mk-table">
@@ -541,15 +561,13 @@ function RecentPatients({ tokens, appointments, pending }: { tokens: readonly To
         <thead>
           <tr>
             <th scope="col">Patient</th>
-            <th scope="col">Treatment</th>
+            {showTreatment ? <th scope="col">Treatment</th> : null}
             <th scope="col">Status</th>
-            <th scope="col">Bill</th>
+            {showBill ? <th scope="col">Bill</th> : null}
           </tr>
         </thead>
         <tbody>
-          {tokens.slice(0, 6).map((t) => {
-            const treatment = appointments.find((a) => a.patient.id === t.patient.id)?.reason;
-            const owed = pending.filter((p) => p.patient.id === t.patient.id).reduce((sum, p) => sum + p.balance_paise, 0);
+          {rows.map(({ token: t, treatment, owed }) => {
             return (
               <tr key={t.id}>
                 <th scope="row">
@@ -561,16 +579,16 @@ function RecentPatients({ tokens, appointments, pending }: { tokens: readonly To
                     }}
                   >
                     <MkAvatar name={t.patient.full_name} />
-                    {t.patient.full_name}
+                    {displayName(t.patient.full_name)}
                   </button>
                 </th>
-                <td>{treatment ?? "—"}</td>
+                {showTreatment ? <td>{treatment == null || treatment === "" ? "—" : treatment}</td> : null}
                 <td>
                   <StatusChip tone={t.status === "done" ? "done" : t.status === "in_chair" ? "ready" : t.status === "left" ? "done" : "waiting"}>
                     {t.status === "done" ? "Done" : t.status === "in_chair" ? "In chair" : t.status === "left" ? "Left" : "Waiting"}
                   </StatusChip>
                 </td>
-                <td>{owed > 0 ? formatRupees(owed) : "—"}</td>
+                {showBill ? <td>{owed > 0 ? formatRupees(owed) : "—"}</td> : null}
               </tr>
             );
           })}

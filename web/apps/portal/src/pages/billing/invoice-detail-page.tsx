@@ -9,15 +9,7 @@ import { Button, Card, DataTable, Dialog, Field, Link, Pill, Select, Skeleton, T
 import { useClinic } from "../../clinic.js";
 import { useEditInvoice, useInvoice, useIssueInvoice, usePayments, usePriceItems, useRecordPayment, useVoidInvoice } from "./queries.js";
 import { PageHeader } from "../../components/mk/index.js";
-
-const STATUS_TONE: Readonly<Record<string, "neutral" | "success" | "warning" | "danger">> = {
-  draft: "neutral",
-  issued: "success",
-  void: "danger",
-  unpaid: "warning",
-  partial: "warning",
-  paid: "success",
-};
+import { INVOICE_STATUS_TONE, invoiceStatus } from "../../lib/invoice-status.js";
 
 const METHODS: readonly { value: PaymentMethod; label: string }[] = [
   { value: "cash", label: "Cash" },
@@ -59,6 +51,7 @@ function InvoiceBody({ invoice, canWrite }: { invoice: Invoice; canWrite: boolea
   const [voidReason, setVoidReason] = useState("");
   const [voidError, setVoidError] = useState<string>();
   const [payOpen, setPayOpen] = useState(false);
+  const status = invoiceStatus(invoice);
 
   const lineColumns: readonly DataTableColumn<Invoice["items"][number]>[] = [
     { id: "description", header: "Description", cell: (l) => l.description },
@@ -127,8 +120,7 @@ function InvoiceBody({ invoice, canWrite }: { invoice: Invoice; canWrite: boolea
       <div className="flex flex-col gap-4">
         <Card>
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <Pill tone={STATUS_TONE[invoice.status] ?? "neutral"}>{invoice.status}</Pill>
-            {invoice.payment_state == null ? null : <Pill tone={STATUS_TONE[invoice.payment_state] ?? "neutral"}>{invoice.payment_state}</Pill>}
+            <Pill tone={INVOICE_STATUS_TONE[status.key]}>{status.label}</Pill>
             {invoice.issued_at == null ? null : <span className="text-xs text-muted">Issued {formatDateTime(invoice.issued_at)}</span>}
           </div>
           {canWrite && invoice.status === "draft" ? <DraftLines invoice={invoice} /> : <DataTable caption="Lines" columns={lineColumns} rows={invoice.items} rowKey={(l) => String(l.line_no)} />}

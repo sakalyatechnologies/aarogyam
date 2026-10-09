@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { Permission } from "@aarogyam/api-client";
 
 import { PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
+import css from "./settings.css?raw";
 
 /** Farah (front desk) with exactly these permissions. */
 function farahWith(permissions: Permission[]) {
@@ -84,5 +85,15 @@ describe("Settings tabs", () => {
     await waitFor(() => {
       expect(selected("Theme")).toBe("true");
     });
+  });
+});
+
+describe("Settings tab bar layout", () => {
+  it("wraps every tab into view from tablet width up and scrolls sideways only on a phone", () => {
+    const start = css.indexOf("@media (min-width: 641px) {");
+    const wide = start < 0 ? "" : css.slice(start, css.indexOf("\n}\n", start) + 2);
+    expect(wide).toMatch(/\[role="tablist"\] \{[^}]*flex-wrap: wrap;[^}]*overflow-x: visible;/);
+    // Outside that query the shared tab list keeps its own overflow-x: auto.
+    expect(css.replace(wide, "")).not.toMatch(/flex-wrap: wrap/);
   });
 });

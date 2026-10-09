@@ -6,7 +6,7 @@ import { formatDate, formatRupees } from "@aarogyam/app-kit";
 
 import { Empty, MkCard, MkDrawer } from "../components/mk/index.js";
 import { useClinic } from "../clinic.js";
-import { ageSex, patientPath } from "../lib/patients.js";
+import { ageSex, displayName, patientPath } from "../lib/patients.js";
 import { useConsents } from "../pages/patients/queries.js";
 import { useClinicalFlags, usePatient, useVisits } from "../queries.js";
 
@@ -48,7 +48,7 @@ export function PeekProvider({ children }: { children: ReactNode }) {
 
 function PatientPeekDrawer({ patient, open, onClose }: { patient: PeekRef | undefined; open: boolean; onClose: () => void }) {
   return (
-    <MkDrawer open={open} onClose={onClose} eyebrow="PATIENT 360" title={patient?.name ?? "Patient"} meta={patient?.number}>
+    <MkDrawer open={open} onClose={onClose} eyebrow="PATIENT 360" title={patient === undefined ? "Patient" : displayName(patient.name)} meta={patient?.number}>
       {patient === undefined ? null : <PeekBody patient={patient} onNavigate={onClose} />}
     </MkDrawer>
   );

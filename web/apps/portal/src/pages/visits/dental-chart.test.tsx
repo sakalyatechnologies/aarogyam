@@ -34,10 +34,23 @@ describe("Dental chart tab", () => {
     const user = await openChart();
     await user.click(tooth(36));
     await user.click(await screen.findByRole("button", { name: /^Record a finding for tooth 36 /i }));
-    await user.selectOptions(await screen.findByLabelText("Finding"), "caries");
+    await user.selectOptions(await screen.findByLabelText(/^Finding\b/), "caries");
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByRole("button", { name: "Tooth 36, molar, Caries" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Record a finding for tooth 36 (now Caries)" })).toBeTruthy();
+  });
+
+  it("preselects no finding, asks for one, and offers a single way to close", async () => {
+    const user = await openChart();
+    await user.click(tooth(36));
+    await user.click(await screen.findByRole("button", { name: /^Record a finding for tooth 36 /i }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByLabelText<HTMLSelectElement>(/^Finding\b/).value).toBe("");
+    expect(dialog.queryByRole("button", { name: "Cancel" })).toBeNull();
+    expect(dialog.getAllByRole("button", { name: "Close" })).toHaveLength(1);
+    await user.click(dialog.getByRole("button", { name: "Save" }));
+    expect(await dialog.findByText("Choose a finding.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Tooth 36, molar, sound", hidden: true })).toBeTruthy();
   });
 
   it("selects one surface by click, pre-selects it in the dialog and paints just that surface", async () => {
@@ -48,6 +61,7 @@ describe("Dental chart tab", () => {
     expect(screen.getByRole("button", { name: "Occlusal surface" }).getAttribute("aria-pressed")).toBe("true");
     await user.click(screen.getByRole("button", { name: /^Record a finding for tooth 46/ }));
     expect(within(await screen.findByRole("dialog")).getByRole("button", { name: "Occlusal" }).getAttribute("aria-pressed")).toBe("true");
+    await user.selectOptions(screen.getByLabelText(/^Finding\b/), "caries");
     await user.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByRole("button", { name: /^Tooth 46, molar, Caries on occlusal/ });
     expect(surfaceOf(46, "O")?.getAttribute("data-finding")).toBe("caries");
@@ -148,7 +162,7 @@ describe("Dental chart tab", () => {
     expect(await screen.findByRole("heading", { name: "2 teeth selected" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Record for 2 teeth" }));
     const dialog = within(await screen.findByRole("dialog"));
-    await user.selectOptions(dialog.getByLabelText("Finding"), "filled");
+    await user.selectOptions(dialog.getByLabelText(/^Finding\b/), "filled");
     await user.click(dialog.getByRole("button", { name: "Occlusal / incisal" }));
 
     const readsBefore = chartReads;

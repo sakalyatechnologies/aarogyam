@@ -1,8 +1,6 @@
-import { useState } from "react";
-
 import { useDocumentTitle } from "@aarogyam/app-kit";
 
-import { Empty, Kpi, MkCard } from "../../components/mk/index.js";
+import { Empty, Kpi, MkCard, Tag } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 
 /**
@@ -12,7 +10,6 @@ import { useClinic } from "../../clinic.js";
 export function MessagesPage() {
   const { session } = useClinic();
   useDocumentTitle("Messages", session.clinic.name);
-  const [channel, setChannel] = useState<"whatsapp" | "sms">("whatsapp");
   return (
     <div className="mk-panel">
       <h1 className="mk-sr">Messages</h1>
@@ -29,7 +26,10 @@ export function MessagesPage() {
         <MkCard title="Templates" hint="DLT-registered · Meta-approved ✓ once templates are set up">
           <Empty title="No templates yet">Appointment reminders, receipts and recall messages will be listed here.</Empty>
         </MkCard>
-        <MkCard title="Recall campaign" hint="6-month cleaning · patients due appear here">
+        <MkCard title="Recall campaign" hint="6-month cleaning · patients due appear here" action={<Tag tone="wait">Preview</Tag>}>
+          <p className="mk-hint" id="recall-preview-note" style={{ marginTop: 0 }}>
+            <b>Preview, sending isn't switched on yet.</b> This is how a recall campaign will look; nothing here sends a message.
+          </p>
           <label className="mk-flabel" htmlFor="recall-audience">
             Audience
           </label>
@@ -43,20 +43,12 @@ export function MessagesPage() {
           </div>
           <div role="group" aria-labelledby="recall-channel" style={{ display: "flex", gap: 8 }}>
             {(["whatsapp", "sms"] as const).map((c) => (
-              <button
-                key={c}
-                type="button"
-                className="mk-chipf"
-                aria-pressed={channel === c}
-                onClick={() => {
-                  setChannel(c);
-                }}
-              >
+              <button key={c} type="button" className="mk-chipf" aria-pressed={c === "whatsapp"} aria-describedby="recall-preview-note" disabled>
                 {c === "whatsapp" ? "WhatsApp" : "SMS"}
               </button>
             ))}
           </div>
-          <button type="button" className="mk-btn mk-btn-primary" style={{ marginTop: 16, width: "100%" }} disabled>
+          <button type="button" className="mk-btn mk-btn-primary" style={{ marginTop: 16, width: "100%" }} aria-describedby="recall-preview-note" disabled>
             ▶ Send to 0 patients
           </button>
         </MkCard>

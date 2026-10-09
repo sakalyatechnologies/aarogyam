@@ -21,6 +21,7 @@ describe("Consent on Patient 360", () => {
     expect(await screen.findByText("No consent recorded")).toBeTruthy();
     await user.click(await screen.findByRole("tab", { name: "Consent" }));
     expect(await screen.findByText("No consent recorded yet")).toBeTruthy();
+    expect(screen.getByText(/when they withdraw\. This is the clinic's own record under the DPDP Act\.$/)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Record consent" }));
     const dialog = await screen.findByRole("dialog");
     await user.selectOptions(within(dialog).getByLabelText(/Purpose/), "care");

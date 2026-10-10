@@ -8,7 +8,9 @@ use std::fmt::Write as _;
 use aarogyam_dal::message_worker::{self as dal, ClaimedMessage, Dispatch};
 use aarogyam_domain::consent::Purpose;
 use aarogyam_domain::event::Event;
-use aarogyam_domain::messaging::{About, AppointmentNow, DueCheck, PatientState, Verdict, decide};
+use aarogyam_domain::messaging::{
+    About, AppointmentNow, DueCheck, PatientState, SkipReason, Verdict, decide,
+};
 use aarogyam_domain::outbox::{MessageKind, retry_at};
 use aws_lc_rs::digest;
 use base64::Engine as _;
@@ -68,7 +70,22 @@ fn hash_token(token: &str) -> String {
         })
 }
 
-fn due_check(message: &Dispatch, purpose: Purpose, kind: Option<MessageKind>) -> DueCheck {
+/// Why the clinic's template stops a message on its channel: none for email without a row (the
+/// wording is in code), else anything but `approved`.
+pub(crate) fn template_block(message: &Dispatch) -> Option<SkipReason> {
+    match (message.channel.as_str(), message.template_status.as_deref()) {
+        (_, Some("approved")) | ("email", None) => None,
+        (_, Some("paused")) => Some(SkipReason::TemplatePaused),
+        _ => Some(SkipReason::TemplateUnavailable),
+    }
+}
+
+pub(crate) fn due_check(
+    message: &Dispatch,
+    purpose: Purpose,
+    kind: Option<MessageKind>,
+    blocked: Option<SkipReason>,
+) -> DueCheck {
     let appointment = match (&message.appointment_status, message.appointment_starts_at) {
         (Some(status), Some(starts_at)) => Some(AppointmentNow {
             active: matches!(status.as_str(), "booked" | "confirmed"),
@@ -86,6 +103,7 @@ fn due_check(message: &Dispatch, purpose: Purpose, kind: Option<MessageKind>) ->
             .as_deref()
             .is_some_and(|text| !text.is_empty()),
         quiet_until: message.quiet_until,
+        blocked,
         about: if kind == Some(MessageKind::AppointmentReminder) {
             About::Reminder(appointment)
         } else {
@@ -134,6 +152,7 @@ impl Notifier {
                 "daily email budget spent; messages moved to tomorrow"
             );
         }
+        self.drain_whatsapp(db, now, &mut report).await?;
         Ok(report)
     }
 
@@ -152,7 +171,8 @@ impl Notifier {
         let Ok(purpose) = Purpose::parse(&message.purpose) else {
             return self.skip(db, &claimed, "unsupported", report).await;
         };
-        match decide(&due_check(&message, purpose, kind), now) {
+        let blocked = template_block(&message);
+        match decide(&due_check(&message, purpose, kind, blocked), now) {
             Verdict::Skip(reason) => self.skip(db, &claimed, reason.as_str(), report).await,
             Verdict::Wait(at) => {
                 dal::reschedule(db.pool(), org_id, id, at).await?;
@@ -163,14 +183,17 @@ impl Notifier {
                 let Some(kind) = kind else {
                     return self.skip(db, &claimed, "unsupported", report).await;
                 };
-                let outcome = self.send(db, &claimed, &message, kind, purpose).await;
+                let outcome = self
+                    .send(db, &claimed, &message, kind, purpose)
+                    .await
+                    .map(|(provider, provider_id)| (provider, provider_id, None));
                 self.settle(db, &claimed, &message.kind, outcome, now, report)
                     .await
             }
         }
     }
 
-    async fn skip(
+    pub(crate) async fn skip(
         &self,
         db: &Db,
         claimed: &ClaimedMessage,
@@ -244,25 +267,25 @@ impl Notifier {
     }
 
     /// Records a send's outcome: sent, retried with backoff, or abandoned.
-    async fn settle(
+    pub(crate) async fn settle(
         &self,
         db: &Db,
         claimed: &ClaimedMessage,
         kind: &str,
-        outcome: Result<(&'static str, Option<String>), Failure>,
+        outcome: Result<(&'static str, Option<String>, Option<i64>), Failure>,
         now: OffsetDateTime,
         report: &mut MessageReport,
     ) -> Result<(), DbError> {
         let (org_id, id) = (claimed.org_id, claimed.id);
         match outcome {
-            Ok((provider, provider_id)) => {
+            Ok((provider, provider_id, cost_paise)) => {
                 dal::mark_sent(
                     db.pool(),
                     org_id,
                     id,
                     provider,
                     provider_id.as_deref(),
-                    None,
+                    cost_paise,
                 )
                 .await?;
                 report.sent += 1;

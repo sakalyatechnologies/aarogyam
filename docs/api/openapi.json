@@ -12429,6 +12429,188 @@
         ]
       }
     },
+    "/api/v1/templates": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "The clinic's message templates: its copies of the platform's defaults and any it added.",
+        "operationId": "listMessageTemplates",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageTemplates"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Adds a template. Email ones are in use at once; `WhatsApp` ones start as drafts.",
+        "operationId": "createMessageTemplate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMessageTemplate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown key, channel, category or language, or a variable not on the allow-list"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "409": {
+            "description": "The clinic has this key, channel and language already"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/templates/{id}": {
+      "patch": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Edits the clinic's copy. A `WhatsApp` template whose text, name or category changes goes\nback to draft until it is submitted and approved again.",
+        "operationId": "updateMessageTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The template",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMessageTemplate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad body, category or name"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such template in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/templates/{id}/submit": {
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Records that the clinic's `WhatsApp` template was submitted to Meta for review (submission\nitself is by hand for the pilot; docs/whatsapp.md). Meta's decision arrives by webhook.",
+        "operationId": "submitMessageTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The template",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageTemplate"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such template in this clinic"
+          },
+          "409": {
+            "description": "An email template, one without a name at Meta, or one approved already"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/today": {
       "get": {
         "tags": [
@@ -13000,6 +13182,80 @@
           },
           "401": {
             "description": "The signature is missing, wrong or too old"
+          },
+          "413": {
+            "description": "The body is too large"
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/whatsapp": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Meta's subscription check: echoes `hub.challenge` when `hub.mode` is `subscribe` and\n`hub.verify_token` is the configured one.",
+        "operationId": "whatsappWebhookHandshake",
+        "parameters": [
+          {
+            "name": "hub.mode",
+            "in": "query",
+            "description": "`subscribe`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hub.verify_token",
+            "in": "query",
+            "description": "The configured verify token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hub.challenge",
+            "in": "query",
+            "description": "Echoed back",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The challenge, as plain text",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong mode or token, or none configured"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Meta's `WhatsApp` events, signed with the app secret (`X-Hub-Signature-256: sha256=<hex>`\nover the raw body; 1 MB cap). Records statuses (sent, delivered, read, failed; each once, in\nany order), template reviews, and STOP replies (the sender opts out of `WhatsApp`); every\nother inbound message is dropped unread. Answers 200 for every authentic request.",
+        "operationId": "whatsappWebhook",
+        "responses": {
+          "200": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "Authentic but not a WhatsApp event"
+          },
+          "401": {
+            "description": "The signature is missing or wrong, or no app secret is configured"
           },
           "413": {
             "description": "The body is too large"
@@ -16291,6 +16547,46 @@
           "id": {
             "type": "string",
             "description": "The conversation."
+          }
+        }
+      },
+      "CreateMessageTemplate": {
+        "type": "object",
+        "description": "A template to add: another language or channel for a known key.",
+        "required": [
+          "key",
+          "channel",
+          "language",
+          "body",
+          "category"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The text; only the key's allow-listed `{{variables}}`."
+          },
+          "category": {
+            "type": "string",
+            "description": "`marketing`, `utility` or `authentication`."
+          },
+          "channel": {
+            "type": "string",
+            "description": "`email` or `whatsapp`."
+          },
+          "key": {
+            "type": "string",
+            "description": "A known key, such as `appointment.reminder`."
+          },
+          "language": {
+            "type": "string",
+            "description": "`en-IN`, `hi-IN`, `mr-IN`..."
+          },
+          "provider_template_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The template's name at Meta (lower case, digits and `_`)."
           }
         }
       },
@@ -20080,6 +20376,105 @@
           "template_key": {
             "type": "string",
             "description": "Its template."
+          }
+        }
+      },
+      "MessageTemplate": {
+        "type": "object",
+        "description": "One of the clinic's templates.",
+        "required": [
+          "id",
+          "key",
+          "channel",
+          "language",
+          "body",
+          "category",
+          "status",
+          "updated_at"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The text, with allow-listed `{{variables}}`."
+          },
+          "category": {
+            "type": "string",
+            "description": "`marketing`, `utility` or `authentication`, as Meta categorises it."
+          },
+          "channel": {
+            "type": "string",
+            "description": "`email` or `whatsapp`."
+          },
+          "dlt_template_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SMS DLT template id, for later."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "key": {
+            "type": "string",
+            "description": "`care.note`, `reminder.follow_up`, `promo.offer`, `appointment.reminder`, `booking.*`..."
+          },
+          "language": {
+            "type": "string",
+            "description": "`en-IN`, `hi-IN`, `mr-IN`..."
+          },
+          "provider_template_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The template's name at Meta (`WhatsApp`)."
+          },
+          "reviewed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When Meta last reviewed it (RFC 3339)."
+          },
+          "sender_header": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SMS sender header (DLT), for later."
+          },
+          "status": {
+            "type": "string",
+            "description": "`draft`, `submitted`, `approved`, `rejected` or `paused`. Only approved ones are sent."
+          },
+          "submitted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was last submitted (RFC 3339)."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          }
+        }
+      },
+      "MessageTemplates": {
+        "type": "object",
+        "description": "The clinic's templates.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageTemplate"
+            },
+            "description": "By key, channel and language."
           }
         }
       },
@@ -28221,6 +28616,47 @@
           "unsubscribed": {
             "type": "boolean",
             "description": "Always true."
+          }
+        }
+      },
+      "UpdateMessageTemplate": {
+        "type": "object",
+        "description": "Changes to the clinic's copy; fields left out stay.",
+        "properties": {
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New text; only the key's allow-listed `{{variables}}`."
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`marketing`, `utility` or `authentication`."
+          },
+          "dlt_template_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SMS DLT template id."
+          },
+          "provider_template_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The template's name at Meta."
+          },
+          "sender_header": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SMS sender header (DLT)."
           }
         }
       },

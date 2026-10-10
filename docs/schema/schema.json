@@ -7511,62 +7511,90 @@
   {
    "name": "message_templates",
    "domain": "notify",
-   "purpose": "Message text per channel and language. Clinic rows override platform defaults.",
+   "purpose": "What each patient message says, per clinic, channel and language; WhatsApp ones with their Meta review state.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "org_id is null for platform defaults; this table allows that.",
+   "notes": "Built (migration 0375). Unique per clinic, key, channel and language. Each clinic gets copies of app.message_template_defaults() when it is created (trigger on organizations); never a row without a clinic. Email rows start approved (wording still in code), WhatsApp ones as drafts. Meta's review webhook updates submitted copies by name and language (app.whatsapp_template_reviewed). No patient data; retention class message_templates.",
    "cols": [
     {
      "name": "key",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "appointment_reminder, birthday, recall_cleaning ..."
+     "note": "care.note, reminder.follow_up, promo.offer, appointment.reminder, booking.*, prescription.shared, patient_app.invited"
     },
     {
      "name": "channel",
-     "type": "channel",
+     "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "whatsapp, sms, email, push"
+     "note": "email, whatsapp, sms"
     },
     {
      "name": "language",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "en-IN, hi-IN, mr-IN"
     },
     {
      "name": "body",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "with allow-listed {{variables}}; for WhatsApp, the order of Meta's parameters"
     },
     {
      "name": "category",
-     "type": "message_category",
+     "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "transactional, promotional"
+     "note": "marketing, utility, authentication (as Meta returns it)"
     },
     {
-     "name": "provider_template_id",
+     "name": "provider_template_ref",
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "Meta or DLT template id"
+     "note": "the template's name at Meta"
     },
     {
-     "name": "approval",
-     "type": "approval_status",
+     "name": "status",
+     "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "draft, pending, approved, rejected"
+     "note": "draft, submitted, approved, rejected, paused"
+    },
+    {
+     "name": "submitted_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "reviewed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "sender_header",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "SMS DLT sender, later"
+    },
+    {
+     "name": "dlt_template_id",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "SMS DLT template, later"
     }
    ],
    "referenced_by": [
@@ -8506,7 +8534,7 @@
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed..."
+     "note": "no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed, channel_disabled, no_opt_in, template_unavailable, template_paused, marketing_limit, undeliverable..."
     },
     {
      "name": "dedupe_key",
@@ -8548,7 +8576,7 @@
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "log, resend"
+     "note": "log, resend, meta"
     },
     {
      "name": "provider_message_id",
@@ -8562,7 +8590,7 @@
      "type": "bigint",
      "nullable": true,
      "ref": null,
-     "note": ""
+     "note": "WhatsApp: the configured price of the template's category"
     },
     {
      "name": "unsubscribe_hash",
@@ -8576,7 +8604,7 @@
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "latest provider report"
+     "note": "latest provider report (WhatsApp: the furthest of sent, delivered, read; failed)"
     },
     {
      "name": "delivery_at",
@@ -8615,7 +8643,7 @@
    "partitioned": false,
    "lifecycle": "append_only",
    "schema": "aarogyam",
-   "notes": "Built (migration 0370). Metadata only, never the payload; written by the Resend webhook through app.message_provider_event, once per event whatever the order.",
+   "notes": "Built (migration 0370). Metadata only, never the payload; written by the Resend webhook through app.message_provider_event, and by Meta's through app.whatsapp_status (event id <wamid>:<status>, 0377), once per event whatever the order.",
    "cols": [
     {
      "name": "message_id",
@@ -8643,7 +8671,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "sent, delivered, delayed, bounced, complained, failed, opened, clicked"
+     "note": "sent, delivered, read, delayed, bounced, complained, failed, opened, clicked"
     },
     {
      "name": "occurred_at",

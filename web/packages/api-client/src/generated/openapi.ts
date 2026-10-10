@@ -3852,6 +3852,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's message templates: its copies of the platform's defaults and any it added. */
+        get: operations["listMessageTemplates"];
+        put?: never;
+        /** Adds a template. Email ones are in use at once; `WhatsApp` ones start as drafts. */
+        post: operations["createMessageTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edits the clinic's copy. A `WhatsApp` template whose text, name or category changes goes
+         *     back to draft until it is submitted and approved again.
+         */
+        patch: operations["updateMessageTemplate"];
+        trace?: never;
+    };
+    "/api/v1/templates/{id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Records that the clinic's `WhatsApp` template was submitted to Meta for review (submission
+         *     itself is by hand for the pilot; docs/whatsapp.md). Meta's decision arrives by webhook.
+         */
+        post: operations["submitMessageTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/today": {
         parameters: {
             query?: never;
@@ -4075,6 +4133,32 @@ export interface paths {
          *     ones about email this table doesn't hold (staff email).
          */
         post: operations["resendWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/whatsapp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Meta's subscription check: echoes `hub.challenge` when `hub.mode` is `subscribe` and
+         *     `hub.verify_token` is the configured one.
+         */
+        get: operations["whatsappWebhookHandshake"];
+        put?: never;
+        /**
+         * Meta's `WhatsApp` events, signed with the app secret (`X-Hub-Signature-256: sha256=<hex>`
+         *     over the raw body; 1 MB cap). Records statuses (sent, delivered, read, failed; each once, in
+         *     any order), template reviews, and STOP replies (the sender opts out of `WhatsApp`); every
+         *     other inbound message is dropped unread. Answers 200 for every authentic request.
+         */
+        post: operations["whatsappWebhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5379,6 +5463,21 @@ export interface components {
             created: boolean;
             /** @description The conversation. */
             id: string;
+        };
+        /** @description A template to add: another language or channel for a known key. */
+        CreateMessageTemplate: {
+            /** @description The text; only the key's allow-listed `{{variables}}`. */
+            body: string;
+            /** @description `marketing`, `utility` or `authentication`. */
+            category: string;
+            /** @description `email` or `whatsapp`. */
+            channel: string;
+            /** @description A known key, such as `appointment.reminder`. */
+            key: string;
+            /** @description `en-IN`, `hi-IN`, `mr-IN`... */
+            language: string;
+            /** @description The template's name at Meta (lower case, digits and `_`). */
+            provider_template_ref?: string | null;
         };
         /** @description A clinic just created. `invite_token` is shown once; only its hash is stored. */
         CreatedClinic: {
@@ -6907,6 +7006,40 @@ export interface components {
             status: string;
             /** @description Its template. */
             template_key: string;
+        };
+        /** @description One of the clinic's templates. */
+        MessageTemplate: {
+            /** @description The text, with allow-listed `{{variables}}`. */
+            body: string;
+            /** @description `marketing`, `utility` or `authentication`, as Meta categorises it. */
+            category: string;
+            /** @description `email` or `whatsapp`. */
+            channel: string;
+            /** @description SMS DLT template id, for later. */
+            dlt_template_id?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description `care.note`, `reminder.follow_up`, `promo.offer`, `appointment.reminder`, `booking.*`... */
+            key: string;
+            /** @description `en-IN`, `hi-IN`, `mr-IN`... */
+            language: string;
+            /** @description The template's name at Meta (`WhatsApp`). */
+            provider_template_ref?: string | null;
+            /** @description When Meta last reviewed it (RFC 3339). */
+            reviewed_at?: string | null;
+            /** @description SMS sender header (DLT), for later. */
+            sender_header?: string | null;
+            /** @description `draft`, `submitted`, `approved`, `rejected` or `paused`. Only approved ones are sent. */
+            status: string;
+            /** @description When it was last submitted (RFC 3339). */
+            submitted_at?: string | null;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+        };
+        /** @description The clinic's templates. */
+        MessageTemplates: {
+            /** @description By key, channel and language. */
+            items: components["schemas"]["MessageTemplate"][];
         };
         /** @description What sending queued. */
         MessagesQueued: {
@@ -10148,6 +10281,19 @@ export interface components {
         Unsubscribed: {
             /** @description Always true. */
             unsubscribed: boolean;
+        };
+        /** @description Changes to the clinic's copy; fields left out stay. */
+        UpdateMessageTemplate: {
+            /** @description New text; only the key's allow-listed `{{variables}}`. */
+            body?: string | null;
+            /** @description `marketing`, `utility` or `authentication`. */
+            category?: string | null;
+            /** @description SMS DLT template id. */
+            dlt_template_id?: string | null;
+            /** @description The template's name at Meta. */
+            provider_template_ref?: string | null;
+            /** @description SMS sender header (DLT). */
+            sender_header?: string | null;
         };
         /** @description The form an upload sends (`multipart/form-data`). */
         UploadForm: {
@@ -22791,6 +22937,194 @@ export interface operations {
             };
         };
     };
+    listMessageTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageTemplates"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createMessageTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMessageTemplate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageTemplate"];
+                };
+            };
+            /** @description Unknown key, channel, category or language, or a variable not on the allow-list */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The clinic has this key, channel and language already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateMessageTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The template */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMessageTemplate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageTemplate"];
+                };
+            };
+            /** @description A bad body, category or name */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such template in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    submitMessageTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The template */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageTemplate"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such template in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An email template, one without a name at Meta, or one approved already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getToday: {
         parameters: {
             query?: never;
@@ -23375,6 +23709,79 @@ export interface operations {
                 content?: never;
             };
             /** @description The signature is missing, wrong or too old */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The body is too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    whatsappWebhookHandshake: {
+        parameters: {
+            query: {
+                /** @description `subscribe` */
+                "hub.mode": string;
+                /** @description The configured verify token */
+                "hub.verify_token": string;
+                /** @description Echoed back */
+                "hub.challenge": string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The challenge, as plain text */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Wrong mode or token, or none configured */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    whatsappWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentic but not a WhatsApp event */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The signature is missing or wrong, or no app secret is configured */
             401: {
                 headers: {
                     [name: string]: unknown;

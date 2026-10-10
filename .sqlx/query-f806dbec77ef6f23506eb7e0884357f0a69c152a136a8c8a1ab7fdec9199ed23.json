@@ -1,0 +1,172 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, key, channel, language, body, category, provider_template_ref, status,\n                submitted_at, reviewed_at, sender_header, dlt_template_id, updated_at\n         from aarogyam.message_templates where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "channel",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "channel"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "language",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "language"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "body",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "category",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "category"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "provider_template_ref",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "provider_template_ref"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "submitted_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "submitted_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "reviewed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "reviewed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "sender_header",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "sender_header"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "dlt_template_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "dlt_template_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "f806dbec77ef6f23506eb7e0884357f0a69c152a136a8c8a1ab7fdec9199ed23"
+}

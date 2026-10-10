@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.whatsapp_template_known_status($1, $2, $3)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "whatsapp_template_known_status",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8e5cb7742827aa652412cab4325fa27659bfa7552f7dcde9289a4e1cabb58bb9"
+}

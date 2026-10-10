@@ -12,7 +12,7 @@ text_value! {
     Channel ("channel") {
         /// Email, through Resend.
         Email => "email",
-        /// `WhatsApp`, with approved templates only (not yet available).
+        /// `WhatsApp`, with approved templates only.
         Whatsapp => "whatsapp",
         /// A text message (not yet available).
         Sms => "sms",
@@ -58,6 +58,18 @@ text_value! {
         AppointmentChanged => "appointment_changed",
         /// The channel or template can't be sent yet.
         Unsupported => "unsupported",
+        /// The channel is switched off on this server (`WhatsApp` without credentials).
+        ChannelDisabled => "channel_disabled",
+        /// `WhatsApp` needs the patient's opt-in first.
+        NoOptIn => "no_opt_in",
+        /// The clinic has no approved template for the message on its channel.
+        TemplateUnavailable => "template_unavailable",
+        /// Meta paused the template for low quality.
+        TemplatePaused => "template_paused",
+        /// Meta's per-user marketing limit held it back.
+        MarketingLimit => "marketing_limit",
+        /// The provider can't deliver to this address.
+        Undeliverable => "undeliverable",
     }
 }
 
@@ -159,6 +171,8 @@ pub struct DueCheck {
     pub has_address: bool,
     /// When the clinic's quiet hours end, if they are on now.
     pub quiet_until: Option<OffsetDateTime>,
+    /// A reason of the channel's own not to send (no `WhatsApp` opt-in, no approved template).
+    pub blocked: Option<SkipReason>,
     /// What the message is about, when that can change before it is sent.
     pub about: About,
 }
@@ -210,6 +224,9 @@ pub fn decide(check: &DueCheck, now: OffsetDateTime) -> Verdict {
     if !check.has_address {
         return Verdict::Skip(SkipReason::NoAddress);
     }
+    if let Some(reason) = check.blocked {
+        return Verdict::Skip(reason);
+    }
     if let About::Reminder(appointment) = check.about {
         match appointment {
             Some(appointment) if appointment.active && appointment.starts_at > now => {
@@ -253,8 +270,8 @@ pub enum TemplateError {
     /// Free text goes by email only.
     #[error("free text can only be sent by email")]
     BodyNeedsEmail,
-    /// Only email is available until `WhatsApp` templates are approved.
-    #[error("only email is available for now")]
+    /// SMS is not available yet.
+    #[error("this channel is not available yet")]
     ChannelUnavailable,
     /// The template needs free text.
     #[error("this template needs a body")]
@@ -287,7 +304,7 @@ impl Template {
         }
     }
 
-    /// Whether it carries the staff member's free text (and so goes by email only).
+    /// Whether its email carries the staff member's free text (on `WhatsApp` it doesn't).
     #[must_use]
     pub const fn needs_body(self) -> bool {
         matches!(self, Self::CareNote | Self::Offer)
@@ -315,10 +332,12 @@ impl Template {
         if body.is_some() && channel != Channel::Email {
             return Err(TemplateError::BodyNeedsEmail);
         }
-        if channel != Channel::Email {
+        if channel == Channel::Sms {
             return Err(TemplateError::ChannelUnavailable);
         }
-        match (self.needs_body(), body) {
+        // On WhatsApp the approved template's text is the message: no free text at all.
+        let needs_body = self.needs_body() && channel == Channel::Email;
+        match (needs_body, body) {
             (true, None) => return Err(TemplateError::BodyRequired),
             (false, Some(_)) => return Err(TemplateError::BodyNotAllowed),
             (true, Some(text))
@@ -350,6 +369,58 @@ impl Template {
     }
 }
 
+/// Values the worker fills in itself when a template's body names them: the clinic's name, its
+/// booking page, and for a reminder the appointment's time and doctor. Never the patient's name
+/// or anything clinical.
+pub const SYSTEM_VARIABLES: &[&str] = &["clinic_name", "booking_link"];
+
+/// The `{{variables}}` a template body with this key may use: the system ones, the variables
+/// staff give (`POST /messages`), and the values a system message's payload carries.
+#[must_use]
+pub fn allowed_variables(key: &str) -> &'static [&'static str] {
+    match key {
+        "care.note" | "promo.offer" => &["clinic_name", "booking_link", "subject"],
+        "reminder.follow_up" => &["clinic_name", "booking_link", "due_on"],
+        "appointment.reminder" => &[
+            "clinic_name",
+            "booking_link",
+            "appointment_time",
+            "doctor_name",
+        ],
+        "booking.requested" | "booking.confirmed" | "booking.declined" => {
+            &["clinic_name", "booking_link", "when", "doctor_name"]
+        }
+        "prescription.shared" => &["clinic_name", "booking_link", "doctor_name", "expires_on"],
+        "patient_app.invited" => &["clinic_name", "booking_link", "expires_on"],
+        _ => SYSTEM_VARIABLES,
+    }
+}
+
+/// The `{{variables}}` of a template body, in order of appearance (repeats kept: `WhatsApp`
+/// parameters are positional).
+///
+/// # Errors
+/// [`TemplateError::UnknownVariable`] for a placeholder not on the key's allow-list or not a
+/// plain name, [`TemplateError::BodyLength`] for an unclosed `{{`.
+pub fn placeholders(key: &str, body: &str) -> Result<Vec<String>, TemplateError> {
+    let allowed = allowed_variables(key);
+    let mut found = Vec::new();
+    let mut rest = body;
+    while let Some(start) = rest.find("{{") {
+        let after = &rest[start + 2..];
+        let end = after.find("}}").ok_or(TemplateError::BodyLength)?;
+        let name = after[..end].trim();
+        if !allowed.contains(&name) {
+            return Err(TemplateError::UnknownVariable(
+                name.chars().take(40).collect(),
+            ));
+        }
+        found.push(name.to_owned());
+        rest = &after[end + 2..];
+    }
+    Ok(found)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -362,6 +433,7 @@ mod tests {
             opted_out: false,
             has_address: true,
             quiet_until: None,
+            blocked: None,
             about: About::Reminder(Some(AppointmentNow {
                 active: true,
                 starts_at: now + Duration::hours(24),
@@ -458,6 +530,11 @@ mod tests {
             Template::FollowUpReminder.check(Channel::Sms, None, &[]),
             Err(TemplateError::ChannelUnavailable)
         );
+        // WhatsApp: the template's own text, with its variables; never free text.
+        assert_eq!(
+            Template::Offer.check(Channel::Whatsapp, None, &subject),
+            Ok(())
+        );
         assert_eq!(
             Template::CareNote.check(email, None, &subject),
             Err(TemplateError::BodyRequired)
@@ -482,5 +559,30 @@ mod tests {
             reminder_dedupe_key(uuid::Uuid::nil()),
             "reminder:appt:00000000-0000-0000-0000-000000000000:24h"
         );
+    }
+
+    #[test]
+    fn template_bodies_use_allow_listed_variables_only() {
+        assert_eq!(
+            placeholders(
+                "promo.offer",
+                "{{clinic_name}}: {{ subject }}. {{clinic_name}}"
+            ),
+            Ok(vec![
+                "clinic_name".into(),
+                "subject".into(),
+                "clinic_name".into()
+            ])
+        );
+        assert_eq!(
+            placeholders("care.note", "Hi {{patient_name}}"),
+            Err(TemplateError::UnknownVariable("patient_name".into()))
+        );
+        assert_eq!(
+            placeholders("care.note", "Hi {{subject"),
+            Err(TemplateError::BodyLength)
+        );
+        assert!(placeholders("appointment.reminder", "{{appointment_time}}").is_ok());
+        assert!(placeholders("reminder.follow_up", "{{appointment_time}}").is_err());
     }
 }

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.whatsapp_stop($1, $2) as \"clinics!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "clinics!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "0868bb59ab4bc078864827c2ecd385db842438de674a51c9115cc82bda973f82"
+}

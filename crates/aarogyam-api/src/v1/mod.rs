@@ -32,6 +32,7 @@ pub(crate) mod legal_hold;
 pub(crate) mod letterhead;
 pub(crate) mod me;
 pub(crate) mod message_feedback;
+pub(crate) mod message_templates;
 pub(crate) mod messages;
 pub(crate) mod meta;
 pub(crate) mod notices;
@@ -64,6 +65,7 @@ pub(crate) mod visits;
 pub(crate) mod vitals;
 pub(crate) mod walk_ins;
 pub(crate) mod website;
+pub(crate) mod whatsapp_webhook;
 
 use axum::Json;
 use axum::Router;
@@ -234,6 +236,20 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             post(message_feedback::resend_webhook)
                 .layer(DefaultBodyLimit::max(message_feedback::MAX_WEBHOOK_BODY)),
         )
+        // Meta's WhatsApp webhook: the handshake (verify token) and signed events (HMAC).
+        .route(
+            "/webhooks/whatsapp",
+            get(whatsapp_webhook::handshake)
+                .post(whatsapp_webhook::receive)
+                .layer(DefaultBodyLimit::max(whatsapp_webhook::MAX_BODY)),
+        )
+        // The clinic's message templates (settings.manage).
+        .route(
+            "/templates",
+            get(message_templates::list).post(message_templates::create),
+        )
+        .route("/templates/{id}", patch(message_templates::update))
+        .route("/templates/{id}/submit", post(message_templates::submit))
         .route("/patients/{id}/legal-hold", put(legal_hold::set))
         .route(
             "/support-grants",

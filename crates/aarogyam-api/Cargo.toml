@@ -35,6 +35,7 @@ sakalya-testkit.workspace = true
 sqlx.workspace = true
 tokio = { workspace = true, features = ["macros", "net"] }
 tower = { workspace = true, features = ["util"] }
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "std"] }
 
 [lints]
 workspace = true

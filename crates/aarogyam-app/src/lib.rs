@@ -35,6 +35,7 @@ pub mod lab_orders;
 pub mod lab_payments;
 pub mod labs;
 pub mod letterhead;
+pub mod message_templates;
 pub mod messaging;
 pub mod moved;
 pub mod notices;

@@ -657,7 +657,9 @@ fn hot_routes(
                 "batch_id": "0192f1c4-0000-7000-8000-000000000001"
             })),
             ..Route::get("POST /messages", ALPHA, "/api/v1/messages".into())
-        },
+        }
+        // Over budget since the template status check (WhatsApp); to fold into the queue statement.
+        .allow_extra(1),
         // The preference saved, queued messages skipped and the list: one statement.
         Route {
             method: Method::POST,

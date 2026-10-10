@@ -23,6 +23,7 @@
 
 mod addresses;
 pub mod cloudflare;
+pub mod hub_signature;
 mod lab;
 mod messages;
 mod patient_templates;
@@ -30,6 +31,8 @@ mod resend;
 mod staff;
 pub mod svix;
 mod templates;
+pub mod whatsapp;
+mod whatsapp_step;
 
 use aarogyam_dal::outbox::{self, Claimed};
 use aarogyam_domain::event::Event;
@@ -114,6 +117,25 @@ pub struct DrainReport {
     pub messages: MessageReport,
 }
 
+/// `WhatsApp` messages one number may send a day unless configured: Meta's first messaging tier
+/// reaches 250 people a day.
+pub const DEFAULT_WHATSAPP_DAILY_BUDGET: i32 = 250;
+
+/// `WhatsApp`'s settings: the sender (absent when switched off) and the webhook's secrets.
+#[derive(Debug, Default)]
+pub struct WhatsappSetup {
+    /// The Cloud API client; `None` skips `WhatsApp` messages with `channel_disabled`.
+    pub sender: Option<whatsapp::Meta>,
+    /// The Meta app secret, which signs webhooks (`X-Hub-Signature-256`).
+    pub app_secret: Option<SecretString>,
+    /// The token Meta echoes when the webhook is subscribed (`hub.verify_token`).
+    pub verify_token: Option<SecretString>,
+    /// What a message costs per category.
+    pub costs: whatsapp::Costs,
+    /// Messages a day across the platform; 0 means the default.
+    pub daily_budget: u32,
+}
+
 /// Delivers queued messages.
 #[derive(Debug)]
 pub struct Notifier {
@@ -121,17 +143,19 @@ pub struct Notifier {
     links: PortalLinks,
     daily_budget: i32,
     resend_webhook_secret: Option<SecretString>,
+    whatsapp: WhatsappSetup,
 }
 
 impl Notifier {
     /// Email to the log only: nothing leaves the machine.
     #[must_use]
-    pub const fn log(links: PortalLinks) -> Self {
+    pub fn log(links: PortalLinks) -> Self {
         Self {
             email: EmailChannel::Log,
             links,
             daily_budget: DEFAULT_DAILY_BUDGET,
             resend_webhook_secret: None,
+            whatsapp: WhatsappSetup::default(),
         }
     }
 
@@ -149,6 +173,7 @@ impl Notifier {
             links,
             daily_budget: DEFAULT_DAILY_BUDGET,
             resend_webhook_secret: None,
+            whatsapp: WhatsappSetup::default(),
         })
     }
 
@@ -166,6 +191,46 @@ impl Notifier {
     pub fn with_resend_webhook_secret(mut self, secret: SecretString) -> Self {
         self.resend_webhook_secret = Some(secret);
         self
+    }
+
+    /// `WhatsApp`: sending (when a sender is given) and the webhook's secrets.
+    #[must_use]
+    pub fn with_whatsapp(mut self, setup: WhatsappSetup) -> Self {
+        self.whatsapp = setup;
+        self
+    }
+
+    /// Whether `WhatsApp` messages are sent (else skipped with `channel_disabled`).
+    #[must_use]
+    pub const fn whatsapp_enabled(&self) -> bool {
+        self.whatsapp.sender.is_some()
+    }
+
+    /// Checks a `WhatsApp` webhook's `X-Hub-Signature-256` over its raw body.
+    ///
+    /// # Errors
+    /// [`hub_signature::HubSignatureError`] when no app secret is configured or the request
+    /// isn't authentic.
+    pub fn verify_whatsapp_webhook(
+        &self,
+        signature: &str,
+        body: &[u8],
+    ) -> Result<(), hub_signature::HubSignatureError> {
+        let secret = self
+            .whatsapp
+            .app_secret
+            .as_ref()
+            .ok_or(hub_signature::HubSignatureError::Secret)?;
+        hub_signature::verify(secret, signature, body)
+    }
+
+    /// Whether `hub.verify_token` is the configured one (false when none is).
+    #[must_use]
+    pub fn whatsapp_verify_token_matches(&self, given: &str) -> bool {
+        self.whatsapp
+            .verify_token
+            .as_ref()
+            .is_some_and(|token| hub_signature::token_matches(token, given))
     }
 
     /// Checks a Resend webhook's Svix signature over its raw body at `now`.

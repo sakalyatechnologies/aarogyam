@@ -39,6 +39,9 @@ pub struct Config {
     /// Outgoing email (`ARO_EMAIL__*`).
     #[serde(default)]
     pub email: EmailSettings,
+    /// `WhatsApp` through Meta's Cloud API (`ARO_WHATSAPP__*`); off by default.
+    #[serde(default)]
+    pub whatsapp: WhatsappSettings,
     /// Patient files (`ARO_FILES__*`).
     #[serde(default)]
     pub files: FileSettings,
@@ -420,6 +423,52 @@ impl Default for EmailSettings {
             portal_link: "https://{host}".to_owned(),
             daily_budget: 100,
             resend_webhook_secret: None,
+        }
+    }
+}
+
+/// `WhatsApp` through Meta's Cloud API (docs/whatsapp.md). Secrets live in Secret Manager.
+#[derive(Debug, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct WhatsappSettings {
+    /// Send `WhatsApp` messages (`ARO_WHATSAPP__ENABLED`). Default false: they are skipped with
+    /// `channel_disabled`. True needs the access token and phone number id.
+    pub enabled: bool,
+    /// A system user's permanent access token (`ARO_WHATSAPP__ACCESS_TOKEN`).
+    pub access_token: Option<SecretString>,
+    /// The sending number's id in Meta (`ARO_WHATSAPP__PHONE_NUMBER_ID`), not the number.
+    pub phone_number_id: Option<String>,
+    /// The Meta app secret, which signs webhooks (`ARO_WHATSAPP__APP_SECRET`). Without it
+    /// `POST /api/v1/webhooks/whatsapp` refuses every request.
+    pub app_secret: Option<SecretString>,
+    /// The token Meta echoes when subscribing the webhook (`ARO_WHATSAPP__VERIFY_TOKEN`).
+    pub verify_token: Option<SecretString>,
+    /// Messages a day across the platform (`ARO_WHATSAPP__DAILY_BUDGET`). Default 250, Meta's
+    /// first tier.
+    pub daily_budget: u32,
+    /// Paise per marketing message (`ARO_WHATSAPP__COST_MARKETING_PAISE`). Default 88.
+    pub cost_marketing_paise: i64,
+    /// Paise per utility message (`ARO_WHATSAPP__COST_UTILITY_PAISE`). Default 13.
+    pub cost_utility_paise: i64,
+    /// Paise per authentication message (`ARO_WHATSAPP__COST_AUTHENTICATION_PAISE`). Default 13.
+    pub cost_authentication_paise: i64,
+    /// Meta's Graph API base (`ARO_WHATSAPP__GRAPH_URL`); only tests change it.
+    pub graph_url: String,
+}
+
+impl Default for WhatsappSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            access_token: None,
+            phone_number_id: None,
+            app_secret: None,
+            verify_token: None,
+            daily_budget: 250,
+            cost_marketing_paise: 88,
+            cost_utility_paise: 13,
+            cost_authentication_paise: 13,
+            graph_url: "https://graph.facebook.com/v21.0".to_owned(),
         }
     }
 }

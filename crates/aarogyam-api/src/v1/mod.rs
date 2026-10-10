@@ -34,6 +34,7 @@ pub(crate) mod labs;
 pub(crate) mod legal_hold;
 pub(crate) mod letterhead;
 pub(crate) mod me;
+pub(crate) mod medicine_sets;
 pub(crate) mod message_feedback;
 pub(crate) mod message_templates;
 pub(crate) mod messages;
@@ -65,6 +66,7 @@ pub(crate) mod staff;
 pub(crate) mod support_grants;
 pub(crate) mod today;
 pub(crate) mod treatment;
+pub(crate) mod visit_summary;
 pub(crate) mod visits;
 pub(crate) mod vitals;
 pub(crate) mod walk_ins;
@@ -218,6 +220,14 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/queue/{id}/start-visit", post(queue::start_visit))
         .route("/walk-ins", post(walk_ins::register))
         .route("/quick-picks", get(quick_picks::get))
+        .route(
+            "/medicine-sets",
+            get(medicine_sets::list).post(medicine_sets::create),
+        )
+        .route(
+            "/medicine-sets/{id}",
+            put(medicine_sets::update).delete(medicine_sets::delete),
+        )
         .route("/today", get(today::today))
         .route(
             "/patients/{id}/visits",
@@ -316,6 +326,8 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/visits/{id}", get(visits::open))
         .route("/visits/{id}/close", post(visits::close))
+        .route("/visits/{id}/finish", post(visits::finish))
+        .route("/visits/{id}/share", post(visit_summary::create))
         .route("/visits/{id}/notes", post(visits::create_note))
         .route("/notes/{id}", patch(visits::edit_note))
         .route("/notes/{id}/sign", post(visits::sign_note))
@@ -642,6 +654,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/shared/{token}", get(prescriptions::shared_preview))
         .route("/shared/{token}/open", post(prescriptions::shared_open))
         .route("/shared/{token}/records", post(record_shares::open))
+        .route("/shared/{token}/visit", post(visit_summary::open))
         .route(
             "/shared/{token}/records/xrays/{id}",
             get(record_shares::xray_content),

@@ -6,6 +6,57 @@ use time::{Duration, OffsetDateTime};
 /// How long a link works.
 pub const LINK_LIFETIME: Duration = Duration::days(7);
 
+/// Shortest lifetime a clinic may give a prescription link, in hours.
+pub const MIN_LINK_HOURS: i64 = 24;
+/// Longest lifetime a clinic may give a prescription link, in hours (thirty days).
+pub const MAX_LINK_HOURS: i64 = 720;
+
+text_value! {
+    /// How a prescription link is handed to the patient.
+    ShareChannel ("channel") {
+        /// A `WhatsApp` message queued with the patient's messages.
+        Whatsapp => "whatsapp",
+        /// A text message queued with the patient's messages.
+        Sms => "sms",
+        /// A QR code the patient scans from the screen.
+        Qr => "qr",
+        /// A plain link the doctor copies.
+        Link => "link",
+    }
+}
+
+impl ShareChannel {
+    /// Whether the link also goes out as a message the patient is sent.
+    #[must_use]
+    pub const fn sends_message(self) -> bool {
+        matches!(self, Self::Whatsapp | Self::Sms)
+    }
+
+    /// The patient-message channel the link goes out on, for the channels that send one.
+    #[must_use]
+    pub const fn message_channel(self) -> Option<crate::messaging::Channel> {
+        match self {
+            Self::Whatsapp => Some(crate::messaging::Channel::Whatsapp),
+            Self::Sms => Some(crate::messaging::Channel::Sms),
+            Self::Qr | Self::Link => None,
+        }
+    }
+}
+
+/// The lifetime of a prescription link: the given hours (24 to 720), or the usual seven days.
+///
+/// # Errors
+/// [`ShareError::Hours`] for hours outside 24 to 720.
+pub fn link_lifetime(hours: Option<i64>) -> Result<Duration, ShareError> {
+    match hours {
+        None => Ok(LINK_LIFETIME),
+        Some(hours) if (MIN_LINK_HOURS..=MAX_LINK_HOURS).contains(&hours) => {
+            Ok(Duration::hours(hours))
+        }
+        Some(_) => Err(ShareError::Hours),
+    }
+}
+
 /// Wrong PINs before the link locks for good; the clinic sends a new one.
 pub const MAX_PIN_ATTEMPTS: i32 = 5;
 
@@ -162,6 +213,12 @@ pub enum ShareError {
     /// Not one of the offered lifetimes.
     #[error("expires_in must be 1h, 24h or 7d")]
     Expiry,
+    /// Hours outside the range a prescription link may last.
+    #[error("expires_in_hours must be 24 to 720")]
+    Hours,
+    /// Not a way to hand over a prescription link.
+    #[error("channel must be whatsapp, sms, qr or link")]
+    Channel,
 }
 
 impl ShareError {
@@ -171,6 +228,8 @@ impl ShareError {
         match self {
             Self::RecordTypes => "record_types",
             Self::Expiry => "expires_in",
+            Self::Hours => "expires_in_hours",
+            Self::Channel => "channel",
         }
     }
 }
@@ -179,6 +238,21 @@ impl ShareError {
 mod tests {
     use super::*;
     use time::macros::datetime;
+
+    #[test]
+    fn prescription_links_last_a_day_to_thirty_days() {
+        assert_eq!(link_lifetime(None), Ok(Duration::days(7)));
+        assert_eq!(link_lifetime(Some(24)), Ok(Duration::days(1)));
+        assert_eq!(link_lifetime(Some(720)), Ok(Duration::days(30)));
+        for bad in [-1, 0, 1, 23, 721, 100_000] {
+            assert_eq!(link_lifetime(Some(bad)), Err(ShareError::Hours), "{bad}");
+        }
+        assert!(ShareChannel::parse("whatsapp").unwrap().sends_message());
+        assert!(ShareChannel::parse("sms").unwrap().sends_message());
+        assert!(!ShareChannel::parse("qr").unwrap().sends_message());
+        assert!(!ShareChannel::parse("link").unwrap().sends_message());
+        assert!(ShareChannel::parse("email").is_err());
+    }
 
     #[test]
     fn pins_are_six_digits_and_never_printed() {

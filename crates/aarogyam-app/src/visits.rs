@@ -427,29 +427,71 @@ pub async fn close(
     db.scoped(&scope(actor, request_id), async |tx| {
         let visit =
             require_open_visit(tx, visit_id, actor.reach(Permission::ClinicalWrite)).await?;
-        let row = visits::close_encounter(tx.conn(), visit.id, now).await?;
-        // A visit started from the queue finishes its token (and the token's appointment).
-        if let Some(token_id) = visits::token_of(tx.conn(), row.id).await?
-            && let Some(token) = aarogyam_dal::queue::lock(tx.conn(), token_id).await?
-            && matches!(
-                token.status.as_str(),
-                "waiting" | "called" | "in_chair" | "ready_to_bill"
-            )
-        {
-            crate::queue::move_token(
-                tx,
-                &actor.timezone,
-                &token,
-                QueueStatus::Done,
-                actor.membership_id,
-                now,
-            )
-            .await?;
-        }
-        let names = Names::load(tx, [row.clinician_id]).await?;
-        visit_view(row, &names)
+        close_in(tx, actor, &visit, now).await
     })
     .await
+}
+
+/// Closes an open, locked visit inside the caller's transaction.
+pub(crate) async fn close_in(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    visit: &visits::EncounterRow,
+    now: OffsetDateTime,
+) -> Result<VisitView, AppError> {
+    let row = visits::close_encounter(tx.conn(), visit.id, now).await?;
+    // A visit started from the queue finishes its token (and the token's appointment).
+    if let Some(token_id) = visits::token_of(tx.conn(), row.id).await?
+        && let Some(token) = aarogyam_dal::queue::lock(tx.conn(), token_id).await?
+        && matches!(
+            token.status.as_str(),
+            "waiting" | "called" | "in_chair" | "ready_to_bill"
+        )
+    {
+        crate::queue::move_token(
+            tx,
+            &actor.timezone,
+            &token,
+            QueueStatus::Done,
+            actor.membership_id,
+            now,
+        )
+        .await?;
+    }
+    let names = Names::load(tx, [row.clinician_id]).await?;
+    visit_view(row, &names)
+}
+
+/// Signs the caller's own draft notes of an open visit inside the caller's transaction. Returns
+/// the notes signed and the ids of drafts left unsigned: other members' (only their author may
+/// sign) and ones with every section empty.
+pub(crate) async fn sign_own_drafts(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    visit_id: Uuid,
+    now: OffsetDateTime,
+) -> Result<(Vec<ClinicalNoteId>, Vec<ClinicalNoteId>), AppError> {
+    let mut signed = Vec::new();
+    let mut left = Vec::new();
+    for row in visits::list_notes(tx.conn(), visit_id).await? {
+        if NoteStatus::parse(&row.status).map_err(invalid("status"))? != NoteStatus::Draft {
+            continue;
+        }
+        let id = ClinicalNoteId::from_uuid(row.id);
+        let state = NoteState {
+            status: NoteStatus::Draft,
+            author: MembershipId::from_uuid(row.author_id),
+        };
+        let body: NoteBody = serde_json::from_value(row.body.clone()).unwrap_or_default();
+        match state.check_sign(actor.membership_id, &body) {
+            Ok(Signing::Sign) => {
+                visits::sign_note(tx.conn(), row.id, actor.membership_id.uuid(), now).await?;
+                signed.push(id);
+            }
+            _ => left.push(id),
+        }
+    }
+    Ok((signed, left))
 }
 
 /// A note's content, as received.

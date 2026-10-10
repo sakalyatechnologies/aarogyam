@@ -1,0 +1,989 @@
+//! Visits and clinical notes: start, list, open, close; draft, edit, sign, addenda, entered in
+//! error.
+
+use aarogyam_app::Moved;
+use aarogyam_app::finish::{self, Finish, FinishOutcome, FinishRx, WrapUp};
+use aarogyam_app::share::ShareOptions;
+use aarogyam_app::record::{self, VisitDetail as DetailView};
+use aarogyam_app::visits::{
+    self as app, AddendumView, Member as MemberView, NoteInput, NoteView, StartVisit, VisitView,
+};
+use aarogyam_domain::event::Event;
+use aarogyam_domain::ids::{ClinicalNoteId, EncounterId, PatientId, PrescriptionId};
+use aarogyam_domain::permission::require::{ClinicalRead, ClinicalWrite};
+use axum::Json;
+use axum::body::Bytes;
+use axum::extract::State;
+use axum::response::{IntoResponse, Response};
+use axum::http::StatusCode;
+use sakalya_http::{ApiError, ApiJson, ApiPath, ApiQuery};
+use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
+use time::format_description::well_known::Rfc3339;
+use utoipa::ToSchema;
+use uuid::Uuid;
+
+use super::billing::Invoice;
+use super::chart::ChartEntry;
+use super::client_id;
+use super::files::Attachment;
+use super::prescriptions::{
+    Alert, IssueBlocked, IssuedPrescription, Prescription, PatientMessage, ShareLink,
+    ShareRequest, optional_body,
+};
+use super::recalls::Recall;
+use super::treatment::Procedure;
+use super::vitals::Observation;
+use super::{WithEtag, parse_day, rfc3339, with_etag};
+use crate::AppState;
+use crate::extract::{IfMatch, Require};
+use crate::failure::{ApiFailure, MoveRefused};
+
+/// A member named on a clinical record: who saw the patient, wrote a note or acted.
+///
+/// Not the staff list's `Member`, which carries the whole membership.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MemberRef {
+    /// Their membership.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Their display name.
+    pub name: String,
+}
+
+impl From<MemberView> for MemberRef {
+    fn from(view: MemberView) -> Self {
+        Self {
+            id: view.id.uuid(),
+            name: view.name,
+        }
+    }
+}
+
+/// A visit.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct Visit {
+    /// Identifier.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Readable number, such as `V-318`.
+    pub number: String,
+    /// The patient.
+    #[schema(value_type = String)]
+    pub patient_id: Uuid,
+    /// The member responsible.
+    pub clinician: MemberRef,
+    /// The appointment it was started from.
+    #[schema(value_type = Option<String>)]
+    pub appointment_id: Option<Uuid>,
+    /// `open` or `closed`.
+    pub status: String,
+    /// Why the patient came.
+    pub chief_complaint: Option<String>,
+    /// When it started (RFC 3339).
+    pub started_at: String,
+    /// When it was closed (RFC 3339).
+    pub ended_at: Option<String>,
+}
+
+impl From<VisitView> for Visit {
+    fn from(view: VisitView) -> Self {
+        Self {
+            id: view.id.uuid(),
+            number: view.number,
+            patient_id: view.patient_id.uuid(),
+            clinician: view.clinician.into(),
+            appointment_id: view.appointment_id,
+            status: view.status.as_str().to_owned(),
+            chief_complaint: view.chief_complaint,
+            started_at: rfc3339(view.started_at),
+            ended_at: view.ended_at.map(rfc3339),
+        }
+    }
+}
+
+/// A patient's visits, newest first.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct VisitList {
+    /// The visits.
+    pub items: Vec<Visit>,
+}
+
+/// A note's sections. Each may be empty while drafting; signing needs at least one.
+#[derive(Debug, Serialize, Deserialize, ToSchema, Default)]
+pub struct NoteSections {
+    /// What the patient reports.
+    pub subjective: Option<String>,
+    /// What the clinician found.
+    pub objective: Option<String>,
+    /// The clinician's assessment.
+    pub assessment: Option<String>,
+    /// What happens next.
+    pub plan: Option<String>,
+}
+
+/// An addendum to a signed note.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct Addendum {
+    /// Identifier.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Who wrote it.
+    pub author: MemberRef,
+    /// The text.
+    pub body: String,
+    /// When (RFC 3339).
+    pub created_at: String,
+}
+
+impl From<AddendumView> for Addendum {
+    fn from(view: AddendumView) -> Self {
+        Self {
+            id: view.id.uuid(),
+            author: view.author.into(),
+            body: view.body,
+            created_at: rfc3339(view.created_at),
+        }
+    }
+}
+
+/// A clinical note. Signed notes never change: corrections go in addenda, and a mistaken note
+/// is marked `entered_in_error` with a reason.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct Note {
+    /// Identifier.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// The visit.
+    #[schema(value_type = String)]
+    pub visit_id: Uuid,
+    /// `soap`, `progress`, `procedure`, `intake` or `front_desk`.
+    pub kind: String,
+    /// `typed`, `voice` or `ai_draft`.
+    pub source: String,
+    /// `draft`, `signed`, `conflict` (collided with a signed note during sync) or `entered_in_error`.
+    pub status: String,
+    /// The sections.
+    pub sections: NoteSections,
+    /// Who wrote it; only they may edit or sign it.
+    pub author: MemberRef,
+    /// When it was signed (RFC 3339).
+    pub signed_at: Option<String>,
+    /// For a conflict: the signed note it collided with.
+    #[schema(value_type = Option<String>)]
+    pub conflicts_with_id: Option<Uuid>,
+    /// Why it was marked entered in error.
+    pub error_reason: Option<String>,
+    /// When it was written (RFC 3339).
+    pub created_at: String,
+    /// When it last changed (RFC 3339).
+    pub updated_at: String,
+    /// Goes up when the note changes. Send it back in `If-Match` (it is also the `ETag`) to edit
+    /// a draft only if it is unchanged since you read it.
+    pub row_version: i64,
+    /// Addenda, oldest first.
+    pub addenda: Vec<Addendum>,
+}
+
+impl From<NoteView> for Note {
+    fn from(view: NoteView) -> Self {
+        Self {
+            id: view.id.uuid(),
+            visit_id: view.visit_id.uuid(),
+            kind: view.kind.as_str().to_owned(),
+            source: view.source.as_str().to_owned(),
+            status: view.status.as_str().to_owned(),
+            sections: NoteSections {
+                subjective: view.body.subjective,
+                objective: view.body.objective,
+                assessment: view.body.assessment,
+                plan: view.body.plan,
+            },
+            author: view.author.into(),
+            signed_at: view.signed_at.map(rfc3339),
+            conflicts_with_id: view.conflicts_with_id.map(ClinicalNoteId::uuid),
+            error_reason: view.error_reason,
+            created_at: rfc3339(view.created_at),
+            updated_at: rfc3339(view.updated_at),
+            row_version: view.row_version,
+            addenda: view.addenda.into_iter().map(Addendum::from).collect(),
+        }
+    }
+}
+
+/// Everything recorded in a visit.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct VisitDetail {
+    /// The visit.
+    pub visit: Visit,
+    /// Notes with their addenda, oldest first.
+    pub notes: Vec<Note>,
+    /// Vital signs recorded in the visit, oldest first; corrected values stay, marked by status.
+    pub observations: Vec<Observation>,
+    /// Dental chart entries recorded in the visit.
+    pub chart_entries: Vec<ChartEntry>,
+    /// Procedures planned or done in the visit.
+    pub procedures: Vec<Procedure>,
+    /// Files attached to the visit.
+    pub attachments: Vec<Attachment>,
+}
+
+impl From<DetailView> for VisitDetail {
+    fn from(view: DetailView) -> Self {
+        Self {
+            visit: view.visit.into(),
+            notes: view.notes.into_iter().map(Note::from).collect(),
+            observations: view
+                .observations
+                .into_iter()
+                .map(Observation::from)
+                .collect(),
+            chart_entries: view
+                .chart_entries
+                .into_iter()
+                .map(ChartEntry::from)
+                .collect(),
+            procedures: view.procedures.into_iter().map(Procedure::from).collect(),
+            attachments: view.attachments.into_iter().map(Attachment::from).collect(),
+        }
+    }
+}
+
+/// A visit to start.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct NewVisit {
+    /// A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out.
+    pub id: Option<String>,
+    /// The appointment the patient came for; a walk-in has none. One visit per appointment.
+    #[schema(value_type = Option<String>)]
+    pub appointment_id: Option<Uuid>,
+    /// Why the patient came, up to 1,000 characters.
+    pub chief_complaint: Option<String>,
+}
+
+/// Starts a visit, with the caller as the clinician responsible. A walk-in has no appointment.
+/// Send an `id` so a retry after a lost answer returns this visit instead of starting another.
+#[utoipa::path(
+    post,
+    path = "/api/v1/patients/{id}/visits",
+    operation_id = "startVisit",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The patient")),
+    request_body = NewVisit,
+    security(("bearer" = [])),
+    responses(
+        (status = 201, body = Visit),
+        (status = 400, description = "Invalid input; the message names the field"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write"),
+        (status = 404, description = "No such patient in this clinic"),
+        (status = 409, description = "The appointment already has a visit, or `id_conflict`: the id belongs to a different visit")
+    )
+)]
+pub(crate) async fn start(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<NewVisit>,
+) -> Result<(StatusCode, Json<Visit>), ApiFailure> {
+    let view = app::start(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        PatientId::from_uuid(id),
+        StartVisit {
+            id: body
+                .id
+                .as_deref()
+                .map(|text| client_id("id", text))
+                .transpose()?,
+            appointment_id: body.appointment_id,
+            chief_complaint: body.chief_complaint,
+        },
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    tracing::info!(event = Event::VisitStarted.as_str(), visit_id = %view.id.uuid(), "visit started");
+    Ok((StatusCode::CREATED, Json(view.into())))
+}
+
+/// A patient's visits, newest first.
+#[utoipa::path(
+    get,
+    path = "/api/v1/patients/{id}/visits",
+    operation_id = "listVisits",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The patient")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = VisitList),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.read"),
+        (status = 404, description = "No such patient in this clinic")
+    )
+)]
+pub(crate) async fn list(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalRead>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Json<VisitList>, ApiFailure> {
+    let rows = app::list(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        PatientId::from_uuid(id),
+    )
+    .await?;
+    Ok(Json(VisitList {
+        items: rows.into_iter().map(Visit::from).collect(),
+    }))
+}
+
+/// Opens a visit with everything recorded in it. Every open is written to the access record.
+#[utoipa::path(
+    get,
+    path = "/api/v1/visits/{id}",
+    operation_id = "getVisit",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The visit")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = VisitDetail),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.read"),
+        (status = 404, description = "No such visit in this clinic")
+    )
+)]
+pub(crate) async fn open(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalRead>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Json<VisitDetail>, ApiFailure> {
+    let view = record::open_visit(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        EncounterId::from_uuid(id),
+    )
+    .await?;
+    Ok(Json(view.into()))
+}
+
+/// What closing a visit may also do. Every field is optional, and so is the body.
+#[derive(Debug, Default, Deserialize, ToSchema)]
+pub struct CloseRequest {
+    /// When the patient should come back (`YYYY-MM-DD`, not in the past): plans a follow-up. Needs
+    /// `patients.write`.
+    pub follow_up_on: Option<String>,
+    /// What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.
+    /// Needs `billing.write`.
+    pub fee_paise: Option<i64>,
+    /// The follow-up's reason, up to 300 characters; with a fee and no follow-up, the note printed
+    /// on the draft bill.
+    pub note: Option<String>,
+}
+
+impl CloseRequest {
+    fn wrap_up(self) -> Result<WrapUp, ApiError> {
+        Ok(WrapUp {
+            follow_up_on: self
+                .follow_up_on
+                .as_deref()
+                .map(str::trim)
+                .filter(|text| !text.is_empty())
+                .map(|text| parse_day("follow_up_on", text))
+                .transpose()?,
+            fee_paise: self.fee_paise,
+            note: self.note,
+        })
+    }
+}
+
+/// A closed visit and what closing it made.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ClosedVisit {
+    /// The closed visit.
+    #[serde(flatten)]
+    pub visit: Visit,
+    /// The follow-up planned, when `follow_up_on` was given.
+    pub follow_up: Option<Recall>,
+    /// The draft bill started, when `fee_paise` was given.
+    pub invoice: Option<Invoice>,
+}
+
+/// Closes a visit. Addenda and corrections still work afterwards; new notes, vitals and
+/// procedures don't. The body is optional: with `follow_up_on` it plans the follow-up, and with
+/// `fee_paise` it starts a draft bill linked to the visit, in the same transaction.
+#[utoipa::path(
+    post,
+    path = "/api/v1/visits/{id}/close",
+    operation_id = "closeVisit",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The visit")),
+    request_body(content = CloseRequest, required = false),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = ClosedVisit),
+        (status = 400, description = "A bad date, fee or note"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write, or patients.write for a follow-up, or billing.write for a fee"),
+        (status = 404, description = "No such visit in this clinic"),
+        (status = 409, description = "Already closed")
+    )
+)]
+pub(crate) async fn close(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    body: Bytes,
+) -> Result<Json<ClosedVisit>, ApiFailure> {
+    let wrap_up = optional_body::<CloseRequest>(&body)?.wrap_up()?;
+    let (view, done) = finish::close_with(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        EncounterId::from_uuid(id),
+        wrap_up,
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    tracing::info!(event = Event::VisitClosed.as_str(), visit_id = %id, "visit closed");
+    Ok(Json(ClosedVisit {
+        visit: view.into(),
+        follow_up: done.follow_up.map(Recall::from),
+        invoice: done.invoice.map(Invoice::from),
+    }))
+}
+
+/// A draft prescription to issue as the visit finishes.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct FinishPrescription {
+    /// The draft: this visit's patient's, and not another visit's.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Why to go ahead despite the allergy alerts; needed only when there are alerts.
+    pub override_reason: Option<String>,
+    /// Email the patient a link to the prescription (default true).
+    pub notify_patient: Option<bool>,
+    /// Also make a link to hand over, as `POST /prescriptions/{id}/share` does.
+    pub share: Option<ShareRequest>,
+}
+
+/// Finishing a visit. Every field is optional, and so is the body.
+#[derive(Debug, Default, Deserialize, ToSchema)]
+pub struct FinishRequest {
+    /// Sign the caller's own draft notes of the visit (default true). Other members' drafts and
+    /// empty ones are left, and listed in the answer.
+    pub sign_notes: Option<bool>,
+    /// A draft prescription to issue, with the allergy check. Needs `prescriptions.issue`.
+    pub prescription: Option<FinishPrescription>,
+    /// When the patient should come back (`YYYY-MM-DD`, not in the past): plans a follow-up. Needs
+    /// `patients.write`.
+    pub follow_up_on: Option<String>,
+    /// What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.
+    /// Needs `billing.write`.
+    pub fee_paise: Option<i64>,
+    /// The follow-up's reason, up to 300 characters; with a fee and no follow-up, the note printed
+    /// on the draft bill.
+    pub note: Option<String>,
+}
+
+/// A finished visit.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct FinishedVisit {
+    /// The closed visit.
+    pub visit: Visit,
+    /// The notes signed now.
+    #[schema(value_type = Vec<String>)]
+    pub signed_note_ids: Vec<Uuid>,
+    /// Drafts left unsigned: other members' (only their author may sign) and empty ones.
+    #[schema(value_type = Vec<String>)]
+    pub unsigned_note_ids: Vec<Uuid>,
+    /// The prescription issued, with what happened to the emailed copy, when one was given.
+    pub prescription: Option<IssuedPrescription>,
+    /// The link to hand over, when `prescription.share` was given.
+    pub share: Option<ShareLink>,
+    /// The follow-up planned, when `follow_up_on` was given.
+    pub follow_up: Option<Recall>,
+    /// The draft bill started, when `fee_paise` was given.
+    pub invoice: Option<Invoice>,
+}
+
+/// Finishes a visit in one transaction: issues the given draft prescription (the server's allergy
+/// check runs; alerts need an `override_reason`), signs the caller's own draft notes, plans the
+/// follow-up, starts the draft bill and closes the visit. Either everything happens or nothing
+/// does. A visit that is already closed answers `409` with code `visit_closed`; an allergy alert
+/// without an override reason answers `409` with code `allergy_alerts` and changes nothing.
+#[utoipa::path(
+    post,
+    path = "/api/v1/visits/{id}/finish",
+    operation_id = "finishVisit",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The visit")),
+    request_body(content = FinishRequest, required = false),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = FinishedVisit),
+        (status = 400, description = "A bad date, fee, note or override reason, or a prescription that isn't a draft of this visit's patient"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write, or prescriptions.issue, patients.write or billing.write for what was asked"),
+        (status = 404, description = "No such visit or prescription in this clinic"),
+        (status = 409, body = IssueBlocked, description = "`visit_closed` (the visit is already closed), or `allergy_alerts` (the alerts need an override reason, with the alerts in the body)")
+    )
+)]
+pub(crate) async fn finish(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    body: Bytes,
+) -> Result<Response, ApiFailure> {
+    let body: FinishRequest = optional_body(&body)?;
+    let prescription = body
+        .prescription
+        .map(|rx| {
+            let share = rx
+                .share
+                .map(|share| ShareOptions::parse(share.channel.as_deref(), share.expires_in_hours))
+                .transpose()?;
+            Ok::<_, aarogyam_app::AppError>(FinishRx {
+                id: PrescriptionId::from_uuid(rx.id),
+                override_reason: rx.override_reason,
+                notify_patient: rx.notify_patient.unwrap_or(true),
+                share,
+            })
+        })
+        .transpose()?;
+    let wrap_up = CloseRequest {
+        follow_up_on: body.follow_up_on,
+        fee_paise: body.fee_paise,
+        note: body.note,
+    }
+    .wrap_up()?;
+    let outcome = finish::finish(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        EncounterId::from_uuid(id),
+        Finish {
+            sign_notes: body.sign_notes.unwrap_or(true),
+            prescription,
+            wrap_up,
+        },
+        state.allergies(),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(match outcome {
+        FinishOutcome::Finished(done) => {
+            let done = *done;
+            tracing::info!(event = Event::VisitClosed.as_str(), visit_id = %id, "visit finished");
+            let (prescription, share) = match done.prescription {
+                Some(issued) => {
+                    if !issued.prescription.alerts.is_empty() {
+                        tracing::info!(event = Event::PrescriptionAlertOverridden.as_str(), prescription_id = %issued.prescription.id.uuid(), "allergy alert overridden");
+                    }
+                    tracing::info!(event = Event::PrescriptionIssued.as_str(), prescription_id = %issued.prescription.id.uuid(), "prescription issued");
+                    (
+                        Some(IssuedPrescription {
+                            prescription: Prescription::from(*issued.prescription),
+                            patient_message: PatientMessage::from(issued.sharing),
+                        }),
+                        issued.share.map(ShareLink::from),
+                    )
+                }
+                None => (None, None),
+            };
+            Json(FinishedVisit {
+                visit: done.visit.into(),
+                signed_note_ids: done.signed_note_ids.into_iter().map(ClinicalNoteId::uuid).collect(),
+                unsigned_note_ids: done
+                    .unsigned_note_ids
+                    .into_iter()
+                    .map(ClinicalNoteId::uuid)
+                    .collect(),
+                prescription,
+                share,
+                follow_up: done.wrap_up.follow_up.map(Recall::from),
+                invoice: done.wrap_up.invoice.map(Invoice::from),
+            })
+            .into_response()
+        }
+        FinishOutcome::NeedsOverride(alerts) => (
+            StatusCode::CONFLICT,
+            Json(IssueBlocked {
+                code: "allergy_alerts".into(),
+                alerts: alerts.into_iter().map(Alert::from).collect(),
+            }),
+        )
+            .into_response(),
+    })
+}
+
+/// A note's content. Sections are replaced as a whole when editing.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct NoteContent {
+    /// `soap` (default), `progress`, `procedure`, `intake` or `front_desk`.
+    pub kind: Option<String>,
+    /// The sections, each up to 10,000 characters.
+    #[serde(default)]
+    pub sections: NoteSections,
+}
+
+impl From<NoteContent> for NoteInput {
+    fn from(content: NoteContent) -> Self {
+        Self {
+            kind: content.kind,
+            subjective: content.sections.subjective,
+            objective: content.sections.objective,
+            assessment: content.sections.assessment,
+            plan: content.sections.plan,
+        }
+    }
+}
+
+/// A draft note to start.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct NewNote {
+    /// A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out.
+    pub id: Option<String>,
+    /// `soap` (default), `progress`, `procedure`, `intake` or `front_desk`.
+    pub kind: Option<String>,
+    /// The sections, each up to 10,000 characters.
+    #[serde(default)]
+    pub sections: NoteSections,
+}
+
+/// Starts a draft note in an open visit, written by the caller. Send an `id` so a retry after a
+/// lost answer returns this note instead of starting another.
+#[utoipa::path(
+    post,
+    path = "/api/v1/visits/{id}/notes",
+    operation_id = "createNote",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The visit")),
+    request_body = NewNote,
+    security(("bearer" = [])),
+    responses(
+        (status = 201, body = Note, headers(("ETag" = String, description = "The `row_version` in quotes; send it back in `If-Match` when editing"))),
+        (status = 400, description = "Invalid input; the message names the field"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write"),
+        (status = 404, description = "No such visit in this clinic"),
+        (status = 409, description = "The visit is closed, or `id_conflict`: the id belongs to a different note")
+    )
+)]
+pub(crate) async fn create_note(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<NewNote>,
+) -> Result<(StatusCode, WithEtag<Note>), ApiFailure> {
+    let note_id = body
+        .id
+        .as_deref()
+        .map(|text| client_id("id", text))
+        .transpose()?;
+    let view = app::create_note(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        EncounterId::from_uuid(id),
+        note_id,
+        NoteInput {
+            kind: body.kind,
+            subjective: body.sections.subjective,
+            objective: body.sections.objective,
+            assessment: body.sections.assessment,
+            plan: body.sections.plan,
+        },
+    )
+    .await?;
+    Ok((
+        StatusCode::CREATED,
+        with_etag(view.row_version, view.into()),
+    ))
+}
+
+/// Replaces a draft's sections. Only the author may, and only while it is a draft. Send the
+/// `ETag` you read in `If-Match` to refuse the edit (`412`) if the draft changed since.
+#[utoipa::path(
+    patch,
+    path = "/api/v1/notes/{id}",
+    operation_id = "updateNote",
+    tag = "clinical",
+    params(
+        ("id" = String, Path, description = "The note"),
+        ("If-Match" = Option<String>, Header, description = "The `row_version` (the `ETag`) you last read, in quotes; the edit is refused with `412` if the record changed since")
+    ),
+    request_body = NoteContent,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = Note, headers(("ETag" = String, description = "The `row_version` in quotes; send it back in `If-Match` when editing"))),
+        (status = 400, description = "Invalid input; the message names the field"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write, or the note is someone else's"),
+        (status = 404, description = "No such note in this clinic"),
+        (status = 409, description = "The note is signed; add an addendum instead"),
+        (status = 412, description = "`stale_version`: the record changed since the `If-Match` version; the current version is in `ETag`")
+    )
+)]
+pub(crate) async fn edit_note(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    IfMatch(expected): IfMatch,
+    ApiJson(body): ApiJson<NoteContent>,
+) -> Result<WithEtag<Note>, ApiFailure> {
+    let view = app::edit_note(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        ClinicalNoteId::from_uuid(id),
+        expected,
+        body.into(),
+    )
+    .await?;
+    Ok(with_etag(view.row_version, view.into()))
+}
+
+/// Signs a draft. Only its author may; the note never changes afterwards. Signing a note you
+/// already signed changes nothing and returns it again, so a retry after a lost answer is safe.
+#[utoipa::path(
+    post,
+    path = "/api/v1/notes/{id}/sign",
+    operation_id = "signNote",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The note")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = Note),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write, or the note is someone else's"),
+        (status = 404, description = "No such note in this clinic"),
+        (status = 409, body = MoveRefused, description = "The note can't be signed (it is entered in error, someone else signed it, or every section is empty); `current` is the note as it is")
+    )
+)]
+pub(crate) async fn sign_note(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<WithEtag<Note>, ApiFailure> {
+    let outcome = app::sign_note(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        ClinicalNoteId::from_uuid(id),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    match outcome {
+        Moved::Done(view) => {
+            tracing::info!(event = Event::NoteSigned.as_str(), note_id = %id, "note signed");
+            Ok(with_etag(view.row_version, view.into()))
+        }
+        Moved::AlreadyDone(view) => Ok(with_etag(view.row_version, view.into())),
+        Moved::Refused { reason, current } => {
+            Err(ApiFailure::refused(reason, &Note::from(current)))
+        }
+    }
+}
+
+/// An addendum's text.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct NewAddendum {
+    /// A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out.
+    pub id: Option<String>,
+    /// 1 to 10,000 characters.
+    pub body: String,
+}
+
+/// Adds an addendum to a signed note. Addenda are never edited or removed.
+#[utoipa::path(
+    post,
+    path = "/api/v1/notes/{id}/addenda",
+    operation_id = "addNoteAddendum",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The note")),
+    request_body = NewAddendum,
+    security(("bearer" = [])),
+    responses(
+        (status = 201, body = Note),
+        (status = 400, description = "Invalid input; the message names the field"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write"),
+        (status = 404, description = "No such note in this clinic"),
+        (status = 409, description = "The note isn't signed, or `id_conflict`: the id belongs to a different addendum")
+    )
+)]
+pub(crate) async fn add_addendum(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<NewAddendum>,
+) -> Result<(StatusCode, WithEtag<Note>), ApiFailure> {
+    let addendum_id = body
+        .id
+        .as_deref()
+        .map(|text| client_id("id", text))
+        .transpose()?;
+    let view = app::add_addendum(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        ClinicalNoteId::from_uuid(id),
+        addendum_id,
+        &body.body,
+    )
+    .await?;
+    tracing::info!(event = Event::NoteAmended.as_str(), note_id = %id, "note amended");
+    Ok((
+        StatusCode::CREATED,
+        with_etag(view.row_version, view.into()),
+    ))
+}
+
+/// Why a record is being marked entered in error.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct EnteredInError {
+    /// 3 to 500 characters, such as "wrong patient".
+    pub reason: String,
+}
+
+/// Marks a note entered in error with a reason. It stays in the record, marked; nothing is
+/// deleted. A draft can be withdrawn only by its author.
+#[utoipa::path(
+    post,
+    path = "/api/v1/notes/{id}/entered-in-error",
+    operation_id = "markNoteEnteredInError",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The note")),
+    request_body = EnteredInError,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = Note),
+        (status = 400, description = "Invalid input; the message names the field"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write, or the draft is someone else's"),
+        (status = 404, description = "No such note in this clinic"),
+        (status = 409, description = "Already marked")
+    )
+)]
+pub(crate) async fn note_in_error(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<EnteredInError>,
+) -> Result<WithEtag<Note>, ApiFailure> {
+    let view = app::mark_note_in_error(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        ClinicalNoteId::from_uuid(id),
+        &body.reason,
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    tracing::info!(event = Event::RecordRetracted.as_str(), note_id = %id, "note entered in error");
+    Ok(with_etag(view.row_version, view.into()))
+}
+
+/// One event on a patient's timeline.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct TimelineEvent {
+    /// `visit`, `note` (signed), `procedure` or `attachment`.
+    pub kind: String,
+    /// The record: open it through its own route.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// When it happened (RFC 3339): a visit's start, a note's signing, a procedure's doing.
+    pub at: String,
+    /// The visit it belongs to.
+    #[schema(value_type = Option<String>)]
+    pub visit_id: Option<Uuid>,
+    /// A short title: the visit number, the note kind, the procedure name or the file kind.
+    pub title: String,
+    /// More detail: the chief complaint, the assessment, the tooth or the caption.
+    pub detail: Option<String>,
+    /// The record's status.
+    pub status: Option<String>,
+    /// The member responsible.
+    pub by: Option<MemberRef>,
+    /// The fee in paise, for procedures.
+    pub amount_paise: Option<i64>,
+}
+
+/// A page of a patient's timeline, newest first.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct Timeline {
+    /// The events.
+    pub items: Vec<TimelineEvent>,
+}
+
+/// Which page of the timeline.
+#[derive(Debug, Deserialize)]
+pub struct TimelineQuery {
+    /// Only events before this time (RFC 3339): the `at` of the last event already shown.
+    pub before: Option<String>,
+    /// Most events, 1 to 200 (default 50).
+    pub limit: Option<i64>,
+}
+
+/// A patient's clinical timeline, newest first: visits, signed notes, procedures and files.
+/// Prescriptions and bills join it when they exist. Reading it writes the access record.
+#[utoipa::path(
+    get,
+    path = "/api/v1/patients/{id}/timeline",
+    operation_id = "getPatientTimeline",
+    tag = "clinical",
+    params(
+        ("id" = String, Path, description = "The patient"),
+        ("before" = Option<String>, Query, description = "Only events before this time (RFC 3339)"),
+        ("limit" = Option<i64>, Query, description = "Most events, 1 to 200 (default 50)")
+    ),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = Timeline),
+        (status = 400, description = "before isn't RFC 3339"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.read"),
+        (status = 404, description = "No such patient in this clinic")
+    )
+)]
+pub(crate) async fn timeline(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalRead>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiQuery(query): ApiQuery<TimelineQuery>,
+) -> Result<Json<Timeline>, ApiFailure> {
+    let before = query
+        .before
+        .as_deref()
+        .map(|text| OffsetDateTime::parse(text.trim(), &Rfc3339))
+        .transpose()
+        .map_err(|_| ApiError::bad_request("invalid_request", "before: must be RFC 3339"))?;
+    let events = record::timeline(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        PatientId::from_uuid(id),
+        before,
+        query.limit.unwrap_or(50),
+    )
+    .await?;
+    Ok(Json(Timeline {
+        items: events
+            .into_iter()
+            .map(|event| TimelineEvent {
+                kind: event.kind.as_str().to_owned(),
+                id: event.id,
+                at: rfc3339(event.at),
+                visit_id: event.visit_id.map(EncounterId::uuid),
+                title: event.title,
+                detail: event.detail,
+                status: event.status,
+                by: event.by.map(MemberRef::from),
+                amount_paise: event.amount.map(sakalya_types::Paise::get),
+            })
+            .collect(),
+    }))
+}

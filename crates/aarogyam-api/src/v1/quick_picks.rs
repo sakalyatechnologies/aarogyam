@@ -1,12 +1,15 @@
 //! Quick picks: the clinic's specialty one-tap entries (specialty data, the same for every
 //! clinic of a specialty).
 
+use aarogyam_app::medicine_sets as app;
 use aarogyam_domain::permission::require::{ClinicalRead, PatientsRead};
-use aarogyam_domain::quick_picks::{self, MedicineSet, Pick, TextPick};
+use aarogyam_domain::quick_picks::{self, MedicineSet, Pick, SetMedicine, TextPick};
 use axum::Json;
+use axum::extract::State;
 use serde::Serialize;
 use utoipa::ToSchema;
 
+use crate::AppState;
 use crate::extract::RequireEither;
 use crate::failure::ApiFailure;
 
@@ -51,15 +54,33 @@ pub struct QuickSetMedicine {
     pub instructions: Option<String>,
 }
 
+impl QuickSetMedicine {
+    /// A set's medicine as the API shows it.
+    pub(crate) fn from_set(m: &SetMedicine) -> Self {
+        Self {
+            drug_name: m.drug_name.clone(),
+            strength: m.strength.clone(),
+            form: m.form.clone(),
+            dose: m.dose.clone(),
+            frequency: m.frequency.clone(),
+            timing: m.timing.clone(),
+            duration_days: m.duration_days,
+            instructions: m.instructions.clone(),
+        }
+    }
+}
+
 /// Several medicines added in one tap, each still editable; the allergy check still runs on issue.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct QuickMedicineSet {
-    /// Stable id.
+    /// Stable id: the specialty's own, or a clinic set's UUID.
     pub id: String,
     /// The chip's label, such as `Post-extraction`.
     pub label: String,
     /// The medicines, in order.
     pub items: Vec<QuickSetMedicine>,
+    /// Made by this clinic (`/medicine-sets`) rather than the specialty's own.
+    pub own: bool,
 }
 
 /// The clinic's quick picks.
@@ -98,25 +119,14 @@ fn set(s: &MedicineSet) -> QuickMedicineSet {
     QuickMedicineSet {
         id: s.id.clone(),
         label: s.label.clone(),
-        items: s
-            .items
-            .iter()
-            .map(|m| QuickSetMedicine {
-                drug_name: m.drug_name.clone(),
-                strength: m.strength.clone(),
-                form: m.form.clone(),
-                dose: m.dose.clone(),
-                frequency: m.frequency.clone(),
-                timing: m.timing.clone(),
-                duration_days: m.duration_days,
-                instructions: m.instructions.clone(),
-            })
-            .collect(),
+        items: s.items.iter().map(QuickSetMedicine::from_set).collect(),
+        own: false,
     }
 }
 
 /// The clinic's quick picks: allergies for the desk, complaints, findings, procedures, advice
-/// lines and medicine sets for the doctor. Specialty data; dental for now.
+/// lines and medicine sets for the doctor. Specialty data, dental for now; the medicine sets
+/// also include the clinic's own (`own: true`, managed at `/medicine-sets`).
 #[utoipa::path(
     get,
     path = "/api/v1/quick-picks",
@@ -130,15 +140,29 @@ fn set(s: &MedicineSet) -> QuickMedicineSet {
     )
 )]
 pub(crate) async fn get(
-    _: RequireEither<PatientsRead, ClinicalRead>,
+    State(state): State<AppState>,
+    RequireEither { request, .. }: RequireEither<PatientsRead, ClinicalRead>,
 ) -> Result<Json<QuickPicks>, ApiFailure> {
     let picks = quick_picks::dental();
+    // The specialty's sets first, then the clinic's own (`own: true`).
+    let own = app::list_any(state.db(), &request.actor, request.request_id).await?;
+    let medicine_sets = picks
+        .medicine_sets
+        .iter()
+        .map(set)
+        .chain(own.into_iter().map(|view| QuickMedicineSet {
+            id: view.id.uuid().to_string(),
+            label: view.label,
+            items: view.items.iter().map(QuickSetMedicine::from_set).collect(),
+            own: true,
+        }))
+        .collect();
     Ok(Json(QuickPicks {
         allergies: picks.allergies.iter().map(pick).collect(),
         complaints: picks.complaints.iter().map(text_pick).collect(),
         findings: picks.findings.iter().map(text_pick).collect(),
         procedures: picks.procedures.iter().map(pick).collect(),
         advice: picks.advice.iter().map(text_pick).collect(),
-        medicine_sets: picks.medicine_sets.iter().map(set).collect(),
+        medicine_sets,
     }))
 }

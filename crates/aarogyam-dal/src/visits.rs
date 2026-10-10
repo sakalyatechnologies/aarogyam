@@ -191,6 +191,18 @@ pub async fn lock_client_id(conn: &mut PgConnection, id: Uuid) -> Result<(), DbE
     Ok(())
 }
 
+/// A record a client's own `client_id` made (a chart batch's first entry, a procedure, a
+/// prescription draft): what a retry looks for before it writes again.
+#[derive(Debug, Clone)]
+pub struct ClientRecord {
+    /// The record.
+    pub id: Uuid,
+    /// Its patient.
+    pub patient_id: Uuid,
+    /// Hash of the request that made it, so a `client_id` reused for another request is refused.
+    pub request_hash: String,
+}
+
 /// The visit with `id` in this clinic; `lock` holds it until the transaction ends. `member`
 /// narrows to visits that member treats or started (`app.clinical_in_reach`); `None` reaches all.
 ///

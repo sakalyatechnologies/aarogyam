@@ -2,6 +2,18 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-10: Finishing a visit in one step (Portal v2, B5)
+
+**Decision.** A visit can be finished and handed over with additive endpoints (migrations 0625 to 0629).
+- **Finish.** `POST /visits/{id}/finish` (`clinical.write`, body optional) signs the caller's own draft notes, issues a given draft prescription with the allergy check, plans a follow-up (`follow_up_on`, `patients.write`), starts a draft bill linked to the visit (`fee_paise`, `billing.write`) and closes the visit, in one transaction. A closed visit answers `409` `visit_closed`; an allergy alert without an override reason answers `409` `allergy_alerts` and changes nothing. `POST /visits/{id}/close` takes the same optional follow-up and fee; the visit fields stay at the top of its answer.
+- **Share links.** `expires_in_hours` (24 to 720, default 168) and `channel` (`whatsapp`, `sms`, `qr`, `link`; default `link`) on `POST /prescriptions/{id}/share`. `whatsapp` and `sms` queue a care message; there is no SMS worker yet, and no approved WhatsApp template for prescriptions, so those stay queued or skipped. New link kind `visit` (`POST /visits/{id}/share`, `clinical.write`; open with `POST /shared/{token}/visit` and the PIN) shows the clinic, visit number, doctor, treatments done and the next follow-up, nothing else.
+- **Medicine sets.** The clinic's own sets: `GET/POST /medicine-sets`, `PUT/DELETE /medicine-sets/{id}` (`prescriptions.issue`), merged into `GET /quick-picks` with `own: true`. Configuration without patient data: no erasure step and no retention class.
+- **Replays.** An optional `client_id` on dental chart batches, procedures and prescription drafts: the same id with the same request returns the first record, another request is `409` `id_conflict`. Unique per clinic. A batch stores its id on the first entry only.
+- **Root canals.** A `root_canal` chart entry may carry `canals` (1 to 8, name and optional working length) and a `sitting` (1 to 20). Recordings may be spoken in `gu-IN`.
+- **Validation** errors are `400`. All changes are additive; the OpenAPI document only gains fields, endpoints and optional bodies.
+
+**Why.** The portal and the phone apps finish a visit in one tap, and a lost answer must not double-book a chart entry, a procedure or a prescription.
+
 ## 2026-10-10: Dashboard layout (Portal v2, B1)
 
 **Decision.** The Today board's layout is versioned JSON, v2, saved at two levels and checked against one widget registry (migration 0605, `aarogyam-domain/src/dashboard.rs`).

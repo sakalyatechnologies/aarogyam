@@ -104,6 +104,12 @@ import {
   sessionResponse,
   slugCheck,
   shareLink,
+  closedVisit,
+  finishedVisit,
+  visitLink,
+  visitSummary,
+  savedMedicineSet,
+  savedMedicineSetList,
   sharedPreview,
   staffResponse,
   statusChanged,
@@ -387,6 +393,21 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     startVisit: (patientId, input, opts) =>
       call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(patientId)}/visits`, schema: visit, body: input, signal: opts?.signal }),
     closeVisit: (id, opts) => call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/close`, schema: visit, signal: opts?.signal }),
+    closeVisitWith: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/close`, schema: closedVisit, body: input, signal: opts?.signal }),
+    finishVisit: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/finish`, schema: finishedVisit, body: input ?? {}, signal: opts?.signal }),
+    shareVisit: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/share`, schema: visitLink, body: input ?? {}, signal: opts?.signal }),
+    openSharedVisit: (token, pin, opts) =>
+      call({ method: "POST", path: `/api/v1/shared/${encodeURIComponent(token)}/visit`, schema: visitSummary, body: { pin }, signal: opts?.signal }),
+    listMedicineSets: (opts) => call({ method: "GET", path: "/api/v1/medicine-sets", schema: savedMedicineSetList, signal: opts?.signal }),
+    createMedicineSet: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/medicine-sets", schema: savedMedicineSet, body: input, signal: opts?.signal }),
+    updateMedicineSet: (id, input, opts) =>
+      call({ method: "PUT", path: `/api/v1/medicine-sets/${encodeURIComponent(id)}`, schema: savedMedicineSet, body: input, signal: opts?.signal }),
+    deleteMedicineSet: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/medicine-sets/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
 
     createNote: (visitId, content, opts) =>
       call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(visitId)}/notes`, schema: note, body: content, signal: opts?.signal }),
@@ -688,6 +709,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/prescriptions/${encodeURIComponent(id)}/cancel`, schema: cancelled, body: input, signal: opts?.signal }),
     createShareLink: (id, opts) =>
       call({ method: "POST", path: `/api/v1/prescriptions/${encodeURIComponent(id)}/share`, schema: shareLink, signal: opts?.signal }),
+    createShareLinkWith: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/prescriptions/${encodeURIComponent(id)}/share`, schema: shareLink, body: input, signal: opts?.signal }),
 
     getSharedPreview: (token, opts) =>
       call({ method: "GET", path: `/api/v1/shared/${encodeURIComponent(token)}`, schema: sharedPreview, signal: opts?.signal }),

@@ -99,6 +99,8 @@ entities! {
     SpecialtyRecord, SpecialtyRecordId;
     /// A clinic's own dental term: a procedure or material it added to the seeded list.
     DentalTerm, DentalTermId;
+    /// A clinic's own medicine set: several medicines added to a prescription in one tap.
+    MedicineSet, MedicineSetId;
     /// A procedure planned or done in a visit.
     Procedure, ProcedureId;
     /// A treatment plan.

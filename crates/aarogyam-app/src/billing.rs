@@ -746,53 +746,64 @@ pub async fn create(
     let place = place_of_supply(input.place_of_supply.as_deref())?;
     let notes = trimmed(input.notes.as_deref(), "notes", 1000)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        patients::get(tx.conn(), input.patient_id.uuid(), None)
-            .await?
-            .ok_or(AppError::NotFound("patient"))?;
-        if let Some(replaced) = input.replaces_invoice_id {
-            let found = dal::lock_invoices(tx.conn(), &[replaced.uuid()]).await?;
-            match found.first() {
-                Some(old) if old.patient_id == input.patient_id.uuid() && old.status == "void" => {}
-                Some(_) => {
-                    return Err(AppError::invalid(
-                        "replaces_invoice_id",
-                        "must be a voided bill of the same patient",
-                    ));
-                }
-                None => return Err(AppError::NotFound("invoice")),
-            }
-        }
-        let supplier = dal::supplier(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
-        let branch_id = supplier
-            .branch_id
-            .ok_or(AppError::Conflict("the clinic has no branch to bill from"))?;
-        let lines = build_lines(tx, input.items).await?;
-        let id = InvoiceId::new_v7().uuid();
-        dal::insert_invoice(
-            tx.conn(),
-            &dal::NewInvoice {
-                id,
-                patient_id: input.patient_id.uuid(),
-                encounter_id: input.encounter_id,
-                branch_id,
-                place_of_supply: place.as_deref(),
-                notes: notes.as_deref(),
-                replaces_invoice_id: input.replaces_invoice_id.map(InvoiceId::uuid),
-            },
-        )
-        .await
-        .map_err(|error| match error.constraint() {
-            Some("invoices_replaces") => AppError::Conflict("that bill was already replaced"),
-            _ => error.into(),
-        })?;
-        for line in &lines {
-            dal::insert_line(tx.conn(), id, line).await?;
-        }
-        load(tx, id).await
+        create_in(tx, input, place.as_deref(), notes.as_deref()).await
     })
     .await
+}
+
+/// [`create`] inside the caller's clinic transaction, with the place of supply and notes already
+/// checked.
+pub(crate) async fn create_in(
+    tx: &mut ScopedTx,
+    input: DraftInvoice,
+    place: Option<&str>,
+    notes: Option<&str>,
+) -> Result<InvoiceView, AppError> {
+    patients::get(tx.conn(), input.patient_id.uuid(), None)
+        .await?
+        .ok_or(AppError::NotFound("patient"))?;
+    if let Some(replaced) = input.replaces_invoice_id {
+        let found = dal::lock_invoices(tx.conn(), &[replaced.uuid()]).await?;
+        match found.first() {
+            Some(old) if old.patient_id == input.patient_id.uuid() && old.status == "void" => {}
+            Some(_) => {
+                return Err(AppError::invalid(
+                    "replaces_invoice_id",
+                    "must be a voided bill of the same patient",
+                ));
+            }
+            None => return Err(AppError::NotFound("invoice")),
+        }
+    }
+    let supplier = dal::supplier(tx.conn())
+        .await?
+        .ok_or(AppError::NotFound("clinic"))?;
+    let branch_id = supplier
+        .branch_id
+        .ok_or(AppError::Conflict("the clinic has no branch to bill from"))?;
+    let lines = build_lines(tx, input.items).await?;
+    let id = InvoiceId::new_v7().uuid();
+    dal::insert_invoice(
+        tx.conn(),
+        &dal::NewInvoice {
+            id,
+            patient_id: input.patient_id.uuid(),
+            encounter_id: input.encounter_id,
+            branch_id,
+            place_of_supply: place,
+            notes,
+            replaces_invoice_id: input.replaces_invoice_id.map(InvoiceId::uuid),
+        },
+    )
+    .await
+    .map_err(|error| match error.constraint() {
+        Some("invoices_replaces") => AppError::Conflict("that bill was already replaced"),
+        _ => error.into(),
+    })?;
+    for line in &lines {
+        dal::insert_line(tx.conn(), id, line).await?;
+    }
+    load(tx, id).await
 }
 
 /// Edits a draft bill.

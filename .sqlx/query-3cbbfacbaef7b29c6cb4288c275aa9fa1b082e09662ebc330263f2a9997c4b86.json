@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, patient_id, request_hash as \"request_hash!\"\n           from aarogyam.prescriptions where client_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "request_hash!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "request_hash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "3cbbfacbaef7b29c6cb4288c275aa9fa1b082e09662ebc330263f2a9997c4b86"
+}

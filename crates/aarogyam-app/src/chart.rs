@@ -2,8 +2,10 @@
 
 use aarogyam_dal::chart::{self, ChartRow, NewChartRow};
 use aarogyam_dal::dental_terms::{self as terms, TermRow};
+use aarogyam_dal::visits::lock_client_id;
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::clinical::{EncounterStatus, NoteRefusal, RecordSource};
+pub use aarogyam_domain::dental::Canal;
 use aarogyam_domain::dental::{
     ChartData, ChartEntry, Detail, Finding, KIND, MODULE, SCHEMA_VERSION, Surface, Tooth,
 };
@@ -15,6 +17,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::error::AppError;
+use crate::idempotency::{replayed, request_hash};
 use crate::scope::staff_scope as scope;
 use crate::visits::require_patient;
 
@@ -49,6 +52,10 @@ pub struct ChartEntryView {
     pub effective_at: OffsetDateTime,
     /// The member who recorded it.
     pub recorded_by: Option<MembershipId>,
+    /// A root canal's canals, with working lengths when measured.
+    pub canals: Vec<Canal>,
+    /// A root canal's sitting: which visit of the treatment this entry belongs to.
+    pub sitting: Option<u8>,
 }
 
 /// A procedure or material: seeded, or one the clinic added.
@@ -137,6 +144,8 @@ fn view(row: ChartRow, own: &[TermView]) -> Result<ChartEntryView, AppError> {
         supersedes_id: row.supersedes_id.map(SpecialtyRecordId::from_uuid),
         effective_at: row.effective_at,
         recorded_by: row.verified_by.map(MembershipId::from_uuid),
+        canals: data.canals,
+        sitting: data.sitting,
     })
 }
 
@@ -247,7 +256,7 @@ pub async fn get(
 }
 
 /// One entry as received.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct EntryInput {
     /// FDI tooth number.
     pub tooth: i64,
@@ -264,11 +273,18 @@ pub struct EntryInput {
     /// A current entry of this patient that this one corrects, on any tooth or surface. It is
     /// superseded alongside the current entry for this entry's own tooth and surface.
     pub supersedes_id: Option<Uuid>,
+    /// A root canal's canals (only with the `root_canal` finding).
+    pub canals: Vec<Canal>,
+    /// A root canal's sitting, 1 to 20 (only with the `root_canal` finding).
+    pub sitting: Option<i64>,
 }
 
 /// Entries recorded together, as received.
 #[derive(Debug, Clone, Default)]
 pub struct RecordChart {
+    /// The client's id for this batch. A retry with the same id and the same entries returns the
+    /// chart without recording them again; the same id for other entries is `id_conflict`.
+    pub client_id: Option<Uuid>,
     /// The visit they were found in, if any; it must be open.
     pub visit_id: Option<Uuid>,
     /// The entries, applied in order.
@@ -343,7 +359,12 @@ async fn correct(tx: &mut ScopedTx, patient_id: Uuid, id: Uuid) -> Result<(), Ap
 /// [`AppError::Invalid`] for a bad tooth, surface or finding, or a visit of another patient;
 /// [`AppError::NotFound`] when the patient isn't in this clinic; [`AppError::Conflict`] when
 /// the visit is closed, the corrected entry is no longer current, or another change to the
-/// same tooth happened at the same moment.
+/// same tooth happened at the same moment; [`AppError::IdConflict`] when the `client_id` made
+/// other entries.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one transaction: check, replay, write and read back"
+)]
 pub async fn record(
     db: &Db,
     actor: &ClinicActor,
@@ -371,14 +392,32 @@ pub async fn record(
                     procedure: entry.procedure.as_deref(),
                     material: entry.material.as_deref(),
                     note: entry.note.as_deref(),
+                    canals: &entry.canals,
+                    sitting: entry.sitting,
                 },
             )
         })
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| AppError::invalid("entries", error))?;
+    let hash = input.client_id.map(|_| {
+        request_hash(&serde_json::json!({
+            "patient": patient_id.uuid(),
+            "visit": input.visit_id,
+            "entries": input.entries,
+        }))
+    });
     db.scoped(&scope(actor, request_id), async |tx| {
         let patient =
             require_patient(tx, patient_id, actor.reach(Permission::ClinicalWrite)).await?;
+        // A retry gets the chart back before anything else is checked: the visit may have
+        // closed or an entry been corrected since the first try landed.
+        if let (Some(client_id), Some(hash)) = (input.client_id, hash.as_deref()) {
+            lock_client_id(tx.conn(), client_id).await?;
+            let found = chart::by_client_id(tx.conn(), client_id).await?;
+            if replayed(found, patient.id, hash)?.is_some() {
+                return load(tx, patient.id, None).await;
+            }
+        }
         if let Some(visit_id) = input.visit_id {
             let visit = aarogyam_dal::visits::get_encounter(
                 tx.conn(),
@@ -394,7 +433,7 @@ pub async fn record(
             }
         }
         check_own_terms(tx, &entries).await?;
-        for (entry, given) in entries.iter().zip(&input.entries) {
+        for (index, (entry, given)) in entries.iter().zip(&input.entries).enumerate() {
             let tooth = i16::from(entry.tooth().number());
             let mut replaced = None;
             if let Some(id) = given.supersedes_id {
@@ -426,6 +465,11 @@ pub async fn record(
                     effective_at: now,
                     source: RecordSource::Clinician.as_str(),
                     verified_by: actor.membership_id.uuid(),
+                    // The batch's first entry carries the client's id.
+                    client_id: input.client_id.filter(|_| index == 0),
+                    request_hash: hash
+                        .as_deref()
+                        .filter(|_| index == 0 && input.client_id.is_some()),
                 },
             )
             .await

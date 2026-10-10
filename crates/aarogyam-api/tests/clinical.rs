@@ -2194,6 +2194,8 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             format!("/api/v1/patients/{patient}/summary-note"),
             Some(json!({ "body": "## History\n- **Diabetic**" })),
         ),
+        (Method::POST, format!("/api/v1/visits/{visit}/share"), None),
+        (Method::POST, format!("/api/v1/visits/{visit}/finish"), None),
         (Method::POST, format!("/api/v1/visits/{visit}/close"), None),
         (
             Method::PATCH,

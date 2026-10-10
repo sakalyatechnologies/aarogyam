@@ -142,6 +142,10 @@ impl From<AppError> for ApiFailure {
                 "id_conflict",
                 "That id is already used by a different record.",
             )),
+            AppError::VisitClosed => Self::Error(ApiError::conflict(
+                "visit_closed",
+                "This visit is already closed. Open it to see how it ended.",
+            )),
             AppError::Stale { current } => Self::Stale { current },
             AppError::Forbidden(message) => Self::Error(ApiError::forbidden("forbidden", message)),
             AppError::Db(error) => error.into(),

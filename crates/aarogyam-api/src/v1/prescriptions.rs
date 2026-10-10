@@ -3,12 +3,13 @@
 use aarogyam_app::prescriptions::{
     self as app, AlertView, DrugView, IssueOutcome, RxInput, RxItemInput, RxView, Sharing,
 };
-use aarogyam_app::share::{self, OpenOutcome};
+use aarogyam_app::share::{self, OpenOutcome, ShareOptions, SharedLink};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{PatientId, PrescriptionId};
 use aarogyam_domain::permission::require::{ClinicalRead, PrescriptionsIssue};
 use aarogyam_domain::share::LinkState;
 use axum::Json;
+use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -298,6 +299,11 @@ pub struct PrescriptionList {
 /// `encounter_id` or `follow_up_on`, and `items` replaces every medicine.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct RxValues {
+    /// An id the client made for a new draft, any UUID, unique per clinic. A retry with the same
+    /// `client_id` and the same values returns the draft that exists (`201`); the same
+    /// `client_id` for other values is `id_conflict` (`409`). Ignored when editing.
+    #[schema(value_type = Option<String>)]
+    pub client_id: Option<Uuid>,
     /// The visit.
     pub encounter_id: Option<String>,
     /// Diagnosis.
@@ -319,6 +325,7 @@ fn rx_input(body: RxValues) -> Result<RxInput, ApiError> {
         Some(text) => Some(Some(parse_day("follow_up_on", text)?)),
     };
     Ok(RxInput {
+        client_id: body.client_id,
         encounter_id: body
             .encounter_id
             .map(|t| optional_uuid("encounter_id", &t))
@@ -360,7 +367,8 @@ fn rx_input(body: RxValues) -> Result<RxInput, ApiError> {
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks prescriptions.issue"),
-        (status = 404, description = "No such patient in this clinic")
+        (status = 404, description = "No such patient in this clinic"),
+        (status = 409, description = "`id_conflict`: the client_id made a different draft")
     )
 )]
 pub(crate) async fn create(
@@ -694,6 +702,16 @@ pub(crate) async fn cancel(
     }))
 }
 
+/// How to hand the prescription over.
+#[derive(Debug, Default, Deserialize, ToSchema)]
+pub struct ShareRequest {
+    /// How long the link works, in hours: 24 to 720. Seven days (168) when left out.
+    pub expires_in_hours: Option<i64>,
+    /// `whatsapp` or `sms` (also queues a care message to the patient), or `qr` or `link` (nothing
+    /// is sent: show the QR or copy the link). `link` when left out.
+    pub channel: Option<String>,
+}
+
 /// A new patient link. The token and PIN are shown once.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ShareLink {
@@ -704,20 +722,70 @@ pub struct ShareLink {
     pub token: String,
     /// Six-digit PIN to print on the paper or tell the patient.
     pub pin: String,
-    /// When it stops working (seven days).
+    /// When it stops working.
     pub expires_at: String,
+    /// How it was handed over: `whatsapp`, `sms`, `qr` or `link`.
+    pub channel: String,
+    /// For `whatsapp` and `sms`: whether a message was queued. Absent for `qr` and `link`.
+    pub message: Option<ShareMessage>,
 }
 
-/// Makes a seven-day link for the patient to open the prescription with a PIN.
+/// Whether the link also went out as a message to the patient.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ShareMessage {
+    /// `queued` (sent when due, if consent, opt-outs and an approved template allow) or
+    /// `not_queued`.
+    pub status: String,
+    /// Why nothing was queued: `no_phone` or `no_portal`.
+    pub reason: Option<String>,
+}
+
+impl From<SharedLink> for ShareLink {
+    fn from(shared: SharedLink) -> Self {
+        Self {
+            id: shared.link.id.uuid(),
+            token: shared.link.token,
+            pin: shared.link.pin,
+            expires_at: rfc3339(shared.link.expires_at),
+            channel: shared.channel.as_str().to_owned(),
+            message: shared.message.map(|queued| match queued {
+                Ok(()) => ShareMessage {
+                    status: "queued".into(),
+                    reason: None,
+                },
+                Err(why) => ShareMessage {
+                    status: "not_queued".into(),
+                    reason: Some(why.as_str().into()),
+                },
+            }),
+        }
+    }
+}
+
+/// An optional JSON body: none (or an empty one) means the defaults.
+pub(super) fn optional_body<T: serde::de::DeserializeOwned + Default>(
+    body: &Bytes,
+) -> Result<T, ApiError> {
+    if body.iter().all(u8::is_ascii_whitespace) {
+        return Ok(T::default());
+    }
+    serde_json::from_slice(body)
+        .map_err(|_| ApiError::bad_request("invalid_request", "the request body is not valid"))
+}
+
+/// Makes a link for the patient to open the prescription with a PIN. The body is optional: the
+/// lifetime (24 to 720 hours, seven days by default) and how it is handed over.
 #[utoipa::path(
     post,
     path = "/api/v1/prescriptions/{id}/share",
     operation_id = "createPrescriptionShare",
     tag = "prescriptions",
     params(("id" = String, Path, description = "The prescription")),
+    request_body = Option<ShareRequest>,
     security(("bearer" = [])),
     responses(
         (status = 201, body = ShareLink),
+        (status = 400, description = "Hours outside 24 to 720, or an unknown channel"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks prescriptions.issue"),
         (status = 404, description = "No such prescription in this clinic"),
@@ -728,25 +796,20 @@ pub(crate) async fn create_share(
     State(state): State<AppState>,
     Require { request, .. }: Require<PrescriptionsIssue>,
     ApiPath(id): ApiPath<Uuid>,
+    body: Bytes,
 ) -> Result<(StatusCode, Json<ShareLink>), ApiFailure> {
-    let link = share::create(
+    let body: ShareRequest = optional_body(&body)?;
+    let shared = share::create(
         state.db(),
         &request.actor,
         request.request_id,
         PrescriptionId::from_uuid(id),
+        ShareOptions::parse(body.channel.as_deref(), body.expires_in_hours)?,
         OffsetDateTime::now_utc(),
     )
     .await?;
-    tracing::info!(event = Event::ShareLinkCreated.as_str(), share_link_id = %link.id.uuid(), "share link created");
-    Ok((
-        StatusCode::CREATED,
-        Json(ShareLink {
-            id: link.id.uuid(),
-            token: link.token,
-            pin: link.pin,
-            expires_at: rfc3339(link.expires_at),
-        }),
-    ))
+    tracing::info!(event = Event::ShareLinkCreated.as_str(), share_link_id = %shared.link.id.uuid(), "share link created");
+    Ok((StatusCode::CREATED, Json(shared.into())))
 }
 
 pub(super) const fn state_name(state: LinkState) -> &'static str {
@@ -762,10 +825,11 @@ pub(super) const fn state_name(state: LinkState) -> &'static str {
 pub struct SharedPreview {
     /// The clinic's name.
     pub clinic_name: String,
-    /// `prescription` or `records`.
+    /// `prescription`, `records` or `visit`.
     pub resource: String,
     /// For a link to records, what it shows: `chart`, `xrays`, `bills`; open it with
-    /// `POST /shared/{token}/records`. Absent for a prescription.
+    /// `POST /shared/{token}/records`. A link to a visit summary opens with
+    /// `POST /shared/{token}/visit`. Absent for a prescription.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub record_types: Option<Vec<String>>,
     /// `usable`, `expired` or `locked`.

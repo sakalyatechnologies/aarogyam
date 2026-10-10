@@ -8,6 +8,8 @@ use sqlx::PgConnection;
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::visits::ClientRecord;
+
 /// A medicine in the shared catalogue.
 #[derive(Debug, Clone)]
 pub struct DrugRow {
@@ -274,6 +276,37 @@ pub struct RxHeader<'a> {
     pub language: &'a str,
 }
 
+/// The client's id for a draft and the hash of the request that carried it.
+#[derive(Debug, Clone, Copy)]
+pub struct ClientKey<'a> {
+    /// The client's id.
+    pub id: Uuid,
+    /// Hash of the request.
+    pub request_hash: &'a str,
+}
+
+/// The prescription the client's id made, if any, in this clinic.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn by_client_id(
+    conn: &mut PgConnection,
+    client_id: Uuid,
+) -> Result<Option<ClientRecord>, DbError> {
+    let row = sqlx::query!(
+        r#"select id, patient_id, request_hash as "request_hash!"
+           from aarogyam.prescriptions where client_id = $1"#,
+        client_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row.map(|row| ClientRecord {
+        id: row.id,
+        patient_id: row.patient_id,
+        request_hash: row.request_hash,
+    }))
+}
+
 /// Starts a draft.
 ///
 /// # Errors
@@ -284,11 +317,13 @@ pub async fn insert(
     patient_id: Uuid,
     supersedes_id: Option<Uuid>,
     header: &RxHeader<'_>,
+    client: Option<ClientKey<'_>>,
 ) -> Result<(), DbError> {
     sqlx::query!(
         r#"insert into aarogyam.prescriptions
-             (id, patient_id, supersedes_id, encounter_id, diagnosis_text, advice, follow_up_on, language)
-           values ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+             (id, patient_id, supersedes_id, encounter_id, diagnosis_text, advice, follow_up_on,
+              language, client_id, request_hash)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"#,
         id,
         patient_id,
         supersedes_id,
@@ -296,7 +331,9 @@ pub async fn insert(
         header.diagnosis_text,
         header.advice,
         header.follow_up_on,
-        header.language
+        header.language,
+        client.map(|client| client.id),
+        client.map(|client| client.request_hash)
     )
     .execute(conn)
     .await?;
@@ -657,6 +694,8 @@ pub struct NewShareLink<'a> {
     pub patient_id: Uuid,
     /// When it stops working.
     pub expires_at: OffsetDateTime,
+    /// How it is handed over: `whatsapp`, `sms`, `qr` or `link`.
+    pub channel: &'a str,
 }
 
 /// Records a patient link to a prescription.
@@ -670,13 +709,14 @@ pub async fn insert_share_link(
     sqlx::query!(
         r#"insert into aarogyam.share_links
              (id, token_hash, pin_hash, resource, prescription_id, patient_id, channel, expires_at)
-           values ($1, $2, $3, 'prescription', $4, $5, 'whatsapp', $6)"#,
+           values ($1, $2, $3, 'prescription', $4, $5, $7, $6)"#,
         link.id,
         link.token_hash,
         link.pin_hash,
         link.prescription_id,
         link.patient_id,
-        link.expires_at
+        link.expires_at,
+        link.channel
     )
     .execute(conn)
     .await?;
@@ -706,6 +746,8 @@ pub struct ShareLinkRow {
     pub revoked_at: Option<OffsetDateTime>,
     /// The kinds a link to records shows (`chart`, `xrays`, `bills`); none for other links.
     pub record_types: Option<Vec<String>>,
+    /// The visit a link to a visit summary shows; none for other links.
+    pub encounter_id: Option<Uuid>,
 }
 
 /// The link with this token hash in the current clinic, locked when `for_update`.
@@ -719,7 +761,7 @@ pub async fn share_link(
     let row = sqlx::query_as!(
         ShareLinkRow,
         r#"select id, pin_hash, resource, prescription_id, patient_id, failed_attempts, locked_at,
-                  expires_at, revoked_at, record_types
+                  expires_at, revoked_at, record_types, encounter_id
            from aarogyam.share_links where token_hash = $1
            for update"#,
         token_hash

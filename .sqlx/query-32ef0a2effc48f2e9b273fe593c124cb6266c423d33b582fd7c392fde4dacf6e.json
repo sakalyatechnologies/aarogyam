@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select due_on from aarogyam.recalls\n           where patient_id = $1 and status in ('due', 'notified') and due_on >= $2\n           order by due_on limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "due_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recalls",
+            "name": "due_on"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "32ef0a2effc48f2e9b273fe593c124cb6266c423d33b582fd7c392fde4dacf6e"
+}

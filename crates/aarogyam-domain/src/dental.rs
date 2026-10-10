@@ -12,8 +12,17 @@ pub const MODULE: &str = "dental";
 /// The record kind of a chart entry.
 pub const KIND: &str = "tooth";
 /// The version of [`ChartEntry`]'s JSON shape. Version 2 added the procedure and material;
-/// version 1 entries read as having neither.
-pub const SCHEMA_VERSION: i32 = 2;
+/// version 3 added a root canal's canals and sitting. Older entries read as having none.
+pub const SCHEMA_VERSION: i32 = 3;
+
+/// Most canals one root canal entry lists (an upper molar has four or five).
+pub const MAX_CANALS: usize = 8;
+/// Longest canal name, such as `MB2`.
+pub const CANAL_NAME_MAX: usize = 20;
+/// Longest working length recorded, in millimetres.
+pub const WORKING_LENGTH_MAX_MM: f64 = 40.0;
+/// Most sittings (visits) a root canal treatment is recorded over.
+pub const MAX_SITTING: u8 = 20;
 
 /// A tooth by its FDI (ISO 3950) number: 11-18, 21-28, 31-38, 41-48 for permanent teeth and
 /// 51-55, 61-65, 71-75, 81-85 for primary (milk) teeth.
@@ -47,6 +56,21 @@ pub enum ChartError {
     /// A sound tooth was given a procedure or material.
     #[error("sound clears the tooth; leave the procedure and material out")]
     SoundWithDetail,
+    /// Canals or a sitting on a finding that isn't a root canal.
+    #[error("canals and sitting belong to a root_canal finding")]
+    RootCanalOnly,
+    /// Too many canals, or one repeated.
+    #[error("list 1 to 8 canals, each name once")]
+    Canals,
+    /// A canal's name is empty or too long.
+    #[error("a canal name must be 1 to 20 characters")]
+    CanalName,
+    /// A working length that isn't a length.
+    #[error("working_length_mm must be more than 0 and at most 40")]
+    WorkingLength,
+    /// A sitting outside 1 to 20.
+    #[error("sitting must be 1 to 20")]
+    Sitting,
 }
 
 impl Tooth {
@@ -170,9 +194,54 @@ impl Finding {
     }
 }
 
+/// One canal of a root canal treatment: its name and, once measured, its working length.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Canal {
+    /// What the clinician calls it: `MB`, `MB2`, `DB`, `P`, `Distal`.
+    pub name: String,
+    /// The working length in millimetres, when measured.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub working_length_mm: Option<f64>,
+}
+
+impl Canal {
+    /// Validates the canals of a root canal entry: 1 to 8, each name (ignoring case) once, each
+    /// working length above 0 and at most 40 mm, kept to two decimals.
+    ///
+    /// # Errors
+    /// The [`ChartError`] that applies.
+    pub fn check_all(canals: &[Self]) -> Result<Vec<Self>, ChartError> {
+        if canals.is_empty() || canals.len() > MAX_CANALS {
+            return Err(ChartError::Canals);
+        }
+        let mut checked: Vec<Self> = Vec::with_capacity(canals.len());
+        for canal in canals {
+            let name = canal.name.trim();
+            if name.is_empty() || name.chars().count() > CANAL_NAME_MAX || name.contains('\n') {
+                return Err(ChartError::CanalName);
+            }
+            if checked.iter().any(|c| c.name.eq_ignore_ascii_case(name)) {
+                return Err(ChartError::Canals);
+            }
+            let working_length_mm = match canal.working_length_mm {
+                None => None,
+                Some(mm) if mm.is_finite() && mm > 0.0 && mm <= WORKING_LENGTH_MAX_MM => {
+                    Some((mm * 100.0).round() / 100.0)
+                }
+                Some(_) => return Err(ChartError::WorkingLength),
+            };
+            checked.push(Self {
+                name: name.to_owned(),
+                working_length_mm,
+            });
+        }
+        Ok(checked)
+    }
+}
+
 /// One chart entry: a finding on a tooth, or on one of its surfaces. Stored as the
 /// `specialty_records.data` JSON.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ChartEntry {
     tooth: Tooth,
     surface: Option<Surface>,
@@ -180,6 +249,8 @@ pub struct ChartEntry {
     procedure: Option<TermRef>,
     material: Option<TermRef>,
     note: Option<String>,
+    canals: Vec<Canal>,
+    sitting: Option<u8>,
 }
 
 /// What else an entry says besides tooth, surface and finding: procedure and material ids
@@ -192,10 +263,14 @@ pub struct Detail<'a> {
     pub material: Option<&'a str>,
     /// The clinician's remark.
     pub note: Option<&'a str>,
+    /// A root canal's canals; empty for none.
+    pub canals: &'a [Canal],
+    /// A root canal's sitting (which visit of the treatment this is).
+    pub sitting: Option<i64>,
 }
 
-/// The JSON shape stored in `specialty_records.data` (schema version 2).
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+/// The JSON shape stored in `specialty_records.data` (schema version 3).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ChartData {
     /// FDI tooth number.
     pub tooth: u8,
@@ -213,6 +288,12 @@ pub struct ChartData {
     /// The clinician's remark.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// A root canal's canals (version 3).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub canals: Vec<Canal>,
+    /// A root canal's sitting (version 3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sitting: Option<u8>,
 }
 
 impl ChartEntry {
@@ -248,6 +329,24 @@ impl ChartEntry {
             return Err(ChartError::SoundWithDetail);
         }
         let note = optional_text(detail.note, 500).map_err(|_: ClinicalError| ChartError::Note)?;
+        if finding != Finding::RootCanal && (!detail.canals.is_empty() || detail.sitting.is_some())
+        {
+            return Err(ChartError::RootCanalOnly);
+        }
+        let canals = if detail.canals.is_empty() {
+            Vec::new()
+        } else {
+            Canal::check_all(detail.canals)?
+        };
+        let sitting = detail
+            .sitting
+            .map(|n| {
+                u8::try_from(n)
+                    .ok()
+                    .filter(|n| (1..=MAX_SITTING).contains(n))
+            })
+            .map(|n| n.ok_or(ChartError::Sitting))
+            .transpose()?;
         Ok(Self {
             tooth,
             surface,
@@ -255,6 +354,8 @@ impl ChartEntry {
             procedure,
             material,
             note,
+            canals,
+            sitting,
         })
     }
 
@@ -268,6 +369,18 @@ impl ChartEntry {
     #[must_use]
     pub const fn material(&self) -> Option<TermRef> {
         self.material
+    }
+
+    /// A root canal's canals; empty for any other entry.
+    #[must_use]
+    pub fn canals(&self) -> &[Canal] {
+        &self.canals
+    }
+
+    /// A root canal's sitting.
+    #[must_use]
+    pub const fn sitting(&self) -> Option<u8> {
+        self.sitting
     }
 
     /// The tooth.
@@ -298,6 +411,8 @@ impl ChartEntry {
             procedure: self.procedure.map(TermRef::id_text),
             material: self.material.map(TermRef::id_text),
             note: self.note.clone(),
+            canals: self.canals.clone(),
+            sitting: self.sitting,
         }
     }
 
@@ -325,7 +440,7 @@ mod tests {
         let detail = |procedure, material| Detail {
             procedure,
             material,
-            note: None,
+            ..Detail::default()
         };
         let crown =
             ChartEntry::new(16, None, "crown", detail(Some("crown"), Some("zirconia"))).unwrap();
@@ -350,6 +465,90 @@ mod tests {
         let old: ChartData =
             serde_json::from_str(r#"{"tooth":36,"surface":"O","finding":"caries"}"#).unwrap();
         assert_eq!(old.material, None);
+    }
+
+    fn canal(name: &str, mm: Option<f64>) -> Canal {
+        Canal {
+            name: name.to_owned(),
+            working_length_mm: mm,
+        }
+    }
+
+    #[test]
+    fn root_canal_entries_carry_canals_and_a_sitting() {
+        let canals = [
+            canal("MB", Some(20.5)),
+            canal(" DB ", Some(19.126)),
+            canal("P", None),
+        ];
+        let entry = ChartEntry::new(
+            16,
+            None,
+            "root_canal",
+            Detail {
+                canals: &canals,
+                sitting: Some(2),
+                ..Detail::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(entry.sitting(), Some(2));
+        let data = entry.data();
+        assert_eq!(data.canals[1], canal("DB", Some(19.13)));
+        let json = serde_json::to_value(&data).unwrap();
+        assert_eq!(json["canals"][0]["working_length_mm"], 20.5);
+        assert_eq!(json["canals"][2], serde_json::json!({ "name": "P" }));
+        // Entries without them read and write as before.
+        let plain = ChartEntry::new(16, None, "root_canal", Detail::default()).unwrap();
+        let json = serde_json::to_value(plain.data()).unwrap();
+        assert!(json.get("canals").is_none() && json.get("sitting").is_none());
+        let old: ChartData =
+            serde_json::from_str(r#"{"tooth":16,"finding":"root_canal"}"#).unwrap();
+        assert!(old.canals.is_empty() && old.sitting.is_none());
+    }
+
+    #[test]
+    fn canals_and_sitting_are_checked() {
+        let with = |finding, canals: &[Canal], sitting| {
+            ChartEntry::new(
+                16,
+                None,
+                finding,
+                Detail {
+                    canals,
+                    sitting,
+                    ..Detail::default()
+                },
+            )
+        };
+        let one = [canal("MB", Some(20.0))];
+        assert_eq!(with("filled", &one, None), Err(ChartError::RootCanalOnly));
+        assert_eq!(with("crown", &[], Some(1)), Err(ChartError::RootCanalOnly));
+        assert_eq!(with("root_canal", &[], Some(0)), Err(ChartError::Sitting));
+        assert_eq!(with("root_canal", &[], Some(21)), Err(ChartError::Sitting));
+        assert_eq!(with("root_canal", &[], Some(-1)), Err(ChartError::Sitting));
+        for bad in [0.0, -1.0, 40.5, f64::NAN, f64::INFINITY] {
+            assert_eq!(
+                with("root_canal", &[canal("MB", Some(bad))], None),
+                Err(ChartError::WorkingLength),
+                "{bad}"
+            );
+        }
+        assert_eq!(
+            with("root_canal", &[canal("MB", None), canal("mb", None)], None),
+            Err(ChartError::Canals)
+        );
+        assert_eq!(
+            with("root_canal", &[canal("  ", None)], None),
+            Err(ChartError::CanalName)
+        );
+        assert_eq!(
+            with("root_canal", &[canal(&"x".repeat(21), None)], None),
+            Err(ChartError::CanalName)
+        );
+        let nine: Vec<Canal> = (0..9).map(|n| canal(&format!("C{n}"), None)).collect();
+        assert_eq!(with("root_canal", &nine, None), Err(ChartError::Canals));
+        assert!(with("root_canal", &one, Some(1)).is_ok());
     }
 
     #[test]

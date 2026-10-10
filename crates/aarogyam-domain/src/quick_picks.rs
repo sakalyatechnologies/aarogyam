@@ -7,6 +7,9 @@ use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 
+use crate::clinical::clinical_text;
+use crate::prescription::DoseTiming;
+
 /// The dental quick picks, compiled in.
 const SOURCE: &str = include_str!("../../../specialties/dental/quick-picks.json");
 
@@ -70,6 +73,81 @@ pub struct MedicineSet {
     pub items: Vec<SetMedicine>,
 }
 
+/// Most medicines in one set.
+pub const MAX_SET_MEDICINES: usize = 20;
+
+/// Why a clinic's medicine set was refused. Names the field, never the value.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("{field}: {message}")]
+pub struct SetError {
+    /// The field at fault, as the API names it.
+    pub field: &'static str,
+    /// What is wrong.
+    pub message: String,
+}
+
+/// Checks and trims a clinic's medicine set: a label of 1 to 80 characters and 1 to 20 medicines
+/// whose values meet the same rules as the specialty's own sets.
+///
+/// # Errors
+/// [`SetError`] naming the first field that fails.
+pub fn check_set(
+    label: &str,
+    items: &[SetMedicine],
+) -> Result<(String, Vec<SetMedicine>), SetError> {
+    let fail = |field: &'static str, error: &dyn std::fmt::Display| SetError {
+        field,
+        message: error.to_string(),
+    };
+    let label = clinical_text(label, 1, LABEL_MAX).map_err(|e| fail("label", &e))?;
+    if label.contains('\n') {
+        return Err(fail("label", &"must be one line"));
+    }
+    if items.is_empty() || items.len() > MAX_SET_MEDICINES {
+        return Err(fail(
+            "items",
+            &format!("list 1 to {MAX_SET_MEDICINES} medicines"),
+        ));
+    }
+    let line = |text: &str, field: &'static str| {
+        clinical_text(text, 1, LABEL_MAX).map_err(|e| fail(field, &e))
+    };
+    let mut checked = Vec::with_capacity(items.len());
+    for item in items {
+        let timing = match item.timing.as_deref().map(str::trim) {
+            None | Some("") => None,
+            Some(text) => Some(
+                DoseTiming::parse(text)
+                    .map_err(|e| fail("items.timing", &e))?
+                    .as_str()
+                    .to_owned(),
+            ),
+        };
+        if item
+            .duration_days
+            .is_some_and(|days| !(1..=365).contains(&days))
+        {
+            return Err(fail("items.duration_days", &"must be 1 to 365"));
+        }
+        checked.push(SetMedicine {
+            drug_name: line(&item.drug_name, "items.drug_name")?,
+            strength: line(&item.strength, "items.strength")?,
+            form: line(&item.form, "items.form")?,
+            dose: line(&item.dose, "items.dose")?,
+            frequency: line(&item.frequency, "items.frequency")?,
+            timing,
+            duration_days: item.duration_days,
+            instructions: match item.instructions.as_deref().map(str::trim) {
+                None | Some("") => None,
+                Some(text) => Some(
+                    clinical_text(text, 1, TEXT_MAX).map_err(|e| fail("items.instructions", &e))?,
+                ),
+            },
+        });
+    }
+    Ok((label, checked))
+}
+
 /// A specialty's quick picks.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuickPicks {
@@ -110,8 +188,6 @@ pub fn dental() -> &'static QuickPicks {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clinical::clinical_text;
-    use crate::prescription::DoseTiming;
 
     fn check_ids<'a>(list: &str, ids: impl Iterator<Item = &'a str>) {
         let ids: Vec<&str> = ids.collect();
@@ -190,6 +266,43 @@ mod tests {
                 }
             }
         }
+    }
+
+    fn medicine(name: &str) -> SetMedicine {
+        SetMedicine {
+            drug_name: name.to_owned(),
+            strength: "500 mg".to_owned(),
+            form: "tablet".to_owned(),
+            dose: "1 tablet".to_owned(),
+            frequency: "1-0-1".to_owned(),
+            timing: Some("after_food".to_owned()),
+            duration_days: Some(3),
+            instructions: None,
+        }
+    }
+
+    #[test]
+    fn a_clinic_set_is_checked_and_trimmed() {
+        let (label, items) = check_set("  Post-op  ", &[medicine(" Amoxicillin ")]).unwrap();
+        assert_eq!(label, "Post-op");
+        assert_eq!(items[0].drug_name, "Amoxicillin");
+        let bad = |label: &str, items: &[SetMedicine]| check_set(label, items).unwrap_err().field;
+        assert_eq!(bad("", &[medicine("A")]), "label");
+        assert_eq!(bad(&"x".repeat(81), &[medicine("A")]), "label");
+        assert_eq!(bad("Set", &[]), "items");
+        assert_eq!(
+            bad("Set", &vec![medicine("A"); MAX_SET_MEDICINES + 1]),
+            "items"
+        );
+        let mut item = medicine("A");
+        item.timing = Some("whenever".to_owned());
+        assert_eq!(bad("Set", &[item]), "items.timing");
+        let mut item = medicine("A");
+        item.duration_days = Some(400);
+        assert_eq!(bad("Set", &[item]), "items.duration_days");
+        let mut item = medicine("A");
+        item.dose = " ".to_owned();
+        assert_eq!(bad("Set", &[item]), "items.dose");
     }
 
     #[test]

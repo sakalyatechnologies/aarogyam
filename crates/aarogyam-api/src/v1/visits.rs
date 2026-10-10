@@ -2,16 +2,20 @@
 //! error.
 
 use aarogyam_app::Moved;
+use aarogyam_app::finish::{self, Finish, FinishOutcome, FinishRx, WrapUp};
 use aarogyam_app::record::{self, VisitDetail as DetailView};
+use aarogyam_app::share::ShareOptions;
 use aarogyam_app::visits::{
     self as app, AddendumView, Member as MemberView, NoteInput, NoteView, StartVisit, VisitView,
 };
 use aarogyam_domain::event::Event;
-use aarogyam_domain::ids::{ClinicalNoteId, EncounterId, PatientId};
+use aarogyam_domain::ids::{ClinicalNoteId, EncounterId, PatientId, PrescriptionId};
 use aarogyam_domain::permission::require::{ClinicalRead, ClinicalWrite};
 use axum::Json;
+use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use sakalya_http::{ApiError, ApiJson, ApiPath, ApiQuery};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -19,12 +23,18 @@ use time::format_description::well_known::Rfc3339;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use super::billing::Invoice;
 use super::chart::ChartEntry;
 use super::client_id;
 use super::files::Attachment;
+use super::prescriptions::{
+    Alert, IssueBlocked, IssuedPrescription, PatientMessage, Prescription, ShareLink, ShareRequest,
+    optional_body,
+};
+use super::recalls::Recall;
 use super::treatment::Procedure;
 use super::vitals::Observation;
-use super::{WithEtag, rfc3339, with_etag};
+use super::{WithEtag, parse_day, rfc3339, with_etag};
 use crate::AppState;
 use crate::extract::{IfMatch, Require};
 use crate::failure::{ApiFailure, MoveRefused};
@@ -359,19 +369,64 @@ pub(crate) async fn open(
     Ok(Json(view.into()))
 }
 
+/// What closing a visit may also do. Every field is optional, and so is the body.
+#[derive(Debug, Default, Deserialize, ToSchema)]
+pub struct CloseRequest {
+    /// When the patient should come back (`YYYY-MM-DD`, not in the past): plans a follow-up. Needs
+    /// `patients.write`.
+    pub follow_up_on: Option<String>,
+    /// What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.
+    /// Needs `billing.write`.
+    pub fee_paise: Option<i64>,
+    /// The follow-up's reason, up to 300 characters; with a fee and no follow-up, the note printed
+    /// on the draft bill.
+    pub note: Option<String>,
+}
+
+impl CloseRequest {
+    fn wrap_up(self) -> Result<WrapUp, ApiError> {
+        Ok(WrapUp {
+            follow_up_on: self
+                .follow_up_on
+                .as_deref()
+                .map(str::trim)
+                .filter(|text| !text.is_empty())
+                .map(|text| parse_day("follow_up_on", text))
+                .transpose()?,
+            fee_paise: self.fee_paise,
+            note: self.note,
+        })
+    }
+}
+
+/// A closed visit and what closing it made.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ClosedVisit {
+    /// The closed visit.
+    #[serde(flatten)]
+    pub visit: Visit,
+    /// The follow-up planned, when `follow_up_on` was given.
+    pub follow_up: Option<Recall>,
+    /// The draft bill started, when `fee_paise` was given.
+    pub invoice: Option<Invoice>,
+}
+
 /// Closes a visit. Addenda and corrections still work afterwards; new notes, vitals and
-/// procedures don't.
+/// procedures don't. The body is optional: with `follow_up_on` it plans the follow-up, and with
+/// `fee_paise` it starts a draft bill linked to the visit, in the same transaction.
 #[utoipa::path(
     post,
     path = "/api/v1/visits/{id}/close",
     operation_id = "closeVisit",
     tag = "clinical",
     params(("id" = String, Path, description = "The visit")),
+    request_body = Option<CloseRequest>,
     security(("bearer" = [])),
     responses(
-        (status = 200, body = Visit),
+        (status = 200, body = ClosedVisit),
+        (status = 400, description = "A bad date, fee or note"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks clinical.write"),
+        (status = 403, description = "The role lacks clinical.write, or patients.write for a follow-up, or billing.write for a fee"),
         (status = 404, description = "No such visit in this clinic"),
         (status = 409, description = "Already closed")
     )
@@ -380,17 +435,192 @@ pub(crate) async fn close(
     State(state): State<AppState>,
     Require { request, .. }: Require<ClinicalWrite>,
     ApiPath(id): ApiPath<Uuid>,
-) -> Result<Json<Visit>, ApiFailure> {
-    let view = app::close(
+    body: Bytes,
+) -> Result<Json<ClosedVisit>, ApiFailure> {
+    let wrap_up = optional_body::<CloseRequest>(&body)?.wrap_up()?;
+    let (view, done) = finish::close_with(
         state.db(),
         &request.actor,
         request.request_id,
         EncounterId::from_uuid(id),
+        wrap_up,
         OffsetDateTime::now_utc(),
     )
     .await?;
     tracing::info!(event = Event::VisitClosed.as_str(), visit_id = %id, "visit closed");
-    Ok(Json(view.into()))
+    Ok(Json(ClosedVisit {
+        visit: view.into(),
+        follow_up: done.follow_up.map(Recall::from),
+        invoice: done.invoice.map(Invoice::from),
+    }))
+}
+
+/// A draft prescription to issue as the visit finishes.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct FinishPrescription {
+    /// The draft: this visit's patient's, and not another visit's.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Why to go ahead despite the allergy alerts; needed only when there are alerts.
+    pub override_reason: Option<String>,
+    /// Email the patient a link to the prescription (default true).
+    pub notify_patient: Option<bool>,
+    /// Also make a link to hand over, as `POST /prescriptions/{id}/share` does.
+    pub share: Option<ShareRequest>,
+}
+
+/// Finishing a visit. Every field is optional, and so is the body.
+#[derive(Debug, Default, Deserialize, ToSchema)]
+pub struct FinishRequest {
+    /// Sign the caller's own draft notes of the visit (default true). Other members' drafts and
+    /// empty ones are left, and listed in the answer.
+    pub sign_notes: Option<bool>,
+    /// A draft prescription to issue, with the allergy check. Needs `prescriptions.issue`.
+    pub prescription: Option<FinishPrescription>,
+    /// When the patient should come back (`YYYY-MM-DD`, not in the past): plans a follow-up. Needs
+    /// `patients.write`.
+    pub follow_up_on: Option<String>,
+    /// What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.
+    /// Needs `billing.write`.
+    pub fee_paise: Option<i64>,
+    /// The follow-up's reason, up to 300 characters; with a fee and no follow-up, the note printed
+    /// on the draft bill.
+    pub note: Option<String>,
+}
+
+/// A finished visit.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct FinishedVisit {
+    /// The closed visit.
+    pub visit: Visit,
+    /// The notes signed now.
+    #[schema(value_type = Vec<String>)]
+    pub signed_note_ids: Vec<Uuid>,
+    /// Drafts left unsigned: other members' (only their author may sign) and empty ones.
+    #[schema(value_type = Vec<String>)]
+    pub unsigned_note_ids: Vec<Uuid>,
+    /// The prescription issued, with what happened to the emailed copy, when one was given.
+    pub prescription: Option<IssuedPrescription>,
+    /// The link to hand over, when `prescription.share` was given.
+    pub share: Option<ShareLink>,
+    /// The follow-up planned, when `follow_up_on` was given.
+    pub follow_up: Option<Recall>,
+    /// The draft bill started, when `fee_paise` was given.
+    pub invoice: Option<Invoice>,
+}
+
+/// Finishes a visit in one transaction: issues the given draft prescription (the server's allergy
+/// check runs; alerts need an `override_reason`), signs the caller's own draft notes, plans the
+/// follow-up, starts the draft bill and closes the visit. Either everything happens or nothing
+/// does. A visit that is already closed answers `409` with code `visit_closed`; an allergy alert
+/// without an override reason answers `409` with code `allergy_alerts` and changes nothing.
+#[utoipa::path(
+    post,
+    path = "/api/v1/visits/{id}/finish",
+    operation_id = "finishVisit",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The visit")),
+    request_body = Option<FinishRequest>,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = FinishedVisit),
+        (status = 400, description = "A bad date, fee, note or override reason, or a prescription that isn't a draft of this visit's patient"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write, or prescriptions.issue, patients.write or billing.write for what was asked"),
+        (status = 404, description = "No such visit or prescription in this clinic"),
+        (status = 409, body = IssueBlocked, description = "`visit_closed` (the visit is already closed), or `allergy_alerts` (the alerts need an override reason, with the alerts in the body)")
+    )
+)]
+pub(crate) async fn finish(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    body: Bytes,
+) -> Result<Response, ApiFailure> {
+    let body: FinishRequest = optional_body(&body)?;
+    let prescription = body
+        .prescription
+        .map(|rx| {
+            let share = rx
+                .share
+                .map(|share| ShareOptions::parse(share.channel.as_deref(), share.expires_in_hours))
+                .transpose()?;
+            Ok::<_, aarogyam_app::AppError>(FinishRx {
+                id: PrescriptionId::from_uuid(rx.id),
+                override_reason: rx.override_reason,
+                notify_patient: rx.notify_patient.unwrap_or(true),
+                share,
+            })
+        })
+        .transpose()?;
+    let wrap_up = CloseRequest {
+        follow_up_on: body.follow_up_on,
+        fee_paise: body.fee_paise,
+        note: body.note,
+    }
+    .wrap_up()?;
+    let outcome = finish::finish(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        EncounterId::from_uuid(id),
+        Finish {
+            sign_notes: body.sign_notes.unwrap_or(true),
+            prescription,
+            wrap_up,
+        },
+        state.allergies(),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(match outcome {
+        FinishOutcome::Finished(done) => {
+            let done = *done;
+            tracing::info!(event = Event::VisitClosed.as_str(), visit_id = %id, "visit finished");
+            let (prescription, share) = match done.prescription {
+                Some(issued) => {
+                    if !issued.prescription.alerts.is_empty() {
+                        tracing::info!(event = Event::PrescriptionAlertOverridden.as_str(), prescription_id = %issued.prescription.id.uuid(), "allergy alert overridden");
+                    }
+                    tracing::info!(event = Event::PrescriptionIssued.as_str(), prescription_id = %issued.prescription.id.uuid(), "prescription issued");
+                    (
+                        Some(IssuedPrescription {
+                            prescription: Prescription::from(*issued.prescription),
+                            patient_message: PatientMessage::from(issued.sharing),
+                        }),
+                        issued.share.map(ShareLink::from),
+                    )
+                }
+                None => (None, None),
+            };
+            Json(FinishedVisit {
+                visit: done.visit.into(),
+                signed_note_ids: done
+                    .signed_note_ids
+                    .into_iter()
+                    .map(ClinicalNoteId::uuid)
+                    .collect(),
+                unsigned_note_ids: done
+                    .unsigned_note_ids
+                    .into_iter()
+                    .map(ClinicalNoteId::uuid)
+                    .collect(),
+                prescription,
+                share,
+                follow_up: done.wrap_up.follow_up.map(Recall::from),
+                invoice: done.wrap_up.invoice.map(Invoice::from),
+            })
+            .into_response()
+        }
+        FinishOutcome::NeedsOverride(alerts) => (
+            StatusCode::CONFLICT,
+            Json(IssueBlocked {
+                code: "allergy_alerts".into(),
+                alerts: alerts.into_iter().map(Alert::from).collect(),
+            }),
+        )
+            .into_response(),
+    })
 }
 
 /// A note's content. Sections are replaced as a whole when editing.

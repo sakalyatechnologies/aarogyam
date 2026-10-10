@@ -29,6 +29,9 @@ pub enum AppError {
     /// the same content is a retry and succeeds; this is for anything else.
     #[error("that id is already used by a different record")]
     IdConflict,
+    /// The visit is closed, so it can't be finished again. Retrying changes nothing.
+    #[error("this visit is already closed")]
+    VisitClosed,
     /// The client's `If-Match` names an older version than the record has: it changed since the
     /// client read it.
     #[error("the record changed since it was read")]

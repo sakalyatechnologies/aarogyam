@@ -51,6 +51,7 @@ import {
   type FakeRoom,
   type FakeRxItem,
   type FakeShareLink,
+  type FakeMedicineSet,
   type FakeUser,
   type FakeVisit,
   type Fixtures,
@@ -439,6 +440,187 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       return localClock(clock(), clinic.timezone).date;
     }
 
+    /** Closes a visit and finishes the queue token it was started from. */
+    function closeFakeVisit(found: FakeVisit): void {
+      found.status = "closed";
+      found.ended_at = clock().toISOString();
+      const linked = state.queueTokens.find((t) => t.id === found.queue_token_id);
+      if (linked !== undefined && (linked.status === "waiting" || linked.status === "in_chair")) {
+        linked.status = "done";
+        linked.called_at ??= found.ended_at;
+        linked.done_at = found.ended_at;
+      }
+    }
+
+    interface WrapUp {
+      followUpOn: string | null;
+      feePaise: number | null;
+      note: string | null;
+    }
+
+    /** Checks the follow-up, fee and note a close or finish may carry, as the server does. */
+    function checkWrapUp(
+      caller: Caller,
+      input: { follow_up_on?: string | null | undefined; fee_paise?: number | null | undefined; note?: string | null | undefined },
+    ): WrapUp | Outcome {
+      const permissions = caller.membership.role.permissions;
+      const followUpOn = input.follow_up_on?.trim() === "" ? null : (input.follow_up_on?.trim() ?? null);
+      if (followUpOn !== null) {
+        if (!hasPermission(permissions, "patients.write")) {
+          return refuse(403, "forbidden", "You don't have permission to do that.");
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(followUpOn) || Number.isNaN(Date.parse(followUpOn))) {
+          return invalid("follow_up_on", "must be a date like 2026-10-14");
+        }
+        if (followUpOn < clinicToday(caller.clinic)) {
+          return invalid("follow_up_on", "must not be in the past");
+        }
+      }
+      const feePaise = input.fee_paise ?? null;
+      if (feePaise !== null) {
+        if (!hasPermission(permissions, "billing.write")) {
+          return refuse(403, "forbidden", "You don't have permission to do that.");
+        }
+        if (!Number.isInteger(feePaise) || feePaise <= 0) {
+          return invalid("fee_paise", "must be more than 0");
+        }
+      }
+      const note = input.note?.trim() === "" ? null : (input.note?.trim() ?? null);
+      if (note !== null && note.length > 300) {
+        return invalid("note", "must be at most 300 characters");
+      }
+      return { followUpOn, feePaise, note };
+    }
+
+    /** Plans the follow-up and starts the draft bill a wrap-up asks for. */
+    function applyWrapUp(caller: Caller, found: FakeVisit, wrap: WrapUp): { follow_up: C.Recall | null; invoice: C.Invoice | null } {
+      let followUp: C.Recall | null = null;
+      if (wrap.followUpOn !== null) {
+        followUp = {
+          id: fakeUuid(random, clock()),
+          patient: patientRefFor(state, found.patient_id),
+          kind: "follow_up",
+          reason: wrap.note ?? `Follow-up after visit ${found.number}`,
+          due_on: wrap.followUpOn,
+          status: "open",
+          done_at: null,
+        };
+      }
+      let bill: C.Invoice | null = null;
+      if (wrap.feePaise !== null) {
+        const built = buildInvoiceLine(1, { description: "Consultation", quantity: 1, unit_price_paise: wrap.feePaise, gst_rate: 0 }, []);
+        if ("line" in built) {
+          const record: FakeInvoice = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            patient_id: found.patient_id,
+            status: "draft",
+            encounter_id: found.id,
+            items: [built.line],
+            notes: followUp === null ? wrap.note : null,
+            place_of_supply: null,
+            replaces_invoice_id: null,
+            created_at: clock().toISOString(),
+          };
+          state.invoices.push(record);
+          bill = wireInvoice(record, state, false);
+        }
+      }
+      return { follow_up: followUp, invoice: bill };
+    }
+
+    /** Checks a share body: 24 to 720 hours (seven days when left out) and a known channel (`link` when left out). */
+    function checkShare(input: C.ShareRequest | undefined): { hours: number; channel: string } | Outcome {
+      const hours = input?.expires_in_hours ?? 168;
+      if (!Number.isInteger(hours) || hours < 24 || hours > 720) {
+        return invalid("expires_in_hours", "must be 24 to 720");
+      }
+      const channel = input?.channel ?? "link";
+      if (!["whatsapp", "sms", "qr", "link"].includes(channel)) {
+        return invalid("channel", "must be whatsapp, sms, qr or link");
+      }
+      return { hours, channel };
+    }
+
+    /** Makes a link to an issued prescription, valid for the hours asked (seven days by default). */
+    function makePrescriptionLink(id: string, input: C.ShareRequest | undefined, opts: { signal?: AbortSignal | undefined } | undefined): Promise<ApiResult<S.ShareLink>> {
+      return respond(S.shareLink, opts?.signal, async () => {
+        const caller = await inClinic("prescriptions.issue");
+        if (!isCaller(caller)) {
+          return caller;
+        }
+        const share = checkShare(input);
+        if ("ok" in share) {
+          return share;
+        }
+        const found = state.prescriptions.find((rx) => rx.id === id && rx.clinic_id === caller.clinic.id);
+        if (found === undefined) {
+          return notFound;
+        }
+        if (found.status !== "issued") {
+          return refuse(409, "conflict", "not issued");
+        }
+        const now = clock();
+        const link: FakeShareLink = {
+          id: fakeUuid(random, now),
+          clinic_id: caller.clinic.id,
+          prescription_id: found.id,
+          channel: share.channel,
+          token: random.hex(32),
+          pin: String(random.int(100_000, 999_999)),
+          created_at: now.toISOString(),
+          expires_at: new Date(now.getTime() + share.hours * 3_600_000).toISOString(),
+          failed_attempts: 0,
+          locked: false,
+        };
+        state.shareLinks.push(link);
+        const message: C.ShareMessage | null = share.channel === "whatsapp" || share.channel === "sms" ? { status: "queued" } : null;
+        return reply({ id: link.id, token: link.token, pin: link.pin, expires_at: link.expires_at, channel: share.channel, message } satisfies C.ShareLink);
+      });
+    }
+
+    function medicineSetsOf(clinicId: string): FakeMedicineSet[] {
+      return (state.medicineSets ?? []).filter((m) => m.clinic_id === clinicId);
+    }
+
+    function wireMedicineSet(m: FakeMedicineSet): C.MedicineSet {
+      return { id: m.id, label: m.label, items: m.items, created_at: m.created_at, updated_at: m.updated_at };
+    }
+
+    /** Checks a medicine set's label and medicines. */
+    function checkMedicineSet(input: C.MedicineSetValues, clinicId: string, exceptId: string | null): { label: string; items: C.QuickSetMedicine[] } | Outcome {
+      const label = input.label.trim();
+      if (label === "" || label.length > 80 || label.includes("\n")) {
+        return invalid("label", "write a one-line label of 1 to 80 characters");
+      }
+      if (input.items.length < 1 || input.items.length > 20) {
+        return invalid("items", "list 1 to 20 medicines");
+      }
+      const items: C.QuickSetMedicine[] = [];
+      for (const item of input.items) {
+        for (const [field, value] of [
+          ["items.drug_name", item.drug_name],
+          ["items.strength", item.strength],
+          ["items.form", item.form],
+          ["items.dose", item.dose],
+          ["items.frequency", item.frequency],
+        ] as const) {
+          if (value.trim() === "") {
+            return invalid(field, "must not be empty");
+          }
+        }
+        if (item.duration_days != null && (item.duration_days < 1 || item.duration_days > 365)) {
+          return invalid("items.duration_days", "must be 1 to 365");
+        }
+        items.push({ ...item, drug_name: item.drug_name.trim() });
+      }
+      const taken = medicineSetsOf(clinicId).some((m) => m.id !== exceptId && m.label.toLowerCase() === label.toLowerCase());
+      if (taken) {
+        return refuse(409, "conflict", "A set with that label exists.");
+      }
+      return { label, items };
+    }
+
     function clinicLevels(clinic: FakeClinic): C.StockLevel[] {
       const today = clinicToday(clinic);
       return state.inventoryItems.filter((i) => i.clinic_id === clinic.id).map((i) => levelOf(i, state.stockBatches, today));
@@ -521,7 +703,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
     const clinicPatients = (caller: Caller) => state.patients.filter((p) => p.clinic_id === caller.clinic.id && p.status !== "merged");
 
-    return {
+    const api: ApiClient = {
       getMe: (opts) =>
         respond(S.meResponse, opts?.signal, async () => {
           const id = await subject();
@@ -2164,20 +2346,267 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (found.status === "closed") {
             return refuse(409, "conflict", "That visit is already closed.");
           }
-          found.status = "closed";
-          found.ended_at = clock().toISOString();
-          // A visit started from the queue finishes its token.
-          const linked = state.queueTokens.find((t) => t.id === found.queue_token_id);
-          if (linked !== undefined && (linked.status === "waiting" || linked.status === "in_chair")) {
-            linked.status = "done";
-            linked.called_at ??= found.ended_at;
-            linked.done_at = found.ended_at;
-          }
+          closeFakeVisit(found);
           const wired = wireVisit(found, state);
           if (wired === undefined) {
             return notFound;
           }
           return reply(wired satisfies C.Visit);
+        }),
+
+      closeVisitWith: (id, input, opts) =>
+        respond(S.closedVisit, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const wrap = checkWrapUp(caller, input);
+          if ("ok" in wrap) {
+            return wrap;
+          }
+          const found = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status === "closed") {
+            return refuse(409, "visit_closed", "That visit is already closed.");
+          }
+          const made = applyWrapUp(caller, found, wrap);
+          closeFakeVisit(found);
+          const wired = wireVisit(found, state);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply({ ...wired, follow_up: made.follow_up, invoice: made.invoice } satisfies C.ClosedVisit);
+        }),
+
+      finishVisit: (id, input, opts) =>
+        respond(S.finishedVisit, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const body = input ?? {};
+          if (body.prescription != null && !hasPermission(caller.membership.role.permissions, "prescriptions.issue")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const wrap = checkWrapUp(caller, body);
+          if ("ok" in wrap) {
+            return wrap;
+          }
+          const found = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status === "closed") {
+            return refuse(409, "visit_closed", "That visit is already closed.");
+          }
+          let issued: C.IssuedPrescription | null = null;
+          let shared: C.ShareLink | null = null;
+          if (body.prescription != null) {
+            const draft = state.prescriptions.find((rx) => rx.id === body.prescription?.id && rx.clinic_id === caller.clinic.id);
+            if (draft === undefined) {
+              return notFound;
+            }
+            const share = body.prescription.share === undefined || body.prescription.share === null ? undefined : checkShare(body.prescription.share);
+            if (share !== undefined && "ok" in share) {
+              return share;
+            }
+            const result = await api.issuePrescription(
+              S.prescriptionId.parse(draft.id),
+              {
+                ...(body.prescription.override_reason == null ? {} : { override_reason: body.prescription.override_reason }),
+                notify_patient: body.prescription.notify_patient ?? true,
+              },
+              opts,
+            );
+            if (!result.ok) {
+              return result.error.alerts === undefined
+                ? refuse(result.error.status, result.error.code, result.error.message)
+                : { ok: false, status: 409, body: { code: result.error.code, alerts: result.error.alerts } };
+            }
+            issued = result.value;
+            if (body.prescription.share != null) {
+              const made = await api.createShareLinkWith(S.prescriptionId.parse(draft.id), body.prescription.share, opts);
+              if (made.ok) {
+                shared = made.value;
+              }
+            }
+          }
+          const signed: string[] = [];
+          const unsigned: string[] = [];
+          for (const note of state.notes.filter((n) => n.visit_id === found.id && n.clinic_id === caller.clinic.id && n.status === "draft")) {
+            const hasContent = [note.sections.subjective, note.sections.objective, note.sections.assessment, note.sections.plan].some(
+              (section) => section != null && section.trim() !== "",
+            );
+            if (body.sign_notes !== false && note.author_membership_id === caller.membership.id && hasContent) {
+              const now = clock().toISOString();
+              note.status = "signed";
+              note.signed_at = now;
+              note.updated_at = now;
+              signed.push(note.id);
+            } else {
+              unsigned.push(note.id);
+            }
+          }
+          const made = applyWrapUp(caller, found, wrap);
+          closeFakeVisit(found);
+          const wired = wireVisit(found, state);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply({
+            visit: wired,
+            signed_note_ids: signed,
+            unsigned_note_ids: unsigned,
+            prescription: issued,
+            share: shared,
+            follow_up: made.follow_up,
+            invoice: made.invoice,
+          } satisfies C.FinishedVisit);
+        }),
+
+      shareVisit: (id, input, opts) =>
+        respond(S.visitLink, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const share = checkShare(input);
+          if ("ok" in share) {
+            return share;
+          }
+          const found = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const now = clock();
+          const link: FakeShareLink = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            prescription_id: null,
+            encounter_id: found.id,
+            channel: share.channel,
+            token: random.hex(32),
+            pin: String(random.int(100_000, 999_999)),
+            created_at: now.toISOString(),
+            expires_at: new Date(now.getTime() + share.hours * 3_600_000).toISOString(),
+            failed_attempts: 0,
+            locked: false,
+          };
+          state.shareLinks.push(link);
+          return reply({ id: link.id, token: link.token, pin: link.pin, expires_at: link.expires_at, channel: share.channel } satisfies C.VisitLink);
+        }),
+
+      openSharedVisit: (token, pin, opts) =>
+        respond(S.visitSummary, opts?.signal, () => {
+          const link = state.shareLinks.find((l) => l.token === token && l.encounter_id != null);
+          const found = link === undefined ? undefined : state.visits.find((v) => v.id === link.encounter_id);
+          if (link === undefined || found === undefined) {
+            return notFound;
+          }
+          if (new Date(link.expires_at) < clock()) {
+            return refuse(410, "expired", "This link has expired.");
+          }
+          if (link.locked) {
+            return refuse(423, "locked", "This link is locked after too many wrong PINs.");
+          }
+          if (link.pin !== pin) {
+            link.failed_attempts += 1;
+            const left = Math.max(0, 5 - link.failed_attempts);
+            if (left === 0) {
+              link.locked = true;
+              return refuse(423, "locked", "Too many wrong PINs. Ask the clinic for a new link.");
+            }
+            return refuse(403, "forbidden", `Wrong PIN. ${String(left)} ${left === 1 ? "try" : "tries"} left.`);
+          }
+          link.failed_attempts = 0;
+          const clinic = state.clinics.find((c) => c.id === link.clinic_id);
+          const patient = state.patients.find((p) => p.id === found.patient_id);
+          const doctor = memberRefOf(state, found.clinician_membership_id);
+          return reply({
+            clinic_name: clinic?.name ?? "",
+            patient_name: patient?.full_name ?? "",
+            visit_number: found.number,
+            visited_on: found.started_at.slice(0, 10),
+            doctor_name: doctor?.name ?? null,
+            treatments: state.procedures
+              .filter((p) => p.visit_id === found.id && p.status === "done")
+              .map((p) => ({ name: p.name, tooth: p.tooth ?? null })),
+            follow_up_on: null,
+            booking_path: null,
+            booking_host: null,
+            expires_at: link.expires_at,
+          } satisfies C.VisitSummary);
+        }),
+
+      listMedicineSets: (opts) =>
+        respond(S.savedMedicineSetList, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const perms = caller.membership.role.permissions;
+          if (!hasPermission(perms, "prescriptions.issue") && !hasPermission(perms, "clinical.read")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          return reply({ items: medicineSetsOf(caller.clinic.id).map(wireMedicineSet) } satisfies C.MedicineSetList);
+        }),
+
+      createMedicineSet: (input, opts) =>
+        respond(S.savedMedicineSet, opts?.signal, async () => {
+          const caller = await inClinic("prescriptions.issue");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const checked = checkMedicineSet(input, caller.clinic.id, null);
+          if ("ok" in checked) {
+            return checked;
+          }
+          const now = clock().toISOString();
+          const record: FakeMedicineSet = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            label: checked.label,
+            items: checked.items,
+            created_at: now,
+            updated_at: now,
+          };
+          state.medicineSets = [...(state.medicineSets ?? []), record];
+          return reply(wireMedicineSet(record) satisfies C.MedicineSet);
+        }),
+
+      updateMedicineSet: (id, input, opts) =>
+        respond(S.savedMedicineSet, opts?.signal, async () => {
+          const caller = await inClinic("prescriptions.issue");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = medicineSetsOf(caller.clinic.id).find((m) => m.id === id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const checked = checkMedicineSet(input, caller.clinic.id, found.id);
+          if ("ok" in checked) {
+            return checked;
+          }
+          found.label = checked.label;
+          found.items = checked.items;
+          found.updated_at = clock().toISOString();
+          return reply(wireMedicineSet(found) satisfies C.MedicineSet);
+        }),
+
+      deleteMedicineSet: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("prescriptions.issue");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!medicineSetsOf(caller.clinic.id).some((m) => m.id === id)) {
+            return notFound;
+          }
+          state.medicineSets = (state.medicineSets ?? []).filter((m) => m.id !== id);
+          return { ok: true, body: undefined };
         }),
 
       createNote: (visitIdValue, content, opts) =>
@@ -2597,10 +3026,36 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return invalid("entries", "give 1 to 64 entries");
           }
           const now = clock().toISOString();
+          const currentChart = () =>
+            reply({
+              current: state.chartEntries.filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.status === "current").map((c) => wireChartEntry(c, state)),
+              history: [],
+              terms: clinicTerms(state.dentalTerms, caller.clinic.id),
+            } satisfies C.DentalChart);
+          if (input.client_id != null) {
+            const key = `${caller.clinic.id}:${input.client_id}`;
+            const fingerprint = JSON.stringify([id, input.entries]);
+            const seen = state.chartClientIds?.[key];
+            if (seen !== undefined) {
+              // A retry of the same request returns the chart as it stands; another request is a clash.
+              return seen === fingerprint ? currentChart() : refuse(409, "id_conflict", "That client_id made other entries.");
+            }
+            state.chartClientIds = { ...state.chartClientIds, [key]: fingerprint };
+          }
           for (const entry of input.entries) {
             const findingParsed = S.chartFinding.safeParse(entry.finding);
             if (!findingParsed.success) {
               return invalid("finding", "unknown finding");
+            }
+            const canals = entry.canals ?? [];
+            if (findingParsed.data !== "root_canal" && (canals.length > 0 || entry.sitting != null)) {
+              return invalid("canals", "canals and sitting belong to a root_canal finding");
+            }
+            if (canals.length > 8 || new Set(canals.map((c) => c.name.trim().toLowerCase())).size !== canals.length || canals.some((c) => c.name.trim() === "" || (c.working_length_mm != null && c.working_length_mm <= 0))) {
+              return invalid("canals", "give up to 8 distinct canals, each with a name and a positive working length");
+            }
+            if (entry.sitting != null && (!Number.isInteger(entry.sitting) || entry.sitting < 1 || entry.sitting > 20)) {
+              return invalid("sitting", "must be 1 to 20");
             }
             const terms = clinicTerms(state.dentalTerms, caller.clinic.id);
             for (const kind of ["procedure", "material"] as const) {
@@ -2639,6 +3094,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               supersedes_id: existing?.id ?? null,
               visit_id: input.visit_id ?? null,
               effective_at: now,
+              canals: canals.map((c) => ({ name: c.name.trim(), working_length_mm: c.working_length_mm ?? null })),
+              sitting: entry.sitting ?? null,
             };
             state.chartEntries.push(record);
           }
@@ -4837,34 +5294,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           } satisfies C.Cancelled);
         }),
 
-      createShareLink: (id, opts) =>
-        respond(S.shareLink, opts?.signal, async () => {
-          const caller = await inClinic("prescriptions.issue");
-          if (!isCaller(caller)) {
-            return caller;
-          }
-          const found = state.prescriptions.find((rx) => rx.id === id && rx.clinic_id === caller.clinic.id);
-          if (found === undefined) {
-            return notFound;
-          }
-          if (found.status !== "issued") {
-            return refuse(409, "conflict", "not issued");
-          }
-          const now = clock();
-          const link: FakeShareLink = {
-            id: fakeUuid(random, now),
-            clinic_id: caller.clinic.id,
-            prescription_id: found.id,
-            token: random.hex(32),
-            pin: String(random.int(100_000, 999_999)),
-            created_at: now.toISOString(),
-            expires_at: new Date(now.getTime() + 7 * 86_400_000).toISOString(),
-            failed_attempts: 0,
-            locked: false,
-          };
-          state.shareLinks.push(link);
-          return reply({ id: link.id, token: link.token, pin: link.pin, expires_at: link.expires_at } satisfies C.ShareLink);
-        }),
+      createShareLink: (id, opts) => makePrescriptionLink(id, undefined, opts),
+
+      createShareLinkWith: (id, input, opts) => makePrescriptionLink(id, input, opts),
 
       getSharedPreview: (token, opts) =>
         respond(S.sharedPreview, opts?.signal, () => {
@@ -4876,7 +5308,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           const now = clock();
           const linkState = link.locked ? "locked" : new Date(link.expires_at) < now ? "expired" : "usable";
           return reply({
-            resource: "prescription",
+            resource: link.encounter_id == null ? "prescription" : "visit",
             state: linkState,
             clinic_name: clinic?.name ?? "",
             expires_at: link.expires_at,
@@ -5578,9 +6010,11 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!hasPermission(perms, "patients.read") && !hasPermission(perms, "clinical.read")) {
             return refuse(403, "forbidden", "You don't have permission to do that.");
           }
-          return reply(QUICK_PICKS);
+          const own = medicineSetsOf(caller.clinic.id).map((m): C.QuickMedicineSet => ({ id: m.id, label: m.label, items: m.items, own: true }));
+          return reply({ ...QUICK_PICKS, medicine_sets: [...QUICK_PICKS.medicine_sets, ...own] } satisfies C.QuickPicks);
         }),
     };
+    return api;
   }
 
   return { client, users: () => state.users, platformUsers: () => state.platformUsers };
@@ -6342,6 +6776,8 @@ function wireChartEntry(c: FakeChartEntry, state: Fixtures): C.ChartEntry {
     supersedes_id: c.supersedes_id ?? null,
     visit_id: c.visit_id ?? null,
     effective_at: c.effective_at,
+    canals: c.canals ?? [],
+    sitting: c.sitting ?? null,
   };
 }
 

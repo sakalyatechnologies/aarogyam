@@ -65,6 +65,7 @@ pub mod analytics;
 pub mod avatar;
 pub mod billing;
 pub mod booking;
+pub mod campaign;
 pub mod chat;
 pub mod client;
 pub mod client_id;

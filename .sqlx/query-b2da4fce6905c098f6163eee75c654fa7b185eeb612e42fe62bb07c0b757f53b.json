@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with used as (\n             select exists (select 1 from aarogyam.campaigns c where c.audience_id = $1) as yes\n           ),\n           gone as (\n             delete from aarogyam.audiences a where a.id = $1 and not (select yes from used)\n             returning 1\n           )\n           select exists (select 1 from aarogyam.audiences where id = $1) as \"found!\",\n                  (select count(*) from gone) as \"gone!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "gone!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "b2da4fce6905c098f6163eee75c654fa7b185eeb612e42fe62bb07c0b757f53b"
+}

@@ -60,8 +60,16 @@ impl Notifier {
             .ok()
             .filter(|budget| *budget > 0)
             .unwrap_or(DEFAULT_WHATSAPP_DAILY_BUDGET);
-        let claimed =
-            dal::claim(db.pool(), "whatsapp", "meta", budget, BATCH, LEASE_SECONDS).await?;
+        let claimed = dal::claim(
+            db.pool(),
+            "whatsapp",
+            "meta",
+            budget,
+            BATCH,
+            LEASE_SECONDS,
+            self.campaigns_enabled,
+        )
+        .await?;
         for message in claimed {
             if message.deferred {
                 report.deferred += 1;

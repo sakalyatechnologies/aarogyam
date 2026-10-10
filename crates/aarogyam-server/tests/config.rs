@@ -276,3 +276,14 @@ fn local_marks_addresses_ready_without_cloudflare() {
         Ok(())
     });
 }
+
+#[test]
+fn campaigns_are_on_until_the_kill_switch_is_set() {
+    Jail::expect_with(|jail| {
+        set_required(jail);
+        assert!(load(NO_FILE).campaigns.enabled);
+        jail.set_env("ARO_CAMPAIGNS__ENABLED", "false");
+        assert!(!load(NO_FILE).campaigns.enabled);
+        Ok(())
+    });
+}

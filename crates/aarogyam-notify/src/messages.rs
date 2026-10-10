@@ -5,7 +5,9 @@
 
 use std::fmt::Write as _;
 
+use aarogyam_dal::campaigns;
 use aarogyam_dal::message_worker::{self as dal, ClaimedMessage, Dispatch};
+use aarogyam_domain::campaign::FAN_OUT_BATCH;
 use aarogyam_domain::consent::Purpose;
 use aarogyam_domain::event::Event;
 use aarogyam_domain::messaging::{
@@ -26,6 +28,8 @@ const BATCH: i32 = 50;
 const LEASE_SECONDS: i32 = 300;
 /// Most reminders one run queues.
 const REMINDER_BATCH: i32 = 200;
+/// Most campaign batches one run expands.
+const FAN_OUT_CALLS: usize = 20;
 
 /// What one run of the patient message step did.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -46,6 +50,10 @@ pub struct MessageReport {
     pub retrying: usize,
     /// Failed for the last time.
     pub failed: usize,
+    /// Campaign messages queued by this run's fan-out.
+    pub campaign_queued: i64,
+    /// Campaign recipients skipped by the weekly promotional cap.
+    pub campaign_capped: i64,
 }
 
 /// A new unsubscribe token and the SHA-256 (hex) it is stored under, as
@@ -128,6 +136,7 @@ impl Notifier {
             reminders_queued: dal::queue_reminders(db.pool(), now, REMINDER_BATCH).await?,
             ..MessageReport::default()
         };
+        self.fan_out_campaigns(db, &mut report).await?;
         let claimed = dal::claim(
             db.pool(),
             "email",
@@ -135,6 +144,7 @@ impl Notifier {
             self.daily_budget,
             BATCH,
             LEASE_SECONDS,
+            self.campaigns_enabled,
         )
         .await?;
         for message in claimed {
@@ -154,6 +164,32 @@ impl Notifier {
         }
         self.drain_whatsapp(db, now, &mut report).await?;
         Ok(report)
+    }
+
+    /// Expands due campaigns into messages, a batch of 500 recipients at a time, up to
+    /// [`FAN_OUT_CALLS`] batches a run. Nothing happens while the platform kill switch is off
+    /// (`ARO_CAMPAIGNS__ENABLED=false`): campaigns stay as they are and resume when it is on.
+    async fn fan_out_campaigns(&self, db: &Db, report: &mut MessageReport) -> Result<(), DbError> {
+        if !self.campaigns_enabled {
+            return Ok(());
+        }
+        for _ in 0..FAN_OUT_CALLS {
+            let Some(step) = campaigns::fan_out_next(db.pool(), FAN_OUT_BATCH).await? else {
+                break;
+            };
+            report.campaign_queued += i64::from(step.queued);
+            report.campaign_capped += i64::from(step.capped);
+            tracing::info!(
+                event = Event::CampaignFanOut.as_str(),
+                org_id = %step.org_id,
+                campaign_id = %step.campaign_id,
+                queued = step.queued,
+                capped = step.capped,
+                finished = step.finished,
+                "campaign recipients queued"
+            );
+        }
+        Ok(())
     }
 
     async fn handle(

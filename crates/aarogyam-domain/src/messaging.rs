@@ -70,6 +70,10 @@ text_value! {
         MarketingLimit => "marketing_limit",
         /// The provider can't deliver to this address.
         Undeliverable => "undeliverable",
+        /// The patient already had the clinic's weekly promotional limit when a campaign queued it.
+        FrequencyCap => "frequency_cap",
+        /// The campaign was cancelled before the message went.
+        CampaignCancelled => "campaign_cancelled",
     }
 }
 
@@ -379,7 +383,8 @@ pub const SYSTEM_VARIABLES: &[&str] = &["clinic_name", "booking_link"];
 #[must_use]
 pub fn allowed_variables(key: &str) -> &'static [&'static str] {
     match key {
-        "care.note" | "promo.offer" => &["clinic_name", "booking_link", "subject"],
+        "care.note" => &["clinic_name", "booking_link", "subject"],
+        "promo.offer" => &["clinic_name", "booking_link", "subject", "offer_text"],
         "reminder.follow_up" => &["clinic_name", "booking_link", "due_on"],
         "appointment.reminder" => &[
             "clinic_name",

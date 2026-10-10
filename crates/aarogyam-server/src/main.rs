@@ -391,6 +391,7 @@ fn notifier(config: &Config, local: bool) -> anyhow::Result<Notifier> {
     };
     let notifier = notifier
         .with_daily_budget(config.email.daily_budget)
+        .with_campaigns_enabled(config.campaigns.enabled)
         .with_whatsapp(whatsapp(config)?);
     Ok(match config.email.resend_webhook_secret.clone() {
         Some(secret) => notifier.with_resend_webhook_secret(secret),

@@ -16,6 +16,7 @@ pub mod attachments;
 pub mod avatars;
 pub mod billing;
 pub mod booking;
+pub mod campaigns;
 pub mod chart;
 pub mod chat;
 pub mod clinic;

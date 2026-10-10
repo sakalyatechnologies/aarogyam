@@ -38,6 +38,8 @@ text_value! {
         LabContacts => "lab_contacts",
         /// Message templates Meta rejected or paused and nobody has changed since.
         MessageTemplates => "message_templates",
+        /// Campaigns that were sent or cancelled and nobody has changed since.
+        Campaigns => "campaigns",
     }
 }
 
@@ -79,7 +81,8 @@ impl Class {
             | Self::ClinicApplications
             | Self::ChatMessages
             | Self::LabContacts
-            | Self::MessageTemplates => Period::Days(365),
+            | Self::MessageTemplates
+            | Self::Campaigns => Period::Days(365),
         }
     }
 
@@ -101,6 +104,7 @@ impl Class {
             Self::LabWork => "when the order was recorded",
             Self::LabContacts => "when the contact was removed",
             Self::MessageTemplates => "when the template last changed",
+            Self::Campaigns => "when the campaign last changed",
         }
     }
 

@@ -7,6 +7,7 @@ pub(crate) mod appointments;
 pub(crate) mod auth;
 pub(crate) mod avatars;
 pub(crate) mod billing;
+pub(crate) mod campaigns;
 pub(crate) mod chart;
 pub(crate) mod chat;
 pub(crate) mod check_in;
@@ -259,6 +260,26 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/templates/{id}", patch(message_templates::update))
         .route("/templates/{id}/submit", post(message_templates::submit))
+        // Audiences and campaigns (campaigns.manage: owners).
+        .route(
+            "/audiences",
+            get(campaigns::list_audiences).post(campaigns::create_audience),
+        )
+        .route("/audiences/preview", post(campaigns::preview))
+        .route(
+            "/audiences/{id}",
+            get(campaigns::get_audience)
+                .patch(campaigns::update_audience)
+                .delete(campaigns::delete_audience),
+        )
+        .route("/campaigns", get(campaigns::list).post(campaigns::create))
+        .route(
+            "/campaigns/{id}",
+            get(campaigns::get).patch(campaigns::update),
+        )
+        .route("/campaigns/{id}/schedule", post(campaigns::schedule))
+        .route("/campaigns/{id}/cancel", post(campaigns::cancel))
+        .route("/campaigns/{id}/test-send", post(campaigns::test_send))
         .route("/patients/{id}/legal-hold", put(legal_hold::set))
         .route(
             "/support-grants",

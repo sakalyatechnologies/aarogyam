@@ -2,6 +2,25 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-10: Campaigns
+
+**Decision.** An owner can send a promotional offer to an audience (migrations 0380 to 0383), backend only. `campaigns.manage` goes to owners (backfilled); direct sends to a few patients keep `messages.send`. Support never reads these tables (`no_support`), and campaigns write ordinary `messages`, so consent, opt-out and quiet hours stay in `app.message_dispatch` and are not repeated.
+
+- **Audiences** (`audiences`: name and one typed `filter`, evaluated when the campaign sends by `app.audience_patients`): all active, last visit before or after a date, birthday month, age band, sex, tag. Balance, treatment and visit-kind filters do not exist (purpose limitation: health and money data are not marketing data). A patient never seen matches neither last-visit bound; no birth date matches neither age nor birthday. `POST /audiences/preview` returns only `count`, `count_token` and `expires_at`.
+- **Count token.** `<expiry>.<sha256 hex>` over clinic, caller, canonical filter, count and expiry (15 minutes). `POST /campaigns/{id}/schedule {count_token}` recomputes the audience's count and the token; expired, stale (the count moved), another filter, or another caller is `409`, a malformed one `400`. It is a hash, not a keyed MAC: the server never trusts the client's count, so forging one gains nothing beyond skipping the preview. Move to an HMAC once a platform signing key exists.
+- **Campaigns** (name, audience, `promo.offer` template of the channel, `email` or `whatsapp`, `offer_text` one line up to 300 characters, `scheduled_at`, status draft, scheduled, sending, sent, cancelled). `offer_text` is allow-listed for `promo.offer` (`{{offer_text}}`) and is the email body; the name is the email subject. Only a draft changes; scheduling needs an approved template and a time not more than an hour past; a scheduled or sending campaign fixes its audience's filter and keeps it from being deleted. Cancelling skips queued messages (`campaign_cancelled`).
+- **Fan-out** is a step of the outbox job (`app.campaigns_fan_out_next`, 500 patients a call, at most 20 calls a run). It reads the audience after a stored cursor, queues `messages` with `dedupe_key` `campaign:<id>:<patient>` and purpose `promotional`, and moves the cursor in one transaction, so a crash loses nothing and a rerun, even from a lost cursor, queues nothing twice. The campaign is `sent` when every recipient is queued; sending goes on message by message.
+- **Caps** (from `org_settings.notifications`): `promo_per_patient_per_week` (default 2): a patient with that many promotional messages queued or sent in 7 days gets a message skipped as `frequency_cap`, so the count shows it. `promo_daily_cap` (default 200 a clinic a UTC day): the rest are scheduled for the next days with room, never dropped.
+- **Kill switch.** `ARO_CAMPAIGNS__ENABLED` (default true). False stops every fan-out and makes `app.messages_claim` leave campaign messages unclaimed (queued, leases included) until it is true again; other messages go on.
+- **Counts** are `group by status, skip_reason` over the campaign's messages (`GET /campaigns`, `GET /campaigns/{id}`); nothing is stored.
+- **Test-send** (`POST /campaigns/{id}/test-send`) emails the campaign to the caller's verified sign-in address (the token's, never one in the request) through the staff outbox as `campaign.test`: no patient, no `messages` row, not counted. `app_user` cannot read `users.email`, hence the token.
+- **API** (all `campaigns.manage`): `GET/POST /audiences`, `GET/PATCH/DELETE /audiences/{id}`, `POST /audiences/preview`, `GET/POST /campaigns`, `GET/PATCH /campaigns/{id}`, `POST /campaigns/{id}/schedule`, `/cancel`, `/test-send`.
+- **Data rules:** `audiences` (ephemeral, so an unused one can be deleted) and `campaigns` (mutable) have `org_id`, RLS, composite keys, the restrictive `patient_account` deny and `no_support`; neither holds a patient, so no erasure step (the messages are erased with the patient). `messages.campaign_id` is nullable and promotional only. Retention class `campaigns` (sent or cancelled, 365 days after the last change; report only).
+
+**Why.** The plan's T5: clinics want recall and festival offers, and the review replaced two-person approval with the count token, caps and the kill switch.
+
+**Not done.** The portal composer, cost shown before sending (WhatsApp marketing is about 88 paise), a settings screen for the caps, tag management, a keyed count token, WhatsApp campaigns until a `promo.offer` template is approved at Meta, and a delivery report beyond the counts.
+
 ## 2026-10-09: WhatsApp channel and message templates
 
 **Decision.** Patient messages can go on WhatsApp through Meta's Cloud API, approved templates only, from one shared Sakalya number for the pilot (migrations 0375 to 0377; setup, costs and steps in `docs/whatsapp.md`). It is off until credentials exist: `ARO_WHATSAPP__ENABLED` defaults to false, and WhatsApp messages are then skipped with `channel_disabled`, never failed.
@@ -447,6 +466,7 @@ What `own` means, per record:
 | `lab_work` | Lab orders with their items, history and payments | 8 years | Order recorded | The payments are clinic accounts (as bills); the orders describe work on a patient |
 | `lab_contacts` | People at labs, after the clinic removes them | 365 days | Removal | Business contacts, named with phone and email; not needed once removed |
 | `message_templates` | Message templates Meta rejected or paused | 365 days | Last change | No patient data; a dead template is clutter once nobody revisits it |
+| `campaigns` | Campaigns sent or cancelled | 365 days | Last change | No patient data (a name, a filter, an offer); the messages it made are the `messages` class |
 
 A clinic may keep records longer where its profession or a dispute requires; per-clinic overrides, and a legal hold that stops erasure of a patient, come before erasure is built (backlog). Consent records stay with the patient record and for 3 years after it.
 

@@ -36,6 +36,8 @@ export const PERMISSIONS = [
   "labs.read",
   /** Keep labs and contacts, record and move lab orders, remind a lab. */
   "labs.write",
+  /** Save audiences and run campaigns to patients. */
+  "campaigns.manage",
   /** Send patients email messages from the clinic (owner, doctor and front desk by default). */
   "messages.send",
 ] as const;

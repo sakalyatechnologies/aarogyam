@@ -57,6 +57,7 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 - From a patient (web and mobile): **Call** (phone dialler) and **WhatsApp** (opens a chat with the patient's number), logged on the patient's timeline without message content.
 - **Templates:** appointment reminder, follow-up, birthday, festivals and new year, plus **custom** text; placeholders (name, clinic, date) filled safely.
 - **Campaigns:** choose all, active, or filtered patients (last visit, treatment, age, birthday month) and send an offer, camp or greeting; opt-out honoured, quiet hours, preview and count before sending, delivery report.
+  **Status (10 Oct): built, backend only** (decisions.md, "Campaigns"): audiences (all active, last visit, birthday month, age band, sex, tag; no balance or treatment filters), a count-only preview with a count token, scheduling, batched fan-out, per-patient and per-clinic caps, a kill switch, counts by skip reason, test-send, owner-only `campaigns.manage`. Still to build: the portal composer and audience builder, cost shown before sending, a settings screen for the caps, tag management, a keyed token, WhatsApp campaigns once Meta approves a `promo.offer` template.
 - **Design notes:** WhatsApp Business API (Meta-approved templates for outbound) and SMS via the notification service and outbox (AGENTS.md rule 10, never direct from handlers); consent and opt-out stored per patient (DPDP); campaigns need a permission, rate limits and an audit; costs per message shown before sending.
 
 ## Staff chat (8 Oct 2026)

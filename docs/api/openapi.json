@@ -495,6 +495,267 @@
         ]
       }
     },
+    "/api/v1/audiences": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "The clinic's saved audiences.",
+        "operationId": "listAudiences",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Audiences"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Saves an audience.",
+        "operationId": "createAudience",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveAudience"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Audience"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad name or filter"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/audiences/preview": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Counts an audience without naming anyone.",
+        "operationId": "previewAudience",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewAudience"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudiencePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad filter"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/audiences/{id}": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "One audience.",
+        "operationId": "getAudience",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The audience",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Audience"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such audience in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Deletes an audience no campaign uses.",
+        "operationId": "deleteAudience",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The audience",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such audience in this clinic"
+          },
+          "409": {
+            "description": "A campaign uses it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Renames an audience or changes its filter.",
+        "operationId": "updateAudience",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The audience",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchAudience"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Audience"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad name or filter"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such audience in this clinic"
+          },
+          "409": {
+            "description": "A scheduled or sending campaign uses its filter"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/auth/handoff": {
       "post": {
         "tags": [
@@ -613,6 +874,337 @@
             "description": "Not a valid link for a photo of this clinic"
           }
         }
+      }
+    },
+    "/api/v1/campaigns": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "The clinic's campaigns with counts.",
+        "operationId": "listCampaigns",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaigns"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Saves a draft campaign.",
+        "operationId": "createCampaign",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCampaign"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad text, channel, time or template"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "The audience or template isn't this clinic's"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/campaigns/{id}": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "One campaign with counts.",
+        "operationId": "getCampaign",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The campaign",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such campaign in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Changes a draft campaign.",
+        "operationId": "updateCampaign",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The campaign",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCampaign"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad text, channel, time or template"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such campaign, audience or template in this clinic"
+          },
+          "409": {
+            "description": "It isn't a draft"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/campaigns/{id}/cancel": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Cancels a campaign that hasn't finished; its queued messages are skipped.",
+        "operationId": "cancelCampaign",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The campaign",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such campaign in this clinic"
+          },
+          "409": {
+            "description": "Already sent or cancelled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/campaigns/{id}/schedule": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Schedules a draft. The token must be a preview of the audience as it is now and unexpired.",
+        "operationId": "scheduleCampaign",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The campaign",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleCampaign"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No time set, an unapproved template or a malformed token"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such campaign in this clinic"
+          },
+          "409": {
+            "description": "Not a draft, or the count token is expired, stale or another filter's"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/campaigns/{id}/test-send": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Emails the campaign to the caller's own address (the verified email of their sign-in, never\none from the request), through the staff outbox: no patient is involved and nothing is\ncounted.",
+        "operationId": "testSendCampaign",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The campaign",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Queued to the caller's own email"
+          },
+          "400": {
+            "description": "The caller's sign-in has no verified email address"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such campaign in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
       }
     },
     "/api/v1/client-errors": {
@@ -14849,6 +15441,144 @@
           }
         }
       },
+      "Audience": {
+        "type": "object",
+        "description": "A saved audience.",
+        "required": [
+          "id",
+          "name",
+          "filter",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was made (RFC 3339)."
+          },
+          "filter": {
+            "$ref": "#/components/schemas/AudienceFilterBody",
+            "description": "Its filter, evaluated when a campaign sends."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          }
+        }
+      },
+      "AudienceFilterBody": {
+        "type": "object",
+        "description": "One audience filter: `kind` and the fields it takes, nothing else.",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "after": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`last_visit`: last visit on or after this date. A patient never seen matches neither."
+          },
+          "before": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`last_visit`: last visit before this date (`YYYY-MM-DD`)."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`all_active`, `last_visit`, `birthday_month`, `age_band`, `sex` or `tag`. Balance,\ntreatment and visit-kind filters don't exist."
+          },
+          "max": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "`age_band`: oldest age in whole years."
+          },
+          "min": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "`age_band`: youngest age in whole years."
+          },
+          "month": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "`birthday_month`: 1 to 12."
+          },
+          "sex": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`sex`: `female`, `male`, `other` or `unknown`."
+          },
+          "tag": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`tag`: a patient tag."
+          }
+        }
+      },
+      "AudiencePreview": {
+        "type": "object",
+        "description": "How many patients a filter matches, and a token to schedule with.",
+        "required": [
+          "count",
+          "count_token",
+          "expires_at"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Active patients matching now. Consent, opt-outs and quiet hours apply when each message\nis sent, so fewer may be reached."
+          },
+          "count_token": {
+            "type": "string",
+            "description": "Hand it back to `POST /campaigns/{id}/schedule`: it proves this filter and this count."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When the token stops working (RFC 3339)."
+          }
+        }
+      },
+      "Audiences": {
+        "type": "object",
+        "description": "The clinic's audiences.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Audience"
+            },
+            "description": "Newest first, up to 200."
+          }
+        }
+      },
       "Availability": {
         "type": "object",
         "description": "Free slots.",
@@ -15133,6 +15863,126 @@
             "format": "int32",
             "description": "ISO weekday: 1 Monday to 7 Sunday.",
             "minimum": 0
+          }
+        }
+      },
+      "Campaign": {
+        "type": "object",
+        "description": "A campaign with the outcome of its messages.",
+        "required": [
+          "id",
+          "name",
+          "audience_id",
+          "template_id",
+          "channel",
+          "offer_text",
+          "status",
+          "created_at",
+          "updated_at",
+          "counts"
+        ],
+        "properties": {
+          "audience_id": {
+            "type": "string",
+            "description": "Its audience."
+          },
+          "cancelled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was cancelled (RFC 3339)."
+          },
+          "channel": {
+            "type": "string",
+            "description": "`email` or `whatsapp`."
+          },
+          "counts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageCount"
+            },
+            "description": "Its messages by status and skip reason, counted when asked."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was made (RFC 3339)."
+          },
+          "created_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who made it."
+          },
+          "fan_out_done_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the last recipient was queued (RFC 3339)."
+          },
+          "fan_out_started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When recipients began to be queued (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name; also the email subject."
+          },
+          "offer_text": {
+            "type": "string",
+            "description": "The offer, filled into the template's `{{offer_text}}` and the email body."
+          },
+          "scheduled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it goes (RFC 3339)."
+          },
+          "scheduled_count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The audience size the owner saw when scheduling."
+          },
+          "status": {
+            "type": "string",
+            "description": "`draft`, `scheduled`, `sending`, `sent` or `cancelled`."
+          },
+          "template_id": {
+            "type": "string",
+            "description": "Its `promo.offer` template."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          }
+        }
+      },
+      "Campaigns": {
+        "type": "object",
+        "description": "The clinic's campaigns.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Campaign"
+            },
+            "description": "Newest first, up to 100."
           }
         }
       },
@@ -17031,6 +17881,46 @@
           }
         }
       },
+      "CreateCampaign": {
+        "type": "object",
+        "description": "A draft campaign to save.",
+        "required": [
+          "name",
+          "audience_id",
+          "template_id",
+          "channel",
+          "offer_text"
+        ],
+        "properties": {
+          "audience_id": {
+            "type": "string",
+            "description": "A saved audience."
+          },
+          "channel": {
+            "type": "string",
+            "description": "`email` or `whatsapp`."
+          },
+          "name": {
+            "type": "string",
+            "description": "One line of 1 to 120 characters; also the email subject."
+          },
+          "offer_text": {
+            "type": "string",
+            "description": "One line of 1 to 300 characters."
+          },
+          "scheduled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When to send (RFC 3339); needed before scheduling."
+          },
+          "template_id": {
+            "type": "string",
+            "description": "The clinic's `promo.offer` template for the channel."
+          }
+        }
+      },
       "CreateMessageTemplate": {
         "type": "object",
         "description": "A template to add: another language or channel for a known key.",
@@ -17332,6 +18222,8 @@
           "messages_deferred",
           "messages_retrying",
           "messages_failed",
+          "campaign_messages_queued",
+          "campaign_recipients_capped",
           "lab_reminders_queued",
           "lab_reminders_skipped",
           "lab_orders_overdue"
@@ -17370,6 +18262,16 @@
             "type": "integer",
             "description": "Reminders written to the clinic inbox.",
             "minimum": 0
+          },
+          "campaign_messages_queued": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Campaign messages queued by this run's fan-out."
+          },
+          "campaign_recipients_capped": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Campaign recipients skipped by the weekly promotional cap."
           },
           "claimed": {
             "type": "integer",
@@ -20780,6 +21682,32 @@
           }
         }
       },
+      "MessageCount": {
+        "type": "object",
+        "description": "One group of a campaign's messages.",
+        "required": [
+          "status",
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many."
+          },
+          "skip_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why they were skipped: `no_consent`, `consent_withdrawn`, `opted_out`, `frequency_cap`..."
+          },
+          "status": {
+            "type": "string",
+            "description": "`queued`, `sending`, `sent`, `failed` or `skipped`."
+          }
+        }
+      },
       "MessageList": {
         "type": "object",
         "description": "A patient's messages, newest first.",
@@ -23042,6 +23970,78 @@
           }
         }
       },
+      "PatchAudience": {
+        "type": "object",
+        "description": "Changes to an audience; absent fields stay.",
+        "properties": {
+          "filter": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AudienceFilterBody",
+                "description": "New filter; refused while a scheduled or sending campaign uses the audience."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New name."
+          }
+        }
+      },
+      "PatchCampaign": {
+        "type": "object",
+        "description": "Changes to a draft; absent fields stay.",
+        "properties": {
+          "audience_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New audience."
+          },
+          "channel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New channel."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New name."
+          },
+          "offer_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New offer text."
+          },
+          "scheduled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New time (RFC 3339); an empty string removes it."
+          },
+          "template_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New template."
+          }
+        }
+      },
       "Patient": {
         "type": "object",
         "description": "A patient. Phone and email are masked (`+91******3210`) unless the role has `patients.contact`.",
@@ -25118,6 +26118,19 @@
           }
         }
       },
+      "PreviewAudience": {
+        "type": "object",
+        "description": "A filter to count.",
+        "required": [
+          "filter"
+        ],
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/AudienceFilterBody",
+            "description": "The filter."
+          }
+        }
+      },
       "PriceItem": {
         "type": "object",
         "description": "A price list entry.",
@@ -26838,6 +27851,24 @@
           }
         }
       },
+      "SaveAudience": {
+        "type": "object",
+        "description": "An audience to save.",
+        "required": [
+          "name",
+          "filter"
+        ],
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/AudienceFilterBody",
+            "description": "The filter."
+          },
+          "name": {
+            "type": "string",
+            "description": "One line of 1 to 120 characters."
+          }
+        }
+      },
       "SavedAppointment": {
         "type": "object",
         "description": "An appointment after a booking or change.",
@@ -26904,6 +27935,19 @@
               "$ref": "#/components/schemas/RolePermission"
             },
             "description": "What it may do now, sorted by key."
+          }
+        }
+      },
+      "ScheduleCampaign": {
+        "type": "object",
+        "description": "The proof that the owner saw this audience's size.",
+        "required": [
+          "count_token"
+        ],
+        "properties": {
+          "count_token": {
+            "type": "string",
+            "description": "From `POST /audiences/preview` for the campaign's audience filter."
           }
         }
       },
@@ -30448,6 +31492,10 @@
     {
       "name": "messages",
       "description": "Messages to patients: sending, a patient's message list, contact preferences, unsubscribe links and provider webhooks"
+    },
+    {
+      "name": "campaigns",
+      "description": "Audiences (a typed filter, count-only preview) and campaigns: promotional sends to an audience, scheduled with a count token (owners)"
     },
     {
       "name": "chat",

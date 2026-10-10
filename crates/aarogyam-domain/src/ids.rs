@@ -133,4 +133,8 @@ entities! {
     LabOrderItem, LabOrderItemId;
     /// Money paid to a lab.
     LabPayment, LabPaymentId;
+    /// A saved set of patients (a filter) a campaign is sent to.
+    Audience, AudienceId;
+    /// A one-off promotional send to an audience.
+    Campaign, CampaignId;
 }

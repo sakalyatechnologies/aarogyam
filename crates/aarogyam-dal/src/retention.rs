@@ -126,6 +126,30 @@ pub async fn messages(
     Ok(rows)
 }
 
+/// Rejected or paused message templates unchanged since before `cutoff`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn message_templates(
+    pool: &PgPool,
+    cutoff: OffsetDateTime,
+    sample: i32,
+) -> Result<Vec<Group>, DbError> {
+    let rows = sqlx::query_as!(
+        Group,
+        r#"select org_id as "org_id?", count(*) as "count!", min(updated_at) as "oldest?",
+                  (array_agg(id order by updated_at))[1:$2] as "sample!: Vec<Uuid>"
+           from aarogyam.message_templates
+           where status in ('rejected', 'paused') and updated_at < $1
+           group by org_id order by org_id"#,
+        cutoff,
+        sample
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
 /// Patient links that expired before `cutoff`.
 ///
 /// # Errors

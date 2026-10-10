@@ -36,6 +36,8 @@ text_value! {
         LabWork => "lab_work",
         /// People at labs the clinic removed, who are named with their phone and email.
         LabContacts => "lab_contacts",
+        /// Message templates Meta rejected or paused and nobody has changed since.
+        MessageTemplates => "message_templates",
     }
 }
 
@@ -73,9 +75,11 @@ impl Class {
             Self::Outbox => Period::Days(90),
             Self::ShareLinks | Self::ImportSessions => Period::Days(30),
             Self::AccessLog => Period::Years(3),
-            Self::Messages | Self::ClinicApplications | Self::ChatMessages | Self::LabContacts => {
-                Period::Days(365)
-            }
+            Self::Messages
+            | Self::ClinicApplications
+            | Self::ChatMessages
+            | Self::LabContacts
+            | Self::MessageTemplates => Period::Days(365),
         }
     }
 
@@ -96,6 +100,7 @@ impl Class {
             Self::ChatMessages => "when the message was posted",
             Self::LabWork => "when the order was recorded",
             Self::LabContacts => "when the contact was removed",
+            Self::MessageTemplates => "when the template last changed",
         }
     }
 

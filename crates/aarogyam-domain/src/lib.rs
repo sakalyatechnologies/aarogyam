@@ -103,3 +103,4 @@ pub mod staff;
 pub mod support;
 pub mod vitals;
 pub mod website;
+pub mod whatsapp;

@@ -499,6 +499,9 @@ async fn every_route_requires_sign_in_and_a_permission() {
             "/api/v1/public/unsubscribe/{token}",
             // Resend's webhook: checked by its Svix signature instead (tests/messaging.rs).
             "/api/v1/webhooks/resend",
+            // Meta's webhook: the verify token (GET) or the app secret's HMAC (POST) instead
+            // (tests/whatsapp.rs).
+            "/api/v1/webhooks/whatsapp",
         ];
         if !path.starts_with("/api/v1/")
             || path.starts_with("/api/v1/dev/")

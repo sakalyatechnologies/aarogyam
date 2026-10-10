@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select status from aarogyam.message_templates where key = $1 and channel = $2\n         order by (status = 'approved') desc, (language = 'en-IN') desc limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.message_templates",
+            "name": "status"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8705e0d03f8a9d7c7e245a123b3f896587a889b4f7780d018cb764f49446f814"
+}

@@ -14,7 +14,8 @@ use aarogyam_domain::client::ClientPolicy;
 use aarogyam_domain::notification::OpenHours;
 use aarogyam_domain::patient::Email;
 use aarogyam_notify::cloudflare::{API_BASE, AccountId, WorkersApi};
-use aarogyam_notify::{Notifier, PortalAddresses, PortalLinks, WorkersDev};
+use aarogyam_notify::whatsapp::{Costs, Meta};
+use aarogyam_notify::{Notifier, PortalAddresses, PortalLinks, WhatsappSetup, WorkersDev};
 use aarogyam_server::config::{AuthMode, Config, EdgeHosts, FileBackend};
 use anyhow::Context;
 use axum::http::HeaderName;
@@ -388,10 +389,42 @@ fn notifier(config: &Config, local: bool) -> anyhow::Result<Notifier> {
         }
         Notifier::log(links)
     };
-    let notifier = notifier.with_daily_budget(config.email.daily_budget);
+    let notifier = notifier
+        .with_daily_budget(config.email.daily_budget)
+        .with_whatsapp(whatsapp(config)?);
     Ok(match config.email.resend_webhook_secret.clone() {
         Some(secret) => notifier.with_resend_webhook_secret(secret),
         None => notifier,
+    })
+}
+
+/// `WhatsApp` through Meta when enabled (which needs its token and number id); otherwise
+/// `WhatsApp` messages are skipped. The webhook's secrets apply either way.
+fn whatsapp(config: &Config) -> anyhow::Result<WhatsappSetup> {
+    let settings = &config.whatsapp;
+    let sender = if settings.enabled {
+        let token = settings
+            .access_token
+            .clone()
+            .context("whatsapp.access_token is required when whatsapp.enabled")?;
+        let number = settings
+            .phone_number_id
+            .as_deref()
+            .context("whatsapp.phone_number_id is required when whatsapp.enabled")?;
+        Some(Meta::new(token, number, &settings.graph_url).context("whatsapp settings")?)
+    } else {
+        None
+    };
+    Ok(WhatsappSetup {
+        sender,
+        app_secret: settings.app_secret.clone(),
+        verify_token: settings.verify_token.clone(),
+        costs: Costs {
+            marketing: settings.cost_marketing_paise.max(0),
+            utility: settings.cost_utility_paise.max(0),
+            authentication: settings.cost_authentication_paise.max(0),
+        },
+        daily_budget: settings.daily_budget,
     })
 }
 

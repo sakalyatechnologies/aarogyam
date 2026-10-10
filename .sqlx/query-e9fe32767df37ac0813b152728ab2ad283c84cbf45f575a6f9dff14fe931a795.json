@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.whatsapp_status($1, $2, $3) as \"outcome!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "outcome!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e9fe32767df37ac0813b152728ab2ad283c84cbf45f575a6f9dff14fe931a795"
+}

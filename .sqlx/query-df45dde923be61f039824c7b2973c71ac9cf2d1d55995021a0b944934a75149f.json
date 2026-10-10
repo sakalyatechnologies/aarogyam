@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.whatsapp_template_reviewed($1, $2, $3) as \"changed!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "changed!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "df45dde923be61f039824c7b2973c71ac9cf2d1d55995021a0b944934a75149f"
+}

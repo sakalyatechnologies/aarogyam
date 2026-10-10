@@ -2324,21 +2324,25 @@ erDiagram
 
 ### `message_templates`
 
-Message text per channel and language. Clinic rows override platform defaults.
+What each patient message says, per clinic, channel and language; WhatsApp ones with their Meta review state.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: read-only on devices*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: read-only on devices · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
-| `key` | `text` | appointment_reminder, birthday, recall_cleaning ... |
-| `channel` | `channel` | whatsapp, sms, email, push |
-| `language` | `text` |  |
-| `body` | `text` |  |
-| `category` | `message_category` | transactional, promotional |
-| `provider_template_id` | `text?` | Meta or DLT template id |
-| `approval` | `approval_status` | draft, pending, approved, rejected |
+| `key` | `text` | care.note, reminder.follow_up, promo.offer, appointment.reminder, booking.*, prescription.shared, patient_app.invited |
+| `channel` | `text` | email, whatsapp, sms |
+| `language` | `text` | en-IN, hi-IN, mr-IN |
+| `body` | `text` | with allow-listed {{variables}}; for WhatsApp, the order of Meta's parameters |
+| `category` | `text` | marketing, utility, authentication (as Meta returns it) |
+| `provider_template_ref` | `text?` | the template's name at Meta |
+| `status` | `text` | draft, submitted, approved, rejected, paused |
+| `submitted_at` | `timestamptz?` |  |
+| `reviewed_at` | `timestamptz?` |  |
+| `sender_header` | `text?` | SMS DLT sender, later |
+| `dlt_template_id` | `text?` | SMS DLT template, later |
 
-org_id is null for platform defaults; this table allows that.
+Built (migration 0375). Unique per clinic, key, channel and language. Each clinic gets copies of app.message_template_defaults() when it is created (trigger on organizations); never a row without a clinic. Email rows start approved (wording still in code), WhatsApp ones as drafts. Meta's review webhook updates submitted copies by name and language (app.whatsapp_template_reviewed). No patient data; retention class message_templates.
 
 Referenced by: `campaigns.template_id`
 
@@ -2597,17 +2601,17 @@ The queue of messages to patients: one row per recipient and channel, addressed 
 | `secret` | `text?` | a one-time link secret, cleared once processed |
 | `appointment_id` | `uuid?` | → `appointments` |
 | `status` | `text` | queued, sending, sent, failed, skipped |
-| `skip_reason` | `text?` | no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed... |
+| `skip_reason` | `text?` | no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed, channel_disabled, no_opt_in, template_unavailable, template_paused, marketing_limit, undeliverable... |
 | `dedupe_key` | `text?` | unique per clinic, e.g. reminder:appt:<id>:24h |
 | `scheduled_for` | `timestamptz` |  |
 | `lease_until` | `timestamptz?` | while sending |
 | `attempts` | `int` |  |
 | `last_error` | `text?` |  |
-| `provider` | `text?` | log, resend |
+| `provider` | `text?` | log, resend, meta |
 | `provider_message_id` | `text?` | unique per clinic and provider |
-| `cost_paise` | `bigint?` |  |
+| `cost_paise` | `bigint?` | WhatsApp: the configured price of the template's category |
 | `unsubscribe_hash` | `text?` | SHA-256 of the email's unsubscribe token |
-| `delivery` | `text?` | latest provider report |
+| `delivery` | `text?` | latest provider report (WhatsApp: the furthest of sent, delivered, read; failed) |
 | `delivery_at` | `timestamptz?` |  |
 | `sent_at` | `timestamptz?` |  |
 | `processed_at` | `timestamptz?` |  |
@@ -2627,10 +2631,10 @@ What providers reported about a sent message: delivered, bounced, complained.
 | `message_id` | `uuid` | → `messages` |
 | `provider` | `text` |  |
 | `provider_event_id` | `text` | svix-id; unique per clinic and provider |
-| `kind` | `text` | sent, delivered, delayed, bounced, complained, failed, opened, clicked |
+| `kind` | `text` | sent, delivered, read, delayed, bounced, complained, failed, opened, clicked |
 | `occurred_at` | `timestamptz` |  |
 
-Built (migration 0370). Metadata only, never the payload; written by the Resend webhook through app.message_provider_event, once per event whatever the order.
+Built (migration 0370). Metadata only, never the payload; written by the Resend webhook through app.message_provider_event, and by Meta's through app.whatsapp_status (event id <wamid>:<status>, 0377), once per event whatever the order.
 
 ### `notifications`
 

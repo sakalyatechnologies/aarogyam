@@ -42,6 +42,7 @@ pub mod labs;
 pub mod legal_hold;
 pub mod lookups;
 pub mod merge;
+pub mod message_templates;
 pub mod message_worker;
 pub mod messages;
 pub mod notices;

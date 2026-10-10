@@ -90,6 +90,18 @@ pub struct Dispatch {
     pub appointment_starts_at: Option<OffsetDateTime>,
     /// For a reminder: the doctor's name.
     pub doctor_name: Option<String>,
+    /// Whether the patient opted in to `WhatsApp`.
+    pub whatsapp_opted_in: bool,
+    /// The clinic's template for the message on its channel: its status...
+    pub template_status: Option<String>,
+    /// ...its name at the provider (`WhatsApp`)...
+    pub template_ref: Option<String>,
+    /// ...language (`en-IN`)...
+    pub template_language: Option<String>,
+    /// ...category (`utility`, `marketing`, `authentication`)...
+    pub template_category: Option<String>,
+    /// ...and text, with `{{variables}}`.
+    pub template_body: Option<String>,
 }
 
 impl std::fmt::Debug for Dispatch {
@@ -114,7 +126,8 @@ pub async fn dispatch(pool: &PgPool, org_id: Uuid, id: Uuid) -> Result<Option<Di
                   may_contact as "may_contact!", opted_out as "opted_out!",
                   patient_state as "patient_state!", quiet_until, clinic_name as "clinic_name!",
                   timezone as "timezone!", portal_host, appointment_status, appointment_starts_at,
-                  doctor_name
+                  doctor_name, whatsapp_opted_in as "whatsapp_opted_in!", template_status,
+                  template_ref, template_language, template_category, template_body
            from app.message_dispatch($1, $2)"#,
         org_id,
         id
@@ -286,4 +299,68 @@ pub async fn provider_event(pool: &PgPool, event: &ProviderEvent<'_>) -> Result<
     .fetch_one(pool)
     .await?;
     Ok(outcome)
+}
+
+/// Records a `WhatsApp` status (`sent`, `delivered`, `read`, `failed`) of the message Meta knows
+/// by `wamid`: `recorded`, `repeat` or `unknown`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn whatsapp_status(
+    pool: &PgPool,
+    wamid: &str,
+    status: &str,
+    occurred_at: OffsetDateTime,
+) -> Result<String, DbError> {
+    let outcome = sqlx::query_scalar!(
+        r#"select app.whatsapp_status($1, $2, $3) as "outcome!""#,
+        wamid,
+        status,
+        occurred_at
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(outcome)
+}
+
+/// Opts a phone (E.164) out of `WhatsApp` after a STOP reply, at the clinic the reply is for
+/// (see migration 0377); returns how many clinics.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn whatsapp_stop(
+    pool: &PgPool,
+    phone_e164: &str,
+    context_wamid: Option<&str>,
+) -> Result<i32, DbError> {
+    let clinics = sqlx::query_scalar!(
+        r#"select app.whatsapp_stop($1, $2) as "clinics!""#,
+        phone_e164,
+        context_wamid
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(clinics)
+}
+
+/// Applies Meta's review of a template name and language to the clinic copies submitted for it;
+/// returns how many changed.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn whatsapp_template_reviewed(
+    pool: &PgPool,
+    name: &str,
+    language: &str,
+    status: &str,
+) -> Result<i32, DbError> {
+    let changed = sqlx::query_scalar!(
+        r#"select app.whatsapp_template_reviewed($1, $2, $3) as "changed!""#,
+        name,
+        language,
+        status
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(changed)
 }

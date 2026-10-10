@@ -5,7 +5,10 @@ import SwiftUI
 
 /// A More tile's destination.
 enum MoreRoute: Hashable {
-    case analytics, expenses, messages, stock, labs, team, rxSets
+    case analytics, expenses, messages, stock, labs, team, rxSets, help
+    /// Team chat, from Team or Messages, and one conversation in it (the other person's name or the group's title).
+    case chats
+    case thread(id: String, title: String)
 }
 
 /// The More page of the v7 design: the person's row (avatar, name, role, clinic), a three-column
@@ -15,9 +18,10 @@ struct MoreScreen: View {
     let clinic: ClinicContext
     let nav: NavModel
     let onSwitchClinic: () -> Void
-    @State private var path: [MoreRoute] = []
+    @Binding var path: [MoreRoute]
     @State private var settingsURL: URL?
     @State private var avatars = false
+    @State private var languages = false
     @State private var avatarRevision = 0
     @Environment(\.skTheme) private var theme
 
@@ -54,6 +58,7 @@ struct MoreScreen: View {
         .navigationTitle(String(localized: "v7.more.title"))
         .navigationDestination(for: MoreRoute.self) { route in destination(route) }
         .sheet(item: $settingsURL) { url in SafariView(url: url).ignoresSafeArea() }
+        .sheet(isPresented: $languages) { LanguageSheet().presentationDetents([.medium]) }
         .sheet(isPresented: $avatars) { AvatarPicker(graph: graph) { avatarRevision += 1 }.presentationDetents([.medium, .large]) }
     }
 
@@ -93,10 +98,8 @@ struct MoreScreen: View {
         case .rxSets: path.append(.rxSets)
         case .settings: settingsURL = URL(string: clinic.api.origin + "/settings")
         case .switchClinic: onSwitchClinic()
-        case .language:
-            // iOS keeps the per-app language in Settings (Aarogyam > Language).
-            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
-        case .help: path.append(.messages)
+        case .language: languages = true
+        case .help: path.append(.help)
         case .signOut: graph.signOut()
         case .clinicQr: path.append(.rxSets)
         }
@@ -111,7 +114,7 @@ struct MoreScreen: View {
         case .labs:
             LabsRoute(graph: graph, clinic: clinic)
         default:
-            PreviewPage(title: route.title)
+            ClinicalRoutes.destination(route, graph: graph, clinic: clinic, path: $path)
         }
     }
 }
@@ -126,6 +129,9 @@ extension MoreRoute {
         case .labs: String(localized: "v7.tile.lab_work")
         case .team: String(localized: "v7.tile.team")
         case .rxSets: String(localized: "v7.tile.rx_sets")
+        case .help: String(localized: "v7.tile.help")
+        case .chats: CL("c.chat.title")
+        case .thread(_, let title): title
         }
     }
 }

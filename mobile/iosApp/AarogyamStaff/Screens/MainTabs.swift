@@ -20,6 +20,8 @@ struct MainTabs: View {
     @State private var schedulePath: [PatientRoute] = []
     @State private var walkIn = false
     @State private var addExpense = false
+    @State private var morePath: [MoreRoute] = []
+    @State private var expenseRevision = 0
 
     private var nav: NavModel { NavModel.companion.of(permissions: clinic.permissions, clinicCount: clinicCount) }
 
@@ -38,6 +40,8 @@ struct MainTabs: View {
                 WalkInScreen(holder: holder, state: state)
             }
         }
+        .sheet(isPresented: $addExpense, onDismiss: { expenseRevision += 1 }) { ExpenseSheetHost(graph: graph, clinic: clinic) }
+        .devClinicalHooks(graph: graph, clinic: clinic, selected: $selected, morePath: $morePath)
         .task { clinicCount = await countClinics() }
         #if DEBUG && AARO_ENV_Local
         .onAppear {
@@ -72,12 +76,13 @@ struct MainTabs: View {
             }
         case .expenses:
             NavigationStack {
-                PreviewPage(title: tab.title)
+                ClinicalRoutes.expensesPage(graph: graph, clinic: clinic, showsAdd: false)
+                    .id(expenseRevision)
                     .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense)
             }
         case .more:
-            NavigationStack {
-                MoreScreen(graph: graph, clinic: clinic, nav: nav, onSwitchClinic: onSwitchClinic)
+            NavigationStack(path: $morePath) {
+                MoreScreen(graph: graph, clinic: clinic, nav: nav, onSwitchClinic: onSwitchClinic, path: $morePath)
             }
         }
     }

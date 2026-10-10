@@ -2,6 +2,49 @@
 
 Where the work stands and exactly what to do next. Update this file at the end of every working session. Read it, `delivery-plan.md` and `decisions.md` before starting.
 
+## Portal v2 status (10 Oct 2026, late; read this first)
+The founder's guiding rule: **the visit journey must be super simple.** Patient arrives, treatment, finish, with the fewest clicks, easy to find, and easy to show the patient. Plan every task from that view.
+
+**Live** (New look switch in the account menu):
+- Patient 360 in 3 layouts
+- 5 new website templates
+- Today v2 with the Studio (mini calendar picks a day)
+- Backends: dashboard layout, Today by date and queue states, finish visit / share expiry / medicine sets / gu-IN, settings (`PATCH /me`, notification switches, booking auto-confirm, new notification kinds)
+- Setup "Look" step
+
+The last deploy may still be in flight; check `scripts/cloud-run-deploy.sh` output.
+
+**Built, not merged yet:**
+- `feat/v2-settings-ui` (`wt-v2-settings-ui`): Settings left nav, 26px rounded cards, Customise now goes to Settings.
+- `feat/v2-shell` (`wt-v2-shell`): floating, expandable icon rail and a notifications drawer. A merge of main into it was in progress (api-client duplicates: keep main's).
+- Merge both into main, run `pnpm check`, then deploy screens only (`scripts/deploy-workers.sh <api url>`).
+
+**Paused, each with a HANDOFF.md in its worktree:**
+- `wt-v2-tooth`: chart like the zip.
+  - Rows and 3D arch views; Adult 32 and Child 20.
+  - The tooth panel shows history with Edit, saved as a `supersedes_id` correction.
+  - Add treatment uses the zip's treatment, material, status and root canal options. Migrations 0645-0649.
+- `wt-v2-visitflow`: simpler overview and a one-button flow.
+  - Start visit starts a timer.
+  - Voice notes: language dropdown, live transcript, pause, several timestamped notes.
+  - End visit, then either Send for payment (`ready_to_bill`) or Collect payment (UPI/cash, `POST /payments`), then Finish.
+  - **New asks:** X-ray and photo upload with tags, an image gallery, and clicking a visit in history shows everything done in it.
+- `wt-v2-studio-dnd`: drag and resize cards on the Studio preview.
+- Backends:
+  - `wt-v2-patients` (B4 plus family)
+  - `wt-v2-reports` (B6 plus payment proof)
+  - `wt-v2-labs-chat` (B7)
+  - `wt-v2-client` (F2)
+  - `wt-invite`: B0 owner-invite delivery status. Blocked by the permission check on edits; the founder must say "go B0".
+
+**Not started:** Front desk, Calendar, Billing, Analytics, Labs and Messages screens (U5-U9), and SSE live updates (BE3).
+
+**How to work:** these rules are in the session scratchpad's `agent-rules.md`; restate them in the brief for the next session.
+- Small, crisp agent tasks: "read HANDOFF.md, do steps 1-3". Sonnet for code, Haiku for merges and regeneration.
+- Build output only through log files.
+- Deploy when a chunk passes the gate.
+- Vitest timeouts under load are flaky: rerun those files with `npx vitest run <paths>` from the repo root.
+
 ## Coordination with the mobile/iOS session (10 Oct 2026, read this first)
 - **Mobile session owns:** `mobile/**`, `web/e2e/v7`, `docs/flows`, `docs/mockups`, `docs/plans/mobile-*`, and migrations 0400-0599.
 - **Web/backend session (Portal v2) owns:** the rest, migrations **0600-0699**. Agents get fixed sub-ranges (0600 invite, 0605 layout, 0610 today/queue, 0615 settings/notifications, 0620 patients/family, 0625 visits, 0630 reports/stock, 0635-0644 labs/messages/chat).

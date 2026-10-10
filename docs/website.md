@@ -6,7 +6,7 @@ Status: built on `feat/clinic-website` (4 Oct 2026). Hosting is not wired yet.
 
 Settings, Website: pick one page or several (Home, About, Services, Gallery, Contact), a design, a palette and a font pairing; edit text by clicking it in a live desktop or phone preview; add pictures; publish. Online booking is in every design (the `/book` flow loads in the page when the visitor asks). Content fills from clinic data: name, doctors (with qualifications the owner adds), services and fees from the price list (medicines and products left out), opening hours merged from doctors' shifts, address, phone. Reviews are typed in by the clinic.
 
-Designs: `aurora` (premium dark), `hearth` (warm family), `clinical` (minimal), `bold` (modern). Four palettes each, four font pairings. All palette pairs are tested for WCAG AA contrast.
+Designs: `aurora` (premium dark), `hearth` (warm family), `clinical` (minimal), `bold` (modern), `heritage` (classical serif), `smilebright` (playful, kids and family) and three bento designs of tiles, `bentopeach`, `bentopistachio` and `bentomidnight` (dark). Three or four palettes each, six font pairings (`classic` and `display` join the original four). The design id is stored as plain text (the column check is a pattern, not a list), so a new design needs no migration: add it to the domain catalogue, the site-kit catalogue and the api-client fake. All palette pairs are tested for WCAG AA contrast.
 
 ## Pieces
 

@@ -8914,7 +8914,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "aurora, hearth, clinical, bold"
+     "note": "aurora, hearth, clinical, bold, heritage, smilebright, bentopeach, bentopistachio, bentomidnight"
     },
     {
      "name": "palette",

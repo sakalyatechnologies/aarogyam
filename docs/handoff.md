@@ -2,6 +2,20 @@
 
 Where the work stands and exactly what to do next. Update this file at the end of every working session. Read it, `delivery-plan.md` and `decisions.md` before starting.
 
+## Coordination with the mobile/iOS session (10 Oct 2026, read this first)
+- **Mobile session owns:** `mobile/**`, `web/e2e/v7`, `docs/flows`, `docs/mockups`, `docs/plans/mobile-*`, and migrations 0400-0599.
+- **Web/backend session (Portal v2) owns:** the rest, migrations **0600-0699**. Agents get fixed sub-ranges (0600 invite, 0605 layout, 0610 today/queue, 0615 settings/notifications, 0620 patients/family, 0625 visits, 0630 reports/stock, 0635-0644 labs/messages/chat).
+- **API rule:** changes are additive only (new optional fields or endpoints; never rename, remove or retype), because the iOS and Android apps call the same endpoints.
+- **Mobile backend brief** (`docs/flows/clinic-visit-flow.md` on `feat/mobile-v7`) is taken by the Portal v2 agents:
+  - BE1 family profiles: B4.
+  - BE2 queue states, call, practitioner filter: B2.
+  - BE4 new notification kinds: B3.
+  - BE5 close with follow-up and fee, BE8 visit share: B5.
+  - BE6 payment proof: B6.
+  - BE3 SSE live updates: not started (next wave).
+  - BE7 WhatsApp: the adapter is already built (T4); en/hi/mr templates still to add.
+- **Tracking:** the plan and its exit criteria are in the founder's Portal v2 plan. Each branch is `feat/v2-*`; each merge to `main` updates this section.
+
 ## Status at 10 Oct 2026 (read this first)
 
 **Backend plan for 8–10 Oct is complete and on `main`.** Every task passed the full pre-commit hook, including the database tests.

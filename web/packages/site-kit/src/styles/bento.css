@@ -1,0 +1,109 @@
+/*
+ * Bento (Peach, Pistachio and Midnight): a grid of soft tiles on a coloured page. The three share
+ * this file; only the palette differs. Tiles use --surface and --surface-2, and the dark tile is
+ * the accent (text on it is --on-accent), so every tile pairing is covered by the palette tests.
+ */
+
+.cs-fam-bento { --tile-radius: 28px; --gap: 14px; }
+.cs-fam-bento :where(h1, h2, h3, h4) { font-weight: 700; letter-spacing: 0; text-transform: uppercase; line-height: 1; }
+.cs-fam-bento .cs-header { background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); padding-block: 10px 0; }
+.cs-fam-bento .cs-bar { min-height: 0; padding: 8px 10px 8px 14px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); }
+.cs-fam-bento .cs-brand { font-size: 1.05rem; text-transform: uppercase; letter-spacing: .01em; }
+.cs-fam-bento .cs-mark { border-radius: 50%; width: 36px; height: 36px; }
+.cs-fam-bento .cs-nav a { color: var(--text); font-weight: 600; font-size: .95rem; }
+.cs-fam-bento .cs-nav a:hover, .cs-fam-bento .cs-nav a[aria-current="page"] { background: var(--surface-2); }
+.cs-fam-bento .cs-btn { box-shadow: none; }
+.cs-fam-bento .cs-btn-ghost { background: var(--surface); border-color: var(--line); }
+.cs-fam-bento .cs-eyebrow { font-family: var(--font-body); letter-spacing: .16em; }
+
+/* The opening tiles */
+.cs-fam-bento .cs-hero { padding-block: clamp(20px, 4cqw, 40px) 8px; }
+.cs-fam-bento .cs-bento { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: minmax(150px, auto); gap: var(--gap); }
+.cs-fam-bento .cs-bento-title { grid-column: span 2; display: grid; align-content: center; gap: 18px; padding: clamp(8px, 2cqw, 20px) clamp(4px, 1.5cqw, 12px); }
+.cs-fam-bento .cs-bento-title > * + * { margin-top: 0; }
+.cs-fam-bento .cs-mega { font-size: clamp(2.7rem, 9.4cqw, 6.6rem); line-height: .9; text-transform: uppercase; letter-spacing: .005em; font-weight: 700; }
+.cs-fam-bento .cs-lead { color: var(--muted); font-size: clamp(1rem, 1.8cqw, 1.15rem); }
+.cs-fam-bento .cs-tile { position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; padding: 22px; border-radius: var(--tile-radius); overflow: hidden; }
+.cs-fam-bento .cs-tile p { font-family: var(--font-head); font-weight: 700; font-size: 1.3rem; line-height: 1.12; text-transform: uppercase; }
+.cs-fam-bento .cs-tile p b { display: block; }
+.cs-fam-bento .cs-tile p span { display: block; margin-top: 6px; font: 500 .95rem/1.4 var(--font-body); text-transform: none; color: var(--muted); }
+.cs-fam-bento .cs-tile svg { color: var(--accent-text); }
+.cs-fam-bento .cs-tile-a { background: var(--surface-2); }
+.cs-fam-bento .cs-tile-b { background: var(--surface); }
+.cs-fam-bento .cs-tile-dark { background: var(--accent); color: var(--on-accent); }
+.cs-fam-bento .cs-tile-dark p { color: var(--on-accent); }
+.cs-fam-bento .cs-tile-dark .cs-btn { background: var(--on-accent); color: var(--accent); align-self: flex-start; border-color: transparent; }
+.cs-fam-bento .cs-tile-photo { grid-column: 3; grid-row: 1 / span 2; min-height: 320px; aspect-ratio: auto; padding: 0; background: var(--surface-2); border-radius: var(--tile-radius); }
+.cs-fam-bento .cs-tile-photo img { position: absolute; inset: 0; }
+.cs-fam-bento .cs-tile-photo .cs-art { background: linear-gradient(160deg, var(--surface-2), color-mix(in srgb, var(--accent) 38%, var(--surface-2))); border-radius: var(--tile-radius) var(--tile-radius) 0 0; inset: 28px 28px 0; }
+.cs-fam-bento .cs-tile-photo .cs-art svg { width: 30%; }
+
+/* Sections as tiles */
+.cs-fam-bento .cs-section { padding-block: clamp(36px, 6cqw, 72px); }
+.cs-fam-bento .cs-head { gap: 8px; }
+.cs-fam-bento .cs-head h2 { font-size: clamp(2.2rem, 6cqw, 4rem); }
+.cs-fam-bento .cs-service-grid { gap: var(--gap); }
+.cs-fam-bento .cs-service { flex-direction: column; justify-content: space-between; min-height: 150px; padding: 22px; border: 0; border-radius: var(--tile-radius); background: var(--surface); }
+.cs-fam-bento .cs-service:nth-child(3n + 2) { background: var(--surface-2); }
+.cs-fam-bento .cs-service:nth-child(5n) { background: var(--accent); color: var(--on-accent); }
+.cs-fam-bento .cs-service:nth-child(5n) :is(p, .cs-fee) { color: var(--on-accent); }
+.cs-fam-bento .cs-service:hover { transform: translateY(-4px); }
+.cs-fam-bento .cs-service h4 { font-family: var(--font-head); font-weight: 700; font-size: 1.3rem; text-transform: uppercase; line-height: 1.05; }
+.cs-fam-bento .cs-fee { font-family: var(--font-head); font-size: 1.4rem; }
+.cs-fam-bento .cs-group > h3 { font-family: var(--font-head); font-size: 1.3rem; color: var(--text); }
+.cs-fam-bento .cs-about-photo { border-radius: var(--tile-radius); aspect-ratio: 1; background: var(--surface-2); }
+.cs-fam-bento .cs-about-photo .cs-art { background: linear-gradient(160deg, var(--surface-2), color-mix(in srgb, var(--accent) 38%, var(--surface-2))); }
+.cs-fam-bento .cs-about .cs-about-text { padding: clamp(20px, 3cqw, 32px); border-radius: var(--tile-radius); background: var(--surface); }
+.cs-fam-bento .cs-about .cs-head { margin-bottom: 18px; }
+.cs-fam-bento .cs-doctor { border: 0; border-radius: var(--tile-radius); background: var(--surface); }
+.cs-fam-bento .cs-doctor:nth-child(even) { background: var(--surface-2); }
+.cs-fam-bento .cs-portrait { background: var(--bg); }
+.cs-fam-bento .cs-initials { color: var(--text); }
+.cs-fam-bento .cs-gallery-grid { gap: var(--gap); }
+.cs-fam-bento .cs-gallery-grid li { border-radius: var(--tile-radius); }
+.cs-fam-bento .cs-review-grid { gap: var(--gap); }
+.cs-fam-bento .cs-review { border: 0; border-radius: var(--tile-radius); background: var(--surface); }
+.cs-fam-bento .cs-review:nth-child(3n + 2) { background: var(--surface-2); }
+.cs-fam-bento .cs-review:nth-child(3n) { background: var(--accent); color: var(--on-accent); }
+.cs-fam-bento .cs-review:nth-child(3n) :is(.cs-stars, .cs-reviewer) { color: var(--on-accent); }
+.cs-fam-bento .cs-contact-info { padding: clamp(20px, 3cqw, 32px); border-radius: var(--tile-radius); background: var(--surface); }
+.cs-fam-bento .cs-book { border: 0; border-radius: var(--tile-radius); background: var(--surface-2); }
+.cs-fam-bento .cs-book-icon { border-radius: 50%; }
+.cs-fam-bento .cs-book-frame { border-radius: 18px; border-color: var(--line); }
+.cs-fam-bento .cs-link-btn { border-radius: 18px; background: var(--surface-2); border-color: transparent; }
+.cs-fam-bento .cs-hours div { border-bottom-color: var(--line); }
+.cs-fam-bento .cs-social a { background: var(--surface-2); border-color: transparent; }
+.cs-fam-bento .cs-cta-box { border-radius: var(--tile-radius); background: var(--accent); color: var(--on-accent); }
+.cs-fam-bento .cs-cta h2 { font-size: clamp(2rem, 5.4cqw, 3.6rem); }
+.cs-fam-bento .cs-cta p { color: var(--on-accent); }
+.cs-fam-bento .cs-cta .cs-btn-primary { background: var(--on-accent); color: var(--accent); }
+.cs-fam-bento :is(.cs-tile-dark, .cs-cta-box, .cs-service:nth-child(5n), .cs-review:nth-child(3n)) .cs-editable:is(:hover, :focus) { outline-color: var(--on-accent); }
+
+.cs-fam-bento .cs-footer { background: none; border: 0; padding-block: 24px 20px; }
+.cs-fam-bento .cs-footer-tile { padding: clamp(24px, 4cqw, 44px) clamp(22px, 4cqw, 40px); border-radius: var(--tile-radius); background: var(--accent); color: var(--on-accent); }
+.cs-fam-bento .cs-footer-big { font: 700 clamp(2rem, 8cqw, 5rem)/.92 var(--font-head); text-transform: uppercase; margin-bottom: 26px; overflow-wrap: anywhere; }
+.cs-fam-bento .cs-footer .cs-brand, .cs-fam-bento .cs-footer .cs-social a { color: var(--on-accent); }
+.cs-fam-bento .cs-footer .cs-social a { background: transparent; border-color: var(--on-accent); }
+.cs-fam-bento .cs-footer .cs-mark { background: var(--on-accent); color: var(--accent); }
+.cs-fam-bento .cs-footer address span, .cs-fam-bento .cs-footer address a, .cs-fam-bento .cs-legal { color: var(--on-accent); }
+.cs-fam-bento .cs-legal { opacity: .85; }
+
+/* Midnight: dark tiles lift from the page with a hairline instead of a shadow. */
+.cs-t-bentomidnight .cs-tile, .cs-t-bentomidnight .cs-service, .cs-t-bentomidnight .cs-review, .cs-t-bentomidnight .cs-doctor, .cs-t-bentomidnight .cs-book, .cs-t-bentomidnight .cs-about-text, .cs-t-bentomidnight .cs-contact-info { box-shadow: inset 0 0 0 1px var(--line); }
+.cs-t-bentomidnight .cs-tile-dark, .cs-t-bentomidnight .cs-service:nth-child(5n), .cs-t-bentomidnight .cs-review:nth-child(3n) { box-shadow: none; }
+
+@container site (max-width: 860px) {
+  .cs-fam-bento .cs-bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cs-fam-bento .cs-bento-title { grid-column: 1 / -1; }
+  .cs-fam-bento .cs-tile-photo { grid-column: 1 / -1; grid-row: auto; min-height: 260px; }
+  .cs-fam-bento .cs-tile-dark { grid-column: 1 / -1; }
+  .cs-fam-bento .cs-about-photo { aspect-ratio: 16 / 11; }
+}
+@container site (max-width: 560px) {
+  .cs-fam-bento { --tile-radius: 22px; --gap: 10px; }
+  .cs-fam-bento .cs-bar { border-radius: 26px; }
+  .cs-fam-bento .cs-bento { grid-template-columns: 1fr; grid-auto-rows: auto; }
+  .cs-fam-bento .cs-tile { min-height: 0; padding: 18px; }
+  .cs-fam-bento .cs-tile-photo { min-height: 240px; padding: 0; }
+  .cs-fam-bento .cs-mega { font-size: clamp(2.6rem, 15cqw, 4rem); }
+}

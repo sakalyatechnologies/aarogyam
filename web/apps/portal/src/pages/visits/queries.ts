@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrap, type NoteContent, type NoteId, type PatientId, type VisitId } from "@aarogyam/api-client";
 
 import { useClinic } from "../../clinic.js";
+import { recordingLanguage } from "./voice/dictation.js";
 import type { FinishedRecording } from "./voice/use-voice-recorder.js";
 
 /** Adds an addendum to a signed note, then refreshes the visit. */
@@ -45,7 +46,10 @@ export function useUploadRecording(patientId: PatientId, visitId: VisitId) {
       form.set("note_id", target.noteId);
       form.set("visit_id", target.visitId);
       form.set("duration_seconds", String(recording.seconds));
-      form.set("language", recording.language);
+      const language = recordingLanguage(recording.language);
+      if (language !== undefined) {
+        form.set("language", language);
+      }
       if (target.addendumId !== undefined) {
         form.set("addendum_id", target.addendumId);
       }

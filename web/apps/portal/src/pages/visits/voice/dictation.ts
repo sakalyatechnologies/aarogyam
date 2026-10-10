@@ -3,7 +3,13 @@ export const DICTATION_LANGUAGES = [
   { value: "en-IN", label: "English (India)" },
   { value: "hi-IN", label: "Hindi" },
   { value: "mr-IN", label: "Marathi" },
+  { value: "gu-IN", label: "Gujarati" },
 ] as const;
+
+/** The languages the API accepts on a kept recording. Gujarati dictates, but its recording is stored without a language tag until the API lists it. */
+export function recordingLanguage(language: string): string | undefined {
+  return language === "gu-IN" ? undefined : language;
+}
 
 export type DictationLanguage = (typeof DICTATION_LANGUAGES)[number]["value"];
 

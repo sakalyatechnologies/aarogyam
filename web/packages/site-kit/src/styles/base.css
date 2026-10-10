@@ -26,6 +26,7 @@
 .cs-root img { display: block; max-width: 100%; }
 .cs-root :where(a) { color: inherit; text-decoration: none; }
 .cs-root :where(h1, h2, h3, h4) { font-family: var(--font-head); line-height: 1.12; letter-spacing: -0.01em; text-wrap: balance; }
+.cs-root :where(h1, h2, h3, h4) { font-synthesis-weight: none; }
 .cs-root p { text-wrap: pretty; }
 
 .cs-root :focus-visible { outline: 3px solid var(--accent-text); outline-offset: 3px; border-radius: 4px; }

@@ -18,6 +18,7 @@ import {
   X,
   Wallet,
   KeyRound,
+  Sparkles,
 } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -32,6 +33,7 @@ import { centralSignInSetting } from "../env.js";
 import { useToday } from "../queries.js";
 import { ClinicMark } from "./clinic-mark.js";
 import { CommandPalette } from "./command-palette.js";
+import { useNewLook } from "../lib/new-look.js";
 import { useStoredFlag } from "./use-stored-flag.js";
 import { LegalLinks } from "../components/legal-links.js";
 import { PeekProvider } from "./peek.js";
@@ -190,6 +192,7 @@ function Account() {
   const auth = useAuth();
   const [open, setOpen] = useState(false);
   const password = usePasswordDialog();
+  const [newLook, setNewLook] = useNewLook();
   const ref = useDismiss(open, () => {
     setOpen(false);
   });
@@ -214,6 +217,17 @@ function Account() {
             <b>{session.user.display_name}</b>
             {access.role_name} · {access.name}
           </p>
+          {/* Interim switch for the redesigned screens; the shell work replaces it with a real preference. */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={newLook}
+            onClick={() => {
+              setNewLook(!newLook);
+            }}
+          >
+            <Sparkles aria-hidden="true" /> New look: {newLook ? "On" : "Off"}
+          </button>
           {supportsPassword(auth) ? (
             <button
               type="button"

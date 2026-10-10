@@ -319,4 +319,203 @@ const bold: TemplateParts = {
   ),
 };
 
-export const TEMPLATE_PARTS: Record<TemplateId, TemplateParts> = { aurora, hearth, clinical, bold };
+// ---------------------------------------------------------------------------------------- heritage
+
+const heritage: TemplateParts = {
+  Header: ({ ctx }) => (
+    <header className="cs-header" id="top">
+      <div className="cs-wrap cs-header-stack">
+        <Brand ctx={ctx} />
+        <div className="cs-header-nav">
+          <NavLinks ctx={ctx} />
+          <BookLink ctx={ctx} className="cs-btn cs-btn-primary cs-btn-sm">
+            Book a visit
+          </BookLink>
+        </div>
+      </div>
+    </header>
+  ),
+  Hero: ({ ctx }) => {
+    const { site } = ctx;
+    return (
+      <section className="cs-hero" aria-label="Welcome">
+        <div className="cs-wrap cs-hero-center">
+          <div className="cs-hero-copy">
+            <p className="cs-motto" lang="sa" aria-hidden="true">
+              आरोग्यं धनसम्पदा
+            </p>
+            <span className="cs-rule" aria-hidden="true" />
+            <HeroText ctx={ctx} />
+            <HeroActions ctx={ctx} />
+          </div>
+          {site.photos.hero != null || ctx.editing ? (
+            <PhotoSlot kind="hero" photo={site.photos.hero} assetBase={ctx.assetBase} className="cs-hero-photo" eager label="top picture" fallback={<Art id="heritage" />} />
+          ) : null}
+          <Facts ctx={ctx} />
+        </div>
+      </section>
+    );
+  },
+  Footer: ({ ctx }) => (
+    <footer className="cs-footer">
+      <div className="cs-wrap">
+        <span className="cs-rule" aria-hidden="true" />
+        <Dock ctx={ctx} />
+        <p className="cs-legal">© {year()} {ctx.site.clinic.name}</p>
+      </div>
+    </footer>
+  ),
+};
+
+// ------------------------------------------------------------------------------------- smilebright
+
+const smilebright: TemplateParts = {
+  Header: ({ ctx }) => (
+    <header className="cs-header" id="top">
+      <div className="cs-wrap cs-header-row">
+        <Brand ctx={ctx} />
+        <NavLinks ctx={ctx} />
+        <BookLink ctx={ctx} className="cs-btn cs-btn-primary cs-btn-sm">
+          Book a visit
+        </BookLink>
+      </div>
+    </header>
+  ),
+  Hero: ({ ctx }) => {
+    const copy = resolveCopy(ctx.site);
+    return (
+      <section className="cs-hero" aria-label="Welcome">
+        <span className="cs-bubble cs-bubble-a" aria-hidden="true" />
+        <span className="cs-bubble cs-bubble-b" aria-hidden="true" />
+        <div className="cs-wrap cs-hero-grid">
+          <div className="cs-hero-copy">
+            <p className="cs-pill">
+              <ToothIcon size={18} />
+              Happy smiles start here
+            </p>
+            <HeroText ctx={ctx} />
+            <ul className="cs-chips">
+              {copy.highlights.slice(0, 3).map((h) => (
+                <li key={h}>
+                  <CheckIcon />
+                  {h}
+                </li>
+              ))}
+            </ul>
+            <HeroActions ctx={ctx} />
+          </div>
+          <div className="cs-play-art">
+            <PhotoSlot kind="hero" photo={ctx.site.photos.hero} assetBase={ctx.assetBase} className="cs-hero-photo" eager label="top picture" fallback={<Art id="smilebright" />} />
+            <span className="cs-sticker" aria-hidden="true">
+              <ToothIcon size={26} />
+            </span>
+          </div>
+        </div>
+        <div className="cs-wrap">
+          <Facts ctx={ctx} />
+        </div>
+      </section>
+    );
+  },
+  Footer: ({ ctx }) => (
+    <footer className="cs-footer">
+      <div className="cs-wrap">
+        <Dock ctx={ctx} />
+        <p className="cs-legal">© {year()} {ctx.site.clinic.name}. Keep smiling.</p>
+      </div>
+    </footer>
+  ),
+};
+
+// ---------------------------------------------------------------------------------------- bento
+// The three bento designs share this markup and differ in palette (and a few CSS details).
+
+const bento: TemplateParts = {
+  Header: ({ ctx }) => (
+    <header className="cs-header" id="top">
+      <div className="cs-wrap">
+        <div className="cs-header-row cs-bar">
+          <Brand ctx={ctx} />
+          <NavLinks ctx={ctx} />
+          <BookLink ctx={ctx} className="cs-btn cs-btn-primary cs-btn-sm">
+            Book now
+          </BookLink>
+        </div>
+      </div>
+    </header>
+  ),
+  Hero: ({ ctx }) => {
+    const { site } = ctx;
+    const copy = resolveCopy(site);
+    const first = hoursRows(site.hours).find((r) => !r.closed);
+    const [h0, h1, h2] = copy.highlights;
+    return (
+      <section className="cs-hero" aria-label="Welcome">
+        <div className="cs-wrap">
+          <div className="cs-bento">
+            <div className="cs-bento-title">
+              <HeroText ctx={ctx} headingClass="cs-h1 cs-mega" />
+              <HeroActions ctx={ctx} />
+            </div>
+            <PhotoSlot kind="hero" photo={site.photos.hero} assetBase={ctx.assetBase} className="cs-hero-photo cs-tile cs-tile-photo" eager label="top picture" fallback={<Art id="bento" />} />
+            {h0 !== undefined && (
+              <div className="cs-tile cs-tile-a" data-reveal>
+                <CheckIcon />
+                <p>{h0}</p>
+              </div>
+            )}
+            {h1 !== undefined && (
+              <div className="cs-tile cs-tile-b" data-reveal>
+                <CheckIcon />
+                <p>{h1}</p>
+              </div>
+            )}
+            {h2 !== undefined && (
+              <div className="cs-tile cs-tile-b" data-reveal>
+                <CheckIcon />
+                <p>{h2}</p>
+              </div>
+            )}
+            {first !== undefined && (
+              <div className="cs-tile cs-tile-a" data-reveal>
+                <ClockIcon />
+                <p>
+                  <b>{first.label}</b>
+                  <span>{first.text}</span>
+                </p>
+              </div>
+            )}
+            <div className="cs-tile cs-tile-dark" data-reveal>
+              <p>{site.booking_enabled ? "Online booking, any hour" : "Call to book a visit"}</p>
+              <BookLink ctx={ctx}>
+                {site.booking_enabled ? "Choose a time" : "How to book"}
+                <ArrowIcon />
+              </BookLink>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  },
+  Footer: ({ ctx }) => (
+    <footer className="cs-footer">
+      <div className="cs-wrap cs-footer-tile">
+        <p className="cs-footer-big">{ctx.site.clinic.name}</p>
+        <Dock ctx={ctx} />
+        <p className="cs-legal">© {year()} {ctx.site.clinic.name}</p>
+      </div>
+    </footer>
+  ),
+};
+
+export const TEMPLATE_PARTS: Record<TemplateId, TemplateParts> = {
+  aurora,
+  hearth,
+  clinical,
+  bold,
+  heritage,
+  smilebright,
+  bentopeach: bento,
+  bentopistachio: bento,
+  bentomidnight: bento,
+};

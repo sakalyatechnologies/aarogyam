@@ -83,10 +83,37 @@ pub const TEMPLATES: &[Template] = &[
         id: "bold",
         palettes: &["electric", "coral", "lime", "violet"],
     },
+    Template {
+        id: "heritage",
+        palettes: &["forest", "burgundy", "navy", "ivory"],
+    },
+    Template {
+        id: "smilebright",
+        palettes: &["sky", "bubblegum", "sunshine", "mint"],
+    },
+    Template {
+        id: "bentopeach",
+        palettes: &["peach", "rose", "sand"],
+    },
+    Template {
+        id: "bentopistachio",
+        palettes: &["pistachio", "lime", "sea"],
+    },
+    Template {
+        id: "bentomidnight",
+        palettes: &["midnight", "ocean", "plum"],
+    },
 ];
 
 /// Font pairings (heading and body).
-pub const FONTS: &[&str] = &["modern", "elegant", "friendly", "editorial"];
+pub const FONTS: &[&str] = &[
+    "modern",
+    "elegant",
+    "friendly",
+    "editorial",
+    "classic",
+    "display",
+];
 
 /// Why website settings were rejected. The message names the field, never the value.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -616,6 +643,13 @@ mod tests {
     #[test]
     fn design_choices_are_checked_together() {
         assert!(check_design("aurora", "gold", "modern").is_ok());
+        assert!(check_design("heritage", "forest", "classic").is_ok());
+        assert!(check_design("bentomidnight", "plum", "display").is_ok());
+        // Palette names repeat across designs (sky, mint, lime) but belong to one each.
+        assert_eq!(
+            check_design("heritage", "sky", "modern").unwrap_err().field,
+            "palette"
+        );
         assert_eq!(
             check_design("nope", "gold", "modern").unwrap_err().field,
             "template"

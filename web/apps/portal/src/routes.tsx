@@ -47,7 +47,7 @@ export const routes: RouteObject[] = [
               { path: "patients/new", lazy: lazyPage(() => import("./pages/patients/new-patient-page.js"), (m) => m.NewPatientPage) },
               { path: "patients/import", lazy: lazyPage(() => import("./pages/patients/import-page.js"), (m) => m.ImportPage) },
               { path: "patients/incomplete", lazy: lazyPage(() => import("./pages/patients/incomplete-page.js"), (m) => m.IncompletePage) },
-              { path: "patients/:id", lazy: lazyPage(() => import("./pages/patients/patient-page.js"), (m) => m.PatientPage) },
+              { path: "patients/:id", lazy: lazyPage(() => import("./pages/patients/patient-route.js"), (m) => m.PatientRoute) },
               { path: "patients/:id/edit", lazy: lazyPage(() => import("./pages/patients/edit-patient-page.js"), (m) => m.EditPatientPage) },
               { path: "patients/:id/visits/:visitId", lazy: lazyPage(() => import("./pages/visits/visit-page.js"), (m) => m.VisitPage) },
               { path: "patients/:patientId/prescriptions", element: <PatientRxRedirect /> },

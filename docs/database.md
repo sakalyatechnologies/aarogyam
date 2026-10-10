@@ -51,7 +51,7 @@ flowchart LR
   notify -->|1| iam
   notify -->|1| ops
   notify -->|5| people
-  notify -->|3| scheduling
+  notify -->|4| scheduling
   notify -->|4| tenancy
   onboarding -->|2| people
   ops -->|3| billing
@@ -1148,15 +1148,15 @@ Walk-in tokens shown on the waiting-room screen.
 | `patient_id` | `uuid` | → `patients` |
 | `appointment_id` | `uuid?` | → `appointments`. null for a walk-in |
 | `practitioner_id` | `uuid?` | → `practitioners` |
-| `status` | `token_status` | waiting, in_chair, done, left |
+| `status` | `token_status` | waiting, called, in_chair, ready_to_bill, done, left (called and ready_to_bill: migration 0420) |
 | `issued_at` | `timestamptz` |  |
 | `called_at` | `timestamptz?` |  |
 | `done_at` | `timestamptz?` |  |
 | `room_id` | `uuid?` | → `rooms`. the chair chosen when seated; a room of the token's branch (migration 0384) |
 
-Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done.
+Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done. Moves: waiting to called to in_chair, called back to waiting, in_chair to ready_to_bill to done, left from any open state; waiting may still go straight to in_chair or done.
 
-Referenced by: `encounters.queue_token_id`
+Referenced by: `encounters.queue_token_id`, `staff_notifications.queue_token_id`
 
 ### `teleconsult_sessions`
 
@@ -2390,22 +2390,24 @@ Built (migration 0370). Unique (org_id, patient_id, channel, category). Consent 
 
 ### `staff_notifications`
 
-Something clinic staff are told about: an online booking waiting for an answer, one confirmed automatically, one the patient cancelled, or lab work past its due date.
+Something clinic staff are told about: an online booking waiting for an answer, one confirmed automatically, one the patient cancelled, or lab work past its due date; or a queue event: a patient waiting for the doctor, the doctor calling one in, one ready to pay.
 
 *Clinic-scoped: org_id + row-level security · sensitivity: internal · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
-| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, lab_overdue |
+| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, lab_overdue, patient_waiting, send_in, collect_payment |
 | `appointment_id` | `uuid?` | → `appointments`. booking kinds |
-| `lab_order_id` | `uuid?` | → `lab_orders`. lab_overdue; exactly one of the two is set |
+| `lab_order_id` | `uuid?` | → `lab_orders`. lab_overdue; exactly one of the three subjects is set |
+| `queue_token_id` | `uuid?` | → `queue_tokens`. patient_waiting, send_in, collect_payment (migration 0421) |
+| `audience` | `text?` | doctor, front_desk or billing; set with queue_token_id |
 | `lab_due_on` | `date?` | the due date the order was overdue on; one alert per order and due date |
 | `handled_at` | `timestamptz?` | set when the appointment is confirmed, declined or cancelled |
 | `handled_by` | `uuid?` | → `memberships`. null when the patient cancelled |
 | `reminded_at` | `timestamptz?` | the reminder job reminded everyone |
 | `escalated_at` | `timestamptz?` | the reminder job told the owners |
 
-Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor. Since migration 0395 also lab_overdue, written by a trigger when the reminder job flags an order overdue (overdue_flagged_on) and handled when the work comes back, is cancelled or gets a new due date; seen by members with labs.read whose scope reaches the order (app.clinical_in_reach).
+Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor. Since migration 0395 also lab_overdue, written by a trigger when the reminder job flags an order overdue (overdue_flagged_on) and handled when the work comes back, is cancelled or gets a new due date; seen by members with labs.read whose scope reaches the order (app.clinical_in_reach). Since migration 0421 the queue kinds, written in the transaction that moves the token (check-in or walk-in: patient_waiting for the token's doctor; call: send_in for the front desk; ready_to_bill: collect_payment for the front desk and finance); IDs only, the clinic number comes from the token's patient.
 
 Referenced by: `staff_inbox_messages.notification_id`, `staff_notification_reads.notification_id`
 

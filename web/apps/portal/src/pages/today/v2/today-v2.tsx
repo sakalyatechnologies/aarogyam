@@ -1,16 +1,14 @@
 import { CalendarDays, LayoutTemplate, Undo2 } from "lucide-react";
-import { useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
-import { Drawer, PageHeader, Skeleton } from "@sakalya/ui";
+import { PageHeader, Skeleton } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
 import { FinishSetupCard } from "../../setup/finish-card.js";
 import { longDate } from "../today-page.js";
 import { Board } from "./board.js";
 import { useDayToday, useMyLayout } from "./queries.js";
-import { StudioEditor } from "./studio-editor.js";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -20,7 +18,7 @@ function dayWords(date: string): string {
 }
 
 /**
- * Today (new look): the saved layout drawn by the Board, with a mini calendar that shows any day's queue and completed
+ * Today (new look): the saved layout drawn by the Board (Customise opens Settings → Dashboard studio), with a mini calendar that shows any day's queue and completed
  * visits in place. The chosen day is `?date=` so refresh and back keep it; "Back to today" drops it.
  */
 export function TodayV2() {
@@ -29,7 +27,7 @@ export function TodayV2() {
   const [params, setParams] = useSearchParams();
   const asked = params.get("date");
   const date = asked !== null && ISO_DAY.test(asked) ? asked : undefined;
-  const [studio, setStudio] = useState(false);
+  const navigate = useNavigate();
   const layout = useMyLayout();
   const now = useDayToday(undefined);
 
@@ -58,7 +56,7 @@ export function TodayV2() {
             type="button"
             className="mk-btn mk-btn-ghost"
             onClick={() => {
-              setStudio(true);
+              void navigate("/settings?tab=studio");
             }}
           >
             <LayoutTemplate aria-hidden="true" className="size-4" />
@@ -98,12 +96,7 @@ export function TodayV2() {
           }}
         />
       ) : (
-        <>
-          <Board layout={layout.data.layout} catalogue={layout.data.catalogue} date={viewing ? date : undefined} onDateChange={pick} />
-          <Drawer open={studio} onOpenChange={setStudio} title="Dashboard studio" description="Choose what Today shows and how. Changes show in the preview before you save." size="lg">
-            <StudioEditor view={layout.data} layout="stacked" onSaved={() => { setStudio(false); }} />
-          </Drawer>
-        </>
+        <Board layout={layout.data.layout} catalogue={layout.data.catalogue} date={viewing ? date : undefined} onDateChange={pick} />
       )}
     </div>
   );

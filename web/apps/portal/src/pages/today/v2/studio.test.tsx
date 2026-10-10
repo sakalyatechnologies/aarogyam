@@ -1,7 +1,7 @@
 import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { ApiClient, DashboardCatalogue, DashboardLayout } from "@aarogyam/api-client";
 import { ROLES } from "@aarogyam/api-client/fake";
@@ -64,7 +64,7 @@ describe("the widget registry", () => {
 describe("Settings, Dashboard studio tab", () => {
   it("is there with the New look and gone without it", async () => {
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
-    expect(await screen.findByRole("tab", { name: "Dashboard studio" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Dashboard studio" })).toBeTruthy();
     expect(await screen.findByRole("group", { name: "Live preview of Today" })).toBeTruthy();
     cleanup();
     localStorage.setItem(NEW_LOOK_KEY, "0");
@@ -110,20 +110,27 @@ describe("Settings, Dashboard studio tab", () => {
     expect(order(board)).not.toContain("busy_hours");
   });
 
-  it("the preview and Today draw the same widgets in the same order", async () => {
+  it("Customise opens Settings, where the preview matches Today and a saved template shows on Today", async () => {
     const backend = fakeApi();
     const user = userEvent.setup();
+    const { router } = renderPortal("/today", { as: PEOPLE.asha, backend });
+    await screen.findByRole("list", { name: "Key numbers" });
+    const before = order(today());
+    await user.click(screen.getByRole("button", { name: "Customise" }));
+    await within(await screen.findByRole("navigation", { name: "Settings sections" })).findByRole("button", { name: "Dashboard studio" });
+    await screen.findByRole("group", { name: "Live preview of Today" });
+    expect(router.state.location.pathname + router.state.location.search).toBe("/settings?tab=studio");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(order(preview())).toEqual(before);
+    await user.click(screen.getByRole("button", { name: /Care/ }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => { expect(preview().querySelector(".tv2")?.getAttribute("data-side")).toBe("left"); });
+    cleanup();
+
+    // Back on Today, the saved layout comes from the API: the Care template, the rail on the left.
     renderPortal("/today", { as: PEOPLE.asha, backend });
     await screen.findByRole("list", { name: "Key numbers" });
-    await user.click(screen.getByRole("button", { name: "Customise" }));
-    const dialog = await screen.findByRole("dialog", { name: "Dashboard studio" });
-    await within(dialog).findByRole("group", { name: "Live preview of Today" });
-    expect(order(preview())).toEqual(order(today()));
-    await user.click(within(dialog).getByRole("button", { name: /Care/ }));
-    await user.click(within(dialog).getByRole("button", { name: "Save" }));
-    await waitFor(() => { expect(screen.queryByRole("dialog", { name: "Dashboard studio" })).toBeNull(); });
     await waitFor(() => { expect(today().getAttribute("data-side")).toBe("left"); });
-    // The Care template: the queue and recent patients in the main area, the rail on the left.
     expect(order(today())).toEqual(expect.arrayContaining(["queue", "recent_patients", "timeline", "calendar"]));
     expect(order(today()).indexOf("calendar")).toBeLessThan(order(today()).indexOf("queue"));
   });
@@ -221,14 +228,14 @@ describe("Accessibility of the studio", () => {
     expect(problems(await axe.run(document.body, AXE))).toEqual([]);
   });
 
-  it("the Customise drawer has no axe violations", async () => {
-    const user = userEvent.setup();
-    renderPortal("/today", { as: PEOPLE.asha });
-    await screen.findByRole("list", { name: "Key numbers" });
-    await user.click(screen.getByRole("button", { name: "Customise" }));
-    const dialog = await screen.findByRole("dialog", { name: "Dashboard studio" });
-    await within(dialog).findByRole("group", { name: "Live preview of Today" });
+  it("Settings in the new look has no axe violations, on My profile and on the studio", async () => {
+    renderPortal("/settings", { as: PEOPLE.asha });
+    await screen.findByRole("navigation", { name: "Settings sections" });
+    await screen.findByText("Clinic owner. The clinic's details are under Clinic profile.");
     expect(problems(await axe.run(document.body, AXE))).toEqual([]);
-    vi.restoreAllMocks();
+    cleanup();
+    renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
+    await screen.findByRole("group", { name: "Live preview of Today" });
+    expect(problems(await axe.run(document.body, AXE))).toEqual([]);
   });
 });

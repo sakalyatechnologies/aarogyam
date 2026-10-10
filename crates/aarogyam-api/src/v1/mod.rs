@@ -453,6 +453,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/invoices/{id}",
             get(billing::get_invoice).patch(billing::edit_invoice),
         )
+        .route("/invoices/{id}/upi-link", get(billing::get_upi_link))
         .route("/invoices/{id}/issue", post(billing::issue_invoice))
         .route("/invoices/{id}/void", post(billing::void_invoice))
         .route(

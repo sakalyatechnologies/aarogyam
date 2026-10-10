@@ -1086,6 +1086,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/invoices/{id}/upi-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The UPI payment link and QR text for what is left on an issued bill. Records nothing. */
+        get: operations["getInvoiceUpiLink"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invoices/{id}/void": {
         parameters: {
             query?: never;
@@ -10149,6 +10166,24 @@ export interface components {
             /** @description Always true. */
             unsubscribed: boolean;
         };
+        /** @description How a patient pays an issued bill by UPI. */
+        UpiLink: {
+            /**
+             * Format: int64
+             * @description What is left to pay, in paise.
+             */
+            amount_paise: number;
+            /** @description The bill number sent as the payment note. */
+            invoice_number: string;
+            /** @description The payee name shown in the UPI app (the clinic's name). */
+            payee_name: string;
+            /** @description The same text, to encode in a QR code (no gateway; payments are recorded as usual). */
+            qr_data: string;
+            /** @description The clinic's UPI ID from settings. */
+            upi_id: string;
+            /** @description The `upi://pay` link to open in a UPI app. */
+            uri: string;
+        };
         /** @description The form an upload sends (`multipart/form-data`). */
         UploadForm: {
             /** @description The uploader's addendum to a signed note, which the recording belongs to. */
@@ -13783,6 +13818,56 @@ export interface operations {
                 content?: never;
             };
             /** @description Already issued or void */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getInvoiceUpiLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The bill */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpiLink"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such bill in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not issued, nothing left to pay, or no UPI ID in settings */
             409: {
                 headers: {
                     [name: string]: unknown;

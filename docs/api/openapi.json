@@ -3438,6 +3438,54 @@
         ]
       }
     },
+    "/api/v1/invoices/{id}/upi-link": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "The UPI payment link and QR text for what is left on an issued bill. Records nothing.",
+        "operationId": "getInvoiceUpiLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The bill",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpiLink"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.read"
+          },
+          "404": {
+            "description": "No such bill in this clinic"
+          },
+          "409": {
+            "description": "Not issued, nothing left to pay, or no UPI ID in settings"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/invoices/{id}/void": {
       "post": {
         "tags": [
@@ -28223,6 +28271,45 @@
           "unsubscribed": {
             "type": "boolean",
             "description": "Always true."
+          }
+        }
+      },
+      "UpiLink": {
+        "type": "object",
+        "description": "How a patient pays an issued bill by UPI.",
+        "required": [
+          "uri",
+          "qr_data",
+          "upi_id",
+          "payee_name",
+          "invoice_number",
+          "amount_paise"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What is left to pay, in paise."
+          },
+          "invoice_number": {
+            "type": "string",
+            "description": "The bill number sent as the payment note."
+          },
+          "payee_name": {
+            "type": "string",
+            "description": "The payee name shown in the UPI app (the clinic's name)."
+          },
+          "qr_data": {
+            "type": "string",
+            "description": "The same text, to encode in a QR code (no gateway; payments are recorded as usual)."
+          },
+          "upi_id": {
+            "type": "string",
+            "description": "The clinic's UPI ID from settings."
+          },
+          "uri": {
+            "type": "string",
+            "description": "The `upi://pay` link to open in a UPI app."
           }
         }
       },

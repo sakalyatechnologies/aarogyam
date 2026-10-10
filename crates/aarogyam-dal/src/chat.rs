@@ -211,6 +211,24 @@ pub async fn insert_conversation(
     Ok(done.rows_affected() == 1)
 }
 
+/// How many of the active memberships among `members` have a role without `chat.use`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn without_chat(conn: &mut PgConnection, members: &[Uuid]) -> Result<i64, DbError> {
+    let count = sqlx::query_scalar!(
+        r#"select count(*) as "count!" from aarogyam.memberships m
+           where m.id = any($1) and m.status = 'active'
+             and not exists (select 1 from aarogyam.role_permissions rp
+                             where rp.org_id = m.org_id and rp.role_id = m.role_id
+                               and rp.permission = 'chat.use')"#,
+        members
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(count)
+}
+
 /// Puts the first members into a conversation just started: the active memberships among
 /// `members`, `admin` getting the admin role. Returns how many were added.
 ///

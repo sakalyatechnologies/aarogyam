@@ -60,11 +60,13 @@ pub enum Permission {
     LabsRead,
     /// Keep labs and contacts, record lab orders and remind labs.
     LabsWrite,
+    /// Save audiences and run campaigns to patients.
+    CampaignsManage,
 }
 
 impl Permission {
     /// Every permission, in catalogue order.
-    pub const ALL: [Self; 26] = [
+    pub const ALL: [Self; 27] = [
         Self::PatientsRead,
         Self::PatientsWrite,
         Self::PatientsContact,
@@ -91,6 +93,7 @@ impl Permission {
         Self::ChatUse,
         Self::LabsRead,
         Self::LabsWrite,
+        Self::CampaignsManage,
     ];
 
     /// The catalogue key, such as `patients.read`.
@@ -123,6 +126,7 @@ impl Permission {
             Self::ChatUse => "chat.use",
             Self::LabsRead => "labs.read",
             Self::LabsWrite => "labs.write",
+            Self::CampaignsManage => "campaigns.manage",
         }
     }
 
@@ -347,6 +351,7 @@ required!(
     ChatUse,
     LabsRead,
     LabsWrite,
+    CampaignsManage,
 );
 
 #[cfg(test)]

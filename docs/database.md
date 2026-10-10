@@ -2305,6 +2305,7 @@ erDiagram
   audiences ||--o{ campaigns : "audience_id"
   message_templates ||--o{ campaigns : "template_id"
   promo_codes ||--o{ promo_redemptions : "promo_code_id"
+  campaigns |o--o{ messages : "campaign_id"
   messages ||--o{ message_events : "message_id"
   contact_preferences {
     uuid id
@@ -2503,32 +2504,44 @@ Follow-ups that are due: cleaning in six months, BP review, vaccine.
 
 ### `audiences`
 
-Saved patient filters for campaigns: age, sex, treatment, doctor, fees, history.
+Saved patient filters for campaigns: all active, last visit, birthday month, age band, sex, tag.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
 | `name` | `text` |  |
-| `filter` | `jsonb` |  |
-| `estimated_count` | `int?` |  |
+| `filter` | `jsonb` | one typed filter by kind: all_active, last_visit, birthday_month, age_band, sex, tag |
+
+Built (migration 0380). No balance, treatment or visit-kind filters (purpose limitation). Evaluated when a campaign sends (app.audience_patients, 0382). Holds no patient, so no erasure step; support never reads it.
 
 Referenced by: `campaigns.audience_id`
 
 ### `campaigns`
 
-A one-off or scheduled send to an audience: health tips, offers.
+A one-off promotional send of a clinic's template to an audience.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
 | `name` | `text` |  |
 | `audience_id` | `uuid` | → `audiences` |
 | `template_id` | `uuid` | → `message_templates` |
+| `channel` | `text` | email, whatsapp |
+| `offer_text` | `text` | the allow-listed {{offer_text}}, and the email body |
 | `scheduled_at` | `timestamptz?` |  |
-| `status` | `campaign_status` | draft, scheduled, sending, sent, cancelled |
-| `cost_estimate_paise` | `bigint?` |  |
+| `status` | `text` | draft, scheduled, sending, sent, cancelled |
+| `scheduled_count` | `int?` | the audience size the owner saw (count_token) |
+| `fan_out_cursor` | `uuid?` | last patient expanded |
+| `fan_out_started_at` | `timestamptz?` |  |
+| `fan_out_done_at` | `timestamptz?` |  |
+| `last_batch_at` | `timestamptz?` |  |
+| `cancelled_at` | `timestamptz?` |  |
+
+Built (migrations 0381, 0383). Messages name their campaign (messages.campaign_id) under dedupe key campaign:<id>:<patient>; counts are group by status, skip_reason over them, never stored. app.campaigns_fan_out_next expands 500 patients a call, resumable and idempotent. Holds no patient; retention class campaigns.
+
+Referenced by: `messages.campaign_id`
 
 ### `promo_codes`
 
@@ -2603,8 +2616,9 @@ The queue of messages to patients: one row per recipient and channel, addressed 
 | `body` | `text?` | staff free text, email only |
 | `secret` | `text?` | a one-time link secret, cleared once processed |
 | `appointment_id` | `uuid?` | → `appointments` |
+| `campaign_id` | `uuid?` | → `campaigns`. promotional only |
 | `status` | `text` | queued, sending, sent, failed, skipped |
-| `skip_reason` | `text?` | no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed, channel_disabled, no_opt_in, template_unavailable, template_paused, marketing_limit, undeliverable... |
+| `skip_reason` | `text?` | no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed, channel_disabled, no_opt_in, template_unavailable, template_paused, marketing_limit, undeliverable, frequency_cap, campaign_cancelled... |
 | `dedupe_key` | `text?` | unique per clinic, e.g. reminder:appt:<id>:24h |
 | `scheduled_for` | `timestamptz` |  |
 | `lease_until` | `timestamptz?` | while sending |

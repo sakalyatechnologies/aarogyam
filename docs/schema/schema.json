@@ -8129,13 +8129,13 @@
   {
    "name": "audiences",
    "domain": "notify",
-   "purpose": "Saved patient filters for campaigns: age, sex, treatment, doctor, fees, history.",
+   "purpose": "Saved patient filters for campaigns: all active, last visit, birthday month, age band, sex, tag.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Built (migration 0380). No balance, treatment or visit-kind filters (purpose limitation). Evaluated when a campaign sends (app.audience_patients, 0382). Holds no patient, so no erasure step; support never reads it.",
    "cols": [
     {
      "name": "name",
@@ -8149,14 +8149,7 @@
      "type": "jsonb",
      "nullable": false,
      "ref": null,
-     "note": ""
-    },
-    {
-     "name": "estimated_count",
-     "type": "int",
-     "nullable": true,
-     "ref": null,
-     "note": ""
+     "note": "one typed filter by kind: all_active, last_visit, birthday_month, age_band, sex, tag"
     }
    ],
    "referenced_by": [
@@ -8168,13 +8161,13 @@
   {
    "name": "campaigns",
    "domain": "notify",
-   "purpose": "A one-off or scheduled send to an audience: health tips, offers.",
+   "purpose": "A one-off promotional send of a clinic's template to an audience.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Built (migrations 0381, 0383). Messages name their campaign (messages.campaign_id) under dedupe key campaign:<id>:<patient>; counts are group by status, skip_reason over them, never stored. app.campaigns_fan_out_next expands 500 patients a call, resumable and idempotent. Holds no patient; retention class campaigns.",
    "cols": [
     {
      "name": "name",
@@ -8198,6 +8191,20 @@
      "note": ""
     },
     {
+     "name": "channel",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "email, whatsapp"
+    },
+    {
+     "name": "offer_text",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "the allow-listed {{offer_text}}, and the email body"
+    },
+    {
      "name": "scheduled_at",
      "type": "timestamptz",
      "nullable": true,
@@ -8206,20 +8213,57 @@
     },
     {
      "name": "status",
-     "type": "campaign_status",
+     "type": "text",
      "nullable": false,
      "ref": null,
      "note": "draft, scheduled, sending, sent, cancelled"
     },
     {
-     "name": "cost_estimate_paise",
-     "type": "bigint",
+     "name": "scheduled_count",
+     "type": "int",
+     "nullable": true,
+     "ref": null,
+     "note": "the audience size the owner saw (count_token)"
+    },
+    {
+     "name": "fan_out_cursor",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "last patient expanded"
+    },
+    {
+     "name": "fan_out_started_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "fan_out_done_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "last_batch_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cancelled_at",
+     "type": "timestamptz",
      "nullable": true,
      "ref": null,
      "note": ""
     }
    ],
-   "referenced_by": [],
+   "referenced_by": [
+    "messages.campaign_id"
+   ],
    "sensitivity": "personal",
    "offline": "server_only"
   },
@@ -8523,6 +8567,13 @@
      "note": ""
     },
     {
+     "name": "campaign_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "campaigns",
+     "note": "promotional only"
+    },
+    {
      "name": "status",
      "type": "text",
      "nullable": false,
@@ -8534,7 +8585,7 @@
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed, channel_disabled, no_opt_in, template_unavailable, template_paused, marketing_limit, undeliverable..."
+     "note": "no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed, channel_disabled, no_opt_in, template_unavailable, template_paused, marketing_limit, undeliverable, frequency_cap, campaign_cancelled..."
     },
     {
      "name": "dedupe_key",

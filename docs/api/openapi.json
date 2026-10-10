@@ -8573,6 +8573,107 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/record-shares": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "The patient's links to records, newest first, with whether each can still be opened.",
+        "operationId": "listRecordShares",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordShares"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Makes a link for the patient to see chosen records, with a lifetime of 1 hour, 24 hours or\n7 days. Writes the access record (`share`, one entry per kind).",
+        "operationId": "createRecordShare",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewRecordShare"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordShare"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown or repeated record type, or a lifetime other than 1h, 24h, 7d"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read, or the permission for a chosen kind"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/summary-note": {
       "put": {
         "tags": [
@@ -11801,6 +11902,108 @@
           },
           "423": {
             "description": "Locked after too many wrong PINs"
+          }
+        }
+      }
+    },
+    "/api/v1/shared/{token}/records": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: opens a link to records with the PIN. Five wrong PINs lock the link.\nEvery open is written to the access record.",
+        "operationId": "openSharedRecords",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The link's token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenRecords"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedRecords"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong PIN; the message says how many tries are left"
+          },
+          "404": {
+            "description": "No such link, or not a link to records"
+          },
+          "410": {
+            "description": "Expired"
+          },
+          "423": {
+            "description": "Locked after too many wrong PINs"
+          }
+        }
+      }
+    },
+    "/api/v1/shared/{token}/records/xrays/{id}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: streams an X-ray through the signed `url` an opened link returned. Works\nwhile the link does and for ten minutes at most; each download is written to the access\nrecord.",
+        "operationId": "getSharedXrayContent",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The link's token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The X-ray",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sig",
+            "in": "query",
+            "description": "The signed token from the X-ray's url",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, with its media type"
+          },
+          "403": {
+            "description": "The signed token or the link has expired; open the link again"
+          },
+          "404": {
+            "description": "Not a valid link, token or X-ray of this clinic"
           }
         }
       }
@@ -21611,6 +21814,27 @@
           }
         }
       },
+      "NewRecordShare": {
+        "type": "object",
+        "description": "What to share and for how long.",
+        "required": [
+          "record_types",
+          "expires_in"
+        ],
+        "properties": {
+          "expires_in": {
+            "type": "string",
+            "description": "How long the link works: `1h`, `24h` or `7d`."
+          },
+          "record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "One to three different kinds: `chart`, `xrays`, `bills`. Each needs the matching\npermission (`clinical.read` for chart and X-rays, `billing.read` for bills)."
+          }
+        }
+      },
       "NewRegistration": {
         "type": "object",
         "description": "A clinic asking to join.",
@@ -22221,6 +22445,19 @@
             "format": "int32",
             "description": "Slot length in minutes.",
             "minimum": 0
+          }
+        }
+      },
+      "OpenRecords": {
+        "type": "object",
+        "description": "The PIN.",
+        "required": [
+          "pin"
+        ],
+        "properties": {
+          "pin": {
+            "type": "string",
+            "description": "The six digits the clinic gave."
           }
         }
       },
@@ -25444,6 +25681,107 @@
           }
         }
       },
+      "RecordShare": {
+        "type": "object",
+        "description": "A new link to records. The token and PIN are shown once.",
+        "required": [
+          "id",
+          "token",
+          "pin",
+          "record_types",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "description": "When it stops working (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The link's id."
+          },
+          "pin": {
+            "type": "string",
+            "description": "Six-digit PIN to tell the patient."
+          },
+          "record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What the link shows."
+          },
+          "token": {
+            "type": "string",
+            "description": "Token for the link: `/shared/{token}` on the clinic's host."
+          }
+        }
+      },
+      "RecordShareItem": {
+        "type": "object",
+        "description": "A link to records as listed: never its token or PIN.",
+        "required": [
+          "id",
+          "record_types",
+          "state",
+          "expires_at",
+          "open_count",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was made."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When it stops working."
+          },
+          "id": {
+            "type": "string",
+            "description": "The link's id."
+          },
+          "open_count": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How many times it was opened."
+          },
+          "opened_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was first opened."
+          },
+          "record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What it shows."
+          },
+          "state": {
+            "type": "string",
+            "description": "`usable`, `expired` (past its expiry or revoked) or `locked` (too many wrong PINs)."
+          }
+        }
+      },
+      "RecordShares": {
+        "type": "object",
+        "description": "The patient's links to records.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordShareItem"
+            },
+            "description": "Newest first."
+          }
+        }
+      },
       "RedeemHandoff": {
         "type": "object",
         "description": "A code to redeem on the host it was made for.",
@@ -26513,6 +26851,87 @@
           }
         }
       },
+      "SharedBill": {
+        "type": "object",
+        "description": "An issued bill.",
+        "required": [
+          "id",
+          "total_paise",
+          "paid_paise"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The bill."
+          },
+          "issued_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was issued."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its number."
+          },
+          "paid_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paid so far, in paise."
+          },
+          "total_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Its total, in paise."
+          }
+        }
+      },
+      "SharedChartEntry": {
+        "type": "object",
+        "description": "One tooth finding on the chart.",
+        "required": [
+          "effective_at"
+        ],
+        "properties": {
+          "effective_at": {
+            "type": "string",
+            "description": "When the finding was made."
+          },
+          "finding": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The finding, such as `caries`."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The note."
+          },
+          "surface": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The surface, such as `O`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "FDI tooth number."
+          }
+        }
+      },
       "SharedPreview": {
         "type": "object",
         "description": "What a link shows before its PIN: no patient data.",
@@ -26531,13 +26950,129 @@
             "type": "string",
             "description": "When it stops working."
           },
+          "record_types": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "For a link to records, what it shows: `chart`, `xrays`, `bills`; open it with\n`POST /shared/{token}/records`. Absent for a prescription."
+          },
           "resource": {
             "type": "string",
-            "description": "`prescription`."
+            "description": "`prescription` or `records`."
           },
           "state": {
             "type": "string",
             "description": "`usable`, `expired` or `locked`."
+          }
+        }
+      },
+      "SharedRecords": {
+        "type": "object",
+        "description": "What an opened link shows; only the kinds the clinic chose are present.",
+        "required": [
+          "patient_name",
+          "record_types",
+          "expires_at"
+        ],
+        "properties": {
+          "bills": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SharedBill"
+            },
+            "description": "Issued bills; absent unless `bills` was shared."
+          },
+          "chart": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SharedChartEntry"
+            },
+            "description": "The current chart; absent unless `chart` was shared."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When the link stops working."
+          },
+          "patient_name": {
+            "type": "string",
+            "description": "The patient's name."
+          },
+          "record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The kinds shown."
+          },
+          "xrays": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SharedXray"
+            },
+            "description": "X-rays, newest first; absent unless `xrays` was shared."
+          }
+        }
+      },
+      "SharedXray": {
+        "type": "object",
+        "description": "An X-ray.",
+        "required": [
+          "id",
+          "taken_at",
+          "mime_type",
+          "url"
+        ],
+        "properties": {
+          "caption": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A caption."
+          },
+          "id": {
+            "type": "string",
+            "description": "The file."
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its label, such as `OPG`."
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "Media type, such as `image/jpeg`."
+          },
+          "taken_at": {
+            "type": "string",
+            "description": "When it was taken, or else uploaded."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The tooth it shows."
+          },
+          "url": {
+            "type": "string",
+            "description": "Where to fetch it: a signed path on the clinic's host, good for ten minutes (never past\nthe link's own expiry). Open the link again for a new one."
           }
         }
       },

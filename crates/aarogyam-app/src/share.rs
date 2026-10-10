@@ -34,12 +34,12 @@ pub struct NewLink {
     pub expires_at: OffsetDateTime,
 }
 
-fn pin_hash(token: &str, pin: &str) -> String {
+pub(crate) fn pin_hash(token: &str, pin: &str) -> String {
     hash_token(&format!("{}:{pin}", token.trim()))
 }
 
 /// A uniformly random six-digit PIN.
-fn new_pin() -> Result<String, AppError> {
+pub(crate) fn new_pin() -> Result<String, AppError> {
     loop {
         let mut bytes = [0_u8; 4];
         rand::fill(&mut bytes).map_err(|_| AppError::Internal("random number generator failed"))?;
@@ -137,8 +137,10 @@ pub(crate) async fn create_in(
 pub struct LinkPreview {
     /// The clinic's name.
     pub clinic_name: String,
-    /// `prescription`.
+    /// `prescription` or `records`.
     pub resource: String,
+    /// What a link to records shows (`chart`, `xrays`, `bills`); none for other links.
+    pub record_types: Option<Vec<String>>,
     /// Whether it can be opened.
     pub state: LinkState,
     /// When it stops working.
@@ -166,6 +168,7 @@ pub async fn preview(
         Ok(LinkPreview {
             clinic_name,
             resource: link.resource,
+            record_types: link.record_types,
             state: LinkState::of(
                 now,
                 link.expires_at,

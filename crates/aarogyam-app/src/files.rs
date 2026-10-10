@@ -25,7 +25,7 @@ use aarogyam_domain::dental::Tooth;
 use aarogyam_domain::files::{FileType, MAX_BYTES, MAX_VOICE_SECONDS, VoiceLanguage};
 use aarogyam_domain::ids::{
     AttachmentId, ClinicId, ClinicalNoteId, EncounterId, MembershipId, NoteAddendumId, PatientId,
-    UserId,
+    ShareLinkId, UserId,
 };
 use aarogyam_domain::permission::Permission;
 use aws_lc_rs::{digest, hmac, rand};
@@ -316,6 +316,46 @@ impl LinkSigner {
             return Err(LinkRefusal::Expired);
         }
         Ok(())
+    }
+
+    /// A token for an X-ray of the patient behind share link `link`, shown on that link's page
+    /// until `expires`. It names no member: the link's PIN was the proof.
+    #[must_use]
+    pub fn sign_share_file(
+        &self,
+        clinic: ClinicId,
+        link: ShareLinkId,
+        file: AttachmentId,
+        expires: OffsetDateTime,
+    ) -> String {
+        self.sign_picture(
+            &format!("share-file-{}", link.uuid().simple()),
+            clinic,
+            file,
+            expires,
+        )
+    }
+
+    /// Checks a share-link file token at `now`.
+    ///
+    /// # Errors
+    /// [`LinkRefusal::Invalid`] unless signed by this server for this clinic, link and file;
+    /// [`LinkRefusal::Expired`] once past its expiry.
+    pub fn verify_share_file(
+        &self,
+        clinic: ClinicId,
+        link: ShareLinkId,
+        file: AttachmentId,
+        token: &str,
+        now: OffsetDateTime,
+    ) -> Result<(), LinkRefusal> {
+        self.verify_picture(
+            &format!("share-file-{}", link.uuid().simple()),
+            clinic,
+            file,
+            token,
+            now,
+        )
     }
 
     /// A token to show a staff member's avatar photo (not patient data, so it names no one)

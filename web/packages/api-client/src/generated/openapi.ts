@@ -2681,6 +2681,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/record-shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patient's links to records, newest first, with whether each can still be opened. */
+        get: operations["listRecordShares"];
+        put?: never;
+        /**
+         * Makes a link for the patient to see chosen records, with a lifetime of 1 hour, 24 hours or
+         *     7 days. Writes the access record (`share`, one entry per kind).
+         */
+        post: operations["createRecordShare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/summary-note": {
         parameters: {
             query?: never;
@@ -3634,6 +3655,47 @@ export interface paths {
          *     Every open is written to the access record.
          */
         post: operations["openSharedPrescription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/{token}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Public, no sign-in: opens a link to records with the PIN. Five wrong PINs lock the link.
+         *     Every open is written to the access record.
+         */
+        post: operations["openSharedRecords"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/{token}/records/xrays/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public, no sign-in: streams an X-ray through the signed `url` an opened link returned. Works
+         *     while the link does and for ten minutes at most; each download is written to the access
+         *     record.
+         */
+        get: operations["getSharedXrayContent"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7492,6 +7554,16 @@ export interface components {
             /** @description Why, 1 to 300 characters. */
             reason: string;
         };
+        /** @description What to share and for how long. */
+        NewRecordShare: {
+            /** @description How long the link works: `1h`, `24h` or `7d`. */
+            expires_in: string;
+            /**
+             * @description One to three different kinds: `chart`, `xrays`, `bills`. Each needs the matching
+             *     permission (`clinical.read` for chart and X-rays, `billing.read` for bills).
+             */
+            record_types: string[];
+        };
         /** @description A clinic asking to join. */
         NewRegistration: {
             /** @description Its city. */
@@ -7741,6 +7813,11 @@ export interface components {
              * @description Slot length in minutes.
              */
             slot_minutes?: number | null;
+        };
+        /** @description The PIN. */
+        OpenRecords: {
+            /** @description The six digits the clinic gave. */
+            pin: string;
         };
         /** @description The PIN. */
         OpenRequest: {
@@ -8995,6 +9072,44 @@ export interface components {
             /** @description `care`, `reminders`, `promotional`, `sharing` or `research`. */
             purpose: string;
         };
+        /** @description A new link to records. The token and PIN are shown once. */
+        RecordShare: {
+            /** @description When it stops working (RFC 3339). */
+            expires_at: string;
+            /** @description The link's id. */
+            id: string;
+            /** @description Six-digit PIN to tell the patient. */
+            pin: string;
+            /** @description What the link shows. */
+            record_types: string[];
+            /** @description Token for the link: `/shared/{token}` on the clinic's host. */
+            token: string;
+        };
+        /** @description A link to records as listed: never its token or PIN. */
+        RecordShareItem: {
+            /** @description When it was made. */
+            created_at: string;
+            /** @description When it stops working. */
+            expires_at: string;
+            /** @description The link's id. */
+            id: string;
+            /**
+             * Format: int32
+             * @description How many times it was opened.
+             */
+            open_count: number;
+            /** @description When it was first opened. */
+            opened_at?: string | null;
+            /** @description What it shows. */
+            record_types: string[];
+            /** @description `usable`, `expired` (past its expiry or revoked) or `locked` (too many wrong PINs). */
+            state: string;
+        };
+        /** @description The patient's links to records. */
+        RecordShares: {
+            /** @description Newest first. */
+            items: components["schemas"]["RecordShareItem"][];
+        };
         /** @description A code to redeem on the host it was made for. */
         RedeemHandoff: {
             /** @description The code from the URL fragment. */
@@ -9410,16 +9525,94 @@ export interface components {
             /** @description Token for the link: `/shared/{token}` on the clinic's host. */
             token: string;
         };
+        /** @description An issued bill. */
+        SharedBill: {
+            /** @description The bill. */
+            id: string;
+            /** @description When it was issued. */
+            issued_at?: string | null;
+            /** @description Its number. */
+            number?: string | null;
+            /**
+             * Format: int64
+             * @description Paid so far, in paise.
+             */
+            paid_paise: number;
+            /**
+             * Format: int64
+             * @description Its total, in paise.
+             */
+            total_paise: number;
+        };
+        /** @description One tooth finding on the chart. */
+        SharedChartEntry: {
+            /** @description When the finding was made. */
+            effective_at: string;
+            /** @description The finding, such as `caries`. */
+            finding?: string | null;
+            /** @description The note. */
+            note?: string | null;
+            /** @description The surface, such as `O`. */
+            surface?: string | null;
+            /**
+             * Format: int32
+             * @description FDI tooth number.
+             */
+            tooth?: number | null;
+        };
         /** @description What a link shows before its PIN: no patient data. */
         SharedPreview: {
             /** @description The clinic's name. */
             clinic_name: string;
             /** @description When it stops working. */
             expires_at: string;
-            /** @description `prescription`. */
+            /**
+             * @description For a link to records, what it shows: `chart`, `xrays`, `bills`; open it with
+             *     `POST /shared/{token}/records`. Absent for a prescription.
+             */
+            record_types?: string[] | null;
+            /** @description `prescription` or `records`. */
             resource: string;
             /** @description `usable`, `expired` or `locked`. */
             state: string;
+        };
+        /** @description What an opened link shows; only the kinds the clinic chose are present. */
+        SharedRecords: {
+            /** @description Issued bills; absent unless `bills` was shared. */
+            bills?: components["schemas"]["SharedBill"][] | null;
+            /** @description The current chart; absent unless `chart` was shared. */
+            chart?: components["schemas"]["SharedChartEntry"][] | null;
+            /** @description When the link stops working. */
+            expires_at: string;
+            /** @description The patient's name. */
+            patient_name: string;
+            /** @description The kinds shown. */
+            record_types: string[];
+            /** @description X-rays, newest first; absent unless `xrays` was shared. */
+            xrays?: components["schemas"]["SharedXray"][] | null;
+        };
+        /** @description An X-ray. */
+        SharedXray: {
+            /** @description A caption. */
+            caption?: string | null;
+            /** @description The file. */
+            id: string;
+            /** @description Its label, such as `OPG`. */
+            label?: string | null;
+            /** @description Media type, such as `image/jpeg`. */
+            mime_type: string;
+            /** @description When it was taken, or else uploaded. */
+            taken_at: string;
+            /**
+             * Format: int32
+             * @description The tooth it shows.
+             */
+            tooth?: number | null;
+            /**
+             * @description Where to fetch it: a signed path on the clinic's host, good for ten minutes (never past
+             *     the link's own expiry). Open the link again for a new one.
+             */
+            url: string;
         };
         /** @description About the clinic. */
         SiteAbout: {
@@ -18964,6 +19157,103 @@ export interface operations {
             };
         };
     };
+    listRecordShares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordShares"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createRecordShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewRecordShare"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordShare"];
+                };
+            };
+            /** @description Unknown or repeated record type, or a lifetime other than 1h, 24h, 7d */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read, or the permission for a chosen kind */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     savePatientSummaryNote: {
         parameters: {
             query?: never;
@@ -22242,6 +22532,100 @@ export interface operations {
             };
             /** @description Locked after too many wrong PINs */
             423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    openSharedRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link's token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenRecords"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedRecords"];
+                };
+            };
+            /** @description Wrong PIN; the message says how many tries are left */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such link, or not a link to records */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Expired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Locked after too many wrong PINs */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getSharedXrayContent: {
+        parameters: {
+            query: {
+                /** @description The signed token from the X-ray's url */
+                sig: string;
+            };
+            header?: never;
+            path: {
+                /** @description The link's token */
+                token: string;
+                /** @description The X-ray */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, with its media type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The signed token or the link has expired; open the link again */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a valid link, token or X-ray of this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

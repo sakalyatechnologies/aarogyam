@@ -55,6 +55,7 @@ pub mod patients;
 pub mod prescriptions;
 pub mod queue;
 pub mod recalls;
+pub mod record_shares;
 pub mod retention;
 pub mod roles;
 pub mod schedule;

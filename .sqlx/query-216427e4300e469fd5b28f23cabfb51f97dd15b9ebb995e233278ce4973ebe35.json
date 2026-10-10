@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, pin_hash, resource, prescription_id, patient_id, failed_attempts, locked_at,\n                  expires_at, revoked_at\n           from aarogyam.share_links where token_hash = $1\n           for update",
+  "query": "select id, record_types as \"record_types!\", expires_at, revoked_at, locked_at,\n                  opened_at, open_count, created_at\n           from aarogyam.share_links\n           where patient_id = $1 and resource = 'records'\n           order by created_at desc, id desc",
   "describe": {
     "columns": [
       {
@@ -16,72 +16,17 @@
       },
       {
         "ordinal": 1,
-        "name": "pin_hash",
-        "type_info": "Text",
+        "name": "record_types!",
+        "type_info": "TextArray",
         "origin": {
           "Table": {
             "table": "aarogyam.share_links",
-            "name": "pin_hash"
+            "name": "record_types"
           }
         }
       },
       {
         "ordinal": 2,
-        "name": "resource",
-        "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "aarogyam.share_links",
-            "name": "resource"
-          }
-        }
-      },
-      {
-        "ordinal": 3,
-        "name": "prescription_id",
-        "type_info": "Uuid",
-        "origin": {
-          "Table": {
-            "table": "aarogyam.share_links",
-            "name": "prescription_id"
-          }
-        }
-      },
-      {
-        "ordinal": 4,
-        "name": "patient_id",
-        "type_info": "Uuid",
-        "origin": {
-          "Table": {
-            "table": "aarogyam.share_links",
-            "name": "patient_id"
-          }
-        }
-      },
-      {
-        "ordinal": 5,
-        "name": "failed_attempts",
-        "type_info": "Int4",
-        "origin": {
-          "Table": {
-            "table": "aarogyam.share_links",
-            "name": "failed_attempts"
-          }
-        }
-      },
-      {
-        "ordinal": 6,
-        "name": "locked_at",
-        "type_info": "Timestamptz",
-        "origin": {
-          "Table": {
-            "table": "aarogyam.share_links",
-            "name": "locked_at"
-          }
-        }
-      },
-      {
-        "ordinal": 7,
         "name": "expires_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -92,7 +37,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 3,
         "name": "revoked_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -101,24 +46,67 @@
             "name": "revoked_at"
           }
         }
+      },
+      {
+        "ordinal": 4,
+        "name": "locked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "locked_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "opened_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "opened_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "open_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "open_count"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "created_at"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
       false,
-      false,
-      false,
       true,
       false,
-      false,
+      true,
+      true,
       true,
       false,
-      true
+      false
     ]
   },
-  "hash": "6a5564fba29d4686ca3928775c1d0acecc53b4c6f234b56929c0e91246dc79e2"
+  "hash": "216427e4300e469fd5b28f23cabfb51f97dd15b9ebb995e233278ce4973ebe35"
 }

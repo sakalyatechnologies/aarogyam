@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.share_links\n             (id, token_hash, pin_hash, resource, patient_id, record_types, channel, expires_at)\n           values ($1, $2, $3, 'records', $4, $5, 'whatsapp', $6)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Uuid",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "baa501f6314ad0a92348defb45b89c09fa37419738503546007a28870cac7b75"
+}

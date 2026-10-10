@@ -2937,19 +2937,20 @@ Expiring links that let a patient open a prescription, bill or report on the cli
 |---|---|---|
 | `token_hash` | `text` | the link holds a 256-bit token; only its hash is stored |
 | `pin_hash` | `text` | SHA-256 of token and the six-digit PIN printed on the paper |
-| `resource` | `share_resource` | prescription, invoice, report, upload_request |
+| `resource` | `share_resource` | prescription, invoice, report, upload_request, records |
+| `record_types` | `text[]?` | for resource records: a subset of chart, xrays, bills (migration 0387) |
 | `prescription_id` | `uuid?` | → `prescriptions` |
 | `invoice_id` | `uuid?` | → `invoices` |
 | `patient_id` | `uuid` | → `patients` |
 | `channel` | `channel` | whatsapp, sms, email, print |
 | `failed_attempts` | `int` | five wrong PINs lock the link |
 | `locked_at` | `timestamptz?` |  |
-| `expires_at` | `timestamptz` | seven days |
+| `expires_at` | `timestamptz` | seven days; for records the clinic picks 1 hour, 24 hours or 7 days |
 | `opened_at` | `timestamptz?` |  |
 | `open_count` | `int` |  |
 | `revoked_at` | `timestamptz?` |  |
 
-Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self.
+Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self. A records link (POST /patients/{id}/record-shares) has no document column: it shows the patient's own chart, X-rays and issued bills as chosen, and writes access_log for the share, each open and each X-ray download.
 
 ### `access_log` (★ foundation, partitioned)
 

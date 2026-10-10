@@ -474,6 +474,10 @@ async fn every_route_requires_sign_in_and_a_permission() {
         let public = [
             "/api/v1/shared/{token}",
             "/api/v1/shared/{token}/open",
+            // A link to records: the PIN opens it, a signed token serves an X-ray from it
+            // (tests/mobile_records.rs).
+            "/api/v1/shared/{token}/records",
+            "/api/v1/shared/{token}/records/xrays/{id}",
             // The clinic's letterhead for that page: no patient data, needs the link's token.
             "/api/v1/shared/{token}/letterhead",
             "/api/v1/verify/prescriptions/{verify_token}",

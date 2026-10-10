@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select mime_type from aarogyam.attachments\n           where id = $1 and patient_id = $2 and kind = 'xray' and deleted_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mime_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "mime_type"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "430e70758fd1ce046153f5afe41553856d0917b46674dab07a00df3f08cc2335"
+}

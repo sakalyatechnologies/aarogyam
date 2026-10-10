@@ -749,7 +749,7 @@ pub(crate) async fn create_share(
     ))
 }
 
-const fn state_name(state: LinkState) -> &'static str {
+pub(super) const fn state_name(state: LinkState) -> &'static str {
     match state {
         LinkState::Usable => "usable",
         LinkState::Expired => "expired",
@@ -762,8 +762,12 @@ const fn state_name(state: LinkState) -> &'static str {
 pub struct SharedPreview {
     /// The clinic's name.
     pub clinic_name: String,
-    /// `prescription`.
+    /// `prescription` or `records`.
     pub resource: String,
+    /// For a link to records, what it shows: `chart`, `xrays`, `bills`; open it with
+    /// `POST /shared/{token}/records`. Absent for a prescription.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub record_types: Option<Vec<String>>,
     /// `usable`, `expired` or `locked`.
     pub state: String,
     /// When it stops working.
@@ -798,6 +802,7 @@ pub(crate) async fn shared_preview(
     Ok(Json(SharedPreview {
         clinic_name: preview.clinic_name,
         resource: preview.resource,
+        record_types: preview.record_types,
         state: state_name(preview.state).to_owned(),
         expires_at: rfc3339(preview.expires_at),
     }))

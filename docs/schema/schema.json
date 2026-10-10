@@ -9525,7 +9525,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self.",
+   "notes": "Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self. A records link (POST /patients/{id}/record-shares) has no document column: it shows the patient's own chart, X-rays and issued bills as chosen, and writes access_log for the share, each open and each X-ray download.",
    "cols": [
     {
      "name": "token_hash",
@@ -9546,7 +9546,14 @@
      "type": "share_resource",
      "nullable": false,
      "ref": null,
-     "note": "prescription, invoice, report, upload_request"
+     "note": "prescription, invoice, report, upload_request, records"
+    },
+    {
+     "name": "record_types",
+     "type": "text[]",
+     "nullable": true,
+     "ref": null,
+     "note": "for resource records: a subset of chart, xrays, bills (migration 0387)"
     },
     {
      "name": "prescription_id",
@@ -9595,7 +9602,7 @@
      "type": "timestamptz",
      "nullable": false,
      "ref": null,
-     "note": "seven days"
+     "note": "seven days; for records the clinic picks 1 hour, 24 hours or 7 days"
     },
     {
      "name": "opened_at",

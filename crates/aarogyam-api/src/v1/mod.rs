@@ -50,6 +50,7 @@ pub(crate) mod quality;
 pub(crate) mod queue;
 pub(crate) mod quick_picks;
 pub(crate) mod recalls;
+pub(crate) mod record_shares;
 pub(crate) mod registrations;
 pub(crate) mod reports;
 pub(crate) mod roles;
@@ -588,6 +589,15 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         // Public, no sign-in: on the clinic's host, limited by the link's token and PIN.
         .route("/shared/{token}", get(prescriptions::shared_preview))
         .route("/shared/{token}/open", post(prescriptions::shared_open))
+        .route("/shared/{token}/records", post(record_shares::open))
+        .route(
+            "/shared/{token}/records/xrays/{id}",
+            get(record_shares::xray_content),
+        )
+        .route(
+            "/patients/{id}/record-shares",
+            get(record_shares::list).post(record_shares::create),
+        )
         .route(
             "/verify/prescriptions/{verify_token}",
             get(prescriptions::verify),

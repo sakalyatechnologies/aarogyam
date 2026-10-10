@@ -44,9 +44,9 @@ Tick a task only when its done criteria pass: tests, gates and parity sheet. Add
 | D15 | done |  | Queue summary: compute avg wait and no-shows from the `/queue` and `/today` data already loaded. Anything that can't be computed is Preview  |
 | A1 | partial: shell, bar/rail, tab fade-through, hide on scroll, Schedule and More done; container transform and avatar flight with A2/A3 |  | Shell: floating bar from `NavModel`, rail when wide, tab fade-through, push shared axis, tab bar hide and return, shared avatar flight. Remo |
 | A2 | todo |  | Walk-in sheet in v7 style (from the FAB with container transform), Back fixed with a discard confirm; the "Photo of old Rx / X-ray" button u |
-| A3 | todo |  | Today (a): me-card pager with dots and avatar edit; dark "My schedule" with the week strip. |
-| A4 | todo |  | Today (b): stat group, hero (ring, live dot, Open record / Call in), money cards (owner or finance), sparkline. |
-| A5 | todo |  | Today (c): Up-next carousel, schedule list, Needs attention, QR sheet, notifications sheet (Preview); the finance Today variant. |
+| A3 | done (me card pager, avatar art, my schedule with week strip; avatar edit opens with A17) |  | Today (a): me-card pager with dots and avatar edit; dark "My schedule" with the week strip. |
+| A4 | done (stats, hero with live dot and ring, money cards; collected sparkline needs a daily series, BK-20) |  | Today (b): stat group, hero (ring, live dot, Open record / Call in), money cards (owner or finance), sparkline. |
+| A5 | partial: up next, schedule, needs attention, notifications sheet done; QR sheet and finance page next |  | Today (c): Up-next carousel, schedule list, Needs attention, QR sheet, notifications sheet (Preview); the finance Today variant. |
 | A6 | todo |  | Schedule Queue: chair board with mini-rings, Seat next (real seat; chair choice Preview, BK-14), tickets with timers, Call in, summary chips |
 | A7 | todo |  | Schedule Day (chair columns, now-line, day strip) and Week (heat map, open-slot chips to the booking sheet); booking sheet with slot and cha |
 | A8 | todo |  | Patients list (search, filter chips, shaped avatars, due pills). |

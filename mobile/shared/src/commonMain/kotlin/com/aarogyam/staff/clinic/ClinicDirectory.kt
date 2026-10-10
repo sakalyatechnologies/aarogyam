@@ -21,6 +21,8 @@ class ClinicContext(
     val slug: String,
     val api: ClinicApi,
     val session: Session,
+    /** The member's role as the clinic names it ("Dental assistant"), from `/me`. */
+    val roleName: String = session.membership.roleKey,
 ) {
     /** The brand colour and mode from the session. */
     val branding: ClinicBranding = ClinicBranding.of(session.clinic)
@@ -75,7 +77,7 @@ class ClinicDirectory(
         val api = ClinicApi(clientFor(base), base.toString().trimEnd('/'))
         return when (val session = api.session()) {
             is Outcome.Success -> {
-                val context = ClinicContext(clinic.slug, api, session.value)
+                val context = ClinicContext(clinic.slug, api, session.value, clinic.roleName)
                 contexts[clinic.slug] = context
                 mutableCurrent.value = context
                 log.info("clinic.opened") { id("org", clinic.orgId) }

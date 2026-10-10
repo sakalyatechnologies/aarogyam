@@ -19,6 +19,9 @@ The last deploy may still be in flight; check `scripts/cloud-run-deploy.sh` outp
 - `feat/v2-shell` (`wt-v2-shell`): floating, expandable icon rail and a notifications drawer. A merge of main into it was in progress (api-client duplicates: keep main's).
 - Merge both into main, run `pnpm check`, then deploy screens only (`scripts/deploy-workers.sh <api url>`).
 
+**Committed, not merged:** `feat/v2-patients` dd16ddc (B4 + family profiles; passed the hook).
+- **Before merging, check mobile compatibility.** Money keys are now *omitted* rather than null without `billing.read`. If the mobile apps' decoders expect the keys, return null instead, since API changes must be additive only.
+
 **Paused, each with a HANDOFF.md in its worktree:**
 - `wt-v2-tooth`: chart like the zip.
   - Rows and 3D arch views; Adult 32 and Child 20.

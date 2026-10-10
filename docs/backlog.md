@@ -213,3 +213,13 @@ Review prompts are in `~/project/ux-review/ux-review-prompts.md` (outside the re
 - **Built (machine-drafted):** the staff app's screens in Marathi and Hindi: Android `values-mr` and `values-hi` for every string file, `mr` and `hi` in the iOS String Catalogs. The app follows the phone's language; Android also has an in-app choice (Today → More → Language: phone setting, English, मराठी, हिंदी) through `AppCompatDelegate.setApplicationLocales`; iOS opens Settings, where each app has its own language.
 - **Before the pilot:** a native Marathi speaker and a native Hindi speaker who know clinic work review every string (clinical terms such as caries, crown and the tooth surfaces are transliterated for now; dentists may prefer the English words), and check the screens for truncation. Until then the translations are drafts.
 - **Not yet:** the portal (its i18n layer is part C4 of the walk-in plan), patient-facing text (prescriptions, the patient app), and a check that fails the build when a string has no Marathi or Hindi version on iOS (Android lint already does).
+
+## Left over from the backend plan (10 Oct 2026)
+- Messaging extras: promo codes, two-person approval for campaigns, "has balance" and treatment filters for marketing audiences.
+- Admin chair time: add an admin appointment kind; until then `chair_time.admin` is always 0.
+- After each deploy: send an email to a synthetic patient on the demo clinic and a lab reminder to a test contact.
+- Credentials still to set: WhatsApp (Meta account, `ARO_WHATSAPP__*`), the Resend webhook secret, Firebase/APNs for push.
+- Owner invitation from the console: show delivery status and the failure reason, add "Resend invite"; check the Resend sender domain is verified.
+
+## Portal v2 from the Lovable mockup (10 Oct 2026, planning)
+Port the look of `aarogyam-st` (Lovable) into the portal behind a "New look" switch; keep our data layer, routes and permission checks. Order: shell with expandable icon rail, Today (studio widgets, date picker that loads that day's queue and completed list), Settings (adopt its tabs; keep our website designer and letterhead; add its site templates), then the other tabs. Backend asks: per-user studio layout, edit own name and phone, booking auto-confirm and default visit length, notification switches, chair-occupancy heatmap, chair room and paused flag, GST on price items, chat clinic channel and attachments.

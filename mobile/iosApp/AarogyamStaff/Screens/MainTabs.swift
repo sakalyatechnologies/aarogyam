@@ -69,7 +69,7 @@ struct MainTabs: View {
             }
         case .schedule:
             NavigationStack(path: $schedulePath) {
-                ScheduleTab(graph: graph, clinic: clinic) { schedulePath.append(PatientRoute(id: $0)) }
+                ScheduleTab(graph: graph, clinic: clinic, onOpenPatient: { schedulePath.append(PatientRoute(id: $0)) }, onWalkIn: { walkIn = true })
                     .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense)
                     .patientDestination(graph: graph, clinic: clinic)
             }

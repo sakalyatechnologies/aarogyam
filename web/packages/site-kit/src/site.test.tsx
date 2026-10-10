@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { TEMPLATES } from "./catalog.js";
+import { FONTS, TEMPLATES, paletteOf, templateInfo } from "./catalog.js";
 import { ClinicSite } from "./clinic-site.js";
 import { formatFee, formatTime, hoursRows } from "./format.js";
 import { sampleSite } from "./sample.js";
@@ -84,6 +84,84 @@ describe.each(TEMPLATES.flatMap((t) => t.palettes.slice(0, 1).map((p) => [t.id, 
     expect(screen.getByText(/Call \+91 20261 23456 to book/)).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Meet our doctors" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "A look around" })).toBeNull();
+  });
+});
+
+const NEW_DESIGNS = ["heritage", "smilebright", "bentopeach", "bentopistachio", "bentomidnight"] as const;
+
+describe("the five newer designs", () => {
+  it("are in the catalogue with their own palettes, fonts and a tagline", () => {
+    expect(TEMPLATES.map((t) => t.id)).toEqual(expect.arrayContaining([...NEW_DESIGNS]));
+    for (const id of NEW_DESIGNS) {
+      const info = templateInfo(id);
+      expect(info.id).toBe(id);
+      expect(info.tagline.length).toBeGreaterThan(10);
+      // Stored ids must satisfy the database pattern.
+      expect(id).toMatch(/^[a-z][a-z0-9]{2,19}$/);
+    }
+    expect(FONTS.map((f) => f.id)).toEqual(expect.arrayContaining(["classic", "display"]));
+    // The midnight design is dark; the others are light.
+    const dark = (hex: string) => Number.parseInt(hex.slice(1, 3), 16) < 0x40;
+    expect(dark(paletteOf("bentomidnight", "midnight").bg)).toBe(true);
+    expect(dark(paletteOf("bentopeach", "peach").bg)).toBe(false);
+  });
+
+  describe.each(NEW_DESIGNS.flatMap((t) => templateInfo(t).palettes.map((p) => [t, p.id] as const)))("%s / %s", (template, palette) => {
+    it("renders every section, with its colours applied and one h1", () => {
+      const site = sampleSite({ design: { layout: "one", template, palette, fonts: "modern" } });
+      const { container } = render(<ClinicSite site={site} bookingUrl="/book" />);
+      expect(container.querySelector(`.cs-t-${template}`)).not.toBeNull();
+      expect(container.querySelector(".cs-root")?.getAttribute("data-palette")).toBe(palette);
+      expect(container.querySelector<HTMLElement>(".cs-root")?.style.getPropertyValue("--accent")).toBe(paletteOf(template, palette).accent);
+      expect(container.querySelectorAll("h1")).toHaveLength(1);
+      for (const heading of ["Our services", "About Sunrise Dental Clinic", "Meet our doctors", "A look around", "What patients say", "Contact and booking"]) {
+        expect(screen.getByRole("heading", { name: heading })).toBeTruthy();
+      }
+    });
+  });
+
+  it.each(NEW_DESIGNS)("%s: header, hero, footer and the booking button work on a multi-page site", (template) => {
+    const site = sampleSite({ design: { layout: "multi", template, palette: templateInfo(template).palettes[0]?.id ?? "", fonts: "modern" } });
+    const visited: PageId[] = [];
+    const { container } = render(<ClinicSite site={site} page="home" onNavigate={(p) => visited.push(p)} hrefFor={(p) => `/${p}`} bookingUrl="/book" />);
+    expect(screen.getByRole("banner")).toBeTruthy();
+    expect(screen.getByRole("contentinfo")).toBeTruthy();
+    expect(screen.getAllByRole("link", { name: /\+91 20261 23456/ }).length).toBeGreaterThan(0);
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Services" }));
+    expect(visited).toEqual(["services"]);
+    expect(container.querySelector(".cs-dock")).not.toBeNull();
+  });
+
+  it("heritage centres its opening and bento draws it as tiles", () => {
+    const heritage = render(<ClinicSite site={sampleSite({ design: { layout: "one", template: "heritage", palette: "forest", fonts: "classic" } })} />);
+    expect(heritage.container.querySelector(".cs-hero-center .cs-motto")).not.toBeNull();
+    heritage.unmount();
+    const { container } = render(<ClinicSite site={sampleSite({ design: { layout: "one", template: "bentopistachio", palette: "pistachio", fonts: "display" } })} bookingUrl="/book" />);
+    expect(container.querySelector(".cs-fam-bento")).not.toBeNull();
+    expect(container.querySelectorAll(".cs-bento > .cs-tile").length).toBeGreaterThanOrEqual(4);
+    expect(container.querySelector(".cs-tile-dark")?.textContent).toContain("Choose a time");
+  });
+
+  it.each(NEW_DESIGNS)("%s: shows the same inline editing as the older designs", (template) => {
+    const calls: [string, string][] = [];
+    const pick = vi.fn();
+    const site = sampleSite({ design: { layout: "one", template, palette: templateInfo(template).palettes[0]?.id ?? "", fonts: "modern" } });
+    render(<ClinicSite site={site} edit={{ setText: (path, value) => calls.push([path, value]), pickPhoto: pick }} />);
+    const headline = screen.getByRole("textbox", { name: "Headline" });
+    headline.textContent = "Smiles for every age";
+    fireEvent.blur(headline);
+    expect(calls).toEqual([["hero.headline", "Smiles for every age"]]);
+    fireEvent.click(screen.getByRole("button", { name: "Change top picture" }));
+    expect(pick).toHaveBeenCalledWith("hero", expect.objectContaining({ id: "h1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a gallery picture" }));
+    expect(pick).toHaveBeenLastCalledWith("gallery", null);
+  });
+
+  it.each(NEW_DESIGNS)("%s: has a gentle opening with no picture, no hours, no doctors", (template) => {
+    const site = sampleSite({ design: { layout: "one", template, palette: templateInfo(template).palettes[0]?.id ?? "", fonts: "modern" }, hours: [], doctors: [], reviews: [], photos: { gallery: [] }, booking_enabled: false });
+    render(<ClinicSite site={site} />);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Healthy smiles, gently cared for");
+    expect(screen.queryByRole("heading", { name: "Meet our doctors" })).toBeNull();
   });
 });
 

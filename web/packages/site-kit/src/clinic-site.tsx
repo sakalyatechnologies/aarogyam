@@ -175,7 +175,7 @@ export function ClinicSite({ site, page = "home", onNavigate, hrefFor, bookingUr
   };
   const phone = site.clinic.phone;
   const inner: ReactNode = (
-    <div ref={root} className={`cs-root cs-t-${template}${className === undefined ? "" : ` ${className}`}`} style={style} lang="en" data-palette={palette.id}>
+    <div ref={root} className={`cs-root cs-t-${template}${template.startsWith("bento") ? " cs-fam-bento" : ""}${className === undefined ? "" : ` ${className}`}`} style={style} lang="en" data-palette={palette.id}>
       <a className="cs-skip" href="#main">
         Skip to content
       </a>

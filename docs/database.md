@@ -2725,7 +2725,7 @@ A clinic's public website settings: layout, template, palette, fonts, owner-writ
 | Column | Type | Notes |
 |---|---|---|
 | `layout` | `text` | one, multi |
-| `template` | `text` | aurora, hearth, clinical, bold |
+| `template` | `text` | aurora, hearth, clinical, bold, heritage, smilebright, bentopeach, bentopistachio, bentomidnight |
 | `palette` | `text` | per template |
 | `fonts` | `text` | font pairing |
 | `content` | `jsonb` | section text, doctor profiles, hidden services, reviews |

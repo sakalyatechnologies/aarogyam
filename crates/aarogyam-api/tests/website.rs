@@ -121,7 +121,7 @@ async fn the_owner_edits_the_design_and_content_with_checks() {
     assert_eq!(site["domain"]["status"], "none");
     assert_eq!(site["domain"]["default_address"], "alpha-site.localtest.me");
     assert_eq!(site["domain"]["sites_target"], "sites.localtest.me");
-    assert!(site["templates"].as_array().unwrap().len() >= 4);
+    assert!(site["templates"].as_array().unwrap().len() >= 9);
     assert_eq!(site["preview"]["clinic"]["name"], "Alpha Dental");
 
     // A new design takes its own first palette; a palette of another design is refused.

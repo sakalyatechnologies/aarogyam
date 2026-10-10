@@ -10193,7 +10193,7 @@ export interface components {
             layout: string;
             /** @description One of the template's palettes. */
             palette: string;
-            /** @description `aurora`, `hearth`, `clinical` or `bold`. */
+            /** @description One of the designs listed by the catalogue, such as `aurora`, `hearth` or `bentopeach`. */
             template: string;
         };
         /** @description A doctor on the website. */

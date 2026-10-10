@@ -41,6 +41,18 @@ function content(patch: Partial<WebsiteContent> = {}): WebsiteContent {
 }
 
 describe("fake website API", () => {
+  it("accepts the newer designs with their own palettes and refuses another design's palette", async () => {
+    const { as } = setup();
+    const owner = as(ASHA, SUNRISE);
+    const bento = value(await owner.updateWebsite({ template: "bentomidnight", fonts: "display" }));
+    expect(bento).toMatchObject({ template: "bentomidnight", palette: "midnight", fonts: "display" });
+    const heritage = value(await owner.updateWebsite({ template: "heritage", palette: "burgundy", fonts: "classic" }));
+    expect(heritage).toMatchObject({ template: "heritage", palette: "burgundy" });
+    // `sky` exists, but belongs to Smile Bright and Clinical, not Heritage.
+    const refused = await owner.updateWebsite({ template: "heritage", palette: "sky" });
+    expect(refused.ok).toBe(false);
+  });
+
   it("starts with defaults, builds the preview from clinic data, and publishes", async () => {
     const { as } = setup();
     const owner = as(ASHA, SUNRISE);
@@ -49,7 +61,8 @@ describe("fake website API", () => {
     expect(websiteSettings.safeParse(first).success).toBe(true);
     expect(first.preview.clinic.name).toBe("Sunrise Dental");
     expect(first.preview.services.length).toBeGreaterThan(0);
-    expect(first.templates.length).toBeGreaterThanOrEqual(4);
+    expect(first.templates.map((t) => t.id)).toEqual(["aurora", "hearth", "clinical", "bold", "heritage", "smilebright", "bentopeach", "bentopistachio", "bentomidnight"]);
+    expect(first.fonts_available).toEqual(["modern", "elegant", "friendly", "editorial", "classic", "display"]);
     expect((await as(null, SUNRISE).getPublicSite()).ok).toBe(false);
 
     const changed = value(await owner.updateWebsite({ template: "hearth", layout: "multi", published: true, content: content({ hero: { headline: "  Gentle   care ", subheadline: "", cta_label: "" } }) }));

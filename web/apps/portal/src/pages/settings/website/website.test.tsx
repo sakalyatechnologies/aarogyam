@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { fakeTokenFor } from "@aarogyam/api-client/fake";
+import { TEMPLATES } from "@aarogyam/site-kit";
 
 import { PEOPLE, fakeApi, renderPortal } from "../../../test/render.js";
 
@@ -38,9 +39,27 @@ describe("Settings, Website", () => {
     // The clinic's name and price list fill the page.
     expect(document.querySelector(".cs-t-aurora")).not.toBeNull();
     expect(screen.getAllByText("Sunrise Dental").length).toBeGreaterThan(0);
-    for (const name of ["Aurora design", "Hearth design", "Clinical design", "Bold design"]) {
-      expect(screen.getByRole("img", { name })).toBeTruthy();
+    for (const template of TEMPLATES) {
+      expect(screen.getByRole("img", { name: `${template.name} design` })).toBeTruthy();
     }
+    expect(TEMPLATES.map((t) => t.name)).toEqual(expect.arrayContaining(["Heritage", "Smile Bright", "Peach Bento", "Pistachio Bento", "Midnight Bento"]));
+  });
+
+  it("offers every design in the catalogue and saves the ones the API lists, with their own colours", async () => {
+    const { user, backend } = await openWebsite();
+    const listed = await owner(backend).getWebsiteSettings();
+    expect(listed.ok && listed.value.templates.map((t) => [t.id, t.palettes])).toEqual(TEMPLATES.map((t) => [t.id, t.palettes.map((p) => p.id)]));
+    await user.click(await screen.findByRole("button", { name: /Peach Bento design/ }));
+    await waitFor(() => {
+      expect(document.querySelector(".cs-t-bentopeach")).not.toBeNull();
+    });
+    expect(document.querySelector(".cs-root")?.getAttribute("data-palette")).toBe("peach");
+    expect(screen.getByRole("button", { name: "Rose colours" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Rose colours" }));
+    await waitFor(async () => {
+      const saved = await owner(backend).getWebsiteSettings();
+      expect(saved.ok && [saved.value.template, saved.value.palette]).toEqual(["bentopeach", "rose"]);
+    });
   });
 
   it("changes the design, palette and layout, saving each and showing it at once", async () => {

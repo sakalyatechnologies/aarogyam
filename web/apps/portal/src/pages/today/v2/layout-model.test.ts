@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { DashboardCatalogue, DashboardLayout } from "@aarogyam/api-client";
 
-import { addWidget, allowed, dropOn, moveInZone, removeAt, sameLayout, setOpt, setZone, shownItems, specOf } from "./layout-model.js";
+import { addWidget, allowed, canStep, dropInZone, dropOn, nearestSize, stepSize, stepWidget, moveInZone, removeAt, sameLayout, setOpt, setZone, shownItems, specOf } from "./layout-model.js";
 
 const spec = (key: string, zones: string[], sizes: string[], requires: string | null = null) => ({
   key,
@@ -80,5 +80,50 @@ describe("layout edits", () => {
     expect(shownItems(layout, catalogue, () => true, (key) => key !== "a").map((s) => s.item.key)).toEqual(["d", "b", "c"]);
     expect(sameLayout(layout, { ...layout, items: layout.items.map((i) => ({ ...i, opts: {} })) })).toBe(true);
     expect(sameLayout(layout, { ...layout, density: "compact" })).toBe(false);
+  });
+});
+
+describe("edits on the preview", () => {
+  const a = specOf(catalogue, "a");
+  const b = specOf(catalogue, "b");
+
+  it("drops into a zone at a place, and hands back the same layout for a zone the widget may not use or no change", () => {
+    expect(keys(dropInZone(layout, "c", { zone: "main", anchor: "a", side: "before" }, catalogue))).toEqual(["c", "a", "d", "b"]);
+    expect(keys(dropInZone(layout, "a", { zone: "main", anchor: "b", side: "after" }, catalogue))).toEqual(["d", "b", "a", "c"]);
+    const intoRail = dropInZone(layout, "a", { zone: "rail" }, catalogue);
+    expect(intoRail.items.find((item) => item.key === "a")?.zone).toBe("rail");
+    expect(keys(intoRail)).toEqual(["d", "a", "b", "c"]);
+    expect(dropInZone(layout, "b", { zone: "rail" }, catalogue)).toBe(layout);
+    expect(dropInZone(layout, "d", { zone: "main" }, catalogue)).toBe(layout);
+    expect(dropInZone(layout, "a", { zone: "main", anchor: "d", side: "before" }, catalogue)).toBe(layout);
+    expect(dropInZone(layout, "a", { zone: "main", anchor: "a", side: "before" }, catalogue)).toBe(layout);
+  });
+
+  it("keeps the size valid when a widget changes zone", () => {
+    const sized = { ...layout, items: layout.items.map((item) => (item.key === "c" ? { ...item, size: "M" } : item)) };
+    expect(dropInZone(sized, "a", { zone: "rail" }, catalogue).items.find((item) => item.key === "a")?.size).toBe("M");
+  });
+
+  it("steps left and right between the main area and the rail, by the rail's side", () => {
+    expect(canStep(layout, "a", "right", catalogue)).toBe(true);
+    expect(canStep(layout, "a", "left", catalogue)).toBe(false);
+    expect(canStep(layout, "b", "right", catalogue)).toBe(false);
+    expect(canStep(layout, "d", "left", catalogue)).toBe(false);
+    expect(stepWidget(layout, "b", "right", catalogue)).toBe(layout);
+    const leftRail = { ...layout, rail: { ...layout.rail, side: "left" } };
+    expect(canStep(leftRail, "a", "left", catalogue)).toBe(true);
+    expect(canStep(leftRail, "a", "right", catalogue)).toBe(false);
+    expect(stepWidget(leftRail, "a", "left", catalogue).items.find((item) => item.key === "a")?.zone).toBe("rail");
+  });
+
+  it("steps through only the sizes a widget allows", () => {
+    if (a === undefined || b === undefined) throw new Error("no spec");
+    expect(stepSize(a, "S", 1)).toBe("M");
+    expect(stepSize(a, "M", 1)).toBe("M");
+    expect(stepSize(b, "L", 1)).toBe("full");
+    expect(stepSize(b, "L", -1)).toBe("L");
+    expect(nearestSize(b, 5)).toBe("L");
+    expect(nearestSize(b, 11)).toBe("full");
+    expect(nearestSize(a, 12)).toBe("M");
   });
 });

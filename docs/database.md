@@ -2460,7 +2460,7 @@ Who is in a conversation, their role, and how far they have read.
 | `muted` | `boolean` | left out of the badge |
 | `last_read_message_id` | `uuid?` | → `chat_messages`. unread counts start after it |
 
-Built (migration 0391). Primary key (org_id, conversation_id, membership_id). The read pointer is left out of the change history.
+Built (migration 0391). Primary key (org_id, conversation_id, membership_id). The read pointer is left out of the change history. A trigger (0396) caps a group at 100 active members.
 
 ### `chat_messages`
 
@@ -2615,7 +2615,7 @@ The queue of messages to patients: one row per recipient and channel, addressed 
 | `sent_at` | `timestamptz?` |  |
 | `processed_at` | `timestamptz?` |  |
 
-Built (migrations 0370 to 0373); not partitioned. Never holds an address. The outbox job claims due rows (app.messages_claim, lease and SKIP LOCKED, a daily budget per provider), reads each through app.message_dispatch (address, may_contact, opt-outs, quiet hours, patient state) and sends, skips or reschedules it. The change history masks body, variables, secret, error and the unsubscribe hash. Erased with the patient; retention 365 days from queuing.
+Built (migrations 0370 to 0373); not partitioned. Never holds an address. The outbox job claims due rows (app.messages_claim, lease and SKIP LOCKED, a daily budget per provider), reads each through app.message_dispatch (address, may_contact, opt-outs, quiet hours, patient state) and sends, skips or reschedules it. The change history masks body, variables, secret, error and the unsubscribe hash. Erased with the patient; retention 365 days from queuing. Support never reads it (0397: a restrictive no_support policy, also on message_events and contact_preferences).
 
 Referenced by: `message_events.message_id`
 

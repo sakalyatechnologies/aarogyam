@@ -7917,7 +7917,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Built (migration 0391). Primary key (org_id, conversation_id, membership_id). The read pointer is left out of the change history.",
+   "notes": "Built (migration 0391). Primary key (org_id, conversation_id, membership_id). The read pointer is left out of the change history. A trigger (0396) caps a group at 100 active members.",
    "cols": [
     {
      "name": "conversation_id",
@@ -8429,7 +8429,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Built (migrations 0370 to 0373); not partitioned. Never holds an address. The outbox job claims due rows (app.messages_claim, lease and SKIP LOCKED, a daily budget per provider), reads each through app.message_dispatch (address, may_contact, opt-outs, quiet hours, patient state) and sends, skips or reschedules it. The change history masks body, variables, secret, error and the unsubscribe hash. Erased with the patient; retention 365 days from queuing.",
+   "notes": "Built (migrations 0370 to 0373); not partitioned. Never holds an address. The outbox job claims due rows (app.messages_claim, lease and SKIP LOCKED, a daily budget per provider), reads each through app.message_dispatch (address, may_contact, opt-outs, quiet hours, patient state) and sends, skips or reschedules it. The change history masks body, variables, secret, error and the unsubscribe hash. Erased with the patient; retention 365 days from queuing. Support never reads it (0397: a restrictive no_support policy, also on message_events and contact_preferences).",
    "cols": [
     {
      "name": "patient_id",

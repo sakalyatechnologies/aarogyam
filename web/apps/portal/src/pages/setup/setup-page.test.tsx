@@ -1,10 +1,13 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import axe from "axe-core";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import type { ApiClient, DashboardLayout } from "@aarogyam/api-client";
 import { fakeTokenFor, freshSetup, type Fixtures } from "@aarogyam/api-client/fake";
 
 import { CLINIC_STORAGE_KEY } from "../../clinic.js";
+import { NEW_LOOK_KEY } from "../../lib/new-look.js";
 import { NOW, PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
 
 const SUNRISE = "sunrise.localtest.me";
@@ -47,10 +50,10 @@ function first(elements: HTMLElement[]): HTMLElement {
   return element;
 }
 
-async function wizard(path = "/today") {
+async function wizard(path = "/today", wrap?: (client: ApiClient) => ApiClient) {
   const user = userEvent.setup();
   const backend = fakeApi(freshClinic);
-  renderPortal(path, { as: PEOPLE.asha, backend });
+  renderPortal(path, { as: PEOPLE.asha, backend, ...(wrap === undefined ? {} : { wrap }) });
   // The first run loads who you are, then the session, Today, the setup state and the redirect: allow it time.
   await screen.findByRole("heading", { name: "Set up your clinic" }, { timeout: 5000 });
   if (path === "/today") {
@@ -70,6 +73,7 @@ async function continueTo(user: ReturnType<typeof userEvent.setup>, label: strin
 
 beforeEach(() => {
   window.sessionStorage.clear();
+  window.localStorage.clear();
 });
 
 describe("Setup wizard", () => {
@@ -164,6 +168,14 @@ describe("Setup wizard", () => {
     expect(await screen.findByRole("radiogroup", { name: "Letterhead source" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: /My own letterhead/ })).toBeTruthy();
     expect(screen.getByRole("radiogroup", { name: "Palette" })).toBeTruthy();
+    // The same Today board the Studio draws, on sample data, with its widget editor and a template card each.
+    expect(await screen.findByRole("group", { name: "Live preview of Today" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Remove Key numbers" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Executive/ })).toBeTruthy();
+    expect(document.querySelectorAll(".tv2-thumb").length).toBeGreaterThan(2);
+    const preview = screen.getByRole("group", { name: "Live preview of Today" });
+    await waitFor(() => { expect(within(preview).getAllByText(/Meera/).length).toBeGreaterThan(0); });
+    expect(within(preview).queryByText(/Couldn't load/)).toBeNull();
     await user.click(screen.getByRole("button", { name: "Skip this step" }));
     await screen.findByRole("heading", { name: /Good (morning|afternoon|evening)/ }).catch(() => undefined);
     const setup = value(await client(backend, PEOPLE.asha).getSetup());
@@ -340,3 +352,85 @@ describe("Invited doctor's setup", () => {
     await screen.findByRole("heading", { name: /Good (morning|afternoon|evening)|Today/ }).catch(() => undefined);
   });
 });
+
+describe("step 5, the clinic's Today layout", () => {
+    const AXE = { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } };
+
+    it("Continue PUTs the clinic's layout and the theme is already saved, then marks the step done", async () => {
+      const saved: DashboardLayout[] = [];
+      const { user, backend } = await wizard("/setup?step=look", (client) => ({
+        ...client,
+        saveDashboardLayout: (layout, options) => {
+          saved.push(layout);
+          return client.saveDashboardLayout(layout, options);
+        },
+      }));
+      await screen.findByRole("group", { name: "Live preview of Today" });
+      await user.click(screen.getByRole("button", { name: /Executive/ }));
+      await user.click(screen.getByRole("button", { name: "Compact" }));
+      await user.click(screen.getByRole("button", { name: "Remove Busy hours" }));
+      expect(saved).toHaveLength(0);
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await waitFor(() => { expect(saved).toHaveLength(1); });
+      expect(saved[0]?.tpl).toBe("executive");
+      expect(saved[0]?.density).toBe("compact");
+      expect(saved[0]?.items.some((item) => item.key === "busy_hours")).toBe(false);
+      const api = client(backend, PEOPLE.asha);
+      const clinic = value(await api.getDashboardLayout());
+      expect(clinic.source).toBe("clinic");
+      expect(clinic.layout).toEqual(saved[0]);
+      await waitFor(async () => {
+        expect(value(await api.getSetup()).steps.find((s) => s.key === "look")?.status).toBe("done");
+      });
+    });
+
+    it("keeps the choices through a reload until Continue", async () => {
+      const { user, backend } = await wizard("/setup?step=look");
+      await screen.findByRole("group", { name: "Live preview of Today" });
+      await user.click(screen.getByRole("button", { name: /Executive/ }));
+      await user.click(screen.getByRole("button", { name: "Remove Busy hours" }));
+      cleanup();
+      renderPortal("/setup?step=look", { as: PEOPLE.asha, backend });
+      await screen.findByRole("group", { name: "Live preview of Today" }, { timeout: 5000 });
+      expect(screen.getByRole("button", { name: /Executive/ }).getAttribute("aria-pressed")).toBe("true");
+      expect(screen.queryByRole("button", { name: "Remove Busy hours" })).toBeNull();
+      // Nothing was saved to the clinic before Continue.
+      expect(value(await client(backend, PEOPLE.asha).getDashboardLayout()).source).not.toBe("clinic");
+    });
+
+    it("has no accessibility violations", async () => {
+      await wizard("/setup?step=look");
+      await screen.findByRole("group", { name: "Live preview of Today" });
+      const result = await axe.run(document.body, AXE);
+      expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+    });
+
+    it("Skip still works and leaves the clinic's layout alone", async () => {
+      const { user, backend } = await wizard("/setup?step=look");
+      await screen.findByRole("group", { name: "Live preview of Today" });
+      await user.click(screen.getByRole("button", { name: /Executive/ }));
+      await user.click(screen.getByRole("button", { name: "Skip this step" }));
+      await waitFor(async () => {
+        expect(value(await client(backend, PEOPLE.asha).getSetup()).steps.find((s) => s.key === "look")?.status).toBe("skipped");
+      });
+      expect(value(await client(backend, PEOPLE.asha).getDashboardLayout()).source).not.toBe("clinic");
+    });
+
+    it("the owner's Today (New look) draws that layout once setup is finished", async () => {
+      localStorage.setItem(NEW_LOOK_KEY, "1");
+      const { user } = await wizard("/setup?step=look");
+      await screen.findByRole("group", { name: "Live preview of Today" });
+      await user.click(screen.getByRole("button", { name: /Executive/ }));
+      await user.click(screen.getByRole("button", { name: "Compact" }));
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      // The other four steps are still open: wait for each one to show before skipping it.
+      for (let step = 1; step <= 4; step += 1) {
+        await screen.findByText(new RegExp(`Step ${String(step)} of 5`), {}, { timeout: 10_000 });
+        await user.click(await screen.findByRole("button", { name: "Skip this step" }, { timeout: 5000 }));
+      }
+      await screen.findByRole("list", { name: "Key numbers" }, { timeout: 20_000 });
+      const board = [...document.querySelectorAll<HTMLElement>(".tv2")].find((el) => el.closest(".tv2-preview") === null);
+      expect(board?.getAttribute("data-tpl")).toBe("executive");
+      expect(board?.getAttribute("data-density")).toBe("compact");
+    }, 40_000);
+  });

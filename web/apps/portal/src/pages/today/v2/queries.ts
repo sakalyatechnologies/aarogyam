@@ -61,6 +61,16 @@ export function useMyLayout() {
   });
 }
 
+/** The clinic's default layout (or MedSync when none is saved), with the catalogue: what setup edits. */
+export function useClinicLayout() {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: layoutKey(access.org_id, "clinic"),
+    queryFn: ({ signal }) => unwrap(api.getDashboardLayout({ signal })),
+    ...REFERENCE,
+  });
+}
+
 /** Saves the member's own layout, or (`clinic`) the clinic default; the board follows at once. */
 export function useSaveLayout(scope: "me" | "clinic") {
   const { api, access } = useClinic();

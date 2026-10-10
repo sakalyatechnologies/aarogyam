@@ -27,6 +27,13 @@ export function usePatientPeek(): (patient: PeekRef) => void {
   return open;
 }
 
+const NOTHING = () => undefined;
+
+/** For a board drawn outside the shell (the setup's preview): the quick look opens nothing. */
+export function InertPeekProvider({ children }: { children: ReactNode }) {
+  return <PeekContext value={NOTHING}>{children}</PeekContext>;
+}
+
 export function PeekProvider({ children }: { children: ReactNode }) {
   const [patient, setPatient] = useState<PeekRef | undefined>(undefined);
   const [open, setOpen] = useState(false);

@@ -92,9 +92,12 @@
 
 .tv2-cell { container-type: inline-size; }
 .tv2-scroll { overflow-x: auto; }
-@container (max-width: 520px) { .tv2-table .tv2-opt2 { display: none; } }
-@container (max-width: 600px) { .tv2-table { min-width: 0; } .tv2-table .tv2-opt { display: none; } }
-.tv2-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 13px; }
+/* The table fits its card: the optional columns drop out as the card narrows, so Status is never scrolled out of view. */
+@container (max-width: 760px) { .tv2-table .tv2-opt2 { display: none; } }
+@container (max-width: 620px) { .tv2-table .tv2-opt { display: none; } }
+.tv2-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tv2-table th:first-child, .tv2-table td:first-child, .tv2-table th:last-child, .tv2-table td:last-child { white-space: nowrap; }
+.tv2-table th:last-child, .tv2-table td:last-child { padding-right: 0; width: 1%; }
 .tv2-table th { text-align: left; padding: 0 8px 8px 0; font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--sk-text-muted); }
 .tv2-table td { padding: 10px 8px 10px 0; border-top: 1px solid color-mix(in srgb, var(--sk-border) 70%, transparent); vertical-align: middle; }
 .tv2[data-density="compact"] .tv2-table td { padding-block: 5px; }
@@ -116,6 +119,14 @@
 .tv2-templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
 .tv2-tpl { text-align: left; padding: 10px 12px; border-radius: 16px; border: 1.5px solid var(--sk-border); background: var(--sk-surface); font: inherit; color: var(--sk-text); cursor: pointer; }
 .tv2-tpl[aria-pressed="true"] { border-color: var(--sk-primary); background: var(--sk-primary-soft); }
+.tv2-tplcard { position: relative; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tv2-tplcard .tv2-tpl { flex: 1 1 auto; }
+.tv2-tplcard .tv2-tpl::after { content: ""; position: absolute; inset: 0; border-radius: 16px; }
+.tv2-thumb { pointer-events: none; border: 1px solid var(--sk-border); border-radius: 12px; background: var(--sk-background); padding: 4px; overflow: hidden; }
+.tv2-studio[data-thumbs="1"][data-layout="split"] { grid-template-columns: minmax(0, 500px) minmax(0, 1fr); }
+@media (max-width: 900px) { .tv2-studio[data-thumbs="1"][data-layout="split"] { grid-template-columns: minmax(0, 1fr); } }
+.tv2-thumb .tv2-preview-frame { max-height: 120px; }
+.tv2-studio[data-thumbs="1"] .tv2-templates { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .tv2-tpl b { display: block; font-size: 13px; }
 .tv2-tpl span { display: block; margin-top: 2px; font-size: 11px; color: var(--sk-text-muted); }
 .tv2-knobs { display: grid; gap: 14px; }

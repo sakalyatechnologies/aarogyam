@@ -1938,8 +1938,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The caller's notifications about appointments within their scope, newest first, with their
-         *     own read state and who handled each one. The portal checks every minute.
+         * The caller's notifications, newest first: bookings within their `appointments.read` scope
+         *     and overdue lab work within their `labs.read` scope, with their own read state and who
+         *     handled each one. The portal checks every minute.
          */
         get: operations["listNotifications"];
         put?: never;
@@ -5799,7 +5800,10 @@ export interface components {
             /** @description True to show it in the patient's app. */
             shared_with_patient: boolean;
         };
-        /** @description Who handled a notification: confirmed, declined or cancelled its appointment. */
+        /**
+         * @description Who handled a notification: confirmed, declined or cancelled its appointment, or received,
+         *     cancelled or re-dated its lab work.
+         */
         HandledBy: {
             /** @description When (RFC 3339). */
             at: string;
@@ -7619,8 +7623,7 @@ export interface components {
         };
         /** @description A notification as the caller sees it. */
         Notification: {
-            /** @description The appointment. */
-            appointment: components["schemas"]["NotifiedAppointment"];
+            appointment?: components["schemas"]["NotifiedAppointment"] | null;
             /** @description When it happened (RFC 3339). */
             created_at: string;
             /** @description When the owners were told (RFC 3339). */
@@ -7628,8 +7631,12 @@ export interface components {
             handled?: components["schemas"]["HandledBy"] | null;
             /** @description Identifier; pass as `before` for the next page. */
             id: string;
-            /** @description `booking_requested`, `booking_confirmed_auto` or `booking_cancelled_by_patient`. */
+            /**
+             * @description `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient` or
+             *     `lab_overdue`.
+             */
             kind: string;
+            lab_order?: components["schemas"]["NotifiedLabOrder"] | null;
             /** @description Whether the caller has read it. */
             read: boolean;
             /** @description When the caller read it (RFC 3339). */
@@ -7656,6 +7663,17 @@ export interface components {
             starts_at: string;
             /** @description Its status now, such as `requested` or `confirmed`. */
             status: string;
+        };
+        /** @description The lab order an overdue alert is about. */
+        NotifiedLabOrder: {
+            /** @description Its due date now (`YYYY-MM-DD`). */
+            due_on?: string | null;
+            /** @description The order; open it at `/lab-orders/{id}`. */
+            id: string;
+            /** @description Its number, such as `LAB-12`. */
+            number: string;
+            /** @description Its lab's name. */
+            vendor_name: string;
         };
         /**
          * @description A measurement. Values never change: a correction is a new reading whose `supersedes_id`
@@ -16573,7 +16591,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read */
+            /** @description The role lacks both appointments.read and labs.read */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -16606,7 +16624,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read */
+            /** @description The role lacks both appointments.read and labs.read */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -16639,7 +16657,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read */
+            /** @description The role lacks both appointments.read and labs.read */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -16674,14 +16692,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read */
+            /** @description The role lacks both appointments.read and labs.read */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description No such notification in this clinic, or its appointment is out of the role's reach */
+            /** @description No such notification in this clinic, or its appointment or lab order is out of the role's reach */
             404: {
                 headers: {
                     [name: string]: unknown;

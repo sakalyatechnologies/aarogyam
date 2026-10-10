@@ -49,6 +49,7 @@ flowchart LR
   notify -->|1| billing
   notify -->|1| clinical
   notify -->|1| iam
+  notify -->|1| ops
   notify -->|5| people
   notify -->|3| scheduling
   notify -->|4| tenancy
@@ -1823,7 +1824,7 @@ Work sent to a lab for a patient, its due date and where it is.
 
 Built (migration 0361). Status moves forward only (draft -> sent/cancelled; sent -> in_progress/received/cancelled; in_progress -> received/cancelled; received -> fitted/returned_for_rework). The outbox job emails the lab two days before and on the due date, and flags overdue work, each once per due date (app.run_lab_reminders, migration 0363). Reminders never name the patient. Retention class lab_work (8 years).
 
-Referenced by: `attachments.lab_order_id`, `lab_order_events.lab_order_id`, `lab_order_items.lab_order_id`, `lab_orders.rework_of_id`, `lab_payments.lab_order_id`
+Referenced by: `attachments.lab_order_id`, `lab_order_events.lab_order_id`, `lab_order_items.lab_order_id`, `lab_orders.rework_of_id`, `lab_payments.lab_order_id`, `staff_notifications.lab_order_id`
 
 ### `lab_order_items`
 
@@ -2382,20 +2383,22 @@ Built (migration 0370). Unique (org_id, patient_id, channel, category). Consent 
 
 ### `staff_notifications`
 
-Something clinic staff are told about: an online booking waiting for an answer, one confirmed automatically, or one the patient cancelled.
+Something clinic staff are told about: an online booking waiting for an answer, one confirmed automatically, one the patient cancelled, or lab work past its due date.
 
 *Clinic-scoped: org_id + row-level security · sensitivity: internal · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
-| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient |
-| `appointment_id` | `uuid` | → `appointments` |
+| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, lab_overdue |
+| `appointment_id` | `uuid?` | → `appointments`. booking kinds |
+| `lab_order_id` | `uuid?` | → `lab_orders`. lab_overdue; exactly one of the two is set |
+| `lab_due_on` | `date?` | the due date the order was overdue on; one alert per order and due date |
 | `handled_at` | `timestamptz?` | set when the appointment is confirmed, declined or cancelled |
 | `handled_by` | `uuid?` | → `memberships`. null when the patient cancelled |
 | `reminded_at` | `timestamptz?` | the reminder job reminded everyone |
 | `escalated_at` | `timestamptz?` | the reminder job told the owners |
 
-Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor.
+Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor. Since migration 0395 also lab_overdue, written by a trigger when the reminder job flags an order overdue (overdue_flagged_on) and handled when the work comes back, is cancelled or gets a new due date; seen by members with labs.read whose scope reaches the order (app.clinical_in_reach).
 
 Referenced by: `staff_inbox_messages.notification_id`, `staff_notification_reads.notification_id`
 
@@ -2461,7 +2464,7 @@ Who is in a conversation, their role, and how far they have read.
 | `muted` | `boolean` | left out of the badge |
 | `last_read_message_id` | `uuid?` | → `chat_messages`. unread counts start after it |
 
-Built (migration 0391). Primary key (org_id, conversation_id, membership_id). The read pointer is left out of the change history.
+Built (migration 0391). Primary key (org_id, conversation_id, membership_id). The read pointer is left out of the change history. A trigger (0396) caps a group at 100 active members.
 
 ### `chat_messages`
 
@@ -2616,7 +2619,7 @@ The queue of messages to patients: one row per recipient and channel, addressed 
 | `sent_at` | `timestamptz?` |  |
 | `processed_at` | `timestamptz?` |  |
 
-Built (migrations 0370 to 0373); not partitioned. Never holds an address. The outbox job claims due rows (app.messages_claim, lease and SKIP LOCKED, a daily budget per provider), reads each through app.message_dispatch (address, may_contact, opt-outs, quiet hours, patient state) and sends, skips or reschedules it. The change history masks body, variables, secret, error and the unsubscribe hash. Erased with the patient; retention 365 days from queuing.
+Built (migrations 0370 to 0373); not partitioned. Never holds an address. The outbox job claims due rows (app.messages_claim, lease and SKIP LOCKED, a daily budget per provider), reads each through app.message_dispatch (address, may_contact, opt-outs, quiet hours, patient state) and sends, skips or reschedules it. The change history masks body, variables, secret, error and the unsubscribe hash. Erased with the patient; retention 365 days from queuing. Support never reads it (0397: a restrictive no_support policy, also on message_events and contact_preferences).
 
 Referenced by: `message_events.message_id`
 

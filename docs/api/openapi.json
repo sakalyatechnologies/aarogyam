@@ -6052,7 +6052,7 @@
         "tags": [
           "notifications"
         ],
-        "summary": "The caller's notifications about appointments within their scope, newest first, with their\nown read state and who handled each one. The portal checks every minute.",
+        "summary": "The caller's notifications, newest first: bookings within their `appointments.read` scope\nand overdue lab work within their `labs.read` scope, with their own read state and who\nhandled each one. The portal checks every minute.",
         "operationId": "listNotifications",
         "parameters": [
           {
@@ -6102,7 +6102,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks appointments.read"
+            "description": "The role lacks both appointments.read and labs.read"
           }
         },
         "security": [
@@ -6133,7 +6133,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks appointments.read"
+            "description": "The role lacks both appointments.read and labs.read"
           }
         },
         "security": [
@@ -6164,7 +6164,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks appointments.read"
+            "description": "The role lacks both appointments.read and labs.read"
           }
         },
         "security": [
@@ -6200,10 +6200,10 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks appointments.read"
+            "description": "The role lacks both appointments.read and labs.read"
           },
           "404": {
-            "description": "No such notification in this clinic, or its appointment is out of the role's reach"
+            "description": "No such notification in this clinic, or its appointment or lab order is out of the role's reach"
           }
         },
         "security": [
@@ -17376,7 +17376,7 @@
       },
       "HandledBy": {
         "type": "object",
-        "description": "Who handled a notification: confirmed, declined or cancelled its appointment.",
+        "description": "Who handled a notification: confirmed, declined or cancelled its appointment, or received,\ncancelled or re-dated its lab work.",
         "required": [
           "at"
         ],
@@ -21994,13 +21994,19 @@
           "id",
           "kind",
           "created_at",
-          "read",
-          "appointment"
+          "read"
         ],
         "properties": {
           "appointment": {
-            "$ref": "#/components/schemas/NotifiedAppointment",
-            "description": "The appointment."
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedAppointment",
+                "description": "The appointment, for a booking notification."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "created_at": {
             "type": "string",
@@ -22030,7 +22036,18 @@
           },
           "kind": {
             "type": "string",
-            "description": "`booking_requested`, `booking_confirmed_auto` or `booking_cancelled_by_patient`."
+            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient` or\n`lab_overdue`."
+          },
+          "lab_order": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedLabOrder",
+                "description": "The lab order, for `lab_overdue`."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "read": {
             "type": "boolean",
@@ -22103,6 +22120,36 @@
           "status": {
             "type": "string",
             "description": "Its status now, such as `requested` or `confirmed`."
+          }
+        }
+      },
+      "NotifiedLabOrder": {
+        "type": "object",
+        "description": "The lab order an overdue alert is about.",
+        "required": [
+          "id",
+          "number",
+          "vendor_name"
+        ],
+        "properties": {
+          "due_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its due date now (`YYYY-MM-DD`)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The order; open it at `/lab-orders/{id}`."
+          },
+          "number": {
+            "type": "string",
+            "description": "Its number, such as `LAB-12`."
+          },
+          "vendor_name": {
+            "type": "string",
+            "description": "Its lab's name."
           }
         }
       },

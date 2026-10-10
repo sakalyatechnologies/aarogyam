@@ -211,6 +211,24 @@ pub async fn insert_conversation(
     Ok(done.rows_affected() == 1)
 }
 
+/// How many of the active memberships among `members` have a role without `chat.use`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn without_chat(conn: &mut PgConnection, members: &[Uuid]) -> Result<i64, DbError> {
+    let count = sqlx::query_scalar!(
+        r#"select count(*) as "count!" from aarogyam.memberships m
+           where m.id = any($1) and m.status = 'active'
+             and not exists (select 1 from aarogyam.role_permissions rp
+                             where rp.org_id = m.org_id and rp.role_id = m.role_id
+                               and rp.permission = 'chat.use')"#,
+        members
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(count)
+}
+
 /// Puts the first members into a conversation just started: the active memberships among
 /// `members`, `admin` getting the admin role. Returns how many were added.
 ///
@@ -623,14 +641,13 @@ pub struct Badges {
     /// Unread messages from others in conversations the caller hasn't muted, at most the cap.
     pub chat_unread: i64,
     /// Unread notifications, as `notifications::unread_count` counts them; `None` without
-    /// `appointments.read`.
+    /// `appointments.read` and `labs.read`.
     pub notifications_unread: Option<i64>,
 }
 
 /// Chat and notification unread counts in one statement. `notifications` is `None` when the
-/// caller can't see notifications; otherwise the member to narrow to (`own` scope) or `None`
-/// for every appointment, and the notification window in days. The notification count is the
-/// same query as [`crate::notifications::unread_count`]; keep the two alike.
+/// caller can't see notifications; otherwise what they see. The notification count is the same
+/// query as [`crate::notifications::unread_count`]; keep the two alike.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -638,9 +655,11 @@ pub async fn badges(
     conn: &mut PgConnection,
     me: Uuid,
     cap: i64,
-    notifications: Option<(Option<Uuid>, i32)>,
+    notifications: Option<crate::notifications::Viewer>,
 ) -> Result<Badges, DbError> {
-    let (reach, days) = notifications.unwrap_or((None, 0));
+    let none = crate::notifications::Sees::NONE;
+    let (bookings, labs, days) =
+        notifications.map_or((none, none, 0), |v| (v.bookings, v.labs, v.unread_days));
     let row = sqlx::query_as!(
         Badges,
         r#"select
@@ -654,9 +673,12 @@ pub async fn badges(
                 limit $2) chat) as "chat_unread!",
              case when $3 then (select count(*) from (
                 select 1 from aarogyam.staff_notifications n
-                join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
+                left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
+                left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
                 where n.created_at > now() - make_interval(days => $5::int)
-                  and app.practitioner_in_reach(a.practitioner_id, $4)
+                  and (($6 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $4))
+                       or ($7 and o.id is not null
+                           and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $8)))
                   and not exists (select 1 from aarogyam.staff_notification_reads r
                                   where r.org_id = n.org_id and r.notification_id = n.id
                                     and r.membership_id = $1)
@@ -664,8 +686,11 @@ pub async fn badges(
         me,
         cap,
         notifications.is_some(),
-        reach,
-        days
+        bookings.reach,
+        days,
+        bookings.shown,
+        labs.shown,
+        labs.reach,
     )
     .fetch_one(conn)
     .await?;

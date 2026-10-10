@@ -280,3 +280,192 @@ async fn every_table_naming_a_patient_is_registered_for_erasure() {
     );
     app.finish().await;
 }
+
+async fn ok(app: &TestApp, method: Method, path: &str, token: &str, body: Value) -> Value {
+    let (status, value) = app.send(method, ALPHA, path, Some(token), Some(body)).await;
+    assert!(status.is_success(), "{path}: {status} {value}");
+    value
+}
+
+async fn count(app: &TestApp, sql: &'static str, patient: &str) -> i64 {
+    let query = sqlx::query_scalar(sql);
+    let query = if sql.contains("$1") {
+        query.bind(patient)
+    } else {
+        query
+    };
+    query.fetch_one(&app.owner).await.unwrap()
+}
+
+/// A patient with lab orders, messages, preferences and a chat reference is erased as the
+/// registry says: lab orders kept with their free text cleared, messages and preferences
+/// deleted, the staff chat message kept without the patient reference.
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one story: seed each kind, erase, check each"
+)]
+async fn erasure_handles_labs_messages_preferences_and_chat_as_registered() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let id = patient(&app, ALPHA, &owner, "Lab Patient", "1960-01-01").await;
+    let vendor = ok(
+        &app,
+        Method::POST,
+        "/api/v1/lab-vendors",
+        &owner,
+        json!({ "name": "Precision Lab" }),
+    )
+    .await;
+    let order = ok(
+        &app,
+        Method::POST,
+        "/api/v1/lab-orders",
+        &owner,
+        json!({
+            "vendor_id": vendor["id"], "patient_id": id, "send": true,
+            "instructions": "Shade A2, patient is allergic to nickel",
+            "items": [{ "work_type": "Crown", "teeth": [36] }],
+        }),
+    )
+    .await;
+    let path = format!(
+        "/api/v1/lab-orders/{}/status",
+        order["id"].as_str().unwrap()
+    );
+    ok(
+        &app,
+        Method::POST,
+        &path,
+        &owner,
+        json!({ "status": "in_progress", "note": "Called the lab about Lab Patient" }),
+    )
+    .await;
+    let queued = ok(
+        &app,
+        Method::POST,
+        "/api/v1/messages",
+        &owner,
+        json!({
+            "patient_ids": [id], "channel": "email", "template_key": "care.note",
+            "variables": { "subject": "Your visit" }, "body": "Please bring reports.",
+        }),
+    )
+    .await;
+    assert_eq!(queued["queued"], 1, "{queued}");
+    let prefs = format!("/api/v1/patients/{id}/contact-preferences");
+    let opt_out = json!({ "channel": "email", "category": "promotional", "opted_out": true });
+    ok(&app, Method::POST, &prefs, &owner, opt_out).await;
+    sqlx::query("insert into aarogyam.message_events (org_id, message_id, provider, provider_event_id, kind, occurred_at) select m.org_id, m.id, 'log', 'evt-1', 'delivered', now() from aarogyam.messages m where m.patient_id = $1::uuid")
+        .bind(&id)
+        .execute(&app.owner)
+        .await
+        .unwrap();
+    let arun = membership_of(&app, "Arun Assistant").await;
+    let chat = ok(
+        &app,
+        Method::POST,
+        "/api/v1/conversations",
+        &owner,
+        json!({ "kind": "direct", "membership_id": arun }),
+    )
+    .await;
+    let talk = format!(
+        "/api/v1/conversations/{}/messages",
+        chat["id"].as_str().unwrap()
+    );
+    ok(
+        &app,
+        Method::POST,
+        &talk,
+        &owner,
+        json!({ "client_id": Uuid::now_v7(), "body": "Crown ready?", "patient_id": id }),
+    )
+    .await;
+
+    // The registry says what happens to each table.
+    let action = |table: &'static str| {
+        let app = &app;
+        async move {
+            sqlx::query_scalar::<_, String>(
+                "select action from audit.erasure_steps where table_name = $1",
+            )
+            .bind(table)
+            .fetch_one(&app.owner)
+            .await
+            .unwrap()
+        }
+    };
+    for (table, expected) in [
+        ("aarogyam.lab_orders", "update"),
+        ("aarogyam.lab_order_items", "keep"),
+        ("aarogyam.lab_order_events", "update"),
+        ("aarogyam.messages", "delete"),
+        ("aarogyam.message_events", "delete"),
+        ("aarogyam.contact_preferences", "delete"),
+        ("aarogyam.chat_messages", "update"),
+    ] {
+        assert_eq!(action(table).await, expected, "{table}");
+    }
+
+    assert_eq!(
+        count(&app, "select count(*) from aarogyam.message_events", &id).await,
+        1
+    );
+    backdate(&app, &[&id]).await;
+    let db = app.owner_db();
+    let alpha = ClinicId::from_uuid(app.clinic_id("alpha").await);
+    let erased = erasure::apply(
+        &db,
+        OffsetDateTime::now_utc(),
+        alpha,
+        Uuid::now_v7(),
+        |_| Ok(()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(erased, 1);
+
+    let by = |sql: &'static str| count(&app, sql, &id);
+    assert_eq!(
+        by("select count(*) from aarogyam.messages where patient_id = $1::uuid").await,
+        0
+    );
+    assert_eq!(
+        by("select count(*) from aarogyam.message_events").await,
+        0,
+        "events go with their messages"
+    );
+    assert_eq!(
+        by("select count(*) from aarogyam.contact_preferences where patient_id = $1::uuid").await,
+        0
+    );
+    // Lab orders stay for their retention, without the free text; items and history stay.
+    assert_eq!(by("select count(*) from aarogyam.lab_orders where patient_id = $1::uuid and instructions is null").await, 1);
+    assert_eq!(by("select count(*) from aarogyam.lab_order_items").await, 1);
+    assert_eq!(
+        by("select count(*) from aarogyam.lab_order_events where note is not null").await,
+        0
+    );
+    assert!(by("select count(*) from aarogyam.lab_order_events").await >= 2);
+    // The staff conversation stays; the patient reference goes.
+    assert_eq!(
+        by("select count(*) from aarogyam.chat_messages where patient_id = $1::uuid").await,
+        0
+    );
+    assert_eq!(
+        by("select count(*) from aarogyam.chat_messages where body = 'Crown ready?'").await,
+        1
+    );
+    app.finish().await;
+}
+
+async fn membership_of(app: &TestApp, name: &str) -> String {
+    sqlx::query_scalar::<_, Uuid>("select m.id from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id where u.display_name = $1")
+        .bind(name)
+        .fetch_one(&app.owner)
+        .await
+        .unwrap()
+        .to_string()
+}

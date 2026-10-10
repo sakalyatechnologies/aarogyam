@@ -533,3 +533,143 @@ async fn posting_is_idempotent_and_checked() {
     }
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_access_record_keeps_every_earlier_resource_and_adds_chat() {
+    let app = TestApp::start().await;
+    let rule: String = sqlx::query_scalar(
+        "select pg_get_constraintdef(oid) from pg_constraint
+         where conname = 'access_log_resource_check'",
+    )
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    for resource in [
+        "chart",
+        "visit",
+        "note",
+        "attachment",
+        "prescription",
+        "invoice",
+        "export",
+        "appointment",
+        "chat",
+    ] {
+        assert!(
+            rule.contains(&format!("'{resource}'")),
+            "{resource}: {rule}"
+        );
+    }
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_chat_with_someone_who_cannot_use_chat_is_refused() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let nikhil = membership(&app, ALPHA, &owner, "Nikhil Nothing").await;
+    let arun = membership(&app, ALPHA, &owner, "Arun Assistant").await;
+    let (status, _) = start(
+        &app,
+        &owner,
+        json!({ "kind": "direct", "membership_id": nikhil }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let group = json!({ "kind": "group", "title": "Team", "member_ids": [arun, nikhil] });
+    assert_eq!(start(&app, &owner, group).await.0, StatusCode::FORBIDDEN);
+    let (status, id) = start(
+        &app,
+        &owner,
+        json!({ "kind": "group", "title": "Team", "member_ids": [arun] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/conversations/{id}/members"),
+            Some(&owner),
+            Some(json!({ "membership_ids": [nikhil] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_group_holds_at_most_100_members_in_the_database() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    // 99 more people: with the owner they fill a group of 100.
+    sqlx::query(
+        "with u as (insert into aarogyam.users (auth_uid, display_name, email)
+                    select gen_random_uuid(), 'Extra ' || n, 'extra' || n || '@alpha.test'
+                    from generate_series(1, 99) n returning id)
+         insert into aarogyam.memberships (org_id, user_id, role_id, status)
+         select o.id, u.id, r.id, 'active'
+         from aarogyam.organizations o, u, aarogyam.roles r
+         where o.slug = 'alpha' and r.org_id = o.id and r.key = 'doctor'",
+    )
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    let all: Vec<Uuid> = sqlx::query_scalar(
+        "select m.id from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
+         where u.display_name like 'Extra %' order by u.display_name",
+    )
+    .fetch_all(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(all.len(), 99);
+    let first = &all;
+    let group = json!({ "kind": "group", "title": "Everyone", "member_ids": first });
+    let (status, id) = start(&app, &owner, group).await;
+    assert_eq!(status, StatusCode::CREATED, "owner plus 99 makes 100");
+    // One more is refused by the API's add and by the table itself.
+    let arun = membership(&app, ALPHA, &owner, "Arun Assistant").await;
+    let (status, value) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/conversations/{id}/members"),
+            Some(&owner),
+            Some(json!({ "membership_ids": [arun] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{value}");
+    let direct = sqlx::query(
+        "insert into aarogyam.conversation_members (org_id, conversation_id, membership_id)
+         select org_id, $1::uuid, $2::uuid from aarogyam.conversations where id = $1::uuid",
+    )
+    .bind(&id)
+    .bind(arun.parse::<Uuid>().unwrap())
+    .execute(&app.owner)
+    .await;
+    assert!(
+        direct.is_err(),
+        "the 101st member is refused by the database"
+    );
+    // Someone leaving makes room.
+    sqlx::query("update aarogyam.conversation_members set left_at = now() where conversation_id = $1::uuid and membership_id = $2")
+        .bind(&id)
+        .bind(first[0])
+        .execute(&app.owner)
+        .await
+        .unwrap();
+    let (status, value) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/conversations/{id}/members"),
+            Some(&owner),
+            Some(json!({ "membership_ids": [arun] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{value}");
+    app.finish().await;
+}

@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.staff_notification_reads (notification_id, membership_id)\n           select n.id, $1 from aarogyam.staff_notifications n\n           left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id\n           left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id\n           where (($3 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))\n                  or ($4 and o.id is not null\n                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $5)))\n           on conflict do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Bool",
+        "Bool",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "37564de19b93dd34d7e582f4d8fb842029b6c887406e4ae8d61aa173d38d829a"
+}

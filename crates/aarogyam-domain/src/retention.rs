@@ -213,10 +213,22 @@ mod tests {
     #[test]
     fn the_documented_schedule_matches_the_code() {
         let decisions = include_str!("../../../docs/decisions.md");
+        // One table: the header, then rows up to the first line that isn't one, so a blank
+        // line splitting the table (which renders as two) fails here too.
+        let table: Vec<&str> = decisions
+            .lines()
+            .skip_while(|line| !line.starts_with("| Class |"))
+            .take_while(|line| line.starts_with('|'))
+            .collect();
+        assert_eq!(
+            table.len(),
+            Class::ALL.len() + 2,
+            "the schedule table has a row per class and nothing else"
+        );
         for class in Class::ALL {
             let key = format!("| `{}` |", class.as_str());
-            let row = decisions
-                .lines()
+            let row = table
+                .iter()
                 .find(|line| line.starts_with(&key))
                 .unwrap_or_else(|| panic!("no row for {class} in docs/decisions.md"));
             assert!(

@@ -728,3 +728,21 @@ body > [data-base-ui-portal] { position: relative; z-index: 150; }
 .mk-legal a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .mk-legal a:hover { color: var(--green); }
 .mk-foot { padding: 28px 0 8px; border-top: 1px solid var(--rule); margin-top: 28px; }
+
+/* ==========================================================================================
+ * New look: one set of shape tokens. Cards and panels are large rounded rectangles (26px) with
+ * a soft border and shadow; buttons and chips are full pills. The Today and Patient 360 kits read
+ * --nl-card-r, so changing it here reshapes every card. Only `.mk-newlook` (set by the shell
+ * when the New look switch is on) gets these; the old look is untouched.
+ * ======================================================================================== */
+.mk-app.mk-newlook {
+  --nl-card-r: 26px;
+  --nl-pill-r: 999px;
+  --nl-line: color-mix(in srgb, var(--rule) 60%, transparent);
+  --nl-shadow: 0 1px 2px rgba(23, 46, 39, .05), 0 10px 26px -18px rgba(23, 46, 39, .22);
+  --panel-r: var(--nl-card-r);
+  --r: var(--nl-card-r);
+  --sh: var(--nl-shadow);
+}
+.mk-newlook .mk-card, .mk-newlook .mk-kpi, .mk-newlook .mk-list, .mk-newlook .mk-stat { border-color: var(--nl-line); border-radius: var(--nl-card-r); }
+.mk-newlook .mk-btn, .mk-newlook .mk-tag, .mk-newlook .mk-pill, .mk-newlook .mk-chipf, .mk-newlook .mk-mini { border-radius: var(--nl-pill-r); }

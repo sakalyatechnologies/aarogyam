@@ -32,6 +32,22 @@ export function ProfileTab() {
   );
 }
 
+/** Settings, "My profile" (new look): who you are signed in as, for the owner too, whose clinic details live under Clinic profile. */
+export function MyProfile() {
+  const { session, can } = useClinic();
+  return (
+    <MkCard title="My profile" hint="Signed in as">
+      <div className="mk-pname" style={{ padding: "8px 0" }}>
+        <Initials name={session.user.display_name} size="md" />
+        <span>
+          <b style={{ display: "block" }}>{session.user.display_name}</b>
+          <span className="mk-hint">{can("settings.manage") ? "Clinic owner. The clinic's details are under Clinic profile." : "Only the clinic owner can change the clinic profile."}</span>
+        </span>
+      </div>
+    </MkCard>
+  );
+}
+
 function ProfilePanel() {
   const settings = useClinicSettings();
   if (settings.isPending) {

@@ -1,7 +1,7 @@
 import { useSearchParams } from "react-router";
 
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import { Tabs, type TabItem } from "@sakalya/ui";
+import { PageHeader as DisplayHeader, Tabs, type TabItem } from "@sakalya/ui";
 
 import { MkCard, PageHeader } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
@@ -11,7 +11,7 @@ import { BookingPanel } from "./booking-panel.js";
 import { ChairsDoctorsPanel } from "./chairs-doctors-panel.js";
 import { LetterheadPanel } from "./letterhead-panel.js";
 import { PriceListPanel } from "./price-list-panel.js";
-import { ProfileTab } from "./profile-panel.js";
+import { MyProfile, ProfileTab } from "./profile-panel.js";
 import { SessionsPanel } from "./sessions-panel.js";
 import { TeamPanel } from "./team-panel.js";
 import { ThemePanel } from "./theme-panel.js";
@@ -43,8 +43,13 @@ export function SettingsPage() {
     ...(newLook ? [{ value: "studio", label: "Dashboard studio", content: <MkCard title="Dashboard studio" hint="Choose what Today shows, where, and how big. Changes follow you across devices."><StudioPanel /></MkCard> }] : []),
     { value: "sessions", label: "Sessions", content: <MkCard title="Sessions" hint="The devices you are signed in on"><SessionsPanel /></MkCard> },
   ];
+  const choose = (next: string) => {
+    // A new tab drops the old one's own parameters (such as the open role); back returns to it.
+    setParams({ tab: next });
+  };
   const raw = params.get("tab") ?? "";
   const requested = ALIASES[raw] ?? raw;
+  if (newLook) return <SettingsNewLook items={items} owner={owner} requested={requested} onChoose={choose} />;
   const active = items.find((item) => item.value === requested)?.value ?? items[0]?.value ?? "profile";
   return (
     <div className="mk-panel">
@@ -54,11 +59,42 @@ export function SettingsPage() {
         label="Settings"
         items={items}
         value={active}
-        onValueChange={(next) => {
-          // A new tab drops the old one's own parameters (such as the open role); back returns to it.
-          setParams({ tab: next });
-        }}
+        onValueChange={choose}
       />
+    </div>
+  );
+}
+
+/** The new look's order and wording: My profile first, then the studio, as in the design. */
+const NEW_LOOK_ORDER = ["me", "studio", "profile", "letterhead", "theme", "chairs-doctors", "price-list", "team", "booking", "website", "sessions"];
+const NEW_LOOK_LABEL: Readonly<Record<string, string>> = { "chairs-doctors": "Chairs & doctors" };
+
+/**
+ * Settings (new look): a rounded panel of sections on the left, the open section on the right. Same tabs, same `?tab=`
+ * links and the same permission gates as the old page; only the frame differs. Below 900px the list becomes a row of
+ * pills that scrolls sideways.
+ */
+function SettingsNewLook({ items, owner, requested, onChoose }: { items: TabItem[]; owner: boolean; requested: string; onChoose: (value: string) => void }) {
+  // The owner's "Clinic profile" tab keeps its URL; "My profile" is a section of its own beside it.
+  const all: TabItem[] = owner ? [{ value: "me", label: "My profile", content: <MyProfile /> }, ...items] : items.map((item) => (item.value === "profile" ? { ...item, label: "My profile" } : item));
+  const rank = (item: TabItem) => (!owner && item.value === "profile" ? -1 : NEW_LOOK_ORDER.indexOf(item.value));
+  const sorted = [...all].sort((a, b) => rank(a) - rank(b)).map((item) => ({ ...item, label: NEW_LOOK_LABEL[item.value] ?? item.label }));
+  const current = sorted.find((item) => item.value === requested) ?? sorted[0];
+  return (
+    <div className="mk-panel st-nl">
+      <DisplayHeader variant="display" title="Settings" subtitle={owner ? "Clinic-wide setup · changes apply to everyone" : "Your profile and look"} />
+      <div className="st-nl-grid">
+        <nav className="st-nl-nav" aria-label="Settings sections">
+          {sorted.map((item) => (
+            <button key={item.value} type="button" className="st-nl-item" aria-current={item.value === current?.value ? "page" : undefined} onClick={() => { onChoose(item.value); }}>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="st-nl-body" key={current?.value}>
+          {current?.content}
+        </div>
+      </div>
     </div>
   );
 }

@@ -263,6 +263,7 @@ export function MockShell() {
 }
 
 function ShellFrame() {
+  const [newLook] = useNewLook();
   const { can, session } = useClinic();
   const location = useLocation();
   const navigate = useNavigate();
@@ -378,7 +379,7 @@ function ShellFrame() {
   }, [menuOpen]);
 
   return (
-    <div className={`mk-app ${collapsed ? "mk-collapsed" : ""}`}>
+    <div className={`mk-app ${collapsed ? "mk-collapsed" : ""} ${newLook ? "mk-newlook" : ""}`}>
       <ProgressBar />
       <a
         href={`#${mainId}`}

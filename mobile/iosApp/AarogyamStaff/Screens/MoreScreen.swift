@@ -108,6 +108,8 @@ struct MoreScreen: View {
             ScreenHost(make: { graph.stock(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
                 StockPage(holder: holder, state: state)
             }
+        case .labs:
+            LabsRoute(graph: graph, clinic: clinic)
         default:
             PreviewPage(title: route.title)
         }

@@ -1,17 +1,22 @@
-//! Today at the clinic, for the dashboard.
+//! Today at the clinic, for the dashboard, and the same view of any other day; plus the month
+//! calendar's per-day counts.
 
-use aarogyam_app::today::{self as app, Attention, AttentionKind, TeamMember};
+use aarogyam_app::today::{
+    self as app, Attention, AttentionKind, CompletedVisit as CompletedVisitView, DayMoney,
+    TeamMember,
+};
 use aarogyam_domain::permission::require::AppointmentsRead;
 use axum::Json;
 use axum::extract::State;
-use serde::Serialize;
-use time::OffsetDateTime;
+use sakalya_http::ApiQuery;
+use serde::{Deserialize, Serialize};
+use time::{Date, OffsetDateTime};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::appointments::{Appointment, PatientBrief, PractitionerBrief};
 use super::queue::QueueToken;
-use super::{clock, rfc3339};
+use super::{bad, clock, parse_day, rfc3339};
 use crate::AppState;
 use crate::extract::Require;
 use crate::failure::ApiFailure;
@@ -33,8 +38,13 @@ pub struct TodayCounts {
     pub no_shows: usize,
     /// Cancelled.
     pub cancelled: usize,
-    /// Queue tokens waiting, walk-ins included.
+    /// Queue tokens waiting, walk-ins included. A token that has been called is not counted
+    /// here.
     pub waiting: usize,
+    /// Queue tokens the doctor sent in (`called`) and the patient hasn't been seated yet.
+    pub called: usize,
+    /// Queue tokens `ready_to_bill`: treatment done, payment not yet collected.
+    pub ready_to_bill: usize,
 }
 
 /// Appointments starting in one local hour.
@@ -162,10 +172,91 @@ pub struct LowStockAlert {
     pub status: String,
 }
 
-/// Today at the clinic. Money tiles arrive with billing.
+/// A visit closed on the day, without its clinical content.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CompletedVisit {
+    /// The visit.
+    #[schema(value_type = String)]
+    pub visit_id: Uuid,
+    /// Its number, such as `V-318`.
+    pub number: String,
+    /// The appointment it started from, if any; a walk-in has none.
+    #[schema(value_type = Option<String>)]
+    pub appointment_id: Option<Uuid>,
+    /// The patient.
+    pub patient: AttentionPatient,
+    /// Who treated them.
+    #[schema(value_type = String)]
+    pub clinician_id: Uuid,
+    /// Their name.
+    pub clinician_name: Option<String>,
+    /// When it started (RFC 3339).
+    pub started_at: String,
+    /// When it was closed (RFC 3339).
+    pub ended_at: String,
+    /// Issued bills for the visit, in paise. Absent without `finance.view`.
+    pub billed_paise: Option<i64>,
+    /// Received against them, in paise. Absent without `finance.view`.
+    pub paid_paise: Option<i64>,
+}
+
+impl From<CompletedVisitView> for CompletedVisit {
+    fn from(visit: CompletedVisitView) -> Self {
+        let row = visit.row;
+        Self {
+            visit_id: row.id,
+            number: row.number,
+            appointment_id: row.appointment_id,
+            patient: AttentionPatient {
+                id: row.patient_id,
+                number: row.patient_number,
+                full_name: row.patient_name,
+            },
+            clinician_id: row.clinician_id,
+            clinician_name: row.clinician_name,
+            started_at: rfc3339(row.started_at),
+            ended_at: rfc3339(row.ended_at),
+            billed_paise: visit.billed.map(sakalya_types::Paise::get),
+            paid_paise: visit.paid.map(sakalya_types::Paise::get),
+        }
+    }
+}
+
+/// The day's money. Present only for roles with `finance.view`.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DayMoneyFigures {
+    /// Received on the day, in paise.
+    pub collected_paise: i64,
+    /// Payments received.
+    pub payments: i64,
+    /// Billed on the day (bills issued), in paise.
+    pub invoiced_paise: i64,
+    /// Bills issued.
+    pub invoices: i64,
+}
+
+impl From<DayMoney> for DayMoneyFigures {
+    fn from(money: DayMoney) -> Self {
+        Self {
+            collected_paise: money.collected.get(),
+            payments: money.payments,
+            invoiced_paise: money.invoiced.get(),
+            invoices: money.invoices,
+        }
+    }
+}
+
+/// Which day Today shows.
+#[derive(Debug, Deserialize)]
+pub struct TodayParams {
+    /// The clinic day, `YYYY-MM-DD` (default: today).
+    pub date: Option<String>,
+}
+
+/// Today at the clinic, or another day.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct TodayResponse {
-    /// The clinic's local date, `YYYY-MM-DD`.
+    /// The clinic day shown, `YYYY-MM-DD`: today unless a `date` was asked for.
     pub date: String,
     /// When this was built (RFC 3339); waits are measured from here.
     pub as_of: String,
@@ -186,6 +277,10 @@ pub struct TodayResponse {
     /// Stock at or below its reorder level, worst first. Present only for roles with
     /// `inventory.read`.
     pub low_stock: Option<Vec<LowStockAlert>>,
+    /// Visits closed on the day, by end: what was completed, walk-ins included.
+    pub completed_visits: Vec<CompletedVisit>,
+    /// The day's money. Present only for roles with `finance.view`.
+    pub money: Option<DayMoneyFigures>,
 }
 
 impl From<TeamMember> for TeamMemberToday {
@@ -257,15 +352,20 @@ fn chair_appointment(appointment: &Appointment) -> ChairAppointment {
 }
 
 /// Today's schedule, chairs, counts, appointments by hour, recent patients, the team on duty
-/// and the attention list, in the clinic's time zone.
+/// and the attention list, in the clinic's time zone. With `date`, the same for that clinic
+/// day: a past day shows what was done (the queue, the completed visits and, with
+/// `finance.view`, the money), a future day what is booked. The chair in use, late arrivals and
+/// long waits are about now, so they appear for today only.
 #[utoipa::path(
     get,
     path = "/api/v1/today",
     operation_id = "getToday",
     tag = "appointments",
+    params(("date" = Option<String>, Query, description = "The clinic day, YYYY-MM-DD (default: today; 2000 to 2100)")),
     security(("bearer" = [])),
     responses(
         (status = 200, body = TodayResponse),
+        (status = 400, description = "A bad date"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks appointments.read"),
         (status = 404, description = "Not a clinic, or not a member of it")
@@ -274,12 +374,19 @@ fn chair_appointment(appointment: &Appointment) -> ChairAppointment {
 pub(crate) async fn today(
     State(state): State<AppState>,
     Require { request, .. }: Require<AppointmentsRead>,
+    ApiQuery(params): ApiQuery<TodayParams>,
 ) -> Result<Json<TodayResponse>, ApiFailure> {
+    let date = params
+        .date
+        .as_deref()
+        .map(|text| parse_day("date", text))
+        .transpose()?;
     let today = app::today(
         state.db(),
         &request.actor,
         request.request_id,
         OffsetDateTime::now_utc(),
+        date,
     )
     .await?;
     let appointments: Vec<Appointment> = today
@@ -321,6 +428,8 @@ pub(crate) async fn today(
             no_shows: counts.no_shows,
             cancelled: counts.cancelled,
             waiting: counts.waiting,
+            called: counts.called,
+            ready_to_bill: counts.ready_to_bill,
         },
         by_hour: today
             .by_hour
@@ -356,7 +465,98 @@ pub(crate) async fn today(
             .into_iter()
             .map(AttentionItem::from)
             .collect(),
+        completed_visits: today
+            .completed_visits
+            .into_iter()
+            .map(CompletedVisit::from)
+            .collect(),
+        money: today.money.map(DayMoneyFigures::from),
         appointments,
+    }))
+}
+
+/// One day of the month calendar.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DaySummary {
+    /// The clinic day, `YYYY-MM-DD`.
+    pub date: String,
+    /// Still to happen or happening: requested, booked, confirmed, arrived or in the chair.
+    pub booked: i64,
+    /// Completed.
+    pub completed: i64,
+    /// Cancelled.
+    pub cancelled: i64,
+    /// Didn't come.
+    pub no_shows: i64,
+    /// Everything but cancelled ones: the day's load, for the busy-day shading.
+    pub total: i64,
+}
+
+/// The month calendar's counts.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MonthSummary {
+    /// The month, `YYYY-MM`.
+    pub month: String,
+    /// Every day of the month, in order; zeros when nothing is booked.
+    pub days: Vec<DaySummary>,
+}
+
+/// Which month.
+#[derive(Debug, Deserialize)]
+pub struct MonthParams {
+    /// The clinic month, `YYYY-MM`.
+    pub month: String,
+}
+
+/// A month, `YYYY-MM`, as its first day.
+fn parse_month(text: &str) -> Result<Date, super::ApiError> {
+    let format = time::macros::format_description!("[year]-[month]-[day]");
+    Date::parse(&format!("{}-01", text.trim()), &format)
+        .map_err(|_| bad("month", "must be YYYY-MM"))
+}
+
+/// Appointments per day for a clinic month: booked, completed, cancelled and no-shows, days in
+/// the clinic's time zone, for the calendar's busy days.
+#[utoipa::path(
+    get,
+    path = "/api/v1/appointments/month-summary",
+    operation_id = "getMonthSummary",
+    tag = "appointments",
+    params(("month" = String, Query, description = "The clinic month, YYYY-MM (2000 to 2100)")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = MonthSummary),
+        (status = 400, description = "A missing or bad month"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks appointments.read"),
+        (status = 404, description = "Not a clinic, or not a member of it")
+    )
+)]
+pub(crate) async fn month_summary(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<AppointmentsRead>,
+    ApiQuery(params): ApiQuery<MonthParams>,
+) -> Result<Json<MonthSummary>, ApiFailure> {
+    let month = parse_month(&params.month)?;
+    let summary = app::month_summary(state.db(), &request.actor, request.request_id, month).await?;
+    Ok(Json(MonthSummary {
+        month: format!(
+            "{:04}-{:02}",
+            summary.month.year(),
+            u8::from(summary.month.month())
+        ),
+        days: summary
+            .days
+            .into_iter()
+            .map(|day| DaySummary {
+                date: day.day.to_string(),
+                booked: day.booked,
+                completed: day.completed,
+                cancelled: day.cancelled,
+                no_shows: day.no_shows,
+                total: day.booked + day.completed + day.no_shows,
+            })
+            .collect(),
     }))
 }
 

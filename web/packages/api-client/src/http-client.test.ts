@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiFailure, createDevTokenSource, createHttpClient, patientId, sessionId, unwrap } from "./index.js";
+import { ApiFailure, createDevTokenSource, createHttpClient, patientId, practitionerId, queueTokenId, sessionId, unwrap } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -36,6 +36,33 @@ const patientBody = {
   created_at: "2026-10-01T04:30:00Z",
   recall_due: false,
 };
+
+const ID = queueTokenId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405163");
+const PRACTITIONER = practitionerId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405164");
+
+describe("createHttpClient Today requests", () => {
+  it("sends the day, month, open-lab, call, practitioner and weeks parameters", async () => {
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, {})));
+    const client = createHttpClient("", () => "abc", { fetch });
+
+    await client.getToday({ date: "2026-10-01" });
+    await client.getMonthSummary("2026-10");
+    await client.listOpenLabOrders();
+    await client.callQueueToken(ID);
+    await client.listQueue("2026-10-03", { practitionerId: PRACTITIONER });
+    await client.getCollections({ weeks: 8 });
+
+    expect(calls.map((c) => c.url)).toEqual([
+      "/api/v1/today?date=2026-10-01",
+      "/api/v1/appointments/month-summary?month=2026-10",
+      "/api/v1/lab-orders?open=1",
+      `/api/v1/queue/${ID}/call`,
+      `/api/v1/queue?date=2026-10-03&practitioner_id=${PRACTITIONER}`,
+      "/api/v1/reports/collections?weeks=8",
+    ]);
+    expect(calls[3]?.init?.method).toBe("POST");
+  });
+});
 
 describe("createHttpClient errors", () => {
   it("reads the API error, takes the field from the message and keeps the x-request-id header", async () => {

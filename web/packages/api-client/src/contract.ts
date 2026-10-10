@@ -231,7 +231,7 @@ export type QueueDay = Schemas["QueueDay"];
 export type QueueToken = Schemas["QueueToken"];
 export type WalkInBody = Schemas["WalkInBody"];
 export type TokenStatusChange = Schemas["TokenStatusChange"];
-export type QueueTokenStatus = "waiting" | "in_chair" | "done" | "left";
+export type QueueTokenStatus = "waiting" | "called" | "in_chair" | "ready_to_bill" | "done" | "left";
 
 // Today (M3) --------------------------------------------------------------------------------------
 
@@ -244,6 +244,12 @@ export type AttentionPatient = Schemas["AttentionPatient"];
 export type HourBar = Schemas["HourBar"];
 export type TeamMemberToday = Schemas["TeamMemberToday"];
 export type TodayShift = Schemas["TodayShift"];
+export type CompletedVisit = Schemas["CompletedVisit"];
+export type DayMoneyFigures = Schemas["DayMoneyFigures"];
+export type MonthSummary = Schemas["MonthSummary"];
+export type DaySummary = Schemas["DaySummary"];
+export type LabOrder = Schemas["LabOrder"];
+export type LabPipelineStage = Schemas["LabPipelineStage"];
 export type AttentionKind = "late_arrival" | "long_wait";
 export type ChairOccupancy = "in_use" | "free";
 

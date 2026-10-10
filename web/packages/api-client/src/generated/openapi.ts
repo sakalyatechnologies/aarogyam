@@ -26,6 +26,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/appointments/month-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Appointments per day for a clinic month: booked, completed, cancelled and no-shows, days in
+         *     the clinic's time zone, for the calendar's busy days.
+         */
+        get: operations["getMonthSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/appointments/{id}": {
         parameters: {
             query?: never;
@@ -1328,7 +1348,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lab orders within reach, newest first. */
+        /**
+         * Lab orders within reach, newest first; with `open`, the work still to do, soonest due first,
+         *     each with its derived `pipeline_stage` and `late` flag.
+         */
         get: operations["listLabOrders"];
         put?: never;
         /** Records a lab order with its items, as a draft or sent to the lab now. */
@@ -3335,6 +3358,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/queue/{id}/call": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sends a waiting patient in: the token becomes `called` and `called_at` is set (the doctor's
+         *     "send in"). The appointment, if any, stays arrived. Calling a token that is already called
+         *     changes nothing and returns it, so a retry is safe.
+         */
+        post: operations["callQueueToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/queue/{id}/start-visit": {
         parameters: {
             query?: never;
@@ -3479,7 +3523,8 @@ export interface paths {
         };
         /**
          * Collections by day, week and method, and the revenue mix. The last seven days by default;
-         *     at most 366 days.
+         *     at most 366 days. With `weeks` (1 to 52), the last that many weeks instead, the current one
+         *     included: `by_week` then has exactly that many entries, oldest first.
          */
         get: operations["getCollectionsReport"];
         put?: never;
@@ -4189,7 +4234,10 @@ export interface paths {
         };
         /**
          * Today's schedule, chairs, counts, appointments by hour, recent patients, the team on duty
-         *     and the attention list, in the clinic's time zone.
+         *     and the attention list, in the clinic's time zone. With `date`, the same for that clinic
+         *     day: a past day shows what was done (the queue, the completed visits and, with
+         *     `finance.view`, the money), a future day what is booked. The chair in use, late arrivals and
+         *     long waits are about now, so they appear for today only.
          */
         get: operations["getToday"];
         put?: never;
@@ -5650,6 +5698,35 @@ export interface components {
             /** @description The column's header. */
             header: string;
         };
+        /** @description A visit closed on the day, without its clinical content. */
+        CompletedVisit: {
+            /** @description The appointment it started from, if any; a walk-in has none. */
+            appointment_id?: string | null;
+            /**
+             * Format: int64
+             * @description Issued bills for the visit, in paise. Absent without `finance.view`.
+             */
+            billed_paise?: number | null;
+            /** @description Who treated them. */
+            clinician_id: string;
+            /** @description Their name. */
+            clinician_name?: string | null;
+            /** @description When it was closed (RFC 3339). */
+            ended_at: string;
+            /** @description Its number, such as `V-318`. */
+            number: string;
+            /**
+             * Format: int64
+             * @description Received against them, in paise. Absent without `finance.view`.
+             */
+            paid_paise?: number | null;
+            /** @description The patient. */
+            patient: components["schemas"]["AttentionPatient"];
+            /** @description When it started (RFC 3339). */
+            started_at: string;
+            /** @description The visit. */
+            visit_id: string;
+        };
         /** @description A condition on the problem list. */
         Condition: {
             code?: components["schemas"]["Code"] | null;
@@ -5948,6 +6025,59 @@ export interface components {
             invite_token: string;
             /** @description The role they will get. */
             role_key: string;
+        };
+        /** @description The day's money. Present only for roles with `finance.view`. */
+        DayMoneyFigures: {
+            /**
+             * Format: int64
+             * @description Received on the day, in paise.
+             */
+            collected_paise: number;
+            /**
+             * Format: int64
+             * @description Billed on the day (bills issued), in paise.
+             */
+            invoiced_paise: number;
+            /**
+             * Format: int64
+             * @description Bills issued.
+             */
+            invoices: number;
+            /**
+             * Format: int64
+             * @description Payments received.
+             */
+            payments: number;
+        };
+        /** @description One day of the month calendar. */
+        DaySummary: {
+            /**
+             * Format: int64
+             * @description Still to happen or happening: requested, booked, confirmed, arrived or in the chair.
+             */
+            booked: number;
+            /**
+             * Format: int64
+             * @description Cancelled.
+             */
+            cancelled: number;
+            /**
+             * Format: int64
+             * @description Completed.
+             */
+            completed: number;
+            /** @description The clinic day, `YYYY-MM-DD`. */
+            date: string;
+            /**
+             * Format: int64
+             * @description Didn't come.
+             */
+            no_shows: number;
+            /**
+             * Format: int64
+             * @description Everything but cancelled ones: the day's load, for the busy-day shading.
+             */
+            total: number;
         };
         /** @description Money received on a day, or in a week starting that Monday. */
         DayTotal: {
@@ -6872,6 +7002,11 @@ export interface components {
             costs_visible: boolean;
             /** @description When it was recorded (RFC 3339). */
             created_at: string;
+            /**
+             * Format: int64
+             * @description Whole days past the due day while late.
+             */
+            days_late?: number | null;
             /** @description The membership responsible. */
             doctor_id: string;
             /** @description Their name. */
@@ -6897,6 +7032,8 @@ export interface components {
             last_contacted_by?: string | null;
             /** @description Their name. */
             last_contacted_by_name?: string | null;
+            /** @description Still at the lab after its due day (clinic time). */
+            late: boolean;
             /** @description `LAB-<n>`. */
             number: string;
             /** @description The patient. */
@@ -6905,6 +7042,11 @@ export interface components {
             patient_name: string;
             /** @description Their clinic number. */
             patient_number: string;
+            /**
+             * @description Where it stands for the front desk: a draft is `to_send`, work back from the lab is
+             *     `ready_to_fit`; the rest follow the status.
+             */
+            pipeline_stage: components["schemas"]["LabPipelineStage"];
             /** @description The procedure it is for. */
             procedure_id?: string | null;
             /** @description When it came back (RFC 3339). */
@@ -7077,6 +7219,11 @@ export interface components {
             /** @description Newest day first, voided ones included. */
             items: components["schemas"]["LabPayment"][];
         };
+        /**
+         * @description Where an order stands for the front desk, derived from its status.
+         * @enum {string}
+         */
+        LabPipelineStage: "to_send" | "sent" | "in_progress" | "ready_to_fit" | "fitted" | "rework" | "cancelled";
         /** @description A reminder queued to the lab. */
         LabReminderQueued: {
             /** @description The outbox message. */
@@ -7556,6 +7703,13 @@ export interface components {
              * @description Share of all billed, in basis points.
              */
             share_bps: number;
+        };
+        /** @description The month calendar's counts. */
+        MonthSummary: {
+            /** @description Every day of the month, in order; zeros when nothing is booked. */
+            days: components["schemas"]["DaySummary"][];
+            /** @description The month, `YYYY-MM`. */
+            month: string;
         };
         /**
          * @description The `409` answer to a move the record's state doesn't allow (an appointment that is already
@@ -9370,7 +9524,7 @@ export interface components {
             appointment_id?: string | null;
             /** @description Branch. */
             branch_id: string;
-            /** @description When the patient was called in (RFC 3339). */
+            /** @description When the patient was called in, set when the token leaves `waiting` (RFC 3339). */
             called_at?: string | null;
             /** @description The clinic day, `YYYY-MM-DD`. */
             day: string;
@@ -9385,7 +9539,10 @@ export interface components {
             practitioner?: components["schemas"]["PractitionerBrief"] | null;
             /** @description The chair the patient was seated in, when one was chosen. */
             room_id?: string | null;
-            /** @description `waiting`, `in_chair`, `done` or `left`. */
+            /**
+             * @description `waiting`, `called` (sent in by the doctor), `in_chair`, `ready_to_bill`, `done` or
+             *     `left`.
+             */
             status: string;
             /**
              * Format: int32
@@ -10812,6 +10969,8 @@ export interface components {
             arrived: number;
             /** @description Booked or confirmed, not arrived yet. */
             booked: number;
+            /** @description Queue tokens the doctor sent in (`called`) and the patient hasn't been seated yet. */
+            called: number;
             /** @description Cancelled. */
             cancelled: number;
             /** @description Completed. */
@@ -10820,9 +10979,14 @@ export interface components {
             in_chair: number;
             /** @description Didn't come. */
             no_shows: number;
+            /** @description Queue tokens `ready_to_bill`: treatment done, payment not yet collected. */
+            ready_to_bill: number;
             /** @description Appointments today, not counting cancelled ones. */
             total: number;
-            /** @description Queue tokens waiting, walk-ins included. */
+            /**
+             * @description Queue tokens waiting, walk-ins included. A token that has been called is not counted
+             *     here.
+             */
             waiting: number;
         };
         /** @description The Today screen's money widgets. */
@@ -10871,7 +11035,7 @@ export interface components {
              */
             upi_share_bps: number;
         };
-        /** @description Today at the clinic. Money tiles arrive with billing. */
+        /** @description Today at the clinic, or another day. */
         TodayResponse: {
             /** @description Today's appointments by start, cancelled ones included. */
             appointments: components["schemas"]["Appointment"][];
@@ -10883,15 +11047,18 @@ export interface components {
             by_hour: components["schemas"]["HourBar"][];
             /** @description Each active chair: who is in it and who is next. */
             chairs: components["schemas"]["ChairStatus"][];
+            /** @description Visits closed on the day, by end: what was completed, walk-ins included. */
+            completed_visits: components["schemas"]["CompletedVisit"][];
             /** @description The day's numbers. */
             counts: components["schemas"]["TodayCounts"];
-            /** @description The clinic's local date, `YYYY-MM-DD`. */
+            /** @description The clinic day shown, `YYYY-MM-DD`: today unless a `date` was asked for. */
             date: string;
             /**
              * @description Stock at or below its reorder level, worst first. Present only for roles with
              *     `inventory.read`.
              */
             low_stock?: components["schemas"]["LowStockAlert"][] | null;
+            money?: components["schemas"]["DayMoneyFigures"] | null;
             /** @description The latest patients through the queue today, newest first. */
             recent_patients: components["schemas"]["QueueToken"][];
             /** @description Doctors with working hours today. */
@@ -10912,7 +11079,11 @@ export interface components {
              *     the chair moves the patient.
              */
             room_id?: string | null;
-            /** @description `in_chair`, `done` or `left`. */
+            /**
+             * @description `called`, `in_chair`, `ready_to_bill`, `done` or `left`. The order is waiting, called,
+             *     in the chair, ready to bill, done; a step may be skipped forward, and a patient may
+             *     leave while waiting or called.
+             */
             status: string;
         };
         /** @description The bell's number. */
@@ -11427,6 +11598,56 @@ export interface operations {
             };
             /** @description The chair is already booked for part of this time */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMonthSummary: {
+        parameters: {
+            query: {
+                /** @description The clinic month, YYYY-MM (2000 to 2100) */
+                month: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonthSummary"];
+                };
+            };
+            /** @description A missing or bad month */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -15603,6 +15824,8 @@ export interface operations {
                 patient_id?: string;
                 /** @description Only work at the lab past its due date */
                 overdue?: boolean;
+                /** @description 1 or true: only orders still needing something done, soonest due first */
+                open?: boolean;
                 /** @description Most rows, 1 to 200 (default 200) */
                 limit?: number;
             };
@@ -22035,6 +22258,8 @@ export interface operations {
                 date?: string;
                 /** @description Only this branch */
                 branch_id?: string;
+                /** @description Only this doctor's tokens */
+                practitioner_id?: string;
             };
             header?: never;
             path?: never;
@@ -22121,6 +22346,58 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    callQueueToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The token */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such token in this clinic, or its patient isn't yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The patient is already in the chair, ready to bill, done or left (`current` is the token as it is) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoveRefused"];
+                };
             };
         };
     };
@@ -22465,6 +22742,8 @@ export interface operations {
                 from?: string;
                 /** @description Last clinic day, included (default: today) */
                 to?: string;
+                /** @description The last N weeks (1 to 52), the current one included; not with from or to */
+                weeks?: number;
             };
             header?: never;
             path?: never;
@@ -24808,7 +25087,10 @@ export interface operations {
     };
     getToday: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The clinic day, YYYY-MM-DD (default: today; 2000 to 2100) */
+                date?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -24822,6 +25104,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TodayResponse"];
                 };
+            };
+            /** @description A bad date */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not signed in */
             401: {

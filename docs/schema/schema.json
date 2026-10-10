@@ -3414,7 +3414,7 @@
      "type": "token_status",
      "nullable": false,
      "ref": null,
-     "note": "waiting, in_chair, done, left"
+     "note": "waiting, called, in_chair, ready_to_bill, done, left (called and ready_to_bill: migration 0610)"
     },
     {
      "name": "issued_at",

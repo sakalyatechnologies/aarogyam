@@ -127,8 +127,15 @@ async fn repeatable_moves(
     owner: &str,
     patient: &str,
     appointment: &str,
-) -> [Route; 3] {
+) -> [Route; 4] {
     let token = created(
+        app,
+        owner,
+        "/api/v1/queue",
+        json!({ "patient_id": patient }),
+    )
+    .await;
+    let called = created(
         app,
         owner,
         "/api/v1/queue",
@@ -156,6 +163,16 @@ async fn repeatable_moves(
     };
 
     [
+        // The token's lock (with the doctor's reach) and its row; a repeat writes nothing:
+        // one over.
+        Route {
+            extra: 1,
+            ..post(
+                "POST /queue/{id}/call",
+                format!("/api/v1/queue/{called}/call"),
+                json!({}),
+            )
+        },
         post(
             "POST /appointments/{id}/status",
             format!("/api/v1/appointments/{appointment}/status"),
@@ -429,6 +446,11 @@ async fn lab_routes(app: &TestApp, owner: &str, patient: &str) -> Vec<Route> {
         Route::get("GET /lab-vendors", ALPHA, "/api/v1/lab-vendors".into()),
         Route::get("GET /lab-orders", ALPHA, "/api/v1/lab-orders".into()),
         Route::get(
+            "GET /lab-orders?open=1",
+            ALPHA,
+            "/api/v1/lab-orders?open=1".into(),
+        ),
+        Route::get(
             "GET /lab-orders/{id}",
             ALPHA,
             format!("/api/v1/lab-orders/{order}"),
@@ -572,6 +594,25 @@ fn hot_routes(
             ALPHA,
             format!("/api/v1/appointments?from={monday}&to={sunday}"),
         ),
+        // The day's appointments, queue, completed visits and money in the same one statement.
+        Route::get(
+            "GET /today?date=",
+            ALPHA,
+            format!("/api/v1/today?date={tomorrow}"),
+        ),
+        Route::get(
+            "GET /appointments/month-summary",
+            ALPHA,
+            format!(
+                "/api/v1/appointments/month-summary?month={}",
+                &tomorrow.to_string()[..7]
+            ),
+        ),
+        Route::get(
+            "GET /queue?practitioner_id=",
+            ALPHA,
+            format!("/api/v1/queue?practitioner_id={doctor}"),
+        ),
         Route::get("GET /patients", ALPHA, "/api/v1/patients".into()),
         // Money figures in one statement, then the bills with a balance: one trip over.
         Route::get("GET /today/money", ALPHA, "/api/v1/today/money".into()).allow_extra(1),
@@ -579,6 +620,12 @@ fn hot_routes(
             "GET /reports/collections",
             ALPHA,
             format!("/api/v1/reports/collections?from={monday}&to={sunday}"),
+        )
+        .allow_extra(1),
+        Route::get(
+            "GET /reports/collections?weeks",
+            ALPHA,
+            "/api/v1/reports/collections?weeks=8".into(),
         )
         .allow_extra(1),
         Route::get(

@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select (a.starts_at at time zone make_interval(secs => $3))::date as \"day!\",\n                  count(*) filter (where a.status in ('requested', 'booked', 'confirmed', 'arrived', 'in_chair'))::bigint as \"booked!\",\n                  count(*) filter (where a.status = 'completed')::bigint as \"completed!\",\n                  count(*) filter (where a.status = 'cancelled')::bigint as \"cancelled!\",\n                  count(*) filter (where a.status = 'no_show')::bigint as \"no_shows!\"\n           from aarogyam.appointments a\n           where a.deleted_at is null and a.starts_at >= $1 and a.starts_at < $2\n             and app.practitioner_in_reach(a.practitioner_id, $4)\n           group by 1\n           order by 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "day!",
+        "type_info": "Date",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "booked!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "completed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "cancelled!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "no_shows!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz",
+        "Float8",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "e53fd315abcf4013be0dff9fddd65bc5702e10594cf4768ae22bd849aafb6231"
+}

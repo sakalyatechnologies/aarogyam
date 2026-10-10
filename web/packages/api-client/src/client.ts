@@ -4,7 +4,7 @@ import type { ApiResult } from "./result.js";
 import type { FileSharing, PatientAppAccess, PatientAppInvitation, PatientLinkDecided } from "./contract.js";
 import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
-import type { Allergy, PhoneMatchPage, QuickPicks, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
+import type { Allergy, MonthSummary, OpenLabOrderPage, PhoneMatchPage, QuickPicks, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
 import type {
   AcceptInvitation,
   Acceptance,
@@ -211,6 +211,18 @@ export interface PatientSearch extends PatientFilter {
   limit?: number | undefined;
 }
 
+/** Which clinic day Today shows. */
+export interface TodayOptions extends RequestOptions {
+  /** Local day, `YYYY-MM-DD`; today when left out. A past day shows what was done, a future day what is booked. */
+  date?: string | undefined;
+}
+
+/** Narrows the queue. */
+export interface QueueOptions extends RequestOptions {
+  /** Only this doctor's tokens. */
+  practitionerId?: PractitionerId | undefined;
+}
+
 export interface DateRange {
   /** First local day, `YYYY-MM-DD`. */
   from: string;
@@ -253,8 +265,15 @@ export interface ApiClient {
   getPatient(id: PatientId, options?: RequestOptions): Promise<ApiResult<Patient>>;
   /** Clinic host: needs `patients.write`. */
   createPatient(input: NewPatient, options?: RequestOptions): Promise<ApiResult<Patient>>;
-  /** Clinic host: today's schedule, chairs, counts, attention list and team. Needs `appointments.read`. */
-  getToday(options?: RequestOptions): Promise<ApiResult<Today>>;
+  /**
+   * Clinic host: a clinic day's schedule, chairs, counts, queue, completed visits, attention list and team. Today unless
+   * `options.date` is given. `money` and each completed visit's bill figures arrive only with `finance.view`. Needs `appointments.read`.
+   */
+  getToday(options?: TodayOptions): Promise<ApiResult<Today>>;
+  /** Clinic host: appointments per day for a clinic month (`YYYY-MM`), for the calendar's busy days. Needs `appointments.read`. */
+  getMonthSummary(month: string, options?: RequestOptions): Promise<ApiResult<MonthSummary>>;
+  /** Clinic host: lab work that still needs something done, soonest due first, with its derived stage and late flag. Needs `labs.read`. */
+  listOpenLabOrders(options?: RequestOptions): Promise<ApiResult<OpenLabOrderPage>>;
   /** Clinic host: edits a patient's details. Needs `patients.write`, and `patients.contact` to change phone or email. */
   updatePatient(id: PatientId, changes: PatientChanges, options?: RequestOptions): Promise<ApiResult<Patient>>;
 
@@ -297,11 +316,13 @@ export interface ApiClient {
   setAppointmentStatus(id: AppointmentId, change: StatusChange, options?: RequestOptions): Promise<ApiResult<StatusChanged>>;
 
   /** Clinic host: the queue of a clinic day, with each token's wait. Needs `appointments.read`. */
-  listQueue(date: string | undefined, options?: RequestOptions): Promise<ApiResult<QueueDayPage>>;
+  listQueue(date: string | undefined, options?: QueueOptions): Promise<ApiResult<QueueDayPage>>;
   /** Clinic host: issues a token to a patient without an appointment. Needs `appointments.write`. */
   addWalkIn(input: WalkInBody, options?: RequestOptions): Promise<ApiResult<QueueToken>>;
   /** Clinic host: moves a token along; a token with an appointment moves the appointment too. Needs `appointments.write`. */
   setQueueStatus(id: QueueTokenId, change: TokenStatusChange, options?: RequestOptions): Promise<ApiResult<QueueToken>>;
+  /** Clinic host: the doctor sends a waiting patient in (`called`); repeating changes nothing. Needs `clinical.write`. */
+  callQueueToken(id: QueueTokenId, options?: RequestOptions): Promise<ApiResult<QueueToken>>;
 
   /** Clinic host: imports patients from CSV; `preview` saves nothing, `commit` saves the valid rows. Needs `patients.write`. */
   importPatients(input: PatientImport, options?: RequestOptions): Promise<ApiResult<ImportResult>>;
@@ -539,8 +560,11 @@ export interface ApiClient {
   /** Clinic host: voids a payment with a reason. Needs `billing.write`. */
   voidPayment(id: PaymentId, reason: Reason, options?: RequestOptions): Promise<ApiResult<Payment>>;
 
-  /** Clinic host: collections by day, week and method, and the revenue mix. Needs `finance.view`. */
-  getCollections(range: Partial<DateRange>, options?: RequestOptions): Promise<ApiResult<Collections>>;
+  /**
+   * Clinic host: collections by day, week and method, and the revenue mix. With `weeks` (1 to 52, not with `from` or `to`),
+   * the last that many weeks, the current one included. Needs `finance.view`.
+   */
+  getCollections(range: Partial<DateRange> & { weeks?: number | undefined }, options?: RequestOptions): Promise<ApiResult<Collections>>;
   /** Clinic host: issued bills with a balance, oldest first. Needs `finance.view`. */
   getPendingReport(options?: RequestOptions): Promise<ApiResult<PendingReport>>;
   /** Clinic host: today's collections, pending dues and revenue mix for the Today screen. Needs `finance.view`. */

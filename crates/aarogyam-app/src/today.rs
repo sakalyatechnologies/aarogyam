@@ -1,17 +1,19 @@
 //! Today at the clinic: the day's schedule, chairs, counts, recent patients, who is working,
-//! and what needs the front desk's attention. Money arrives with billing.
+//! and what needs the front desk's attention, for today or any other clinic day: a past day
+//! shows what was done, a future day what is booked. Money figures need `finance.view`.
 
 use std::collections::BTreeMap;
 
 use aarogyam_dal::schedule::{PractitionerRow, RoomRow, ShiftRow};
-use aarogyam_dal::today as dal_today;
+use aarogyam_dal::today::{self as dal_today, CompletedVisitRow, DayMoneyRow, TodayReads};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::{
     AppointmentStatus, QueueStatus, is_late, minutes_between, waits_too_long,
 };
 use sakalya_db::Db;
-use time::{Date, OffsetDateTime};
+use sakalya_types::Paise;
+use time::{Date, Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::appointments::AppointmentView;
@@ -43,6 +45,10 @@ pub struct Counts {
     pub cancelled: usize,
     /// Queue tokens waiting, walk-ins included.
     pub waiting: usize,
+    /// Queue tokens the doctor sent in (called) and the patient hasn't been seated yet.
+    pub called: usize,
+    /// Queue tokens ready to bill: treatment done, payment not yet collected.
+    pub ready_to_bill: usize,
 }
 
 /// Appointments starting in one local hour.
@@ -119,6 +125,30 @@ pub struct Attention {
     pub minutes: i64,
 }
 
+/// What came in and went out on the day (`finance.view`).
+#[derive(Debug, Clone, Copy)]
+pub struct DayMoney {
+    /// Received on the day.
+    pub collected: Paise,
+    /// Payments received.
+    pub payments: i64,
+    /// Billed on the day.
+    pub invoiced: Paise,
+    /// Bills issued.
+    pub invoices: i64,
+}
+
+/// A visit closed on the day, without its clinical content.
+#[derive(Debug, Clone)]
+pub struct CompletedVisit {
+    /// The stored visit with names.
+    pub row: CompletedVisitRow,
+    /// Billed for the visit; `None` without `finance.view`.
+    pub billed: Option<Paise>,
+    /// Received against it; `None` without `finance.view`.
+    pub paid: Option<Paise>,
+}
+
 /// Today at the clinic.
 #[derive(Debug, Clone)]
 pub struct Today {
@@ -143,6 +173,10 @@ pub struct Today {
     /// Items at or below their reorder level, worst first; `None` when the caller may not see
     /// stock (without `inventory.read`).
     pub low_stock: Option<Vec<StockItem>>,
+    /// Visits closed on the day, by end.
+    pub completed_visits: Vec<CompletedVisit>,
+    /// The day's money; `None` without `finance.view`.
+    pub money: Option<DayMoney>,
 }
 
 fn status_of(view: &AppointmentView) -> Option<AppointmentStatus> {
@@ -166,10 +200,15 @@ fn counts(appointments: &[AppointmentView], tokens: &[TokenView]) -> Counts {
             AppointmentStatus::Cancelled => counts.cancelled += 1,
         }
     }
-    counts.waiting = tokens
-        .iter()
-        .filter(|token| token.row.status == QueueStatus::Waiting.as_str())
-        .count();
+    let in_status = |status: QueueStatus| {
+        tokens
+            .iter()
+            .filter(|token| token.row.status == status.as_str())
+            .count()
+    };
+    counts.waiting = in_status(QueueStatus::Waiting);
+    counts.called = in_status(QueueStatus::Called);
+    counts.ready_to_bill = in_status(QueueStatus::ReadyToBill);
     counts
 }
 
@@ -197,21 +236,31 @@ fn by_hour(appointments: &[AppointmentView], timezone: &str) -> Vec<HourCount> {
     hours.into_values().collect()
 }
 
-fn chairs(rooms: Vec<RoomRow>, appointments: &[AppointmentView]) -> Vec<Chair> {
+/// How a day relates to the clinic's today.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Day {
+    Past,
+    Today,
+    Future,
+}
+
+fn chairs(rooms: Vec<RoomRow>, appointments: &[AppointmentView], day: Day) -> Vec<Chair> {
     rooms
         .into_iter()
         .filter(|room| room.active)
         .map(|room| {
             let in_room = |index: &usize| appointments[*index].row.room_id == Some(room.id);
             let indexes: Vec<usize> = (0..appointments.len()).filter(in_room).collect();
-            let current = indexes
-                .iter()
-                .copied()
-                .find(|index| status_of(&appointments[*index]) == Some(AppointmentStatus::InChair));
+            // Nobody is in a chair on another day, and a day gone by has no next patient.
+            let current = indexes.iter().copied().find(|index| {
+                day == Day::Today
+                    && status_of(&appointments[*index]) == Some(AppointmentStatus::InChair)
+            });
             let next = indexes.iter().copied().find(|index| {
-                status_of(&appointments[*index]).is_some_and(|status| {
-                    status.is_upcoming() || status == AppointmentStatus::Arrived
-                })
+                day != Day::Past
+                    && status_of(&appointments[*index]).is_some_and(|status| {
+                        status.is_upcoming() || status == AppointmentStatus::Arrived
+                    })
             });
             Chair {
                 room,
@@ -263,26 +312,50 @@ fn attention(
     items
 }
 
-/// Builds Today for the caller's clinic.
+/// Earliest and latest year a day may be asked for.
+const YEARS: std::ops::RangeInclusive<i32> = 2000..=2100;
+
+/// Builds Today for the caller's clinic: for `date`, or the clinic's today when `None`. Late
+/// arrivals, long waits and the chair in use are about now, so they show for today only.
 ///
 /// # Errors
-/// [`AppError::Denied`] without `appointments.read`; [`AppError::Db`] on failures.
+/// [`AppError::Denied`] without `appointments.read`; [`AppError::Invalid`] for a day outside
+/// 2000 to 2100; [`AppError::Db`] on failures.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one function assembles each of Today's slices in turn"
+)]
 pub async fn today(
     db: &Db,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     now: OffsetDateTime,
+    date: Option<Date>,
 ) -> Result<Today, AppError> {
     actor.require(Permission::AppointmentsRead)?;
-    let date = clinic_today(&actor.timezone, now);
+    let clinic_day = clinic_today(&actor.timezone, now);
+    let date = date.unwrap_or(clinic_day);
+    if !YEARS.contains(&date.year()) {
+        return Err(AppError::invalid(
+            "date",
+            "must be a year from 2000 to 2100",
+        ));
+    }
+    let day = match date.cmp(&clinic_day) {
+        std::cmp::Ordering::Less => Day::Past,
+        std::cmp::Ordering::Equal => Day::Today,
+        std::cmp::Ordering::Greater => Day::Future,
+    };
     let (start, end) = day_bounds(&actor.timezone, date);
     let weekday = i16::from(date.weekday().number_from_monday());
-    let with_stock = actor.permissions.allows(Permission::InventoryRead);
+    let reads = TodayReads {
+        stock: actor.permissions.allows(Permission::InventoryRead),
+        money: actor.permissions.allows(Permission::FinanceView),
+    };
     // Counts, chairs and the team follow from the appointments and tokens in reach.
     let reach = actor.reach(Permission::AppointmentsRead).member();
     db.scoped(&scope(actor, request_id), async |tx| {
-        let rows =
-            dal_today::today(tx.conn(), start, end, date, weekday, with_stock, reach).await?;
+        let rows = dal_today::today(tx.conn(), start, end, date, weekday, reads, reach).await?;
         let appointments: Vec<AppointmentView> = rows
             .appointments
             .into_iter()
@@ -328,19 +401,104 @@ pub async fn today(
         let mut recent: Vec<TokenView> = tokens.clone();
         recent.sort_by_key(|token| std::cmp::Reverse(token.row.issued_at));
         recent.truncate(RECENT_PATIENTS);
-        let low_stock = rows.stock.map(|stock| inventory::low_stock_of(stock, date));
+        // Stock is what is on the shelf now, whatever day is shown.
+        let low_stock = rows
+            .stock
+            .map(|stock| inventory::low_stock_of(stock, clinic_day));
+        let completed_visits = rows
+            .completed_visits
+            .into_iter()
+            .map(|row| CompletedVisit {
+                billed: row.billed_paise.map(Paise::new),
+                paid: row.paid_paise.map(Paise::new),
+                row,
+            })
+            .collect();
+        let money = rows.money.map(|money: DayMoneyRow| DayMoney {
+            collected: Paise::new(money.collected_paise),
+            payments: money.payments,
+            invoiced: Paise::new(money.invoiced_paise),
+            invoices: money.invoices,
+        });
         Ok(Today {
             low_stock,
             date,
             as_of: now,
             counts: counts(&appointments, &tokens),
             by_hour: by_hour(&appointments, &actor.timezone),
-            chairs: chairs(rooms, &appointments),
-            attention: attention(&appointments, &tokens, now),
+            chairs: chairs(rooms, &appointments, day),
+            attention: if day == Day::Today {
+                attention(&appointments, &tokens, now)
+            } else {
+                Vec::new()
+            },
+            completed_visits,
+            money,
             recent_patients: recent,
             team,
             appointments,
         })
     })
     .await
+}
+
+/// One clinic day's appointments by what became of them.
+pub use dal_today::DayAppointments;
+
+/// A month of appointments, a row for every day.
+#[derive(Debug, Clone)]
+pub struct MonthSummary {
+    /// The first day of the month.
+    pub month: Date,
+    /// Every day of the month, in order, zeros when nothing is booked.
+    pub days: Vec<DayAppointments>,
+}
+
+/// Appointments per day for the clinic month starting `month` (its first day), counted in the
+/// clinic's time zone.
+///
+/// # Errors
+/// [`AppError::Denied`] without `appointments.read`; [`AppError::Invalid`] for a month outside
+/// 2000 to 2100.
+pub async fn month_summary(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    month: Date,
+) -> Result<MonthSummary, AppError> {
+    actor.require(Permission::AppointmentsRead)?;
+    let first = month.replace_day(1).unwrap_or(month);
+    if !YEARS.contains(&first.year()) {
+        return Err(AppError::invalid(
+            "month",
+            "must be a year from 2000 to 2100",
+        ));
+    }
+    let length = i64::from(first.month().length(first.year()));
+    let last = first + Duration::days(length - 1);
+    let (start, _) = day_bounds(&actor.timezone, first);
+    let (_, end) = day_bounds(&actor.timezone, last);
+    let offset = clinic_offset(&actor.timezone).whole_seconds();
+    let reach = actor.reach(Permission::AppointmentsRead).member();
+    let rows = db
+        .scoped(&scope(actor, request_id), async |tx| {
+            Ok::<_, AppError>(dal_today::month_summary(tx.conn(), start, end, offset, reach).await?)
+        })
+        .await?;
+    let days = (0..length)
+        .map(|index| {
+            let day = first + Duration::days(index);
+            rows.iter()
+                .find(|row| row.day == day)
+                .copied()
+                .unwrap_or(DayAppointments {
+                    day,
+                    booked: 0,
+                    completed: 0,
+                    cancelled: 0,
+                    no_shows: 0,
+                })
+        })
+        .collect();
+    Ok(MonthSummary { month: first, days })
 }

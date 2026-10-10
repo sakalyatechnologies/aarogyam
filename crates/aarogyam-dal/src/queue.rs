@@ -18,7 +18,7 @@ pub struct TokenRow {
     pub day: Date,
     /// Number shown on the screen.
     pub token_number: i32,
-    /// `waiting`, `in_chair`, `done` or `left`.
+    /// `waiting`, `called`, `in_chair`, `ready_to_bill`, `done` or `left`.
     pub status: String,
     /// When it was issued.
     #[serde(with = "crate::json::timestamp")]
@@ -119,7 +119,7 @@ pub async fn insert(conn: &mut PgConnection, token: &NewToken) -> Result<(), DbE
     Ok(())
 }
 
-/// Tokens of one clinic day, optionally one branch, by number.
+/// Tokens of one clinic day, optionally one branch or one doctor, by number.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -127,6 +127,7 @@ pub async fn list(
     conn: &mut PgConnection,
     day: Date,
     branch_id: Option<Uuid>,
+    practitioner_id: Option<Uuid>,
     member: Option<Uuid>,
 ) -> Result<Vec<TokenRow>, DbError> {
     let rows = sqlx::query_as!(
@@ -143,11 +144,13 @@ pub async fn list(
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
            left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
            where q.day = $1 and ($2::uuid is null or q.branch_id = $2)
+             and ($4::uuid is null or q.practitioner_id = $4)
              and app.practitioner_in_reach(q.practitioner_id, $3)
            order by q.branch_id, q.token_number"#,
         day,
         branch_id,
-        member
+        member,
+        practitioner_id
     )
     .fetch_all(conn)
     .await?;
@@ -262,8 +265,8 @@ pub async fn for_appointment(
     Ok(row)
 }
 
-/// Sets a token's status, stamping the call time when it leaves `waiting` for the chair or
-/// done, and the end time when done or left.
+/// Sets a token's status, stamping the call time when it leaves `waiting` (called, the chair
+/// or done), and the end time when done or left.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -276,7 +279,7 @@ pub async fn set_status(
     sqlx::query!(
         r#"update aarogyam.queue_tokens
            set status = $2,
-               called_at = case when $2 in ('in_chair', 'done') then coalesce(called_at, $3) else called_at end,
+               called_at = case when $2 in ('called', 'in_chair', 'ready_to_bill', 'done') then coalesce(called_at, $3) else called_at end,
                done_at = case when $2 in ('done', 'left') then coalesce(done_at, $3) else done_at end
            where id = $1"#,
         id,

@@ -290,8 +290,12 @@ text_enum!(
     QueueStatus {
         /// Waiting to be called.
         Waiting => "waiting",
+        /// The doctor sent the patient in; the desk calls them.
+        Called => "called",
         /// In the chair.
         InChair => "in_chair",
+        /// Treatment done; the desk collects the payment.
+        ReadyToBill => "ready_to_bill",
         /// Seen.
         Done => "done",
         /// Left without being seen.
@@ -318,19 +322,26 @@ impl QueueStatus {
     #[must_use]
     pub const fn appointment_status(self) -> Option<AppointmentStatus> {
         match self {
-            Self::Waiting => None,
-            Self::InChair => Some(AppointmentStatus::InChair),
+            Self::Waiting | Self::Called => None,
+            Self::InChair | Self::ReadyToBill => Some(AppointmentStatus::InChair),
             Self::Done => Some(AppointmentStatus::Completed),
             Self::Left => Some(AppointmentStatus::Cancelled),
         }
     }
 
-    /// The token transition table.
+    /// The token transition table: waiting, called, in the chair, ready to bill, done. A
+    /// patient may skip a step forward (the earlier moves stay valid) and may leave while
+    /// waiting or called.
     #[must_use]
     pub const fn can_become(self, to: Self) -> bool {
         matches!(
             (self, to),
-            (Self::Waiting, Self::InChair | Self::Done | Self::Left) | (Self::InChair, Self::Done)
+            (
+                Self::Waiting,
+                Self::Called | Self::InChair | Self::Done | Self::Left
+            ) | (Self::Called, Self::InChair | Self::Done | Self::Left)
+                | (Self::InChair, Self::ReadyToBill | Self::Done)
+                | (Self::ReadyToBill, Self::Done)
         )
     }
 
@@ -654,7 +665,11 @@ mod tests {
             QueueStatus::for_appointment(AppointmentStatus::Confirmed),
             None
         );
+        // Ready to bill shares the appointment's in-chair status, so it has no way back.
         for token in QueueStatus::ALL {
+            if *token == QueueStatus::ReadyToBill {
+                continue;
+            }
             if let Some(status) = token.appointment_status() {
                 assert_eq!(QueueStatus::for_appointment(status), Some(*token));
             }

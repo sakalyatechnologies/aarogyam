@@ -230,6 +230,31 @@ pub async fn collections(
     .await
 }
 
+/// Most weeks a weekly collections report covers.
+pub const MAX_WEEKS: u32 = 52;
+
+/// Collections for the last `weeks` weeks: the current week (Monday to today) and the weeks
+/// before it, so `by_week` has exactly `weeks` entries, oldest first.
+///
+/// # Errors
+/// [`AppError::Denied`] without `finance.view`; [`AppError::Invalid`] for `weeks` outside 1 to
+/// 52.
+pub async fn weekly_collections(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    weeks: u32,
+    now: OffsetDateTime,
+) -> Result<Collections, AppError> {
+    actor.require(Permission::FinanceView)?;
+    if !(1..=MAX_WEEKS).contains(&weeks) {
+        return Err(AppError::invalid("weeks", "must be 1 to 52"));
+    }
+    let to = clinic_today(&actor.timezone, now);
+    let from = monday(to) - Duration::weeks(i64::from(weeks - 1));
+    collections(db, actor, request_id, Some(from), Some(to), now).await
+}
+
 /// An issued bill with something left to pay.
 #[derive(Debug, Clone)]
 pub struct PendingBill {
@@ -439,6 +464,18 @@ mod tests {
             amount_paise: amount,
             payments: 1,
         }
+    }
+
+    #[test]
+    fn a_weekly_range_starts_on_the_monday_weeks_back() {
+        // Saturday 10 October 2026, in the week of Monday 5 October.
+        let to = date!(2026 - 10 - 10);
+        assert_eq!(
+            monday(to) - Duration::weeks(7),
+            date!(2026 - 08 - 17),
+            "week 1 of 8 starts seven Mondays before this one"
+        );
+        assert_eq!(monday(date!(2026 - 10 - 05)), date!(2026 - 10 - 05));
     }
 
     #[test]

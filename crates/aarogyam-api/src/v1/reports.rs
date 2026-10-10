@@ -12,7 +12,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::billing::PatientRef;
-use super::{parse_day, rfc3339};
+use super::{bad, parse_day, rfc3339};
 use crate::AppState;
 use crate::extract::Require;
 use crate::failure::ApiFailure;
@@ -106,10 +106,13 @@ pub struct RangeParams {
     pub from: Option<String>,
     /// Last clinic day.
     pub to: Option<String>,
+    /// The last this many weeks, the current one included.
+    pub weeks: Option<u32>,
 }
 
 /// Collections by day, week and method, and the revenue mix. The last seven days by default;
-/// at most 366 days.
+/// at most 366 days. With `weeks` (1 to 52), the last that many weeks instead, the current one
+/// included: `by_week` then has exactly that many entries, oldest first.
 #[utoipa::path(
     get,
     path = "/api/v1/reports/collections",
@@ -117,7 +120,8 @@ pub struct RangeParams {
     tag = "reports",
     params(
         ("from" = Option<String>, Query, description = "First clinic day, YYYY-MM-DD (default: six days before to)"),
-        ("to" = Option<String>, Query, description = "Last clinic day, included (default: today)")
+        ("to" = Option<String>, Query, description = "Last clinic day, included (default: today)"),
+        ("weeks" = Option<u32>, Query, description = "The last N weeks (1 to 52), the current one included; not with from or to")
     ),
     security(("bearer" = [])),
     responses(
@@ -142,15 +146,27 @@ pub(crate) async fn collections(
         .as_deref()
         .map(|t| parse_day("to", t))
         .transpose()?;
-    let report = app::collections(
-        state.db(),
-        &request.actor,
-        request.request_id,
-        from,
-        to,
-        OffsetDateTime::now_utc(),
-    )
-    .await?;
+    let now = OffsetDateTime::now_utc();
+    let report = match params.weeks {
+        Some(_) if from.is_some() || to.is_some() => {
+            return Err(bad("weeks", "can't be combined with from or to").into());
+        }
+        Some(weeks) => {
+            app::weekly_collections(state.db(), &request.actor, request.request_id, weeks, now)
+                .await?
+        }
+        None => {
+            app::collections(
+                state.db(),
+                &request.actor,
+                request.request_id,
+                from,
+                to,
+                now,
+            )
+            .await?
+        }
+    };
     Ok(Json(Collections {
         from: report.from.to_string(),
         to: report.to.to_string(),

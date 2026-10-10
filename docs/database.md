@@ -1148,7 +1148,7 @@ Walk-in tokens shown on the waiting-room screen.
 | `patient_id` | `uuid` | → `patients` |
 | `appointment_id` | `uuid?` | → `appointments`. null for a walk-in |
 | `practitioner_id` | `uuid?` | → `practitioners` |
-| `status` | `token_status` | waiting, in_chair, done, left |
+| `status` | `token_status` | waiting, called, in_chair, ready_to_bill, done, left (called and ready_to_bill: migration 0610) |
 | `issued_at` | `timestamptz` |  |
 | `called_at` | `timestamptz?` |  |
 | `done_at` | `timestamptz?` |  |

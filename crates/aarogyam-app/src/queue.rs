@@ -110,7 +110,7 @@ pub struct Queue {
     pub tokens: Vec<TokenView>,
 }
 
-/// The tokens of a clinic day, optionally one branch.
+/// The tokens of a clinic day, optionally one branch or one doctor.
 ///
 /// # Errors
 /// [`AppError::Db`] on failures.
@@ -120,6 +120,7 @@ pub async fn list(
     request_id: Option<Uuid>,
     date: Option<Date>,
     branch_id: Option<BranchId>,
+    practitioner_id: Option<PractitionerId>,
     now: OffsetDateTime,
 ) -> Result<Queue, AppError> {
     actor.require(Permission::AppointmentsRead)?;
@@ -130,6 +131,7 @@ pub async fn list(
             tx.conn(),
             date,
             branch_id.map(BranchId::uuid),
+            practitioner_id.map(PractitionerId::uuid),
             actor.reach(Permission::AppointmentsRead).member(),
         )
         .await?;
@@ -366,6 +368,47 @@ pub(crate) async fn move_token(
     Ok(None)
 }
 
+/// Sends a waiting patient in: the token becomes `called` and its call time is stamped. The
+/// appointment, if any, stays arrived. Calling a token that is already called changes nothing
+/// and returns it, so a repeat is safe; a token past that (in the chair, ready to bill, done
+/// or left) is refused with the token as it is. Needs `clinical.write` and the token within the
+/// member's reach: the patient is theirs, or the token names them as the doctor.
+///
+/// # Errors
+/// [`AppError::NotFound`] when the token isn't in this clinic or out of the member's reach.
+pub async fn call(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    token_id: QueueTokenId,
+    now: OffsetDateTime,
+) -> Result<Moved<TokenView>, AppError> {
+    actor.require(Permission::ClinicalWrite)?;
+    let reach = actor.reach(Permission::ClinicalWrite).member();
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let today = clinic_today(&actor.timezone, now);
+        let token = dal::lock_for_visit(tx.conn(), token_id.uuid(), reach)
+            .await?
+            .ok_or(AppError::NotFound("queue token"))?;
+        let from = QueueStatus::parse(&token.state.status)
+            .map_err(|_| AppError::Internal("unknown token status"))?;
+        if from == QueueStatus::Called {
+            return Ok(Moved::AlreadyDone(
+                view(tx, token.state.id, now, today).await?,
+            ));
+        }
+        if let Err(error) = from.check(QueueStatus::Called) {
+            return Ok(Moved::Refused {
+                reason: error.to_string(),
+                current: view(tx, token.state.id, now, today).await?,
+            });
+        }
+        dal::set_status(tx.conn(), token.state.id, QueueStatus::Called.as_str(), now).await?;
+        Ok(Moved::Done(view(tx, token.state.id, now, today).await?))
+    })
+    .await
+}
+
 /// A visit started from the queue, and the token as it is now.
 #[derive(Debug, Clone)]
 pub struct StartedVisit {
@@ -409,7 +452,7 @@ pub async fn start_visit(
                 "the patient left without being seen; issue a new token",
             ));
         }
-        if status == QueueStatus::Waiting
+        if matches!(status, QueueStatus::Waiting | QueueStatus::Called)
             && move_token(
                 tx,
                 &actor.timezone,

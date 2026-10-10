@@ -207,11 +207,13 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/appointments",
             get(appointments::list).post(appointments::book),
         )
+        .route("/appointments/month-summary", get(today::month_summary))
         .route("/appointments/{id}", patch(appointments::change))
         .route("/appointments/{id}/status", post(appointments::set_status))
         .route("/appointments/{id}/check-in", post(check_in::check_in))
         .route("/queue", get(queue::list).post(queue::walk_in))
         .route("/queue/{id}/status", post(queue::set_status))
+        .route("/queue/{id}/call", post(queue::call))
         .route("/queue/{id}/start-visit", post(queue::start_visit))
         .route("/walk-ins", post(walk_ins::register))
         .route("/quick-picks", get(quick_picks::get))

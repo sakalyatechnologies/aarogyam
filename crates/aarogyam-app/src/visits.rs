@@ -431,7 +431,10 @@ pub async fn close(
         // A visit started from the queue finishes its token (and the token's appointment).
         if let Some(token_id) = visits::token_of(tx.conn(), row.id).await?
             && let Some(token) = aarogyam_dal::queue::lock(tx.conn(), token_id).await?
-            && matches!(token.status.as_str(), "waiting" | "in_chair")
+            && matches!(
+                token.status.as_str(),
+                "waiting" | "called" | "in_chair" | "ready_to_bill"
+            )
         {
             crate::queue::move_token(
                 tx,

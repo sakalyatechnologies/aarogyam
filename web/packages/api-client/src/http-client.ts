@@ -89,6 +89,8 @@ import {
   qualityReport,
   queueDay,
   queueToken,
+  monthSummary,
+  openLabOrderPage,
   registrationReceived,
   requestId,
   room,
@@ -241,7 +243,11 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}`, schema: patient, signal: opts?.signal }),
     createPatient: (input, opts) =>
       call({ method: "POST", path: "/api/v1/patients", schema: patient, body: input, signal: opts?.signal }),
-    getToday: (opts) => call({ method: "GET", path: "/api/v1/today", schema: todayResponse, signal: opts?.signal }),
+    getToday: (opts) => call({ method: "GET", path: "/api/v1/today", schema: todayResponse, query: { date: opts?.date }, signal: opts?.signal }),
+    getMonthSummary: (month, opts) =>
+      call({ method: "GET", path: "/api/v1/appointments/month-summary", schema: monthSummary, query: { month }, signal: opts?.signal }),
+    listOpenLabOrders: (opts) =>
+      call({ method: "GET", path: "/api/v1/lab-orders", schema: openLabOrderPage, query: { open: "1" }, signal: opts?.signal }),
     updatePatient: (id, changes, opts) =>
       call({ method: "PATCH", path: `/api/v1/patients/${encodeURIComponent(id)}`, schema: patient, body: changes, signal: opts?.signal }),
 
@@ -292,8 +298,16 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/appointments/${encodeURIComponent(id)}/status`, schema: statusChanged, body: change, signal: opts?.signal }),
 
     listQueue: (dateValue, opts) =>
-      call({ method: "GET", path: "/api/v1/queue", schema: queueDay, query: { date: dateValue }, signal: opts?.signal }),
+      call({
+        method: "GET",
+        path: "/api/v1/queue",
+        schema: queueDay,
+        query: { date: dateValue, practitioner_id: opts?.practitionerId },
+        signal: opts?.signal,
+      }),
     addWalkIn: (input, opts) => call({ method: "POST", path: "/api/v1/queue", schema: queueToken, body: input, signal: opts?.signal }),
+    callQueueToken: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/queue/${encodeURIComponent(id)}/call`, schema: queueToken, signal: opts?.signal }),
     setQueueStatus: (id, change, opts) =>
       call({ method: "POST", path: `/api/v1/queue/${encodeURIComponent(id)}/status`, schema: queueToken, body: change, signal: opts?.signal }),
 
@@ -616,7 +630,7 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/payments/${encodeURIComponent(id)}/void`, schema: payment, body: reason, signal: opts?.signal }),
 
     getCollections: (range, opts) =>
-      call({ method: "GET", path: "/api/v1/reports/collections", schema: collections, query: { from: range.from, to: range.to }, signal: opts?.signal }),
+      call({ method: "GET", path: "/api/v1/reports/collections", schema: collections, query: { from: range.from, to: range.to, weeks: range.weeks }, signal: opts?.signal }),
     getPendingReport: (opts) => call({ method: "GET", path: "/api/v1/reports/pending", schema: pendingReport, signal: opts?.signal }),
     getTodayMoney: (opts) => call({ method: "GET", path: "/api/v1/today/money", schema: todayMoney, signal: opts?.signal }),
     listExpenses: (range, opts) =>

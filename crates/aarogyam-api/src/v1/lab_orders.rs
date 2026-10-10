@@ -9,7 +9,7 @@ use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{
     EncounterId, LabContactId, LabOrderId, LabVendorId, MembershipId, PatientId, ProcedureId,
 };
-use aarogyam_domain::lab::LabOrderStatus;
+use aarogyam_domain::lab::{LabOrderStatus, LabPipeline};
 use aarogyam_domain::permission::require::{LabsRead, LabsWrite};
 use axum::Json;
 use axum::extract::State;
@@ -70,6 +70,40 @@ impl From<LabOrderState> for LabOrderStatus {
             LabOrderState::Fitted => Self::Fitted,
             LabOrderState::ReturnedForRework => Self::ReturnedForRework,
             LabOrderState::Cancelled => Self::Cancelled,
+        }
+    }
+}
+
+/// Where an order stands for the front desk, derived from its status.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LabPipelineStage {
+    /// Written but not yet handed to the lab (a draft).
+    ToSend,
+    /// Handed to the lab.
+    Sent,
+    /// The lab is making it.
+    InProgress,
+    /// Back from the lab, waiting to be fitted.
+    ReadyToFit,
+    /// Fitted.
+    Fitted,
+    /// Sent back to be made again.
+    Rework,
+    /// Called off.
+    Cancelled,
+}
+
+impl From<LabPipeline> for LabPipelineStage {
+    fn from(stage: LabPipeline) -> Self {
+        match stage {
+            LabPipeline::ToSend => Self::ToSend,
+            LabPipeline::Sent => Self::Sent,
+            LabPipeline::InProgress => Self::InProgress,
+            LabPipeline::ReadyToFit => Self::ReadyToFit,
+            LabPipeline::Fitted => Self::Fitted,
+            LabPipeline::Rework => Self::Rework,
+            LabPipeline::Cancelled => Self::Cancelled,
         }
     }
 }
@@ -204,6 +238,13 @@ pub struct LabOrder {
     pub encounter_id: Option<Uuid>,
     /// Where it is.
     pub status: LabOrderState,
+    /// Where it stands for the front desk: a draft is `to_send`, work back from the lab is
+    /// `ready_to_fit`; the rest follow the status.
+    pub pipeline_stage: LabPipelineStage,
+    /// Still at the lab after its due day (clinic time).
+    pub late: bool,
+    /// Whole days past the due day while late.
+    pub days_late: Option<i64>,
     /// Where the work is between trials: wax try-in, framework trial, bisque.
     pub stage: Option<String>,
     /// Instructions for the lab.
@@ -261,6 +302,9 @@ impl From<LabOrderView> for LabOrder {
             procedure_id: view.procedure_id.map(ProcedureId::uuid),
             encounter_id: view.encounter_id.map(EncounterId::uuid),
             status: view.status.into(),
+            pipeline_stage: view.pipeline.into(),
+            late: view.late,
+            days_late: view.days_late,
             stage: view.stage,
             instructions: view.instructions,
             sent_at: view.sent_at.map(rfc3339),
@@ -395,11 +439,27 @@ pub struct LabOrderParams {
     pub patient_id: Option<String>,
     /// Only work at the lab past its due date.
     pub overdue: Option<bool>,
+    /// Only orders still needing something done (drafts, work at the lab, work waiting to be
+    /// fitted), soonest due first. `1` or `true`.
+    #[serde(default, deserialize_with = "flag")]
+    pub open: Option<bool>,
     /// Most rows, 1 to 200 (default 200).
     pub limit: Option<i64>,
 }
 
-/// Lab orders within reach, newest first.
+/// A flag sent as `1`, `0`, `true` or `false`.
+fn flag<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<bool>, D::Error> {
+    let text = Option::<String>::deserialize(deserializer)?;
+    match text.as_deref() {
+        None | Some("") => Ok(None),
+        Some("1" | "true") => Ok(Some(true)),
+        Some("0" | "false") => Ok(Some(false)),
+        Some(_) => Err(serde::de::Error::custom("must be 1, 0, true or false")),
+    }
+}
+
+/// Lab orders within reach, newest first; with `open`, the work still to do, soonest due first,
+/// each with its derived `pipeline_stage` and `late` flag.
 #[utoipa::path(
     get,
     path = "/api/v1/lab-orders",
@@ -410,6 +470,7 @@ pub struct LabOrderParams {
         ("vendor_id" = Option<String>, Query, description = "Only this lab"),
         ("patient_id" = Option<String>, Query, description = "Only this patient"),
         ("overdue" = Option<bool>, Query, description = "Only work at the lab past its due date"),
+        ("open" = Option<bool>, Query, description = "1 or true: only orders still needing something done, soonest due first"),
         ("limit" = Option<i64>, Query, description = "Most rows, 1 to 200 (default 200)")
     ),
     security(("bearer" = [])),
@@ -432,6 +493,7 @@ pub(crate) async fn list(
         vendor_id: vendor.map(LabVendorId::from_uuid),
         patient_id: patient.map(PatientId::from_uuid),
         overdue: params.overdue.unwrap_or(false),
+        open: params.open.unwrap_or(false),
     };
     let rows = app::list(
         state.db(),

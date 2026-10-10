@@ -156,6 +156,9 @@ pub struct OrderFilter {
     pub patient_id: Option<Uuid>,
     /// Only work still at the lab that was due before this clinic day.
     pub overdue_before: Option<Date>,
+    /// Only orders still needing something done (not fitted, reworked or cancelled), soonest
+    /// due first.
+    pub open: bool,
     /// The member to narrow to; `None` for every order.
     pub member: Option<Uuid>,
     /// Whether to show unit costs.
@@ -179,8 +182,9 @@ pub async fn list(
              and ($2::uuid is null or o.vendor_id = $2)
              and ($3::uuid is null or o.patient_id = $3)
              and ($4::date is null or (o.due_on < $4 and o.status in ('sent', 'in_progress')))
+             and (not $8 or o.status in ('draft', 'sent', 'in_progress', 'received'))
              and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $5)
-           order by o.id desc
+           order by (case when $8 then o.due_on end) nulls last, o.id desc
            limit $7"#,
         filter.status,
         filter.vendor_id,
@@ -188,7 +192,8 @@ pub async fn list(
         filter.overdue_before,
         filter.member,
         filter.costs,
-        filter.limit
+        filter.limit,
+        filter.open
     )
     .fetch_all(conn)
     .await?;

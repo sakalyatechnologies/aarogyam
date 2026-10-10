@@ -910,7 +910,7 @@ async fn today_counts_the_clinic_day() {
     .await
     .unwrap();
 
-    let today = aarogyam_app::today::today(&db, &actor, None, now)
+    let today = aarogyam_app::today::today(&db, &actor, None, now, None)
         .await
         .unwrap();
     assert_eq!(today.date.to_string(), "2030-01-07");

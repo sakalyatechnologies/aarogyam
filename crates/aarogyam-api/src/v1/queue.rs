@@ -34,11 +34,12 @@ pub struct QueueToken {
     pub day: String,
     /// Number shown on the screen; restarts at 1 each day per branch.
     pub token_number: i32,
-    /// `waiting`, `in_chair`, `done` or `left`.
+    /// `waiting`, `called` (sent in by the doctor), `in_chair`, `ready_to_bill`, `done` or
+    /// `left`.
     pub status: String,
     /// When it was issued (RFC 3339).
     pub issued_at: String,
-    /// When the patient was called in (RFC 3339).
+    /// When the patient was called in, set when the token leaves `waiting` (RFC 3339).
     pub called_at: Option<String>,
     /// When they were done or left (RFC 3339).
     pub done_at: Option<String>,
@@ -106,6 +107,8 @@ pub struct QueueQuery {
     pub date: Option<String>,
     /// Only this branch.
     pub branch_id: Option<String>,
+    /// Only this doctor's tokens.
+    pub practitioner_id: Option<String>,
 }
 
 /// The queue of a clinic day, with each token's wait.
@@ -116,7 +119,8 @@ pub struct QueueQuery {
     tag = "queue",
     params(
         ("date" = Option<String>, Query, description = "The clinic day, `YYYY-MM-DD`; today when left out"),
-        ("branch_id" = Option<String>, Query, description = "Only this branch")
+        ("branch_id" = Option<String>, Query, description = "Only this branch"),
+        ("practitioner_id" = Option<String>, Query, description = "Only this doctor's tokens")
     ),
     security(("bearer" = [])),
     responses(
@@ -144,6 +148,11 @@ pub(crate) async fn list(
             .branch_id
             .as_deref()
             .map(|text| parse_id("branch_id", text).map(BranchId::from_uuid))
+            .transpose()?,
+        query
+            .practitioner_id
+            .as_deref()
+            .map(|text| parse_id("practitioner_id", text).map(PractitionerId::from_uuid))
             .transpose()?,
         OffsetDateTime::now_utc(),
     )
@@ -222,7 +231,9 @@ pub(crate) async fn walk_in(
 /// A token status change.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct TokenStatusChange {
-    /// `in_chair`, `done` or `left`.
+    /// `called`, `in_chair`, `ready_to_bill`, `done` or `left`. The order is waiting, called,
+    /// in the chair, ready to bill, done; a step may be skipped forward, and a patient may
+    /// leave while waiting or called.
     pub status: String,
     /// With `in_chair` only: the chair (a room of the token's branch) to seat the patient in.
     /// The token's appointment moves to it too. Sending it again with another chair while in
@@ -264,6 +275,45 @@ pub(crate) async fn set_status(
         QueueTokenId::from_uuid(id),
         &body.status,
         body.room_id.map(RoomId::from_uuid),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    match outcome {
+        Moved::Done(token) | Moved::AlreadyDone(token) => Ok(Json(token.into())),
+        Moved::Refused { reason, current } => {
+            Err(ApiFailure::refused(reason, &QueueToken::from(current)))
+        }
+    }
+}
+
+/// Sends a waiting patient in: the token becomes `called` and `called_at` is set (the doctor's
+/// "send in"). The appointment, if any, stays arrived. Calling a token that is already called
+/// changes nothing and returns it, so a retry is safe.
+#[utoipa::path(
+    post,
+    path = "/api/v1/queue/{id}/call",
+    operation_id = "callQueueToken",
+    tag = "queue",
+    params(("id" = String, Path, description = "The token")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = QueueToken),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write"),
+        (status = 404, description = "No such token in this clinic, or its patient isn't yours"),
+        (status = 409, body = MoveRefused, description = "The patient is already in the chair, ready to bill, done or left (`current` is the token as it is)")
+    )
+)]
+pub(crate) async fn call(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Json<QueueToken>, ApiFailure> {
+    let outcome = app::call(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        QueueTokenId::from_uuid(id),
         OffsetDateTime::now_utc(),
     )
     .await?;

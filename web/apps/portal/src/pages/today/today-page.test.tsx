@@ -79,7 +79,7 @@ describe("Team today", () => {
 });
 
 describe("Today's hero with nobody next", () => {
-  const counts = { total: 3, booked: 0, arrived: 0, in_chair: 0, done: 0, cancelled: 0, no_shows: 0, waiting: 0 };
+  const counts = { total: 3, booked: 0, arrived: 0, in_chair: 0, done: 0, cancelled: 0, no_shows: 0, waiting: 0, called: 0, ready_to_bill: 0 };
   it("never says nobody is booked beside a full ring", () => {
     expect(idleTitle({ ...counts, total: 0 }, false)).toBe("No appointments booked today");
     expect(idleTitle({ ...counts, done: 3 }, false)).toBe("All of today's appointments are done.");

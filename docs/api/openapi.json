@@ -134,6 +134,54 @@
         ]
       }
     },
+    "/api/v1/appointments/month-summary": {
+      "get": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Appointments per day for a clinic month: booked, completed, cancelled and no-shows, days in\nthe clinic's time zone, for the calendar's busy days.",
+        "operationId": "getMonthSummary",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "description": "The clinic month, YYYY-MM (2000 to 2100)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A missing or bad month"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/appointments/{id}": {
       "patch": {
         "tags": [
@@ -4386,7 +4434,7 @@
         "tags": [
           "labs"
         ],
-        "summary": "Lab orders within reach, newest first.",
+        "summary": "Lab orders within reach, newest first; with `open`, the work still to do, soonest due first,\neach with its derived `pipeline_stage` and `late` flag.",
         "operationId": "listLabOrders",
         "parameters": [
           {
@@ -4420,6 +4468,15 @@
             "name": "overdue",
             "in": "query",
             "description": "Only work at the lab past its due date",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "open",
+            "in": "query",
+            "description": "1 or true: only orders still needing something done, soonest due first",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -10948,6 +11005,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "practitioner_id",
+            "in": "query",
+            "description": "Only this doctor's tokens",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -11013,6 +11079,61 @@
           },
           "404": {
             "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/queue/{id}/call": {
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Sends a waiting patient in: the token becomes `called` and `called_at` is set (the doctor's\n\"send in\"). The appointment, if any, stays arrived. Calling a token that is already called\nchanges nothing and returns it, so a retry is safe.",
+        "operationId": "callQueueToken",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such token in this clinic, or its patient isn't yours"
+          },
+          "409": {
+            "description": "The patient is already in the chair, ready to bill, done or left (`current` is the token as it is)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveRefused"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -11378,7 +11499,7 @@
         "tags": [
           "reports"
         ],
-        "summary": "Collections by day, week and method, and the revenue mix. The last seven days by default;\nat most 366 days.",
+        "summary": "Collections by day, week and method, and the revenue mix. The last seven days by default;\nat most 366 days. With `weeks` (1 to 52), the last that many weeks instead, the current one\nincluded: `by_week` then has exactly that many entries, oldest first.",
         "operationId": "getCollectionsReport",
         "parameters": [
           {
@@ -11397,6 +11518,17 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "weeks",
+            "in": "query",
+            "description": "The last N weeks (1 to 52), the current one included; not with from or to",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
             }
           }
         ],
@@ -13597,8 +13729,19 @@
         "tags": [
           "appointments"
         ],
-        "summary": "Today's schedule, chairs, counts, appointments by hour, recent patients, the team on duty\nand the attention list, in the clinic's time zone.",
+        "summary": "Today's schedule, chairs, counts, appointments by hour, recent patients, the team on duty\nand the attention list, in the clinic's time zone. With `date`, the same for that clinic\nday: a past day shows what was done (the queue, the completed visits and, with\n`finance.view`, the money), a future day what is booked. The chair in use, late arrivals and\nlong waits are about now, so they appear for today only.",
         "operationId": "getToday",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The clinic day, YYYY-MM-DD (default: today; 2000 to 2100)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -13608,6 +13751,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "A bad date"
           },
           "401": {
             "description": "Not signed in"
@@ -17224,6 +17370,74 @@
           }
         }
       },
+      "CompletedVisit": {
+        "type": "object",
+        "description": "A visit closed on the day, without its clinical content.",
+        "required": [
+          "visit_id",
+          "number",
+          "patient",
+          "clinician_id",
+          "started_at",
+          "ended_at"
+        ],
+        "properties": {
+          "appointment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The appointment it started from, if any; a walk-in has none."
+          },
+          "billed_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Issued bills for the visit, in paise. Absent without `finance.view`."
+          },
+          "clinician_id": {
+            "type": "string",
+            "description": "Who treated them."
+          },
+          "clinician_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their name."
+          },
+          "ended_at": {
+            "type": "string",
+            "description": "When it was closed (RFC 3339)."
+          },
+          "number": {
+            "type": "string",
+            "description": "Its number, such as `V-318`."
+          },
+          "paid_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Received against them, in paise. Absent without `finance.view`."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/AttentionPatient",
+            "description": "The patient."
+          },
+          "started_at": {
+            "type": "string",
+            "description": "When it started (RFC 3339)."
+          },
+          "visit_id": {
+            "type": "string",
+            "description": "The visit."
+          }
+        }
+      },
       "Condition": {
         "type": "object",
         "description": "A condition on the problem list.",
@@ -18029,6 +18243,81 @@
           "role_key": {
             "type": "string",
             "description": "The role they will get."
+          }
+        }
+      },
+      "DayMoneyFigures": {
+        "type": "object",
+        "description": "The day's money. Present only for roles with `finance.view`.",
+        "required": [
+          "collected_paise",
+          "payments",
+          "invoiced_paise",
+          "invoices"
+        ],
+        "properties": {
+          "collected_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Received on the day, in paise."
+          },
+          "invoiced_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Billed on the day (bills issued), in paise."
+          },
+          "invoices": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bills issued."
+          },
+          "payments": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Payments received."
+          }
+        }
+      },
+      "DaySummary": {
+        "type": "object",
+        "description": "One day of the month calendar.",
+        "required": [
+          "date",
+          "booked",
+          "completed",
+          "cancelled",
+          "no_shows",
+          "total"
+        ],
+        "properties": {
+          "booked": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Still to happen or happening: requested, booked, confirmed, arrived or in the chair."
+          },
+          "cancelled": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Cancelled."
+          },
+          "completed": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Completed."
+          },
+          "date": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`."
+          },
+          "no_shows": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Didn't come."
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Everything but cancelled ones: the day's load, for the busy-day shading."
           }
         }
       },
@@ -20173,6 +20462,8 @@
           "patient_name",
           "doctor_id",
           "status",
+          "pipeline_stage",
+          "late",
           "created_at",
           "costs_visible",
           "items",
@@ -20218,6 +20509,14 @@
           "created_at": {
             "type": "string",
             "description": "When it was recorded (RFC 3339)."
+          },
+          "days_late": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Whole days past the due day while late."
           },
           "doctor_id": {
             "type": "string",
@@ -20290,6 +20589,10 @@
             ],
             "description": "Their name."
           },
+          "late": {
+            "type": "boolean",
+            "description": "Still at the lab after its due day (clinic time)."
+          },
           "number": {
             "type": "string",
             "description": "`LAB-<n>`."
@@ -20305,6 +20608,10 @@
           "patient_number": {
             "type": "string",
             "description": "Their clinic number."
+          },
+          "pipeline_stage": {
+            "$ref": "#/components/schemas/LabPipelineStage",
+            "description": "Where it stands for the front desk: a draft is `to_send`, work back from the lab is\n`ready_to_fit`; the rest follow the status."
           },
           "procedure_id": {
             "type": [
@@ -20773,6 +21080,19 @@
             "description": "Newest day first, voided ones included."
           }
         }
+      },
+      "LabPipelineStage": {
+        "type": "string",
+        "description": "Where an order stands for the front desk, derived from its status.",
+        "enum": [
+          "to_send",
+          "sent",
+          "in_progress",
+          "ready_to_fit",
+          "fitted",
+          "rework",
+          "cancelled"
+        ]
       },
       "LabReminderQueued": {
         "type": "object",
@@ -21998,6 +22318,27 @@
             "type": "integer",
             "format": "int64",
             "description": "Share of all billed, in basis points."
+          }
+        }
+      },
+      "MonthSummary": {
+        "type": "object",
+        "description": "The month calendar's counts.",
+        "required": [
+          "month",
+          "days"
+        ],
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DaySummary"
+            },
+            "description": "Every day of the month, in order; zeros when nothing is booked."
+          },
+          "month": {
+            "type": "string",
+            "description": "The month, `YYYY-MM`."
           }
         }
       },
@@ -26710,7 +27051,7 @@
               "string",
               "null"
             ],
-            "description": "When the patient was called in (RFC 3339)."
+            "description": "When the patient was called in, set when the token leaves `waiting` (RFC 3339)."
           },
           "day": {
             "type": "string",
@@ -26755,7 +27096,7 @@
           },
           "status": {
             "type": "string",
-            "description": "`waiting`, `in_chair`, `done` or `left`."
+            "description": "`waiting`, `called` (sent in by the doctor), `in_chair`, `ready_to_bill`, `done` or\n`left`."
           },
           "token_number": {
             "type": "integer",
@@ -30270,7 +30611,9 @@
           "done",
           "no_shows",
           "cancelled",
-          "waiting"
+          "waiting",
+          "called",
+          "ready_to_bill"
         ],
         "properties": {
           "arrived": {
@@ -30281,6 +30624,11 @@
           "booked": {
             "type": "integer",
             "description": "Booked or confirmed, not arrived yet.",
+            "minimum": 0
+          },
+          "called": {
+            "type": "integer",
+            "description": "Queue tokens the doctor sent in (`called`) and the patient hasn't been seated yet.",
             "minimum": 0
           },
           "cancelled": {
@@ -30303,6 +30651,11 @@
             "description": "Didn't come.",
             "minimum": 0
           },
+          "ready_to_bill": {
+            "type": "integer",
+            "description": "Queue tokens `ready_to_bill`: treatment done, payment not yet collected.",
+            "minimum": 0
+          },
           "total": {
             "type": "integer",
             "description": "Appointments today, not counting cancelled ones.",
@@ -30310,7 +30663,7 @@
           },
           "waiting": {
             "type": "integer",
-            "description": "Queue tokens waiting, walk-ins included.",
+            "description": "Queue tokens waiting, walk-ins included. A token that has been called is not counted\nhere.",
             "minimum": 0
           }
         }
@@ -30394,7 +30747,7 @@
       },
       "TodayResponse": {
         "type": "object",
-        "description": "Today at the clinic. Money tiles arrive with billing.",
+        "description": "Today at the clinic, or another day.",
         "required": [
           "date",
           "as_of",
@@ -30404,7 +30757,8 @@
           "chairs",
           "recent_patients",
           "team",
-          "attention"
+          "attention",
+          "completed_visits"
         ],
         "properties": {
           "appointments": {
@@ -30439,13 +30793,20 @@
             },
             "description": "Each active chair: who is in it and who is next."
           },
+          "completed_visits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompletedVisit"
+            },
+            "description": "Visits closed on the day, by end: what was completed, walk-ins included."
+          },
           "counts": {
             "$ref": "#/components/schemas/TodayCounts",
             "description": "The day's numbers."
           },
           "date": {
             "type": "string",
-            "description": "The clinic's local date, `YYYY-MM-DD`."
+            "description": "The clinic day shown, `YYYY-MM-DD`: today unless a `date` was asked for."
           },
           "low_stock": {
             "type": [
@@ -30456,6 +30817,17 @@
               "$ref": "#/components/schemas/LowStockAlert"
             },
             "description": "Stock at or below its reorder level, worst first. Present only for roles with\n`inventory.read`."
+          },
+          "money": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DayMoneyFigures",
+                "description": "The day's money. Present only for roles with `finance.view`."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "recent_patients": {
             "type": "array",
@@ -30507,7 +30879,7 @@
           },
           "status": {
             "type": "string",
-            "description": "`in_chair`, `done` or `left`."
+            "description": "`called`, `in_chair`, `ready_to_bill`, `done` or `left`. The order is waiting, called,\nin the chair, ready to bill, done; a step may be skipped forward, and a patient may\nleave while waiting or called."
           }
         }
       },

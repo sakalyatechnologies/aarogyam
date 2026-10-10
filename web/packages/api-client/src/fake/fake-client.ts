@@ -692,7 +692,11 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!isCaller(caller)) {
             return caller;
           }
-          const today = buildToday(state, caller.clinic, clock());
+          const asked = opts?.date;
+          if (asked !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(asked)) {
+            return invalid("date", "must be YYYY-MM-DD");
+          }
+          const today = buildToday(state, caller.clinic, clock(), asked, hasPermission(caller.membership.role.permissions, "finance.view"));
           if (hasPermission(caller.membership.role.permissions, "inventory.read")) {
             const low = byUrgency(clinicLevels(caller.clinic)).filter((l) => l.item.active && (l.status === "low" || l.status === "critical"));
             today.low_stock = low.map((l) => ({
@@ -705,6 +709,44 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             }));
           }
           return reply(today satisfies C.TodayResponse);
+        }),
+
+      getMonthSummary: (month, opts) =>
+        respond(S.monthSummary, opts?.signal, async () => {
+          const caller = await inClinic("appointments.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+            return invalid("month", "must be YYYY-MM");
+          }
+          const first = `${month}-01`;
+          const length = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
+          const days = eachDate(first, `${month}-${String(length).padStart(2, "0")}`).map((date): C.DaySummary => {
+            const mine = state.appointments.filter(
+              (a) => a.clinic_id === caller.clinic.id && localClock(new Date(a.starts_at), caller.clinic.timezone).date === date,
+            );
+            const cancelled = mine.filter((a) => a.status === "cancelled").length;
+            return {
+              date,
+              booked: mine.filter((a) => a.status === "booked" || a.status === "confirmed").length,
+              completed: mine.filter((a) => a.status === "completed").length,
+              cancelled,
+              no_shows: mine.filter((a) => a.status === "no_show").length,
+              total: mine.length - cancelled,
+            };
+          });
+          return reply({ month, days } satisfies C.MonthSummary);
+        }),
+
+      // The fake keeps no lab orders yet, so open lab work is always empty.
+      listOpenLabOrders: (opts) =>
+        respond(S.openLabOrderPage, opts?.signal, async () => {
+          const caller = await inClinic("labs.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply({ items: [] });
         }),
 
       updatePatient: (id, changes, opts) =>
@@ -1262,6 +1304,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           const day = dateValue ?? localClock(now, caller.clinic.timezone).date;
           const items = state.queueTokens
             .filter((t) => t.clinic_id === caller.clinic.id && t.day === day)
+            .filter((t) => opts?.practitionerId === undefined || t.practitioner_id === opts.practitionerId)
             .sort((a, b) => a.token_number - b.token_number)
             .flatMap((t) => {
               const wired = wireQueueToken(t, state, now);
@@ -1318,6 +1361,27 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(wired satisfies C.QueueToken);
         }),
 
+      callQueueToken: (id, opts) =>
+        respond(S.queueToken, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.queueTokens.find((t) => t.id === id && t.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "called") {
+            if (found.status !== "waiting") {
+              return refuse(409, "conflict", "That token can no longer be called.");
+            }
+            found.status = "called";
+            found.called_at = clock().toISOString();
+          }
+          const wired = wireQueueToken(found, state, clock());
+          return wired === undefined ? notFound : reply(wired satisfies C.QueueToken);
+        }),
+
       setQueueStatus: (id, change, opts) =>
         respond(S.queueToken, opts?.signal, async () => {
           const caller = await inClinic("appointments.write");
@@ -1329,15 +1393,18 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return notFound;
           }
           const parsed = S.queueTokenStatus.safeParse(change.status);
-          if (!parsed.success || parsed.data === "waiting") {
-            return invalid("status", "must be in_chair, done or left");
+          if (!parsed.success || parsed.data === "waiting" || parsed.data === "called") {
+            return invalid("status", "must be in_chair, ready_to_bill, done or left");
           }
           if (found.status === "done" || found.status === "left") {
             return refuse(409, "conflict", "That token is already finished.");
           }
+          if (!queueMoves[found.status].includes(parsed.data)) {
+            return refuse(409, "conflict", `A ${found.status} token cannot become ${parsed.data}.`);
+          }
           const now = clock();
           found.status = parsed.data;
-          if (parsed.data === "in_chair") found.called_at = now.toISOString();
+          if (parsed.data === "in_chair" && found.called_at == null) found.called_at = now.toISOString();
           if (parsed.data === "done" || parsed.data === "left") found.done_at = now.toISOString();
           if (found.appointment_id != null) {
             const appt = state.appointments.find((a) => a.id === found.appointment_id);
@@ -4271,7 +4338,18 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           const now = clock();
           const to = range.to ?? dateOnly(now);
-          const from = range.from ?? dateOnly(new Date(new Date(`${to}T00:00:00Z`).getTime() - 6 * 86_400_000));
+          if (range.weeks !== undefined) {
+            if (range.from !== undefined || range.to !== undefined) {
+              return invalid("weeks", "cannot be combined with from or to");
+            }
+            if (!Number.isInteger(range.weeks) || range.weeks < 1 || range.weeks > 52) {
+              return invalid("weeks", "must be 1 to 52");
+            }
+          }
+          const from =
+            range.weeks !== undefined
+              ? dateOnly(new Date(new Date(`${mondayOf(to)}T00:00:00Z`).getTime() - (range.weeks - 1) * 7 * 86_400_000))
+              : (range.from ?? dateOnly(new Date(new Date(`${to}T00:00:00Z`).getTime() - 6 * 86_400_000)));
           if (from > to) {
             return invalid("from", "must be before to");
           }
@@ -6388,8 +6466,9 @@ function parseCsv(text: string): string[][] {
  * Today at the clinic, from appointments and queue tokens whose status and timing were worked
  * out once when fixtures built (relative to the fixture's own clock), not recomputed per request.
  */
-function buildToday(state: Fixtures, clinic: FakeClinic, now: Date): C.TodayResponse {
-  const { date } = localClock(now, clinic.timezone);
+function buildToday(state: Fixtures, clinic: FakeClinic, now: Date, asked: string | undefined, canSeeMoney: boolean): C.TodayResponse {
+  const clinicToday = localClock(now, clinic.timezone).date;
+  const date = asked ?? clinicToday;
   const todaysAppointments = state.appointments.filter((a) => a.clinic_id === clinic.id && localClock(new Date(a.starts_at), clinic.timezone).date === date);
   const wired = todaysAppointments.flatMap((a) => {
     const w = wireAppointment(a, state, now);
@@ -6406,6 +6485,8 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date): C.TodayResp
     cancelled: wired.filter((a) => a.status === "cancelled").length,
     no_shows: wired.filter((a) => a.status === "no_show").length,
     waiting: todaysTokens.filter((t) => t.status === "waiting").length,
+    called: todaysTokens.filter((t) => t.status === "called").length,
+    ready_to_bill: todaysTokens.filter((t) => t.status === "ready_to_bill").length,
   };
 
   const byHour = new Map<number, { booked: number; completed: number }>();
@@ -6448,7 +6529,7 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date): C.TodayResp
     });
 
   const attention: C.AttentionItem[] = [];
-  for (const a of wired) {
+  for (const a of date === clinicToday ? wired : []) {
     if (a.status !== "booked" && a.status !== "confirmed") continue;
     const lateMinutes = Math.round((now.getTime() - Date.parse(a.starts_at)) / 60_000);
     if (lateMinutes >= 15) {
@@ -6462,7 +6543,7 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date): C.TodayResp
       });
     }
   }
-  for (const t of todaysTokens) {
+  for (const t of date === clinicToday ? todaysTokens : []) {
     if (t.status !== "waiting") continue;
     const waitMinutes = Math.max(0, Math.round((now.getTime() - Date.parse(t.issued_at)) / 60_000));
     if (waitMinutes < 30) continue;
@@ -6503,7 +6584,35 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date): C.TodayResp
     })
     .filter((member) => member.shifts.length > 0);
 
-  return {
+  const completed_visits: C.CompletedVisit[] = state.visits
+    .filter((v) => v.clinic_id === clinic.id && v.status === "closed" && v.ended_at != null && localClock(new Date(v.ended_at), clinic.timezone).date === date)
+    .sort((a, b) => (a.ended_at ?? "").localeCompare(b.ended_at ?? ""))
+    .flatMap((v) => {
+      const patient = state.patients.find((p) => p.id === v.patient_id);
+      if (patient === undefined || v.ended_at == null) return [];
+      const invoices = state.invoices.filter((i) => i.clinic_id === clinic.id && i.status === "issued" && i.encounter_id === v.id);
+      const billed = invoices.reduce((sum, i) => sum + computeInvoiceAmounts(i.items).total_paise, 0);
+      const paid = state.payments
+        .filter((p) => p.clinic_id === clinic.id && p.status === "received")
+        .flatMap((p) => p.allocations)
+        .filter((a) => invoices.some((i) => i.id === a.invoice_id))
+        .reduce((sum, a) => sum + a.amount_paise, 0);
+      return [
+        {
+          visit_id: v.id,
+          number: v.number,
+          appointment_id: v.appointment_id ?? null,
+          patient: { id: patient.id, number: patient.number, full_name: patient.full_name },
+          clinician_id: v.clinician_membership_id,
+          clinician_name: memberRefOf(state, v.clinician_membership_id)?.name ?? null,
+          started_at: v.started_at,
+          ended_at: v.ended_at,
+          ...(canSeeMoney ? { billed_paise: billed, paid_paise: paid } : {}),
+        } satisfies C.CompletedVisit,
+      ];
+    });
+
+  const result: C.TodayResponse = {
     date,
     as_of: now.toISOString(),
     counts,
@@ -6513,7 +6622,21 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date): C.TodayResp
     attention,
     recent_patients,
     team,
+    completed_visits,
   };
+  if (canSeeMoney) {
+    const dayPayments = state.payments.filter((p) => p.clinic_id === clinic.id && p.status === "received" && localClock(new Date(p.received_at), clinic.timezone).date === date);
+    const dayInvoices = state.invoices.filter(
+      (i) => i.clinic_id === clinic.id && i.status === "issued" && i.issued_at != null && localClock(new Date(i.issued_at), clinic.timezone).date === date,
+    );
+    result.money = {
+      collected_paise: dayPayments.reduce((sum, p) => sum + p.amount_paise, 0),
+      payments: dayPayments.length,
+      invoiced_paise: dayInvoices.reduce((sum, i) => sum + computeInvoiceAmounts(i.items).total_paise, 0),
+      invoices: dayInvoices.length,
+    };
+  }
+  return result;
 }
 
 // Onboarding: applications, clinic detail -------------------------------------------------------
@@ -6776,6 +6899,22 @@ function nextReceiptNumber(state: Fixtures, clinic: FakeClinic): string {
 function nextPrescriptionNumber(state: Fixtures, clinic: FakeClinic): string {
   const count = state.prescriptions.filter((p) => p.clinic_id === clinic.id && p.number != null).length;
   return `RX-${String(count + 1)}`;
+}
+
+/** What a queue token may become next. */
+const queueMoves: Record<C.QueueTokenStatus, C.QueueTokenStatus[]> = {
+  waiting: ["called", "in_chair", "done", "left"],
+  called: ["in_chair", "done", "left"],
+  in_chair: ["ready_to_bill", "done"],
+  ready_to_bill: ["done"],
+  done: [],
+  left: [],
+};
+
+/** The Monday on or before a `YYYY-MM-DD` day. */
+function mondayOf(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  return dateOnly(new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000));
 }
 
 function dateOnly(d: Date): string {

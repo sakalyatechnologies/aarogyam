@@ -365,7 +365,7 @@ TABLES = [
       cols=["branch_id uuid -> branches", "day date | clinic's local date", "token_number int",
             "patient_id uuid -> patients", "appointment_id uuid? -> appointments | null for a walk-in",
             "practitioner_id uuid? -> practitioners",
-            "status token_status | waiting, in_chair, done, left", "issued_at timestamptz",
+            "status token_status | waiting, called, in_chair, ready_to_bill, done, left (called and ready_to_bill: migration 0610)", "issued_at timestamptz",
             "called_at timestamptz?", "done_at timestamptz?",
             "room_id uuid? -> rooms | the chair chosen when seated; a room of the token's branch (migration 0384)"],
       notes="Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done."),

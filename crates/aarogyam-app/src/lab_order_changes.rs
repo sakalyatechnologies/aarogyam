@@ -77,7 +77,7 @@ pub async fn add_item(
         let line = next_line(&used).ok_or(AppError::invalid("items", LabError::Items))?;
         let actor_id = actor.membership_id.uuid();
         dal::add_item(tx.conn(), id.uuid(), line, &values(&item), actor_id).await?;
-        reread(tx, id, costs).await
+        reread(tx, actor, id, costs).await
     })
     .await
 }
@@ -149,7 +149,7 @@ pub async fn update_item(
             actor_id,
         )
         .await?;
-        reread(tx, order, costs).await
+        reread(tx, actor, order, costs).await
     })
     .await
 }
@@ -179,7 +179,7 @@ pub async fn remove_item(
         }
         let actor_id = actor.membership_id.uuid();
         dal::remove_item(tx.conn(), order.uuid(), item_id.uuid(), actor_id).await?;
-        reread(tx, order, costs).await
+        reread(tx, actor, order, costs).await
     })
     .await
 }
@@ -239,7 +239,7 @@ pub async fn log_contact(
             actor: actor.membership_id.uuid(),
         };
         dal::log_contact(tx.conn(), id.uuid(), &log).await?;
-        reread(tx, id, costs).await
+        reread(tx, actor, id, costs).await
     })
     .await
 }

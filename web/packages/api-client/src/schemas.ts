@@ -571,7 +571,7 @@ export type NewLeave = C.NewLeave;
 
 // Queue (M3) --------------------------------------------------------------------------------------
 
-export const queueTokenStatus = z.enum(["waiting", "in_chair", "done", "left"]) satisfies z.ZodType<C.QueueTokenStatus>;
+export const queueTokenStatus = z.enum(["waiting", "called", "in_chair", "ready_to_bill", "done", "left"]) satisfies z.ZodType<C.QueueTokenStatus>;
 export type QueueTokenStatus = z.output<typeof queueTokenStatus>;
 
 export const queueToken = z.object({
@@ -661,6 +661,10 @@ export const todayCounts = z.object({
   cancelled: count,
   no_shows: count,
   waiting: count,
+  /** Sent in by the doctor and not seated yet. */
+  called: count,
+  /** Treatment done, payment not yet collected. */
+  ready_to_bill: count,
 }) satisfies z.ZodType<C.TodayCounts>;
 export type TodayCounts = z.output<typeof todayCounts>;
 
@@ -690,6 +694,30 @@ export const lowStockAlert = z.object({
 }) satisfies z.ZodType<C.LowStockAlert>;
 export type LowStockAlert = z.output<typeof lowStockAlert>;
 
+/** A visit closed on the day. Bill figures are present only with `finance.view`. */
+export const completedVisit = z.object({
+  visit_id: z.string().min(1),
+  number: z.string(),
+  appointment_id: appointmentId.nullable().exactOptional(),
+  patient: attentionPatient,
+  clinician_id: z.string().min(1),
+  clinician_name: optionalText,
+  started_at: timestamp,
+  ended_at: timestamp,
+  billed_paise: paise.nullable().exactOptional(),
+  paid_paise: paise.nullable().exactOptional(),
+}) satisfies z.ZodType<C.CompletedVisit>;
+export type CompletedVisit = z.output<typeof completedVisit>;
+
+/** The day's money. Present only with `finance.view`. */
+export const dayMoneyFigures = z.object({
+  collected_paise: paise,
+  payments: count,
+  invoiced_paise: paise,
+  invoices: count,
+}) satisfies z.ZodType<C.DayMoneyFigures>;
+export type DayMoneyFigures = z.output<typeof dayMoneyFigures>;
+
 export const todayResponse = z.object({
   date,
   as_of: timestamp,
@@ -701,8 +729,54 @@ export const todayResponse = z.object({
   recent_patients: z.array(queueToken),
   team: z.array(teamMemberToday),
   low_stock: z.array(lowStockAlert).nullable().exactOptional(),
+  completed_visits: z.array(completedVisit),
+  money: dayMoneyFigures.nullable().exactOptional(),
 }) satisfies z.ZodType<C.TodayResponse>;
 export type Today = z.output<typeof todayResponse>;
+
+/** One day of the month calendar. */
+export const daySummary = z.object({
+  date,
+  booked: count,
+  completed: count,
+  cancelled: count,
+  no_shows: count,
+  /** Everything but cancelled ones: the day's load, for busy-day shading. */
+  total: count,
+}) satisfies z.ZodType<C.DaySummary>;
+export type DaySummary = z.output<typeof daySummary>;
+
+export const monthSummary = z.object({
+  /** `YYYY-MM`. */
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+  days: z.array(daySummary),
+}) satisfies z.ZodType<C.MonthSummary>;
+export type MonthSummary = z.output<typeof monthSummary>;
+
+// Open lab work for Today ----------------------------------------------------------------------
+
+export const labPipelineStage = z.enum(["to_send", "sent", "in_progress", "ready_to_fit", "fitted", "rework", "cancelled"]) satisfies z.ZodType<C.LabPipelineStage>;
+export type LabPipelineStage = z.output<typeof labPipelineStage>;
+
+/** The part of a lab order Today's lab slice shows; the full order is the labs client's. */
+export const openLabOrder = z.object({
+  id: z.string().min(1),
+  number: z.string(),
+  vendor_name: optionalText,
+  patient_number: patientNumber,
+  patient_name: z.string(),
+  status: z.enum(["draft", "sent", "in_progress", "received", "fitted", "returned_for_rework", "cancelled"]),
+  pipeline_stage: labPipelineStage,
+  late: z.boolean(),
+  days_late: z.number().int().nonnegative().nullable().exactOptional(),
+  stage: optionalText,
+  due_on: date.nullable().exactOptional(),
+  sent_at: optionalTimestamp,
+}) satisfies z.ZodType<Pick<C.LabOrder, "id" | "number" | "vendor_name" | "patient_number" | "patient_name" | "status" | "pipeline_stage" | "late" | "days_late" | "stage" | "due_on" | "sent_at">>;
+export type OpenLabOrder = z.output<typeof openLabOrder>;
+
+export const openLabOrderPage = z.object({ items: z.array(openLabOrder) });
+export type OpenLabOrderPage = z.output<typeof openLabOrderPage>;
 
 // Patient import (M3) ------------------------------------------------------------------------
 

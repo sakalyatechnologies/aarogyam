@@ -72,6 +72,35 @@ impl LabOrderStatus {
         matches!(self, Self::Sent | Self::InProgress)
     }
 
+    /// Whether the order still needs something done: sending, the lab's work, or fitting.
+    #[must_use]
+    pub const fn is_open(self) -> bool {
+        matches!(
+            self,
+            Self::Draft | Self::Sent | Self::InProgress | Self::Received
+        )
+    }
+
+    /// The stage the front desk sees.
+    #[must_use]
+    pub const fn pipeline(self) -> LabPipeline {
+        match self {
+            Self::Draft => LabPipeline::ToSend,
+            Self::Sent => LabPipeline::Sent,
+            Self::InProgress => LabPipeline::InProgress,
+            Self::Received => LabPipeline::ReadyToFit,
+            Self::Fitted => LabPipeline::Fitted,
+            Self::ReturnedForRework => LabPipeline::Rework,
+            Self::Cancelled => LabPipeline::Cancelled,
+        }
+    }
+
+    /// Whether the work is still at the lab after its due day (`today` is the clinic's date).
+    #[must_use]
+    pub fn is_late(self, due_on: Option<time::Date>, today: time::Date) -> bool {
+        self.at_lab() && due_on.is_some_and(|due| due < today)
+    }
+
     /// Whether nothing more happens to the order.
     #[must_use]
     pub const fn is_final(self) -> bool {
@@ -81,6 +110,26 @@ impl LabOrderStatus {
         )
     }
 }
+
+text_value!(
+    /// Where an order stands for the front desk, derived from its status.
+    LabPipeline("pipeline_stage") {
+        /// Written but not yet handed to the lab.
+        ToSend => "to_send",
+        /// Handed to the lab; work not started as far as the clinic knows.
+        Sent => "sent",
+        /// The lab is making it.
+        InProgress => "in_progress",
+        /// Back from the lab, waiting to be fitted.
+        ReadyToFit => "ready_to_fit",
+        /// Fitted: done.
+        Fitted => "fitted",
+        /// Sent back to be made again.
+        Rework => "rework",
+        /// Called off.
+        Cancelled => "cancelled",
+    }
+);
 
 text_value!(
     /// Why a reminder went to a lab.
@@ -251,6 +300,29 @@ mod tests {
         }
         assert!(Sent.at_lab() && InProgress.at_lab() && !Received.at_lab());
         assert!(Fitted.is_final() && !Sent.is_final());
+    }
+
+    #[test]
+    fn the_pipeline_stage_and_late_flag_follow_the_status() {
+        use LabOrderStatus::*;
+        use time::macros::date;
+        let today = date!(2026 - 10 - 10);
+        let open: Vec<_> = LabOrderStatus::ALL
+            .iter()
+            .filter(|s| s.is_open())
+            .copied()
+            .collect();
+        assert_eq!(open, [Draft, Sent, InProgress, Received]);
+        assert_eq!(Draft.pipeline(), LabPipeline::ToSend);
+        assert_eq!(Received.pipeline(), LabPipeline::ReadyToFit);
+        assert_eq!(ReturnedForRework.pipeline().as_str(), "rework");
+        // Late only while at the lab and due before today.
+        assert!(Sent.is_late(Some(date!(2026 - 10 - 09)), today));
+        assert!(InProgress.is_late(Some(date!(2026 - 10 - 09)), today));
+        assert!(!Sent.is_late(Some(today), today));
+        assert!(!Sent.is_late(None, today));
+        assert!(!Received.is_late(Some(date!(2026 - 10 - 01)), today));
+        assert!(!Draft.is_late(Some(date!(2026 - 10 - 01)), today));
     }
 
     #[test]

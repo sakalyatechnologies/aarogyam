@@ -10,8 +10,8 @@ use aarogyam_domain::ids::{
     PatientId, ProcedureId,
 };
 use aarogyam_domain::lab::{
-    ContactLogChannel, ContactOutcome, LabError, LabEventKind, LabOrderStatus, LabReminder,
-    MAX_ITEMS, check_qty, check_teeth, check_unit_cost,
+    ContactLogChannel, ContactOutcome, LabError, LabEventKind, LabOrderStatus, LabPipeline,
+    LabReminder, MAX_ITEMS, check_qty, check_teeth, check_unit_cost,
 };
 use aarogyam_domain::permission::Permission;
 use sakalya_db::{Db, ScopedTx};
@@ -144,6 +144,12 @@ pub struct LabOrderView {
     pub events: Vec<EventView>,
     /// Whether unit costs are shown.
     pub costs_visible: bool,
+    /// Where it stands for the front desk, derived from the status.
+    pub pipeline: LabPipeline,
+    /// Still at the lab after its due day.
+    pub late: bool,
+    /// Whole clinic days past the due day while late.
+    pub days_late: Option<i64>,
 }
 
 fn item(row: ItemJson) -> ItemView {
@@ -181,8 +187,16 @@ fn event(row: EventJson) -> EventView {
     }
 }
 
-fn view(row: OrderJson, costs_visible: bool) -> LabOrderView {
+fn view(row: OrderJson, costs_visible: bool, today: Date) -> LabOrderView {
+    let status = LabOrderStatus::parse(&row.status).unwrap_or(LabOrderStatus::Draft);
+    let late = status.is_late(row.due_on, today);
     LabOrderView {
+        pipeline: status.pipeline(),
+        late,
+        days_late: row
+            .due_on
+            .filter(|_| late)
+            .map(|due| (today - due).whole_days()),
         id: LabOrderId::from_uuid(row.id),
         number: row.number,
         vendor: (LabVendorId::from_uuid(row.vendor_id), row.vendor_name),
@@ -209,7 +223,7 @@ fn view(row: OrderJson, costs_visible: bool) -> LabOrderView {
         doctor: (MembershipId::from_uuid(row.doctor_id), row.doctor_name),
         procedure_id: row.procedure_id.map(ProcedureId::from_uuid),
         encounter_id: row.encounter_id.map(EncounterId::from_uuid),
-        status: LabOrderStatus::parse(&row.status).unwrap_or(LabOrderStatus::Draft),
+        status,
         stage: row.stage,
         instructions: row.instructions,
         sent_at: row.sent_at,
@@ -221,6 +235,11 @@ fn view(row: OrderJson, costs_visible: bool) -> LabOrderView {
         events: row.events.into_iter().map(event).collect(),
         costs_visible,
     }
+}
+
+/// The clinic's date now.
+fn today_of(actor: &ClinicActor) -> Date {
+    clinic_today(&actor.timezone, OffsetDateTime::now_utc())
 }
 
 /// Most orders one list returns.
@@ -237,6 +256,8 @@ pub struct ListFilter {
     pub patient_id: Option<PatientId>,
     /// Only work still at the lab past its due date.
     pub overdue: bool,
+    /// Only orders still needing something done, soonest due first.
+    pub open: bool,
 }
 
 /// Orders within reach, newest first; at most `limit` (1 to 200).
@@ -259,13 +280,17 @@ pub async fn list(
         vendor_id: filter.vendor_id.map(LabVendorId::uuid),
         patient_id: filter.patient_id.map(PatientId::uuid),
         overdue_before: filter.overdue.then_some(today),
+        open: filter.open,
         member: actor.reach(Permission::LabsRead).member(),
         costs,
         limit: limit.clamp(1, MAX_LIST),
     };
     db.scoped(&scope(actor, request_id), async |tx| {
         let rows = dal::list(tx.conn(), &query).await?;
-        Ok(rows.into_iter().map(|row| view(row, costs)).collect())
+        Ok(rows
+            .into_iter()
+            .map(|row| view(row, costs, today))
+            .collect())
     })
     .await
 }
@@ -284,10 +309,11 @@ pub async fn get(
     actor.require(Permission::LabsRead)?;
     let costs = actor.require(Permission::FinanceView).is_ok();
     let member = actor.reach(Permission::LabsRead).member();
+    let today = today_of(actor);
     db.scoped(&scope(actor, request_id), async |tx| {
         dal::get(tx.conn(), id.uuid(), member, costs)
             .await?
-            .map(|row| view(row, costs))
+            .map(|row| view(row, costs, today))
             .ok_or(AppError::NotFound("lab order"))
     })
     .await
@@ -307,12 +333,16 @@ pub async fn for_patient(
     actor.require(Permission::LabsRead)?;
     let costs = actor.require(Permission::FinanceView).is_ok();
     let member = actor.reach(Permission::LabsRead).member();
+    let today = today_of(actor);
     db.scoped(&scope(actor, request_id), async |tx| {
         let (found, rows) = dal::for_patient(tx.conn(), patient_id.uuid(), member, costs).await?;
         if !found {
             return Err(AppError::NotFound("patient"));
         }
-        Ok(rows.into_iter().map(|row| view(row, costs)).collect())
+        Ok(rows
+            .into_iter()
+            .map(|row| view(row, costs, today))
+            .collect())
     })
     .await
 }
@@ -511,7 +541,7 @@ pub async fn create(
         // The creator always reaches what they created.
         dal::get(tx.conn(), id.uuid(), None, costs)
             .await?
-            .map(|row| view(row, costs))
+            .map(|row| view(row, costs, clinic_today(&actor.timezone, now)))
             .ok_or(AppError::Internal("lab order missing after insert"))
     })
     .await
@@ -532,12 +562,14 @@ pub(crate) async fn locked(
 
 pub(crate) async fn reread(
     tx: &mut ScopedTx,
+    actor: &ClinicActor,
     id: LabOrderId,
     costs: bool,
 ) -> Result<LabOrderView, AppError> {
+    let today = today_of(actor);
     dal::get(tx.conn(), id.uuid(), None, costs)
         .await?
-        .map(|row| view(row, costs))
+        .map(|row| view(row, costs, today))
         .ok_or(AppError::NotFound("lab order"))
 }
 
@@ -588,7 +620,7 @@ pub async fn set_status(
             actor: actor.membership_id.uuid(),
         };
         dal::set_status(tx.conn(), id.uuid(), &change).await?;
-        reread(tx, id, costs).await
+        reread(tx, actor, id, costs).await
     })
     .await
 }
@@ -665,7 +697,7 @@ pub async fn update(
             actor.membership_id.uuid(),
         )
         .await?;
-        reread(tx, id, costs).await
+        reread(tx, actor, id, costs).await
     })
     .await
 }

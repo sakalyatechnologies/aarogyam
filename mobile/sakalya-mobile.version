@@ -1,4 +1,4 @@
 # The sakalya-mobile release this app builds against. scripts/mobile-deps.sh checks it out
 # into mobile/.deps/sakalya-mobile and refuses a tag that no longer points at this commit.
-tag=v0.2.0-dev.1
-commit=ef151c21a32fcd625692854ab5af568843c79584
+tag=v0.2.0-dev.2
+commit=182b9429770a2c00907006e9673a525c2c412dd6

@@ -5846,6 +5846,29 @@
         }
       }
     },
+    "v7.done": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हो गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "झाले"
+          }
+        }
+      }
+    },
     "v7.loading": {
       "extractionState": "manual",
       "localizations": {
@@ -6877,6 +6900,98 @@
           "stringUnit": {
             "state": "translated",
             "value": "लोक · चॅट"
+          }
+        }
+      }
+    },
+    "v7.walk_in.allergies": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allergies & history"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एलर्जी और इतिहास"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अ‍ॅलर्जी आणि इतिहास"
+          }
+        }
+      }
+    },
+    "v7.walk_in.consent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consent read aloud · treatment ✓ · reminders"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सहमति पढ़कर सुनाई · इलाज ✓ · रिमाइंडर"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संमती वाचून दाखवली · उपचार ✓ · स्मरणपत्रे"
+          }
+        }
+      }
+    },
+    "v7.walk_in.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Register and add to the queue in one step."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक ही कदम में रजिस्टर करें और कतार में जोड़ें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एकाच टप्प्यात नोंदणी करा आणि रांगेत जोडा."
+          }
+        }
+      }
+    },
+    "v7.walk_in.name.prompt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As on Aadhaar"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आधार के अनुसार"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आधारप्रमाणे"
           }
         }
       }

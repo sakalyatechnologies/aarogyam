@@ -39,6 +39,12 @@ struct MainTabs: View {
             }
         }
         .task { clinicCount = await countClinics() }
+        #if DEBUG && AARO_ENV_Local
+        .onAppear {
+            if let tab = DevLaunch.tab { selected = tab }
+            if DevLaunch.sheet == "walkin" { walkIn = true }
+        }
+        #endif
     }
 
     @ViewBuilder private func content(_ tab: NavTab, nav: NavModel) -> some View {

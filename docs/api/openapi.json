@@ -5692,6 +5692,108 @@
         ]
       }
     },
+    "/api/v1/me/dashboard-layout": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The caller's layout for this clinic: their own, else the clinic's default, else `MedSync`;\nwith the catalogue. Any member may read it; it is the same on every device.",
+        "operationId": "getMyDashboardLayout",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardLayoutView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Saves the caller's own layout for this clinic and returns it. It replaces the previous one\nand wins over the clinic's default until reset.",
+        "operationId": "putMyDashboardLayout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardLayout"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardLayoutView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown or repeated widget, a zone or size it does not allow, or a bad option"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Resets the caller's layout: deletes their own and returns the one that applies now, the\nclinic's default or `MedSync`. Also fine when they had none.",
+        "operationId": "resetMyDashboardLayout",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardLayoutView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/onboarding": {
       "get": {
         "tags": [
@@ -11976,6 +12078,108 @@
         ]
       }
     },
+    "/api/v1/settings/dashboard-layout": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The clinic's default layout, or `MedSync` when none was saved; with the catalogue.",
+        "operationId": "getDashboardLayout",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardLayoutView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Saves the clinic's default layout and returns it. Members who saved their own keep it.",
+        "operationId": "putDashboardLayout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardLayout"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardLayoutView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown or repeated widget, a zone or size it does not allow, or a bad option"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Removes the clinic's default, so `MedSync` applies again to everyone without their own layout.",
+        "operationId": "resetDashboardLayout",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardLayoutView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/settings/letterhead/images/{slot}": {
       "put": {
         "tags": [
@@ -18032,6 +18236,72 @@
           }
         }
       },
+      "DashboardLayout": {
+        "type": "object",
+        "description": "A dashboard layout, version 2.",
+        "required": [
+          "tpl",
+          "density",
+          "card",
+          "rail",
+          "items"
+        ],
+        "properties": {
+          "card": {
+            "type": "string",
+            "description": "`flat`, `soft` or `outline`."
+          },
+          "density": {
+            "type": "string",
+            "description": "`compact` or `cozy`."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LayoutItem"
+            },
+            "description": "The widgets, in order within each zone; at most one per widget."
+          },
+          "rail": {
+            "$ref": "#/components/schemas/LayoutRail",
+            "description": "The side column."
+          },
+          "tpl": {
+            "type": "string",
+            "description": "The template it started from: `medsync`, `executive`, `care`, `focus`, `compact` or\n`front_desk`."
+          },
+          "v": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The version; 2. May be left out when saving.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "DashboardLayoutView": {
+        "type": "object",
+        "description": "A layout with where it came from and the catalogue.",
+        "required": [
+          "layout",
+          "source",
+          "catalogue"
+        ],
+        "properties": {
+          "catalogue": {
+            "$ref": "#/components/schemas/LayoutCatalogue",
+            "description": "Templates, widgets and options."
+          },
+          "layout": {
+            "$ref": "#/components/schemas/DashboardLayout",
+            "description": "The layout to show."
+          },
+          "source": {
+            "type": "string",
+            "description": "`member` (their own), `clinic` (the clinic's default) or `template` (nothing saved: the\n`MedSync` template)."
+          }
+        }
+      },
       "DayTotal": {
         "type": "object",
         "description": "Money received on a day, or in a week starting that Monday.",
@@ -20951,6 +21221,140 @@
           }
         }
       },
+      "LayoutCatalogue": {
+        "type": "object",
+        "description": "Everything the portal needs to draw and edit layouts.",
+        "required": [
+          "version",
+          "templates",
+          "widgets",
+          "metrics",
+          "densities",
+          "cards",
+          "rail_sides",
+          "rail_widths",
+          "zones",
+          "sizes"
+        ],
+        "properties": {
+          "cards": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed `card` values."
+          },
+          "densities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed `density` values."
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetricInfo"
+            },
+            "description": "The headline numbers for `kpis`."
+          },
+          "rail_sides": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed `rail.side` values."
+          },
+          "rail_widths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed `rail.width` values."
+          },
+          "sizes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed `size` values."
+          },
+          "templates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateInfo"
+            },
+            "description": "The templates."
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The layout version, 2.",
+            "minimum": 0
+          },
+          "widgets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WidgetInfo"
+            },
+            "description": "The widgets."
+          },
+          "zones": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed `zone` values."
+          }
+        }
+      },
+      "LayoutItem": {
+        "type": "object",
+        "description": "One widget on the board.",
+        "required": [
+          "key",
+          "zone",
+          "size"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "A widget key from the catalogue; each widget appears at most once."
+          },
+          "opts": {
+            "type": "object",
+            "description": "The widget's options. Options left out get their default; unknown ones are refused."
+          },
+          "size": {
+            "type": "string",
+            "description": "`S`, `M`, `L` or `full`: 4, 6, 8 or 12 of 12 columns; the widget's `sizes` say which it\nmay have. Ignored in the rail."
+          },
+          "zone": {
+            "type": "string",
+            "description": "`top`, `main` or `rail`; the widget's `zones` say which it may use."
+          }
+        },
+        "additionalProperties": false
+      },
+      "LayoutRail": {
+        "type": "object",
+        "description": "Where the rail is and how wide.",
+        "required": [
+          "side",
+          "width"
+        ],
+        "properties": {
+          "side": {
+            "type": "string",
+            "description": "`left` or `right`."
+          },
+          "width": {
+            "type": "string",
+            "description": "`narrow`, `medium` or `wide`."
+          }
+        },
+        "additionalProperties": false
+      },
       "Leave": {
         "type": "object",
         "description": "Time a doctor is away.",
@@ -21973,6 +22377,31 @@
             "type": "integer",
             "format": "int64",
             "description": "Share of everything received, in basis points (10000 is all)."
+          }
+        }
+      },
+      "MetricInfo": {
+        "type": "object",
+        "description": "A headline number the `kpis` widget can show.",
+        "required": [
+          "key",
+          "label"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "The key used in `kpis.opts.metrics`."
+          },
+          "label": {
+            "type": "string",
+            "description": "The name staff read."
+          },
+          "requires": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The permission needed to see it, such as `finance.view`; hide the number without it."
           }
         }
       },
@@ -23899,6 +24328,57 @@
           }
         },
         "additionalProperties": false
+      },
+      "OptionInfo": {
+        "type": "object",
+        "description": "One option of a widget.",
+        "required": [
+          "key",
+          "label",
+          "kind",
+          "default"
+        ],
+        "properties": {
+          "choices": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {},
+            "description": "The allowed values, for `choice` and `int_choice`."
+          },
+          "default": {
+            "description": "Used when the option is left out."
+          },
+          "key": {
+            "type": "string",
+            "description": "The key in `opts`."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`choice` (one of `choices`, words), `int_choice` (one of `choices`, numbers), `int_range`\n(a whole number from `min` to `max`), `bool`, or `metrics` (a list of 4 to 6 distinct\nkeys from the metric catalogue; `min` and `max` bound the length)."
+          },
+          "label": {
+            "type": "string",
+            "description": "The name staff read."
+          },
+          "max": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The largest value (`int_range`) or list length (`metrics`)."
+          },
+          "min": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The smallest value (`int_range`) or list length (`metrics`)."
+          }
+        }
       },
       "OwnDentalTerm": {
         "type": "object",
@@ -30175,6 +30655,34 @@
           }
         }
       },
+      "TemplateInfo": {
+        "type": "object",
+        "description": "A starting layout.",
+        "required": [
+          "key",
+          "label",
+          "description",
+          "layout"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "What it is for."
+          },
+          "key": {
+            "type": "string",
+            "description": "The key, such as `medsync`."
+          },
+          "label": {
+            "type": "string",
+            "description": "The name staff read."
+          },
+          "layout": {
+            "$ref": "#/components/schemas/DashboardLayout",
+            "description": "The template's layout; \"Reset to template\" saves this."
+          }
+        }
+      },
       "Timeline": {
         "type": "object",
         "description": "A page of a patient's timeline, newest first.",
@@ -31345,6 +31853,70 @@
               "$ref": "#/components/schemas/SiteTemplate"
             },
             "description": "The designs and their palettes."
+          }
+        }
+      },
+      "WidgetInfo": {
+        "type": "object",
+        "description": "A widget the board can hold.",
+        "required": [
+          "key",
+          "label",
+          "description",
+          "zones",
+          "sizes",
+          "default_zone",
+          "default_size",
+          "options"
+        ],
+        "properties": {
+          "default_size": {
+            "type": "string",
+            "description": "The size a newly added widget gets."
+          },
+          "default_zone": {
+            "type": "string",
+            "description": "The zone a newly added widget goes to."
+          },
+          "description": {
+            "type": "string",
+            "description": "What it shows."
+          },
+          "key": {
+            "type": "string",
+            "description": "The key, such as `kpis`."
+          },
+          "label": {
+            "type": "string",
+            "description": "The name staff read."
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OptionInfo"
+            },
+            "description": "Its options."
+          },
+          "requires": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The permission needed to see it, such as `finance.view`; the board hides it without. A\nlayout may include widgets a role never sees."
+          },
+          "sizes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The sizes it may have."
+          },
+          "zones": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The zones it may sit in."
           }
         }
       },

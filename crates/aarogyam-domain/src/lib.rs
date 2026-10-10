@@ -73,6 +73,7 @@ pub mod clinic;
 pub mod clinical;
 pub mod consent;
 pub mod contact;
+pub mod dashboard;
 pub mod dental;
 pub mod dental_terms;
 pub mod edge;

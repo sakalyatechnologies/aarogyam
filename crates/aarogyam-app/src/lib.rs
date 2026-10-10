@@ -19,6 +19,7 @@ pub mod clock;
 pub mod consents;
 pub mod console;
 pub mod contact;
+pub mod dashboard;
 pub mod dental_terms;
 pub mod duplicates;
 pub mod erasure;

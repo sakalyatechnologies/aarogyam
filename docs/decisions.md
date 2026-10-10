@@ -2,6 +2,21 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-10: Dashboard layout (Portal v2, B1)
+
+**Decision.** The Today board's layout is versioned JSON, v2, saved at two levels and checked against one widget registry (migration 0605, `aarogyam-domain/src/dashboard.rs`).
+
+- **Shape.** `{v: 2, tpl, density: compact|cozy, card: flat|soft|outline, rail: {side: left|right, width: narrow|medium|wide}, items: [{key, zone: top|main|rail, size: S|M|L|full, opts}]}`. `S`, `M`, `L` and `full` are 4, 6, 8 and 12 of 12 columns; the rail ignores size. Each widget appears at most once; order is the order within a zone.
+- **Registry** (server-side; the same table is the catalogue the API returns): `kpis` (top or main; `metrics`, 4 to 6 of `appointments completed waiting new_patients collected outstanding chairs_busy lab_due`), `nextup` (`count` 1 to 5), `chairs` (`show_chart`), `appointments` (`view` table or list), `attention`, `labs`, `calendar`, `queue`, `collections` (`weeks` 4, 8 or 12), `timeline`, `recent_patients`, `team_today`, `revenue_mix`, `pending_payments`, `busy_hours`. Each carries its zones, sizes, default, options and `requires` (the permission that shows it: money widgets `finance.view`, `pending_payments` `billing.read`, `labs` `labs.read`, `recent_patients` `patients.read`, the rest `appointments.read`; metrics have their own). Saving does not check `requires`: a clinic default may hold widgets some roles never see, and the board hides them.
+- **Templates:** `medsync` (the built-in default), `executive`, `care`, `focus`, `compact`, `front_desk`. The catalogue carries each template's full layout, so "Reset to template" saves it.
+- **Levels.** `PUT/GET/DELETE /settings/dashboard-layout` is the clinic default (`settings.manage`); `GET/PUT/DELETE /me/dashboard-layout` is the member's own (any member, keyed by membership, so it follows them across devices). Reading `/me` falls back to the clinic default, then MedSync; `source` says `member`, `clinic` or `template`. Reset (DELETE) removes the row and returns what applies now. Every response carries the catalogue.
+- **Validation.** A bad layout is `400` `invalid_layout`, naming the place (`items[2].opts.weeks`), never the value: unknown or repeated widget, a zone or size the widget does not allow, an unknown option, an option out of range, another version, an unknown field. Options left out are saved with their defaults. A stored layout the registry no longer accepts (a widget retired later) is skipped on read, so the next level shows instead of an error.
+- **Data rules.** `dashboard_layouts` (ephemeral: a reset deletes) has `org_id`, RLS, the composite key to `memberships`, the restrictive `patient_account` deny, one clinic row and one row per member (partial unique indexes) and a 16 KB cap. It holds no patient data: no erasure step and no retention class; the change history records it unmasked.
+
+**Why.** Portal v2 lets a clinic and each person arrange the Today board; the server owns the rules so every client (portal, phone) renders and edits the same thing.
+
+**Not done.** Layouts per role or per branch; the board itself (U1) and the Studio editor.
+
 ## 2026-10-10: Campaigns
 
 **Decision.** An owner can send a promotional offer to an audience (migrations 0380 to 0383), backend only. `campaigns.manage` goes to owners (backfilled); direct sends to a few patients keep `messages.send`. Support never reads these tables (`no_support`), and campaigns write ordinary `messages`, so consent, opt-out and quiet hours stay in `app.message_dispatch` and are not repeated.

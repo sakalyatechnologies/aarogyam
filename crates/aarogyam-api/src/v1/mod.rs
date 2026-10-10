@@ -16,6 +16,7 @@ pub(crate) mod clinic_hours;
 pub(crate) mod consents;
 pub(crate) mod console;
 pub(crate) mod console_support;
+pub(crate) mod dashboard;
 pub(crate) mod dental_terms;
 pub(crate) mod duplicates;
 pub(crate) mod expenses;
@@ -440,6 +441,18 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route(
             "/me/working-hours",
             get(setup::my_hours).put(setup::set_my_hours),
+        )
+        .route(
+            "/me/dashboard-layout",
+            get(dashboard::get_mine)
+                .put(dashboard::put_mine)
+                .delete(dashboard::reset_mine),
+        )
+        .route(
+            "/settings/dashboard-layout",
+            get(dashboard::get_default)
+                .put(dashboard::put_default)
+                .delete(dashboard::reset_default),
         )
         .route(
             "/settings/clinic",

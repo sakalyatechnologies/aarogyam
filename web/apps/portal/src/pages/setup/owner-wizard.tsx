@@ -70,7 +70,7 @@ export function OwnerWizard({ setup }: { setup: Setup }) {
   };
 
   return (
-    <div className="sw mk-panel">
+    <div className="sw mk-panel" data-step={current}>
       <div className="sw-top">
         <h1>Set up your clinic</h1>
         <p>

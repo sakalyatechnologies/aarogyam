@@ -1,14 +1,15 @@
-//! Staff notifications about online bookings: the bell's count, the feed with per-member read
-//! state and who handled each one, marking read, and the clinic inbox that reminders and
-//! escalations write to. Every route needs `appointments.read`; its scope decides which
-//! appointments' notifications a member sees. IDs, times and the doctor only: never patient data.
+//! Staff notifications about online bookings and overdue lab work: the bell's count, the feed
+//! with per-member read state and who handled each one, marking read, and the clinic inbox that
+//! reminders and escalations write to. The feed routes need `appointments.read` (bookings) or
+//! `labs.read` (lab work), each within its scope; the inbox needs `appointments.read`. IDs,
+//! times, the doctor and the lab only: never patient data.
 
 use aarogyam_app::notifications::{
-    self as app, FeedQuery, InboxQuery, InboxView, NotificationView,
+    self as app, FeedQuery, InboxQuery, InboxView, NotificationView, Subject,
 };
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{InboxMessageId, MembershipId, StaffNotificationId};
-use aarogyam_domain::permission::require::AppointmentsRead;
+use aarogyam_domain::permission::require::{AppointmentsRead, LabsRead};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -19,7 +20,7 @@ use uuid::Uuid;
 
 use super::{parse_id, rfc3339};
 use crate::AppState;
-use crate::extract::Require;
+use crate::extract::{Require, RequireEither};
 use crate::failure::ApiFailure;
 
 /// The appointment a notification is about.
@@ -41,7 +42,22 @@ pub struct NotifiedAppointment {
     pub practitioner_name: String,
 }
 
-/// Who handled a notification: confirmed, declined or cancelled its appointment.
+/// The lab order an overdue alert is about.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct NotifiedLabOrder {
+    /// The order; open it at `/lab-orders/{id}`.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Its number, such as `LAB-12`.
+    pub number: String,
+    /// Its lab's name.
+    pub vendor_name: String,
+    /// Its due date now (`YYYY-MM-DD`).
+    pub due_on: Option<String>,
+}
+
+/// Who handled a notification: confirmed, declined or cancelled its appointment, or received,
+/// cancelled or re-dated its lab work.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct HandledBy {
     /// When (RFC 3339).
@@ -59,7 +75,8 @@ pub struct Notification {
     /// Identifier; pass as `before` for the next page.
     #[schema(value_type = String)]
     pub id: Uuid,
-    /// `booking_requested`, `booking_confirmed_auto` or `booking_cancelled_by_patient`.
+    /// `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient` or
+    /// `lab_overdue`.
     pub kind: String,
     /// When it happened (RFC 3339).
     pub created_at: String,
@@ -73,13 +90,36 @@ pub struct Notification {
     pub reminded_at: Option<String>,
     /// When the owners were told (RFC 3339).
     pub escalated_at: Option<String>,
-    /// The appointment.
-    pub appointment: NotifiedAppointment,
+    /// The appointment, for a booking notification.
+    pub appointment: Option<NotifiedAppointment>,
+    /// The lab order, for `lab_overdue`.
+    pub lab_order: Option<NotifiedLabOrder>,
 }
 
 impl From<NotificationView> for Notification {
     fn from(view: NotificationView) -> Self {
-        let appointment = view.appointment;
+        let (appointment, lab_order) = match view.subject {
+            Subject::Appointment(appointment) => (
+                Some(NotifiedAppointment {
+                    id: appointment.id.uuid(),
+                    starts_at: rfc3339(appointment.starts_at),
+                    ends_at: rfc3339(appointment.ends_at),
+                    status: appointment.status.as_str().to_owned(),
+                    practitioner_id: appointment.practitioner_id.uuid(),
+                    practitioner_name: appointment.practitioner_name,
+                }),
+                None,
+            ),
+            Subject::LabOrder(order) => (
+                None,
+                Some(NotifiedLabOrder {
+                    id: order.id.uuid(),
+                    number: order.number,
+                    vendor_name: order.vendor_name,
+                    due_on: order.due_on.map(|day| day.to_string()),
+                }),
+            ),
+        };
         Self {
             id: view.id.uuid(),
             kind: view.kind.as_str().to_owned(),
@@ -93,14 +133,8 @@ impl From<NotificationView> for Notification {
             }),
             reminded_at: view.reminded_at.map(rfc3339),
             escalated_at: view.escalated_at.map(rfc3339),
-            appointment: NotifiedAppointment {
-                id: appointment.id.uuid(),
-                starts_at: rfc3339(appointment.starts_at),
-                ends_at: rfc3339(appointment.ends_at),
-                status: appointment.status.as_str().to_owned(),
-                practitioner_id: appointment.practitioner_id.uuid(),
-                practitioner_name: appointment.practitioner_name,
-            },
+            appointment,
+            lab_order,
         }
     }
 }
@@ -123,8 +157,9 @@ pub struct FeedParams {
     pub before: Option<String>,
 }
 
-/// The caller's notifications about appointments within their scope, newest first, with their
-/// own read state and who handled each one. The portal checks every minute.
+/// The caller's notifications, newest first: bookings within their `appointments.read` scope
+/// and overdue lab work within their `labs.read` scope, with their own read state and who
+/// handled each one. The portal checks every minute.
 #[utoipa::path(
     get,
     path = "/api/v1/notifications",
@@ -140,12 +175,12 @@ pub struct FeedParams {
         (status = 200, body = NotificationList),
         (status = 400, description = "`before` is not an id"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks appointments.read")
+        (status = 403, description = "The role lacks both appointments.read and labs.read")
     )
 )]
 pub(crate) async fn list(
     State(state): State<AppState>,
-    Require { request, .. }: Require<AppointmentsRead>,
+    RequireEither { request, .. }: RequireEither<AppointmentsRead, LabsRead>,
     ApiQuery(params): ApiQuery<FeedParams>,
 ) -> Result<Json<NotificationList>, ApiFailure> {
     let before = params
@@ -186,12 +221,12 @@ pub struct UnreadCount {
     responses(
         (status = 200, body = UnreadCount),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks appointments.read")
+        (status = 403, description = "The role lacks both appointments.read and labs.read")
     )
 )]
 pub(crate) async fn count(
     State(state): State<AppState>,
-    Require { request, .. }: Require<AppointmentsRead>,
+    RequireEither { request, .. }: RequireEither<AppointmentsRead, LabsRead>,
 ) -> Result<Json<UnreadCount>, ApiFailure> {
     let unread = app::unread_count(state.db(), &request.actor, request.request_id).await?;
     Ok(Json(UnreadCount { unread }))
@@ -209,13 +244,13 @@ pub(crate) async fn count(
     responses(
         (status = 204, description = "Read"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks appointments.read"),
-        (status = 404, description = "No such notification in this clinic, or its appointment is out of the role's reach")
+        (status = 403, description = "The role lacks both appointments.read and labs.read"),
+        (status = 404, description = "No such notification in this clinic, or its appointment or lab order is out of the role's reach")
     )
 )]
 pub(crate) async fn read(
     State(state): State<AppState>,
-    Require { request, .. }: Require<AppointmentsRead>,
+    RequireEither { request, .. }: RequireEither<AppointmentsRead, LabsRead>,
     ApiPath(id): ApiPath<Uuid>,
 ) -> Result<StatusCode, ApiFailure> {
     app::mark_read(
@@ -245,12 +280,12 @@ pub struct MarkedRead {
     responses(
         (status = 200, body = MarkedRead),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks appointments.read")
+        (status = 403, description = "The role lacks both appointments.read and labs.read")
     )
 )]
 pub(crate) async fn read_all(
     State(state): State<AppState>,
-    Require { request, .. }: Require<AppointmentsRead>,
+    RequireEither { request, .. }: RequireEither<AppointmentsRead, LabsRead>,
 ) -> Result<Json<MarkedRead>, ApiFailure> {
     let marked = app::mark_all_read(state.db(), &request.actor, request.request_id).await?;
     tracing::info!(

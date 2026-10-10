@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select n.id, n.kind, n.created_at, r.read_at as \"read_at?\", n.handled_at, n.handled_by,\n                  u.display_name as \"handled_by_name?\", n.reminded_at, n.escalated_at,\n                  a.id as appointment_id, a.starts_at, a.ends_at, a.status as appointment_status,\n                  p.id as practitioner_id, p.display_name as practitioner_name\n           from aarogyam.staff_notifications n\n           join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id\n           join aarogyam.practitioners p on p.org_id = a.org_id and p.id = a.practitioner_id\n           left join aarogyam.staff_notification_reads r\n             on r.org_id = n.org_id and r.notification_id = n.id and r.membership_id = $1\n           left join aarogyam.memberships m on m.org_id = n.org_id and m.id = n.handled_by\n           left join aarogyam.users u on u.id = m.user_id\n           where app.practitioner_in_reach(a.practitioner_id, $2)\n             and ($4::uuid is null or n.id < $4)\n             and (not $3 or (r.read_at is null\n                             and n.created_at > now() - make_interval(days => $6::int)))\n           order by n.id desc\n           limit $5",
+  "query": "select n.id, n.kind, n.created_at, r.read_at as \"read_at?\", n.handled_at, n.handled_by,\n                  u.display_name as \"handled_by_name?\", n.reminded_at, n.escalated_at,\n                  a.id as \"appointment_id?\", a.starts_at as \"starts_at?\", a.ends_at as \"ends_at?\",\n                  a.status as \"appointment_status?\", p.id as \"practitioner_id?\",\n                  p.display_name as \"practitioner_name?\", o.id as \"lab_order_id?\",\n                  o.number as \"lab_order_number?\", v.name as \"lab_vendor_name?\",\n                  o.due_on as \"lab_due_on?\"\n           from aarogyam.staff_notifications n\n           left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id\n           left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id\n           left join aarogyam.practitioners p on p.org_id = a.org_id and p.id = a.practitioner_id\n           left join aarogyam.lab_vendors v on v.org_id = o.org_id and v.id = o.vendor_id\n           left join aarogyam.staff_notification_reads r\n             on r.org_id = n.org_id and r.notification_id = n.id and r.membership_id = $1\n           left join aarogyam.memberships m on m.org_id = n.org_id and m.id = n.handled_by\n           left join aarogyam.users u on u.id = m.user_id\n           where (($7 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))\n                  or ($8 and o.id is not null\n                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $9)))\n             and ($4::uuid is null or n.id < $4)\n             and (not $3 or (r.read_at is null\n                             and n.created_at > now() - make_interval(days => $6::int)))\n           order by n.id desc\n           limit $5",
   "describe": {
     "columns": [
       {
@@ -104,7 +104,7 @@
       },
       {
         "ordinal": 9,
-        "name": "appointment_id",
+        "name": "appointment_id?",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -115,7 +115,7 @@
       },
       {
         "ordinal": 10,
-        "name": "starts_at",
+        "name": "starts_at?",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -126,7 +126,7 @@
       },
       {
         "ordinal": 11,
-        "name": "ends_at",
+        "name": "ends_at?",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -137,7 +137,7 @@
       },
       {
         "ordinal": 12,
-        "name": "appointment_status",
+        "name": "appointment_status?",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -148,7 +148,7 @@
       },
       {
         "ordinal": 13,
-        "name": "practitioner_id",
+        "name": "practitioner_id?",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -159,12 +159,56 @@
       },
       {
         "ordinal": 14,
-        "name": "practitioner_name",
+        "name": "practitioner_name?",
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "aarogyam.practitioners",
             "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "lab_order_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_orders",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "lab_order_number?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_orders",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "lab_vendor_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_vendors",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "lab_due_on?",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_orders",
+            "name": "due_on"
           }
         }
       }
@@ -176,7 +220,10 @@
         "Bool",
         "Uuid",
         "Int8",
-        "Int4"
+        "Int4",
+        "Bool",
+        "Bool",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -194,8 +241,12 @@
       false,
       false,
       false,
-      false
+      false,
+      false,
+      false,
+      false,
+      true
     ]
   },
-  "hash": "9fcd670ae968e8e0ed7b2d1019564876923e8be095ba272c1bea0fcd88fcc932"
+  "hash": "ad7f7e399683090d465ad8b72dadeced6ab9dacb219e60565b3baba223a65858"
 }

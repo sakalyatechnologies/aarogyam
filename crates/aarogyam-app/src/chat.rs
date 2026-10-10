@@ -11,7 +11,6 @@ use aarogyam_domain::chat::{
     message_body, page_size,
 };
 use aarogyam_domain::ids::{ChatMessageId, ConversationId, MembershipId, PatientId};
-use aarogyam_domain::notification::UNREAD_WINDOW_DAYS;
 use aarogyam_domain::permission::Permission;
 use sakalya_db::Db;
 use time::OffsetDateTime;
@@ -149,6 +148,7 @@ pub async fn start(
                         created: false,
                     });
                 }
+                refuse_without_chat(tx, &[with.uuid()]).await?;
                 let kind = ConversationKind::Direct.as_str();
                 let direct = Some((key.as_str(), with.uuid()));
                 if dal::insert_conversation(tx.conn(), id.uuid(), kind, None, direct).await? {
@@ -183,6 +183,7 @@ pub async fn start(
                 });
             }
             db.scoped(&scope(actor, request_id), async |tx| {
+                refuse_without_chat(tx, &ids).await?;
                 let kind = ConversationKind::Group.as_str();
                 dal::insert_conversation(tx.conn(), id.uuid(), kind, Some(&title), None).await?;
                 let added =
@@ -195,6 +196,17 @@ pub async fn start(
             .await
         }
     }
+}
+
+/// Chat is for people whose role has `chat.use`: starting or adding someone without it is refused.
+async fn refuse_without_chat(
+    tx: &mut sakalya_db::ScopedTx,
+    members: &[Uuid],
+) -> Result<(), AppError> {
+    if dal::without_chat(tx.conn(), members).await? > 0 {
+        return Err(AppError::Forbidden("that person's role can't use chat"));
+    }
+    Ok(())
 }
 
 /// An active member of a conversation.
@@ -313,6 +325,7 @@ pub async fn add_members(
     }
     db.scoped(&scope(actor, request_id), async |tx| {
         group_place(tx, id, actor.membership_id, false).await?;
+        refuse_without_chat(tx, &ids).await?;
         let added = dal::add_members(tx.conn(), id.uuid(), &ids).await?;
         if usize::try_from(added.found).ok() != Some(ids.len()) {
             return Err(AppError::NotFound("membership"));
@@ -618,15 +631,7 @@ pub async fn badges(
 ) -> Result<BadgeCounts, AppError> {
     actor.require(Permission::ChatUse)?;
     let me = actor.membership_id.uuid();
-    let notifications = actor
-        .permissions
-        .allows(Permission::AppointmentsRead)
-        .then(|| {
-            (
-                actor.reach(Permission::AppointmentsRead).member(),
-                UNREAD_WINDOW_DAYS,
-            )
-        });
+    let notifications = crate::notifications::viewer(actor);
     db.scoped(&scope(actor, request_id), async |tx| {
         let counts = dal::badges(tx.conn(), me, UNREAD_CAP, notifications).await?;
         Ok(BadgeCounts {

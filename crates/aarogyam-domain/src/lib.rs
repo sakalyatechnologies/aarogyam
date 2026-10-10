@@ -88,6 +88,7 @@ pub mod lab;
 pub mod letterhead;
 pub mod messaging;
 pub mod notification;
+pub mod notification_prefs;
 pub mod onboarding;
 pub mod outbox;
 pub mod patient;

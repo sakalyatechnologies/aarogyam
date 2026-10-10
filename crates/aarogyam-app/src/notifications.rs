@@ -10,7 +10,8 @@ use aarogyam_dal::appointments::AppointmentRow;
 use aarogyam_dal::notifications::{self as dal, FeedRow, InboxRow, Sees, Viewer};
 use aarogyam_domain::access::{ClinicActor, Denied};
 use aarogyam_domain::ids::{
-    AppointmentId, InboxMessageId, LabOrderId, MembershipId, PractitionerId, StaffNotificationId,
+    AppointmentId, InboxMessageId, InvoiceId, LabOrderId, MembershipId, PractitionerId, RecallId,
+    StaffNotificationId,
 };
 use aarogyam_domain::notification::{
     Audience, InboxKind, NotificationKind, UNREAD_CAP, UNREAD_WINDOW_DAYS, addressed_to, page_size,
@@ -107,6 +108,8 @@ pub struct NotificationView {
     pub escalated_at: Option<OffsetDateTime>,
     /// What it is about.
     pub subject: Subject,
+    /// A path inside the portal that opens what it is about, when the writer gave one.
+    pub href: Option<String>,
 }
 
 /// The lab order an overdue alert is about.
@@ -122,13 +125,48 @@ pub struct NotifiedLabOrder {
     pub due_on: Option<Date>,
 }
 
+/// The queue token a waiting or send-in alert is about.
+#[derive(Debug, Clone)]
+pub struct NotifiedToken {
+    /// The token.
+    pub id: Uuid,
+    /// Its number for the day.
+    pub number: i32,
+}
+
+/// The bill a payment alert is about.
+#[derive(Debug, Clone)]
+pub struct NotifiedInvoice {
+    /// The bill.
+    pub id: InvoiceId,
+    /// Its number once issued; `None` for a draft.
+    pub number: Option<String>,
+}
+
+/// The follow-up a recall alert is about. No reason: it can hold health information.
+#[derive(Debug, Clone)]
+pub struct NotifiedRecall {
+    /// The recall.
+    pub id: RecallId,
+    /// Its kind, such as `cleaning`.
+    pub kind: String,
+    /// When it falls due.
+    pub due_on: Date,
+}
+
 /// What a notification is about: exactly one.
 #[derive(Debug, Clone)]
 pub enum Subject {
-    /// An online booking.
+    /// An online booking, or a patient's arrival.
     Appointment(NotifiedAppointment),
     /// Lab work past its due date.
     LabOrder(NotifiedLabOrder),
+    /// A patient in the queue.
+    QueueToken(NotifiedToken),
+    /// A bill to collect.
+    Invoice(NotifiedInvoice),
+    /// A follow-up that fell due.
+    Recall(NotifiedRecall),
 }
 
 fn status_of(text: &str) -> Result<AppointmentStatus, AppError> {
@@ -150,12 +188,32 @@ fn view(mut row: FeedRow, offset: UtcOffset) -> Result<NotificationView, AppErro
         handled,
         reminded_at: row.reminded_at,
         escalated_at: row.escalated_at,
+        href: row.href.take(),
         subject: subject(row, offset)?,
     })
 }
 
 fn subject(row: FeedRow, offset: UtcOffset) -> Result<Subject, AppError> {
     let missing = || AppError::Internal("notification without its subject");
+    if let Some(id) = row.queue_token_id {
+        return Ok(Subject::QueueToken(NotifiedToken {
+            id,
+            number: row.queue_token_number.ok_or_else(missing)?,
+        }));
+    }
+    if let Some(id) = row.invoice_id {
+        return Ok(Subject::Invoice(NotifiedInvoice {
+            id: InvoiceId::from_uuid(id),
+            number: row.invoice_number,
+        }));
+    }
+    if let Some(id) = row.recall_id {
+        return Ok(Subject::Recall(NotifiedRecall {
+            id: RecallId::from_uuid(id),
+            kind: row.recall_kind.ok_or_else(missing)?,
+            due_on: row.recall_due_on.ok_or_else(missing)?,
+        }));
+    }
     if let Some(id) = row.lab_order_id {
         return Ok(Subject::LabOrder(NotifiedLabOrder {
             id: LabOrderId::from_uuid(id),
@@ -195,16 +253,21 @@ fn sees(actor: &ClinicActor, permission: Permission) -> Sees {
     }
 }
 
-/// Which notifications `actor` sees: bookings with `appointments.read`, lab work with
-/// `labs.read`, each within its scope. `None` when neither.
+/// Which notifications `actor` sees: bookings, arrivals and the queue with `appointments.read`,
+/// lab work with `labs.read`, bills with `billing.read`, recalls with `patients.read`, each
+/// within its scope. `None` when none.
 #[must_use]
 pub fn viewer(actor: &ClinicActor) -> Option<Viewer> {
     let bookings = sees(actor, Permission::AppointmentsRead);
     let labs = sees(actor, Permission::LabsRead);
-    (bookings.shown || labs.shown).then_some(Viewer {
+    let billing = sees(actor, Permission::BillingRead);
+    let patients = sees(actor, Permission::PatientsRead);
+    (bookings.shown || labs.shown || billing.shown || patients.shown).then_some(Viewer {
         member: actor.membership_id.uuid(),
         bookings,
         labs,
+        billing,
+        patients,
         unread_days: UNREAD_WINDOW_DAYS,
     })
 }

@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select display_name as \"display_name!\", phone_e164\n           from app.update_my_profile($1, $2, $3, $4)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "display_name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "phone_e164",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "5439298a44cb01a45e73baddca2c2a6c8b1ae3a78d81496eed2ca5a4c4c7aa0f"
+}

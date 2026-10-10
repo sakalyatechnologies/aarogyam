@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) as \"count!\" from (\n             select 1 from aarogyam.staff_notifications n\n             left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id\n           left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id\n           left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id\n           left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id\n           left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id\n             where n.created_at > now() - make_interval(days => $3::int)\n               and (($5 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))\n                  or ($5 and q.id is not null\n                      and (q.practitioner_id is null or app.practitioner_in_reach(q.practitioner_id, $2)))\n                  or ($6 and o.id is not null\n                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $7))\n                  or ($8 and i.id is not null)\n                  or ($9 and rc.id is not null and app.patient_in_reach(rc.patient_id, $10)))\n               and not exists (select 1 from aarogyam.staff_notification_reads r\n                               where r.org_id = n.org_id and r.notification_id = n.id\n                                 and r.membership_id = $1)\n             limit $4\n           ) unread",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Int8",
+        "Bool",
+        "Bool",
+        "Uuid",
+        "Bool",
+        "Bool",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "877897736e27930a880f79418baf016ad7f74fa163d9e8186465d1ef320f1f64"
+}

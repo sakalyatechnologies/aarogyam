@@ -284,6 +284,61 @@ pub async fn me(pool: &PgPool, auth_uid: Uuid) -> Result<(Vec<MyClinic>, bool), 
     Ok((clinics, console))
 }
 
+/// A person's own profile: what they may edit about themselves.
+#[derive(Debug, Clone)]
+pub struct MyProfile {
+    /// Their name.
+    pub display_name: String,
+    /// Their phone in `E.164`, if recorded.
+    pub phone_e164: Option<String>,
+}
+
+/// The person's own name and phone; `None` for an unknown or disabled person.
+///
+/// # Errors
+/// [`DbError`] when the database can't be reached.
+pub async fn my_profile(pool: &PgPool, auth_uid: Uuid) -> Result<Option<MyProfile>, DbError> {
+    let row = sqlx::query!(
+        r#"select display_name as "display_name!", phone_e164 from app.my_profile($1)"#,
+        auth_uid
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|row| MyProfile {
+        display_name: row.display_name,
+        phone_e164: row.phone_e164,
+    }))
+}
+
+/// Changes the person's own name and/or phone (`set_phone` with `None` clears it); returns the
+/// profile now, or `None` for an unknown or disabled person. The change history records them.
+///
+/// # Errors
+/// [`DbError`] when the database can't be reached; a phone another person holds is a
+/// unique-constraint error.
+pub async fn update_my_profile(
+    pool: &PgPool,
+    auth_uid: Uuid,
+    display_name: Option<&str>,
+    set_phone: bool,
+    phone_e164: Option<&str>,
+) -> Result<Option<MyProfile>, DbError> {
+    let row = sqlx::query!(
+        r#"select display_name as "display_name!", phone_e164
+           from app.update_my_profile($1, $2, $3, $4)"#,
+        auth_uid,
+        display_name,
+        phone_e164,
+        set_phone
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|row| MyProfile {
+        display_name: row.display_name,
+        phone_e164: row.phone_e164,
+    }))
+}
+
 /// An active Sakalya staff member, as the console sees them.
 #[derive(Debug, Clone)]
 pub struct PlatformAccess {

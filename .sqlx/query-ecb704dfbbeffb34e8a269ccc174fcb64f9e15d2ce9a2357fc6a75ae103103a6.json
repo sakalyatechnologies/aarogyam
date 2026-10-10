@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select n.id, n.kind, n.created_at, r.read_at as \"read_at?\", n.handled_at, n.handled_by,\n                  u.display_name as \"handled_by_name?\", n.reminded_at, n.escalated_at,\n                  a.id as \"appointment_id?\", a.starts_at as \"starts_at?\", a.ends_at as \"ends_at?\",\n                  a.status as \"appointment_status?\", p.id as \"practitioner_id?\",\n                  p.display_name as \"practitioner_name?\", o.id as \"lab_order_id?\",\n                  o.number as \"lab_order_number?\", v.name as \"lab_vendor_name?\",\n                  o.due_on as \"lab_due_on?\"\n           from aarogyam.staff_notifications n\n           left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id\n           left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id\n           left join aarogyam.practitioners p on p.org_id = a.org_id and p.id = a.practitioner_id\n           left join aarogyam.lab_vendors v on v.org_id = o.org_id and v.id = o.vendor_id\n           left join aarogyam.staff_notification_reads r\n             on r.org_id = n.org_id and r.notification_id = n.id and r.membership_id = $1\n           left join aarogyam.memberships m on m.org_id = n.org_id and m.id = n.handled_by\n           left join aarogyam.users u on u.id = m.user_id\n           where (($7 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))\n                  or ($8 and o.id is not null\n                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $9)))\n             and ($4::uuid is null or n.id < $4)\n             and (not $3 or (r.read_at is null\n                             and n.created_at > now() - make_interval(days => $6::int)))\n           order by n.id desc\n           limit $5",
+  "query": "select n.id, n.kind, n.created_at, r.read_at as \"read_at?\", n.handled_at, n.handled_by,\n                  u.display_name as \"handled_by_name?\", n.reminded_at, n.escalated_at,\n                  a.id as \"appointment_id?\", a.starts_at as \"starts_at?\", a.ends_at as \"ends_at?\",\n                  a.status as \"appointment_status?\", p.id as \"practitioner_id?\",\n                  p.display_name as \"practitioner_name?\", o.id as \"lab_order_id?\",\n                  o.number as \"lab_order_number?\", v.name as \"lab_vendor_name?\",\n                  o.due_on as \"lab_due_on?\", n.href, q.id as \"queue_token_id?\",\n                  q.token_number as \"queue_token_number?\", i.id as \"invoice_id?\",\n                  i.number as \"invoice_number?\", rc.id as \"recall_id?\",\n                  rc.kind as \"recall_kind?\", rc.due_on as \"recall_due_on?\"\n           from aarogyam.staff_notifications n\n           left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id\n           left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id\n           left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id\n           left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id\n           left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id\n           left join aarogyam.practitioners p on p.org_id = a.org_id and p.id = a.practitioner_id\n           left join aarogyam.lab_vendors v on v.org_id = o.org_id and v.id = o.vendor_id\n           left join aarogyam.staff_notification_reads r\n             on r.org_id = n.org_id and r.notification_id = n.id and r.membership_id = $1\n           left join aarogyam.memberships m on m.org_id = n.org_id and m.id = n.handled_by\n           left join aarogyam.users u on u.id = m.user_id\n           where (($7 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))\n                  or ($7 and q.id is not null\n                      and (q.practitioner_id is null or app.practitioner_in_reach(q.practitioner_id, $2)))\n                  or ($8 and o.id is not null\n                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $9))\n                  or ($10 and i.id is not null)\n                  or ($11 and rc.id is not null and app.patient_in_reach(rc.patient_id, $12)))\n             and ($4::uuid is null or n.id < $4)\n             and (not $3 or (r.read_at is null\n                             and n.created_at > now() - make_interval(days => $6::int)))\n           order by n.id desc\n           limit $5",
   "describe": {
     "columns": [
       {
@@ -211,6 +211,94 @@
             "name": "due_on"
           }
         }
+      },
+      {
+        "ordinal": 19,
+        "name": "href",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.staff_notifications",
+            "name": "href"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "queue_token_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "queue_token_number?",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "token_number"
+          }
+        }
+      },
+      {
+        "ordinal": 22,
+        "name": "invoice_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 23,
+        "name": "invoice_number?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 24,
+        "name": "recall_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recalls",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 25,
+        "name": "recall_kind?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recalls",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 26,
+        "name": "recall_due_on?",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recalls",
+            "name": "due_on"
+          }
+        }
       }
     ],
     "parameters": {
@@ -221,6 +309,9 @@
         "Uuid",
         "Int8",
         "Int4",
+        "Bool",
+        "Bool",
+        "Uuid",
         "Bool",
         "Bool",
         "Uuid"
@@ -245,8 +336,16 @@
       false,
       false,
       false,
-      true
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
     ]
   },
-  "hash": "ad7f7e399683090d465ad8b72dadeced6ab9dacb219e60565b3baba223a65858"
+  "hash": "ecb704dfbbeffb34e8a269ccc174fcb64f9e15d2ce9a2357fc6a75ae103103a6"
 }

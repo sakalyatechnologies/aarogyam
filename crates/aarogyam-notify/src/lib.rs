@@ -45,7 +45,7 @@ pub use addresses::{AddressReport, PortalAddresses, WorkersDev};
 pub use lab::{LabReminderReport, remind_labs};
 pub use messages::MessageReport;
 pub use resend::Resend;
-pub use staff::{ReminderReport, StaffAlert, StaffChannel, remind};
+pub use staff::{FlagReport, ReminderReport, StaffAlert, StaffChannel, flag_alerts, remind};
 pub use templates::{Email, PortalLinks};
 
 /// Most messages one drain delivers.

@@ -36,6 +36,8 @@ pub struct PatientEmail<'a> {
     pub secret: Option<&'a str>,
     /// The appointment it is about, if any.
     pub appointment_id: Option<Uuid>,
+    /// Queuing the same key twice queues one message; `None` for messages that may repeat.
+    pub dedupe_key: Option<&'a str>,
 }
 
 /// Queues an email to a patient in the caller's clinic transaction.
@@ -64,7 +66,7 @@ pub async fn enqueue_patient_email(
             body: None,
             secret: email.secret,
             appointment_id: email.appointment_id,
-            dedupe_key: None,
+            dedupe_key: email.dedupe_key,
         },
     )
     .await?;

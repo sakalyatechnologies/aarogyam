@@ -664,6 +664,7 @@ async fn share_with_patient(
             }),
             secret: Some(&link.token),
             appointment_id: None,
+            dedupe_key: None,
         },
     )
     .await?;

@@ -2,6 +2,7 @@
 //! session (clinic host).
 
 use aarogyam_app::patients as app;
+use aarogyam_app::profile::{self as profile_app, ProfileChanges};
 use aarogyam_app::sessions as sessions_app;
 use aarogyam_dal::lookups;
 use aarogyam_domain::event::Event;
@@ -9,8 +10,8 @@ use aarogyam_domain::ids::ClinicId;
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
-use sakalya_http::{ApiError, ApiPath};
-use serde::Serialize;
+use sakalya_http::{ApiError, ApiJson, ApiPath};
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -51,6 +52,10 @@ pub struct Me {
     /// Whether the console asks Sakalya staff for an authenticator code (`auth.staff_mfa`). The
     /// console reads this to show or skip its second step.
     pub staff_mfa_required: bool,
+    /// The person's own name; absent when it could not be read.
+    pub display_name: Option<String>,
+    /// The person's phone in `E.164`, if recorded.
+    pub phone: Option<String>,
 }
 
 /// The signed-in person's clinics, for the clinic switcher.
@@ -66,11 +71,14 @@ pub(crate) async fn me(
     State(state): State<AppState>,
     signed_in: SignedIn,
 ) -> Result<Json<Me>, ApiFailure> {
-    let (clinics, console_access) =
-        lookups::me(state.db().pool(), signed_in.claims.subject().uuid()).await?;
+    let auth_uid = signed_in.claims.subject().uuid();
+    let (clinics, console_access) = lookups::me(state.db().pool(), auth_uid).await?;
+    let profile = profile_app::get(state.db(), auth_uid).await.ok();
     Ok(Json(Me {
         console_access,
         staff_mfa_required: state.staff_mfa(),
+        display_name: profile.as_ref().map(|profile| profile.display_name.clone()),
+        phone: profile.and_then(|profile| profile.phone),
         clinics: clinics
             .into_iter()
             .map(|clinic| MyClinic {
@@ -275,4 +283,105 @@ pub(crate) async fn revoke_session(
     state.forget_session(provider_session);
     tracing::info!(event = Event::SessionRevoked.as_str(), session_id = %id, "session revoked");
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// The person's own name and phone.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct Profile {
+    /// Their name.
+    pub display_name: String,
+    /// Their phone in `E.164`, if recorded.
+    pub phone: Option<String>,
+}
+
+/// Changes to the person's own profile; what is left out stays.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ProfileUpdate {
+    /// Their name, 1 to 200 characters.
+    pub display_name: Option<String>,
+    /// Their phone; +91 is assumed without a country code, and an empty string clears it.
+    pub phone: Option<String>,
+}
+
+/// Changes the signed-in person's own name and phone. It is theirs across every clinic they
+/// belong to; the change history records them as the actor.
+#[utoipa::path(
+    patch,
+    path = "/api/v1/me",
+    operation_id = "updateMe",
+    tag = "session",
+    request_body = ProfileUpdate,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = Profile),
+        (status = 400, description = "Invalid input; the message names the field"),
+        (status = 401, description = "Not signed in"),
+        (status = 409, description = "Another account holds that phone number")
+    )
+)]
+pub(crate) async fn update_me(
+    State(state): State<AppState>,
+    signed_in: SignedIn,
+    ApiJson(body): ApiJson<ProfileUpdate>,
+) -> Result<Json<Profile>, ApiFailure> {
+    let profile = profile_app::update(
+        state.db(),
+        signed_in.claims.subject().uuid(),
+        ProfileChanges {
+            display_name: body.display_name,
+            phone: body.phone,
+        },
+    )
+    .await?;
+    tracing::info!(
+        event = Event::ProfileChanged.as_str(),
+        "own profile changed"
+    );
+    Ok(Json(Profile {
+        display_name: profile.display_name,
+        phone: profile.phone,
+    }))
+}
+
+/// How many sessions a sign-out-everywhere-else ended.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct RevokedSessions {
+    /// Sessions signed out; the current one stays.
+    pub revoked: usize,
+}
+
+/// Signs out every other session of the person, keeping the one asking. Their next requests get
+/// `401`, on every host.
+#[utoipa::path(
+    post,
+    path = "/api/v1/me/sessions/revoke-others",
+    operation_id = "revokeOtherSessions",
+    tag = "session",
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = RevokedSessions),
+        (status = 401, description = "Not signed in")
+    )
+)]
+pub(crate) async fn revoke_other_sessions(
+    State(state): State<AppState>,
+    signed_in: SignedIn,
+) -> Result<Json<RevokedSessions>, ApiFailure> {
+    let current = signed_in
+        .claims
+        .session_id()
+        .ok_or_else(ApiError::unauthenticated)?;
+    let revoked =
+        sessions_app::revoke_others(state.db(), signed_in.claims.subject().uuid(), current).await?;
+    for provider_session in &revoked {
+        state.forget_session(*provider_session);
+    }
+    tracing::info!(
+        event = Event::SessionsRevokedOthers.as_str(),
+        revoked = revoked.len(),
+        "other sessions revoked"
+    );
+    Ok(Json(RevokedSessions {
+        revoked: revoked.len(),
+    }))
 }

@@ -313,9 +313,12 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
         Some(MessageKind::LabOrderReminder) => crate::lab::render_reminder(to, &message.payload),
         Some(MessageKind::CampaignTest) => render_campaign_test(to, &message.payload),
         // Rendered by the patient message step (`patient_templates`), never from the outbox.
-        Some(MessageKind::AppointmentReminder | MessageKind::ClinicMessage) | None => {
-            Err(Failure::permanent("unknown message kind"))
-        }
+        Some(
+            MessageKind::AppointmentReminder
+            | MessageKind::ClinicMessage
+            | MessageKind::PaymentReceipt,
+        )
+        | None => Err(Failure::permanent("unknown message kind")),
     }
 }
 

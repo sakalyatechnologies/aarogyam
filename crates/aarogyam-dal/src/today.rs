@@ -91,7 +91,7 @@ pub struct TodayRows {
 }
 
 /// What Today shows for the local day `day`, which runs from `start` to `end`. Reads stock
-/// levels only when `reads.stock` and money only when `reads.money`.
+/// levels only when `reads.stock` (and the clinic has not switched low stock off) and money only when `reads.money`.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -174,6 +174,10 @@ pub async fn today(
                     from aarogyam.inventory_items i
                     left join aarogyam.stock_batches b on b.org_id = i.org_id and b.item_id = i.id
                     where i.deleted_at is null and $5
+                      -- The clinic can switch low stock off for Today (notification switch).
+                      and app.notification_switch(
+                            (select os.notifications from aarogyam.org_settings os
+                             where os.org_id = i.org_id), 'low_stock', true)
                     group by i.org_id, i.id) s
              ) as "stock!: Json<Vec<StockRow>>",
              (select coalesce(json_agg(v order by v.ended_at, v.id), '[]'::json)

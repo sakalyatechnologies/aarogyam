@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with target as (\n             select n.id from aarogyam.staff_notifications n\n             left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id\n           left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id\n           left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id\n           left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id\n           left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id\n             where n.id = $1 and (($4 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $3))\n                  or ($4 and q.id is not null\n                      and (q.practitioner_id is null or app.practitioner_in_reach(q.practitioner_id, $3)))\n                  or ($5 and o.id is not null\n                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $6))\n                  or ($7 and i.id is not null)\n                  or ($8 and rc.id is not null and app.patient_in_reach(rc.patient_id, $9)))\n           ), saved as (\n             insert into aarogyam.staff_notification_reads (notification_id, membership_id)\n             select id, $2 from target\n             on conflict do nothing\n           )\n           select exists (select 1 from target) as \"found!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Bool",
+        "Bool",
+        "Uuid",
+        "Bool",
+        "Bool",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5d4547237a1516796b594a5f546e84a4c178d50ebda94aaf1188beae144c1dc5"
+}

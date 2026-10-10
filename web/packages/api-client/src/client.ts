@@ -51,6 +51,8 @@ import type {
   CreatedClinic,
   CreatedInvitation,
   DentalChart,
+  DashboardLayout,
+  DashboardLayoutView,
   DentalTerm,
   DownloadLink,
   DrugList,
@@ -341,6 +343,19 @@ export interface ApiClient {
   getClinicSettings(options?: RequestOptions): Promise<ApiResult<ClinicSettings>>;
   /** Clinic host: changes the clinic's settings. Needs `settings.manage`. */
   updateClinicSettings(changes: ClinicSettingsChanges, options?: RequestOptions): Promise<ApiResult<ClinicSettings>>;
+
+  /** Clinic host: the signed-in member's Today layout: their own, else the clinic's default, else MedSync; with the template and widget catalogue. Any member. */
+  getMyDashboardLayout(options?: RequestOptions): Promise<ApiResult<DashboardLayoutView>>;
+  /** Clinic host: saves the member's own layout (it follows them across devices). `400` names the widget or option the registry refuses. Any member. */
+  saveMyDashboardLayout(layout: DashboardLayout, options?: RequestOptions): Promise<ApiResult<DashboardLayoutView>>;
+  /** Clinic host: removes the member's own layout and returns the one that applies now (the clinic's default or MedSync). Any member. */
+  resetMyDashboardLayout(options?: RequestOptions): Promise<ApiResult<DashboardLayoutView>>;
+  /** Clinic host: the clinic's default layout, or MedSync when none was saved; with the catalogue. Needs `settings.manage`. */
+  getDashboardLayout(options?: RequestOptions): Promise<ApiResult<DashboardLayoutView>>;
+  /** Clinic host: saves the clinic's default layout; members with their own keep it. Needs `settings.manage`. */
+  saveDashboardLayout(layout: DashboardLayout, options?: RequestOptions): Promise<ApiResult<DashboardLayoutView>>;
+  /** Clinic host: removes the clinic's default, so MedSync applies again. Needs `settings.manage`. */
+  resetDashboardLayout(options?: RequestOptions): Promise<ApiResult<DashboardLayoutView>>;
 
   /** Clinic host: what a document prints for the clinic: letterhead, details, doctors, image links. Needs `patients.read`. */
   getLetterhead(options?: RequestOptions): Promise<ApiResult<LetterheadDocument>>;

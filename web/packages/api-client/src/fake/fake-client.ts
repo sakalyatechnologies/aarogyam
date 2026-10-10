@@ -56,6 +56,7 @@ import {
   type Fixtures,
 } from "./fixtures.js";
 import { EXPENSE_NAMES, buildAnalytics, daysInclusive, wireExpense, type FakeExpense } from "./analytics.js";
+import { DASHBOARD_CATALOGUE, builtInLayout, validateLayout } from "./dashboard-layout.js";
 import { clinicTerms } from "./dental-terms.js";
 import { createMetrics } from "./metrics.js";
 import { QUICK_PICKS } from "./quick-picks.js";
@@ -100,6 +101,8 @@ const refuse = (status: number, code: string, message: string): Outcome => ({ ok
 /** Input errors as the API sends them: the field, a colon, then what is wrong. */
 const invalid = (field: string, problem: string): Outcome => refuse(400, "invalid_request", `${field}: ${problem}`);
 const notFound = refuse(404, "not_found", "Not found.");
+/** A well-formed body the rules refuse: `400`, the field, a colon, then what is wrong. */
+const refused = (message: string): Outcome => refuse(400, "invalid_layout", message);
 /** A consent record as the API sends it: without the fake's clinic and patient keys. */
 const wireConsent = (c: FakeConsent): C.Consent => ({
   id: c.id,
@@ -150,6 +153,14 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
     expiresAt: string;
     used: boolean;
   }
+  /** Saved dashboard layouts: `clinic:<id>` for a clinic's default, `member:<id>` for a member's own. */
+  const dashboardLayouts = new Map<string, C.DashboardLayout>();
+  const dashboardView = (layout: C.DashboardLayout, source: "member" | "clinic" | "template"): C.DashboardLayoutView => ({
+    layout: structuredClone(layout),
+    source,
+    catalogue: DASHBOARD_CATALOGUE,
+  });
+
   /** Invitations made by createClinic or inviteStaff, by token. */
   const invitations = new Map<string, Invitation>();
   /** Session handoffs by code: who, for which host, until when, and whether used. */
@@ -3018,6 +3029,73 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           roles.splice(roles.indexOf(role), 1);
           return reply(undefined);
+        }),
+
+      getMyDashboardLayout: (opts) =>
+        respond(S.dashboardLayoutView, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const own = dashboardLayouts.get(`member:${caller.membership.id}`);
+          if (own !== undefined) return reply(dashboardView(own, "member"));
+          const clinic = dashboardLayouts.get(`clinic:${caller.clinic.id}`);
+          return reply(clinic === undefined ? dashboardView(builtInLayout(), "template") : dashboardView(clinic, "clinic"));
+        }),
+
+      saveMyDashboardLayout: (layout, opts) =>
+        respond(S.dashboardLayoutView, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const checked = validateLayout(layout);
+          if (!checked.ok) return refused(checked.message);
+          dashboardLayouts.set(`member:${caller.membership.id}`, checked.layout);
+          return reply(dashboardView(checked.layout, "member"));
+        }),
+
+      resetMyDashboardLayout: (opts) =>
+        respond(S.dashboardLayoutView, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          dashboardLayouts.delete(`member:${caller.membership.id}`);
+          const clinic = dashboardLayouts.get(`clinic:${caller.clinic.id}`);
+          return reply(clinic === undefined ? dashboardView(builtInLayout(), "template") : dashboardView(clinic, "clinic"));
+        }),
+
+      getDashboardLayout: (opts) =>
+        respond(S.dashboardLayoutView, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const clinic = dashboardLayouts.get(`clinic:${caller.clinic.id}`);
+          return reply(clinic === undefined ? dashboardView(builtInLayout(), "template") : dashboardView(clinic, "clinic"));
+        }),
+
+      saveDashboardLayout: (layout, opts) =>
+        respond(S.dashboardLayoutView, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const checked = validateLayout(layout);
+          if (!checked.ok) return refused(checked.message);
+          dashboardLayouts.set(`clinic:${caller.clinic.id}`, checked.layout);
+          return reply(dashboardView(checked.layout, "clinic"));
+        }),
+
+      resetDashboardLayout: (opts) =>
+        respond(S.dashboardLayoutView, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          dashboardLayouts.delete(`clinic:${caller.clinic.id}`);
+          return reply(dashboardView(builtInLayout(), "template"));
         }),
 
       getClinicSettings: (opts) =>

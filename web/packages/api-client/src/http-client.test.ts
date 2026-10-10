@@ -235,3 +235,74 @@ describe("createDevTokenSource", () => {
     expect(await createDevTokenSource("", { fetch })({ id: "x" })).toBeNull();
   });
 });
+
+describe("createHttpClient dashboard layout", () => {
+  const catalogue = {
+    version: 2,
+    templates: [{ key: "medsync", label: "MedSync", description: "d", layout: { v: 2, tpl: "medsync", density: "cozy", card: "soft", rail: { side: "right", width: "medium" }, items: [{ key: "kpis", zone: "top", size: "full", opts: { metrics: ["appointments", "completed", "waiting", "collected"] } }] } }],
+    widgets: [
+      {
+        key: "kpis",
+        label: "Key numbers",
+        description: "d",
+        zones: ["top", "main"],
+        sizes: ["L", "full"],
+        default_zone: "top",
+        default_size: "full",
+        requires: null,
+        options: [{ key: "metrics", label: "Numbers", kind: "metrics", default: ["appointments", "completed", "waiting", "new_patients"], choices: null, min: 4, max: 6 }],
+      },
+      {
+        key: "collections",
+        label: "Collections",
+        description: "d",
+        zones: ["main"],
+        sizes: ["M", "L", "full"],
+        default_zone: "main",
+        default_size: "L",
+        requires: "finance.view",
+        options: [{ key: "weeks", label: "Weeks", kind: "int_choice", default: 8, choices: [4, 8, 12], min: null, max: null }],
+      },
+    ],
+    metrics: [{ key: "collected", label: "Collected", requires: "finance.view" }],
+    densities: ["compact", "cozy"],
+    cards: ["flat", "soft", "outline"],
+    rail_sides: ["left", "right"],
+    rail_widths: ["narrow", "medium", "wide"],
+    zones: ["top", "main", "rail"],
+    sizes: ["S", "M", "L", "full"],
+  };
+  const view = { layout: catalogue.templates[0]?.layout, source: "clinic", catalogue };
+
+  it("decodes the layout with its catalogue and calls the member and clinic routes", async () => {
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, view)));
+    const client = createHttpClient("http://sunrise.localtest.me", () => "token", { fetch });
+    const mine = await unwrap(client.getMyDashboardLayout());
+    expect(mine.source).toBe("clinic");
+    expect(mine.catalogue.widgets[0]?.options[0]).toMatchObject({ kind: "metrics", min: 4, max: 6 });
+    expect(mine.catalogue.widgets[1]?.options[0]?.choices).toEqual([4, 8, 12]);
+
+    const layout = mine.layout;
+    await unwrap(client.saveMyDashboardLayout(layout));
+    await unwrap(client.resetMyDashboardLayout());
+    await unwrap(client.getDashboardLayout());
+    await unwrap(client.saveDashboardLayout(layout));
+    await unwrap(client.resetDashboardLayout());
+    expect(calls.map((c) => `${c.init?.method ?? ""} ${new URL(c.url).pathname}`)).toEqual([
+      "GET /api/v1/me/dashboard-layout",
+      "PUT /api/v1/me/dashboard-layout",
+      "DELETE /api/v1/me/dashboard-layout",
+      "GET /api/v1/settings/dashboard-layout",
+      "PUT /api/v1/settings/dashboard-layout",
+      "DELETE /api/v1/settings/dashboard-layout",
+    ]);
+    expect(calls[1]?.init?.body).toBe(JSON.stringify(layout));
+  });
+
+  it("reads a 400 as the registry's refusal, naming the place", async () => {
+    const { fetch } = stubFetch(json(400, { error: { code: "invalid_layout", message: "items[2].opts.weeks: not one of the allowed numbers" } }));
+    const client = createHttpClient("", () => "token", { fetch });
+    const result = await client.saveMyDashboardLayout({ tpl: "medsync", density: "cozy", card: "soft", rail: { side: "right", width: "medium" }, items: [] });
+    expect(result.ok ? null : [result.error.status, result.error.code, result.error.field]).toEqual([400, "invalid_layout", "items[2].opts.weeks"]);
+  });
+});

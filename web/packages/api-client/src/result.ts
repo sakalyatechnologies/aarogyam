@@ -69,7 +69,7 @@ export function parseApiError(status: number, body: unknown, requestId: RequestI
   return requestId === undefined ? base : { ...base, requestId };
 }
 
-const FIELD_PREFIX = /^([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*): (.+)$/s;
+const FIELD_PREFIX = /^([a-z][a-z0-9_]*(?:\[\d+\])?(?:\.[a-z][a-z0-9_]*(?:\[\d+\])?)*): (.+)$/s;
 
 /**
  * Input errors name their field at the start of the message (`phone: invalid phone number`).

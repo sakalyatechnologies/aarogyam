@@ -5,6 +5,8 @@ import { Tabs, type TabItem } from "@sakalya/ui";
 
 import { MkCard, PageHeader } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
+import { useNewLook } from "../../lib/new-look.js";
+import { StudioPanel } from "../today/v2/studio-panel.js";
 import { BookingPanel } from "./booking-panel.js";
 import { ChairsDoctorsPanel } from "./chairs-doctors-panel.js";
 import { LetterheadPanel } from "./letterhead-panel.js";
@@ -27,6 +29,7 @@ export function SettingsPage() {
   const { session, can } = useClinic();
   useDocumentTitle("Settings", session.clinic.name);
   const [params, setParams] = useSearchParams();
+  const [newLook] = useNewLook();
   const owner = can("settings.manage");
   const items: TabItem[] = [
     { value: "profile", label: owner ? "Clinic profile" : "Your account", content: <ProfileTab /> },
@@ -37,6 +40,7 @@ export function SettingsPage() {
     ...(can("staff.manage") || can("roles.manage") ? [{ value: "team", label: "Team & roles", content: <MkCard title="Team & roles" hint="Who works here, and what each role can see and do"><TeamPanel /></MkCard> }] : []),
     { value: "booking", label: "Booking & notifications", content: <BookingPanel /> },
     ...(owner ? [{ value: "website", label: "Website", content: <MkCard><WebsitePanel /></MkCard> }] : []),
+    ...(newLook ? [{ value: "studio", label: "Dashboard studio", content: <MkCard title="Dashboard studio" hint="Choose what Today shows, where, and how big. Changes follow you across devices."><StudioPanel /></MkCard> }] : []),
     { value: "sessions", label: "Sessions", content: <MkCard title="Sessions" hint="The devices you are signed in on"><SessionsPanel /></MkCard> },
   ];
   const raw = params.get("tab") ?? "";

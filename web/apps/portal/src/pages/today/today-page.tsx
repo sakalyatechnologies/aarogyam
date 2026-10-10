@@ -41,16 +41,16 @@ type TodayChair = Today["chairs"][number];
 type TodayTeamMember = Today["team"][number];
 type TodayQueueToken = Today["recent_patients"][number];
 
-function waitingMinutes(appointment: TodayAppointment, asOf: string): number {
+export function waitingMinutes(appointment: TodayAppointment, asOf: string): number {
   return appointment.arrived_at == null ? 0 : Math.max(0, Math.round((Date.parse(asOf) - Date.parse(appointment.arrived_at)) / MINUTE));
 }
 
-function greeting(asOf: string, timeZone: string): string {
+export function greeting(asOf: string, timeZone: string): string {
   const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone }).format(new Date(asOf)));
   return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 }
 
-function longDate(asOf: string, timeZone: string): string {
+export function longDate(asOf: string, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone }).formatToParts(new Date(asOf));
   const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
   return `${get("weekday")} · ${get("day")} ${get("month")} ${get("year")}`;
@@ -382,7 +382,7 @@ function dialable(phone: string | null | undefined): string | undefined {
   return /^\+?\d{7,15}$/.test(digits) ? digits : undefined;
 }
 
-function AttentionSection({ items, lowStock, appointments, timeZone }: { items: readonly TodayAttentionItem[]; lowStock: readonly LowStockAlert[]; appointments: Today["appointments"]; timeZone: string }) {
+export function AttentionSection({ items, lowStock, appointments, timeZone }: { items: readonly TodayAttentionItem[]; lowStock: readonly LowStockAlert[]; appointments: Today["appointments"]; timeZone: string }) {
   if (items.length === 0 && lowStock.length === 0) {
     return (
       <div className="mk-list">
@@ -506,7 +506,7 @@ function AttentionRow({ item, appointment, timeZone }: { item: TodayAttentionIte
   );
 }
 
-function ChairStatus({ chairs, timeZone }: { chairs: readonly TodayChair[]; timeZone: string }) {
+export function ChairStatus({ chairs, timeZone }: { chairs: readonly TodayChair[]; timeZone: string }) {
   if (chairs.length === 0) {
     return (
       <Empty
@@ -540,7 +540,7 @@ function ChairStatus({ chairs, timeZone }: { chairs: readonly TodayChair[]; time
   );
 }
 
-function RecentPatients({ tokens, appointments, pending }: { tokens: readonly TodayQueueToken[]; appointments: Today["appointments"]; pending: readonly PendingItem[] }) {
+export function RecentPatients({ tokens, appointments, pending }: { tokens: readonly TodayQueueToken[]; appointments: Today["appointments"]; pending: readonly PendingItem[] }) {
   const peek = usePatientPeek();
   if (tokens.length === 0) {
     return <Empty art="queue" title="Nobody has come in yet">Patients who arrive today will show here.</Empty>;
@@ -608,7 +608,7 @@ const CATEGORY_LABEL: Readonly<Record<string, string>> = {
   other: "Other",
 };
 
-function RevenueMix({ money }: { money: TodayMoney | undefined }) {
+export function RevenueMix({ money }: { money: TodayMoney | undefined }) {
   if (money === undefined) {
     return <Skeleton shape="block" />;
   }
@@ -624,7 +624,7 @@ function RevenueMix({ money }: { money: TodayMoney | undefined }) {
   );
 }
 
-function PendingPayments({ pending }: { pending: readonly PendingItem[] | undefined }) {
+export function PendingPayments({ pending }: { pending: readonly PendingItem[] | undefined }) {
   if (pending === undefined) {
     return <Skeleton shape="block" />;
   }

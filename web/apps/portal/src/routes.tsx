@@ -41,7 +41,7 @@ export const routes: RouteObject[] = [
           {
             element: <ClinicGate />,
             children: [
-              { path: "today", lazy: lazyPage(() => import("./pages/today/today-page.js"), (m) => m.TodayPage) },
+              { path: "today", lazy: lazyPage(() => import("./pages/today/today-route.js"), (m) => m.TodayRoute) },
               { path: "setup", lazy: lazyPage(() => import("./pages/setup/setup-page.js"), (m) => m.SetupPage) },
               { path: "patients", lazy: lazyPage(() => import("./pages/patients/patients-page.js"), (m) => m.PatientsPage) },
               { path: "patients/new", lazy: lazyPage(() => import("./pages/patients/new-patient-page.js"), (m) => m.NewPatientPage) },

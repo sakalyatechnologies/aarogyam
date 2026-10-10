@@ -3710,6 +3710,7 @@
     "observations.encounter_id",
     "prescriptions.encounter_id",
     "procedures.encounter_id",
+    "share_links.encounter_id",
     "specialty_records.encounter_id",
     "treatment_plans.encounter_id",
     "voice_notes.encounter_id"
@@ -4456,6 +4457,20 @@
      "note": "the prescription this one replaces"
     },
     {
+     "name": "client_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "an id the app made for the create, unique per clinic: a retry returns the first draft (migration 0625)"
+    },
+    {
+     "name": "request_hash",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "SHA-256 of the request, so a client_id reused for another request is refused"
+    },
+    {
      "name": "template_id",
      "type": "uuid",
      "nullable": true,
@@ -4568,6 +4583,36 @@
    "offline": "read_write"
   },
   {
+   "name": "medicine_sets",
+   "domain": "clinical",
+   "purpose": "A clinic's own medicine sets: several medicines added to a prescription in one tap, beside the specialty's built-in sets.",
+   "rls": "clinic",
+   "star": true,
+   "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0626). Created, edited and deleted by members with prescriptions.issue (GET/POST /medicine-sets, PUT/DELETE /medicine-sets/{id}); a deleted set is hidden, not removed. Own sets are merged into GET /quick-picks with own = true. Configuration, no patient data, so it has no retention class.",
+   "cols": [
+    {
+     "name": "label",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "1 to 80 characters, one line; unique among live sets ignoring case"
+    },
+    {
+     "name": "items",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "1 to 20 medicines, each drug_name, strength, form, dose, frequency, timing, duration_days, instructions; the API checks every value"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
    "name": "procedures",
    "domain": "clinical",
    "purpose": "Treatment actually done (or planned for today) in a visit.",
@@ -4654,6 +4699,20 @@
      "nullable": true,
      "ref": null,
      "note": "the fee; billing (M5) links it to the price list"
+    },
+    {
+     "name": "client_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "an id the app made for the create, unique per clinic: a retry returns the first record (migration 0625)"
+    },
+    {
+     "name": "request_hash",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "SHA-256 of the request, so a client_id reused for another request is refused"
     },
     {
      "name": "treatment_plan_item_id",
@@ -4955,7 +5014,7 @@
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "a recording: en-IN, hi-IN, mr-IN"
+     "note": "a recording: en-IN, hi-IN, mr-IN, gu-IN (migration 0629)"
     },
     {
      "name": "shared_with_patient",
@@ -5126,6 +5185,20 @@
      "nullable": true,
      "ref": "specialty_records",
      "note": "the entry this one replaced"
+    },
+    {
+     "name": "client_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "on the first entry of a dental chart batch: a retry returns the chart instead of adding the batch again (migration 0625)"
+    },
+    {
+     "name": "request_hash",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "SHA-256 of the batch, so a client_id reused for another request is refused"
     },
     {
      "name": "error_reason",
@@ -9671,7 +9744,7 @@
      "type": "share_resource",
      "nullable": false,
      "ref": null,
-     "note": "prescription, invoice, report, upload_request, records"
+     "note": "prescription, invoice, report, upload_request, records, visit (migration 0628)"
     },
     {
      "name": "record_types",
@@ -9695,6 +9768,13 @@
      "note": ""
     },
     {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": "for resource visit: the visit whose summary the link opens (migration 0628)"
+    },
+    {
      "name": "patient_id",
      "type": "uuid",
      "nullable": false,
@@ -9706,7 +9786,7 @@
      "type": "channel",
      "nullable": false,
      "ref": null,
-     "note": "whatsapp, sms, email, print"
+     "note": "whatsapp, sms, email, print, qr, link (migration 0627)"
     },
     {
      "name": "failed_attempts",
@@ -9727,7 +9807,7 @@
      "type": "timestamptz",
      "nullable": false,
      "ref": null,
-     "note": "seven days; for records the clinic picks 1 hour, 24 hours or 7 days"
+     "note": "seven days by default; the clinic may pick 24 to 720 hours for a prescription or visit link, and 1 hour, 24 hours or 7 days for records"
     },
     {
      "name": "opened_at",

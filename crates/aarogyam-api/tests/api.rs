@@ -474,6 +474,7 @@ async fn every_route_requires_sign_in_and_a_permission() {
         let public = [
             "/api/v1/shared/{token}",
             "/api/v1/shared/{token}/open",
+            "/api/v1/shared/{token}/visit",
             // A link to records: the PIN opens it, a signed token serves an X-ray from it
             // (tests/mobile_records.rs).
             "/api/v1/shared/{token}/records",

@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, patient_id, request_hash as \"request_hash!\"\n           from aarogyam.specialty_records\n           where client_id = $1 and module = 'dental' and kind = 'tooth'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "request_hash!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "request_hash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "32ab6b5bf0f81e63ec946900d5374de672d097c0bd1530bc5c92152a01f12d66"
+}

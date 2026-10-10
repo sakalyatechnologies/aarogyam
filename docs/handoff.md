@@ -14,6 +14,7 @@ Where the work stands and exactly what to do next. Update this file at the end o
   - BE6 payment proof: B6.
   - BE3 SSE live updates: not started (next wave).
   - BE7 WhatsApp: the adapter is already built (T4); en/hi/mr templates still to add.
+- **B5 visits (feat/v2-visit) is built:** finish, close with follow-up and fee, share expiry and channel, visit share links, medicine sets, root canal fields, `client_id` replays, `gu-IN` recordings (migrations 0625 to 0629; see `decisions.md`). Left: the SMS worker and an approved WhatsApp prescription template (the message stays queued or skipped); the fake finishes with a prescription through its own issue code and keeps no recall rows.
 - **Tracking:** the plan and its exit criteria are in the founder's Portal v2 plan. Each branch is `feat/v2-*`; each merge to `main` updates this section.
 
 ## Status at 10 Oct 2026 (read this first)

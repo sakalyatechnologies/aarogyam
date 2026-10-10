@@ -159,6 +159,16 @@ import type {
   Session,
   SessionId,
   ShareLink,
+  ShareInput,
+  ClosedVisit,
+  CloseVisitInput,
+  FinishedVisit,
+  FinishVisitInput,
+  VisitLink,
+  VisitSummary,
+  SavedMedicineSet,
+  SavedMedicineSetList,
+  MedicineSetInput,
   SharedPreview,
   Staff,
   StatusChange,
@@ -436,6 +446,32 @@ export interface ApiClient {
   startVisit(patientId: PatientId, input: NewVisit, options?: RequestOptions): Promise<ApiResult<Visit>>;
   /** Clinic host: closes a visit. Needs `clinical.write`. */
   closeVisit(id: VisitId, options?: RequestOptions): Promise<ApiResult<Visit>>;
+  /**
+   * Clinic host: closes a visit and, in the same transaction, plans a follow-up (`follow_up_on`,
+   * needs `patients.write`) and starts a draft bill linked to the visit (`fee_paise`, needs
+   * `billing.write`). 409 `visit_closed` when it is already closed. Needs `clinical.write`.
+   */
+  closeVisitWith(id: VisitId, input: CloseVisitInput, options?: RequestOptions): Promise<ApiResult<ClosedVisit>>;
+  /**
+   * Clinic host: finishes a visit in one transaction: signs the caller's draft notes, issues a draft
+   * prescription (409 `allergy_alerts` without an override reason), plans the follow-up, starts the
+   * draft bill and closes the visit. 409 `visit_closed` when it is already closed. Needs
+   * `clinical.write`.
+   */
+  finishVisit(id: VisitId, input?: FinishVisitInput, options?: RequestOptions): Promise<ApiResult<FinishedVisit>>;
+  /** Clinic host: makes a link and PIN for the patient to open the visit summary at `/shared/{token}/visit`. Needs `clinical.write`. */
+  shareVisit(id: VisitId, input?: ShareInput, options?: RequestOptions): Promise<ApiResult<VisitLink>>;
+  /** Public: opens a visit summary link with its PIN. Five wrong PINs lock the link. */
+  openSharedVisit(token: string, pin: string, options?: RequestOptions): Promise<ApiResult<VisitSummary>>;
+
+  /** Clinic host: the clinic's saved medicine sets. Needs `prescriptions.issue` or `clinical.read`. */
+  listMedicineSets(options?: RequestOptions): Promise<ApiResult<SavedMedicineSetList>>;
+  /** Clinic host: saves a medicine set; 409 when the label is taken. Needs `prescriptions.issue`. */
+  createMedicineSet(input: MedicineSetInput, options?: RequestOptions): Promise<ApiResult<SavedMedicineSet>>;
+  /** Clinic host: replaces a medicine set's label and medicines. Needs `prescriptions.issue`. */
+  updateMedicineSet(id: string, input: MedicineSetInput, options?: RequestOptions): Promise<ApiResult<SavedMedicineSet>>;
+  /** Clinic host: deletes a medicine set. Needs `prescriptions.issue`. */
+  deleteMedicineSet(id: string, options?: RequestOptions): Promise<ApiResult<void>>;
 
   /** Clinic host: writes a draft clinical note. Needs `clinical.write`. */
   createNote(visitId: VisitId, content: NoteContent, options?: RequestOptions): Promise<ApiResult<Note>>;
@@ -610,6 +646,8 @@ export interface ApiClient {
   cancelPrescription(id: PrescriptionId, input: CancelRequest, options?: RequestOptions): Promise<ApiResult<Cancelled>>;
   /** Clinic host: makes a seven-day link with a PIN for the patient to open the prescription. Needs `prescriptions.issue`. */
   createShareLink(id: PrescriptionId, options?: RequestOptions): Promise<ApiResult<ShareLink>>;
+  /** Clinic host: like `createShareLink`, with how long the link works (`expires_in_hours`, 24 to 720) and `channel` (`whatsapp`, `sms`, `qr` or `link`). */
+  createShareLinkWith(id: PrescriptionId, input: ShareInput, options?: RequestOptions): Promise<ApiResult<ShareLink>>;
 
   /** Any host, public: whether a share link exists and which clinic sent it. */
   getSharedPreview(token: string, options?: RequestOptions): Promise<ApiResult<SharedPreview>>;

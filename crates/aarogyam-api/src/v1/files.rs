@@ -60,7 +60,7 @@ pub struct Attachment {
     pub addendum_id: Option<Uuid>,
     /// A recording's length in seconds.
     pub duration_seconds: Option<i32>,
-    /// A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`.
+    /// A recording's spoken language: `en-IN`, `hi-IN`, `mr-IN` or `gu-IN`.
     pub language: Option<String>,
     /// Whether the clinic shares it with the patient in the patient app
     /// (`PUT /attachments/{id}/sharing`). Optional in the schema, so apps built before it read on.
@@ -129,7 +129,7 @@ pub struct UploadForm {
     addendum_id: Option<String>,
     /// A recording's length in seconds, 1 to 600; required for audio.
     duration_seconds: Option<i32>,
-    /// A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`.
+    /// A recording's spoken language: `en-IN`, `hi-IN`, `mr-IN` or `gu-IN`.
     language: Option<String>,
 }
 

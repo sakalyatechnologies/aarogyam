@@ -149,6 +149,11 @@ pub struct NewProcedure {
     pub plan_item_id: Option<Uuid>,
     /// A remark, up to 1,000 characters.
     pub note: Option<String>,
+    /// An id the client made for this request, any UUID, unique per clinic. A retry with the same
+    /// `client_id` and the same procedure returns the one that exists (`201`), even if its visit
+    /// has closed since; the same `client_id` for another procedure is `id_conflict` (`409`).
+    #[schema(value_type = Option<String>)]
+    pub client_id: Option<Uuid>,
 }
 
 /// Records a procedure in an open visit.
@@ -166,7 +171,7 @@ pub struct NewProcedure {
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
         (status = 404, description = "No such visit in this clinic"),
-        (status = 409, description = "The visit is closed, or the plan item isn't accepted or already has a procedure")
+        (status = 409, description = "The visit is closed, the plan item isn't accepted or already has a procedure, or `id_conflict`: the client_id made another procedure")
     )
 )]
 pub(crate) async fn record_procedure(
@@ -186,6 +191,7 @@ pub(crate) async fn record_procedure(
             price_paise: body.price_paise,
             plan_item_id: body.plan_item_id,
             note: body.note,
+            client_id: body.client_id,
         },
         OffsetDateTime::now_utc(),
     )

@@ -2,6 +2,7 @@
 //! item marks the item done and moves the plan along.
 
 use aarogyam_dal::treatment::{self, ItemRow, NewProcedure, PlanRow, ProcedureRow, Work};
+use aarogyam_dal::visits::lock_client_id;
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::clinical::{
     CodeSystem, PlanItemStatus, PlanStatus, ProcedureStatus, clinical_text, error_reason, fee,
@@ -19,6 +20,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::facts::{CodeInput, parse_code, stored_code};
+use crate::idempotency::{replayed, request_hash};
 use crate::scope::staff_scope as scope;
 use crate::visits::{Member, Names, invalid, require_open_visit, require_patient};
 
@@ -207,6 +209,9 @@ pub struct ProcedureInput {
     pub plan_item_id: Option<Uuid>,
     /// A remark.
     pub note: Option<String>,
+    /// The client's id. A retry with the same id and the same procedure returns the one that
+    /// exists, even if its visit has closed since; the same id for another is `id_conflict`.
+    pub client_id: Option<Uuid>,
 }
 
 /// Marks a plan item done once its procedure is done.
@@ -224,6 +229,10 @@ async fn finish_item(tx: &mut ScopedTx, row: &ProcedureRow) -> Result<(), AppErr
 /// [`AppError::Invalid`] for bad input or a plan item of another patient;
 /// [`AppError::NotFound`] when the visit isn't in this clinic; [`AppError::Conflict`] when the
 /// visit is closed, the plan item isn't accepted, or it already has a procedure.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one transaction: check, replay, write and read back"
+)]
 pub async fn record_procedure(
     db: &Db,
     actor: &ClinicActor,
@@ -246,7 +255,40 @@ pub async fn record_procedure(
         .transpose()
         .map_err(invalid("price_paise"))?;
     let note = optional_text(input.note.as_deref(), 1000).map_err(invalid("note"))?;
+    let hash = input.client_id.map(|_| {
+        request_hash(&serde_json::json!({
+            "visit": visit_id.uuid(),
+            "work": {
+                "name": input.work.name,
+                "code": input.work.code.as_ref().map(|c| (&c.system, &c.code)),
+                "tooth": input.work.tooth,
+                "surfaces": input.work.surfaces,
+            },
+            "status": status.as_str(),
+            "price_paise": input.price_paise,
+            "plan_item_id": input.plan_item_id,
+            "note": note,
+        }))
+    });
     db.scoped(&scope(actor, request_id), async |tx| {
+        if let (Some(client_id), Some(hash)) = (input.client_id, hash.as_deref()) {
+            lock_client_id(tx.conn(), client_id).await?;
+            let reach = actor.reach(Permission::ClinicalWrite).member();
+            let found = treatment::procedure_by_client_id(tx.conn(), client_id).await?;
+            if found.is_some() {
+                let visit =
+                    aarogyam_dal::visits::get_encounter(tx.conn(), visit_id.uuid(), false, reach)
+                        .await?
+                        .ok_or(AppError::NotFound("visit"))?;
+                if let Some(id) = replayed(found, visit.patient_id, hash)?
+                    && let Some(row) =
+                        treatment::get_procedure_for_update(tx.conn(), id, reach).await?
+                {
+                    let names = Names::load(tx, [row.clinician_id]).await?;
+                    return procedure_view(row, &names);
+                }
+            }
+        }
         let visit =
             require_open_visit(tx, visit_id, actor.reach(Permission::ClinicalWrite)).await?;
         let item = match input.plan_item_id {
@@ -295,6 +337,8 @@ pub async fn record_procedure(
                 price_paise: price.map(Paise::get),
                 treatment_plan_item_id: item.as_ref().map(|item| item.id),
                 note: note.as_deref(),
+                client_id: input.client_id,
+                request_hash: hash.as_deref(),
             },
         )
         .await

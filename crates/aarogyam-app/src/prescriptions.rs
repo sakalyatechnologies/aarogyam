@@ -4,17 +4,19 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use aarogyam_dal::prescriptions::{self as dal, RxFilter, RxHeader, RxItemRow};
+use aarogyam_dal::prescriptions::{self as dal, ClientKey, RxFilter, RxHeader, RxItemRow};
+use aarogyam_dal::visits::lock_client_id;
 use aarogyam_dal::{access, patients, settings};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::ids::{DrugId, PatientId, PrescriptionId};
-use aarogyam_domain::outbox::MessageKind;
+use aarogyam_domain::messaging::Channel;
 use aarogyam_domain::patient::BirthDate;
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::prescription::{
     self as rules, CheckedDrug, DoseTiming, MAX_LINES, RecordedAllergy, RxError, RxStatus,
     printed_name,
 };
+use aarogyam_domain::share::LINK_LIFETIME;
 use sakalya_db::{Db, ScopedTx};
 use serde_json::{Value, json};
 use time::{Date, OffsetDateTime};
@@ -23,7 +25,7 @@ use uuid::Uuid;
 use crate::billing::PatientRef;
 use crate::clock::clinic_today;
 use crate::error::AppError;
-use crate::messaging::{PatientEmail, enqueue_patient_email};
+use crate::idempotency::{replayed, request_hash};
 use crate::scope::staff_scope as scope;
 use crate::share;
 use crate::tokens::new_token;
@@ -139,7 +141,7 @@ pub async fn search_drugs(
 
 /// A medicine as received: from the catalogue (whose values fill what is left out) or free
 /// text with a name.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct RxItemInput {
     /// The catalogue entry.
     pub drug_id: Option<Uuid>,
@@ -165,6 +167,9 @@ pub struct RxItemInput {
 /// given items replace all medicines.
 #[derive(Debug, Clone, Default)]
 pub struct RxInput {
+    /// The client's id for a new draft. A retry with the same id and the same values returns the
+    /// draft that exists; the same id for other values is `id_conflict`. Ignored on an edit.
+    pub client_id: Option<Uuid>,
     /// The visit; on an edit `Some(None)` clears it.
     pub encounter_id: Option<Option<Uuid>>,
     /// Diagnosis.
@@ -472,7 +477,8 @@ async fn write_items(tx: &mut ScopedTx, id: Uuid, items: &[RxItemRow]) -> Result
 ///
 /// # Errors
 /// [`AppError::Denied`] without `prescriptions.issue`; [`AppError::NotFound`] for an unknown
-/// patient; [`AppError::Invalid`] for bad values.
+/// patient; [`AppError::Invalid`] for bad values; [`AppError::IdConflict`] when the `client_id`
+/// made a different draft.
 pub async fn create(
     db: &Db,
     actor: &ClinicActor,
@@ -481,6 +487,17 @@ pub async fn create(
     input: RxInput,
 ) -> Result<RxView, AppError> {
     actor.require(Permission::PrescriptionsIssue)?;
+    let hash = input.client_id.map(|_| {
+        request_hash(&serde_json::json!({
+            "patient": patient_id.uuid(),
+            "encounter": input.encounter_id.flatten(),
+            "diagnosis_text": input.diagnosis_text,
+            "advice": input.advice,
+            "follow_up_on": input.follow_up_on.flatten(),
+            "language": input.language,
+            "items": input.items,
+        }))
+    });
     db.scoped(&scope(actor, request_id), async |tx| {
         let patient = patients::get(
             tx.conn(),
@@ -489,6 +506,14 @@ pub async fn create(
         )
         .await?
         .ok_or(AppError::NotFound("patient"))?;
+        // A retry gets the draft that exists, as it was made (or since edited).
+        if let (Some(client_id), Some(hash)) = (input.client_id, hash.as_deref()) {
+            lock_client_id(tx.conn(), client_id).await?;
+            let found = dal::by_client_id(tx.conn(), client_id).await?;
+            if let Some(id) = replayed(found, patient.id, hash)? {
+                return load(tx, id, None).await;
+            }
+        }
         let items = build_items(tx, input.items.unwrap_or_default()).await?;
         let diagnosis = rules::optional_text(input.diagnosis_text.as_deref(), 500)
             .map_err(rx("diagnosis_text"))?;
@@ -507,6 +532,10 @@ pub async fn create(
                 follow_up_on: input.follow_up_on.flatten(),
                 language: &language,
             },
+            input
+                .client_id
+                .zip(hash.as_deref())
+                .map(|(id, request_hash)| ClientKey { id, request_hash }),
         )
         .await?;
         write_items(tx, id, &items).await?;
@@ -604,6 +633,8 @@ pub enum NotSent {
     NoEmail,
     /// The clinic has no verified portal address to link to.
     NoPortal,
+    /// The patient has no phone number.
+    NoPhone,
 }
 
 impl NotSent {
@@ -614,6 +645,7 @@ impl NotSent {
             Self::Declined => "declined",
             Self::NoEmail => "no_email",
             Self::NoPortal => "no_portal",
+            Self::NoPhone => "no_phone",
         }
     }
 }
@@ -642,29 +674,25 @@ async fn share_with_patient(
     let Some(host) = aarogyam_dal::staff::portal_host(tx.conn()).await? else {
         return Ok(Sharing::NotSent(NotSent::NoPortal));
     };
-    let profile = aarogyam_dal::clinic::profile(tx.conn())
-        .await?
-        .ok_or(AppError::NotFound("clinic"))?;
-    let link = share::create_in(tx, actor, request_id, id, patient_id, now).await?;
-    let expires_on = link
-        .expires_at
-        .to_offset(crate::clock::clinic_offset(&profile.timezone))
-        .date();
-    enqueue_patient_email(
+    let link = share::create_in(
         tx,
-        &PatientEmail {
-            kind: MessageKind::PrescriptionShared,
-            patient_id: PatientId::from_uuid(patient_id),
-            payload: json!({
-                "prescription_id": id.uuid(),
-                "clinic_name": profile.name,
-                "doctor_name": doctor_name,
-                "portal_host": host,
-                "expires_on": format!("{} {} {}", expires_on.day(), expires_on.month(), expires_on.year()),
-            }),
-            secret: Some(&link.token),
-            appointment_id: None,
-        },
+        actor,
+        request_id,
+        id,
+        patient_id,
+        "email",
+        LINK_LIFETIME,
+        now,
+    )
+    .await?;
+    share::queue_link_message(
+        tx,
+        Channel::Email,
+        id,
+        PatientId::from_uuid(patient_id),
+        doctor_name,
+        &host,
+        &link,
     )
     .await?;
     Ok(Sharing::Sent {
@@ -787,101 +815,132 @@ pub async fn issue(
     now: OffsetDateTime,
 ) -> Result<IssueOutcome, AppError> {
     actor.require(Permission::PrescriptionsIssue)?;
-    let IssueChoices {
-        override_reason,
-        notify_patient,
-    } = choices;
-    let override_reason = match override_reason.map(str::trim) {
-        None | Some("") => None,
-        Some(text) => Some(rules::reason(text).map_err(rx("override_reason"))?),
-    };
+    let override_reason = override_text(choices.override_reason)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let (status, patient_id) = dal::lock(
-            tx.conn(),
-            id.uuid(),
-            actor.reach(Permission::PrescriptionsIssue).member(),
+        issue_in(
+            tx,
+            actor,
+            request_id,
+            id,
+            override_reason.as_deref(),
+            choices.notify_patient,
+            allergy_source,
+            now,
         )
-        .await?
-        .ok_or(AppError::NotFound("prescription"))?;
-        if status != RxStatus::Draft.as_str() {
-            return Err(AppError::Conflict(
-                "this prescription is already issued or cancelled",
-            ));
-        }
-        let items = dal::items(tx.conn(), id.uuid()).await?;
-        if items.is_empty() {
-            return Err(AppError::invalid("items", RxError::NoLines));
-        }
-        let ids: Vec<Uuid> = items.iter().filter_map(|item| item.drug_id).collect();
-        let drugs = dal::drugs(tx.conn(), &ids).await?;
-        let no_classes = Vec::new();
-        let checked: Vec<CheckedDrug<'_>> = items
-            .iter()
-            .map(|item| CheckedDrug {
-                line_no: u16::try_from(item.line_no).unwrap_or(0),
-                name: &item.drug_name,
-                classes: item
-                    .drug_id
-                    .and_then(|drug| drugs.iter().find(|d| d.id == drug))
-                    .map_or(&no_classes, |d| &d.allergy_classes),
-            })
-            .collect();
-        let allergies = allergy_source
-            .allergies(tx, PatientId::from_uuid(patient_id))
-            .await?;
-        let alerts = rules::allergy_alerts(&checked, &allergies);
-        if !alerts.is_empty() && override_reason.is_none() {
-            return Ok(IssueOutcome::NeedsOverride(
-                alerts
-                    .into_iter()
-                    .map(|alert| AlertView {
-                        line_no: i16::try_from(alert.line_no).ok(),
-                        kind: "allergy".into(),
-                        severity: alert.severity.as_str().into(),
-                        message: alert.message,
-                        action: None,
-                        override_reason: None,
-                    })
-                    .collect(),
-            ));
-        }
-        record_overrides(tx, actor, id, &items, &alerts, override_reason.as_ref()).await?;
-        let facts = print_facts(tx, actor, patient_id, now).await?;
-        let serial = patients::next_number(tx.conn(), "prescription").await?;
-        let number = format!("RX-{serial}");
-        let (verify_token, _) = new_token()?;
-        dal::issue(
-            tx.conn(),
-            id.uuid(),
-            &dal::IssuedRx {
-                number: &number,
-                issued_at: now,
-                issued_by: actor.membership_id.uuid(),
-                override_reason: if alerts.is_empty() {
-                    None
-                } else {
-                    override_reason.as_deref()
-                },
-                verify_token: &verify_token,
-                letterhead: facts.letterhead,
-                doctor: facts.doctor.clone(),
-                recipient: facts.recipient,
-                footer: facts.footer.as_deref(),
-            },
-        )
-        .await?;
-        let sharing = if notify_patient {
-            let doctor_name = facts.doctor["name"].as_str().unwrap_or_default();
-            share_with_patient(tx, actor, request_id, id, patient_id, doctor_name, now).await?
-        } else {
-            Sharing::NotSent(NotSent::Declined)
-        };
-        Ok(IssueOutcome::Issued(
-            Box::new(load(tx, id.uuid(), None).await?),
-            sharing,
-        ))
+        .await
     })
     .await
+}
+
+/// The doctor's override reason, trimmed and checked; none when blank.
+pub(crate) fn override_text(text: Option<&str>) -> Result<Option<String>, AppError> {
+    match text.map(str::trim) {
+        None | Some("") => Ok(None),
+        Some(text) => Ok(Some(rules::reason(text).map_err(rx("override_reason"))?)),
+    }
+}
+
+/// [`issue`] inside the caller's clinic transaction. Nothing is written when it answers
+/// `NeedsOverride`, so a caller may go on to other changes only after an `Issued`.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one transaction, the caller's choices"
+)]
+pub(crate) async fn issue_in(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: PrescriptionId,
+    override_reason: Option<&str>,
+    notify_patient: bool,
+    allergy_source: &dyn AllergySource,
+    now: OffsetDateTime,
+) -> Result<IssueOutcome, AppError> {
+    let override_reason = override_reason.map(str::to_owned);
+    let (status, patient_id) = dal::lock(
+        tx.conn(),
+        id.uuid(),
+        actor.reach(Permission::PrescriptionsIssue).member(),
+    )
+    .await?
+    .ok_or(AppError::NotFound("prescription"))?;
+    if status != RxStatus::Draft.as_str() {
+        return Err(AppError::Conflict(
+            "this prescription is already issued or cancelled",
+        ));
+    }
+    let items = dal::items(tx.conn(), id.uuid()).await?;
+    if items.is_empty() {
+        return Err(AppError::invalid("items", RxError::NoLines));
+    }
+    let ids: Vec<Uuid> = items.iter().filter_map(|item| item.drug_id).collect();
+    let drugs = dal::drugs(tx.conn(), &ids).await?;
+    let no_classes = Vec::new();
+    let checked: Vec<CheckedDrug<'_>> = items
+        .iter()
+        .map(|item| CheckedDrug {
+            line_no: u16::try_from(item.line_no).unwrap_or(0),
+            name: &item.drug_name,
+            classes: item
+                .drug_id
+                .and_then(|drug| drugs.iter().find(|d| d.id == drug))
+                .map_or(&no_classes, |d| &d.allergy_classes),
+        })
+        .collect();
+    let allergies = allergy_source
+        .allergies(tx, PatientId::from_uuid(patient_id))
+        .await?;
+    let alerts = rules::allergy_alerts(&checked, &allergies);
+    if !alerts.is_empty() && override_reason.is_none() {
+        return Ok(IssueOutcome::NeedsOverride(
+            alerts
+                .into_iter()
+                .map(|alert| AlertView {
+                    line_no: i16::try_from(alert.line_no).ok(),
+                    kind: "allergy".into(),
+                    severity: alert.severity.as_str().into(),
+                    message: alert.message,
+                    action: None,
+                    override_reason: None,
+                })
+                .collect(),
+        ));
+    }
+    record_overrides(tx, actor, id, &items, &alerts, override_reason.as_ref()).await?;
+    let facts = print_facts(tx, actor, patient_id, now).await?;
+    let serial = patients::next_number(tx.conn(), "prescription").await?;
+    let number = format!("RX-{serial}");
+    let (verify_token, _) = new_token()?;
+    dal::issue(
+        tx.conn(),
+        id.uuid(),
+        &dal::IssuedRx {
+            number: &number,
+            issued_at: now,
+            issued_by: actor.membership_id.uuid(),
+            override_reason: if alerts.is_empty() {
+                None
+            } else {
+                override_reason.as_deref()
+            },
+            verify_token: &verify_token,
+            letterhead: facts.letterhead,
+            doctor: facts.doctor.clone(),
+            recipient: facts.recipient,
+            footer: facts.footer.as_deref(),
+        },
+    )
+    .await?;
+    let sharing = if notify_patient {
+        let doctor_name = facts.doctor["name"].as_str().unwrap_or_default();
+        share_with_patient(tx, actor, request_id, id, patient_id, doctor_name, now).await?
+    } else {
+        Sharing::NotSent(NotSent::Declined)
+    };
+    Ok(IssueOutcome::Issued(
+        Box::new(load(tx, id.uuid(), None).await?),
+        sharing,
+    ))
 }
 
 /// Copies a prescription into a new draft that supersedes it.
@@ -899,6 +958,7 @@ async fn copy_as_draft(tx: &mut ScopedTx, from: &RxView) -> Result<RxView, AppEr
             follow_up_on: from.follow_up_on,
             language: &from.language,
         },
+        None,
     )
     .await
     .map_err(|error| match error.constraint() {

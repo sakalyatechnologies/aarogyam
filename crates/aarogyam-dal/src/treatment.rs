@@ -5,6 +5,8 @@ use sqlx::PgConnection;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
+use crate::visits::ClientRecord;
+
 /// A treatment plan as stored.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct PlanRow {
@@ -419,6 +421,32 @@ pub struct NewProcedure<'a> {
     pub treatment_plan_item_id: Option<Uuid>,
     /// A remark.
     pub note: Option<&'a str>,
+    /// The client's id, so a retry finds this procedure.
+    pub client_id: Option<Uuid>,
+    /// Hash of the request that carried `client_id`.
+    pub request_hash: Option<&'a str>,
+}
+
+/// The procedure the client's id made, if any, in this clinic.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn procedure_by_client_id(
+    conn: &mut PgConnection,
+    client_id: Uuid,
+) -> Result<Option<ClientRecord>, DbError> {
+    let row = sqlx::query!(
+        r#"select id, patient_id, request_hash as "request_hash!"
+           from aarogyam.procedures where client_id = $1"#,
+        client_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row.map(|row| ClientRecord {
+        id: row.id,
+        patient_id: row.patient_id,
+        request_hash: row.request_hash,
+    }))
 }
 
 /// Inserts a procedure.
@@ -434,8 +462,9 @@ pub async fn insert_procedure(
         ProcedureRow,
         r#"insert into aarogyam.procedures
              (id, encounter_id, patient_id, clinician_id, name, code_system, code, tooth, surfaces,
-              status, performed_at, price_paise, treatment_plan_item_id, note)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+              status, performed_at, price_paise, treatment_plan_item_id, note, client_id,
+              request_hash)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
            returning id, encounter_id, patient_id, clinician_id, name, code_system, code, tooth,
                      surfaces, status, performed_at, price_paise, treatment_plan_item_id, note,
                      error_reason, created_at"#,
@@ -452,7 +481,9 @@ pub async fn insert_procedure(
         new.performed_at,
         new.price_paise,
         new.treatment_plan_item_id,
-        new.note
+        new.note,
+        new.client_id,
+        new.request_hash
     )
     .fetch_one(conn)
     .await?;

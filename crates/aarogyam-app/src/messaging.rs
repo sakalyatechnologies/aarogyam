@@ -47,6 +47,21 @@ pub async fn enqueue_patient_email(
     tx: &mut ScopedTx,
     email: &PatientEmail<'_>,
 ) -> Result<MessageId, AppError> {
+    enqueue_patient_message(tx, Channel::Email, email).await
+}
+
+/// Queues a message to a patient on `channel` in the caller's clinic transaction, like
+/// [`enqueue_patient_email`]. A channel the worker can't send yet (SMS) stays queued; `WhatsApp`
+/// is skipped by the worker until the clinic has an approved template for the message.
+///
+/// # Errors
+/// [`AppError::Internal`] for a kind that isn't a patient message; [`AppError::Db`] on database
+/// failures.
+pub async fn enqueue_patient_message(
+    tx: &mut ScopedTx,
+    channel: Channel,
+    email: &PatientEmail<'_>,
+) -> Result<MessageId, AppError> {
     let purpose = PatientMessage::of(email.kind)
         .ok_or(AppError::Internal("not a patient message"))?
         .purpose();
@@ -56,7 +71,7 @@ pub async fn enqueue_patient_email(
         &NewMessage {
             id: id.uuid(),
             patient_id: email.patient_id.uuid(),
-            channel: Channel::Email.as_str(),
+            channel: channel.as_str(),
             kind: email.kind.as_str(),
             purpose: purpose.as_str(),
             template_key: email.kind.as_str(),

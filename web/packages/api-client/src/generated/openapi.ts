@@ -2069,6 +2069,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/medicine-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's own medicine sets, by label. */
+        get: operations["listMedicineSets"];
+        put?: never;
+        /** Adds a medicine set. */
+        post: operations["createMedicineSet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/medicine-sets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replaces a medicine set's label and medicines. */
+        put: operations["updateMedicineSet"];
+        post?: never;
+        /** Deletes a medicine set. It is hidden, not erased: the change history keeps it. */
+        delete: operations["deleteMedicineSet"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/messages": {
         parameters: {
             query?: never;
@@ -3176,7 +3212,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Makes a seven-day link for the patient to open the prescription with a PIN. */
+        /**
+         * Makes a link for the patient to open the prescription with a PIN. The body is optional: the
+         *     lifetime (24 to 720 hours, seven days by default) and how it is handed over.
+         */
         post: operations["createPrescriptionShare"];
         delete?: never;
         options?: never;
@@ -3459,7 +3498,8 @@ export interface paths {
         };
         /**
          * The clinic's quick picks: allergies for the desk, complaints, findings, procedures, advice
-         *     lines and medicine sets for the doctor. Specialty data; dental for now.
+         *     lines and medicine sets for the doctor. Specialty data, dental for now; the medicine sets
+         *     also include the clinic's own (`own: true`, managed at `/medicine-sets`).
          */
         get: operations["getQuickPicks"];
         put?: never;
@@ -3940,6 +3980,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shared/{token}/visit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Public, no sign-in: opens a link to a visit summary with the PIN. Five wrong PINs lock the
+         *     link. Every open is written to the access record.
+         */
+        post: operations["openSharedVisit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff": {
         parameters: {
             query?: never;
@@ -4394,9 +4454,33 @@ export interface paths {
         put?: never;
         /**
          * Closes a visit. Addenda and corrections still work afterwards; new notes, vitals and
-         *     procedures don't.
+         *     procedures don't. The body is optional: with `follow_up_on` it plans the follow-up, and with
+         *     `fee_paise` it starts a draft bill linked to the visit, in the same transaction.
          */
         post: operations["closeVisit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visits/{id}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finishes a visit in one transaction: issues the given draft prescription (the server's allergy
+         *     check runs; alerts need an `override_reason`), signs the caller's own draft notes, plans the
+         *     follow-up, starts the draft bill and closes the visit. Either everything happens or nothing
+         *     does. A visit that is already closed answers `409` with code `visit_closed`; an allergy alert
+         *     without an override reason answers `409` with code `allergy_alerts` and changes nothing.
+         */
+        post: operations["finishVisit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4455,6 +4539,26 @@ export interface paths {
         put?: never;
         /** Records a procedure in an open visit. */
         post: operations["recordProcedure"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visits/{id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Makes a link to a visit's summary. The body is optional: the lifetime (24 to 720 hours, seven
+         *     days by default) and how it is handed over. Nothing is sent: hand the link over yourself.
+         */
+        post: operations["createVisitShare"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4963,7 +5067,7 @@ export interface components {
             kind: string;
             /** @description Its label, such as `OPG`, `Intraoral - upper`, `X-ray`, `Consent` or the clinic's own. */
             label?: string | null;
-            /** @description A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`. */
+            /** @description A recording's spoken language: `en-IN`, `hi-IN`, `mr-IN` or `gu-IN`. */
             language?: string | null;
             /**
              * @description `image/jpeg`, `image/png`, `application/pdf`, `application/dicom`, `audio/webm`,
@@ -5371,6 +5475,8 @@ export interface components {
         };
         /** @description A finding on a tooth or one of its surfaces. */
         ChartEntry: {
+            /** @description For a root canal: its canals with their working lengths. Empty for any other entry. */
+            canals: components["schemas"]["RootCanal"][];
             /** @description When the finding was made (RFC 3339). */
             effective_at: string;
             /** @description `sound`, `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`. */
@@ -5383,6 +5489,11 @@ export interface components {
             procedure?: components["schemas"]["DentalTerm"] | null;
             /** @description The member who recorded it. */
             recorded_by?: string | null;
+            /**
+             * Format: int32
+             * @description For a root canal: which sitting (visit) of the treatment this entry belongs to.
+             */
+            sitting?: number | null;
             /** @description `current`, `superseded` or `entered_in_error`. */
             status: string;
             /** @description The entry it replaced. */
@@ -5681,6 +5792,30 @@ export interface components {
             details_hidden: boolean;
             /** @description Whether any active allergy is severe. */
             severe_allergy: boolean;
+        };
+        /** @description What closing a visit may also do. Every field is optional, and so is the body. */
+        CloseRequest: {
+            /**
+             * Format: int64
+             * @description What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.
+             *     Needs `billing.write`.
+             */
+            fee_paise?: number | null;
+            /**
+             * @description When the patient should come back (`YYYY-MM-DD`, not in the past): plans a follow-up. Needs
+             *     `patients.write`.
+             */
+            follow_up_on?: string | null;
+            /**
+             * @description The follow-up's reason, up to 300 characters; with a fee and no follow-up, the note printed
+             *     on the draft bill.
+             */
+            note?: string | null;
+        };
+        /** @description A closed visit and what closing it made. */
+        ClosedVisit: components["schemas"]["Visit"] & {
+            follow_up?: components["schemas"]["Recall"] | null;
+            invoice?: components["schemas"]["Invoice"] | null;
         };
         /** @description An optional clinical code. Free text always works without one. */
         Code: {
@@ -6455,6 +6590,54 @@ export interface components {
         FileSharing: {
             /** @description True to show it in the patient's app. */
             shared_with_patient: boolean;
+        };
+        /** @description A draft prescription to issue as the visit finishes. */
+        FinishPrescription: {
+            /** @description The draft: this visit's patient's, and not another visit's. */
+            id: string;
+            /** @description Email the patient a link to the prescription (default true). */
+            notify_patient?: boolean | null;
+            /** @description Why to go ahead despite the allergy alerts; needed only when there are alerts. */
+            override_reason?: string | null;
+            share?: components["schemas"]["ShareRequest"] | null;
+        };
+        /** @description Finishing a visit. Every field is optional, and so is the body. */
+        FinishRequest: {
+            /**
+             * Format: int64
+             * @description What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.
+             *     Needs `billing.write`.
+             */
+            fee_paise?: number | null;
+            /**
+             * @description When the patient should come back (`YYYY-MM-DD`, not in the past): plans a follow-up. Needs
+             *     `patients.write`.
+             */
+            follow_up_on?: string | null;
+            /**
+             * @description The follow-up's reason, up to 300 characters; with a fee and no follow-up, the note printed
+             *     on the draft bill.
+             */
+            note?: string | null;
+            prescription?: components["schemas"]["FinishPrescription"] | null;
+            /**
+             * @description Sign the caller's own draft notes of the visit (default true). Other members' drafts and
+             *     empty ones are left, and listed in the answer.
+             */
+            sign_notes?: boolean | null;
+        };
+        /** @description A finished visit. */
+        FinishedVisit: {
+            follow_up?: components["schemas"]["Recall"] | null;
+            invoice?: components["schemas"]["Invoice"] | null;
+            prescription?: components["schemas"]["IssuedPrescription"] | null;
+            share?: components["schemas"]["ShareLink"] | null;
+            /** @description The notes signed now. */
+            signed_note_ids: string[];
+            /** @description Drafts left unsigned: other members' (only their author may sign) and empty ones. */
+            unsigned_note_ids: string[];
+            /** @description The closed visit. */
+            visit: components["schemas"]["Visit"];
         };
         /**
          * @description Who handled a notification: confirmed, declined or cancelled its appointment, or received,
@@ -7625,6 +7808,53 @@ export interface components {
              */
             staff_mfa_required: boolean;
         };
+        /** @description One medicine of a set, as a prescription line starts. */
+        MedicineInput: {
+            /** @description Dose, such as `1 tablet`. */
+            dose: string;
+            /** @description Generic name, 1 to 80 characters; matched to the medicine list when the set is added. */
+            drug_name: string;
+            /**
+             * Format: int32
+             * @description For how many days, 1 to 365.
+             */
+            duration_days?: number | null;
+            /** @description Form, such as `tablet`. */
+            form: string;
+            /** @description Frequency, such as `1-0-1`. */
+            frequency: string;
+            /** @description Extra instructions, up to 300 characters. */
+            instructions?: string | null;
+            /** @description Strength, such as `500 mg`. */
+            strength: string;
+            /** @description `before_food`, `after_food`, `empty_stomach`, `bedtime`, `sos` or `as_directed`. */
+            timing?: string | null;
+        };
+        /** @description A clinic's medicine set. */
+        MedicineSet: {
+            /** @description When it was made (RFC 3339). */
+            created_at: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description The medicines, in order. */
+            items: components["schemas"]["QuickSetMedicine"][];
+            /** @description The chip's label. */
+            label: string;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+        };
+        /** @description The clinic's medicine sets. */
+        MedicineSetList: {
+            /** @description By label. */
+            items: components["schemas"]["MedicineSet"][];
+        };
+        /** @description A set to save. An edit replaces the label and every medicine. */
+        MedicineSetValues: {
+            /** @description 1 to 20 medicines, in prescription order. */
+            items: components["schemas"]["MedicineInput"][];
+            /** @description The chip's label, 1 to 80 characters, one line, unique in the clinic ignoring case. */
+            label: string;
+        };
         /** @description A member of staff. */
         Member: {
             avatar?: components["schemas"]["Avatar"] | null;
@@ -7943,6 +8173,13 @@ export interface components {
         };
         /** @description Findings recorded together. */
         NewChartEntries: {
+            /**
+             * @description An id the client made for this request, any UUID. A retry with the same `client_id` and
+             *     the same entries records nothing again and returns the chart as it is now; the same
+             *     `client_id` for other entries is `id_conflict` (`409`), whoever's chart it was. Unique per
+             *     clinic. The first entry of the batch carries it.
+             */
+            client_id?: string | null;
             /** @description 1 to 64 entries, applied in order. */
             entries: components["schemas"]["NewChartEntry"][];
             /** @description The open visit they were found in, if any. */
@@ -7950,6 +8187,8 @@ export interface components {
         };
         /** @description One finding to record. */
         NewChartEntry: {
+            /** @description Only with `root_canal`: 1 to 8 canals, each with a name and an optional working length. */
+            canals?: components["schemas"]["RootCanal"][];
             /** @description `sound` (clears an earlier finding), `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`. */
             finding: string;
             /** @description A material id from the chart's `terms`: seeded (`zirconia`) or the clinic's own. Not with `sound`. */
@@ -7958,6 +8197,11 @@ export interface components {
             note?: string | null;
             /** @description A procedure id from the chart's `terms`: seeded (`crown`) or the clinic's own. Not with `sound`. */
             procedure?: string | null;
+            /**
+             * Format: int64
+             * @description Only with `root_canal`: the sitting (visit) of the treatment, 1 to 20.
+             */
+            sitting?: number | null;
             /**
              * @description Corrects this current entry of the patient, which may be on another tooth or surface:
              *     it is superseded and the new entry links to it. Leave out to supersede the current entry
@@ -8222,6 +8466,12 @@ export interface components {
         };
         /** @description A procedure to record. */
         NewProcedure: components["schemas"]["WorkFields"] & {
+            /**
+             * @description An id the client made for this request, any UUID, unique per clinic. A retry with the same
+             *     `client_id` and the same procedure returns the one that exists (`201`), even if its visit
+             *     has closed since; the same `client_id` for another procedure is `id_conflict` (`409`).
+             */
+            client_id?: string | null;
             /** @description A remark, up to 1,000 characters. */
             note?: string | null;
             /** @description An accepted treatment plan item this carries out; when done, the item is done too. */
@@ -9720,12 +9970,14 @@ export interface components {
         };
         /** @description Several medicines added in one tap, each still editable; the allergy check still runs on issue. */
         QuickMedicineSet: {
-            /** @description Stable id. */
+            /** @description Stable id: the specialty's own, or a clinic set's UUID. */
             id: string;
             /** @description The medicines, in order. */
             items: components["schemas"]["QuickSetMedicine"][];
             /** @description The chip's label, such as `Post-extraction`. */
             label: string;
+            /** @description Made by this clinic (`/medicine-sets`) rather than the specialty's own. */
+            own: boolean;
         };
         /** @description A pick that is only a name: an allergy substance or a procedure. */
         QuickPick: {
@@ -10077,6 +10329,16 @@ export interface components {
             /** @description In list order. */
             items: components["schemas"]["Room"][];
         };
+        /** @description One canal of a root canal treatment. */
+        RootCanal: {
+            /** @description What the clinician calls it: `MB`, `MB2`, `DB`, `P`. 1 to 20 characters, each name once. */
+            name: string;
+            /**
+             * Format: double
+             * @description The working length in millimetres, above 0 and at most 40; kept to two decimals.
+             */
+            working_length_mm?: number | null;
+        };
         /** @description A choice for one row. */
         RowDecision: {
             /**
@@ -10118,6 +10380,12 @@ export interface components {
         RxValues: {
             /** @description Advice: diet, care, warnings. */
             advice?: string | null;
+            /**
+             * @description An id the client made for a new draft, any UUID, unique per clinic. A retry with the same
+             *     `client_id` and the same values returns the draft that exists (`201`); the same
+             *     `client_id` for other values is `id_conflict` (`409`). Ignored when editing.
+             */
+            client_id?: string | null;
             /** @description Diagnosis. */
             diagnosis_text?: string | null;
             /** @description The visit. */
@@ -10312,14 +10580,40 @@ export interface components {
         };
         /** @description A new patient link. The token and PIN are shown once. */
         ShareLink: {
-            /** @description When it stops working (seven days). */
+            /** @description How it was handed over: `whatsapp`, `sms`, `qr` or `link`. */
+            channel: string;
+            /** @description When it stops working. */
             expires_at: string;
             /** @description The link's id. */
             id: string;
+            message?: components["schemas"]["ShareMessage"] | null;
             /** @description Six-digit PIN to print on the paper or tell the patient. */
             pin: string;
             /** @description Token for the link: `/shared/{token}` on the clinic's host. */
             token: string;
+        };
+        /** @description Whether the link also went out as a message to the patient. */
+        ShareMessage: {
+            /** @description Why nothing was queued: `no_phone` or `no_portal`. */
+            reason?: string | null;
+            /**
+             * @description `queued` (sent when due, if consent, opt-outs and an approved template allow) or
+             *     `not_queued`.
+             */
+            status: string;
+        };
+        /** @description How to hand the prescription over. */
+        ShareRequest: {
+            /**
+             * @description `whatsapp` or `sms` (also queues a care message to the patient), or `qr` or `link` (nothing
+             *     is sent: show the QR or copy the link). `link` when left out.
+             */
+            channel?: string | null;
+            /**
+             * Format: int64
+             * @description How long the link works, in hours: 24 to 720. Seven days (168) when left out.
+             */
+            expires_in_hours?: number | null;
         };
         /** @description An issued bill. */
         SharedBill: {
@@ -10364,10 +10658,11 @@ export interface components {
             expires_at: string;
             /**
              * @description For a link to records, what it shows: `chart`, `xrays`, `bills`; open it with
-             *     `POST /shared/{token}/records`. Absent for a prescription.
+             *     `POST /shared/{token}/records`. A link to a visit summary opens with
+             *     `POST /shared/{token}/visit`. Absent for a prescription.
              */
             record_types?: string[] | null;
-            /** @description `prescription` or `records`. */
+            /** @description `prescription`, `records` or `visit`. */
             resource: string;
             /** @description `usable`, `expired` or `locked`. */
             state: string;
@@ -10997,6 +11292,16 @@ export interface components {
             /** @description Who last changed it. */
             updated_by?: string | null;
         };
+        /** @description A treatment done in the visit. */
+        SummaryTreatment: {
+            /** @description What was done, such as "Root canal treatment". */
+            name: string;
+            /**
+             * Format: int32
+             * @description The tooth (FDI number), when it concerns one.
+             */
+            tooth?: number | null;
+        };
         /** @description A supplier. */
         Supplier: {
             /** @description Still bought from. */
@@ -11327,7 +11632,7 @@ export interface components {
             kind?: string | null;
             /** @description A label, 1 to 60 characters: `OPG`, `Intraoral - upper`, `X-ray`, `Consent` or your own. */
             label?: string | null;
-            /** @description A recording's spoken language: `en-IN`, `hi-IN` or `mr-IN`. */
+            /** @description A recording's spoken language: `en-IN`, `hi-IN`, `mr-IN` or `gu-IN`. */
             language?: string | null;
             /** @description A recording's note (a draft of the uploader, or a signed note together with `addendum_id`). */
             note_id?: string | null;
@@ -11398,6 +11703,22 @@ export interface components {
             /** @description The visit. */
             visit: components["schemas"]["Visit"];
         };
+        /** @description A new link to a visit summary. The token and PIN are shown once. */
+        VisitLink: {
+            /** @description How it was marked as handed over: `whatsapp`, `sms`, `qr` or `link`. No message is queued. */
+            channel: string;
+            /** @description When it stops working. */
+            expires_at: string;
+            /** @description The link's id. */
+            id: string;
+            /** @description Six-digit PIN to tell the patient. */
+            pin: string;
+            /**
+             * @description Token for the link: `/shared/{token}` on the clinic's host; the page opens it with
+             *     `POST /shared/{token}/visit`.
+             */
+            token: string;
+        };
         /** @description A patient's visits, newest first. */
         VisitList: {
             /** @description The visits. */
@@ -11448,6 +11769,29 @@ export interface components {
              * @description Walk-in tokens issued in the range, not counting those who left unseen.
              */
             walk_in: number;
+        };
+        /** @description What a visit summary shows. */
+        VisitSummary: {
+            /** @description The clinic's verified portal host; the booking page is `https://{host}/book`. */
+            booking_host?: string | null;
+            /** @description Where to book the next visit: the clinic's public booking page, when it has a portal. */
+            booking_path?: string | null;
+            /** @description The clinic's name. */
+            clinic_name: string;
+            /** @description The doctor's name. */
+            doctor_name?: string | null;
+            /** @description When the link stops working. */
+            expires_at: string;
+            /** @description When the next follow-up falls due (`YYYY-MM-DD`), if one is planned. */
+            follow_up_on?: string | null;
+            /** @description The patient's name. */
+            patient_name: string;
+            /** @description The treatments done. */
+            treatments: components["schemas"]["SummaryTreatment"][];
+            /** @description The visit's readable number, such as `V-318`. */
+            visit_number: string;
+            /** @description The clinic day of the visit (`YYYY-MM-DD`). */
+            visited_on: string;
         };
         /** @description What a walk-in did. */
         WalkIn: {
@@ -18257,6 +18601,193 @@ export interface operations {
             };
         };
     };
+    listMedicineSets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MedicineSetList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks both prescriptions.issue and clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createMedicineSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MedicineSetValues"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MedicineSet"];
+                };
+            };
+            /** @description A bad label or medicine; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks prescriptions.issue */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A set with that label exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateMedicineSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The medicine set */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MedicineSetValues"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MedicineSet"];
+                };
+            };
+            /** @description A bad label or medicine; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks prescriptions.issue */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such medicine set in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Another set has that label */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteMedicineSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The medicine set */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks prescriptions.issue */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such medicine set in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     sendMessages: {
         parameters: {
             query?: never;
@@ -20161,7 +20692,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The visit is closed, the corrected entry is no longer current, or the chart changed at the same moment */
+            /** @description The visit is closed, the corrected entry is no longer current, the chart changed at the same moment, or `id_conflict`: the client_id made other entries */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -20652,6 +21183,13 @@ export interface operations {
             };
             /** @description No such patient in this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `id_conflict`: the client_id made a different draft */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -22016,7 +22554,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ShareRequest"] | null;
+            };
+        };
         responses: {
             201: {
                 headers: {
@@ -22025,6 +22567,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ShareLink"];
                 };
+            };
+            /** @description Hours outside 24 to 720, or an unknown channel */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not signed in */
             401: {
@@ -24441,6 +24990,60 @@ export interface operations {
             };
         };
     };
+    openSharedVisit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link's token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitSummary"];
+                };
+            };
+            /** @description Wrong PIN; the message says how many tries are left */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such link, or not a link to a visit */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Expired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Locked after too many wrong PINs */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listStaff: {
         parameters: {
             query?: never;
@@ -25790,15 +26393,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CloseRequest"] | null;
+            };
+        };
         responses: {
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Visit"];
+                    "application/json": components["schemas"]["ClosedVisit"];
                 };
+            };
+            /** @description A bad date, fee or note */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not signed in */
             401: {
@@ -25807,7 +26421,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks clinical.write */
+            /** @description The role lacks clinical.write, or patients.write for a follow-up, or billing.write for a fee */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -25827,6 +26441,69 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    finishVisit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FinishRequest"] | null;
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinishedVisit"];
+                };
+            };
+            /** @description A bad date, fee, note or override reason, or a prescription that isn't a draft of this visit's patient */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write, or prescriptions.issue, patients.write or billing.write for what was asked */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit or prescription in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `visit_closed` (the visit is already closed), or `allergy_alerts` (the alerts need an override reason, with the alerts in the body) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueBlocked"];
+                };
             };
         };
     };
@@ -26006,8 +26683,62 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The visit is closed, or the plan item isn't accepted or already has a procedure */
+            /** @description The visit is closed, the plan item isn't accepted or already has a procedure, or `id_conflict`: the client_id made another procedure */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createVisitShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ShareRequest"] | null;
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitLink"];
+                };
+            };
+            /** @description Hours outside 24 to 720, or an unknown channel */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

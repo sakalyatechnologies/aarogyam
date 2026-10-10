@@ -35,6 +35,8 @@ pub enum VoiceLanguage {
     HiIn,
     /// Marathi.
     MrIn,
+    /// Gujarati.
+    GuIn,
 }
 
 impl VoiceLanguage {
@@ -45,13 +47,14 @@ impl VoiceLanguage {
             Self::EnIn => "en-IN",
             Self::HiIn => "hi-IN",
             Self::MrIn => "mr-IN",
+            Self::GuIn => "gu-IN",
         }
     }
 
     /// Parses a tag.
     #[must_use]
     pub fn parse(text: &str) -> Option<Self> {
-        [Self::EnIn, Self::HiIn, Self::MrIn]
+        [Self::EnIn, Self::HiIn, Self::MrIn, Self::GuIn]
             .into_iter()
             .find(|language| language.as_str() == text)
     }
@@ -160,6 +163,7 @@ mod tests {
         assert_eq!(FileType::sniff(b"OggS\0"), Some(FileType::Ogg));
         assert!(FileType::Webm.is_audio() && !FileType::Pdf.is_audio());
         assert_eq!(VoiceLanguage::parse("mr-IN"), Some(VoiceLanguage::MrIn));
+        assert_eq!(VoiceLanguage::parse("gu-IN"), Some(VoiceLanguage::GuIn));
         assert_eq!(VoiceLanguage::parse("fr-FR"), None);
         assert_eq!(FileType::sniff(b"<html><script>"), None);
         assert_eq!(FileType::sniff(b""), None);

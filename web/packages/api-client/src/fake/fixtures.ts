@@ -351,6 +351,9 @@ export interface FakeChartEntry {
   supersedes_id?: string | null;
   visit_id?: string | null;
   effective_at: string;
+  /** A root canal's canals, and its sitting. */
+  canals?: C.RootCanal[];
+  sitting?: number | null;
 }
 
 export interface FakeAttachment {
@@ -576,13 +579,26 @@ export interface FakePrescription {
 export interface FakeShareLink {
   id: string;
   clinic_id: string;
-  prescription_id: string;
+  /** Set for a prescription link; `null` for a visit summary link. */
+  prescription_id: string | null;
+  /** Set for a visit summary link. */
+  encounter_id?: string | null;
+  channel?: string;
   token: string;
   pin: string;
   created_at: string;
   expires_at: string;
   failed_attempts: number;
   locked: boolean;
+}
+
+export interface FakeMedicineSet {
+  id: string;
+  clinic_id: string;
+  label: string;
+  items: C.QuickSetMedicine[];
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Fixtures {
@@ -626,6 +642,10 @@ export interface Fixtures {
   drugs: FakeDrug[];
   prescriptions: FakePrescription[];
   shareLinks: FakeShareLink[];
+  /** `client_id`s already used on the dental chart, with a fingerprint of the request that used them. */
+  chartClientIds?: Record<string, string>;
+  /** The clinics' own medicine sets, made on first use. */
+  medicineSets?: FakeMedicineSet[];
   /** Clinic websites, made on first use. */
   websites?: import("./website.js").FakeSite[];
   websitePhotos?: import("./website.js").FakePhoto[];

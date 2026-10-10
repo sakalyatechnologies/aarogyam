@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiFailure, createDevTokenSource, createHttpClient, patientId, practitionerId, queueTokenId, sessionId, unwrap } from "./index.js";
+import { ApiFailure, createDevTokenSource, createHttpClient, patientId, practitionerId, prescriptionId, queueTokenId, sessionId, unwrap, visitId } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -331,5 +331,96 @@ describe("createHttpClient dashboard layout", () => {
     const client = createHttpClient("", () => "token", { fetch });
     const result = await client.saveMyDashboardLayout({ tpl: "medsync", density: "cozy", card: "soft", rail: { side: "right", width: "medium" }, items: [] });
     expect(result.ok ? null : [result.error.status, result.error.code, result.error.field]).toEqual([400, "invalid_layout", "items[2].opts.weeks"]);
+  });
+});
+
+describe("createHttpClient visit wrap-up, share links and medicine sets", () => {
+  const VISIT = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405170";
+  const summary = {
+    id: VISIT,
+    number: "V-1",
+    patient_id: "01a103b1-ea26-7120-ad93-41b6b4b4ebf2",
+    clinician: { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171", name: "Dr Asha" },
+    status: "closed",
+    started_at: "2026-10-01T04:30:00Z",
+    ended_at: "2026-10-01T05:00:00Z",
+  };
+
+  it("sends close, finish and share bodies and reads the follow-up and the draft bill", async () => {
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, { ...summary, follow_up: null, invoice: null })));
+    const client = createHttpClient("", () => "abc", { fetch });
+    const closed = await unwrap(client.closeVisitWith(visitId.parse(VISIT), { follow_up_on: "2026-10-17", fee_paise: 50_000 }));
+    expect(closed.status).toBe("closed");
+    expect(closed.follow_up ?? null).toBeNull();
+    expect(`${calls[0]?.init?.method ?? ""} ${calls[0]?.url ?? ""}`).toBe(`POST /api/v1/visits/${VISIT}/close`);
+    expect(calls[0]?.init?.body).toBe(JSON.stringify({ follow_up_on: "2026-10-17", fee_paise: 50_000 }));
+
+    const finish = stubFetch(() =>
+      Promise.resolve(json(200, { visit: summary, signed_note_ids: ["n1"], unsigned_note_ids: [] })),
+    );
+    const finished = await unwrap(createHttpClient("", () => "abc", { fetch: finish.fetch }).finishVisit(visitId.parse(VISIT)));
+    expect(finished.signed_note_ids).toEqual(["n1"]);
+    expect(finish.calls[0]?.url).toBe(`/api/v1/visits/${VISIT}/finish`);
+    expect(finish.calls[0]?.init?.body).toBe("{}");
+  });
+
+  it("reads visit_closed and the allergy block as the API's errors", async () => {
+    const closed = stubFetch(json(409, { error: { code: "visit_closed", message: "That visit is already closed." } }));
+    const result = await createHttpClient("", () => "abc", { fetch: closed.fetch }).finishVisit(visitId.parse(VISIT));
+    expect(result.ok ? null : [result.error.status, result.error.code]).toEqual([409, "visit_closed"]);
+  });
+
+  it("shares a prescription and a visit with an expiry and a channel, and opens a visit link", async () => {
+    const link = { id: "l1", token: "t".repeat(43), pin: "123456", expires_at: "2026-10-02T04:30:00Z", channel: "qr" };
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(201, link)));
+    const client = createHttpClient("", () => "abc", { fetch });
+    expect((await unwrap(client.shareVisit(visitId.parse(VISIT), { expires_in_hours: 24, channel: "qr" }))).channel).toBe("qr");
+    await unwrap(client.createShareLinkWith(prescriptionId.parse("rx1"), { expires_in_hours: 48, channel: "whatsapp" }));
+    expect(calls.map((c) => `${c.init?.method ?? ""} ${c.url}`)).toEqual([`POST /api/v1/visits/${VISIT}/share`, "POST /api/v1/prescriptions/rx1/share"]);
+    expect(calls[0]?.init?.body).toBe(JSON.stringify({ expires_in_hours: 24, channel: "qr" }));
+
+    const opened = stubFetch(() =>
+      Promise.resolve(
+        json(200, {
+          clinic_name: "Sunrise Dental",
+          patient_name: "Meera Iyer",
+          visit_number: "V-1",
+          visited_on: "2026-10-01",
+          treatments: [{ name: "Scaling", tooth: 11 }],
+          expires_at: "2026-10-02T04:30:00Z",
+        }),
+      ),
+    );
+    const clientOpen = createHttpClient("", () => null, { fetch: opened.fetch });
+    expect((await unwrap(clientOpen.openSharedVisit("tok", "123456"))).treatments[0]?.name).toBe("Scaling");
+    expect(opened.calls[0]?.url).toBe("/api/v1/shared/tok/visit");
+    expect(opened.calls[0]?.init?.body).toBe(JSON.stringify({ pin: "123456" }));
+  });
+
+  it("reads a link from an older server that sends no channel", async () => {
+    const old = stubFetch(json(201, { id: "l1", token: "t", pin: "123456", expires_at: "2026-10-02T04:30:00Z" }));
+    expect((await unwrap(createHttpClient("", () => "abc", { fetch: old.fetch }).createShareLink(prescriptionId.parse("rx1")))).channel).toBe("link");
+  });
+
+  it("calls the medicine set routes", async () => {
+    const set = {
+      id: "s1",
+      label: "Post extraction",
+      items: [{ drug_name: "Amoxicillin", strength: "500 mg", form: "capsule", dose: "1 capsule", frequency: "1-1-1" }],
+      created_at: "2026-10-01T04:30:00Z",
+      updated_at: "2026-10-01T04:30:00Z",
+    };
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, set)));
+    const client = createHttpClient("", () => "abc", { fetch });
+    const values = { label: set.label, items: set.items };
+    await unwrap(client.createMedicineSet(values));
+    await unwrap(client.updateMedicineSet("s1", values));
+    expect(calls.map((c) => `${c.init?.method ?? ""} ${c.url}`)).toEqual(["POST /api/v1/medicine-sets", "PUT /api/v1/medicine-sets/s1"]);
+    const list = stubFetch(() => Promise.resolve(json(200, { items: [set] })));
+    expect((await unwrap(createHttpClient("", () => "abc", { fetch: list.fetch }).listMedicineSets())).items[0]?.label).toBe("Post extraction");
+    const gone = stubFetch(() => Promise.resolve(new Response(null, { status: 204 })));
+    const removed = await createHttpClient("", () => "abc", { fetch: gone.fetch }).deleteMedicineSet("s1");
+    expect(removed.ok).toBe(true);
+    expect(`${gone.calls[0]?.init?.method ?? ""} ${gone.calls[0]?.url ?? ""}`).toBe("DELETE /api/v1/medicine-sets/s1");
   });
 });

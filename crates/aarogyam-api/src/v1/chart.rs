@@ -1,7 +1,7 @@
 //! The dental chart: current state per tooth, one tooth's history, and new findings.
 
 use aarogyam_app::chart::{
-    self as app, ChartEntryView, DentalChart as ChartView, EntryInput, RecordChart, TermView,
+    self as app, Canal, ChartEntryView, DentalChart as ChartView, EntryInput, RecordChart, TermView,
 };
 use aarogyam_domain::ids::{EncounterId, MembershipId, PatientId, SpecialtyRecordId};
 use aarogyam_domain::permission::require::{ClinicalRead, ClinicalWrite};
@@ -18,6 +18,33 @@ use super::rfc3339;
 use crate::AppState;
 use crate::extract::Require;
 use crate::failure::ApiFailure;
+
+/// One canal of a root canal treatment.
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct RootCanal {
+    /// What the clinician calls it: `MB`, `MB2`, `DB`, `P`. 1 to 20 characters, each name once.
+    pub name: String,
+    /// The working length in millimetres, above 0 and at most 40; kept to two decimals.
+    pub working_length_mm: Option<f64>,
+}
+
+impl From<Canal> for RootCanal {
+    fn from(canal: Canal) -> Self {
+        Self {
+            name: canal.name,
+            working_length_mm: canal.working_length_mm,
+        }
+    }
+}
+
+impl From<RootCanal> for Canal {
+    fn from(canal: RootCanal) -> Self {
+        Self {
+            name: canal.name,
+            working_length_mm: canal.working_length_mm,
+        }
+    }
+}
 
 /// A finding on a tooth or one of its surfaces.
 #[derive(Debug, Serialize, ToSchema)]
@@ -50,6 +77,10 @@ pub struct ChartEntry {
     /// The member who recorded it.
     #[schema(value_type = Option<String>)]
     pub recorded_by: Option<Uuid>,
+    /// For a root canal: its canals with their working lengths. Empty for any other entry.
+    pub canals: Vec<RootCanal>,
+    /// For a root canal: which sitting (visit) of the treatment this entry belongs to.
+    pub sitting: Option<u8>,
 }
 
 impl From<ChartEntryView> for ChartEntry {
@@ -67,6 +98,8 @@ impl From<ChartEntryView> for ChartEntry {
             supersedes_id: view.supersedes_id.map(SpecialtyRecordId::uuid),
             effective_at: rfc3339(view.effective_at),
             recorded_by: view.recorded_by.map(MembershipId::uuid),
+            canals: view.canals.into_iter().map(RootCanal::from).collect(),
+            sitting: view.sitting,
         }
     }
 }
@@ -183,11 +216,22 @@ pub struct NewChartEntry {
     /// for the new entry's own tooth and surface.
     #[schema(value_type = Option<String>)]
     pub supersedes_id: Option<Uuid>,
+    /// Only with `root_canal`: 1 to 8 canals, each with a name and an optional working length.
+    #[serde(default)]
+    pub canals: Vec<RootCanal>,
+    /// Only with `root_canal`: the sitting (visit) of the treatment, 1 to 20.
+    pub sitting: Option<i64>,
 }
 
 /// Findings recorded together.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct NewChartEntries {
+    /// An id the client made for this request, any UUID. A retry with the same `client_id` and
+    /// the same entries records nothing again and returns the chart as it is now; the same
+    /// `client_id` for other entries is `id_conflict` (`409`), whoever's chart it was. Unique per
+    /// clinic. The first entry of the batch carries it.
+    #[schema(value_type = Option<String>)]
+    pub client_id: Option<Uuid>,
     /// The open visit they were found in, if any.
     #[schema(value_type = Option<String>)]
     pub visit_id: Option<Uuid>,
@@ -213,7 +257,7 @@ pub struct NewChartEntries {
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
         (status = 404, description = "No such patient in this clinic"),
-        (status = 409, description = "The visit is closed, the corrected entry is no longer current, or the chart changed at the same moment")
+        (status = 409, description = "The visit is closed, the corrected entry is no longer current, the chart changed at the same moment, or `id_conflict`: the client_id made other entries")
     )
 )]
 pub(crate) async fn record(
@@ -223,6 +267,7 @@ pub(crate) async fn record(
     ApiJson(body): ApiJson<NewChartEntries>,
 ) -> Result<Json<DentalChart>, ApiFailure> {
     let input = RecordChart {
+        client_id: body.client_id,
         visit_id: body.visit_id,
         entries: body
             .entries
@@ -235,6 +280,8 @@ pub(crate) async fn record(
                 material: entry.material,
                 note: entry.note,
                 supersedes_id: entry.supersedes_id,
+                canals: entry.canals.into_iter().map(Canal::from).collect(),
+                sitting: entry.sitting,
             })
             .collect(),
     };

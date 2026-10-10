@@ -87,11 +87,24 @@ pub async fn create(
         patients::get(tx.conn(), patient_id.uuid(), reach)
             .await?
             .ok_or(AppError::NotFound("patient"))?;
-        let id = RecallId::new_v7().uuid();
-        dal::insert(tx.conn(), id, patient_id.uuid(), kind, reason, due_on).await?;
-        load(tx, id, reach).await
+        create_in(tx, patient_id, due_on, reason, kind, reach).await
     })
     .await
+}
+
+/// Plans the follow-up inside the caller's clinic transaction, for a patient already checked
+/// and a reason and kind already validated.
+pub(crate) async fn create_in(
+    tx: &mut ScopedTx,
+    patient_id: PatientId,
+    due_on: Date,
+    reason: &str,
+    kind: &str,
+    reach: Option<Uuid>,
+) -> Result<RecallView, AppError> {
+    let id = RecallId::new_v7().uuid();
+    dal::insert(tx.conn(), id, patient_id.uuid(), kind, reason, due_on).await?;
+    load(tx, id, reach).await
 }
 
 /// Open follow-ups falling due before `due_before` (all open ones without it), soonest first.

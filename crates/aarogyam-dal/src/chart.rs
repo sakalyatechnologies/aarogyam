@@ -2,6 +2,8 @@
 //! Entries are never edited: a new entry supersedes the current one for its tooth and surface.
 
 use sakalya_db::DbError;
+
+use crate::visits::ClientRecord;
 use sqlx::PgConnection;
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -52,6 +54,33 @@ pub struct NewChartRow<'a> {
     pub source: &'a str,
     /// The member recording it.
     pub verified_by: Uuid,
+    /// The client's id for the batch this entry opens, so a retry finds it.
+    pub client_id: Option<Uuid>,
+    /// Hash of the request that carried `client_id`.
+    pub request_hash: Option<&'a str>,
+}
+
+/// The chart entry the client's id made, if any, in this clinic.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn by_client_id(
+    conn: &mut PgConnection,
+    client_id: Uuid,
+) -> Result<Option<ClientRecord>, DbError> {
+    let row = sqlx::query!(
+        r#"select id, patient_id, request_hash as "request_hash!"
+           from aarogyam.specialty_records
+           where client_id = $1 and module = 'dental' and kind = 'tooth'"#,
+        client_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row.map(|row| ClientRecord {
+        id: row.id,
+        patient_id: row.patient_id,
+        request_hash: row.request_hash,
+    }))
 }
 
 /// The patient's current entries for a tooth, locked until the transaction ends.
@@ -127,8 +156,8 @@ pub async fn insert(conn: &mut PgConnection, new: &NewChartRow<'_>) -> Result<Ch
         ChartRow,
         r#"insert into aarogyam.specialty_records
              (id, patient_id, encounter_id, module, kind, schema_version, data, supersedes_id,
-              effective_at, source, verified_by, verified_at)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+              effective_at, source, verified_by, verified_at, client_id, request_hash)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), $12, $13)
            returning id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by"#,
         new.id,
         new.patient_id,
@@ -140,7 +169,9 @@ pub async fn insert(conn: &mut PgConnection, new: &NewChartRow<'_>) -> Result<Ch
         new.supersedes_id,
         new.effective_at,
         new.source,
-        new.verified_by
+        new.verified_by,
+        new.client_id,
+        new.request_hash
     )
     .fetch_one(conn)
     .await?;

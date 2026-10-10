@@ -1608,6 +1608,13 @@ const dentalTermRef = dentalTerm.nullable().exactOptional();
 /** Body of `POST /api/v1/dental-terms`. */
 export type NewDentalTerm = C.NewDentalTerm;
 
+/** One canal of a root canal entry, with its working length in millimetres when measured. */
+export const rootCanal = z.object({
+  name: z.string().min(1),
+  working_length_mm: z.number().nullable().exactOptional(),
+}) satisfies z.ZodType<C.RootCanal>;
+export type RootCanal = z.output<typeof rootCanal>;
+
 export const visitDetail = z.object({
   visit,
   notes: z.array(note),
@@ -1627,6 +1634,8 @@ export const visitDetail = z.object({
       recorded_by: membershipId.nullable().exactOptional(),
       supersedes_id: z.string().min(1).nullable().exactOptional(),
       visit_id: visitId.nullable().exactOptional(),
+      canals: z.array(rootCanal).default([]),
+      sitting: count.nullable().exactOptional(),
     }),
   ),
   attachments: z.array(attachment),
@@ -1665,6 +1674,10 @@ export const chartEntry = z.object({
   supersedes_id: chartEntryId.nullable().exactOptional(),
   visit_id: visitId.nullable().exactOptional(),
   effective_at: timestamp,
+  /** A root canal's canals; empty for any other entry. Older servers don't send it. */
+  canals: z.array(rootCanal).default([]),
+  /** A root canal's sitting (visit) number. */
+  sitting: count.nullable().exactOptional(),
 }) satisfies z.ZodType<C.ChartEntry>;
 export type ChartEntry = z.output<typeof chartEntry>;
 
@@ -2221,13 +2234,84 @@ export const cancelled = z.object({
 }) satisfies z.ZodType<C.Cancelled>;
 export type Cancelled = z.output<typeof cancelled>;
 
+export const shareMessage = z.object({
+  status: z.string(),
+  reason: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.ShareMessage>;
+export type ShareMessage = z.output<typeof shareMessage>;
+
 export const shareLink = z.object({
   id: z.string().min(1),
   token: z.string().min(1),
   pin: z.string().min(1),
   expires_at: timestamp,
+  /** `whatsapp`, `sms`, `qr` or `link`. Older servers don't send it. */
+  channel: z.string().default("link"),
+  /** The care message queued for `whatsapp` and `sms`; absent for `qr` and `link`. */
+  message: shareMessage.nullable().exactOptional(),
 }) satisfies z.ZodType<C.ShareLink>;
 export type ShareLink = z.output<typeof shareLink>;
+
+/** Body of `POST /api/v1/prescriptions/{id}/share` and `POST /api/v1/visits/{id}/share`: both fields optional. */
+export type ShareInput = C.ShareRequest;
+
+/** A link to a visit summary: the patient opens it with the PIN at `/shared/{token}/visit`. */
+export const visitLink = z.object({
+  id: z.string().min(1),
+  token: z.string().min(1),
+  pin: z.string().min(1),
+  expires_at: timestamp,
+  channel: z.string(),
+}) satisfies z.ZodType<C.VisitLink>;
+export type VisitLink = z.output<typeof visitLink>;
+
+export const visitSummary = z.object({
+  clinic_name: z.string(),
+  patient_name: z.string(),
+  visit_number: z.string(),
+  visited_on: z.string(),
+  doctor_name: z.string().nullable().exactOptional(),
+  treatments: z.array(z.object({ name: z.string(), tooth: count.nullable().exactOptional() })),
+  follow_up_on: z.string().nullable().exactOptional(),
+  booking_path: z.string().nullable().exactOptional(),
+  booking_host: z.string().nullable().exactOptional(),
+  expires_at: timestamp,
+}) satisfies z.ZodType<C.VisitSummary>;
+export type VisitSummary = z.output<typeof visitSummary>;
+
+export const recall = z.object({
+  id: z.string().min(1),
+  patient: patientRef,
+  kind: z.string(),
+  reason: z.string(),
+  due_on: z.string(),
+  status: z.string(),
+  done_at: optionalTimestamp,
+}) satisfies z.ZodType<C.Recall>;
+export type Recall = z.output<typeof recall>;
+
+/** Body of `POST /api/v1/visits/{id}/close`: the whole body and each field are optional. */
+export type CloseVisitInput = C.CloseRequest;
+/** Body of `POST /api/v1/visits/{id}/finish`: the whole body and each field are optional. */
+export type FinishVisitInput = C.FinishRequest;
+
+/** A closed visit, with the follow-up and the draft bill closing made (when asked for). */
+export const closedVisit = visit.extend({
+  follow_up: recall.nullable().exactOptional(),
+  invoice: invoice.nullable().exactOptional(),
+}) satisfies z.ZodType<C.ClosedVisit>;
+export type ClosedVisit = z.output<typeof closedVisit>;
+
+export const finishedVisit = z.object({
+  visit,
+  signed_note_ids: z.array(z.string()),
+  unsigned_note_ids: z.array(z.string()),
+  prescription: issuedPrescription.nullable().exactOptional(),
+  share: shareLink.nullable().exactOptional(),
+  follow_up: recall.nullable().exactOptional(),
+  invoice: invoice.nullable().exactOptional(),
+}) satisfies z.ZodType<C.FinishedVisit>;
+export type FinishedVisit = z.output<typeof finishedVisit>;
 
 export const sharedPreview = z.object({
   resource: z.string(),
@@ -2664,6 +2748,8 @@ export const quickPicks = z.object({
     z.object({
       id: z.string(),
       label: z.string(),
+      /** The clinic's own set (editable under `/medicine-sets`), not the specialty's. Older servers don't send it. */
+      own: z.boolean().default(false),
       items: z.array(
         z.object({
           drug_name: z.string(),
@@ -2681,3 +2767,19 @@ export const quickPicks = z.object({
 }) satisfies z.ZodType<C.QuickPicks>;
 export type QuickPicks = z.output<typeof quickPicks>;
 export type MedicineSet = QuickPicks["medicine_sets"][number];
+
+/** A medicine set the clinic saved (`/api/v1/medicine-sets`). Its own sets also appear in the quick picks, flagged `own`. */
+export const savedMedicineSet = z.object({
+  id: z.string().min(1),
+  label: z.string(),
+  items: quickPicks.shape.medicine_sets.element.shape.items,
+  created_at: timestamp,
+  updated_at: timestamp,
+}) satisfies z.ZodType<C.MedicineSet>;
+export type SavedMedicineSet = z.output<typeof savedMedicineSet>;
+
+export const savedMedicineSetList = z.object({ items: z.array(savedMedicineSet) }) satisfies z.ZodType<C.MedicineSetList>;
+export type SavedMedicineSetList = z.output<typeof savedMedicineSetList>;
+
+/** Body of `POST /api/v1/medicine-sets` and `PUT /api/v1/medicine-sets/{id}`. */
+export type MedicineSetInput = C.MedicineSetValues;

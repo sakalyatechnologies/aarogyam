@@ -5,18 +5,24 @@
 use aarogyam_dal::access;
 use aarogyam_dal::prescriptions as dal;
 use aarogyam_domain::access::ClinicActor;
-use aarogyam_domain::ids::{ClinicId, PrescriptionId, ShareLinkId};
+use aarogyam_domain::ids::{ClinicId, PatientId, PrescriptionId, ShareLinkId};
+use aarogyam_domain::messaging::Channel;
+use aarogyam_domain::outbox::MessageKind;
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::prescription::RxStatus;
-use aarogyam_domain::share::{LINK_LIFETIME, LinkState, MAX_PIN_ATTEMPTS, Pin};
+use aarogyam_domain::share::{
+    LinkState, MAX_PIN_ATTEMPTS, Pin, ShareChannel, ShareError, link_lifetime,
+};
 use aws_lc_rs::rand;
 use sakalya_db::{Db, ScopedTx};
-use time::{Date, OffsetDateTime};
+use serde_json::json;
+use time::{Date, Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
-use crate::prescriptions::{RxView, load};
+use crate::messaging::{PatientEmail, enqueue_patient_message};
+use crate::prescriptions::{NotSent, RxView, load};
 use crate::scope::{PATIENT, public_scope, staff_scope};
 use crate::tokens::{hash_token, new_token};
 
@@ -51,7 +57,49 @@ pub(crate) fn new_pin() -> Result<String, AppError> {
     }
 }
 
-/// Makes a link for an issued prescription, valid for seven days.
+/// What the clinic chose for a prescription link.
+#[derive(Debug, Clone, Copy)]
+pub struct ShareOptions {
+    /// How it is handed to the patient.
+    pub channel: ShareChannel,
+    /// How long it works.
+    pub lifetime: Duration,
+}
+
+impl ShareOptions {
+    /// Checks the request's values: the channel (`link` when left out) and the hours (24 to
+    /// 720; seven days when left out).
+    ///
+    /// # Errors
+    /// [`AppError::Invalid`] for a channel or hours that aren't allowed.
+    pub fn parse(channel: Option<&str>, expires_in_hours: Option<i64>) -> Result<Self, AppError> {
+        let channel = match channel.map(str::trim) {
+            None | Some("") => ShareChannel::Link,
+            Some(text) => ShareChannel::parse(text).map_err(|_| invalid(ShareError::Channel))?,
+        };
+        let lifetime = link_lifetime(expires_in_hours).map_err(invalid)?;
+        Ok(Self { channel, lifetime })
+    }
+}
+
+fn invalid(error: ShareError) -> AppError {
+    AppError::invalid(error.field(), error)
+}
+
+/// A new prescription link and whether the patient was also sent a message.
+#[derive(Debug, Clone)]
+pub struct SharedLink {
+    /// The link: token for the URL and the PIN, shown once.
+    pub link: NewLink,
+    /// How it was handed over.
+    pub channel: ShareChannel,
+    /// For `whatsapp` and `sms`: whether a message was queued, or why not. None for the rest.
+    pub message: Option<Result<(), NotSent>>,
+}
+
+/// Makes a link for an issued prescription. For `whatsapp` and `sms` it also queues a care
+/// message to the patient (`messages`, sent when due if consent, opt-outs and an approved
+/// template allow); for `qr` and `link` nothing is sent and the caller shows or copies it.
 ///
 /// # Errors
 /// [`AppError::Denied`] without `prescriptions.issue`; [`AppError::NotFound`];
@@ -61,8 +109,9 @@ pub async fn create(
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     prescription_id: PrescriptionId,
+    options: ShareOptions,
     now: OffsetDateTime,
-) -> Result<NewLink, AppError> {
+) -> Result<SharedLink, AppError> {
     actor.require(Permission::PrescriptionsIssue)?;
     db.scoped(&staff_scope(actor, request_id), async |tx| {
         let (status, patient_id) = dal::lock(
@@ -77,24 +126,160 @@ pub async fn create(
                 "only an issued prescription can be shared",
             ));
         }
-        create_in(tx, actor, request_id, prescription_id, patient_id, now).await
+        share_in(
+            tx,
+            actor,
+            request_id,
+            prescription_id,
+            patient_id,
+            options,
+            now,
+        )
+        .await
     })
     .await
 }
 
+/// [`create`] inside the caller's transaction, for an issued prescription of `patient_id`.
+pub(crate) async fn share_in(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    prescription_id: PrescriptionId,
+    patient_id: Uuid,
+    options: ShareOptions,
+    now: OffsetDateTime,
+) -> Result<SharedLink, AppError> {
+    let link = create_in(
+        tx,
+        actor,
+        request_id,
+        prescription_id,
+        patient_id,
+        options.channel.as_str(),
+        options.lifetime,
+        now,
+    )
+    .await?;
+    let message = if let Some(channel) = options.channel.message_channel() {
+        let rx = load(tx, prescription_id.uuid(), None).await?;
+        let doctor = rx
+            .print
+            .as_ref()
+            .and_then(|print| print.doctor["name"].as_str().map(str::to_owned))
+            .unwrap_or_default();
+        Some(
+            queue_for_phone(
+                tx,
+                channel,
+                prescription_id,
+                PatientId::from_uuid(patient_id),
+                &doctor,
+                &link,
+            )
+            .await?,
+        )
+    } else {
+        None
+    };
+    Ok(SharedLink {
+        link,
+        channel: options.channel,
+        message,
+    })
+}
+
+/// Queues the link as a message to the patient's phone, unless there is no phone or no portal.
+async fn queue_for_phone(
+    tx: &mut ScopedTx,
+    channel: Channel,
+    prescription_id: PrescriptionId,
+    patient_id: PatientId,
+    doctor_name: &str,
+    link: &NewLink,
+) -> Result<Result<(), NotSent>, AppError> {
+    let patient = aarogyam_dal::patients::get(tx.conn(), patient_id.uuid(), None)
+        .await?
+        .ok_or(AppError::NotFound("patient"))?;
+    if patient.phone_e164.is_none() {
+        return Ok(Err(NotSent::NoPhone));
+    }
+    let Some(host) = aarogyam_dal::staff::portal_host(tx.conn()).await? else {
+        return Ok(Err(NotSent::NoPortal));
+    };
+    queue_link_message(
+        tx,
+        channel,
+        prescription_id,
+        patient_id,
+        doctor_name,
+        &host,
+        link,
+    )
+    .await?;
+    Ok(Ok(()))
+}
+
+/// Queues the "your prescription is ready" message for a link on `channel`. The payload names
+/// the clinic, the doctor, the portal and the expiry day, never the patient or the medicines; the
+/// token travels in the message's one-time secret.
+pub(crate) async fn queue_link_message(
+    tx: &mut ScopedTx,
+    channel: Channel,
+    prescription_id: PrescriptionId,
+    patient_id: PatientId,
+    doctor_name: &str,
+    portal_host: &str,
+    link: &NewLink,
+) -> Result<(), AppError> {
+    let profile = aarogyam_dal::clinic::profile(tx.conn())
+        .await?
+        .ok_or(AppError::NotFound("clinic"))?;
+    let expires_on = link
+        .expires_at
+        .to_offset(crate::clock::clinic_offset(&profile.timezone))
+        .date();
+    enqueue_patient_message(
+        tx,
+        channel,
+        &PatientEmail {
+            kind: MessageKind::PrescriptionShared,
+            patient_id,
+            payload: json!({
+                "prescription_id": prescription_id.uuid(),
+                "clinic_name": profile.name,
+                "doctor_name": doctor_name,
+                "portal_host": portal_host,
+                "expires_on": format!("{} {} {}", expires_on.day(), expires_on.month(), expires_on.year()),
+            }),
+            secret: Some(&link.token),
+            appointment_id: None,
+        },
+    )
+    .await?;
+    Ok(())
+}
+
 /// Makes the link inside the caller's transaction, for an issued prescription of `patient_id`.
+/// `channel` is how it is handed over (`whatsapp`, `sms`, `email`, `qr`, `link`).
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one link in the caller's transaction"
+)]
 pub(crate) async fn create_in(
     tx: &mut ScopedTx,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     prescription_id: PrescriptionId,
     patient_id: Uuid,
+    channel: &str,
+    lifetime: Duration,
     now: OffsetDateTime,
 ) -> Result<NewLink, AppError> {
     let (token, token_hash) = new_token()?;
     let pin = new_pin()?;
     let id = ShareLinkId::new_v7();
-    let expires_at = now + LINK_LIFETIME;
+    let expires_at = now + lifetime;
     dal::insert_share_link(
         tx.conn(),
         &dal::NewShareLink {
@@ -104,6 +289,7 @@ pub(crate) async fn create_in(
             prescription_id: prescription_id.uuid(),
             patient_id,
             expires_at,
+            channel,
         },
     )
     .await?;

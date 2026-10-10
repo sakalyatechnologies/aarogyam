@@ -534,7 +534,7 @@ pub struct Upload {
     pub addendum_id: Option<Uuid>,
     /// A recording's length in seconds (1 to 600); required for audio.
     pub duration_seconds: Option<i32>,
-    /// `en-IN`, `hi-IN` or `mr-IN`.
+    /// `en-IN`, `hi-IN`, `mr-IN` or `gu-IN`.
     pub language: Option<String>,
 }
 
@@ -569,8 +569,9 @@ fn check_kind_and_recording(
         .language
         .as_deref()
         .map(|text| {
-            VoiceLanguage::parse(text.trim())
-                .ok_or_else(|| AppError::invalid("language", "must be en-IN, hi-IN or mr-IN"))
+            VoiceLanguage::parse(text.trim()).ok_or_else(|| {
+                AppError::invalid("language", "must be en-IN, hi-IN, mr-IN or gu-IN")
+            })
         })
         .transpose()?;
     if file_type.is_audio() {

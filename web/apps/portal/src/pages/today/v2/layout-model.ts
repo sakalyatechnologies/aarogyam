@@ -139,6 +139,99 @@ export function dropOn(layout: DashboardLayout, from: number, to: number, catalo
   return { ...layout, items: [...rest.slice(0, at), placed, ...rest.slice(at)] };
 }
 
+/** Where a drop lands: a zone, and a place in it (before or after a widget, or at the zone's end when `anchor` is absent). */
+export interface DropPlace {
+  zone: Zone;
+  anchor?: string | undefined;
+  side?: "before" | "after" | undefined;
+}
+
+/** Whether the catalogue lets this widget sit in this zone. */
+export function zoneAllowed(catalogue: DashboardCatalogue, key: string, zone: Zone): boolean {
+  return specOf(catalogue, key)?.zones.includes(zone) === true;
+}
+
+/**
+ * Drops the widget `key` at `place`. A zone the widget may not sit in, or a place that changes nothing, hands the very
+ * same layout back, so the edit snaps back. Moving into another zone keeps the size valid for that widget.
+ */
+export function dropInZone(layout: DashboardLayout, key: string, place: DropPlace, catalogue: DashboardCatalogue): DashboardLayout {
+  const moving = layout.items.find((item) => item.key === key);
+  const spec = specOf(catalogue, key);
+  if (moving === undefined || spec === undefined || !spec.zones.includes(place.zone) || place.anchor === key) return layout;
+  const rest = layout.items.filter((item) => item.key !== key);
+  const anchorAt = place.anchor === undefined ? -1 : rest.findIndex((item) => item.key === place.anchor);
+  let at: number;
+  if (anchorAt >= 0) at = place.side === "after" ? anchorAt + 1 : anchorAt;
+  else {
+    at = rest.length;
+    for (let i = rest.length - 1; i >= 0; i -= 1) {
+      if (rest[i]?.zone === place.zone) {
+        at = i + 1;
+        break;
+      }
+    }
+  }
+  const placed: DashboardLayoutItem = { ...moving, zone: place.zone, size: place.zone === moving.zone ? moving.size : fitSize(spec, moving.size) };
+  const items = [...rest.slice(0, at), placed, ...rest.slice(at)];
+  const same = items.every((item, i) => {
+    const was = layout.items.at(i);
+    return was !== undefined && item.key === was.key && item.zone === was.zone && item.size === was.size;
+  });
+  return same ? layout : { ...layout, items };
+}
+
+export type Step = "up" | "down" | "left" | "right";
+
+/** The zone a left or right step goes to: the main area and the rail swap sides with the rail's side; the top strip has none. */
+export function sideStepZone(zone: Zone, direction: "left" | "right", railSide: string): Zone | undefined {
+  const railDirection = railSide === "left" ? "left" : "right";
+  if (zone === "main" && direction === railDirection) return "rail";
+  if (zone === "rail" && direction !== railDirection) return "main";
+  return undefined;
+}
+
+/** Whether a keyboard step is allowed: not at an edge of its zone, and never into a zone the widget may not use. */
+export function canStep(layout: DashboardLayout, key: string, step: Step, catalogue: DashboardCatalogue): boolean {
+  const index = layout.items.findIndex((item) => item.key === key);
+  const item = layout.items[index];
+  if (item === undefined || !isZone(item.zone)) return false;
+  if (step === "up" || step === "down") return moveInZone(layout, index, step === "up" ? -1 : 1) !== layout;
+  const zone = sideStepZone(item.zone, step, layout.rail.side);
+  return zone !== undefined && zoneAllowed(catalogue, key, zone);
+}
+
+/** Applies a keyboard step; the same layout comes back when the step is not allowed. */
+export function stepWidget(layout: DashboardLayout, key: string, step: Step, catalogue: DashboardCatalogue): DashboardLayout {
+  if (!canStep(layout, key, step, catalogue)) return layout;
+  const index = layout.items.findIndex((item) => item.key === key);
+  const item = layout.items[index];
+  if (item === undefined || !isZone(item.zone)) return layout;
+  if (step === "up" || step === "down") return moveInZone(layout, index, step === "up" ? -1 : 1);
+  const zone = sideStepZone(item.zone, step, layout.rail.side);
+  return zone === undefined ? layout : dropInZone(layout, key, { zone }, catalogue);
+}
+
+/** The widget's allowed sizes, narrowest first. */
+export function sizesOf(spec: WidgetSpec): string[] {
+  return [...spec.sizes].sort((a, b) => (SIZE_SPAN[a] ?? 12) - (SIZE_SPAN[b] ?? 12));
+}
+
+/** The next allowed size up (`1`) or down (`-1`), staying put at the end. */
+export function stepSize(spec: WidgetSpec, size: string, direction: -1 | 1): string {
+  const sizes = sizesOf(spec);
+  const at = sizes.indexOf(size);
+  return sizes[Math.min(sizes.length - 1, Math.max(0, (at < 0 ? 0 : at) + direction))] ?? size;
+}
+
+/** The allowed size whose width is closest to `span` columns of the 12-column grid. */
+export function nearestSize(spec: WidgetSpec, span: number): string {
+  const sizes = sizesOf(spec);
+  let best = sizes[0] ?? spec.default_size;
+  for (const size of sizes) if (Math.abs((SIZE_SPAN[size] ?? 12) - span) < Math.abs((SIZE_SPAN[best] ?? 12) - span)) best = size;
+  return best;
+}
+
 /** Whether two layouts say the same thing (key order and option defaults aside). */
 export function sameLayout(a: DashboardLayout, b: DashboardLayout): boolean {
   return JSON.stringify(normal(a)) === JSON.stringify(normal(b));

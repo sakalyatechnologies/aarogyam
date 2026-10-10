@@ -1,7 +1,7 @@
-import { cleanup, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiClient, DashboardCatalogue, DashboardLayout } from "@aarogyam/api-client";
 import { ROLES } from "@aarogyam/api-client/fake";
@@ -217,6 +217,149 @@ describe("Settings, Dashboard studio tab", () => {
     const drawn = order(today());
     for (const money of ["collections", "revenue_mix", "pending_payments", "labs"]) expect(drawn).not.toContain(money);
     expect(drawn).toContain("team_today");
+  });
+});
+
+describe("Direct manipulation on the preview", () => {
+  const spans = new Map<string, DOMRect>();
+  /** jsdom has no layout, so the zones and cards get boxes of the test's own: top, then main (left) and rail (right). */
+  const BOXES: Record<"top" | "main" | "rail", [number, number, number, number]> = { top: [0, 0, 1000, 100], main: [0, 120, 700, 620], rail: [720, 120, 1000, 620] };
+  const rect = (l: number, t: number, r: number, b: number) => new DOMRect(l, t, r - l, b - t);
+  beforeEach(() => {
+    spans.clear();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const zone = this.dataset["zone"];
+      if (zone === "top" || zone === "main" || zone === "rail") { const [l, t, r, b] = BOXES[zone]; return rect(l, t, r, b); }
+      const key = this.dataset["widget"];
+      const home = this.closest<HTMLElement>("[data-zone]")?.dataset["zone"];
+      if (key !== undefined && (home === "top" || home === "main" || home === "rail")) {
+        const [l, t, r] = BOXES[home];
+        const at = [...(this.closest<HTMLElement>("[data-zone]")?.querySelectorAll("[data-widget]") ?? [])].indexOf(this);
+        return rect(l, t + at * 100, r, t + at * 100 + 90);
+      }
+      return rect(0, 0, 0, 0);
+    });
+  });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  const open = async (options?: Parameters<typeof renderPortal>[1]) => {
+    const rendered = renderPortal("/settings?tab=studio", { as: PEOPLE.asha, ...options });
+    await screen.findByRole("group", { name: "Live preview of Today" });
+    return rendered;
+  };
+  const zoneOf = (key: string) => preview().querySelector(`[data-widget="${key}"]`)?.closest<HTMLElement>("[data-zone]")?.dataset["zone"];
+  const sizeOf = (key: string) => preview().querySelector(`[data-widget="${key}"]`)?.getAttribute("data-size");
+  const dragTo = (key: string, x: number, y: number) => {
+    const grip = preview().querySelector(`[data-widget="${key}"] [data-grip]`);
+    if (grip === null) throw new Error(`no handle on ${key}`);
+    fireEvent.pointerDown(grip, { clientX: 5, clientY: 5, button: 0 });
+    fireEvent.pointerMove(document, { clientX: x, clientY: y });
+    fireEvent.pointerUp(document, { clientX: x, clientY: y });
+  };
+
+  it("reorders with the buttons on the card, and the edge ones are disabled", async () => {
+    const user = userEvent.setup();
+    await open();
+    const pick = (keys: (string | undefined)[]) => keys.filter((key) => ["appointments", "attention", "chairs"].includes(key ?? ""));
+    expect(pick(order(preview()))[0]).toBe("appointments");
+    expect(screen.getByRole("button", { name: "Move Appointments up in preview" }).hasAttribute("disabled")).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Move Appointments down in preview" }));
+    expect(pick(order(preview())).slice(0, 2)).toEqual(["attention", "appointments"]);
+    await user.click(screen.getByRole("button", { name: "Move Appointments up in preview" }));
+    expect(pick(order(preview()))[0]).toBe("appointments");
+    await user.click(screen.getByRole("button", { name: "Remove Chairs from preview" }));
+    expect(order(preview())).not.toContain("chairs");
+  });
+
+  it("resizes to the next allowed size with the arrow keys and stops at the ends", async () => {
+    const user = userEvent.setup();
+    await open();
+    const slider = screen.getByRole("slider", { name: "Resize Appointments" });
+    // Appointments comes in L and full only.
+    expect(sizeOf("appointments")).toBe("L");
+    slider.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(sizeOf("appointments")).toBe("full");
+    expect(slider.getAttribute("aria-valuetext")).toBe("Full width");
+    await user.keyboard("{ArrowRight}");
+    expect(sizeOf("appointments")).toBe("full");
+    await user.keyboard("{ArrowLeft}");
+    expect(sizeOf("appointments")).toBe("L");
+    await user.keyboard("{ArrowLeft}");
+    expect(sizeOf("appointments")).toBe("L");
+  });
+
+  it("snaps a dragged corner to an allowed size", async () => {
+    await open();
+    const slider = screen.getByRole("slider", { name: "Resize Appointments" });
+    // The main grid is 700 wide: a column is about 58px. Large is 8 columns, full is 12.
+    fireEvent.pointerDown(slider, { clientX: 400, clientY: 200, button: 0 });
+    fireEvent.pointerMove(document, { clientX: 700, clientY: 200 });
+    expect(sizeOf("appointments")).toBe("full");
+    fireEvent.pointerMove(document, { clientX: 100, clientY: 200 });
+    // Pulled far narrower than anything it allows: it takes its narrowest allowed size, never S or M.
+    expect(sizeOf("appointments")).toBe("L");
+    fireEvent.pointerUp(document, { clientX: 100, clientY: 200 });
+  });
+
+  it("refuses a drop in a zone the widget may not use, and the layout stays as it was", async () => {
+    await open();
+    expect(zoneOf("appointments")).toBe("main");
+    const before = order(preview());
+    dragTo("appointments", 850, 300);
+    expect(zoneOf("appointments")).toBe("main");
+    expect(order(preview())).toEqual(before);
+    expect(screen.getByText(/cannot go in the side rail/)).toBeTruthy();
+    // And the move buttons agree: Appointments has no side rail to go to.
+    expect(screen.getByRole("button", { name: /Move Appointments to the side rail/ }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("drops a widget in the rail when it may go there, and Save sends what was dragged", async () => {
+    const backend = fakeApi();
+    const saved: DashboardLayout[] = [];
+    const wrap = (client: ApiClient): ApiClient => ({
+      ...client,
+      saveMyDashboardLayout: (layout, options) => {
+        saved.push(layout);
+        return client.saveMyDashboardLayout(layout, options);
+      },
+    });
+    const user = userEvent.setup();
+    await open({ backend, wrap });
+    expect(zoneOf("attention")).toBe("main");
+    dragTo("attention", 850, 600);
+    expect(zoneOf("attention")).toBe("rail");
+    expect(screen.getByText(/moved to the side rail/)).toBeTruthy();
+    // It is the last card of the rail.
+    const rail = [...preview().querySelectorAll<HTMLElement>('[data-zone="rail"] [data-widget]')].map((el) => el.dataset["widget"]);
+    expect(rail[rail.length - 1]).toBe("attention");
+    const drawn = order(preview());
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => { expect(saved).toHaveLength(1); });
+    const items = saved[0]?.items ?? [];
+    expect(items.find((item) => item.key === "attention")?.zone).toBe("rail");
+    // The saved list, drawn zone by zone (without what this role cannot see), is the preview's order.
+    const byZone = (zone: string) => items.filter((item) => item.zone === zone && drawn.includes(item.key)).map((item) => item.key);
+    expect([...byZone("top"), ...(saved[0]?.rail.side === "left" ? byZone("rail") : []), ...byZone("main"), ...(saved[0]?.rail.side === "left" ? [] : byZone("rail"))]).toEqual(drawn);
+  });
+
+  it("moves a card before another in its zone by dragging, and Escape puts it back", async () => {
+    await open();
+    const main = [...preview().querySelectorAll<HTMLElement>('[data-zone="main"] [data-widget]')].map((el) => el.dataset["widget"]);
+    const last = main[main.length - 1];
+    if (main.length < 2 || last === undefined || main[0] === undefined) throw new Error("the default layout has too few main cards");
+    // Over the top half of the first card.
+    dragTo(last, 300, 125);
+    const after = [...preview().querySelectorAll<HTMLElement>('[data-zone="main"] [data-widget]')].map((el) => el.dataset["widget"]);
+    expect(after[0]).toBe(last);
+    // A drag cancelled with Escape changes nothing.
+    const grip = preview().querySelector(`[data-widget="${main[0]}"] [data-grip]`);
+    if (grip === null) throw new Error("no handle");
+    fireEvent.pointerDown(grip, { clientX: 5, clientY: 5, button: 0 });
+    fireEvent.pointerMove(document, { clientX: 300, clientY: 500 });
+    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.pointerUp(document, { clientX: 300, clientY: 500 });
+    expect([...preview().querySelectorAll<HTMLElement>('[data-zone="main"] [data-widget]')].map((el) => el.dataset["widget"])).toEqual(after);
   });
 });
 

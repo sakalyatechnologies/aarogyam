@@ -1,10 +1,12 @@
 import { ChevronDown, ChevronUp, GripVertical, Plus, Settings2, Trash2 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { useEffect, useId, useRef, useState, type DragEvent } from "react";
 
 import { apiErrorOf, type DashboardCatalogue, type DashboardLayout, type DashboardLayoutView } from "@aarogyam/api-client";
 import { Pills, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
+import { useBoardEdit, type BoardEdit } from "./board-edit.js";
 import { Board } from "./board.js";
 import {
   SIZE_LABEL,
@@ -39,7 +41,7 @@ const toPills = (values: readonly string[], labels: Readonly<Record<string, stri
  * A board at desktop width, scaled down to the room there is, and inert. The Studio's preview is one at (nearly) full
  * size; a template card's thumbnail is one at a sixth. `sample` draws it from a made-up clinic day.
  */
-function ScaledBoard({ layout, view, sample, minScale = 0.3 }: { layout: DashboardLayout; view: DashboardLayoutView; sample: boolean; minScale?: number }) {
+function ScaledBoard({ layout, view, sample, minScale = 0.3, edit }: { layout: DashboardLayout; view: DashboardLayoutView; sample: boolean; minScale?: number; edit?: BoardEdit }) {
   const outer = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(Math.max(0.5, minScale));
@@ -61,21 +63,41 @@ function ScaledBoard({ layout, view, sample, minScale = 0.3 }: { layout: Dashboa
       watch.disconnect();
     };
   }, [minScale]);
-  const board = <Board layout={layout} catalogue={view.catalogue} preview />;
+  // The edit controls undo the scale, so they stay one size on screen.
+  useEffect(() => {
+    inner.current?.style.setProperty("--tv2-unscale", String(1 / scale));
+  }, [scale]);
+  const board = <Board layout={layout} catalogue={view.catalogue} preview edit={edit} />;
   return (
     <div ref={outer} className="tv2-preview-frame" style={height === undefined ? undefined : { height }}>
-      <div ref={inner} className="tv2-preview-inner" style={{ transform: `scale(${String(scale)})` }} inert>
+      <div ref={inner} className="tv2-preview-inner" style={{ transform: `scale(${String(scale)})` }} inert={edit === undefined}>
         {sample ? <SampleData>{board}</SampleData> : board}
       </div>
     </div>
   );
 }
 
-/** The Studio's preview: the live Board at desktop width, scaled down to the room there is, and inert. */
-function ScaledPreview({ layout, view, sample }: { layout: DashboardLayout; view: DashboardLayoutView; sample: boolean }) {
+/**
+ * The Studio's preview: the live Board at desktop width, scaled down to the room there is. Its cards are in edit mode:
+ * drag one by its handle, pull its corner to resize, or use the arrows. A dragged card trails a small label.
+ */
+function ScaledPreview({ layout, view, sample, onChange }: { layout: DashboardLayout; view: DashboardLayoutView; sample: boolean; onChange: (next: DashboardLayout) => void }) {
+  const root = useRef<HTMLDivElement>(null);
+  const { edit, note, ghost } = useBoardEdit({ layout, catalogue: view.catalogue, onChange, root });
   return (
-    <div className="tv2-preview" role="group" aria-label="Live preview of Today">
-      <ScaledBoard layout={layout} view={view} sample={sample} />
+    <div ref={root} className="tv2-preview" role="group" aria-label="Live preview of Today" data-editing="1">
+      <ScaledBoard layout={layout} view={view} sample={sample} edit={edit} />
+      <p className="tv2-note tv2-edit-note" aria-live="polite">
+        {note === "" ? "Drag a card by its handle, pull its corner to resize it, or use the arrow buttons." : note}
+      </p>
+      {ghost === undefined
+        ? null
+        : createPortal(
+            <div className="tv2-ghost" style={{ left: ghost.x, top: ghost.y }} aria-hidden="true">
+              {ghost.label}
+            </div>,
+            document.body,
+          )}
     </div>
   );
 }
@@ -434,7 +456,7 @@ export function StudioEditor({ view, layout: arrangement = "stacked", scope = "m
   const studio = (
     <div className="tv2-studio" data-layout={arrangement} data-thumbs={thumbnails ? "1" : undefined}>
       {controls}
-      <ScaledPreview layout={draft} view={view} sample={sample} />
+      <ScaledPreview layout={draft} view={view} sample={sample} onChange={change} />
     </div>
   );
   return sample ? <SampleScope>{studio}</SampleScope> : studio;

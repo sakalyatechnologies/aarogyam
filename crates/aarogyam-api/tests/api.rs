@@ -508,6 +508,8 @@ async fn every_route_requires_sign_in_and_a_permission() {
             || path == "/api/v1/attachments/{id}/content"
             // A letterhead image link is signed too (tests/letterhead.rs).
             || path == "/api/v1/letterhead/images/{id}/content"
+            // So is an avatar photo link (tests/mobile_avatar.rs).
+            || path == "/api/v1/avatars/{id}/content"
             // The public registration form needs no sign-in; it is throttled per IP and
             // answers the same whatever happened (tests/onboarding.rs).
             || path == "/api/v1/registrations"
@@ -536,6 +538,8 @@ async fn every_route_requires_sign_in_and_a_permission() {
                 "/api/v1/me/sessions",
                 "/api/v1/me/sessions/{id}/revoke",
                 "/api/v1/session",
+                // A member's own avatar: theirs, whatever the role (tests/mobile_avatar.rs).
+                "/api/v1/me/avatar",
                 // A member's own setup, doctor record and hours: theirs, whatever the role
                 // (tests/setup.rs).
                 "/api/v1/me/onboarding",

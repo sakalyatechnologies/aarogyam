@@ -8,6 +8,7 @@
 pub mod accounts;
 pub mod analytics;
 pub mod appointments;
+pub mod avatars;
 pub mod billing;
 pub mod chart;
 pub mod chat;

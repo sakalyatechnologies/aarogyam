@@ -62,6 +62,7 @@ macro_rules! text_value {
 
 pub mod access;
 pub mod analytics;
+pub mod avatar;
 pub mod billing;
 pub mod booking;
 pub mod chat;

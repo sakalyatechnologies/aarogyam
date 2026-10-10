@@ -185,6 +185,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/avatars/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Streams an avatar photo through its signed link, which works on the clinic's own host for an
+         *     hour and is the proof of access (an `<img>` can use it).
+         */
+        get: operations["getAvatarContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/client-errors": {
         parameters: {
             query?: never;
@@ -1459,6 +1479,28 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Sets the caller's own avatar for this clinic as `multipart/form-data` with either a `preset`
+         *     id or a `file` (PNG or JPEG, up to 2 MB, checked by content). Replaces the previous one. Any
+         *     member may do this; it changes only their own.
+         */
+        put: operations["putMyAvatar"];
+        post?: never;
+        /** Removes the caller's avatar. */
+        delete: operations["deleteMyAvatar"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4614,6 +4656,25 @@ export interface components {
             /** @description Start of each free slot, RFC 3339 in the clinic's time zone. */
             slots: string[];
         };
+        /** @description A member's avatar: a preset the apps draw, or a photo to fetch. */
+        Avatar: {
+            /** @description When `photo_url` stops working (RFC 3339); load the list again for a new link. */
+            photo_expires_at?: string | null;
+            /** @description A signed path on the clinic's host for the photo (`GET /api/v1/avatars/{id}/content`). */
+            photo_url?: string | null;
+            /** @description The preset id, such as `tooth_3`; the apps ship the pictures. */
+            preset?: string | null;
+        };
+        /** @description The avatar form: exactly one of `file` and `preset`. */
+        AvatarForm: {
+            /**
+             * Format: binary
+             * @description A PNG or JPEG photo of at most 2 MB.
+             */
+            file?: string | null;
+            /** @description A preset id: 1 to 32 lower-case letters, digits or underscores, starting with a letter. */
+            preset?: string | null;
+        };
         /** @description The numbers the apps poll every minute. */
         Badges: {
             /**
@@ -6852,6 +6913,7 @@ export interface components {
         };
         /** @description A member of staff. */
         Member: {
+            avatar?: components["schemas"]["Avatar"] | null;
             /** @description Branches they work at; empty means every branch. */
             branches: components["schemas"]["MemberBranch"][];
             /** @description Their name. */
@@ -7026,6 +7088,7 @@ export interface components {
         };
         /** @description A clinic the person belongs to. */
         MyClinic: {
+            avatar?: components["schemas"]["Avatar"] | null;
             /** @description The clinic portal's host name. */
             host?: string | null;
             /** @description Its name. */
@@ -9279,6 +9342,7 @@ export interface components {
         };
         /** @description The signed-in member. */
         SessionUser: {
+            avatar?: components["schemas"]["Avatar"] | null;
             /** @description Their name. */
             display_name: string;
             /** @description The user. */
@@ -11089,6 +11153,44 @@ export interface operations {
             };
             /** @description Too many attempts */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAvatarContent: {
+        parameters: {
+            query: {
+                /** @description The signed token from the avatar's photo_url */
+                token: string;
+            };
+            header?: never;
+            path: {
+                /** @description The photo */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo, with its media type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link has expired; load the list again */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a valid link for a photo of this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -15350,6 +15452,89 @@ export interface operations {
             };
             /** @description Not signed in */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    putMyAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["AvatarForm"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Avatar"];
+                };
+            };
+            /** @description Not exactly one of preset and file, a bad preset, or not a PNG or JPEG */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 2 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteMyAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed (also when there was none) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -784,8 +784,11 @@ A user's place in a clinic: role, branches, status. The link between users and c
 | `status` | `membership_status` | invited, active, suspended, left |
 | `pin_hash` | `text?` | quick switch on shared PCs |
 | `joined_at` | `timestamptz?` |  |
+| `avatar_preset` | `text?` | the staff avatar as a preset id the apps ship (migration 0386) |
+| `avatar_file_id` | `uuid?` | or the member's own PNG or JPEG photo in file storage under the clinic's folder, read through signed links |
+| `avatar_mime` | `text?` | image/png or image/jpeg, set with avatar_file_id |
 
-Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize().
+Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize(). At most one of avatar_preset and avatar_file_id; the member sets their own with PUT /me/avatar, and app.my_clinics returns both for the clinic switcher.
 
 Referenced by: `allergies.verified_by`, `chat_messages.author_membership_id`, `clinical_notes.author_id`, `clinical_notes.error_by`, `clinical_notes.signed_by`, `conditions.verified_by`, `consent_notices.published_by`, `conversation_members.membership_id`, `daily_closings.closed_by`, `dental_terms.added_by`, `dental_terms.retired_by`, `document_extractions.confirmed_by`, `encounters.clinician_id`, `expenses.recorded_by`, `expenses.voided_by`, `invoices.issued_by`, `invoices.voided_by`, `lab_order_events.actor_id`, `lab_orders.doctor_id`, `lab_orders.last_contacted_by`, `lab_payments.recorded_by`, `lab_payments.voided_by`, `medical_history_items.verified_by`, `member_setup.membership_id`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `patient_consents.recorded_by`, `patient_consents.withdrawn_by`, `patient_duplicates.resolved_by`, `patient_links.decided_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `procedures.clinician_id`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`, `staff_notification_reads.membership_id`, `staff_notifications.handled_by`, `support_grants.granted_by`, `support_grants.revoked_by`, `treatment_plans.clinician_id`
 

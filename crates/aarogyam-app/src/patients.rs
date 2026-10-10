@@ -621,6 +621,8 @@ pub struct Session {
     pub clinic: clinic::ClinicProfile,
     /// The member's display name.
     pub display_name: String,
+    /// The member's avatar at this clinic.
+    pub avatar: aarogyam_dal::avatars::AvatarRow,
 }
 
 /// Loads what the portal shows about the current clinic and member.
@@ -633,13 +635,14 @@ pub async fn session(
     request_id: Option<Uuid>,
 ) -> Result<Session, AppError> {
     db.scoped(&scope(actor, request_id), async |tx| {
-        let (clinic, display_name) = clinic::session(tx.conn(), actor.user_id.uuid())
+        let (clinic, display_name, avatar) = clinic::session(tx.conn(), actor.user_id.uuid())
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
         let display_name = display_name.unwrap_or_default();
         Ok(Session {
             clinic,
             display_name,
+            avatar,
         })
     })
     .await

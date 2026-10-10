@@ -5,6 +5,7 @@
 pub(crate) mod analytics;
 pub(crate) mod appointments;
 pub(crate) mod auth;
+pub(crate) mod avatars;
 pub(crate) mod billing;
 pub(crate) mod chart;
 pub(crate) mod chat;
@@ -102,6 +103,13 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/me/sessions", get(me::sessions))
         .route("/me/sessions/{id}/revoke", post(me::revoke_session))
         .route("/session", get(me::session))
+        .route(
+            "/me/avatar",
+            put(avatars::put_avatar)
+                .delete(avatars::delete_avatar)
+                .layer(DefaultBodyLimit::max(avatars::MAX_UPLOAD_BODY)),
+        )
+        .route("/avatars/{id}/content", get(avatars::photo_content))
         // The patient app: a signed-in patient's own records, at the clinics that linked them
         // (tests/patient_app.rs). Reads on the app host; booking, cancelling and files on the
         // clinic's host, which must have linked the account.

@@ -575,6 +575,46 @@
         }
       }
     },
+    "/api/v1/avatars/{id}/content": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Streams an avatar photo through its signed link, which works on the clinic's own host for an\nhour and is the proof of access (an `<img>` can use it).",
+        "operationId": "getAvatarContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The photo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "description": "The signed token from the avatar's photo_url",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The photo, with its media type"
+          },
+          "403": {
+            "description": "The link has expired; load the list again"
+          },
+          "404": {
+            "description": "Not a valid link for a photo of this clinic"
+          }
+        }
+      }
+    },
     "/api/v1/client-errors": {
       "post": {
         "tags": [
@@ -4950,6 +4990,76 @@
           },
           "401": {
             "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/avatar": {
+      "put": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Sets the caller's own avatar for this clinic as `multipart/form-data` with either a `preset`\nid or a `file` (PNG or JPEG, up to 2 MB, checked by content). Replaces the previous one. Any\nmember may do this; it changes only their own.",
+        "operationId": "putMyAvatar",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/AvatarForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Avatar"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not exactly one of preset and file, a bad preset, or not a PNG or JPEG"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          },
+          "413": {
+            "description": "Larger than 2 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Removes the caller's avatar.",
+        "operationId": "deleteMyAvatar",
+        "responses": {
+          "204": {
+            "description": "Removed (also when there was none)"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
           }
         },
         "security": [
@@ -14313,6 +14423,54 @@
           }
         }
       },
+      "Avatar": {
+        "type": "object",
+        "description": "A member's avatar: a preset the apps draw, or a photo to fetch.",
+        "properties": {
+          "photo_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When `photo_url` stops working (RFC 3339); load the list again for a new link."
+          },
+          "photo_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A signed path on the clinic's host for the photo (`GET /api/v1/avatars/{id}/content`)."
+          },
+          "preset": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The preset id, such as `tooth_3`; the apps ship the pictures."
+          }
+        }
+      },
+      "AvatarForm": {
+        "type": "object",
+        "description": "The avatar form: exactly one of `file` and `preset`.",
+        "properties": {
+          "file": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "binary",
+            "description": "A PNG or JPEG photo of at most 2 MB."
+          },
+          "preset": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A preset id: 1 to 32 lower-case letters, digits or underscores, starting with a letter."
+          }
+        }
+      },
       "Badges": {
         "type": "object",
         "description": "The numbers the apps poll every minute.",
@@ -19969,6 +20127,17 @@
           "branches"
         ],
         "properties": {
+          "avatar": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Avatar",
+                "description": "Their avatar: a preset id or a photo link (on the clinic's host, good for an hour)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "branches": {
             "type": "array",
             "items": {
@@ -20348,6 +20517,17 @@
           "role_name"
         ],
         "properties": {
+          "avatar": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Avatar",
+                "description": "The person's avatar at this clinic; photo links work on the clinic's `host`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "host": {
             "type": [
               "string",
@@ -26154,6 +26334,17 @@
           "display_name"
         ],
         "properties": {
+          "avatar": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Avatar",
+                "description": "Their avatar at this clinic."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "display_name": {
             "type": "string",
             "description": "Their name."

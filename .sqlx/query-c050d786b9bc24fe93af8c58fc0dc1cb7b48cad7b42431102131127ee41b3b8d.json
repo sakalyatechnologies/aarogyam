@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select m.id, m.user_id, u.display_name, r.key as role_key, r.name as role_name, m.status,\n                  m.joined_at,\n                  coalesce(array_agg(b.id order by b.name) filter (where b.id is not null), '{}')\n                    as \"branch_ids!\",\n                  coalesce(array_agg(b.name order by b.name) filter (where b.id is not null), '{}')\n                    as \"branch_names!\"\n           from aarogyam.memberships m\n           join aarogyam.users u on u.id = m.user_id\n           join aarogyam.roles r on r.org_id = m.org_id and r.id = m.role_id\n           left join aarogyam.membership_branches mb on mb.org_id = m.org_id and mb.membership_id = m.id\n           left join aarogyam.branches b\n             on b.org_id = mb.org_id and b.id = mb.branch_id and b.deleted_at is null\n           group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at\n           order by m.status = 'active' desc, u.display_name, m.id",
+  "query": "select m.id, m.user_id, u.display_name, r.key as role_key, r.name as role_name, m.status,\n                  m.joined_at, m.avatar_preset, m.avatar_file_id,\n                  coalesce(array_agg(b.id order by b.name) filter (where b.id is not null), '{}')\n                    as \"branch_ids!\",\n                  coalesce(array_agg(b.name order by b.name) filter (where b.id is not null), '{}')\n                    as \"branch_names!\"\n           from aarogyam.memberships m\n           join aarogyam.users u on u.id = m.user_id\n           join aarogyam.roles r on r.org_id = m.org_id and r.id = m.role_id\n           left join aarogyam.membership_branches mb on mb.org_id = m.org_id and mb.membership_id = m.id\n           left join aarogyam.branches b\n             on b.org_id = mb.org_id and b.id = mb.branch_id and b.deleted_at is null\n           group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at,\n                    m.avatar_preset, m.avatar_file_id\n           order by m.status = 'active' desc, u.display_name, m.id",
   "describe": {
     "columns": [
       {
@@ -82,12 +82,34 @@
       },
       {
         "ordinal": 7,
+        "name": "avatar_preset",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.memberships",
+            "name": "avatar_preset"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "avatar_file_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.memberships",
+            "name": "avatar_file_id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "branch_ids!",
         "type_info": "UuidArray",
         "origin": "Expression"
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "branch_names!",
         "type_info": "TextArray",
         "origin": "Expression"
@@ -104,9 +126,11 @@
       false,
       false,
       true,
+      true,
+      true,
       null,
       null
     ]
   },
-  "hash": "edad65260bb202b22beab204ecdd59ef6af212ff750aa9014410c87d4cce95f5"
+  "hash": "c050d786b9bc24fe93af8c58fc0dc1cb7b48cad7b42431102131127ee41b3b8d"
 }

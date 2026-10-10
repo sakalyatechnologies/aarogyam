@@ -274,12 +274,75 @@ impl LinkSigner {
 }
 
 impl LinkSigner {
-    fn image_message(clinic: ClinicId, image: AttachmentId, expires: i64) -> String {
-        format!(
-            "letterhead-image:v1|{}|{}|{expires}",
-            clinic.uuid(),
-            image.uuid()
+    fn image_message(kind: &str, clinic: ClinicId, image: AttachmentId, expires: i64) -> String {
+        format!("{kind}:v1|{}|{}|{expires}", clinic.uuid(), image.uuid())
+    }
+
+    fn sign_picture(
+        &self,
+        kind: &str,
+        clinic: ClinicId,
+        image: AttachmentId,
+        expires: OffsetDateTime,
+    ) -> String {
+        let expires = expires.unix_timestamp();
+        let tag = hmac::sign(
+            &self.key,
+            Self::image_message(kind, clinic, image, expires).as_bytes(),
+        );
+        format!("{expires}.{}", URL_SAFE_NO_PAD.encode(tag.as_ref()))
+    }
+
+    fn verify_picture(
+        &self,
+        kind: &str,
+        clinic: ClinicId,
+        image: AttachmentId,
+        token: &str,
+        now: OffsetDateTime,
+    ) -> Result<(), LinkRefusal> {
+        let (expires, tag) = token.trim().split_once('.').ok_or(LinkRefusal::Invalid)?;
+        let expires: i64 = expires.parse().map_err(|_| LinkRefusal::Invalid)?;
+        let tag = URL_SAFE_NO_PAD
+            .decode(tag)
+            .map_err(|_| LinkRefusal::Invalid)?;
+        hmac::verify(
+            &self.key,
+            Self::image_message(kind, clinic, image, expires).as_bytes(),
+            &tag,
         )
+        .map_err(|_| LinkRefusal::Invalid)?;
+        if now.unix_timestamp() > expires {
+            return Err(LinkRefusal::Expired);
+        }
+        Ok(())
+    }
+
+    /// A token to show a staff member's avatar photo (not patient data, so it names no one)
+    /// until `expires`.
+    #[must_use]
+    pub fn sign_avatar(
+        &self,
+        clinic: ClinicId,
+        image: AttachmentId,
+        expires: OffsetDateTime,
+    ) -> String {
+        self.sign_picture("avatar-image", clinic, image, expires)
+    }
+
+    /// Checks an avatar photo token at `now`.
+    ///
+    /// # Errors
+    /// [`LinkRefusal::Invalid`] unless signed by this server for this clinic and photo;
+    /// [`LinkRefusal::Expired`] once past its expiry.
+    pub fn verify_avatar(
+        &self,
+        clinic: ClinicId,
+        image: AttachmentId,
+        token: &str,
+        now: OffsetDateTime,
+    ) -> Result<(), LinkRefusal> {
+        self.verify_picture("avatar-image", clinic, image, token, now)
     }
 
     /// A token to show a clinic's letterhead image (not patient data, so it names no member)
@@ -291,12 +354,7 @@ impl LinkSigner {
         image: AttachmentId,
         expires: OffsetDateTime,
     ) -> String {
-        let expires = expires.unix_timestamp();
-        let tag = hmac::sign(
-            &self.key,
-            Self::image_message(clinic, image, expires).as_bytes(),
-        );
-        format!("{expires}.{}", URL_SAFE_NO_PAD.encode(tag.as_ref()))
+        self.sign_picture("letterhead-image", clinic, image, expires)
     }
 
     /// Checks a letterhead image token at `now`.
@@ -311,21 +369,7 @@ impl LinkSigner {
         token: &str,
         now: OffsetDateTime,
     ) -> Result<(), LinkRefusal> {
-        let (expires, tag) = token.trim().split_once('.').ok_or(LinkRefusal::Invalid)?;
-        let expires: i64 = expires.parse().map_err(|_| LinkRefusal::Invalid)?;
-        let tag = URL_SAFE_NO_PAD
-            .decode(tag)
-            .map_err(|_| LinkRefusal::Invalid)?;
-        hmac::verify(
-            &self.key,
-            Self::image_message(clinic, image, expires).as_bytes(),
-            &tag,
-        )
-        .map_err(|_| LinkRefusal::Invalid)?;
-        if now.unix_timestamp() > expires {
-            return Err(LinkRefusal::Expired);
-        }
-        Ok(())
+        self.verify_picture("letterhead-image", clinic, image, token, now)
     }
 }
 

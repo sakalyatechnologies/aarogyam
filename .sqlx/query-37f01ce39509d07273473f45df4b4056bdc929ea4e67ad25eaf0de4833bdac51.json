@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select org_id as \"org_id!\", slug as \"slug!\", name as \"name!\", role_key as \"role_key!\",\n                  role_name as \"role_name!\", portal_host\n           from app.my_clinics($1)",
+  "query": "select org_id as \"org_id!\", slug as \"slug!\", name as \"name!\", role_key as \"role_key!\",\n                  role_name as \"role_name!\", portal_host, avatar_preset, avatar_file_id\n           from app.my_clinics($1)",
   "describe": {
     "columns": [
       {
@@ -38,6 +38,18 @@
         "name": "portal_host",
         "type_info": "Text",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "avatar_preset",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "avatar_file_id",
+        "type_info": "Uuid",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -51,8 +63,10 @@
       null,
       null,
       null,
+      null,
+      null,
       null
     ]
   },
-  "hash": "a6a35322709dcc3d76b6c34a5d91ccd49535f117f0a498f26aed0424187990da"
+  "hash": "37f01ce39509d07273473f45df4b4056bdc929ea4e67ad25eaf0de4833bdac51"
 }

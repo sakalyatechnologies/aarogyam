@@ -2051,7 +2051,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize().",
+   "notes": "Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize(). At most one of avatar_preset and avatar_file_id; the member sets their own with PUT /me/avatar, and app.my_clinics returns both for the clinic switcher.",
    "cols": [
     {
      "name": "user_id",
@@ -2087,6 +2087,27 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "avatar_preset",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the staff avatar as a preset id the apps ship (migration 0386)"
+    },
+    {
+     "name": "avatar_file_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "or the member's own PNG or JPEG photo in file storage under the clinic's folder, read through signed links"
+    },
+    {
+     "name": "avatar_mime",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "image/png or image/jpeg, set with avatar_file_id"
     }
    ],
    "referenced_by": [

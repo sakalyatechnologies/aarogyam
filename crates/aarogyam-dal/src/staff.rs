@@ -28,6 +28,12 @@ pub struct MemberRow {
     pub branch_ids: Vec<Uuid>,
     /// Those branches' names, in the same order.
     pub branch_names: Vec<String>,
+    /// Their avatar's preset id.
+    #[serde(default)]
+    pub avatar_preset: Option<String>,
+    /// Their avatar's stored photo.
+    #[serde(default)]
+    pub avatar_file_id: Option<Uuid>,
 }
 
 /// Every member, active ones first, then by name.
@@ -38,7 +44,7 @@ pub async fn members(conn: &mut PgConnection) -> Result<Vec<MemberRow>, DbError>
     let rows = sqlx::query_as!(
         MemberRow,
         r#"select m.id, m.user_id, u.display_name, r.key as role_key, r.name as role_name, m.status,
-                  m.joined_at,
+                  m.joined_at, m.avatar_preset, m.avatar_file_id,
                   coalesce(array_agg(b.id order by b.name) filter (where b.id is not null), '{}')
                     as "branch_ids!",
                   coalesce(array_agg(b.name order by b.name) filter (where b.id is not null), '{}')
@@ -49,7 +55,8 @@ pub async fn members(conn: &mut PgConnection) -> Result<Vec<MemberRow>, DbError>
            left join aarogyam.membership_branches mb on mb.org_id = m.org_id and mb.membership_id = m.id
            left join aarogyam.branches b
              on b.org_id = mb.org_id and b.id = mb.branch_id and b.deleted_at is null
-           group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at
+           group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at,
+                    m.avatar_preset, m.avatar_file_id
            order by m.status = 'active' desc, u.display_name, m.id"#
     )
     .fetch_all(conn)
@@ -65,7 +72,7 @@ pub async fn member(conn: &mut PgConnection, id: Uuid) -> Result<Option<MemberRo
     let row = sqlx::query_as!(
         MemberRow,
         r#"select m.id, m.user_id, u.display_name, r.key as role_key, r.name as role_name, m.status,
-                  m.joined_at,
+                  m.joined_at, m.avatar_preset, m.avatar_file_id,
                   coalesce(array_agg(b.id order by b.name) filter (where b.id is not null), '{}')
                     as "branch_ids!",
                   coalesce(array_agg(b.name order by b.name) filter (where b.id is not null), '{}')
@@ -77,7 +84,8 @@ pub async fn member(conn: &mut PgConnection, id: Uuid) -> Result<Option<MemberRo
            left join aarogyam.branches b
              on b.org_id = mb.org_id and b.id = mb.branch_id and b.deleted_at is null
            where m.id = $1
-           group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at"#,
+           group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at,
+                    m.avatar_preset, m.avatar_file_id"#,
         id
     )
     .fetch_optional(conn)
@@ -259,6 +267,7 @@ pub async fn members_and_invitations(
                     select jsonb_agg(to_jsonb(x) order by x.active desc, x.display_name, x.id)
                     from (select m.id, m.user_id, u.display_name, r.key as role_key,
                                  r.name as role_name, m.status, m.joined_at,
+                                 m.avatar_preset, m.avatar_file_id,
                                  m.status = 'active' as active,
                                  coalesce(array_agg(b.id order by b.name) filter (where b.id is not null), '{}') as branch_ids,
                                  coalesce(array_agg(b.name order by b.name) filter (where b.id is not null), '{}') as branch_names
@@ -269,7 +278,8 @@ pub async fn members_and_invitations(
                             on mb.org_id = m.org_id and mb.membership_id = m.id
                           left join aarogyam.branches b
                             on b.org_id = mb.org_id and b.id = mb.branch_id and b.deleted_at is null
-                          group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at) x
+                          group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at,
+                                   m.avatar_preset, m.avatar_file_id) x
                   ), '[]'::jsonb) as "members!: sqlx::types::Json<Vec<MemberRow>>",
                   coalesce((
                     select jsonb_agg(to_jsonb(y) order by y.created_at desc)

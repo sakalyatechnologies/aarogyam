@@ -13,6 +13,7 @@ pub mod analytics;
 pub mod applications;
 pub mod appointments;
 pub mod attachments;
+pub mod avatars;
 pub mod billing;
 pub mod booking;
 pub mod chart;

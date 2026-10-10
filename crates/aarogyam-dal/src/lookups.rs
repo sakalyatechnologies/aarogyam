@@ -215,6 +215,10 @@ pub struct MyClinic {
     pub role_name: String,
     /// The clinic portal's host name, when it has a verified one.
     pub host: Option<String>,
+    /// The person's avatar preset at this clinic.
+    pub avatar_preset: Option<String>,
+    /// The person's avatar photo at this clinic.
+    pub avatar_file_id: Option<Uuid>,
 }
 
 /// The clinics a person is invited to or active in, by name.
@@ -224,7 +228,7 @@ pub struct MyClinic {
 pub async fn my_clinics(pool: &PgPool, auth_uid: Uuid) -> Result<Vec<MyClinic>, DbError> {
     let rows = sqlx::query!(
         r#"select org_id as "org_id!", slug as "slug!", name as "name!", role_key as "role_key!",
-                  role_name as "role_name!", portal_host
+                  role_name as "role_name!", portal_host, avatar_preset, avatar_file_id
            from app.my_clinics($1)"#,
         auth_uid
     )
@@ -239,6 +243,8 @@ pub async fn my_clinics(pool: &PgPool, auth_uid: Uuid) -> Result<Vec<MyClinic>, 
             role_key: row.role_key,
             role_name: row.role_name,
             host: row.portal_host,
+            avatar_preset: row.avatar_preset,
+            avatar_file_id: row.avatar_file_id,
         })
         .collect())
 }
@@ -251,6 +257,7 @@ pub async fn my_clinics(pool: &PgPool, auth_uid: Uuid) -> Result<Vec<MyClinic>, 
 pub async fn me(pool: &PgPool, auth_uid: Uuid) -> Result<(Vec<MyClinic>, bool), DbError> {
     let rows = sqlx::query!(
         r#"select c.org_id, c.slug, c.name, c.role_key, c.role_name, c.portal_host,
+                  c.avatar_preset, c.avatar_file_id,
                   p.console as "console_access!"
            from (select exists (select 1 from app.platform_access($1)) as console) p
            left join app.my_clinics($1) c on true"#,
@@ -269,6 +276,8 @@ pub async fn me(pool: &PgPool, auth_uid: Uuid) -> Result<(Vec<MyClinic>, bool), 
                 role_key: row.role_key?,
                 role_name: row.role_name?,
                 host: row.portal_host,
+                avatar_preset: row.avatar_preset,
+                avatar_file_id: row.avatar_file_id,
             })
         })
         .collect();

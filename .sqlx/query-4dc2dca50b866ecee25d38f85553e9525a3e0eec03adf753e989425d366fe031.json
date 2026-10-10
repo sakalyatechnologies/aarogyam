@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select avatar_preset, avatar_file_id from aarogyam.memberships where id = $1 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "avatar_preset",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.memberships",
+            "name": "avatar_preset"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "avatar_file_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.memberships",
+            "name": "avatar_file_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "4dc2dca50b866ecee25d38f85553e9525a3e0eec03adf753e989425d366fe031"
+}

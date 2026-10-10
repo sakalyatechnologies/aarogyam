@@ -23,6 +23,10 @@ use crate::failure::ApiFailure;
 
 /// A patient. Phone and email are masked (`+91******3210`) unless the role has `patients.contact`.
 #[derive(Debug, Serialize, ToSchema)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the patient's status flags, each shown as the API's own field"
+)]
 pub struct Patient {
     /// Identifier.
     #[schema(value_type = String)]
@@ -54,14 +58,25 @@ pub struct Patient {
     /// Goes up when the details change. Send it back in `If-Match` (it is also the `ETag`) to
     /// edit only if the patient is unchanged since you read it.
     pub row_version: i64,
-    /// The next booked or confirmed appointment, from the list and the record only.
+    /// The next booked or confirmed appointment, from the list and the record only: `null` is
+    /// "none booked" on those, and always `null` on a registration or an edit.
     pub next_appointment: Option<NextAppointment>,
-    /// Paise owed on issued bills; null without `billing.read`.
+    /// Paise owed on issued bills. Sent only by the list, search and record responses and only
+    /// with `billing.read`: without it the key is absent, never null or zero.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub balance_paise: Option<i64>,
-    /// Paise received in total; null without `billing.read`.
+    /// Paise received in total; absent without `billing.read`, like `balance_paise`.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub lifetime_paid_paise: Option<i64>,
     /// Whether an open recall is due on or before today.
     pub recall_due: bool,
+    /// Whether an allergy is active, whoever recorded it (a patient-reported one counts until a
+    /// clinician rules it out). Details are in the clinical flags, which need `clinical.read`.
+    pub allergy_alert: bool,
+    /// Whether no active consent to care is on record (never recorded, or withdrawn).
+    pub consent_pending: bool,
+    /// Whether the patient has a photo (`GET /patients/{id}/photo`).
+    pub has_photo: bool,
 }
 
 /// A patient's next booking.
@@ -97,6 +112,9 @@ impl From<PatientView> for Patient {
             balance_paise: view.balance_paise,
             lifetime_paid_paise: view.lifetime_paid_paise,
             recall_due: view.recall_due,
+            allergy_alert: view.allergy_alert,
+            consent_pending: view.consent_pending,
+            has_photo: view.has_photo,
         }
     }
 }
@@ -222,6 +240,54 @@ pub(crate) async fn recent(
     .await?;
     Ok(Json(PatientList {
         items: rows.into_iter().map(Patient::from).collect(),
+    }))
+}
+
+/// The numbers behind the directory's ribbon.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PatientsSummary {
+    /// Patients on the list (those the role reaches).
+    pub total: i64,
+    /// Registered this month, in the clinic's time zone.
+    pub new_this_month: i64,
+    /// Patients with an open recall due on or before today.
+    pub recalls_due: i64,
+    /// Patients who owe money on issued bills. Absent without `billing.read`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub with_balance: Option<i64>,
+}
+
+/// The directory's headline numbers in one request: how many patients, how many are new this
+/// month, how many have a recall due and, with `billing.read`, how many owe money.
+#[utoipa::path(
+    get,
+    path = "/api/v1/patients/summary",
+    operation_id = "getPatientsSummary",
+    tag = "patients",
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = PatientsSummary),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks patients.read"),
+        (status = 404, description = "Not a clinic, or not a member of it")
+    )
+)]
+pub(crate) async fn summary(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<PatientsRead>,
+) -> Result<Json<PatientsSummary>, ApiFailure> {
+    let counts = app::directory_summary(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(PatientsSummary {
+        total: counts.total,
+        new_this_month: counts.new_this_month,
+        recalls_due: counts.recalls_due,
+        with_balance: counts.with_balance,
     }))
 }
 
@@ -424,6 +490,23 @@ pub struct PhoneMatch {
     pub age_years: Option<u16>,
     /// `female`, `male`, `other` or `unknown`.
     pub sex: String,
+    /// Relatives linked to this patient (`family_of` on a walk-in links them), by name; empty when none.
+    pub family: Vec<FamilyMember>,
+}
+
+/// A relative linked to a patient.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct FamilyMember {
+    /// Identifier.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Readable number, such as `SD-1042`.
+    pub number: String,
+    /// Full name.
+    pub full_name: String,
+    /// What this relative is to the patient: `guardian` (a parent or guardian), `child`,
+    /// `spouse` or `other`.
+    pub relation: String,
 }
 
 /// Patients registered with a phone.
@@ -471,6 +554,16 @@ pub(crate) async fn lookup(
                 full_name: row.full_name,
                 age_years: row.age_years,
                 sex: row.sex,
+                family: row
+                    .family
+                    .into_iter()
+                    .map(|member| FamilyMember {
+                        id: member.id.uuid(),
+                        number: member.number,
+                        full_name: member.full_name,
+                        relation: member.relation,
+                    })
+                    .collect(),
             })
             .collect(),
     }))

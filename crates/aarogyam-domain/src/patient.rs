@@ -468,3 +468,30 @@ mod tests {
         assert_eq!(Sex::parse("f"), Err(PatientError::UnknownValue));
     }
 }
+
+text_value! {
+    /// What one patient is to another in a family link (`patient_relations`).
+    Relation ("relation") {
+        /// A parent or other guardian.
+        Guardian => "guardian",
+        /// A son or daughter.
+        Child => "child",
+        /// A husband or wife.
+        Spouse => "spouse",
+        /// Anyone else who shares the household or the phone.
+        Other => "other",
+    }
+}
+
+impl Relation {
+    /// What the other side of the link is: a guardian's patient is their child and the other
+    /// way round.
+    #[must_use]
+    pub const fn inverse(self) -> Self {
+        match self {
+            Self::Guardian => Self::Child,
+            Self::Child => Self::Guardian,
+            Self::Spouse | Self::Other => self,
+        }
+    }
+}

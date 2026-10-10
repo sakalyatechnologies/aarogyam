@@ -223,3 +223,5 @@ Review prompts are in `~/project/ux-review/ux-review-prompts.md` (outside the re
 
 ## Portal v2 from the Lovable mockup (10 Oct 2026, planning)
 Port the look of `aarogyam-st` (Lovable) into the portal behind a "New look" switch; keep our data layer, routes and permission checks. Order: shell with expandable icon rail, Today (studio widgets, date picker that loads that day's queue and completed list), Settings (adopt its tabs; keep our website designer and letterhead; add its site templates), then the other tabs. Backend asks: per-user studio layout, edit own name and phone, booking auto-confirm and default visit length, notification switches, chair-occupancy heatmap, chair room and paused flag, GST on price items, chat clinic channel and attachments.
+
+- Patient photo bytes are not deleted from storage when a patient is erased (the row is); add the object delete to the erasure job. Consent links go out by email only; a WhatsApp consent template is not built.

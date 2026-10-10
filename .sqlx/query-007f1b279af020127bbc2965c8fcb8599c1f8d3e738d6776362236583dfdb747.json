@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.patient_photos (id, patient_id, mime_type, size_bytes, sha256)\n           values ($1, $2, $3, $4, $5)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "007f1b279af020127bbc2965c8fcb8599c1f8d3e738d6776362236583dfdb747"
+}

@@ -104,12 +104,37 @@ export interface FakeMembership {
 }
 
 export interface FakePatient
-  extends Omit<C.Patient, "sex" | "status" | "age_years" | "next_appointment" | "balance_paise" | "lifetime_paid_paise" | "recall_due" | "row_version"> {
+  extends Omit<C.Patient, "sex" | "status" | "age_years" | "next_appointment" | "balance_paise" | "lifetime_paid_paise" | "recall_due" | "row_version" | "allergy_alert" | "consent_pending" | "has_photo"> {
   clinic_id: string;
   sex: C.Sex;
   status: "active" | "inactive" | "deceased" | "merged";
   /** Set by a walk-in's "No known allergies"; active allergies always mean `has_allergies`. */
   allergies_reviewed?: "unknown" | "none_known" | "has_allergies";
+}
+
+/** `relation` is what `related_patient_id` is to `patient_id`. */
+export interface FakePatientRelation {
+  clinic_id: string;
+  patient_id: string;
+  related_patient_id: string;
+  relation: "guardian" | "child" | "spouse" | "other";
+}
+
+export interface FakePatientPhoto {
+  clinic_id: string;
+  patient_id: string;
+  file: Blob;
+}
+
+export interface FakeConsentRequest {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  token: string;
+  purposes: C.ConsentPurpose[];
+  notice_version: string;
+  expires_at: string;
+  signed_at: string | null;
 }
 
 /** A chair, room or lab. Fixtures model one branch per clinic, so `branch_id` is the clinic's id. */
@@ -649,6 +674,12 @@ export interface Fixtures {
   /** Clinic websites, made on first use. */
   websites?: import("./website.js").FakeSite[];
   websitePhotos?: import("./website.js").FakePhoto[];
+  /** Family links between two patients of a clinic (one row a pair), made on first use. */
+  patientRelations?: FakePatientRelation[];
+  /** Patient photos (one a patient), made on first use. */
+  patientPhotos?: FakePatientPhoto[];
+  /** Consent-to-sign links, made on first use. */
+  consentRequests?: FakeConsentRequest[];
   /** First-run setup per clinic and member; with no entry, a person counts as set up already (dismissed). */
   setups?: import("./setup.js").FakeSetup[];
   quality: C.QualityReport;

@@ -502,6 +502,9 @@ async fn every_route_requires_sign_in_and_a_permission() {
             // One-click unsubscribe: the opaque token is the proof, throttled per IP, and the
             // answer names nobody (tests/messaging.rs).
             "/api/v1/public/unsubscribe/{token}",
+            // Consent-to-sign link: the one-time token is the proof, throttled per IP, no
+            // patient data in the answer (tests/patient_directory.rs).
+            "/api/v1/public/consents/{token}",
             // Resend's webhook: checked by its Svix signature instead (tests/messaging.rs).
             "/api/v1/webhooks/resend",
             // Meta's webhook: the verify token (GET) or the app secret's HMAC (POST) instead

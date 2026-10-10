@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.patient_relations (patient_id, related_patient_id, relation)\n           values ($1, $2, $3)\n           on conflict (org_id, least(patient_id, related_patient_id), greatest(patient_id, related_patient_id))\n           do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cf02aba50f620f66c517ab8b16a012c7c770a6dbff8b7e38edcb68e26fb52b84"
+}

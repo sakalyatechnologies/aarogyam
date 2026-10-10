@@ -138,6 +138,12 @@ pub enum Event {
     PatientLinkEnded,
     /// A patient cancelled their own appointment in the app.
     AppointmentCancelledByPatient,
+    /// Staff sent a patient a link to sign consent.
+    ConsentRequested,
+    /// A patient signed consent through a link.
+    ConsentSigned,
+    /// A patient's photo was set or removed.
+    PatientPhotoChanged,
     /// A file's sharing with the patient changed.
     AttachmentSharingChanged,
     /// A clinic expense was recorded.
@@ -266,6 +272,9 @@ impl Event {
             Self::ExpenseRecorded => "expense.recorded",
             Self::ExpenseVoided => "expense.voided",
             Self::WalkInRegistered => "walk_in.registered",
+            Self::ConsentRequested => "consent.requested",
+            Self::ConsentSigned => "consent.signed",
+            Self::PatientPhotoChanged => "patient.photo_changed",
             Self::AllergyConfirmed => "allergy.confirmed",
             Self::SupportGranted => "support.granted",
             Self::SupportRevoked => "support.revoked",

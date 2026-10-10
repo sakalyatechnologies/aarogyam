@@ -360,3 +360,28 @@ pub async fn chat_messages(
     .await?;
     Ok(rows)
 }
+
+/// Consent-to-sign links that expired before `cutoff`, signed or not. The signed consent
+/// itself is a consent record and stays with the patient.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn consent_requests(
+    pool: &PgPool,
+    cutoff: OffsetDateTime,
+    sample: i32,
+) -> Result<Vec<Group>, DbError> {
+    let rows = sqlx::query_as!(
+        Group,
+        r#"select org_id as "org_id?", count(*) as "count!", min(expires_at) as "oldest?",
+                  (array_agg(id order by expires_at))[1:$2] as "sample!: Vec<Uuid>"
+           from aarogyam.consent_requests
+           where expires_at < $1
+           group by org_id order by org_id"#,
+        cutoff,
+        sample
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}

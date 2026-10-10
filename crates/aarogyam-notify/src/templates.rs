@@ -52,6 +52,13 @@ impl PortalLinks {
         format!("{}/shared/{token}", self.pattern.replace("{host}", host))
     }
 
+    /// The page where a patient reads the clinic's notice and signs consent. The token is the
+    /// proof: it is 256 random bits and works once.
+    #[must_use]
+    pub fn consent(&self, host: &str, token: &str) -> String {
+        format!("{}/consent/{token}", self.pattern.replace("{host}", host))
+    }
+
     /// The one-click unsubscribe address for a reminder or promotional email: the API's public
     /// route on the clinic's host. The token is opaque and names no patient.
     #[must_use]
@@ -218,6 +225,45 @@ fn render_app_invitation(
     })
 }
 
+/// The link to read the clinic's notice and sign consent. Carries no patient data: the clinic's
+/// name, and a link only the patient has.
+fn render_consent_request(
+    to: String,
+    payload: &Value,
+    token: Option<&str>,
+    links: &PortalLinks,
+) -> Result<Email, Failure> {
+    let clinic = field(payload, "clinic_name")?;
+    let host = field(payload, "portal_host")?;
+    let expires = field(payload, "expires_on")?;
+    let token = token.ok_or_else(|| Failure::permanent("no consent token"))?;
+    let link = links.consent(host, token);
+    let subject = format!("{clinic} asks for your consent");
+    let text = format!(
+        "{clinic} keeps your health record and would like your consent.          Please read the clinic's privacy notice and sign here:
+
+{link}
+
+         The link works once and expires on {expires}.          If you weren't expecting this, you can ignore this email."
+    );
+    let html = format!(
+        "<p><strong>{clinic}</strong> keeps your health record and would like your consent.          Please read the clinic's privacy notice and sign.</p>\
+         <p><a href=\"{link}\">Read the notice and sign</a></p>\
+         <p>The link works once and expires on {expires}. \
+         If you weren't expecting this, you can ignore this email.</p>",
+        clinic = escape(clinic),
+        link = escape(&link),
+        expires = escape(expires),
+    );
+    Ok(Email {
+        to,
+        subject,
+        text,
+        html,
+        list_unsubscribe: None,
+    })
+}
+
 /// Renders a claimed email message.
 pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Failure> {
     let to = message
@@ -310,6 +356,9 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
             | MessageKind::BookingConfirmed
             | MessageKind::BookingDeclined),
         ) => render_booking(kind, to, &message.payload, links),
+        Some(MessageKind::ConsentRequested) => {
+            render_consent_request(to, &message.payload, message.secret.as_deref(), links)
+        }
         Some(MessageKind::LabOrderReminder) => crate::lab::render_reminder(to, &message.payload),
         Some(MessageKind::CampaignTest) => render_campaign_test(to, &message.payload),
         // Rendered by the patient message step (`patient_templates`), never from the outbox.

@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.consent_requests\n             (id, patient_id, token_hash, purposes, notice_id, notice_version, requested_by, expires_at)\n           values ($1, $2, $3, $4, $5, $6, $7, $8)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "TextArray",
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6b077c64cabc3c38db6d5d82b0d214d993a0c034e15a1a34a7ace976df48a1d6"
+}

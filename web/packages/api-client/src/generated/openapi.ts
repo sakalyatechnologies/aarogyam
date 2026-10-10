@@ -2462,6 +2462,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The directory's headline numbers in one request: how many patients, how many are new this
+         *     month, how many have a recall due and, with `billing.read`, how many owe money.
+         */
+        get: operations["getPatientsSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}": {
         parameters: {
             query?: never;
@@ -2673,6 +2693,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/consents/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sends the patient a link to read the clinic's notice and sign, by email through the message
+         *     queue (a care message, so it goes even before any consent is on record). The link works once
+         *     for seven days. Needs `patients.write`. Phone-only patients can't be sent one yet.
+         */
+        post: operations["requestPatientConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/contact-preferences": {
         parameters: {
             query?: never;
@@ -2840,6 +2881,31 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The patient's photo, with its media type. Needs `patients.read`; the response is private to
+         *     the caller's browser.
+         */
+        get: operations["getPatientPhoto"];
+        /**
+         * Sets the patient's photo as `multipart/form-data` with a `file` (PNG or JPEG, up to 2 MB,
+         *     checked by content), replacing the old one. Needs `patients.write`.
+         */
+        put: operations["putPatientPhoto"];
+        post?: never;
+        /** Removes the patient's photo (removing none is fine). Needs `patients.write`. */
+        delete: operations["deletePatientPhoto"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3344,6 +3410,30 @@ export interface paths {
          *     when the clinic auto-confirms. Never says whether a patient record already existed.
          */
         post: operations["bookOnline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/consents/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reads a consent link on the clinic's host, with no sign-in: the clinic, what it asks and the
+         *     notice.
+         */
+        get: operations["getConsentLink"];
+        put?: never;
+        /**
+         * The patient signs, on the clinic's host with no sign-in: records consent (method `app`)
+         *     against the notice the link showed and closes the link. Works once.
+         */
+        post: operations["signConsentLink"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5990,6 +6080,19 @@ export interface components {
             /** @description `paper`, `verbal` or `app`. */
             withdrawn_method?: string | null;
         };
+        /** @description What anyone holding a consent link may read: no patient data. */
+        ConsentLink: {
+            /** @description The clinic's name. */
+            clinic_name: string;
+            /** @description When the link stops working (RFC 3339). */
+            expires_at: string;
+            /** @description The notice to read. */
+            notice: components["schemas"]["LinkNotice"];
+            /** @description The purposes the clinic asks about. */
+            purposes: string[];
+            /** @description `pending`, `signed` or `expired`. */
+            state: string;
+        };
         /** @description A patient's consents, newest first. */
         ConsentList: {
             /** @description The consents, given and withdrawn. */
@@ -6020,6 +6123,19 @@ export interface components {
              *     (consents then record the template's label, `v1 2026-10`).
              */
             items: components["schemas"]["ConsentNotice"][];
+        };
+        /** @description A consent request sent to the patient. */
+        ConsentRequested: {
+            /** @description How the link was sent: `email`. */
+            channel: string;
+            /** @description When the link stops working (RFC 3339). */
+            expires_at: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description The label of the notice the patient will read. */
+            notice_version: string;
+            /** @description The purposes asked about. */
+            purposes: string[];
         };
         /** @description A clinic, with counts only. */
         ConsoleClinic: {
@@ -6585,6 +6701,30 @@ export interface components {
         ExpiringList: {
             /** @description Earliest first; already expired batches come first. */
             items: components["schemas"]["ExpiringBatch"][];
+        };
+        /** @description A relative linked to a patient. */
+        FamilyMember: {
+            /** @description Full name. */
+            full_name: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description Readable number, such as `SD-1042`. */
+            number: string;
+            /**
+             * @description What this relative is to the patient: `guardian` (a parent or guardian), `child`,
+             *     `spouse` or `other`.
+             */
+            relation: string;
+        };
+        /** @description Attach the walk-in to an existing family. */
+        FamilyOfFields: {
+            /** @description A registered relative (one found by the phone lookup, with its `family`). */
+            patient_id: string;
+            /**
+             * @description What that relative is to the walk-in patient: `guardian` (a parent or guardian), `child`,
+             *     `spouse` or `other`.
+             */
+            relation: string;
         };
         /** @description Whether a file is shared with the patient. */
         FileSharing: {
@@ -7757,6 +7897,16 @@ export interface components {
             /** @description The opening hours. */
             timings?: boolean | null;
         };
+        /** @description The notice a link shows. */
+        LinkNotice: {
+            /**
+             * @description The notice text; null when the clinic hasn't published one (show its standard privacy
+             *     page).
+             */
+            body?: string | null;
+            /** @description The clinic's label for it, such as `v2 2026-11`. */
+            version: string;
+        };
         /** @description The clinic a code linked. */
         LinkedByCode: {
             /** @description The clinic. */
@@ -8908,12 +9058,20 @@ export interface components {
              */
             age_years?: number | null;
             /**
+             * @description Whether an allergy is active, whoever recorded it (a patient-reported one counts until a
+             *     clinician rules it out). Details are in the clinical flags, which need `clinical.read`.
+             */
+            allergy_alert: boolean;
+            /**
              * Format: int64
-             * @description Paise owed on issued bills; null without `billing.read`.
+             * @description Paise owed on issued bills. Sent only by the list, search and record responses and only
+             *     with `billing.read`: without it the key is absent, never null or zero.
              */
             balance_paise?: number | null;
             /** @description Whether the date of birth was estimated from an age. */
             birth_date_estimated: boolean;
+            /** @description Whether no active consent to care is on record (never recorded, or withdrawn). */
+            consent_pending: boolean;
             /** @description When the record was created (RFC 3339). */
             created_at: string;
             /** @description Date of birth (`YYYY-MM-DD`), exact or estimated. */
@@ -8922,13 +9080,15 @@ export interface components {
             email?: string | null;
             /** @description Full name. */
             full_name: string;
+            /** @description Whether the patient has a photo (`GET /patients/{id}/photo`). */
+            has_photo: boolean;
             /** @description Identifier. */
             id: string;
             /** @description The last visit (RFC 3339), once visits exist. */
             last_visit_at?: string | null;
             /**
              * Format: int64
-             * @description Paise received in total; null without `billing.read`.
+             * @description Paise received in total; absent without `billing.read`, like `balance_paise`.
              */
             lifetime_paid_paise?: number | null;
             next_appointment?: components["schemas"]["NextAppointment"] | null;
@@ -9403,6 +9563,29 @@ export interface components {
             /** @description Live sessions, most recently used first, at most 50. */
             items: components["schemas"]["PatientSession"][];
         };
+        /** @description The numbers behind the directory's ribbon. */
+        PatientsSummary: {
+            /**
+             * Format: int64
+             * @description Registered this month, in the clinic's time zone.
+             */
+            new_this_month: number;
+            /**
+             * Format: int64
+             * @description Patients with an open recall due on or before today.
+             */
+            recalls_due: number;
+            /**
+             * Format: int64
+             * @description Patients on the list (those the role reaches).
+             */
+            total: number;
+            /**
+             * Format: int64
+             * @description Patients who owe money on issued bills. Absent without `billing.read`.
+             */
+            with_balance?: number | null;
+        };
         /** @description A payment and its receipt number. */
         Payment: {
             /**
@@ -9516,6 +9699,8 @@ export interface components {
              * @description Age in whole years today.
              */
             age_years?: number | null;
+            /** @description Relatives linked to this patient (`family_of` on a walk-in links them), by name; empty when none. */
+            family: components["schemas"]["FamilyMember"][];
             /** @description Full name. */
             full_name: string;
             /** @description Identifier. */
@@ -10173,6 +10358,19 @@ export interface components {
             /** @description 1 to 80 characters. */
             label: string;
         };
+        /** @description What to ask the patient. */
+        RequestConsent: {
+            /**
+             * @description The published notice to show (`GET /consent-notices`); the clinic's current notice when
+             *     left out.
+             */
+            notice_id?: string | null;
+            /**
+             * @description The purposes to ask about, each once: `care`, `reminders`, `promotional`, `sharing` or
+             *     `research`. `["care"]` when left out.
+             */
+            purposes?: string[];
+        };
         /**
          * @description An owner invitation sent again. `invite_link` is shown once; it was also emailed, and the
          *     previous link no longer works.
@@ -10704,6 +10902,18 @@ export interface components {
              *     the link's own expiry). Open the link again for a new one.
              */
             url: string;
+        };
+        /** @description The patient's answer. */
+        SignConsent: {
+            /** @description Must be `true`: the patient has read the notice and agrees. */
+            agree: boolean;
+            /** @description Which of the asked purposes they agree to; all of them when left out. */
+            purposes?: string[] | null;
+        };
+        /** @description What signing recorded. */
+        Signed: {
+            /** @description The purposes consent was recorded for now (ones already in force are left as they are). */
+            recorded: string[];
         };
         /** @description About the clinic. */
         SiteAbout: {
@@ -11800,8 +12010,15 @@ export interface components {
              * @description How many allergies were recorded.
              */
             allergies_recorded: number;
+            /**
+             * Format: int64
+             * @description How many conditions were recorded.
+             */
+            conditions_recorded: number;
             /** @description The purposes whose consent was recorded. */
             consents_recorded: string[];
+            /** @description Whether a family link was made. */
+            family_linked: boolean;
             /** @description The patient. */
             patient: components["schemas"]["Patient"];
             /** @description Whether the patient was registered by this request. */
@@ -11832,10 +12049,18 @@ export interface components {
             /** @description Branch; the default branch when left out. */
             branch_id?: string | null;
             /**
+             * @description Conditions the patient says they have, such as `Diabetes` or `High blood pressure`, each
+             *     1 to 300 characters (at most 20). Recorded as patient-reported conditions that show in the
+             *     clinical flags until a clinician confirms or rules them out; ones already active are not
+             *     repeated.
+             */
+            conditions?: string[];
+            /**
              * @description Consents given at the desk, each purpose once. Purposes already in force are left as
              *     they are.
              */
             consents?: components["schemas"]["DeskConsentFields"][];
+            family_of?: components["schemas"]["FamilyOfFields"] | null;
             /** @description The patient knows of no allergies. Not together with `allergies`. */
             no_known_allergies?: boolean;
             /**
@@ -19713,6 +19938,46 @@ export interface operations {
             };
         };
     };
+    getPatientsSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientsSummary"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getPatient: {
         parameters: {
             query?: never;
@@ -20533,6 +20798,67 @@ export interface operations {
             };
         };
     };
+    requestPatientConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestConsent"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentRequested"];
+                };
+            };
+            /** @description An unknown or repeated purpose, or an unknown notice */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic, or out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The patient has no email address, or the clinic has no portal address yet */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     setPatientContactPreference: {
         parameters: {
             query?: never;
@@ -21078,6 +21404,150 @@ export interface operations {
                 content?: never;
             };
             /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic, or out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getPatientPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo, with its media type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read, or Sakalya support */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No photo, no such patient in this clinic, or out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    putPatientPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["PhotoForm"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a PNG or JPEG, or no file */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic, or out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 2 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deletePatientPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed (also when there was none) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -23004,6 +23474,89 @@ export interface operations {
             };
             /** @description Too many requests */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getConsentLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link's token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentLink"];
+                };
+            };
+            /** @description No such link */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    signConsentLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link's token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignConsent"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Signed"];
+                };
+            };
+            /** @description `agree` is not true, or a purpose the clinic didn't ask about */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such link */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already signed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Expired */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };

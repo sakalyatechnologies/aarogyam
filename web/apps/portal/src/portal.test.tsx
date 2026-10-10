@@ -123,6 +123,9 @@ describe("Patients search", () => {
         status: "active",
         created_at: new Date().toISOString(),
         recall_due: false,
+        allergy_alert: false,
+        consent_pending: false,
+        has_photo: false,
       },
       {
         id: patientId.parse("22222222-2222-4222-8222-222222222222"),
@@ -135,6 +138,9 @@ describe("Patients search", () => {
         status: "active",
         created_at: "2000-01-01T00:00:00.000Z",
         recall_due: false,
+        allergy_alert: false,
+        consent_pending: false,
+        has_photo: false,
       },
     ];
     renderPortal("/patients", {

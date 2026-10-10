@@ -493,6 +493,7 @@ What `own` means, per record:
 | `lab_work` | Lab orders with their items, history and payments | 8 years | Order recorded | The payments are clinic accounts (as bills); the orders describe work on a patient |
 | `lab_contacts` | People at labs, after the clinic removes them | 365 days | Removal | Business contacts, named with phone and email; not needed once removed |
 | `message_templates` | Message templates Meta rejected or paused | 365 days | Last change | No patient data; a dead template is clutter once nobody revisits it |
+| `consent_requests` | Consent-to-sign links, signed or not | 30 days | Expiry | Only the link; the signed consent is a consent record and stays with the patient |
 | `campaigns` | Campaigns sent or cancelled | 365 days | Last change | No patient data (a name, a filter, an offer); the messages it made are the `messages` class |
 
 A clinic may keep records longer where its profession or a dispute requires; per-clinic overrides, and a legal hold that stops erasure of a patient, come before erasure is built (backlog). Consent records stay with the patient record and for 3 years after it.
@@ -526,3 +527,13 @@ A clinic may keep records longer where its profession or a dispute requires; per
 - **Queue states** (migration 0610, expand only): `called` and `ready_to_bill` join `queue_tokens.status`. Order: waiting, called, in_chair, ready_to_bill, done. Allowed moves: waiting to called, in_chair, done or left; called to in_chair, done or left; in_chair to ready_to_bill or done; ready_to_bill to done. Every earlier move stays valid. `POST /queue/{id}/call` (`clinical.write`, the patient in the member's reach or the token naming them as the doctor) sets `called` and stamps `called_at`; repeating it changes nothing; past `called` it is refused with `409` and the token as it is. An appointment stays `arrived` while its token is called, and stays `in_chair` while the token is ready to bill. Start visit seats a called token. Closing the visit still marks the token done. `GET /queue` takes `practitioner_id` (`GET /appointments` already did). Today's `counts` gain `called` and `ready_to_bill`; `waiting` counts waiting tokens only.
 
 **Why.** The Today board shows any day, the calendar shades busy days, and the doctor's phone sends patients in; the desk needs to see who is called and who is ready to pay.
+
+## 2026-10-10: Patient directory, photos, consent links and family (B4)
+
+**Decision.** Additive API for the patient directory and the walk-in path.
+- **Flags and money.** List and record rows carry `allergy_alert`, `consent_pending` and `has_photo` (from `app.patient_flags()`). `balance_paise` and `lifetime_paid_paise` are omitted (not null) without `billing.read`; mobile clients must treat them as optional. `GET /patients/summary` gives total, new this month and recalls due, plus `with_balance` only with `billing.read`.
+- **Walk-ins.** A walk-in may carry reported `conditions` (recorded as patient-reported, deduplicated against active ones) and `family_of {patient_id, relation}`; the phone lookup returns each match's `family`. Relations are stored once per pair (`patient_relations`, with the inverse implied); a relative of another clinic is a 404.
+- **Photo.** `PUT/GET/DELETE /patients/{id}/photo` (`patients.write` to change); one row per patient, no support access.
+- **Consent links.** `POST /patients/{id}/consents/request` (email only for now; a phone-only patient gets 409) issues a one-time link; the public `GET/POST /public/consents/{token}` shows the notice and records the signature. Only the token's hash is stored, and the public routes are throttled (`ip-public-consent`).
+- **Data rules.** The four new tables have `org_id`, RLS, composite keys and the restrictive `patient_account` deny; erasure steps 55 (photos), 45 (consent requests) and 36 (relations, both columns). Photos and relations ride the `patient_record` class; consent requests have their own class (`consent_requests`, 30 days after expiry, report only).
+- **Backlog.** Photo bytes in storage are not removed when a patient is erased (the row is).

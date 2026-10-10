@@ -18,8 +18,8 @@ export function contrast(a: string, b: string): number {
 }
 
 describe("palettes meet WCAG AA", () => {
-  it("has at least four designs with at least three palettes each", () => {
-    expect(TEMPLATES.length).toBeGreaterThanOrEqual(4);
+  it("has at least nine designs with at least three palettes each", () => {
+    expect(TEMPLATES.length).toBeGreaterThanOrEqual(9);
     for (const template of TEMPLATES) {
       expect(template.palettes.length).toBeGreaterThanOrEqual(3);
     }

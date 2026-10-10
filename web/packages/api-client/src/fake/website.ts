@@ -9,8 +9,13 @@ export const SITE_TEMPLATES: C.SiteTemplate[] = [
   { id: "hearth", palettes: ["terracotta", "sage", "honey", "berry"] },
   { id: "clinical", palettes: ["sky", "mint", "slate", "indigo"] },
   { id: "bold", palettes: ["electric", "coral", "lime", "violet"] },
+  { id: "heritage", palettes: ["forest", "burgundy", "navy", "ivory"] },
+  { id: "smilebright", palettes: ["sky", "bubblegum", "sunshine", "mint"] },
+  { id: "bentopeach", palettes: ["peach", "rose", "sand"] },
+  { id: "bentopistachio", palettes: ["pistachio", "lime", "sea"] },
+  { id: "bentomidnight", palettes: ["midnight", "ocean", "plum"] },
 ];
-export const SITE_FONTS = ["modern", "elegant", "friendly", "editorial"];
+export const SITE_FONTS = ["modern", "elegant", "friendly", "editorial", "classic", "display"];
 
 const GOODS = ["medicine", "medicines", "product", "products"];
 

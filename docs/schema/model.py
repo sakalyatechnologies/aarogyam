@@ -890,7 +890,7 @@ TABLES = [
             "live_version_id uuid? -> site_versions"]),
     T(name="clinic_websites", domain="web", rls="clinic",
       purpose="A clinic's public website settings: layout, template, palette, fonts, owner-written content, published flag, custom domain.",
-      cols=["layout text | one, multi", "template text | aurora, hearth, clinical, bold", "palette text | per template",
+      cols=["layout text | one, multi", "template text | aurora, hearth, clinical, bold, heritage, smilebright, bentopeach, bentopistachio, bentomidnight", "palette text | per template",
             "fonts text | font pairing", "content jsonb | section text, doctor profiles, hidden services, reviews",
             "published bool", "published_at timestamptz?", "custom_domain text? | claimed globally only once verified, in org_domains",
             "domain_status text | none, pending, verified, failed", "domain_token text? | TXT record value",

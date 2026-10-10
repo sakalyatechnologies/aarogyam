@@ -293,7 +293,7 @@ pub struct SitePhotos {
 pub struct SiteDesign {
     /// `one` or `multi`.
     pub layout: String,
-    /// `aurora`, `hearth`, `clinical` or `bold`.
+    /// One of the designs listed by the catalogue, such as `aurora`, `hearth` or `bentopeach`.
     pub template: String,
     /// One of the template's palettes.
     pub palette: String,

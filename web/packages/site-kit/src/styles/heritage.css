@@ -1,0 +1,77 @@
+/* Heritage: serif, classical and trusted. Centred, fine rules, square corners and dotted price lists. */
+
+.cs-t-heritage { --shadow: 0 1px 0 var(--line); }
+.cs-t-heritage :where(h1, h2, h3, h4) { font-weight: 600; letter-spacing: 0; }
+.cs-t-heritage .cs-header { position: relative; background: var(--bg); border-bottom: 3px double var(--line); }
+.cs-t-heritage .cs-header-stack { display: grid; justify-items: center; gap: 4px; padding-block: 14px 8px; }
+.cs-t-heritage .cs-header-nav { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 20px; }
+.cs-t-heritage .cs-brand { font-size: clamp(1.4rem, 3.4cqw, 1.9rem); font-weight: 600; letter-spacing: .02em; }
+.cs-t-heritage .cs-mark { border-radius: 50%; background: transparent; color: var(--accent-text); border: 1.5px solid var(--accent); }
+.cs-t-heritage .cs-nav { margin: 0; }
+.cs-t-heritage .cs-nav a { color: var(--text); border-radius: 0; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; font-size: .85rem; border-bottom: 1px solid transparent; }
+.cs-t-heritage .cs-nav a:hover, .cs-t-heritage .cs-nav a[aria-current="page"] { color: var(--accent-text); border-bottom-color: var(--accent); }
+.cs-t-heritage .cs-btn, .cs-t-heritage .cs-link-btn { border-radius: 2px; letter-spacing: .04em; }
+.cs-t-heritage .cs-btn-ghost { border-color: var(--accent); color: var(--accent-text); }
+.cs-t-heritage .cs-eyebrow { letter-spacing: .22em; font-size: .75rem; }
+
+.cs-t-heritage .cs-rule { display: block; width: 72px; height: 1px; margin: 4px auto; background: var(--accent); position: relative; }
+.cs-t-heritage .cs-rule::after { content: ""; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; background: var(--accent); transform: translate(-50%, -50%) rotate(45deg); }
+
+.cs-t-heritage .cs-hero { padding-block: clamp(40px, 7cqw, 84px) clamp(24px, 4cqw, 48px); }
+.cs-t-heritage .cs-hero-center { display: grid; gap: clamp(28px, 5cqw, 52px); justify-items: center; text-align: center; }
+.cs-t-heritage .cs-hero-copy { display: grid; justify-items: center; }
+.cs-t-heritage .cs-motto { font-size: 1.05rem; color: var(--accent-text); letter-spacing: .08em; }
+.cs-t-heritage .cs-h1 { font-style: italic; font-weight: 600; font-size: clamp(2.5rem, 7cqw, 4.6rem); line-height: 1.04; max-width: 16em; }
+.cs-t-heritage .cs-lead { margin-inline: auto; }
+.cs-t-heritage .cs-hero-actions { justify-content: center; }
+.cs-t-heritage .cs-hero-photo { width: min(100%, 880px); aspect-ratio: 16 / 8; border: 1px solid var(--line); padding: 10px; background: var(--surface); box-shadow: 0 24px 50px -36px var(--text); }
+.cs-t-heritage .cs-hero-photo img { border: 1px solid var(--line); }
+.cs-t-heritage .cs-hero-photo .cs-art { inset: 10px; border: 1px solid var(--line); }
+.cs-t-heritage .cs-facts { width: 100%; border-block: 1px solid var(--line); padding-block: 22px; margin-top: 0; text-align: center; }
+.cs-t-heritage .cs-facts li + li { border-left: 1px solid var(--line); }
+.cs-t-heritage .cs-facts strong { color: var(--accent-text); font-weight: 600; font-style: italic; }
+
+.cs-t-heritage .cs-head { margin-inline: auto; text-align: center; justify-items: center; }
+.cs-t-heritage .cs-head h2 { font-style: italic; font-size: clamp(2rem, 4.6cqw, 3.1rem); }
+.cs-t-heritage .cs-head::after { content: ""; width: 56px; height: 1px; background: var(--accent); }
+.cs-t-heritage .cs-section { padding-block: clamp(48px, 8cqw, 88px); }
+.cs-t-heritage .cs-group > h3 { text-align: center; font-family: var(--font-head); font-style: italic; font-size: 1.35rem; color: var(--text); }
+.cs-t-heritage .cs-group > h3::after { content: ""; display: block; width: 32px; height: 1px; margin: 8px auto 0; background: var(--accent); }
+.cs-t-heritage .cs-service-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 0 48px; }
+.cs-t-heritage .cs-service { align-items: baseline; padding: 16px 0; background: none; border: 0; border-bottom: 1px dotted var(--accent); border-radius: 0; }
+.cs-t-heritage .cs-service:hover { transform: none; border-bottom-style: solid; }
+.cs-t-heritage .cs-service h4 { font-family: var(--font-head); font-size: 1.2rem; font-weight: 600; }
+.cs-t-heritage .cs-fee { font-family: var(--font-head); font-size: 1.15rem; }
+.cs-t-heritage .cs-about-photo { border-radius: 0; border: 1px solid var(--line); padding: 10px; background: var(--surface); aspect-ratio: 4 / 5; }
+.cs-t-heritage .cs-about-photo img { border: 1px solid var(--line); }
+.cs-t-heritage .cs-about-photo .cs-art { inset: 10px; border: 1px solid var(--line); }
+.cs-t-heritage .cs-points svg { color: var(--accent); }
+.cs-t-heritage .cs-doctor { border-radius: 0; text-align: center; justify-items: center; border-color: var(--line); box-shadow: inset 0 0 0 5px var(--surface), inset 0 0 0 6px var(--line); padding: 34px 26px; }
+.cs-t-heritage .cs-portrait { width: 116px; height: 116px; border: 1px solid var(--accent); box-shadow: 0 0 0 5px var(--surface), 0 0 0 6px var(--line); }
+.cs-t-heritage .cs-gallery-grid li { border-radius: 0; border: 1px solid var(--line); padding: 6px; background: var(--surface); }
+.cs-t-heritage .cs-review { border-radius: 0; border-color: var(--line); border-top: 3px solid var(--accent); text-align: center; justify-items: center; }
+.cs-t-heritage .cs-review blockquote { font-style: italic; font-family: var(--font-head); font-size: 1.25rem; line-height: 1.4; }
+.cs-t-heritage .cs-book { border-radius: 0; box-shadow: inset 0 0 0 5px var(--surface), inset 0 0 0 6px var(--line); }
+.cs-t-heritage .cs-book-icon { border-radius: 50%; }
+.cs-t-heritage .cs-book-frame { border-radius: 0; }
+.cs-t-heritage .cs-social a { border-radius: 50%; }
+.cs-t-heritage .cs-cta-box { border-radius: 0; justify-items: center; text-align: center; background: var(--surface-2); border: 1px solid var(--line); box-shadow: inset 0 0 0 6px var(--surface-2), inset 0 0 0 7px var(--accent); }
+.cs-t-heritage .cs-cta h2 { font-style: italic; }
+.cs-t-heritage .cs-footer { background: var(--surface-2); border-top: 3px double var(--line); text-align: center; }
+.cs-t-heritage .cs-footer-inner { flex-direction: column; align-items: center; justify-content: center; }
+.cs-t-heritage .cs-social { justify-content: center; }
+.cs-t-heritage .cs-footer .cs-rule { margin-bottom: 28px; }
+
+@container site (max-width: 860px) {
+  .cs-t-heritage .cs-hero-photo { aspect-ratio: 16 / 11; }
+  .cs-t-heritage .cs-service-grid { gap: 0; }
+  .cs-t-heritage .cs-about-photo { aspect-ratio: 16 / 11; }
+}
+@container site (max-width: 560px) {
+  .cs-t-heritage .cs-nav a { letter-spacing: .03em; }
+  .cs-t-heritage .cs-header-nav { flex-direction: column; gap: 0; }
+  .cs-t-heritage .cs-header-nav > .cs-btn { display: none; }
+  .cs-t-heritage .cs-facts li + li { border-left: 0; }
+  .cs-t-heritage .cs-hero-photo { padding: 6px; }
+  .cs-t-heritage .cs-hero-photo .cs-art { inset: 6px; }
+}

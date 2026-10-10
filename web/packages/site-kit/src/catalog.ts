@@ -1,6 +1,6 @@
 /** The designs, palettes and font pairings a clinic can choose. The API checks the same ids. */
 
-export type TemplateId = "aurora" | "hearth" | "clinical" | "bold";
+export type TemplateId = "aurora" | "hearth" | "clinical" | "bold" | "heritage" | "smilebright" | "bentopeach" | "bentopistachio" | "bentomidnight";
 
 /** Colours of one palette, applied as CSS variables on the site's root element. */
 export interface Palette {
@@ -76,6 +76,58 @@ export const TEMPLATES: readonly TemplateInfo[] = [
       { id: "coral", name: "Coral", bg: "#fffaf8", surface: "#fff0ec", surface2: "#ffe0d8", text: "#150b09", muted: "#5c4540", line: "#150b09", accent: "#ff6a57", onAccent: "#150b09", accentText: "#b32a18" },
       { id: "lime", name: "Lime", bg: "#fbfdf4", surface: "#f1f8dc", surface2: "#e4f2b8", text: "#0e1405", muted: "#4a5538", line: "#0e1405", accent: "#c6f432", onAccent: "#0e1405", accentText: "#3d5a00" },
       { id: "violet", name: "Violet", bg: "#fcfaff", surface: "#f3edff", surface2: "#e6dbff", text: "#140a26", muted: "#524468", line: "#140a26", accent: "#7c3aed", onAccent: "#ffffff", accentText: "#6a28d9" },
+    ],
+  },
+  {
+    id: "heritage",
+    name: "Heritage",
+    tagline: "Serif, classical and trusted. Centred layout, fine rules, long-established feel.",
+    palettes: [
+      { id: "forest", name: "Forest", bg: "#faf8f2", surface: "#ffffff", surface2: "#f1ece0", text: "#153b32", muted: "#4a5f58", line: "#e0d8c6", accent: "#8b5e1a", onAccent: "#ffffff", accentText: "#7a5214" },
+      { id: "burgundy", name: "Burgundy", bg: "#fbf7f4", surface: "#ffffff", surface2: "#f4e9e4", text: "#3a1520", muted: "#6a4a52", line: "#e6d3cb", accent: "#7a1f3d", onAccent: "#ffffff", accentText: "#7a1f3d" },
+      { id: "navy", name: "Navy", bg: "#f8f9fb", surface: "#ffffff", surface2: "#e9edf4", text: "#12233f", muted: "#4a5a74", line: "#d6dce8", accent: "#1f3a6b", onAccent: "#ffffff", accentText: "#1f3a6b" },
+      { id: "ivory", name: "Ivory", bg: "#fdfaf3", surface: "#ffffff", surface2: "#f6eed9", text: "#2b2416", muted: "#5e553f", line: "#e8dcbc", accent: "#8a6a12", onAccent: "#ffffff", accentText: "#74590d" },
+    ],
+  },
+  {
+    id: "smilebright",
+    name: "Smile Bright",
+    tagline: "Playful and cheerful. Round shapes, bright colour, made for kids and families.",
+    palettes: [
+      { id: "sky", name: "Sky", bg: "#eef6ff", surface: "#ffffff", surface2: "#dcebff", text: "#10294a", muted: "#44587a", line: "#c8dcf5", accent: "#1f6feb", onAccent: "#ffffff", accentText: "#1a5fcc" },
+      { id: "bubblegum", name: "Bubblegum", bg: "#fff0f6", surface: "#ffffff", surface2: "#ffdcec", text: "#3d1230", muted: "#6d4560", line: "#f6c8dc", accent: "#c2185b", onAccent: "#ffffff", accentText: "#a8134e" },
+      { id: "sunshine", name: "Sunshine", bg: "#fff9e6", surface: "#ffffff", surface2: "#ffefb8", text: "#3a2a00", muted: "#6a5520", line: "#f3e0a0", accent: "#f5b800", onAccent: "#3a2a00", accentText: "#7a5600" },
+      { id: "mint", name: "Mint", bg: "#effaf4", surface: "#ffffff", surface2: "#d6f3e3", text: "#0f3326", muted: "#41665a", line: "#bfe6d3", accent: "#0f9d6b", onAccent: "#04281c", accentText: "#0a7a53" },
+    ],
+  },
+  {
+    id: "bentopeach",
+    name: "Peach Bento",
+    tagline: "Warm tiles and big type. A grid of soft blocks on a peach page.",
+    palettes: [
+      { id: "peach", name: "Peach", bg: "#efbdae", surface: "#fbf1ee", surface2: "#dce9f8", text: "#3f4317", muted: "#4f531c", line: "#d9a898", accent: "#5e5a1f", onAccent: "#fbf6ef", accentText: "#4f4d18" },
+      { id: "rose", name: "Rose", bg: "#f3c6cf", surface: "#fdf2f4", surface2: "#e4e8f6", text: "#4a1f2c", muted: "#5a2c3a", line: "#dba5b1", accent: "#7a2a45", onAccent: "#fdf6f7", accentText: "#6a2139" },
+      { id: "sand", name: "Sand", bg: "#ecd5b0", surface: "#fbf5e8", surface2: "#dfe9ea", text: "#3a2f14", muted: "#4c3f1e", line: "#d3b98a", accent: "#6b4a14", onAccent: "#fbf6ef", accentText: "#5e4010" },
+    ],
+  },
+  {
+    id: "bentopistachio",
+    name: "Pistachio Bento",
+    tagline: "Fresh green tiles. A calm grid of blocks with big, confident headings.",
+    palettes: [
+      { id: "pistachio", name: "Pistachio", bg: "#dde8c9", surface: "#fbfaf3", surface2: "#fff6e4", text: "#22361f", muted: "#33492e", line: "#bfd0a6", accent: "#2f5a2a", onAccent: "#fbf6ef", accentText: "#2f5a2a" },
+      { id: "lime", name: "Lime", bg: "#e4efb8", surface: "#fbfcee", surface2: "#f1f6d8", text: "#1f2f0c", muted: "#33471a", line: "#c2d27e", accent: "#3d5a12", onAccent: "#fbf6ef", accentText: "#3d5a12" },
+      { id: "sea", name: "Sea", bg: "#cfe8e0", surface: "#f4fbf8", surface2: "#fdf3df", text: "#10312b", muted: "#21463e", line: "#a9d0c5", accent: "#0f5a4e", onAccent: "#fbf6ef", accentText: "#0f5a4e" },
+    ],
+  },
+  {
+    id: "bentomidnight",
+    name: "Midnight Bento",
+    tagline: "Dark tiles with gold accents. A bento grid for an evening-calm, premium feel.",
+    palettes: [
+      { id: "midnight", name: "Midnight", bg: "#12201b", surface: "#18302a", surface2: "#1e3a31", text: "#f2ebdd", muted: "#c5bfae", line: "#2c4a40", accent: "#c7933d", onAccent: "#12201b", accentText: "#d9a94f" },
+      { id: "ocean", name: "Ocean", bg: "#0f1b2a", surface: "#162a40", surface2: "#1c3550", text: "#eef2f8", muted: "#b3bfd0", line: "#2a4560", accent: "#e0a84a", onAccent: "#0f1b2a", accentText: "#e8b860" },
+      { id: "plum", name: "Plum", bg: "#1d1224", surface: "#2b1c37", surface2: "#35234a", text: "#f6eefa", muted: "#c6b8d2", line: "#463060", accent: "#e0a96d", onAccent: "#1d1224", accentText: "#e8b985" },
     ],
   },
 ];
@@ -155,6 +207,22 @@ export const FONTS: readonly FontPairing[] = [
     heading: `'Fraunces', ${SERIF}`,
     body: `'DM Sans', ${SYSTEM}`,
     href: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:wght@500;600;700&display=swap",
+  },
+  {
+    id: "classic",
+    name: "Classic",
+    sample: "Cormorant Garamond and Lora",
+    heading: `'Cormorant Garamond', ${SERIF}`,
+    body: `'Lora', ${SERIF}`,
+    href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Lora:wght@400;500;600&display=swap",
+  },
+  {
+    id: "display",
+    name: "Display",
+    sample: "Bebas Neue and DM Sans",
+    heading: `'Bebas Neue', Impact, 'Arial Narrow', sans-serif`,
+    body: `'DM Sans', ${SYSTEM}`,
+    href: "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap",
   },
 ];
 

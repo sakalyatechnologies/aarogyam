@@ -1,4 +1,4 @@
-import type { NoteId } from "@aarogyam/api-client";
+import { apiErrorOf, type Alert, type FinishedVisit, type FinishVisitInput, type PrescriptionId } from "@aarogyam/api-client";
 
 /** A follow-up the doctor picked in "Wrap up". `days` is null for "Not needed". */
 export interface FollowUp {
@@ -14,37 +14,61 @@ export const FOLLOW_UPS: readonly FollowUp[] = [
   { label: "Not needed", days: null },
 ];
 
+/** The day `days` from now, as YYYY-MM-DD in the browser's calendar. */
+export function dateAfter(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 /** What finishing a visit needs from the screen. */
 export interface FinishDeps {
   /** Saves note text still on screen (rejects when it cannot, so nothing is signed over it). */
   saveNote: () => Promise<void>;
   /** Saves a prescription draft still being edited. */
   saveRx: () => Promise<void>;
-  signNote: (id: NoteId) => Promise<unknown>;
-  closeVisit: () => Promise<unknown>;
+  /** `POST /visits/{id}/finish`: signs the doctor's notes, issues the draft, plans the follow-up, starts the bill and closes. */
+  finish: (body: FinishVisitInput) => Promise<Pick<FinishedVisit, "signed_note_ids">>;
 }
 
 export interface FinishInput {
-  /** The doctor's own draft note, when there is one with text in it. Empty drafts are left alone. */
-  noteToSign: NoteId | undefined;
-  /** Kept for the single call below; today it only travels to the celebration. */
+  /** The follow-up the doctor picked; its date goes to the server, the label to the celebration. */
   followUp: FollowUp | null;
+  /** What the visit costs, in paise, when the screen asks for it. Starts a draft bill. */
+  feePaise?: number | undefined;
+  /** The draft prescription to issue with the visit. Leave out to finish and keep it a draft. */
+  rx?: { id: PrescriptionId; overrideReason?: string | undefined } | undefined;
 }
 
 /**
- * Finishes a visit with the calls that exist today: save what is on screen, sign the note, close the visit.
- *
- * SEAM: another task adds `POST /visits/{id}/finish`, which signs, closes and can issue the prescription in one
- * request with a client id so a retry never repeats. When it lands, replace the body of this function with that one
- * call (`followUp` and the prescription go in its body) and delete `FinishDeps.signNote` / `closeVisit`. Nothing
- * else on the screen changes: the action bar, the confirm for an unissued draft and the celebration all go through here.
+ * Finishes a visit: saves what is on screen, then one request signs the note, issues the draft prescription, plans the
+ * follow-up, starts the bill and closes the visit, all or nothing. A `409 allergy_alerts` leaves the visit open, so the
+ * caller asks for an override reason and calls again with it.
  */
 export async function finishVisit(input: FinishInput, deps: FinishDeps): Promise<{ noteSigned: boolean }> {
   await deps.saveNote();
   await deps.saveRx();
-  if (input.noteToSign !== undefined) {
-    await deps.signNote(input.noteToSign);
+  const reason = input.rx?.overrideReason?.trim();
+  const finished = await deps.finish({
+    ...(input.followUp?.days == null ? {} : { follow_up_on: dateAfter(input.followUp.days) }),
+    ...(input.feePaise === undefined ? {} : { fee_paise: input.feePaise }),
+    ...(input.rx === undefined ? {} : { prescription: { id: input.rx.id, ...(reason === undefined || reason === "" ? {} : { override_reason: reason }) } }),
+  });
+  return { noteSigned: finished.signed_note_ids.length > 0 };
+}
+
+/** The allergy alerts when the server refused to issue the draft without an override reason. */
+export function allergyAlertsOf(thrown: unknown): Alert[] | undefined {
+  const alerts = apiErrorOf(thrown)?.alerts;
+  return alerts !== undefined && alerts.length > 0 ? alerts : undefined;
+}
+
+/** What to tell the doctor when finishing failed. A visit that is already closed says so plainly. */
+export function finishErrorMessage(thrown: unknown): string {
+  const error = apiErrorOf(thrown);
+  if (error?.code === "visit_closed") {
+    return "This visit is already closed (it may have been finished on another screen). Reload the patient to see the final record.";
   }
-  await deps.closeVisit();
-  return { noteSigned: input.noteToSign !== undefined };
+  return error?.message ?? "Couldn't finish the visit. Nothing was lost; try again.";
 }

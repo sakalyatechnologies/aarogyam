@@ -9,6 +9,7 @@ use aarogyam_domain::clinic::{
     legal_name, prescription_footer,
 };
 use aarogyam_domain::letterhead::{Letterhead, LetterheadChanges};
+use aarogyam_domain::notification_prefs::{NotificationChanges, NotificationPrefs};
 use aarogyam_domain::permission::Permission;
 use sakalya_db::Db;
 use sakalya_types::{CallingCode, PhoneE164};
@@ -34,7 +35,7 @@ pub struct ClinicSettings {
     pub timezone: String,
     /// Brand colour, `#RRGGBB`.
     pub brand: Option<String>,
-    /// `light` or `dark`.
+    /// `light`, `dark` or `auto`.
     pub mode: Option<String>,
     /// Footer printed on prescriptions.
     pub prescription_footer: Option<String>,
@@ -79,7 +80,7 @@ pub struct SettingsChanges {
     pub timezone: Option<String>,
     /// Brand colour, `#RRGGBB`.
     pub brand: Option<String>,
-    /// `light` or `dark`.
+    /// `light`, `dark` or `auto`.
     pub mode: Option<String>,
     /// Footer printed on prescriptions.
     pub prescription_footer: Option<String>,
@@ -112,6 +113,8 @@ pub struct BookingChanges {
     pub min_notice_minutes: Option<u16>,
     /// Minutes a booking request waits, in opening hours, before staff are reminded.
     pub reminder_minutes: Option<u16>,
+    /// How long an appointment booked by staff lasts by default: 15, 30, 45 or 60 minutes.
+    pub default_visit_minutes: Option<u16>,
 }
 
 fn text(object: &Value, key: &str) -> Option<String> {
@@ -202,6 +205,36 @@ fn apply_letterhead(
     Ok(())
 }
 
+/// The stored online booking settings after `booking`'s changes, each validated.
+fn apply_booking(stored: &Value, booking: &BookingChanges) -> Result<Value, AppError> {
+    let mut settings = read_settings(stored);
+    settings.enabled = booking.enabled.unwrap_or(settings.enabled);
+    settings.slot_minutes = booking.slot_minutes.unwrap_or(settings.slot_minutes);
+    settings.buffer_minutes = booking.buffer_minutes.unwrap_or(settings.buffer_minutes);
+    settings.auto_confirm = booking.auto_confirm.unwrap_or(settings.auto_confirm);
+    settings.horizon_days = booking.horizon_days.unwrap_or(settings.horizon_days);
+    settings.min_notice_minutes = booking
+        .min_notice_minutes
+        .unwrap_or(settings.min_notice_minutes);
+    settings.reminder_minutes = booking
+        .reminder_minutes
+        .unwrap_or(settings.reminder_minutes);
+    settings.default_visit_minutes = booking
+        .default_visit_minutes
+        .unwrap_or(settings.default_visit_minutes);
+    Ok(settings_value(&settings.validate().map_err(|error| {
+        let field = match error {
+            BookingError::SlotMinutes => "booking.slot_minutes",
+            BookingError::BufferMinutes => "booking.buffer_minutes",
+            BookingError::HorizonDays => "booking.horizon_days",
+            BookingError::MinNotice => "booking.min_notice_minutes",
+            BookingError::ReminderMinutes => "booking.reminder_minutes",
+            BookingError::DefaultVisitMinutes => "booking.default_visit_minutes",
+        };
+        AppError::invalid(field, error)
+    })?))
+}
+
 /// Applies `changes` to the stored row, validating each given setting.
 fn apply(mut row: SettingsRow, changes: &SettingsChanges) -> Result<SettingsRow, AppError> {
     if let Some(name) = &changes.name {
@@ -247,29 +280,7 @@ fn apply(mut row: SettingsRow, changes: &SettingsChanges) -> Result<SettingsRow,
         );
     }
     apply_letterhead(&mut row.branding, changes.letterhead.as_ref())?;
-    let booking = &changes.booking;
-    let mut settings = read_settings(&row.booking);
-    settings.enabled = booking.enabled.unwrap_or(settings.enabled);
-    settings.slot_minutes = booking.slot_minutes.unwrap_or(settings.slot_minutes);
-    settings.buffer_minutes = booking.buffer_minutes.unwrap_or(settings.buffer_minutes);
-    settings.auto_confirm = booking.auto_confirm.unwrap_or(settings.auto_confirm);
-    settings.horizon_days = booking.horizon_days.unwrap_or(settings.horizon_days);
-    settings.min_notice_minutes = booking
-        .min_notice_minutes
-        .unwrap_or(settings.min_notice_minutes);
-    settings.reminder_minutes = booking
-        .reminder_minutes
-        .unwrap_or(settings.reminder_minutes);
-    row.booking = settings_value(&settings.validate().map_err(|error| {
-        let field = match error {
-            BookingError::SlotMinutes => "booking.slot_minutes",
-            BookingError::BufferMinutes => "booking.buffer_minutes",
-            BookingError::HorizonDays => "booking.horizon_days",
-            BookingError::MinNotice => "booking.min_notice_minutes",
-            BookingError::ReminderMinutes => "booking.reminder_minutes",
-        };
-        AppError::invalid(field, error)
-    })?);
+    row.booking = apply_booking(&row.booking, &changes.booking)?;
     if changes.address.is_some() || changes.phone.is_some() {
         if row.branch_id.is_none() {
             return Err(AppError::Conflict("the clinic has no main branch"));
@@ -361,6 +372,62 @@ pub async fn update(
         }
         dal::save(tx.conn(), &row).await?;
         Ok(view(&row))
+    })
+    .await
+}
+
+/// The clinic's notification switches and quiet hours. Needs `settings.manage`.
+///
+/// # Errors
+/// [`AppError::Denied`] without `settings.manage`; [`AppError::Db`] on database failures.
+pub async fn notification_prefs(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+) -> Result<NotificationPrefs, AppError> {
+    actor.require(Permission::SettingsManage)?;
+    db.scoped(&staff_scope(actor, request_id), async |tx| {
+        prefs_in(tx).await
+    })
+    .await
+}
+
+/// The clinic's notification switches inside an open clinic transaction, for the code a switch
+/// controls. No permission check: callers are acting for the clinic already.
+///
+/// # Errors
+/// [`AppError::Db`] on database failures.
+pub(crate) async fn prefs_in(tx: &mut sakalya_db::ScopedTx) -> Result<NotificationPrefs, AppError> {
+    Ok(NotificationPrefs::from_stored(
+        &dal::notifications(tx.conn()).await?,
+    ))
+}
+
+/// Changes the clinic's notification switches and quiet hours; what is left out stays, and keys
+/// other features keep in the same object (campaign caps) are untouched. The change history
+/// records each change.
+///
+/// # Errors
+/// [`AppError::Denied`] without `settings.manage`; [`AppError::Invalid`] naming the bad quiet
+/// hours field; [`AppError::Db`] on database failures.
+pub async fn update_notification_prefs(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    changes: NotificationChanges,
+) -> Result<NotificationPrefs, AppError> {
+    actor.require(Permission::SettingsManage)?;
+    db.scoped(&staff_scope(actor, request_id), async |tx| {
+        let mut stored = dal::notifications_for_update(tx.conn())
+            .await?
+            .ok_or(AppError::NotFound("clinic"))?;
+        let mut prefs = NotificationPrefs::from_stored(&stored);
+        prefs
+            .apply(&changes)
+            .map_err(|error| AppError::invalid(error.field(), error))?;
+        prefs.merge_into(&mut stored);
+        dal::save_notifications(tx.conn(), &stored).await?;
+        Ok(prefs)
     })
     .await
 }

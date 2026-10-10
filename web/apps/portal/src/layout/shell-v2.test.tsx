@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { failure, type ApiClient } from "@aarogyam/api-client";
+import type { ApiClient } from "@aarogyam/api-client";
 import { ROLES } from "@aarogyam/api-client/fake";
 
 import { NEW_LOOK_KEY } from "../lib/new-look.js";
@@ -222,9 +222,9 @@ describe("Notifications drawer", () => {
       as: PEOPLE.asha,
       wrap: (client): ApiClient => ({
         ...client,
-        getBadges: () => {
+        countUnreadNotifications: () => {
           badgeCalls += 1;
-          return Promise.resolve(failure({ status: 403, code: "forbidden", message: "No chat." }));
+          return Promise.resolve({ ok: true, value: { unread: 3 } });
         },
       }),
     });

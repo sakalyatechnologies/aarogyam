@@ -3,6 +3,16 @@
 import type { ApiResult } from "./result.js";
 import type { FileSharing, PatientAppAccess, PatientAppInvitation, PatientLinkDecided } from "./contract.js";
 import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
+import type {
+  MarkedRead,
+  NotificationList,
+  NotificationSettings,
+  NotificationSettingsChanges,
+  Profile,
+  ProfileUpdate,
+  RevokedSessions,
+  UnreadCount,
+} from "./schemas.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
 import type { Allergy, MonthSummary, OpenLabOrderPage, PhoneMatchPage, QuickPicks, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
 import type {
@@ -30,10 +40,6 @@ import type {
   PhotoChanges,
   SetupUpdate,
   Setup,
-  Badges,
-  MarkedRead,
-  NotificationList,
-  UnreadCount,
   WebsiteChanges,
   WebsiteSettings,
   Cancelled,
@@ -211,6 +217,7 @@ export interface RequestOptions {
   signal?: AbortSignal | undefined;
 }
 
+/** Which patients the list shows. Flags only, so nothing personal reaches a URL. */
 /** Filters for `listNotifications`. */
 export interface NotificationQuery {
   /** Only unread ones, from the last 30 days. */
@@ -221,7 +228,6 @@ export interface NotificationQuery {
   before?: string;
 }
 
-/** Which patients the list shows. Flags only, so nothing personal reaches a URL. */
 export interface PatientFilter {
   /** Issued bills with something left to pay; needs `billing.read`. */
   withBalance?: boolean | undefined;
@@ -402,9 +408,14 @@ export interface ApiClient {
   /** Clinic host: removes the clinic's default, so MedSync applies again. Needs `settings.manage`. */
   resetDashboardLayout(options?: RequestOptions): Promise<ApiResult<DashboardLayoutView>>;
 
-  /** Clinic host: the numbers the apps poll every minute: unread chat and unread notifications (absent without `appointments.read`). `403` without `chat.use`. */
-  getBadges(options?: RequestOptions): Promise<ApiResult<Badges>>;
-  /** Clinic host: the caller's notifications, newest first, each with a portal link (`href`) when it has one. */
+  /** Clinic host: the clinic's notification switches (reminders, receipts, recalls, low stock, overdue lab work) and quiet hours. Needs `settings.manage`. */
+  getNotificationSettings(options?: RequestOptions): Promise<ApiResult<NotificationSettings>>;
+  /** Clinic host: changes the notification switches; what is left out stays. `400` names a bad quiet-hours field. Needs `settings.manage`. */
+  updateNotificationSettings(changes: NotificationSettingsChanges, options?: RequestOptions): Promise<ApiResult<NotificationSettings>>;
+  /** Clinic host: uploads the clinic logo (PNG or JPEG, up to 2 MB; form field `file`) and returns the clinic's settings. Needs `settings.manage`. */
+  uploadClinicLogo(form: FormData, options?: RequestOptions): Promise<ApiResult<ClinicSettings>>;
+
+  /** Clinic host: the caller's notifications, newest first, each with a portal link (`href`) when it has one. Needs a read permission that one of the kinds uses (appointments, labs, billing or patients). */
   listNotifications(params?: NotificationQuery, options?: RequestOptions): Promise<ApiResult<NotificationList>>;
   /** Clinic host: the bell's number: unread notifications from the last 30 days, at most 100. */
   countUnreadNotifications(options?: RequestOptions): Promise<ApiResult<UnreadCount>>;
@@ -424,6 +435,10 @@ export interface ApiClient {
   listMySessions(options?: RequestOptions): Promise<ApiResult<MySessions>>;
   /** Any host: signs one of the person's own sessions out. */
   revokeMySession(id: SessionId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Any host: signs out every session but the one asking, and says how many it ended. */
+  revokeOtherSessions(options?: RequestOptions): Promise<ApiResult<RevokedSessions>>;
+  /** Any host: changes the person's own name and phone (across every clinic they belong to). `400` names the field; `409` when another account holds the phone. */
+  updateMe(changes: ProfileUpdate, options?: RequestOptions): Promise<ApiResult<Profile>>;
 
   /** Console host. */
   listClinics(options?: RequestOptions): Promise<ApiResult<ConsoleClinicPage>>;

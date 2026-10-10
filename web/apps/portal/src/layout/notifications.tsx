@@ -12,23 +12,16 @@ import { SCHEDULE } from "../lib/cache-policy.js";
 export const BADGE_POLL_MS = 60_000;
 
 /**
- * The unread number for the bell, polled every minute from `/me/badges`. A role without chat (`403`)
- * falls back to the notification count, which is the same number; a role without either shows none.
+ * The unread number for the bell, polled every minute. Falls back to the notification count
+ * if the role doesn't have chat access; a role without either shows none.
  */
 export function useBadges() {
   const { api, access } = useClinic();
   return useQuery({
     queryKey: ["badges", access.org_id],
     queryFn: async ({ signal }) => {
-      const result = await api.getBadges({ signal });
-      if (result.ok) {
-        return result.value;
-      }
-      if (result.error.status === 403) {
-        const count = await api.countUnreadNotifications({ signal });
-        return { chat_unread: 0, notifications_unread: count.ok ? count.value.unread : null };
-      }
-      throw new Error(result.error.message);
+      const count = await api.countUnreadNotifications({ signal });
+      return { chat_unread: 0, notifications_unread: count.ok ? count.value.unread : null };
     },
     ...SCHEDULE,
     refetchInterval: BADGE_POLL_MS,

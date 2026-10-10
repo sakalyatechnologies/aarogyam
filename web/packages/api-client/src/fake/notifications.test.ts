@@ -11,15 +11,13 @@ function client(as: string, backend = createFakeBackend(createFixtures({ now: NO
 }
 
 describe("fake notifications and badges", () => {
-  it("lists the bell newest first and counts the same unread ones the badges poll reports", async () => {
+  it("lists the bell newest first and counts the same unread ones each method reports", async () => {
     const api = client(ASHA);
     const list = await unwrap(api.listNotifications());
     expect(list.items.length).toBeGreaterThan(2);
     expect(list.items.map((n) => n.id)).toEqual([...list.items.map((n) => n.id)].sort().reverse());
     expect(list.items.every((n) => !n.read)).toBe(true);
-    const badges = await unwrap(api.getBadges());
     expect((await unwrap(api.countUnreadNotifications())).unread).toBe(list.items.length);
-    expect(badges.notifications_unread).toBe(list.items.length);
   });
 
   it("marks one read for the caller only, then all, and keeps the state", async () => {
@@ -35,7 +33,7 @@ describe("fake notifications and badges", () => {
     expect(marked.marked).toBe(after.items.length - 1);
     expect((await unwrap(api.countUnreadNotifications())).unread).toBe(0);
     // A new client over the same backend still sees them read.
-    expect((await unwrap(client(ASHA, backend).getBadges())).notifications_unread).toBe(0);
+    expect((await unwrap(client(ASHA, backend).countUnreadNotifications())).unread).toBe(0);
   });
 
   it("answers 404 for a notification that is not there", async () => {

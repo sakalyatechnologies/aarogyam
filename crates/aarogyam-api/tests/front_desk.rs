@@ -858,7 +858,7 @@ async fn today_counts_the_clinic_day() {
                 room_id: Some(RoomId::from_uuid(id(room))),
                 branch_id: None,
                 starts_at: start,
-                ends_at: start + Duration::minutes(minutes),
+                ends_at: Some(start + Duration::minutes(minutes)),
                 kind: None,
                 reason: None,
                 notes: None,

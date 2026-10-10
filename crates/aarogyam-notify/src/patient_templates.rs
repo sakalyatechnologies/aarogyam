@@ -52,6 +52,11 @@ pub(crate) fn when_text(at: OffsetDateTime) -> String {
     )
 }
 
+/// An amount in paise as rupees and paise, such as `₹1500.50`.
+fn rupees(paise: i64) -> String {
+    format!("₹{}.{:02}", paise / 100, paise % 100)
+}
+
 const UNSUBSCRIBE_LINE: &str =
     "To stop these emails, use the Unsubscribe option in your email app.";
 
@@ -89,6 +94,26 @@ pub(crate) fn render(mail: &PatientMail<'_>, portal: &PortalLinks) -> Result<Ema
                 vec![
                     format!("This is a reminder of your appointment on {when} with {doctor}."),
                     "If you can't come, please let the clinic know.".to_owned(),
+                ],
+            )
+        }
+        MessageKind::PaymentReceipt => {
+            let number = field(mail.variables, "receipt_number")?;
+            let paise = mail
+                .variables
+                .get("amount_paise")
+                .and_then(Value::as_i64)
+                .filter(|paise| *paise > 0)
+                .ok_or_else(|| Failure::permanent("no amount"))?;
+            (
+                format!("Receipt {number} from {}", mail.clinic_name),
+                vec![
+                    format!(
+                        "Thank you. We received your payment of {}. Your receipt number is {number}.",
+                        rupees(paise)
+                    ),
+                    "Keep this email for your records. The clinic can print a copy on request."
+                        .to_owned(),
                 ],
             )
         }

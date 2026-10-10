@@ -178,3 +178,46 @@ pub async fn booking(conn: &mut PgConnection) -> Result<Value, DbError> {
     .await?;
     Ok(value.unwrap_or_else(|| Value::Object(serde_json::Map::new())))
 }
+
+/// The current clinic's notification switches and quiet hours object, as stored.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn notifications(conn: &mut PgConnection) -> Result<Value, DbError> {
+    let value = sqlx::query_scalar!(
+        r#"select notifications as "notifications!" from aarogyam.org_settings
+           where org_id = app.tenant_id()"#
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(value.unwrap_or_else(|| Value::Object(serde_json::Map::new())))
+}
+
+/// The notifications object, locked until the transaction ends so concurrent edits apply one
+/// after the other; `None` when the clinic has no settings row.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn notifications_for_update(conn: &mut PgConnection) -> Result<Option<Value>, DbError> {
+    let value = sqlx::query_scalar!(
+        r#"select notifications as "notifications!" from aarogyam.org_settings
+           where org_id = app.tenant_id() for update"#
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(value)
+}
+
+/// Saves the notifications object. The audit trigger records what changed.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn save_notifications(conn: &mut PgConnection, value: &Value) -> Result<(), DbError> {
+    sqlx::query!(
+        "update aarogyam.org_settings set notifications = $1 where org_id = app.tenant_id()",
+        value
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}

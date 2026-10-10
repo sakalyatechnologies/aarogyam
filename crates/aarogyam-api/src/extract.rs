@@ -279,6 +279,38 @@ impl<A: Required, B: Required> FromRequestParts<AppState> for RequireEither<A, B
     }
 }
 
+/// A [`ClinicRequest`] whose role holds at least one of permissions `A`, `B`, `C` and `D`;
+/// otherwise `403`. For the notification feed, which each permission fills with its own kind.
+#[derive(Debug)]
+pub struct RequireAny<A: Required, B: Required, C: Required, D: Required> {
+    /// The checked request.
+    pub request: ClinicRequest,
+    permissions: PhantomData<(A, B, C, D)>,
+}
+
+impl<A: Required, B: Required, C: Required, D: Required> FromRequestParts<AppState>
+    for RequireAny<A, B, C, D>
+{
+    type Rejection = ApiFailure;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let request = ClinicRequest::admit(parts, state, true).await?;
+        let held = [A::PERMISSION, B::PERMISSION, C::PERMISSION, D::PERMISSION]
+            .into_iter()
+            .any(|permission| request.actor.require(permission).is_ok());
+        if !held {
+            request.actor.require(A::PERMISSION)?;
+        }
+        Ok(Self {
+            request,
+            permissions: PhantomData,
+        })
+    }
+}
+
 /// Active Sakalya staff on the console host. Other hosts get `404`; people who aren't staff get
 /// `403`.
 #[derive(Debug)]

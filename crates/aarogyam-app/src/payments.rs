@@ -8,15 +8,19 @@ use aarogyam_domain::billing::{
     FinancialYear, InvoiceStatus, PaymentMethod, PaymentStatus, RECEIPT_PREFIX, serial_number,
 };
 use aarogyam_domain::ids::{InvoiceId, PatientId, PaymentId};
+use aarogyam_domain::messaging::receipt_dedupe_key;
+use aarogyam_domain::outbox::MessageKind;
 use aarogyam_domain::permission::Permission;
 use sakalya_db::{Db, ScopedTx};
 use sakalya_types::Paise;
+use serde_json::json;
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::billing::{PatientRef, void_reason};
 use crate::clock::{clinic_today, day_range};
 use crate::error::AppError;
+use crate::messaging::{PatientEmail, enqueue_patient_email};
 use crate::scope::staff_scope as scope;
 use crate::tokens::hash_token;
 
@@ -266,7 +270,7 @@ pub async fn record(
                     "this Idempotency-Key was used for a different payment",
                 ));
             }
-            patients::get(tx.conn(), input.patient_id.uuid(), None)
+            let patient = patients::get(tx.conn(), input.patient_id.uuid(), None)
                 .await?
                 .ok_or(AppError::NotFound("patient"))?;
             let ids: Vec<Uuid> = input.allocations.iter().map(|(id, _)| id.uuid()).collect();
@@ -339,6 +343,24 @@ pub async fn record(
                     invoice.uuid(),
                     input.patient_id.uuid(),
                     *amount,
+                )
+                .await?;
+            }
+            // The clinic's `receipts` switch: an email receipt, queued with the payment.
+            if patient.email.is_some() && crate::settings::prefs_in(tx).await?.receipts {
+                enqueue_patient_email(
+                    tx,
+                    &PatientEmail {
+                        kind: MessageKind::PaymentReceipt,
+                        patient_id: input.patient_id,
+                        payload: json!({
+                            "receipt_number": number,
+                            "amount_paise": input.amount_paise,
+                        }),
+                        secret: None,
+                        appointment_id: None,
+                        dedupe_key: Some(&receipt_dedupe_key(id)),
+                    },
                 )
                 .await?;
             }

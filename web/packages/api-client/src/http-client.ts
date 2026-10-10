@@ -128,7 +128,8 @@ import {
   workingHours,
   type RequestId,
 } from "./schemas.js";
-import { badges, markedRead, notificationList, phoneMatches, quickPicks, startedVisit, unreadCount, walkIn } from "./schemas.js";
+import { phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
+import { markedRead, notificationList, notificationSettings, profile, revokedSessions, unreadCount } from "./schemas.js";
 
 /** Returns the current access token, or `null` when signed out. */
 export type TokenSource = () => Promise<string | null> | string | null;
@@ -495,21 +496,6 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     createRole: (input, opts) => call({ method: "POST", path: "/api/v1/roles", schema: roleDetail, body: input, signal: opts?.signal }),
     deleteRole: (key, opts) => call({ method: "DELETE", path: `/api/v1/roles/${encodeURIComponent(key)}`, schema: voidResponse, signal: opts?.signal }),
 
-    getBadges: (opts) => call({ method: "GET", path: "/api/v1/me/badges", schema: badges, signal: opts?.signal }),
-    listNotifications: (params, opts) =>
-      call({
-        method: "GET",
-        path: "/api/v1/notifications",
-        schema: notificationList,
-        query: { unread_only: params?.unreadOnly === true ? "true" : undefined, limit: params?.limit, before: params?.before },
-        signal: opts?.signal,
-      }),
-    countUnreadNotifications: (opts) =>
-      call({ method: "GET", path: "/api/v1/notifications/count", schema: unreadCount, signal: opts?.signal }),
-    markNotificationRead: (id, opts) =>
-      call({ method: "POST", path: `/api/v1/notifications/${encodeURIComponent(id)}/read`, schema: voidResponse, signal: opts?.signal }),
-    markAllNotificationsRead: (opts) =>
-      call({ method: "POST", path: "/api/v1/notifications/read-all", schema: markedRead, signal: opts?.signal }),
     getMyDashboardLayout: (opts) => call({ method: "GET", path: "/api/v1/me/dashboard-layout", schema: dashboardLayoutView, signal: opts?.signal }),
     saveMyDashboardLayout: (layout, opts) =>
       call({ method: "PUT", path: "/api/v1/me/dashboard-layout", schema: dashboardLayoutView, body: layout, signal: opts?.signal }),
@@ -528,9 +514,34 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     removeLetterheadImage: (slot, opts) =>
       call({ method: "DELETE", path: `/api/v1/settings/letterhead/images/${slot}`, schema: letterhead, signal: opts?.signal }),
 
+    getNotificationSettings: (opts) =>
+      call({ method: "GET", path: "/api/v1/settings/notifications", schema: notificationSettings, signal: opts?.signal }),
+    updateNotificationSettings: (changes, opts) =>
+      call({ method: "PATCH", path: "/api/v1/settings/notifications", schema: notificationSettings, body: changes, signal: opts?.signal }),
+    uploadClinicLogo: (form, opts) =>
+      call({ method: "POST", path: "/api/v1/settings/clinic/logo", schema: clinicSettings, body: form, signal: opts?.signal }),
+
+    listNotifications: (params, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/notifications",
+        schema: notificationList,
+        query: { unread_only: params?.unreadOnly === true ? "true" : undefined, limit: params?.limit, before: params?.before },
+        signal: opts?.signal,
+      }),
+    countUnreadNotifications: (opts) =>
+      call({ method: "GET", path: "/api/v1/notifications/count", schema: unreadCount, signal: opts?.signal }),
+    markNotificationRead: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/notifications/${encodeURIComponent(id)}/read`, schema: voidResponse, signal: opts?.signal }),
+    markAllNotificationsRead: (opts) =>
+      call({ method: "POST", path: "/api/v1/notifications/read-all", schema: markedRead, signal: opts?.signal }),
+
     listMySessions: (opts) => call({ method: "GET", path: "/api/v1/me/sessions", schema: mySessionsResponse, signal: opts?.signal }),
     revokeMySession: (id, opts) =>
       call({ method: "POST", path: `/api/v1/me/sessions/${encodeURIComponent(id)}/revoke`, schema: voidResponse, signal: opts?.signal }),
+    revokeOtherSessions: (opts) =>
+      call({ method: "POST", path: "/api/v1/me/sessions/revoke-others", schema: revokedSessions, signal: opts?.signal }),
+    updateMe: (changes, opts) => call({ method: "PATCH", path: "/api/v1/me", schema: profile, body: changes, signal: opts?.signal }),
 
     listClinics: (opts) =>
       call({ method: "GET", path: "/api/v1/console/clinics", schema: consoleClinics, signal: opts?.signal }),

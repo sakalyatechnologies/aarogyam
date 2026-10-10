@@ -64,7 +64,7 @@ export interface FakeClinic {
   created_at: string;
   /** `SD` in `SD-9`. */
   number_prefix: string;
-  branding: { brand: string; mode: "light" | "dark" };
+  branding: { brand: string; mode: "light" | "dark" | "auto" };
   /** The main branch's address, for `GET /settings/clinic`. */
   address?: FakeAddress;
   /** The main branch's phone. */
@@ -74,6 +74,8 @@ export interface FakeClinic {
   legal_name?: string | null;
   gstin?: string | null;
   prescription_footer?: string | null;
+  /** Notification switches; anything left out uses the API's default. */
+  notification_settings?: Partial<Omit<C.NotificationSettings, "quiet_hours">> & { quiet_hours?: Partial<C.QuietHoursView> };
   /** Online booking settings; anything left out uses the API's default. */
   online_booking?: Partial<C.OnlineBooking>;
   /** The letterhead settings; anything left out uses the API's default. */
@@ -636,6 +638,8 @@ export interface Fixtures {
   plans: FakePlan[];
   attachments: FakeAttachment[];
   sessions: FakeSession[];
+  /** Staff notifications, made by tests; the bell reads them. */
+  notifications?: FakeNotification[];
   applications: FakeApplication[];
   priceItems: FakePriceItem[];
   suppliers: FakeSupplier[];
@@ -656,8 +660,6 @@ export interface Fixtures {
   /** Clinic websites, made on first use. */
   websites?: import("./website.js").FakeSite[];
   websitePhotos?: import("./website.js").FakePhoto[];
-  /** Staff notifications for the bell. */
-  notifications?: FakeNotification[];
   /** First-run setup per clinic and member; with no entry, a person counts as set up already (dismissed). */
   setups?: import("./setup.js").FakeSetup[];
   quality: C.QualityReport;

@@ -15,6 +15,8 @@ pub enum PatientMessage {
     PrescriptionLink,
     /// An invitation to the patient app.
     PatientAppInvite,
+    /// A receipt for a payment the patient made.
+    PaymentReceipt,
     /// A reminder before an appointment.
     AppointmentReminder,
     /// A recall: a follow-up, cleaning or review is due.
@@ -31,6 +33,7 @@ impl PatientMessage {
         Self::BookingConfirmation,
         Self::PrescriptionLink,
         Self::PatientAppInvite,
+        Self::PaymentReceipt,
         Self::AppointmentReminder,
         Self::Recall,
         Self::Campaign,
@@ -41,9 +44,10 @@ impl PatientMessage {
     #[must_use]
     pub const fn purpose(self) -> Purpose {
         match self {
-            Self::BookingConfirmation | Self::PrescriptionLink | Self::PatientAppInvite => {
-                Purpose::Care
-            }
+            Self::BookingConfirmation
+            | Self::PrescriptionLink
+            | Self::PatientAppInvite
+            | Self::PaymentReceipt => Purpose::Care,
             Self::AppointmentReminder | Self::Recall => Purpose::Reminders,
             Self::Campaign | Self::Birthday => Purpose::Promotional,
         }
@@ -72,6 +76,7 @@ impl PatientMessage {
             | MessageKind::BookingConfirmed
             | MessageKind::BookingDeclined => Some(Self::BookingConfirmation),
             MessageKind::PatientAppInvited => Some(Self::PatientAppInvite),
+            MessageKind::PaymentReceipt => Some(Self::PaymentReceipt),
         }
     }
 }
@@ -87,6 +92,7 @@ mod tests {
             M::BookingConfirmation,
             M::PrescriptionLink,
             M::PatientAppInvite,
+            M::PaymentReceipt,
         ];
         let reminders = [M::AppointmentReminder, M::Recall];
         let promotional = [M::Campaign, M::Birthday];

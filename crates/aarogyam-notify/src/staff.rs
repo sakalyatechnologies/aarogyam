@@ -167,3 +167,28 @@ mod tests {
         assert_eq!(StaffChannel::InApp.name(), "in_app");
     }
 }
+
+/// How long a queue token waits before staff are told, in minutes.
+pub const WAITING_MINUTES: i32 = 15;
+
+/// What one run of the follow-up and waiting-patient step did.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FlagReport {
+    /// `recall_due` alerts written.
+    pub recalls: i32,
+    /// `patient_waiting` alerts written.
+    pub waiting: i32,
+}
+
+/// Writes the alerts nothing else triggers: a follow-up that fell due (unless the clinic
+/// switched `recall` off) and a patient who has waited [`WAITING_MINUTES`] in the queue. Each is
+/// written once, whatever runs at once.
+///
+/// # Errors
+/// [`DbError`] when the database fails; alerts already written stay written.
+pub async fn flag_alerts(db: &Db, now: OffsetDateTime) -> Result<FlagReport, DbError> {
+    let pool = db.pool();
+    let recalls = dal::flag_due_recalls(pool, now, BATCH).await?;
+    let waiting = dal::flag_waiting_tokens(pool, now, WAITING_MINUTES, BATCH).await?;
+    Ok(FlagReport { recalls, waiting })
+}

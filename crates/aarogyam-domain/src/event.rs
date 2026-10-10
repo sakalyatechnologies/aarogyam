@@ -18,6 +18,10 @@ pub enum Event {
     SetupChanged,
     /// A person signed one of their sessions out.
     SessionRevoked,
+    /// A person signed out every session but the one they are using.
+    SessionsRevokedOthers,
+    /// A person changed their own name or phone.
+    ProfileChanged,
     /// A queued message was delivered.
     MessageSent,
     /// A queued message failed and will be tried again.
@@ -202,6 +206,8 @@ impl Event {
             Self::SettingsChanged => "settings.changed",
             Self::SetupChanged => "setup.changed",
             Self::SessionRevoked => "session.revoked",
+            Self::SessionsRevokedOthers => "session.revoked_others",
+            Self::ProfileChanged => "profile.changed",
             Self::MessageSent => "message.sent",
             Self::MessageRetried => "message.retried",
             Self::BookingReminded => "booking.reminded",

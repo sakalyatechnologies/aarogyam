@@ -425,30 +425,128 @@ describe("createHttpClient visit wrap-up, share links and medicine sets", () => 
   });
 });
 
-describe("createHttpClient notifications and badges", () => {
-  it("calls the bell routes and reads their bodies", async () => {
-    const notification = { id: "n1", kind: "booking_requested", created_at: "2026-10-03T05:00:00Z", read: false, href: "/calendar" };
-    const answers = [
-      json(200, { chat_unread: 2, notifications_unread: 3 }),
-      json(200, { items: [notification] }),
-      json(200, { unread: 3 }),
-      new Response(null, { status: 204 }),
-      json(200, { marked: 3 }),
+describe("createHttpClient settings v2", () => {
+  const prefs = {
+    reminder_24h: true,
+    reminder_2h: false,
+    receipts: false,
+    recall: true,
+    low_stock: true,
+    lab_due: true,
+    quiet_hours: { enabled: true, start: "21:00", end: "09:00" },
+  };
+  const alert = {
+    id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405170",
+    kind: "payment_due",
+    created_at: "2026-10-10T05:30:00Z",
+    read: false,
+    read_at: null,
+    handled: null,
+    reminded_at: null,
+    escalated_at: null,
+    appointment: null,
+    lab_order: null,
+    href: "/billing/invoices/0192f1c4-7a10-7c3e-9b2a-1d2e3f405171",
+    queue_token: null,
+    invoice: { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171", number: "AD/26-27/000001" },
+    recall: null,
+  };
+
+  it("decodes the profile, other-session sign-out and notification switches, on the routes the API serves", async () => {
+    const bodies = [
+      json(200, { display_name: "Asha Rao", phone: "+919876543210" }),
+      json(200, { revoked: 2 }),
+      json(200, prefs),
+      json(200, { ...prefs, receipts: true }),
     ];
-    let next = 0;
-    const { calls, fetch } = stubFetch(() => Promise.resolve(answers[next++] ?? json(500, {})));
-    const client = createHttpClient("", () => "abc", { fetch });
-    expect((await unwrap(client.getBadges())).notifications_unread).toBe(3);
-    expect((await unwrap(client.listNotifications({ unreadOnly: true, limit: 5, before: "n9" }))).items[0]?.href).toBe("/calendar");
+    const { calls, fetch } = stubFetch(() => Promise.resolve(bodies.shift() ?? json(500, {})));
+    const client = createHttpClient("http://sunrise.localtest.me", () => "token", { fetch });
+    const me = await unwrap(client.updateMe({ display_name: "Asha Rao", phone: "98765 43210" }));
+    expect(me).toEqual({ display_name: "Asha Rao", phone: "+919876543210" });
+    expect((await unwrap(client.revokeOtherSessions())).revoked).toBe(2);
+    expect((await unwrap(client.getNotificationSettings())).quiet_hours).toEqual({ enabled: true, start: "21:00", end: "09:00" });
+    expect((await unwrap(client.updateNotificationSettings({ receipts: true }))).receipts).toBe(true);
+    expect(calls.map((c) => `${c.init?.method ?? ""} ${new URL(c.url).pathname}`)).toEqual([
+      "PATCH /api/v1/me",
+      "POST /api/v1/me/sessions/revoke-others",
+      "GET /api/v1/settings/notifications",
+      "PATCH /api/v1/settings/notifications",
+    ]);
+    expect(calls[0]?.init?.body).toBe(JSON.stringify({ display_name: "Asha Rao", phone: "98765 43210" }));
+    expect(calls[3]?.init?.body).toBe(JSON.stringify({ receipts: true }));
+  });
+
+  it("reads the notification feed with its links, and the bell's calls", async () => {
+    const bodies = [json(200, { items: [alert] }), json(200, { unread: 3 }), new Response(null, { status: 204 }), json(200, { marked: 2 })];
+    const { calls, fetch } = stubFetch(() => Promise.resolve(bodies.shift() ?? json(500, {})));
+    const client = createHttpClient("http://sunrise.localtest.me", () => "token", { fetch });
+    const feed = await unwrap(client.listNotifications({ unreadOnly: true, limit: 20 }));
+    expect(feed.items[0]).toMatchObject({ kind: "payment_due", href: alert.href, invoice: { number: "AD/26-27/000001" } });
     expect((await unwrap(client.countUnreadNotifications())).unread).toBe(3);
-    await unwrap(client.markNotificationRead("n 1"));
-    expect((await unwrap(client.markAllNotificationsRead())).marked).toBe(3);
-    expect(calls.map((c) => `${c.init?.method ?? "GET"} ${c.url}`)).toEqual([
-      "GET /api/v1/me/badges",
-      "GET /api/v1/notifications?unread_only=true&limit=5&before=n9",
+    await unwrap(client.markNotificationRead(alert.id));
+    expect((await unwrap(client.markAllNotificationsRead())).marked).toBe(2);
+    expect(calls.map((c) => `${c.init?.method ?? ""} ${new URL(c.url).pathname}${new URL(c.url).search}`)).toEqual([
+      "GET /api/v1/notifications?unread_only=true&limit=20",
       "GET /api/v1/notifications/count",
-      "POST /api/v1/notifications/n%201/read",
+      `POST /api/v1/notifications/${alert.id}/read`,
       "POST /api/v1/notifications/read-all",
     ]);
+  });
+
+  it("posts the logo as a form to the clinic logo route and decodes the settings, with branding mode auto and the default visit length", async () => {
+    const settings = {
+      name: "Sunrise Dental",
+      specialty: "dental",
+      legal_name: null,
+      gstin: null,
+      timezone: "Asia/Kolkata",
+      branding: { brand: "#0F766E", mode: "auto" },
+      prescription_footer: null,
+      address: { line1: null, line2: null, city: null, state: null, pincode: null },
+      phone: null,
+      upi_id: null,
+      online_booking: {
+        enabled: true,
+        slot_minutes: 15,
+        buffer_minutes: 0,
+        auto_confirm: false,
+        horizon_days: 30,
+        min_notice_minutes: 60,
+        reminder_minutes: 15,
+        default_visit_minutes: 45,
+      },
+      letterhead: {
+        mode: "template",
+        template: "classic",
+        accent: null,
+        show: { logo: true, doctors: true, registration: true, address: true, phone: true, email: true, timings: true, gstin: false },
+        local_name: null,
+        footer: null,
+        email: null,
+        timings: null,
+        doctor_ids: [],
+        has_image: false,
+        has_logo: true,
+      },
+    };
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, settings)));
+    const client = createHttpClient("http://sunrise.localtest.me", () => "token", { fetch });
+    const form = new FormData();
+    form.set("file", new Blob(["x"], { type: "image/png" }), "logo.png");
+    const saved = await unwrap(client.uploadClinicLogo(form));
+    expect(saved.letterhead.has_logo).toBe(true);
+    expect(saved.branding.mode).toBe("auto");
+    expect(saved.online_booking.default_visit_minutes).toBe(45);
+    expect(`${calls[0]?.init?.method ?? ""} ${new URL(calls[0]?.url ?? "").pathname}`).toBe("POST /api/v1/settings/clinic/logo");
+    expect(calls[0]?.init?.body).toBe(form);
+  });
+
+  it("reads a 400 from the profile as the field's refusal and a 409 as a conflict", async () => {
+    const bad = stubFetch(json(400, { error: { code: "invalid_input", message: "phone: is not a valid phone number" } }));
+    const result = await createHttpClient("", () => "token", { fetch: bad.fetch }).updateMe({ phone: "12" });
+    expect(result.ok ? null : [result.error.status, result.error.field]).toEqual([400, "phone"]);
+    const taken = stubFetch(json(409, { error: { code: "conflict", message: "that phone number belongs to another account" } }));
+    const conflict = await createHttpClient("", () => "token", { fetch: taken.fetch }).updateMe({ phone: "9876543210" });
+    expect(conflict.ok ? null : conflict.error.status).toBe(409);
   });
 });

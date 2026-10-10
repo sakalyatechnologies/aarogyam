@@ -57,6 +57,18 @@ stored_enum!(
         BookingCancelledByPatient => "booking_cancelled_by_patient",
         /// Lab work is past its due date and still at the lab.
         LabOverdue => "lab_overdue",
+        /// A booked patient arrived at the clinic.
+        Arrival => "arrival",
+        /// A bill was issued and still has a balance.
+        PaymentDue => "payment_due",
+        /// A patient's follow-up fell due.
+        RecallDue => "recall_due",
+        /// A queue token has waited a while.
+        PatientWaiting => "patient_waiting",
+        /// The doctor called a patient in.
+        SendIn => "send_in",
+        /// A visit closed with its bill still in draft: collect the payment.
+        CollectPayment => "collect_payment",
     }
 );
 

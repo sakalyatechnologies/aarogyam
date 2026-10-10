@@ -81,6 +81,19 @@ export type LetterheadClinic = Schemas["LetterheadClinic"];
 
 export type MySession = Schemas["MySession"];
 export type MySessions = Schemas["MySessions"];
+export type Profile = Schemas["Profile"];
+export type ProfileUpdate = Schemas["ProfileUpdate"];
+export type RevokedSessions = Schemas["RevokedSessions"];
+export type NotificationSettings = Schemas["NotificationSettings"];
+export type NotificationSettingsChanges = Schemas["NotificationSettingsChanges"];
+export type QuietHoursView = Schemas["QuietHoursView"];
+export type QuietHoursChangesBody = Schemas["QuietHoursChangesBody"];
+export type NotifiedAppointment = Schemas["NotifiedAppointment"];
+export type NotifiedLabOrder = Schemas["NotifiedLabOrder"];
+export type NotifiedQueueToken = Schemas["NotifiedQueueToken"];
+export type NotifiedInvoice = Schemas["NotifiedInvoice"];
+export type NotifiedRecall = Schemas["NotifiedRecall"];
+export type NotificationHandledBy = Schemas["HandledBy"];
 
 // Refinements of untyped parts of the spec ----------------------------------------------------
 

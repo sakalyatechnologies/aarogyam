@@ -31,21 +31,25 @@ import {
 } from "./layout-model.js";
 import { useResetLayout, useSaveLayout } from "./queries.js";
 import { entryOf, WIDGET_REGISTRY } from "./registry.js";
+import { SampleData, SampleScope } from "./sample-data.js";
 
 const toPills = (values: readonly string[], labels: Readonly<Record<string, string>> = {}) => values.map((value) => ({ value, label: labels[value] ?? value.charAt(0).toUpperCase() + value.slice(1) }));
 
-/** The Studio's preview: the live Board at desktop width, scaled down to the room there is, and inert. */
-function ScaledPreview({ layout, view }: { layout: DashboardLayout; view: DashboardLayoutView }) {
+/**
+ * A board at desktop width, scaled down to the room there is, and inert. The Studio's preview is one at (nearly) full
+ * size; a template card's thumbnail is one at a sixth. `sample` draws it from a made-up clinic day.
+ */
+function ScaledBoard({ layout, view, sample, minScale = 0.3 }: { layout: DashboardLayout; view: DashboardLayoutView; sample: boolean; minScale?: number }) {
   const outer = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.5);
+  const [scale, setScale] = useState(Math.max(0.5, minScale));
   const [height, setHeight] = useState<number | undefined>(undefined);
   useEffect(() => {
     const frame = outer.current;
     const content = inner.current;
     if (frame === null || content === null || typeof ResizeObserver === "undefined") return undefined;
     const measure = () => {
-      const next = Math.min(1, Math.max(0.3, frame.clientWidth / 1100));
+      const next = Math.min(1, Math.max(minScale, frame.clientWidth / 1100));
       setScale(next);
       setHeight(content.scrollHeight * next);
     };
@@ -56,14 +60,22 @@ function ScaledPreview({ layout, view }: { layout: DashboardLayout; view: Dashbo
     return () => {
       watch.disconnect();
     };
-  }, []);
+  }, [minScale]);
+  const board = <Board layout={layout} catalogue={view.catalogue} preview />;
+  return (
+    <div ref={outer} className="tv2-preview-frame" style={height === undefined ? undefined : { height }}>
+      <div ref={inner} className="tv2-preview-inner" style={{ transform: `scale(${String(scale)})` }} inert>
+        {sample ? <SampleData>{board}</SampleData> : board}
+      </div>
+    </div>
+  );
+}
+
+/** The Studio's preview: the live Board at desktop width, scaled down to the room there is, and inert. */
+function ScaledPreview({ layout, view, sample }: { layout: DashboardLayout; view: DashboardLayoutView; sample: boolean }) {
   return (
     <div className="tv2-preview" role="group" aria-label="Live preview of Today">
-      <div ref={outer} className="tv2-preview-frame" style={height === undefined ? undefined : { height }}>
-        <div ref={inner} className="tv2-preview-inner" style={{ transform: `scale(${String(scale)})` }} inert>
-          <Board layout={layout} catalogue={view.catalogue} preview />
-        </div>
-      </div>
+      <ScaledBoard layout={layout} view={view} sample={sample} />
     </div>
   );
 }
@@ -157,6 +169,10 @@ export interface StudioEditorProps {
   onSaved?: (view: DashboardLayoutView) => void;
   /** Hides Save and the reset buttons, for a host that saves the draft itself. */
   hideActions?: boolean;
+  /** Draws the preview (and thumbnails) from a made-up clinic day, for a clinic with nothing booked yet. */
+  sample?: boolean;
+  /** Shows a live thumbnail of each template on its card. */
+  thumbnails?: boolean;
 }
 
 /**
@@ -164,7 +180,7 @@ export interface StudioEditorProps {
  * (drag, or the up and down buttons), set each widget's options, and watch the same Board Today uses redraw as you go.
  * Save writes the member's layout; with `settings.manage` it can also be saved as the clinic's default.
  */
-export function StudioEditor({ view, layout: arrangement = "stacked", scope = "me", onChange, onSaved, hideActions = false }: StudioEditorProps) {
+export function StudioEditor({ view, layout: arrangement = "stacked", scope = "me", onChange, onSaved, hideActions = false, sample = false, thumbnails = false }: StudioEditorProps) {
   const { can } = useClinic();
   const toast = useToast();
   const [draft, setDraft] = useState<DashboardLayout>(view.layout);
@@ -235,16 +251,17 @@ export function StudioEditor({ view, layout: arrangement = "stacked", scope = "m
         <legend>Template</legend>
         <div className="tv2-templates">
           {catalogue.templates.map((template) => (
-            <button
-              key={template.key}
-              type="button"
-              className="tv2-tpl"
-              aria-pressed={draft.tpl === template.key}
-              onClick={() => { change(template.layout); }}
-            >
-              <b>{template.label}</b>
-              <span>{template.description}</span>
-            </button>
+            <div key={template.key} className="tv2-tplcard">
+              {thumbnails ? (
+                <div className="tv2-thumb" aria-hidden="true">
+                  <ScaledBoard layout={template.layout} view={view} sample={sample} minScale={0.05} />
+                </div>
+              ) : null}
+              <button type="button" className="tv2-tpl" aria-pressed={draft.tpl === template.key} onClick={() => { change(template.layout); }}>
+                <b>{template.label}</b>
+                <span>{template.description}</span>
+              </button>
+            </div>
           ))}
         </div>
       </fieldset>
@@ -414,10 +431,11 @@ export function StudioEditor({ view, layout: arrangement = "stacked", scope = "m
     </div>
   );
 
-  return (
-    <div className="tv2-studio" data-layout={arrangement}>
+  const studio = (
+    <div className="tv2-studio" data-layout={arrangement} data-thumbs={thumbnails ? "1" : undefined}>
       {controls}
-      <ScaledPreview layout={draft} view={view} />
+      <ScaledPreview layout={draft} view={view} sample={sample} />
     </div>
   );
+  return sample ? <SampleScope>{studio}</SampleScope> : studio;
 }

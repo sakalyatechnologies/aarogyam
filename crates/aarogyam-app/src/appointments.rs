@@ -165,8 +165,8 @@ pub struct NewAppointment {
     pub branch_id: Option<BranchId>,
     /// Start.
     pub starts_at: OffsetDateTime,
-    /// End.
-    pub ends_at: OffsetDateTime,
+    /// End; the clinic's default visit length after the start when absent.
+    pub ends_at: Option<OffsetDateTime>,
     /// `new`, `follow_up`, `procedure` or `emergency`; `follow_up` when absent.
     pub kind: Option<String>,
     /// Reason for the visit.
@@ -175,6 +175,18 @@ pub struct NewAppointment {
     pub notes: Option<String>,
     /// How it was booked; `front_desk` when absent.
     pub source: Option<String>,
+}
+
+/// The slot of a booking made without an end: the clinic's default visit length from `starts_at`.
+async fn default_slot(tx: &mut ScopedTx, starts_at: OffsetDateTime) -> Result<TimeSlot, AppError> {
+    let minutes =
+        crate::self_booking::read_settings(&aarogyam_dal::settings::booking(tx.conn()).await?)
+            .default_visit_minutes;
+    TimeSlot::new(
+        starts_at,
+        starts_at + time::Duration::minutes(i64::from(minutes)),
+    )
+    .map_err(|error| AppError::invalid("ends_at", error))
 }
 
 pub(crate) fn parse_reason(text: Option<&str>) -> Result<Option<String>, AppError> {
@@ -307,7 +319,10 @@ pub async fn book(
     now: OffsetDateTime,
 ) -> Result<Saved, AppError> {
     actor.require(Permission::AppointmentsWrite)?;
-    let slot = TimeSlot::new(input.starts_at, input.ends_at)
+    let given = input
+        .ends_at
+        .map(|ends_at| TimeSlot::new(input.starts_at, ends_at))
+        .transpose()
         .map_err(|error| AppError::invalid("ends_at", error))?;
     let kind = input
         .kind
@@ -330,6 +345,10 @@ pub async fn book(
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
         let today = clinic_today(&profile.timezone, now);
+        let slot = match given {
+            Some(slot) => slot,
+            None => default_slot(tx, input.starts_at).await?,
+        };
         // Any patient may be booked; the booking makes them the doctor's own.
         if patients::get(tx.conn(), input.patient_id.uuid(), None)
             .await?

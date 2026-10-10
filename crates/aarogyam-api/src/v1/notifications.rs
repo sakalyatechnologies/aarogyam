@@ -9,7 +9,7 @@ use aarogyam_app::notifications::{
 };
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{InboxMessageId, MembershipId, StaffNotificationId};
-use aarogyam_domain::permission::require::{AppointmentsRead, LabsRead};
+use aarogyam_domain::permission::require::{AppointmentsRead, BillingRead, LabsRead, PatientsRead};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -20,7 +20,7 @@ use uuid::Uuid;
 
 use super::{parse_id, rfc3339};
 use crate::AppState;
-use crate::extract::{Require, RequireEither};
+use crate::extract::{Require, RequireAny};
 use crate::failure::ApiFailure;
 
 /// The appointment a notification is about.
@@ -56,6 +56,38 @@ pub struct NotifiedLabOrder {
     pub due_on: Option<String>,
 }
 
+/// The queue token a `patient_waiting` or `send_in` alert is about.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct NotifiedQueueToken {
+    /// The token.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Its number for the day.
+    pub number: i32,
+}
+
+/// The bill a `payment_due` or `collect_payment` alert is about.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct NotifiedInvoice {
+    /// The bill; open it at `/billing/invoices/{id}`.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Its number once issued; absent for a draft.
+    pub number: Option<String>,
+}
+
+/// The follow-up a `recall_due` alert is about. No reason: it can hold health information.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct NotifiedRecall {
+    /// The recall.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Its kind, such as `cleaning`.
+    pub kind: String,
+    /// When it falls due (`YYYY-MM-DD`).
+    pub due_on: String,
+}
+
 /// Who handled a notification: confirmed, declined or cancelled its appointment, or received,
 /// cancelled or re-dated its lab work.
 #[derive(Debug, Serialize, ToSchema)]
@@ -75,8 +107,9 @@ pub struct Notification {
     /// Identifier; pass as `before` for the next page.
     #[schema(value_type = String)]
     pub id: Uuid,
-    /// `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient` or
-    /// `lab_overdue`.
+    /// `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,
+    /// `lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in` or
+    /// `collect_payment`.
     pub kind: String,
     /// When it happened (RFC 3339).
     pub created_at: String,
@@ -94,33 +127,20 @@ pub struct Notification {
     pub appointment: Option<NotifiedAppointment>,
     /// The lab order, for `lab_overdue`.
     pub lab_order: Option<NotifiedLabOrder>,
+    /// A path inside the portal that opens what it is about, such as `/queue`; absent for older
+    /// notifications.
+    pub href: Option<String>,
+    /// The queue token, for `patient_waiting` and `send_in`.
+    pub queue_token: Option<NotifiedQueueToken>,
+    /// The bill, for `payment_due` and `collect_payment`.
+    pub invoice: Option<NotifiedInvoice>,
+    /// The follow-up, for `recall_due`.
+    pub recall: Option<NotifiedRecall>,
 }
 
 impl From<NotificationView> for Notification {
     fn from(view: NotificationView) -> Self {
-        let (appointment, lab_order) = match view.subject {
-            Subject::Appointment(appointment) => (
-                Some(NotifiedAppointment {
-                    id: appointment.id.uuid(),
-                    starts_at: rfc3339(appointment.starts_at),
-                    ends_at: rfc3339(appointment.ends_at),
-                    status: appointment.status.as_str().to_owned(),
-                    practitioner_id: appointment.practitioner_id.uuid(),
-                    practitioner_name: appointment.practitioner_name,
-                }),
-                None,
-            ),
-            Subject::LabOrder(order) => (
-                None,
-                Some(NotifiedLabOrder {
-                    id: order.id.uuid(),
-                    number: order.number,
-                    vendor_name: order.vendor_name,
-                    due_on: order.due_on.map(|day| day.to_string()),
-                }),
-            ),
-        };
-        Self {
+        let mut out = Self {
             id: view.id.uuid(),
             kind: view.kind.as_str().to_owned(),
             created_at: rfc3339(view.created_at),
@@ -133,9 +153,53 @@ impl From<NotificationView> for Notification {
             }),
             reminded_at: view.reminded_at.map(rfc3339),
             escalated_at: view.escalated_at.map(rfc3339),
-            appointment,
-            lab_order,
+            appointment: None,
+            lab_order: None,
+            href: view.href,
+            queue_token: None,
+            invoice: None,
+            recall: None,
+        };
+        match view.subject {
+            Subject::Appointment(appointment) => {
+                out.appointment = Some(NotifiedAppointment {
+                    id: appointment.id.uuid(),
+                    starts_at: rfc3339(appointment.starts_at),
+                    ends_at: rfc3339(appointment.ends_at),
+                    status: appointment.status.as_str().to_owned(),
+                    practitioner_id: appointment.practitioner_id.uuid(),
+                    practitioner_name: appointment.practitioner_name,
+                });
+            }
+            Subject::LabOrder(order) => {
+                out.lab_order = Some(NotifiedLabOrder {
+                    id: order.id.uuid(),
+                    number: order.number,
+                    vendor_name: order.vendor_name,
+                    due_on: order.due_on.map(|day| day.to_string()),
+                });
+            }
+            Subject::QueueToken(token) => {
+                out.queue_token = Some(NotifiedQueueToken {
+                    id: token.id,
+                    number: token.number,
+                });
+            }
+            Subject::Invoice(invoice) => {
+                out.invoice = Some(NotifiedInvoice {
+                    id: invoice.id.uuid(),
+                    number: invoice.number,
+                });
+            }
+            Subject::Recall(recall) => {
+                out.recall = Some(NotifiedRecall {
+                    id: recall.id.uuid(),
+                    kind: recall.kind,
+                    due_on: recall.due_on.to_string(),
+                });
+            }
         }
+        out
     }
 }
 
@@ -175,12 +239,12 @@ pub struct FeedParams {
         (status = 200, body = NotificationList),
         (status = 400, description = "`before` is not an id"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks both appointments.read and labs.read")
+        (status = 403, description = "The role lacks appointments.read, labs.read, billing.read and patients.read")
     )
 )]
 pub(crate) async fn list(
     State(state): State<AppState>,
-    RequireEither { request, .. }: RequireEither<AppointmentsRead, LabsRead>,
+    RequireAny { request, .. }: RequireAny<AppointmentsRead, LabsRead, BillingRead, PatientsRead>,
     ApiQuery(params): ApiQuery<FeedParams>,
 ) -> Result<Json<NotificationList>, ApiFailure> {
     let before = params
@@ -221,12 +285,12 @@ pub struct UnreadCount {
     responses(
         (status = 200, body = UnreadCount),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks both appointments.read and labs.read")
+        (status = 403, description = "The role lacks appointments.read, labs.read, billing.read and patients.read")
     )
 )]
 pub(crate) async fn count(
     State(state): State<AppState>,
-    RequireEither { request, .. }: RequireEither<AppointmentsRead, LabsRead>,
+    RequireAny { request, .. }: RequireAny<AppointmentsRead, LabsRead, BillingRead, PatientsRead>,
 ) -> Result<Json<UnreadCount>, ApiFailure> {
     let unread = app::unread_count(state.db(), &request.actor, request.request_id).await?;
     Ok(Json(UnreadCount { unread }))
@@ -244,13 +308,13 @@ pub(crate) async fn count(
     responses(
         (status = 204, description = "Read"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks both appointments.read and labs.read"),
+        (status = 403, description = "The role lacks appointments.read, labs.read, billing.read and patients.read"),
         (status = 404, description = "No such notification in this clinic, or its appointment or lab order is out of the role's reach")
     )
 )]
 pub(crate) async fn read(
     State(state): State<AppState>,
-    RequireEither { request, .. }: RequireEither<AppointmentsRead, LabsRead>,
+    RequireAny { request, .. }: RequireAny<AppointmentsRead, LabsRead, BillingRead, PatientsRead>,
     ApiPath(id): ApiPath<Uuid>,
 ) -> Result<StatusCode, ApiFailure> {
     app::mark_read(
@@ -280,12 +344,12 @@ pub struct MarkedRead {
     responses(
         (status = 200, body = MarkedRead),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks both appointments.read and labs.read")
+        (status = 403, description = "The role lacks appointments.read, labs.read, billing.read and patients.read")
     )
 )]
 pub(crate) async fn read_all(
     State(state): State<AppState>,
-    RequireEither { request, .. }: RequireEither<AppointmentsRead, LabsRead>,
+    RequireAny { request, .. }: RequireAny<AppointmentsRead, LabsRead, BillingRead, PatientsRead>,
 ) -> Result<Json<MarkedRead>, ApiFailure> {
     let marked = app::mark_all_read(state.db(), &request.actor, request.request_id).await?;
     tracing::info!(

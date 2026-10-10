@@ -30,6 +30,10 @@ import type {
   PhotoChanges,
   SetupUpdate,
   Setup,
+  Badges,
+  MarkedRead,
+  NotificationList,
+  UnreadCount,
   WebsiteChanges,
   WebsiteSettings,
   Cancelled,
@@ -205,6 +209,16 @@ import type {
 export interface RequestOptions {
   /** Cancels the request, for example when a search term changes. */
   signal?: AbortSignal | undefined;
+}
+
+/** Filters for `listNotifications`. */
+export interface NotificationQuery {
+  /** Only unread ones, from the last 30 days. */
+  unreadOnly?: boolean;
+  /** Page size, 1 to 100 (default 30). */
+  limit?: number;
+  /** Only those older than this notification id (the last of the previous page). */
+  before?: string;
 }
 
 /** Which patients the list shows. Flags only, so nothing personal reaches a URL. */
@@ -387,6 +401,17 @@ export interface ApiClient {
   saveDashboardLayout(layout: DashboardLayout, options?: RequestOptions): Promise<ApiResult<DashboardLayoutView>>;
   /** Clinic host: removes the clinic's default, so MedSync applies again. Needs `settings.manage`. */
   resetDashboardLayout(options?: RequestOptions): Promise<ApiResult<DashboardLayoutView>>;
+
+  /** Clinic host: the numbers the apps poll every minute: unread chat and unread notifications (absent without `appointments.read`). `403` without `chat.use`. */
+  getBadges(options?: RequestOptions): Promise<ApiResult<Badges>>;
+  /** Clinic host: the caller's notifications, newest first, each with a portal link (`href`) when it has one. */
+  listNotifications(params?: NotificationQuery, options?: RequestOptions): Promise<ApiResult<NotificationList>>;
+  /** Clinic host: the bell's number: unread notifications from the last 30 days, at most 100. */
+  countUnreadNotifications(options?: RequestOptions): Promise<ApiResult<UnreadCount>>;
+  /** Clinic host: marks one notification read for the caller only. `404` when it is not in their clinic or reach. */
+  markNotificationRead(id: string, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: marks everything within the caller's reach read. */
+  markAllNotificationsRead(options?: RequestOptions): Promise<ApiResult<MarkedRead>>;
 
   /** Clinic host: what a document prints for the clinic: letterhead, details, doctors, image links. Needs `patients.read`. */
   getLetterhead(options?: RequestOptions): Promise<ApiResult<LetterheadDocument>>;

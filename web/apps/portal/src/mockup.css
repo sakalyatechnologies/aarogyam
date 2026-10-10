@@ -728,3 +728,73 @@ body > [data-base-ui-portal] { position: relative; z-index: 150; }
 .mk-legal a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .mk-legal a:hover { color: var(--green); }
 .mk-foot { padding: 28px 0 8px; border-top: 1px solid var(--rule); margin-top: 28px; }
+
+/* ---- Shell v2 (New look): a floating rail that expands, and a top bar with search, setup chip and bell ---- */
+.mk2 { display: block; --rail2-w: 72px; }
+.mk2-rail { position: fixed; z-index: 60; left: 16px; top: 16px; bottom: 16px; width: var(--rail2-w); display: flex; flex-direction: column; gap: 6px; padding: 16px 14px; border-radius: 28px; color: var(--rail-ink);
+  background: linear-gradient(180deg, var(--rail-bg), var(--rail-bg-end)); backdrop-filter: var(--rail-glass); box-shadow: 0 20px 40px -20px color-mix(in srgb, var(--rail-base) 70%, transparent); }
+.mk2-head { display: flex; align-items: center; gap: 10px; padding: 0 2px 10px; min-height: 44px; }
+.mk2-mark { flex: none; border-radius: 15px; display: block; text-decoration: none; }
+.mk2-mark .mk-logo-mark { width: 44px; height: 44px; border-radius: 15px; }
+.mk2-brand { min-width: 0; overflow: hidden; white-space: nowrap; transition: max-width .22s ease, opacity .16s ease; max-width: 140px; }
+.mk2-brand b { display: block; font-size: 16px; letter-spacing: -.02em; color: var(--rail-ink-strong); }
+.mk2-brand small { font-size: 11px; color: var(--rail-ink-muted); }
+.mk2-close { display: none; margin-left: auto; }
+.mk2-rail .mk-clinic-wrap { margin: 0 0 8px; }
+.mk2-nav { display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; }
+.mk2-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mk2-nav ul + ul { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--rail-line); }
+.mk2-item, .mk2-toggle { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; height: 44px; padding: 0 12px; border: 0; border-radius: 16px; background: transparent; color: var(--rail-ink); font-size: 13.5px; font-weight: 500; text-decoration: none; cursor: pointer; transition: background .18s, color .18s, opacity .18s; }
+.mk2-item:hover, .mk2-toggle:hover { background: var(--rail-fill-strong); color: var(--rail-ink-strong); }
+.mk2-item[aria-current="page"] { background: var(--rail-ink-strong); color: var(--rail-base); font-weight: 700; box-shadow: 0 6px 16px color-mix(in srgb, var(--rail-base) 40%, transparent); }
+.mk2-ico { width: 20px; height: 20px; display: grid; place-items: center; flex: none; }
+.mk2-ico svg { width: 18px; height: 18px; }
+.mk2-lbl { min-width: 0; overflow: hidden; white-space: nowrap; max-width: 160px; transition: max-width .22s ease, opacity .16s ease; }
+.mk2-bdg { margin-left: auto; font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; background: var(--rail-badge); color: var(--rail-base); }
+.mk2-item[aria-current="page"] .mk2-bdg { background: var(--rail-base); color: var(--rail-on); }
+.mk2-tip { position: absolute; left: calc(100% + 14px); top: 50%; transform: translateY(-50%); padding: 5px 10px; border-radius: 9px; background: var(--rail-base); color: var(--rail-on); font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: var(--sh); opacity: 0; pointer-events: none; transition: opacity .15s; display: none; }
+.mk2-rail :focus-visible { outline: 2px solid var(--rail-ink-strong); outline-offset: 2px; }
+.mk2-toggle .mk2-lbl { flex: 1; text-align: left; }
+.mk2-main { width: auto; margin-left: calc(var(--rail2-w) + 32px); padding-left: 8px; }
+.mk2-clinic-name { margin: 0; font-size: 13.5px; white-space: nowrap; color: var(--ink); }
+.mk2-search { flex: 1 1 auto; max-width: 460px; min-width: 42px; height: 42px; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--rule); background: var(--surface); color: var(--muted); box-shadow: var(--sh); font-size: 13.5px; cursor: pointer; text-align: left; }
+.mk2-search:hover { border-color: var(--border-strong, var(--rule)); color: var(--ink); }
+.mk2-search svg { width: 17px; height: 17px; flex: none; }
+.mk2-search-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mk2-search kbd { font: inherit; font-size: 11px; font-weight: 700; color: var(--muted); border: 1px solid var(--rule); border-radius: 6px; padding: 1px 6px; }
+.mk2-chip { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 6px 0 14px; border-radius: 999px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); font-size: 12.5px; font-weight: 600; text-decoration: none; box-shadow: var(--sh); white-space: nowrap; }
+.mk2-chip b { background: var(--brand-soft); color: var(--brand-text); border-radius: 999px; padding: 4px 9px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.mk2-chip:hover { background: var(--hover); }
+.mk-iconbtn .mk2-n { width: auto; min-width: 19px; padding: 0 4px; border-radius: 999px; }
+/* Large rounded shapes throughout, as in the design: pill controls, 28px rail and cards. */
+.mk2-main .mk-btn, .mk2-main .mk2-chip, .mk2-main .mk2-search { border-radius: 999px; }
+.mk2-item, .mk2-toggle { border-radius: 18px; }
+.mk2-rail .mk-clinic > button { border-radius: 18px; }
+.mk2-main .mk-pop { border-radius: 24px; }
+@media (min-width: 1121px) {
+  .mk2-collapsed .mk2-brand, .mk2-collapsed .mk2-lbl, .mk2-collapsed .mk2-bdg { max-width: 0; opacity: 0; padding: 0; overflow: hidden; }
+  .mk2-collapsed .mk-clinic-wrap { display: none; }
+  .mk2-collapsed .mk2-item, .mk2-collapsed .mk2-toggle { padding: 0; justify-content: center; gap: 0; }
+  .mk2-collapsed .mk2-head { justify-content: center; padding: 0 0 10px; }
+  .mk2-collapsed .mk2-bdg { position: absolute; top: 0; right: 2px; max-width: none; opacity: 1; padding: 0 5px; font-size: 10px; line-height: 16px; min-width: 16px; text-align: center; overflow: visible; }
+  .mk2-collapsed .mk2-tip { display: block; }
+  .mk2-collapsed .mk2-item:hover .mk2-tip, .mk2-collapsed .mk2-item:focus-visible .mk2-tip, .mk2-collapsed .mk2-toggle:hover .mk2-tip, .mk2-collapsed .mk2-toggle:focus-visible .mk2-tip { opacity: 1; }
+}
+@media (max-height: 700px) and (min-width: 1121px) { .mk2-nav { overflow-y: auto; } }
+@media (max-width: 1120px) {
+  .mk2-rail { left: 0; top: 0; bottom: 0; width: 280px; max-width: 86vw; border-radius: 0 28px 28px 0; transform: translateX(-102%); visibility: hidden; transition: transform .3s, visibility .3s; padding-top: 18px; }
+  .mk2-rail.open { transform: none; visibility: visible; }
+  .mk2-close { display: grid; }
+  .mk2-toggle { display: none; }
+  .mk2-main { margin-left: 0; padding-left: 0; }
+  .mk2-scrim { z-index: 55; }
+}
+@media (max-width: 900px) { .mk2-clinic-name { display: none; } }
+@media (max-width: 720px) { .mk2-chip { display: none; } }
+@media (max-width: 640px) {
+  .mk2-search { flex: none; width: 42px; padding: 0; justify-content: center; }
+  .mk2-search-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; flex: none; }
+  .mk2-search kbd { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .mk2-rail, .mk2-brand, .mk2-lbl, .mk2-item { transition: none; } }
+@media print { .mk2-rail { display: none !important; } .mk2-main { margin-left: 0; } }

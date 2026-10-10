@@ -13,7 +13,7 @@ import { ClinicProvider, useClinicChoice, useMe, useServices, useSession, type C
 import { MOCKUP_BRAND, mockupTheme, mockupVars } from "./mockup-theme.js";
 import { loadMotionFeatures } from "./motion-features.js";
 import { SetupGate } from "../pages/setup/setup-gate.js";
-import { MockShell } from "./shell.js";
+import { ShellChoice } from "./shell-v2.js";
 
 function Loading({ label }: { label: string }) {
   return (
@@ -110,7 +110,7 @@ export function ClinicGate() {
           <LazyMotion features={loadMotionFeatures} strict>
             <MotionConfig reducedMotion="user">
               <SetupGate>
-                <MockShell />
+                <ShellChoice />
               </SetupGate>
             </MotionConfig>
           </LazyMotion>

@@ -93,6 +93,13 @@ export interface FakeSession {
   revoked: boolean;
 }
 
+/** A staff notification as the API serves it, less the caller's own read state. */
+export interface FakeNotification extends Omit<C.Notification, "read" | "read_at"> {
+  clinic_id: string;
+  /** Members who have read it. */
+  read_by?: string[];
+}
+
 export interface FakeMembership {
   id: string;
   user_id: string;
@@ -649,6 +656,8 @@ export interface Fixtures {
   /** Clinic websites, made on first use. */
   websites?: import("./website.js").FakeSite[];
   websitePhotos?: import("./website.js").FakePhoto[];
+  /** Staff notifications for the bell. */
+  notifications?: FakeNotification[];
   /** First-run setup per clinic and member; with no entry, a person counts as set up already (dismissed). */
   setups?: import("./setup.js").FakeSetup[];
   quality: C.QualityReport;
@@ -1382,8 +1391,49 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     drugs,
     prescriptions,
     shareLinks,
+    notifications: seedNotifications(sunrise.id, sunriseAppointments, sunriseAsha, now),
     quality: createQualityReport(random, now),
   };
+}
+
+/**
+ * The Sunrise bell: a booking to answer, an auto-confirmed booking, a patient's cancellation and an overdue lab
+ * order, newest first by id. Fixed ids, so seeding them leaves every other seeded value as it was.
+ */
+function seedNotifications(
+  clinicId: string,
+  appointments: readonly FakeAppointment[],
+  doctor: FakePractitioner,
+  now: Date,
+): FakeNotification[] {
+  const notified = (index: number): NonNullable<C.Notification["appointment"]> | null => {
+    const appointment = appointments[index];
+    return appointment === undefined
+      ? null
+      : {
+          id: appointment.id,
+          starts_at: appointment.starts_at,
+          ends_at: appointment.ends_at,
+          status: appointment.status,
+          practitioner_id: doctor.id,
+          practitioner_name: doctor.display_name,
+        };
+  };
+  const ago = (minutes: number): string => new Date(now.getTime() - minutes * 60_000).toISOString();
+  const nid = (n: number): string => `0192f1c4-7a10-7c3e-9b2a-1d2e3f4052${String(n).padStart(2, "0")}`;
+  return [
+    { id: nid(4), clinic_id: clinicId, kind: "booking_requested", created_at: ago(6), appointment: notified(1), href: "/calendar" },
+    { id: nid(3), clinic_id: clinicId, kind: "booking_confirmed_auto", created_at: ago(55), appointment: notified(2), href: "/calendar" },
+    { id: nid(2), clinic_id: clinicId, kind: "booking_cancelled_by_patient", created_at: ago(26 * 60), appointment: notified(3), href: "/calendar" },
+    {
+      id: nid(1),
+      clinic_id: clinicId,
+      kind: "lab_overdue",
+      created_at: ago(30 * 60),
+      lab_order: { id: nid(90), number: "LAB-12", vendor_name: "Precision Dental Lab", due_on: ago(48 * 60).slice(0, 10) },
+      href: null,
+    },
+  ];
 }
 
 function isoDaysAgo(now: Date, days: number): string {

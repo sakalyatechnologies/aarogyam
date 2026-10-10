@@ -565,6 +565,14 @@ export type WebsiteSettings = Schemas["WebsiteSettings"];
 export type WebsiteChanges = Schemas["WebsiteChanges"];
 export type PhotoChanges = Schemas["PhotoChanges"];
 
+// Staff notifications and the bell ---------------------------------------------------------------
+/** `href` is a path inside the portal that opens what a notification is about; older servers do not send it. */
+export type Notification = Schemas["Notification"] & { href?: string | null };
+export type NotificationList = { items: Notification[] };
+export type UnreadCount = Schemas["UnreadCount"];
+export type MarkedRead = Schemas["MarkedRead"];
+export type Badges = Schemas["Badges"];
+
 // First-run setup ---------------------------------------------------------------------------------
 export type Setup = Schemas["Setup"];
 export type SetupStep = Schemas["SetupStep"];

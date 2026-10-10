@@ -2698,6 +2698,43 @@ export type Setup = z.output<typeof setup>;
 /** Body of `PATCH /api/v1/settings/onboarding` and `/api/v1/me/onboarding`. */
 export type SetupUpdate = C.SetupUpdate;
 
+// Staff notifications and the bell -----------------------------------------------------------
+
+export const notification = z.object({
+  id: z.string(),
+  kind: z.string(),
+  created_at: timestamp,
+  read: z.boolean(),
+  read_at: optionalText,
+  handled: z.object({ at: timestamp, membership_id: optionalText, name: optionalText }).nullable().exactOptional(),
+  reminded_at: optionalText,
+  escalated_at: optionalText,
+  appointment: z
+    .object({ id: z.string(), starts_at: timestamp, ends_at: timestamp, status: z.string(), practitioner_id: z.string(), practitioner_name: z.string() })
+    .nullable()
+    .exactOptional(),
+  lab_order: z.object({ id: z.string(), number: z.string(), vendor_name: z.string(), due_on: optionalText }).nullable().exactOptional(),
+  /** A path inside the portal that opens what it is about, such as `/queue`. */
+  href: optionalText,
+}) satisfies z.ZodType<C.Notification>;
+export type Notification = z.output<typeof notification>;
+
+export const notificationList = z.object({ items: z.array(notification) }) satisfies z.ZodType<C.NotificationList>;
+export type NotificationList = z.output<typeof notificationList>;
+
+export const unreadCount = z.object({ unread: z.number().int() }) satisfies z.ZodType<C.UnreadCount>;
+export type UnreadCount = z.output<typeof unreadCount>;
+
+export const markedRead = z.object({ marked: z.number().int() }) satisfies z.ZodType<C.MarkedRead>;
+export type MarkedRead = z.output<typeof markedRead>;
+
+/** What the apps poll every minute: unread chat messages and unread notifications. */
+export const badges = z.object({
+  chat_unread: z.number().int(),
+  notifications_unread: z.number().int().nullable().exactOptional(),
+}) satisfies z.ZodType<C.Badges>;
+export type Badges = z.output<typeof badges>;
+
 // Walk-in fast path ---------------------------------------------------------------------------
 
 /** A registered patient with the phone the desk typed: just enough to say "this is them". */

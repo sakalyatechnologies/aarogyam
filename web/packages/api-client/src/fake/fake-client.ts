@@ -32,6 +32,7 @@ import {
   type FakeInvoiceLine,
   type FakeLeave,
   type FakeMembership,
+  type FakeNotification,
   type FakeNote,
   type FakeSummaryNote,
   type FakeObservation,
@@ -3553,6 +3554,80 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           roles.splice(roles.indexOf(role), 1);
           return reply(undefined);
+        }),
+
+      getBadges: (opts) =>
+        respond(S.badges, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const unread = canSeeNotifications(caller) ? visibleNotifications(state, caller).filter((n) => !isRead(n, caller)).length : undefined;
+          return reply({ chat_unread: 0, ...(unread === undefined ? {} : { notifications_unread: Math.min(unread, 100) }) } satisfies C.Badges);
+        }),
+
+      listNotifications: (params, opts) =>
+        respond(S.notificationList, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!canSeeNotifications(caller)) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const limit = Math.min(Math.max(params?.limit ?? 30, 1), 100);
+          const items = visibleNotifications(state, caller)
+            .filter((n) => params?.before === undefined || n.id < params.before)
+            .filter((n) => params?.unreadOnly !== true || !isRead(n, caller))
+            .sort((a, b) => (a.id < b.id ? 1 : -1))
+            .slice(0, limit)
+            .map((n): C.Notification => {
+              const read = isRead(n, caller);
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the clinic and the readers stay on the server
+              const { clinic_id, read_by, ...wire } = n;
+              return { ...wire, read, read_at: read ? n.created_at : null };
+            });
+          return reply({ items } satisfies C.NotificationList);
+        }),
+
+      countUnreadNotifications: (opts) =>
+        respond(S.unreadCount, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!canSeeNotifications(caller)) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const unread = visibleNotifications(state, caller).filter((n) => !isRead(n, caller)).length;
+          return reply({ unread: Math.min(unread, 100) } satisfies C.UnreadCount);
+        }),
+
+      markNotificationRead: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = visibleNotifications(state, caller).find((n) => n.id === id);
+          if (found === undefined) {
+            return notFound;
+          }
+          found.read_by = [...new Set([...(found.read_by ?? []), caller.membership.id])];
+          return { ok: true, body: undefined };
+        }),
+
+      markAllNotificationsRead: (opts) =>
+        respond(S.markedRead, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const unread = visibleNotifications(state, caller).filter((n) => !isRead(n, caller));
+          for (const n of unread) {
+            n.read_by = [...(n.read_by ?? []), caller.membership.id];
+          }
+          return reply({ marked: unread.length } satisfies C.MarkedRead);
         }),
 
       getMyDashboardLayout: (opts) =>
@@ -7672,4 +7747,26 @@ function wirePrescription(rx: FakePrescription, state: Fixtures): C.Prescription
     issued_at: rx.issued_at ?? null,
     print: rx.status === "issued" ? buildPrintData(rx, state) : null,
   };
+}
+
+/** The permissions that show a notification: bookings by `appointments.read`, overdue lab work by `labs.read`. */
+const NOTIFICATION_PERMISSION: Readonly<Record<string, Permission>> = {
+  lab_overdue: "labs.read",
+};
+
+function canSeeNotifications(caller: { membership: FakeMembership }): boolean {
+  const permissions = caller.membership.role.permissions;
+  return hasPermission(permissions, "appointments.read") || hasPermission(permissions, "labs.read");
+}
+
+/** The clinic's notifications the caller's role reaches. */
+function visibleNotifications(state: Fixtures, caller: { clinic: FakeClinic; membership: FakeMembership }): FakeNotification[] {
+  const permissions = caller.membership.role.permissions;
+  return (state.notifications ?? []).filter(
+    (n) => n.clinic_id === caller.clinic.id && hasPermission(permissions, NOTIFICATION_PERMISSION[n.kind] ?? "appointments.read"),
+  );
+}
+
+function isRead(n: FakeNotification, caller: { membership: FakeMembership }): boolean {
+  return (n.read_by ?? []).includes(caller.membership.id);
 }

@@ -424,3 +424,31 @@ describe("createHttpClient visit wrap-up, share links and medicine sets", () => 
     expect(`${gone.calls[0]?.init?.method ?? ""} ${gone.calls[0]?.url ?? ""}`).toBe("DELETE /api/v1/medicine-sets/s1");
   });
 });
+
+describe("createHttpClient notifications and badges", () => {
+  it("calls the bell routes and reads their bodies", async () => {
+    const notification = { id: "n1", kind: "booking_requested", created_at: "2026-10-03T05:00:00Z", read: false, href: "/calendar" };
+    const answers = [
+      json(200, { chat_unread: 2, notifications_unread: 3 }),
+      json(200, { items: [notification] }),
+      json(200, { unread: 3 }),
+      new Response(null, { status: 204 }),
+      json(200, { marked: 3 }),
+    ];
+    let next = 0;
+    const { calls, fetch } = stubFetch(() => Promise.resolve(answers[next++] ?? json(500, {})));
+    const client = createHttpClient("", () => "abc", { fetch });
+    expect((await unwrap(client.getBadges())).notifications_unread).toBe(3);
+    expect((await unwrap(client.listNotifications({ unreadOnly: true, limit: 5, before: "n9" }))).items[0]?.href).toBe("/calendar");
+    expect((await unwrap(client.countUnreadNotifications())).unread).toBe(3);
+    await unwrap(client.markNotificationRead("n 1"));
+    expect((await unwrap(client.markAllNotificationsRead())).marked).toBe(3);
+    expect(calls.map((c) => `${c.init?.method ?? "GET"} ${c.url}`)).toEqual([
+      "GET /api/v1/me/badges",
+      "GET /api/v1/notifications?unread_only=true&limit=5&before=n9",
+      "GET /api/v1/notifications/count",
+      "POST /api/v1/notifications/n%201/read",
+      "POST /api/v1/notifications/read-all",
+    ]);
+  });
+});

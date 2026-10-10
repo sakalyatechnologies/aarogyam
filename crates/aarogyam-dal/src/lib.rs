@@ -70,6 +70,7 @@ pub mod support_grants;
 pub mod timeline;
 pub mod today;
 pub mod treatment;
+pub mod visit_shares;
 pub mod visits;
 pub mod vitals;
 pub mod website;

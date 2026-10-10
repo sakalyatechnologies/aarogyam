@@ -40,7 +40,7 @@ Tick a task only when its done criteria pass: tests, gates and parity sheet. Add
 | D11 | done |  | Registration; invite parse and accept (token kept in memory); clinic switch reload. |
 | D12 | done |  | Staff list and stock low; `LabsRepository`, `ChatRepository`, notifications and messages Preview holders. |
 | D13 | done |  | Product art and icons as path data in shared (the v7 icon map, avatars, illustrations, jaw geometry), with parse tests. |
-| D14 | todo |  | `AttachmentsRepository`, built on the existing `uploadAttachment` / `POST /patients/{id}/attachments` with labels Old Rx / X-ray / Report an |
+| D14 | done (reuses FilesStateHolder.upload with preset labels; platform pickers in the apps; WalkInState.Done.patientId) |  | `AttachmentsRepository`, built on the existing `uploadAttachment` / `POST /patients/{id}/attachments` with labels Old Rx / X-ray / Report an |
 | D15 | done |  | Queue summary: compute avg wait and no-shows from the `/queue` and `/today` data already loaded. Anything that can't be computed is Preview  |
 | A1 | partial: shell, bar/rail, tab fade-through, hide on scroll, Schedule and More done; container transform and avatar flight with A2/A3 |  | Shell: floating bar from `NavModel`, rail when wide, tab fade-through, push shared axis, tab bar hide and return, shared avatar flight. Remo |
 | A2 | todo |  | Walk-in sheet in v7 style (from the FAB with container transform), Back fixed with a discard confirm; the "Photo of old Rx / X-ray" button u |

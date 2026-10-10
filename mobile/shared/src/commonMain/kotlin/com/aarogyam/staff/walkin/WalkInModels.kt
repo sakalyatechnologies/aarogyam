@@ -84,5 +84,7 @@ sealed interface WalkInState {
         val name: String,
         val tokenNumber: Int,
         val registered: Boolean,
+        /** The patient, for "Photo of old Rx / X-ray" (uploaded through `FilesStateHolder`). */
+        val patientId: String = "",
     ) : WalkInState
 }

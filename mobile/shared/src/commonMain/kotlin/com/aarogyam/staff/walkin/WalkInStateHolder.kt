@@ -105,7 +105,12 @@ class WalkInStateHolder(
                         id("queue_token_id", done.token.id)
                     }
                     mutableState.value =
-                        WalkInState.Done(done.patient.fullName, done.token.tokenNumber, done.registered)
+                        WalkInState.Done(
+                            done.patient.fullName,
+                            done.token.tokenNumber,
+                            done.registered,
+                            done.patient.id,
+                        )
                 }
 
                 is Outcome.Failure -> {

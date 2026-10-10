@@ -26,11 +26,47 @@ data class MeView(
     val mine: List<ScheduleItem>,
     /** How many of [mine] are not yet completed or missed. */
     val remaining: Int,
-    /** Distinct reasons of the remaining appointments, as booked ("RCT", "Scaling"). */
-    val treatments: List<String>,
+    /** Reasons of the remaining appointments, as booked ("RCT", "Scaling"), with how many of each, most first. */
+    val treatments: List<TreatmentCount>,
     val shifts: List<ShiftView>,
     val onLeave: Boolean,
 )
+
+/** A booked reason and how many of the member's remaining appointments have it. */
+data class TreatmentCount(
+    val name: String,
+    val count: Int,
+)
+
+/** Why a patient needs attention, from `/today`. */
+enum class AttentionKind { LateArrival, LongWait, Other }
+
+/** One "Needs attention" row; the patient's name is for the screen only. */
+data class AttentionView(
+    val kind: AttentionKind,
+    val minutes: Long,
+    val patientId: String,
+    val patientName: String,
+    val appointmentId: String?,
+    val tokenId: String?,
+)
+
+internal fun TodayResponse.attentionViews(): List<AttentionView> =
+    attention.map {
+        AttentionView(
+            kind =
+                when (it.kind) {
+                    "late_arrival" -> AttentionKind.LateArrival
+                    "long_wait" -> AttentionKind.LongWait
+                    else -> AttentionKind.Other
+                },
+            minutes = it.minutes,
+            patientId = it.patient.id,
+            patientName = it.patient.fullName,
+            appointmentId = it.appointmentId,
+            tokenId = it.queueTokenId,
+        )
+    }
 
 /** Numbers v7 shows that the server cannot give yet; drawn as "needs server support". */
 enum class TodayPreview {
@@ -69,7 +105,13 @@ internal fun TodayResponse.me(
         practitionerId = practitionerId,
         mine = mine,
         remaining = open.size,
-        treatments = open.mapNotNull { it.reason?.trim()?.takeIf(String::isNotEmpty) }.distinct(),
+        treatments =
+            open
+                .mapNotNull { it.reason?.trim()?.takeIf(String::isNotEmpty) }
+                .groupingBy { it }
+                .eachCount()
+                .map { (name, n) -> TreatmentCount(name, n) }
+                .sortedByDescending { it.count },
         shifts =
             member?.shifts.orEmpty().mapNotNull { s ->
                 val a = runCatching { LocalTime.parse(s.starts) }.getOrNull()

@@ -29,4 +29,56 @@
         <item quantity="other">%1$s, %2$s: %3$d भेटी</item>
     </plurals>
     <string name="v7_soon">पुढील अपडेटमध्ये येत आहे</string>
+    <string name="v7_me_hello">नमस्कार,\n%1$s</string>
+    <string name="v7_me_change_avatar">अवतार बदला</string>
+    <string name="v7_me_on_leave">आज रजेवर</string>
+    <string name="v7_me_your_day">तुमचा दिवस</string>
+    <plurals name="v7_me_done">
+        <item quantity="one">%2$d पैकी %1$d पूर्ण</item>
+        <item quantity="other">%2$d पैकी %1$d पूर्ण</item>
+    </plurals>
+    <plurals name="v7_me_done_until">
+        <item quantity="one">%2$d पैकी %1$d पूर्ण · %3$s पर्यंत</item>
+        <item quantity="other">%2$d पैकी %1$d पूर्ण · %3$s पर्यंत</item>
+    </plurals>
+    <string name="v7_me_my_schedule">माझे वेळापत्रक</string>
+    <string name="v7_me_nothing_left">आज तुमच्यासाठी आणखी काही बुक नाही.</string>
+    <string name="v7_me_next_at">पुढील · %1$s</string>
+    <plurals name="v7_me_for_you">
+        <item quantity="one">तुमच्यासाठी %1$d रुग्ण</item>
+        <item quantity="other">तुमच्यासाठी %1$d रुग्ण</item>
+    </plurals>
+    <plurals name="v7_me_waiting">
+        <item quantity="one">%1$d प्रतीक्षेत</item>
+        <item quantity="other">%1$d प्रतीक्षेत</item>
+    </plurals>
+    <string name="v7_stat_visits">आजच्या भेटी</string>
+    <string name="v7_stat_waiting">प्रतीक्षेत</string>
+    <string name="v7_stat_done">पूर्ण</string>
+    <string name="v7_hero_now">खुर्चीत</string>
+    <string name="v7_hero_next">पुढील</string>
+    <string name="v7_hero_open">नोंद उघडा</string>
+    <string name="v7_hero_call_in">बोलवा</string>
+    <string name="v7_money_today">आजचे पैसे</string>
+    <string name="v7_money_collected">आज जमा</string>
+    <string name="v7_money_dues">%1$s बाकी</string>
+    <string name="v7_money_expenses">आजचा खर्च</string>
+    <string name="v7_money_add_expense">+ खर्च जोडा</string>
+    <string name="v7_up_next">पुढे</string>
+    <string name="v7_up_next_all">सर्व %1$d</string>
+    <string name="v7_needs_attention">लक्ष द्या</string>
+    <string name="v7_attention_late">%1$d मिनिटे उशीर</string>
+    <string name="v7_attention_wait">%1$d मिनिटे प्रतीक्षा</string>
+    <string name="v7_attention_other">पाहणे आवश्यक</string>
+    <string name="v7_notifications">सूचना</string>
+    <string name="v7_pill_done">पूर्ण</string>
+    <string name="v7_pill_in_chair">खुर्चीत</string>
+    <string name="v7_pill_waiting">प्रतीक्षा</string>
+    <string name="v7_pill_missed">चुकले</string>
+    <string name="v7_pill_booked">बुक</string>
+    <string name="v7_notifications_none">सूचना नाहीत.</string>
+    <string name="v7_notifications_read_all">सर्व वाचले म्हणून खूण करा</string>
+    <string name="v7_notif_requested">ऑनलाइन बुकिंग विनंती</string>
+    <string name="v7_notif_confirmed">ऑनलाइन बुक झाले</string>
+    <string name="v7_notif_cancelled">रुग्णाने रद्द केले</string>
 </resources>

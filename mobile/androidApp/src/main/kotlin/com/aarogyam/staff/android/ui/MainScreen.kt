@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,10 +21,13 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.today.NotificationsSheet
 import com.aarogyam.staff.art.Icons
 import com.aarogyam.staff.clinic.ClinicContext
+import com.aarogyam.staff.device.PreferenceKey
 import com.aarogyam.staff.nav.NavModel
 import com.aarogyam.staff.nav.PrimaryAction
 import com.aarogyam.staff.nav.Tab
@@ -34,6 +38,7 @@ import com.sakalya.mobile.designcompose.SkNavDestination
 import com.sakalya.mobile.designcompose.SkNavRail
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTransitions
+import kotlinx.coroutines.delay
 
 /** Windows at least this wide get the rail instead of the floating bar. */
 private val RAIL_FROM = 600.dp
@@ -93,7 +98,16 @@ fun MainScreen(
                     transitionSpec = { SkTransitions.tabEnter(reduced) togetherWith SkTransitions.tabExit() },
                     label = "tab",
                 ) { shown ->
-                    TabContent(shown, nav, graph, clinic, onOpenPatient, onWalkIn, onSwitchClinic, onSignOut)
+                    TabContent(
+                        shown,
+                        nav,
+                        graph,
+                        clinic,
+                        onOpenPatient,
+                        onWalkIn,
+                        onSwitchClinic,
+                        onSignOut,
+                    ) { select(it.name) }
                 }
                 if (!wide) {
                     SkFloatingNavBar(
@@ -120,15 +134,61 @@ private fun TabContent(
     onWalkIn: () -> Unit,
     onSwitchClinic: () -> Unit,
     onSignOut: () -> Unit,
+    onTab: (Tab) -> Unit,
 ) {
     when (tab) {
-        Tab.Today -> TodayScreen(rememberHolder { graph.today(clinic, it) }, onSwitchClinic, onSignOut, onWalkIn)
+        Tab.Today -> TodayTab(graph, clinic, nav, onOpenPatient, onOpenSchedule = { onTab(Tab.Schedule) })
         Tab.Patients -> PatientsScreen(rememberHolder { graph.patients(clinic, it) }, onOpenPatient, onWalkIn)
         Tab.Schedule -> ScheduleTab(rememberHolder { graph.schedule(clinic, it) }, onWalkIn, onOpenPatient)
         Tab.Expenses -> ComingSoon(R.string.v7_tab_expenses)
         Tab.More -> MoreScreen(nav, onSwitchClinic, onSignOut)
     }
 }
+
+/** Today with its sheets (notifications) and the unread badge, refreshed every minute. */
+@Composable
+private fun TodayTab(
+    graph: AppGraph,
+    clinic: ClinicContext,
+    nav: NavModel,
+    onOpenPatient: (String) -> Unit,
+    onOpenSchedule: () -> Unit,
+) {
+    var notifications by rememberSaveable { mutableStateOf(false) }
+    val badges = rememberHolder { graph.badges(clinic, it) }
+    val counts by badges.state.collectAsStateWithLifecycle()
+    LaunchedEffect(badges) {
+        while (true) {
+            badges.refresh()
+            delay(BADGE_POLL_MS)
+        }
+    }
+    val avatar =
+        remember {
+            graph.preferences.get(PreferenceKey.AvatarChoice)
+                ?: defaultAvatar(clinic.session.membership.id)
+        }
+    TodayScreen(
+        rememberHolder { graph.today(clinic, it) },
+        roleName = clinic.roleName,
+        avatar = avatar,
+        onOpenPatient = onOpenPatient,
+        onOpenSchedule = onOpenSchedule,
+        onAddExpense = null.takeIf { nav.action != com.aarogyam.staff.nav.PrimaryAction.AddExpense },
+        onEditAvatar = {},
+        onQr = {},
+        onNotifications = { notifications = true },
+        unread = counts.notifications > 0,
+    )
+    if (notifications) NotificationsSheet(rememberHolder { graph.notifications(clinic, it) }) { notifications = false }
+}
+
+/** One of the eight illustrated avatars, stable for a member until they pick their own. */
+private fun defaultAvatar(membershipId: String): String =
+    "d${(membershipId.hashCode() and Int.MAX_VALUE) % AVATARS + 1}"
+
+private const val AVATARS = 8
+private const val BADGE_POLL_MS = 60_000L
 
 /** Hides the floating bar while the content scrolls down past the threshold, and shows it on any scroll up. */
 private class BarHider(

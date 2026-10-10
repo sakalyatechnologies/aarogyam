@@ -15,6 +15,7 @@ pub mod appointments;
 pub mod attachments;
 pub mod billing;
 pub mod booking;
+pub mod campaigns;
 pub mod chart;
 pub mod chat;
 pub mod clinic;

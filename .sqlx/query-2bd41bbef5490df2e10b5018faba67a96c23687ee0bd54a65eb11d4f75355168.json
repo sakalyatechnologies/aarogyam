@@ -1,0 +1,201 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select c.id, c.name, c.audience_id, c.template_id, c.channel, c.offer_text,\n                  c.scheduled_at, c.status, c.scheduled_count, c.fan_out_started_at,\n                  c.fan_out_done_at, c.cancelled_at, c.created_by, c.created_at, c.updated_at,\n                  coalesce((select jsonb_agg(jsonb_build_object('status', g.status,\n                                  'skip_reason', g.skip_reason, 'count', g.n)\n                                  order by g.status, g.skip_reason)\n                            from (select m.status, m.skip_reason, count(*) as n\n                                  from aarogyam.messages m where m.campaign_id = c.id\n                                  group by m.status, m.skip_reason) g), '[]'::jsonb) as \"counts!\"\n           from aarogyam.campaigns c order by c.created_at desc, c.id desc limit 100",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "audience_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "audience_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "template_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "template_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "channel",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "channel"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "offer_text",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "offer_text"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "scheduled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "scheduled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "scheduled_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "scheduled_count"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "fan_out_started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "fan_out_started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "fan_out_done_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "fan_out_done_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "cancelled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "cancelled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.campaigns",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "counts!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "2bd41bbef5490df2e10b5018faba67a96c23687ee0bd54a65eb11d4f75355168"
+}

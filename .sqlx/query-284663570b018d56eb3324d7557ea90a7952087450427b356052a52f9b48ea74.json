@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with locked as (\n             select a.id from aarogyam.audiences a where a.id = $1 for update\n           ),\n           busy as (\n             select exists (select 1 from aarogyam.campaigns c\n                            where c.audience_id = $1 and c.status in ('scheduled', 'sending')) as yes\n           ),\n           changed as (\n             update aarogyam.audiences a\n               set name = coalesce($2, a.name), filter = coalesce($3, a.filter)\n             where a.id = $1 and not ((select yes from busy) and $3::jsonb is not null)\n             returning a.id\n           )\n           select (select count(*) from locked) as \"found!\", (select count(*) from changed) as \"changed!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "changed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "284663570b018d56eb3324d7557ea90a7952087450427b356052a52f9b48ea74"
+}

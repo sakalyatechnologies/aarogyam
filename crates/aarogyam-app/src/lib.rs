@@ -9,6 +9,7 @@ pub mod accounts;
 pub mod analytics;
 pub mod appointments;
 pub mod billing;
+pub mod campaigns;
 pub mod chart;
 pub mod chat;
 pub mod check_in;

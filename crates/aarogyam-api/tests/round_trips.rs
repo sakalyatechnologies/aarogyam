@@ -670,6 +670,19 @@ fn hot_routes(
                 format!("/api/v1/patients/{patient}/contact-preferences"),
             )
         },
+        // Audiences and campaigns (owner): each read is one statement; the preview counts
+        // through app.audience_patients in one.
+        Route::get("GET /audiences", ALPHA, "/api/v1/audiences".into()),
+        Route::get("GET /campaigns", ALPHA, "/api/v1/campaigns".into()),
+        Route {
+            method: Method::POST,
+            body: Some(json!({ "filter": { "kind": "all_active" } })),
+            ..Route::get(
+                "POST /audiences/preview",
+                ALPHA,
+                "/api/v1/audiences/preview".into(),
+            )
+        },
         // The patient in reach, then the links and the waiting code: one over.
         Route::get(
             "GET /patients/{id}/app-access",

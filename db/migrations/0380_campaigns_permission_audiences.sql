@@ -36,8 +36,9 @@ create table aarogyam.audiences (
   updated_by uuid,
   primary key (org_id, id)
 );
-comment on table aarogyam.audiences is 'sensitivity=internal offline=server_only lifecycle=mutable';
-select app.protect_clinic_table('aarogyam.audiences', 'mutable');
+comment on table aarogyam.audiences is 'sensitivity=internal offline=server_only lifecycle=ephemeral';
+-- Ephemeral: an audience no campaign uses can be deleted (the history keeps the deletion).
+select app.protect_clinic_table('aarogyam.audiences', 'ephemeral');
 
 -- It holds no patient: a filter and a name. Erasure has nothing to do here.
 insert into audit.audit_config (table_name, exclude, mask, metadata_only) values

@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with stopped as (\n             update aarogyam.campaigns set status = 'cancelled', cancelled_at = now()\n             where id = $1 and status in ('draft', 'scheduled', 'sending') returning id\n           ),\n           skipped as (\n             update aarogyam.messages m\n               set status = 'skipped', skip_reason = 'campaign_cancelled', processed_at = now(),\n                   secret = null\n             where m.campaign_id in (select id from stopped) and m.status = 'queued'\n             returning 1\n           )\n           select (select count(*) from stopped) as \"stopped!\", (select count(*) from skipped) as \"skipped!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "stopped!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "skipped!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "6c49e91a4b5eea689bf2c653274a640e3512260e997a7f28fa707dec1f1a0876"
+}

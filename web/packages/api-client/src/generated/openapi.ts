@@ -148,6 +148,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audiences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's saved audiences. */
+        get: operations["listAudiences"];
+        put?: never;
+        /** Saves an audience. */
+        post: operations["createAudience"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audiences/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Counts an audience without naming anyone. */
+        post: operations["previewAudience"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audiences/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One audience. */
+        get: operations["getAudience"];
+        put?: never;
+        post?: never;
+        /** Deletes an audience no campaign uses. */
+        delete: operations["deleteAudience"];
+        options?: never;
+        head?: never;
+        /** Renames an audience or changes its filter. */
+        patch: operations["updateAudience"];
+        trace?: never;
+    };
     "/api/v1/auth/handoff": {
         parameters: {
             query?: never;
@@ -179,6 +233,97 @@ export interface paths {
          *     codes all get `404`, and the first attempt uses a code up. Throttled per IP.
          */
         post: operations["redeemHandoff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's campaigns with counts. */
+        get: operations["listCampaigns"];
+        put?: never;
+        /** Saves a draft campaign. */
+        post: operations["createCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One campaign with counts. */
+        get: operations["getCampaign"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Changes a draft campaign. */
+        patch: operations["updateCampaign"];
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancels a campaign that hasn't finished; its queued messages are skipped. */
+        post: operations["cancelCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Schedules a draft. The token must be a preview of the audience as it is now and unexpired. */
+        post: operations["scheduleCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/test-send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Emails the campaign to the caller's own address (the verified email of their sign-in, never
+         *     one from the request), through the staff outbox: no patient is involved and nothing is
+         *     counted.
+         */
+        post: operations["testSendCampaign"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4655,6 +4800,68 @@ export interface components {
             /** @description Readable number. */
             number: string;
         };
+        /** @description A saved audience. */
+        Audience: {
+            /** @description When it was made (RFC 3339). */
+            created_at: string;
+            /** @description Its filter, evaluated when a campaign sends. */
+            filter: components["schemas"]["AudienceFilterBody"];
+            /** @description Identifier. */
+            id: string;
+            /** @description Its name. */
+            name: string;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+        };
+        /** @description One audience filter: `kind` and the fields it takes, nothing else. */
+        AudienceFilterBody: {
+            /** @description `last_visit`: last visit on or after this date. A patient never seen matches neither. */
+            after?: string | null;
+            /** @description `last_visit`: last visit before this date (`YYYY-MM-DD`). */
+            before?: string | null;
+            /**
+             * @description `all_active`, `last_visit`, `birthday_month`, `age_band`, `sex` or `tag`. Balance,
+             *     treatment and visit-kind filters don't exist.
+             */
+            kind: string;
+            /**
+             * Format: int32
+             * @description `age_band`: oldest age in whole years.
+             */
+            max?: number | null;
+            /**
+             * Format: int32
+             * @description `age_band`: youngest age in whole years.
+             */
+            min?: number | null;
+            /**
+             * Format: int32
+             * @description `birthday_month`: 1 to 12.
+             */
+            month?: number | null;
+            /** @description `sex`: `female`, `male`, `other` or `unknown`. */
+            sex?: string | null;
+            /** @description `tag`: a patient tag. */
+            tag?: string | null;
+        };
+        /** @description How many patients a filter matches, and a token to schedule with. */
+        AudiencePreview: {
+            /**
+             * Format: int64
+             * @description Active patients matching now. Consent, opt-outs and quiet hours apply when each message
+             *     is sent, so fewer may be reached.
+             */
+            count: number;
+            /** @description Hand it back to `POST /campaigns/{id}/schedule`: it proves this filter and this count. */
+            count_token: string;
+            /** @description When the token stops working (RFC 3339). */
+            expires_at: string;
+        };
+        /** @description The clinic's audiences. */
+        Audiences: {
+            /** @description Newest first, up to 200. */
+            items: components["schemas"]["Audience"][];
+        };
         /** @description Free slots. */
         Availability: {
             /** @description The local day, `YYYY-MM-DD`. */
@@ -4763,6 +4970,49 @@ export interface components {
              * @description ISO weekday: 1 Monday to 7 Sunday.
              */
             weekday: number;
+        };
+        /** @description A campaign with the outcome of its messages. */
+        Campaign: {
+            /** @description Its audience. */
+            audience_id: string;
+            /** @description When it was cancelled (RFC 3339). */
+            cancelled_at?: string | null;
+            /** @description `email` or `whatsapp`. */
+            channel: string;
+            /** @description Its messages by status and skip reason, counted when asked. */
+            counts: components["schemas"]["MessageCount"][];
+            /** @description When it was made (RFC 3339). */
+            created_at: string;
+            /** @description Who made it. */
+            created_by?: string | null;
+            /** @description When the last recipient was queued (RFC 3339). */
+            fan_out_done_at?: string | null;
+            /** @description When recipients began to be queued (RFC 3339). */
+            fan_out_started_at?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description Its name; also the email subject. */
+            name: string;
+            /** @description The offer, filled into the template's `{{offer_text}}` and the email body. */
+            offer_text: string;
+            /** @description When it goes (RFC 3339). */
+            scheduled_at?: string | null;
+            /**
+             * Format: int32
+             * @description The audience size the owner saw when scheduling.
+             */
+            scheduled_count?: number | null;
+            /** @description `draft`, `scheduled`, `sending`, `sent` or `cancelled`. */
+            status: string;
+            /** @description Its `promo.offer` template. */
+            template_id: string;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+        };
+        /** @description The clinic's campaigns. */
+        Campaigns: {
+            /** @description Newest first, up to 100. */
+            items: components["schemas"]["Campaign"][];
         };
         /** @description Cancelling a prescription. */
         CancelRequest: {
@@ -5464,6 +5714,21 @@ export interface components {
             /** @description The conversation. */
             id: string;
         };
+        /** @description A draft campaign to save. */
+        CreateCampaign: {
+            /** @description A saved audience. */
+            audience_id: string;
+            /** @description `email` or `whatsapp`. */
+            channel: string;
+            /** @description One line of 1 to 120 characters; also the email subject. */
+            name: string;
+            /** @description One line of 1 to 300 characters. */
+            offer_text: string;
+            /** @description When to send (RFC 3339); needed before scheduling. */
+            scheduled_at?: string | null;
+            /** @description The clinic's `promo.offer` template for the channel. */
+            template_id: string;
+        };
         /** @description A template to add: another language or channel for a known key. */
         CreateMessageTemplate: {
             /** @description The text; only the key's allow-listed `{{variables}}`. */
@@ -5600,6 +5865,16 @@ export interface components {
             booking_requests_open: number;
             /** @description Reminders written to the clinic inbox. */
             booking_requests_reminded: number;
+            /**
+             * Format: int64
+             * @description Campaign messages queued by this run's fan-out.
+             */
+            campaign_messages_queued: number;
+            /**
+             * Format: int64
+             * @description Campaign recipients skipped by the weekly promotional cap.
+             */
+            campaign_recipients_capped: number;
             /** @description Messages claimed. */
             claimed: number;
             /** @description `resend`, or `log` when no Resend key is configured. */
@@ -6972,6 +7247,18 @@ export interface components {
             /** @description The patient that remains. */
             patient_id: string;
         };
+        /** @description One group of a campaign's messages. */
+        MessageCount: {
+            /**
+             * Format: int64
+             * @description How many.
+             */
+            count: number;
+            /** @description Why they were skipped: `no_consent`, `consent_withdrawn`, `opted_out`, `frequency_cap`... */
+            skip_reason?: string | null;
+            /** @description `queued`, `sending`, `sent`, `failed` or `skipped`. */
+            status: string;
+        };
         /** @description A patient's messages, newest first. */
         MessageList: {
             /** @description Up to 100 messages. */
@@ -7831,6 +8118,27 @@ export interface components {
             /** @description By list, then label; retired ones included. */
             items: components["schemas"]["OwnDentalTerm"][];
         };
+        /** @description Changes to an audience; absent fields stay. */
+        PatchAudience: {
+            filter?: components["schemas"]["AudienceFilterBody"] | null;
+            /** @description New name. */
+            name?: string | null;
+        };
+        /** @description Changes to a draft; absent fields stay. */
+        PatchCampaign: {
+            /** @description New audience. */
+            audience_id?: string | null;
+            /** @description New channel. */
+            channel?: string | null;
+            /** @description New name. */
+            name?: string | null;
+            /** @description New offer text. */
+            offer_text?: string | null;
+            /** @description New time (RFC 3339); an empty string removes it. */
+            scheduled_at?: string | null;
+            /** @description New template. */
+            template_id?: string | null;
+        };
         /** @description A patient. Phone and email are masked (`+91******3210`) unless the role has `patients.contact`. */
         Patient: {
             /**
@@ -8647,6 +8955,11 @@ export interface components {
             /** @description Newest first. */
             items: components["schemas"]["Prescription"][];
         };
+        /** @description A filter to count. */
+        PreviewAudience: {
+            /** @description The filter. */
+            filter: components["schemas"]["AudienceFilterBody"];
+        };
         /** @description A price list entry. */
         PriceItem: {
             /** @description Offered. */
@@ -9260,6 +9573,13 @@ export interface components {
             /** @description Language, such as `hi-IN`; the patient's by default. */
             language?: string | null;
         };
+        /** @description An audience to save. */
+        SaveAudience: {
+            /** @description The filter. */
+            filter: components["schemas"]["AudienceFilterBody"];
+            /** @description One line of 1 to 120 characters. */
+            name: string;
+        };
         /** @description An appointment after a booking or change. */
         SavedAppointment: {
             /** @description The appointment. */
@@ -9283,6 +9603,11 @@ export interface components {
             name: string;
             /** @description What it may do now, sorted by key. */
             permissions: components["schemas"]["RolePermission"][];
+        };
+        /** @description The proof that the owner saw this audience's size. */
+        ScheduleCampaign: {
+            /** @description From `POST /audiences/preview` for the campaign's audience filter. */
+            count_token: string;
         };
         /** @description What to search for. Sent in the body, never the URL: search terms are names and phone numbers. */
         SearchRequest: {
@@ -11084,6 +11409,280 @@ export interface operations {
             };
         };
     };
+    listAudiences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Audiences"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createAudience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveAudience"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Audience"];
+                };
+            };
+            /** @description A bad name or filter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    previewAudience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewAudience"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudiencePreview"];
+                };
+            };
+            /** @description A bad filter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAudience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The audience */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Audience"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such audience in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteAudience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The audience */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such audience in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A campaign uses it */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateAudience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The audience */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchAudience"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Audience"];
+                };
+            };
+            /** @description A bad name or filter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such audience in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A scheduled or sending campaign uses its filter */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     createHandoff: {
         parameters: {
             query?: never;
@@ -11158,6 +11757,354 @@ export interface operations {
             };
             /** @description Too many attempts */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCampaigns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaigns"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCampaign"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            /** @description Bad text, channel, time or template */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The audience or template isn't this clinic's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The campaign */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such campaign in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The campaign */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchCampaign"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            /** @description Bad text, channel, time or template */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such campaign, audience or template in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description It isn't a draft */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cancelCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The campaign */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such campaign in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already sent or cancelled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    scheduleCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The campaign */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleCampaign"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            /** @description No time set, an unapproved template or a malformed token */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such campaign in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a draft, or the count token is expired, stale or another filter's */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    testSendCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The campaign */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued to the caller's own email */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The caller's sign-in has no verified email address */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such campaign in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

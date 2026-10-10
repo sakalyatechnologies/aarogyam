@@ -801,7 +801,7 @@ TABLES = [
             "reason text", "due_on date", "status recall_status | due, notified, booked, done, dismissed",
             "done_at timestamptz?",
             "source_procedure_id uuid? -> procedures"]),
-    T(name="audiences", domain="notify", rls="clinic", lifecycle="mutable",
+    T(name="audiences", domain="notify", rls="clinic", lifecycle="ephemeral",
       purpose="Saved patient filters for campaigns: all active, last visit, birthday month, age band, sex, tag.",
       cols=["name text", "filter jsonb | one typed filter by kind: all_active, last_visit, birthday_month, age_band, sex, tag"],
       notes="Built (migration 0380). No balance, treatment or visit-kind filters (purpose limitation). Evaluated when a campaign sends (app.audience_patients, 0382). Holds no patient, so no erasure step; support never reads it."),

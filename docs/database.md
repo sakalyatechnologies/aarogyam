@@ -2506,7 +2506,7 @@ Follow-ups that are due: cleaning in six months, BP review, vaccine.
 
 Saved patient filters for campaigns: all active, last visit, birthday month, age band, sex, tag.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: mutable*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: ephemeral*
 
 | Column | Type | Notes |
 |---|---|---|

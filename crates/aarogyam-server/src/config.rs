@@ -42,6 +42,9 @@ pub struct Config {
     /// `WhatsApp` through Meta's Cloud API (`ARO_WHATSAPP__*`); off by default.
     #[serde(default)]
     pub whatsapp: WhatsappSettings,
+    /// Campaigns (`ARO_CAMPAIGNS__*`).
+    #[serde(default)]
+    pub campaigns: CampaignsSettings,
     /// Patient files (`ARO_FILES__*`).
     #[serde(default)]
     pub files: FileSettings,
@@ -424,6 +427,21 @@ impl Default for EmailSettings {
             daily_budget: 100,
             resend_webhook_secret: None,
         }
+    }
+}
+
+/// Campaigns (docs/decisions.md, "Campaigns").
+#[derive(Debug, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CampaignsSettings {
+    /// The platform kill switch (`ARO_CAMPAIGNS__ENABLED`). Default true. False pauses every
+    /// campaign fan-out and every claim of campaign messages until it is true again.
+    pub enabled: bool,
+}
+
+impl Default for CampaignsSettings {
+    fn default() -> Self {
+        Self { enabled: true }
     }
 }
 

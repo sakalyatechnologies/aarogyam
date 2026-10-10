@@ -8133,7 +8133,7 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": "mutable",
+   "lifecycle": "ephemeral",
    "schema": "aarogyam",
    "notes": "Built (migration 0380). No balance, treatment or visit-kind filters (purpose limitation). Evaluated when a campaign sends (app.audience_patients, 0382). Holds no patient, so no erasure step; support never reads it.",
    "cols": [

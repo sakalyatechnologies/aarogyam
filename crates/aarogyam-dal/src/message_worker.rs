@@ -22,7 +22,8 @@ pub struct ClaimedMessage {
 }
 
 /// Claims up to `limit` due messages on `channel` for `provider`, within `daily_budget` sends a
-/// day for that provider across the platform.
+/// day for that provider across the platform. With `campaigns_enabled` false (the platform kill
+/// switch) campaign messages stay queued.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -33,16 +34,18 @@ pub async fn claim(
     daily_budget: i32,
     limit: i32,
     lease_seconds: i32,
+    campaigns_enabled: bool,
 ) -> Result<Vec<ClaimedMessage>, DbError> {
     let rows = sqlx::query_as!(
         ClaimedMessage,
         r#"select org_id as "org_id!", id as "id!", attempts as "attempts!", deferred as "deferred!"
-           from app.messages_claim($1, $2, $3, $4, $5)"#,
+           from app.messages_claim($1, $2, $3, $4, $5, $6)"#,
         channel,
         provider,
         daily_budget,
         limit,
-        lease_seconds
+        lease_seconds,
+        campaigns_enabled
     )
     .fetch_all(pool)
     .await?;

@@ -144,6 +144,8 @@ pub struct Notifier {
     daily_budget: i32,
     resend_webhook_secret: Option<SecretString>,
     whatsapp: WhatsappSetup,
+    /// The platform kill switch for campaigns (`ARO_CAMPAIGNS__ENABLED`).
+    campaigns_enabled: bool,
 }
 
 impl Notifier {
@@ -156,6 +158,7 @@ impl Notifier {
             daily_budget: DEFAULT_DAILY_BUDGET,
             resend_webhook_secret: None,
             whatsapp: WhatsappSetup::default(),
+            campaigns_enabled: true,
         }
     }
 
@@ -174,6 +177,7 @@ impl Notifier {
             daily_budget: DEFAULT_DAILY_BUDGET,
             resend_webhook_secret: None,
             whatsapp: WhatsappSetup::default(),
+            campaigns_enabled: true,
         })
     }
 
@@ -197,6 +201,14 @@ impl Notifier {
     #[must_use]
     pub fn with_whatsapp(mut self, setup: WhatsappSetup) -> Self {
         self.whatsapp = setup;
+        self
+    }
+
+    /// The platform kill switch for campaigns: false stops every fan-out and every claim of
+    /// campaign messages until it is true again. On by default.
+    #[must_use]
+    pub const fn with_campaigns_enabled(mut self, enabled: bool) -> Self {
+        self.campaigns_enabled = enabled;
         self
     }
 

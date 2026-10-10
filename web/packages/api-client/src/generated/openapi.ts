@@ -1649,7 +1649,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Changes the signed-in person's own name and phone. It is theirs across every clinic they
+         *     belong to; the change history records them as the actor.
+         */
+        patch: operations["updateMe"];
         trace?: never;
     };
     "/api/v1/me/avatar": {
@@ -2028,6 +2032,26 @@ export interface paths {
         get: operations["listMySessions"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/sessions/revoke-others": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Signs out every other session of the person, keeping the one asking. Their next requests get
+         *     `401`, on every host.
+         */
+        post: operations["revokeOtherSessions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3721,6 +3745,27 @@ export interface paths {
         patch: operations["updateClinicSettings"];
         trace?: never;
     };
+    "/api/v1/settings/clinic/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Uploads the clinic logo as `multipart/form-data` field `file`: PNG or JPEG, up to 2 MB,
+         *     checked by content. Replaces the previous one. The same image the letterhead prints as its
+         *     logo; returns the clinic's settings.
+         */
+        post: operations["uploadClinicLogo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/dashboard-layout": {
         parameters: {
             query?: never;
@@ -3763,6 +3808,24 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's notification switches and quiet hours. */
+        get: operations["getNotificationSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Changes the notification switches and quiet hours. The change history records each change. */
+        patch: operations["updateNotificationSettings"];
         trace?: never;
     };
     "/api/v1/settings/onboarding": {
@@ -5198,7 +5261,7 @@ export interface components {
         Branding: {
             /** @description Brand colour, `#RRGGBB`. */
             brand?: string | null;
-            /** @description `light` or `dark`. */
+            /** @description `light`, `dark` or `auto` (follow the device). */
             mode?: string | null;
         };
         /** @description Visits starting in an hour of a weekday. */
@@ -6289,6 +6352,11 @@ export interface components {
             purged: number;
             /**
              * Format: int32
+             * @description Follow-up alerts newly written for staff.
+             */
+            recalls_flagged: number;
+            /**
+             * Format: int32
              * @description Appointment reminders queued for patients.
              */
             reminders_queued: number;
@@ -6296,6 +6364,11 @@ export interface components {
             retrying: number;
             /** @description Delivered. */
             sent: number;
+            /**
+             * Format: int32
+             * @description Waiting-patient alerts newly written for staff.
+             */
+            waiting_flagged: number;
         };
         /** @description A medicine from the catalogue. */
         Drug: {
@@ -7619,6 +7692,10 @@ export interface components {
              *     them there, or offers it first beside their clinics.
              */
             console_access: boolean;
+            /** @description The person's own name; absent when it could not be read. */
+            display_name?: string | null;
+            /** @description The person's phone in `E.164`, if recorded. */
+            phone?: string | null;
             /**
              * @description Whether the console asks Sakalya staff for an authenticator code (`auth.staff_mfa`). The
              *     console reads this to show or skip its second step.
@@ -7909,8 +7986,11 @@ export interface components {
         NewAppointmentBody: {
             /** @description Branch; the room's, or the default branch. */
             branch_id?: string | null;
-            /** @description End (RFC 3339), 5 minutes to 12 hours after the start. */
-            ends_at: string;
+            /**
+             * @description End (RFC 3339), 5 minutes to 12 hours after the start. Left out, the appointment lasts the
+             *     clinic's default visit length (`online_booking.default_visit_minutes`).
+             */
+            ends_at?: string | null;
             /** @description `new`, `follow_up` (default), `procedure` or `emergency`. */
             kind?: string | null;
             /** @description Front-desk note, up to 2000 characters. */
@@ -8395,18 +8475,27 @@ export interface components {
             /** @description When the owners were told (RFC 3339). */
             escalated_at?: string | null;
             handled?: components["schemas"]["HandledBy"] | null;
+            /**
+             * @description A path inside the portal that opens what it is about, such as `/queue`; absent for older
+             *     notifications.
+             */
+            href?: string | null;
             /** @description Identifier; pass as `before` for the next page. */
             id: string;
+            invoice?: components["schemas"]["NotifiedInvoice"] | null;
             /**
-             * @description `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient` or
-             *     `lab_overdue`.
+             * @description `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,
+             *     `lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in` or
+             *     `collect_payment`.
              */
             kind: string;
             lab_order?: components["schemas"]["NotifiedLabOrder"] | null;
+            queue_token?: components["schemas"]["NotifiedQueueToken"] | null;
             /** @description Whether the caller has read it. */
             read: boolean;
             /** @description When the caller read it (RFC 3339). */
             read_at?: string | null;
+            recall?: components["schemas"]["NotifiedRecall"] | null;
             /** @description When everyone was reminded because nobody had answered (RFC 3339). */
             reminded_at?: string | null;
         };
@@ -8414,6 +8503,39 @@ export interface components {
         NotificationList: {
             /** @description The notifications. */
             items: components["schemas"]["Notification"][];
+        };
+        /** @description The clinic's notification switches. */
+        NotificationSettings: {
+            /** @description Tell staff when lab work is overdue (default on). */
+            lab_due: boolean;
+            /** @description Show low stock on Today (default on). */
+            low_stock: boolean;
+            /** @description Quiet hours for reminders and offers. */
+            quiet_hours: components["schemas"]["QuietHoursView"];
+            /** @description Tell staff when a patient's follow-up falls due (default on). */
+            recall: boolean;
+            /** @description Email patients a receipt when a payment is recorded (default off). */
+            receipts: boolean;
+            /** @description Remind patients a day before their appointment (default on). */
+            reminder_24h: boolean;
+            /** @description Remind patients two hours before (default off). */
+            reminder_2h: boolean;
+        };
+        /** @description Changes to the notification switches; what is left out stays. */
+        NotificationSettingsChanges: {
+            /** @description Overdue lab alerts. */
+            lab_due?: boolean | null;
+            /** @description Low stock on Today. */
+            low_stock?: boolean | null;
+            quiet_hours?: components["schemas"]["QuietHoursChangesBody"] | null;
+            /** @description Follow-up alerts to staff. */
+            recall?: boolean | null;
+            /** @description Receipts by email. */
+            receipts?: boolean | null;
+            /** @description The day-before reminder. */
+            reminder_24h?: boolean | null;
+            /** @description The two-hour reminder. */
+            reminder_2h?: boolean | null;
         };
         /** @description The appointment a notification is about. */
         NotifiedAppointment: {
@@ -8430,6 +8552,13 @@ export interface components {
             /** @description Its status now, such as `requested` or `confirmed`. */
             status: string;
         };
+        /** @description The bill a `payment_due` or `collect_payment` alert is about. */
+        NotifiedInvoice: {
+            /** @description The bill; open it at `/billing/invoices/{id}`. */
+            id: string;
+            /** @description Its number once issued; absent for a draft. */
+            number?: string | null;
+        };
         /** @description The lab order an overdue alert is about. */
         NotifiedLabOrder: {
             /** @description Its due date now (`YYYY-MM-DD`). */
@@ -8440,6 +8569,25 @@ export interface components {
             number: string;
             /** @description Its lab's name. */
             vendor_name: string;
+        };
+        /** @description The queue token a `patient_waiting` or `send_in` alert is about. */
+        NotifiedQueueToken: {
+            /** @description The token. */
+            id: string;
+            /**
+             * Format: int32
+             * @description Its number for the day.
+             */
+            number: number;
+        };
+        /** @description The follow-up a `recall_due` alert is about. No reason: it can hold health information. */
+        NotifiedRecall: {
+            /** @description When it falls due (`YYYY-MM-DD`). */
+            due_on: string;
+            /** @description The recall. */
+            id: string;
+            /** @description Its kind, such as `cleaning`. */
+            kind: string;
         };
         /**
          * @description A measurement. Values never change: a correction is a new reading whose `supersedes_id`
@@ -8486,6 +8634,12 @@ export interface components {
              * @description Gap kept free around other appointments, in minutes (0 to 120).
              */
             buffer_minutes: number;
+            /**
+             * Format: int32
+             * @description How long an appointment booked by staff lasts when no end is given: 15, 30, 45 or 60
+             *     minutes.
+             */
+            default_visit_minutes: number;
             /** @description Whether the public booking page works. */
             enabled: boolean;
             /**
@@ -8519,6 +8673,11 @@ export interface components {
              * @description Buffer in minutes.
              */
             buffer_minutes?: number | null;
+            /**
+             * Format: int32
+             * @description Default visit length in minutes: 15, 30, 45 or 60.
+             */
+            default_visit_minutes?: number | null;
             /** @description Whether the public booking page works. */
             enabled?: boolean | null;
             /**
@@ -9598,6 +9757,20 @@ export interface components {
             /** @description The procedures. */
             items: components["schemas"]["Procedure"][];
         };
+        /** @description The person's own name and phone. */
+        Profile: {
+            /** @description Their name. */
+            display_name: string;
+            /** @description Their phone in `E.164`, if recorded. */
+            phone?: string | null;
+        };
+        /** @description Changes to the person's own profile; what is left out stays. */
+        ProfileUpdate: {
+            /** @description Their name, 1 to 200 characters. */
+            display_name?: string | null;
+            /** @description Their phone; +91 is assumed without a country code, and an empty string clears it. */
+            phone?: string | null;
+        };
         /** @description A new version to publish. */
         PublishNotice: {
             /** @description The full notice text, up to 20,000 characters. */
@@ -9780,6 +9953,24 @@ export interface components {
             /** @description The line it writes. */
             text: string;
         };
+        /** @description Changes to quiet hours; what is left out stays. */
+        QuietHoursChangesBody: {
+            /** @description Switch them on or off. */
+            enabled?: boolean | null;
+            /** @description New end, `HH:MM`. */
+            end?: string | null;
+            /** @description New start, `HH:MM`. */
+            start?: string | null;
+        };
+        /** @description Quiet hours: when patient reminders and offers wait. */
+        QuietHoursView: {
+            /** @description Whether they apply. */
+            enabled: boolean;
+            /** @description When they end, `HH:MM`; earlier than `start` means they run overnight. */
+            end: string;
+            /** @description When they begin, `HH:MM` in the clinic's time zone. */
+            start: string;
+        };
         /** @description How far the caller has read. */
         ReadUpTo: {
             /** @description The newest message read; the pointer never moves back. */
@@ -9934,6 +10125,11 @@ export interface components {
             id: string;
             /** @description The invitation link, with its new one-time secret. */
             invite_link: string;
+        };
+        /** @description How many sessions a sign-out-everywhere-else ended. */
+        RevokedSessions: {
+            /** @description Sessions signed out; the current one stays. */
+            revoked: number;
         };
         /** @description A role. */
         Role: {
@@ -17184,6 +17380,50 @@ export interface operations {
             };
         };
     };
+    updateMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Another account holds that phone number */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     putMyAvatar: {
         parameters: {
             query?: never;
@@ -18145,6 +18385,32 @@ export interface operations {
             };
         };
     };
+    revokeOtherSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokedSessions"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     revokeMySession: {
         parameters: {
             query?: never;
@@ -18612,7 +18878,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks both appointments.read and labs.read */
+            /** @description The role lacks appointments.read, labs.read, billing.read and patients.read */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -18645,7 +18911,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks both appointments.read and labs.read */
+            /** @description The role lacks appointments.read, labs.read, billing.read and patients.read */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -18678,7 +18944,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks both appointments.read and labs.read */
+            /** @description The role lacks appointments.read, labs.read, billing.read and patients.read */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -18713,7 +18979,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks both appointments.read and labs.read */
+            /** @description The role lacks appointments.read, labs.read, billing.read and patients.read */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -23699,6 +23965,57 @@ export interface operations {
             };
         };
     };
+    uploadClinicLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImageForm"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicSettings"];
+                };
+            };
+            /** @description Not a PNG or JPEG, or empty */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 2 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getDashboardLayout: {
         parameters: {
             query?: never;
@@ -23899,6 +24216,97 @@ export interface operations {
             };
             /** @description The role lacks settings.manage */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getNotificationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettings"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateNotificationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationSettingsChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettings"];
+                };
+            };
+            /** @description Invalid input; the message names the setting */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -64,7 +64,7 @@ export interface FakeClinic {
   created_at: string;
   /** `SD` in `SD-9`. */
   number_prefix: string;
-  branding: { brand: string; mode: "light" | "dark" };
+  branding: { brand: string; mode: "light" | "dark" | "auto" };
   /** The main branch's address, for `GET /settings/clinic`. */
   address?: FakeAddress;
   /** The main branch's phone. */
@@ -74,6 +74,8 @@ export interface FakeClinic {
   legal_name?: string | null;
   gstin?: string | null;
   prescription_footer?: string | null;
+  /** Notification switches; anything left out uses the API's default. */
+  notification_settings?: Partial<Omit<C.NotificationSettings, "quiet_hours">> & { quiet_hours?: Partial<C.QuietHoursView> };
   /** Online booking settings; anything left out uses the API's default. */
   online_booking?: Partial<C.OnlineBooking>;
   /** The letterhead settings; anything left out uses the API's default. */
@@ -91,6 +93,13 @@ export interface FakeSession {
   last_active_at: string;
   expires_at: string;
   revoked: boolean;
+}
+
+/** A staff notification as the API serves it, less the caller's own read state. */
+export interface FakeNotification extends Omit<C.Notification, "read" | "read_at"> {
+  clinic_id: string;
+  /** Members who have read it. */
+  read_by?: string[];
 }
 
 export interface FakeMembership {
@@ -613,6 +622,8 @@ export interface Fixtures {
   plans: FakePlan[];
   attachments: FakeAttachment[];
   sessions: FakeSession[];
+  /** Staff notifications, made by tests; the bell reads them. */
+  notifications?: FakeNotification[];
   applications: FakeApplication[];
   priceItems: FakePriceItem[];
   suppliers: FakeSupplier[];

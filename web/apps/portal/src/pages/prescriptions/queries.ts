@@ -10,6 +10,7 @@ import {
   type PatientId,
   type PrescriptionId,
   type RxValues,
+  type ShareInput,
 } from "@aarogyam/api-client";
 
 import { useClinic } from "../../clinic.js";
@@ -105,4 +106,10 @@ export function useCancelPrescription(id: PrescriptionId, patientId: PatientId) 
 export function useCreateShareLink(id: PrescriptionId) {
   const { api } = useClinic();
   return useMutation({ mutationFn: () => unwrap(api.createShareLink(id)) });
+}
+
+/** A link with its own expiry (`expires_in_hours`) and how it is handed over (`channel`). */
+export function useCreateShareLinkWith(id: PrescriptionId) {
+  const { api } = useClinic();
+  return useMutation({ mutationFn: (input: ShareInput) => unwrap(api.createShareLinkWith(id, input)) });
 }

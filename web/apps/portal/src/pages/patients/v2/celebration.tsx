@@ -1,27 +1,30 @@
-import { CheckCircle2, Copy, PartyPopper, Printer } from "lucide-react";
+import { CheckCircle2, Copy, MessageCircle, PartyPopper, Printer, QrCode as QrIcon, Smartphone } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router";
 
-import { apiErrorOf, type Patient, type Prescription } from "@aarogyam/api-client";
+import { apiErrorOf, type Patient, type Prescription, type ShareInput } from "@aarogyam/api-client";
 import { formatDateTime } from "@aarogyam/app-kit";
 import { useToast } from "@sakalya/ui";
 
 import { QrCode } from "../../../components/qr-code.js";
 import { useClinic } from "../../../clinic.js";
 import { displayName } from "../../../lib/patients.js";
-import { useCreateShareLink } from "../../prescriptions/queries.js";
+import { useCreateShareLinkWith } from "../../prescriptions/queries.js";
+import { dateAfter } from "./finish-visit.js";
 import { PillButton } from "./kit.js";
 import type { FinishedVisit } from "./visit-session.js";
 
 const COLOURS = ["var(--brand)", "var(--amber)", "var(--indigo)", "var(--green)", "var(--red)"];
 
-/** The day `days` from now, as YYYY-MM-DD in the browser's calendar, for the booking screen. */
-function dateAfter(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
+/** How long the patient's link works, in hours (the server accepts 24 to 720). */
+export const LINK_EXPIRIES = [
+  { label: "24 hours", hours: 24 },
+  { label: "3 days", hours: 72 },
+  { label: "7 days", hours: 168 },
+  { label: "30 days", hours: 720 },
+] as const;
+
+type Channel = NonNullable<ShareInput["channel"]>;
 
 /**
  * Shown after a visit is finished: what the visit held, the prescription link (our token and PIN) and the next steps.
@@ -128,34 +131,81 @@ export function Celebration({ finished, patient, onClose }: { finished: Finished
   );
 }
 
-/** The prescription's link for the patient: our token and a PIN shown once, with copy and a QR code. */
+/** What the server did about sending the link, in words for the doctor. */
+function sentNote(channel: string, message: { status: string; reason?: string | null | undefined } | null | undefined): string | undefined {
+  if (channel !== "whatsapp" && channel !== "sms") return undefined;
+  const name = channel === "whatsapp" ? "WhatsApp" : "SMS";
+  if (message === null || message === undefined) return undefined;
+  if (message.status === "queued") return `${name} message queued for the patient. Tell them the PIN yourself.`;
+  if (message.reason === "no_phone") return `No phone number on file, so no ${name} was sent. Share the link and PIN yourself.`;
+  return `The ${name} message was not queued. Share the link and PIN yourself.`;
+}
+
+/** The prescription's link for the patient: pick how long it works, pick how to hand it over; our token and a PIN shown once. */
 function RxLink({ rx }: { rx: Prescription }) {
   const navigate = useNavigate();
   const toast = useToast();
-  const share = useCreateShareLink(rx.id);
+  const share = useCreateShareLinkWith(rx.id);
+  const [hours, setHours] = useState<number>(168);
   const [showQr, setShowQr] = useState(false);
   const link = share.data === undefined ? undefined : `${window.location.origin}/shared/${share.data.token}`;
+  const copy = (text: string) => {
+    void navigator.clipboard.writeText(text).then(
+      () => toast.show({ title: "Link copied", tone: "success" }),
+      () => toast.show({ title: "Couldn't copy; select the link and copy it", tone: "warning" }),
+    );
+  };
+  const make = (channel: Channel) => {
+    share.mutate(
+      { channel, expires_in_hours: hours },
+      {
+        onSuccess: (made) => {
+          setShowQr(channel === "qr");
+          if (channel === "link") copy(`${window.location.origin}/shared/${made.token}`);
+        },
+        onError: (thrown) => {
+          toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't make the link.", tone: "danger" });
+        },
+      },
+    );
+  };
+  const expiry = LINK_EXPIRIES.find((e) => e.hours === hours)?.label ?? `${String(hours)} hours`;
   return (
     <div className="p360-cele-link">
       <p style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>Prescription {rx.number ?? ""}</p>
       {link === undefined || share.data === undefined ? (
         <>
-          <p className="mk-hint" style={{ margin: "4px 0 0" }}>
-            Make a link for the patient. It works for 7 days and needs a PIN.
+          <p className="mk-hint" style={{ margin: "4px 0 8px" }}>
+            Make a link for the patient. It needs a PIN and works for {expiry}.
           </p>
-          <div className="p360-cele-actions">
-            <PillButton
-              variant="ghost"
-              disabled={share.isPending}
-              onClick={() => {
-                share.mutate(undefined, {
-                  onError: (thrown) => {
-                    toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't make the link.", tone: "danger" });
-                  },
-                });
-              }}
-            >
-              {share.isPending ? "Making the link…" : "Create patient link"}
+          <div className="p360-chips" role="group" aria-label="Link works for">
+            {LINK_EXPIRIES.map((option) => (
+              <button
+                key={option.hours}
+                type="button"
+                className="p360-chip"
+                aria-pressed={hours === option.hours}
+                disabled={share.isPending}
+                onClick={() => {
+                  setHours(option.hours);
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div className="p360-cele-actions" role="group" aria-label="Send the link">
+            <PillButton variant="ghost" icon={<MessageCircle aria-hidden="true" />} disabled={share.isPending} onClick={() => { make("whatsapp"); }}>
+              WhatsApp
+            </PillButton>
+            <PillButton variant="ghost" icon={<Smartphone aria-hidden="true" />} disabled={share.isPending} onClick={() => { make("sms"); }}>
+              SMS
+            </PillButton>
+            <PillButton variant="ghost" icon={<Copy aria-hidden="true" />} disabled={share.isPending} onClick={() => { make("link"); }}>
+              Copy
+            </PillButton>
+            <PillButton variant="ghost" icon={<QrIcon aria-hidden="true" />} disabled={share.isPending} onClick={() => { make("qr"); }}>
+              QR
             </PillButton>
             <PillButton
               variant="ghost"
@@ -167,6 +217,7 @@ function RxLink({ rx }: { rx: Prescription }) {
               Print
             </PillButton>
           </div>
+          {share.isPending ? <p role="status" className="mk-hint">Making the link…</p> : null}
         </>
       ) : (
         <>
@@ -174,15 +225,17 @@ function RxLink({ rx }: { rx: Prescription }) {
           <p style={{ marginTop: 6, fontSize: 12 }}>
             PIN <b style={{ fontFamily: "ui-monospace, monospace", letterSpacing: "0.2em", color: "var(--ink)" }}>{share.data.pin}</b> · shown only now · valid until {formatDateTime(share.data.expires_at)}
           </p>
+          {sentNote(share.data.channel, share.data.message) === undefined ? null : (
+            <p role="status" className="mk-hint" style={{ margin: "6px 0 0" }}>
+              {sentNote(share.data.channel, share.data.message)}
+            </p>
+          )}
           <div className="p360-cele-actions">
             <PillButton
               variant="ghost"
               icon={<Copy aria-hidden="true" />}
               onClick={() => {
-                void navigator.clipboard.writeText(link).then(
-                  () => toast.show({ title: "Link copied", tone: "success" }),
-                  () => toast.show({ title: "Couldn't copy; select the link and copy it", tone: "warning" }),
-                );
+                copy(link);
               }}
             >
               Copy
@@ -195,6 +248,15 @@ function RxLink({ rx }: { rx: Prescription }) {
               }}
             >
               QR
+            </PillButton>
+            <PillButton
+              variant="ghost"
+              onClick={() => {
+                share.reset();
+                setShowQr(false);
+              }}
+            >
+              New link
             </PillButton>
           </div>
           {showQr ? (

@@ -9,6 +9,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import {
   apiErrorOf,
   unwrap,
+  type Alert,
+  type FinishVisitInput,
   type NoteId,
   type PatientId,
   type PatientMessage,
@@ -23,7 +25,7 @@ import { useClinic } from "../../../clinic.js";
 import { useStartVisit, useVisit, useVisits } from "../../../queries.js";
 import { useCreatePrescription, useLastPrescription, usePrescriptions } from "../../prescriptions/queries.js";
 import type { RxDraftHandle } from "../../prescriptions/prescription-page.js";
-import { finishVisit, type FollowUp } from "./finish-visit.js";
+import { allergyAlertsOf, finishErrorMessage, finishVisit, type FollowUp } from "./finish-visit.js";
 
 export const NOTE_SECTIONS = [
   { key: "subjective", label: "Subjective" },
@@ -43,6 +45,11 @@ export interface FinishedVisit {
   /** The prescription issued during this visit, newest first, when there is one. */
   rx: Prescription | undefined;
   followUp: FollowUp | null;
+}
+
+export interface FinishOptions {
+  issueRx?: boolean;
+  overrideReason?: string;
 }
 
 export interface VisitSession {
@@ -88,7 +95,11 @@ export interface VisitSession {
   voiceOpen: boolean;
   setVoiceOpen: (open: boolean) => void;
   finishing: boolean;
-  finish: () => Promise<FinishedVisit | undefined>;
+  /** Finishes the visit; `issueRx` issues the open draft with it (with `overrideReason` after an allergy alert). */
+  finish: (options?: FinishOptions) => Promise<FinishedVisit | undefined>;
+  /** Set when the server stopped the issue on an allergy alert: ask for a reason, then `finish` again with it. */
+  allergyAlerts: Alert[] | undefined;
+  clearAllergyAlerts: () => void;
   /** Set by the caller to tell the screen about an error to show. */
   error: string | undefined;
 }
@@ -157,8 +168,9 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
     mutationFn: ({ id, content }: { id: NoteId; content: { sections: Record<string, string> } }) => unwrap(api.editNote(id, content)),
     onSuccess: () => (visit === undefined ? undefined : queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visit.id] })),
   });
-  const signNote = useMutation({ mutationFn: (id: NoteId) => unwrap(api.signNote(id)) });
-  const closeVisit = useMutation({ mutationFn: (id: VisitId) => unwrap(api.closeVisit(id)) });
+  const finishMutation = useMutation({
+    mutationFn: ({ id, body }: { id: VisitId; body: FinishVisitInput }) => unwrap(api.finishVisit(id, body)),
+  });
 
   const saveNote = useCallback(async () => {
     if (draftNote === undefined) return;
@@ -269,23 +281,25 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
-  const finish = async (): Promise<FinishedVisit | undefined> => {
+  const [allergyAlerts, setAllergyAlerts] = useState<Alert[] | undefined>(undefined);
+
+  const finish = async (options: FinishOptions = {}): Promise<FinishedVisit | undefined> => {
     if (visit === undefined) return undefined;
     setFinishing(true);
     setError(undefined);
     try {
-      const hasText = draftNote !== undefined && NOTE_SECTIONS.some(({ key }) => valuesRef.current[key].trim() !== "");
+      const rxToIssue = options.issueRx === true && draftRx !== undefined ? { id: draftRx.id, overrideReason: options.overrideReason } : undefined;
       const { noteSigned } = await finishVisit(
-        { noteToSign: hasText ? draftNote.id : undefined, followUp: follow },
+        { followUp: follow, rx: rxToIssue },
         {
           saveNote,
           saveRx: async () => {
             await rxHandle.current?.save();
           },
-          signNote: (id) => signNote.mutateAsync(id),
-          closeVisit: () => closeVisit.mutateAsync(visit.id),
+          finish: (body) => finishMutation.mutateAsync({ id: visit.id, body }),
         },
       );
+      setAllergyAlerts(undefined);
       refreshRecord(visit.id);
       void queryClient.invalidateQueries({ queryKey: ["prescriptions", access.org_id, patientId] });
       // The list as the server has it now, so a prescription issued a moment ago is in it.
@@ -295,7 +309,12 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
         .sort((a, b) => (b.issued_at ?? "").localeCompare(a.issued_at ?? ""))[0];
       return { visit, procedures: detail?.procedures.length ?? 0, noteSigned, rx, followUp: follow };
     } catch (thrown) {
-      setError(apiErrorOf(thrown)?.message ?? "Couldn't finish the visit. Nothing was lost; try again.");
+      const alerts = allergyAlertsOf(thrown);
+      if (alerts === undefined) {
+        setError(finishErrorMessage(thrown));
+      } else {
+        setAllergyAlerts(alerts);
+      }
       return undefined;
     } finally {
       setFinishing(false);
@@ -360,6 +379,10 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
     setVoiceOpen,
     finishing,
     finish,
+    allergyAlerts,
+    clearAllergyAlerts: () => {
+      setAllergyAlerts(undefined);
+    },
     error,
   };
   return <Context value={value}>{children}</Context>;

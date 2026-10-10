@@ -2,13 +2,13 @@ import { Check, Cloud, CloudOff, Printer, Stethoscope } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 
-import { Dialog } from "@sakalya/ui";
+import { Dialog, Field, TextArea } from "@sakalya/ui";
 
 import { PillButton } from "./kit.js";
 
 import { usePrescriptions } from "../../prescriptions/queries.js";
 import "./p360.css";
-import { useVisitSession, type FinishedVisit } from "./visit-session.js";
+import { useVisitSession, type FinishedVisit, type FinishOptions } from "./visit-session.js";
 
 /** Whether the browser has a connection. Nothing in this screen claims to be saved while it is false. */
 export function useOnline(): boolean {
@@ -32,13 +32,14 @@ export function useOnline(): boolean {
 
 /**
  * One action bar for every layout: connection, what this visit holds so far, Print Rx and Finish visit. Finish goes through
- * `finishVisit` (see finish-visit.ts), so the single finish call can replace today's sign-and-close without touching this bar.
+ * `finishVisit` (see finish-visit.ts): one request signs the note, issues the draft when asked, and closes the visit.
  */
 export function ActionBar({ onFinished }: { onFinished: (finished: FinishedVisit) => void }) {
   const session = useVisitSession();
   const online = useOnline();
   const navigate = useNavigate();
   const [confirming, setConfirming] = useState(false);
+  const [reason, setReason] = useState("");
   const prescriptions = usePrescriptions(session.canRx ? session.patientId : undefined);
   if (!session.canWrite) return null;
 
@@ -47,10 +48,13 @@ export function ActionBar({ onFinished }: { onFinished: (finished: FinishedVisit
     rx.issued?.rx ?? [...(prescriptions.data?.items ?? [])].filter((r) => r.status === "issued").sort((a, b) => (b.issued_at ?? "").localeCompare(a.issued_at ?? ""))[0];
   const medicines = rx.draft?.items.length ?? 0;
 
-  const run = () => {
+  const run = (options?: FinishOptions) => {
     setConfirming(false);
-    void session.finish().then((finished) => {
-      if (finished !== undefined) onFinished(finished);
+    void session.finish(options).then((finished) => {
+      if (finished !== undefined) {
+        setReason("");
+        onFinished(finished);
+      }
     });
   };
 
@@ -114,7 +118,7 @@ export function ActionBar({ onFinished }: { onFinished: (finished: FinishedVisit
         open={confirming}
         onOpenChange={setConfirming}
         title="The prescription isn't issued yet"
-        description="It is still a draft, so the patient can't use it. Finish anyway, or go back and issue it."
+        description="It is still a draft, so the patient can't use it. Issue it as the visit finishes, or leave it a draft."
         footer={
           <>
             <PillButton
@@ -125,11 +129,72 @@ export function ActionBar({ onFinished }: { onFinished: (finished: FinishedVisit
             >
               Back to the prescription
             </PillButton>
-            <PillButton onClick={run}>Finish anyway</PillButton>
+            <PillButton
+              variant="ghost"
+              onClick={() => {
+                run();
+              }}
+            >
+              Finish without issuing
+            </PillButton>
+            <PillButton
+              onClick={() => {
+                run({ issueRx: true });
+              }}
+            >
+              Issue and finish
+            </PillButton>
           </>
         }
       >
         <p className="text-sm">{`${String(medicines)} ${medicines === 1 ? "medicine" : "medicines"} in the draft.`}</p>
+      </Dialog>
+      <Dialog
+        open={session.allergyAlerts !== undefined}
+        onOpenChange={(open) => {
+          if (!open) {
+            session.clearAllergyAlerts();
+            setReason("");
+          }
+        }}
+        title="Allergy alert"
+        description="This prescription may conflict with a recorded allergy. The visit is still open. Give a reason to issue it anyway."
+        footer={
+          <>
+            <PillButton
+              variant="ghost"
+              onClick={() => {
+                session.clearAllergyAlerts();
+                setReason("");
+              }}
+            >
+              Review the medicines
+            </PillButton>
+            <PillButton
+              disabled={session.finishing || reason.trim() === ""}
+              onClick={() => {
+                run({ issueRx: true, overrideReason: reason.trim() });
+              }}
+            >
+              {session.finishing ? "Finishing…" : "Issue anyway and finish"}
+            </PillButton>
+          </>
+        }
+      >
+        <ul className="text-sm" style={{ margin: "0 0 12px", paddingLeft: 18 }}>
+          {(session.allergyAlerts ?? []).map((alert, index) => (
+            <li key={index}>{alert.message}</li>
+          ))}
+        </ul>
+        <Field label="Reason to override" required>
+          <TextArea
+            rows={2}
+            value={reason}
+            onChange={(event) => {
+              setReason(event.currentTarget.value);
+            }}
+          />
+        </Field>
       </Dialog>
     </>
   );

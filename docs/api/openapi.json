@@ -575,6 +575,46 @@
         }
       }
     },
+    "/api/v1/avatars/{id}/content": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Streams an avatar photo through its signed link, which works on the clinic's own host for an\nhour and is the proof of access (an `<img>` can use it).",
+        "operationId": "getAvatarContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The photo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "description": "The signed token from the avatar's photo_url",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The photo, with its media type"
+          },
+          "403": {
+            "description": "The link has expired; load the list again"
+          },
+          "404": {
+            "description": "Not a valid link for a photo of this clinic"
+          }
+        }
+      }
+    },
     "/api/v1/client-errors": {
       "post": {
         "tags": [
@@ -2331,8 +2371,22 @@
         "tags": [
           "billing"
         ],
-        "summary": "Records an expense.",
+        "summary": "Records an expense. Send an `Idempotency-Key` header (a UUID per form) so a retry returns\nthe first expense (`200`) instead of recording another.",
         "operationId": "recordExpense",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique per expense, 8 to 100 letters, digits, '-', '_', '.' or ':'; a retry sends the same key",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -2344,7 +2398,18 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Already recorded with this key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Expense"
+                }
+              }
+            }
+          },
           "201": {
+            "description": "Recorded",
             "content": {
               "application/json": {
                 "schema": {
@@ -2354,13 +2419,16 @@
             }
           },
           "400": {
-            "description": "Invalid input: amount, note, or a day after today"
+            "description": "Invalid input: amount, note, a day after today, or a malformed key"
           },
           "401": {
             "description": "Not signed in"
           },
           "403": {
             "description": "The role lacks expenses.write"
+          },
+          "409": {
+            "description": "The key was used for a different expense"
           }
         },
         "security": [
@@ -3401,6 +3469,54 @@
           },
           "409": {
             "description": "Already issued or void"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/invoices/{id}/upi-link": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "The UPI payment link and QR text for what is left on an issued bill. Records nothing.",
+        "operationId": "getInvoiceUpiLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The bill",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpiLink"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.read"
+          },
+          "404": {
+            "description": "No such bill in this clinic"
+          },
+          "409": {
+            "description": "Not issued, nothing left to pay, or no UPI ID in settings"
           }
         },
         "security": [
@@ -4874,6 +4990,76 @@
           },
           "401": {
             "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/avatar": {
+      "put": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Sets the caller's own avatar for this clinic as `multipart/form-data` with either a `preset`\nid or a `file` (PNG or JPEG, up to 2 MB, checked by content). Replaces the previous one. Any\nmember may do this; it changes only their own.",
+        "operationId": "putMyAvatar",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/AvatarForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Avatar"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not exactly one of preset and file, a bad preset, or not a PNG or JPEG"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          },
+          "413": {
+            "description": "Larger than 2 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Removes the caller's avatar.",
+        "operationId": "deleteMyAvatar",
+        "responses": {
+          "204": {
+            "description": "Removed (also when there was none)"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
           }
         },
         "security": [
@@ -7676,7 +7862,7 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Records findings. Each supersedes the current entry for its tooth and surface (a crown,\nimplant or missing tooth also supersedes the tooth's surface entries); the history keeps\neverything. Returns the updated chart.",
+        "summary": "Records findings. Each supersedes the current entry for its tooth and surface (a crown,\nimplant or missing tooth also supersedes the tooth's surface entries); an entry with\n`supersedes_id` corrects that entry, even on another tooth or surface. The history keeps\neverything. Returns the updated chart.",
         "operationId": "recordDentalChart",
         "parameters": [
           {
@@ -7710,7 +7896,7 @@
             }
           },
           "400": {
-            "description": "A bad tooth, surface, finding, procedure or material, or a visit of another patient"
+            "description": "A bad tooth, surface, finding, procedure or material, a visit of another patient, or a `supersedes_id` that isn't this patient's chart entry"
           },
           "401": {
             "description": "Not signed in"
@@ -7722,7 +7908,7 @@
             "description": "No such patient in this clinic"
           },
           "409": {
-            "description": "The visit is closed, or the chart changed at the same moment"
+            "description": "The visit is closed, the corrected entry is no longer current, or the chart changed at the same moment"
           }
         },
         "security": [
@@ -8375,6 +8561,107 @@
           },
           "403": {
             "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/record-shares": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "The patient's links to records, newest first, with whether each can still be opened.",
+        "operationId": "listRecordShares",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordShares"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Makes a link for the patient to see chosen records, with a lifetime of 1 hour, 24 hours or\n7 days. Writes the access record (`share`, one entry per kind).",
+        "operationId": "createRecordShare",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewRecordShare"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordShare"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown or repeated record type, or a lifetime other than 1h, 24h, 7d"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read, or the permission for a chosen kind"
           },
           "404": {
             "description": "No such patient in this clinic"
@@ -10207,7 +10494,7 @@
         "tags": [
           "queue"
         ],
-        "summary": "Moves a token along. A token with an appointment moves the appointment too. Asking for the\nstatus the token already has changes nothing and returns it, so a retry after a lost answer\nis safe.",
+        "summary": "Moves a token along. A token with an appointment moves the appointment too. Asking for the\nstatus the token already has changes nothing and returns it, so a retry after a lost answer\nis safe. With `room_id` the patient is seated in that chair.",
         "operationId": "setQueueTokenStatus",
         "parameters": [
           {
@@ -10241,7 +10528,7 @@
             }
           },
           "400": {
-            "description": "Unknown status"
+            "description": "Unknown status, or a `room_id` with another status or not a chair of the token's branch"
           },
           "401": {
             "description": "Not signed in"
@@ -10253,7 +10540,7 @@
             "description": "No such token in this clinic"
           },
           "409": {
-            "description": "A move the table doesn't allow; `current` is the token as it is",
+            "description": "A move the table doesn't allow (`current` is the token as it is), or the appointment can't take that chair at its time",
             "content": {
               "application/json": {
                 "schema": {
@@ -11615,6 +11902,108 @@
           },
           "423": {
             "description": "Locked after too many wrong PINs"
+          }
+        }
+      }
+    },
+    "/api/v1/shared/{token}/records": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: opens a link to records with the PIN. Five wrong PINs lock the link.\nEvery open is written to the access record.",
+        "operationId": "openSharedRecords",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The link's token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenRecords"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedRecords"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong PIN; the message says how many tries are left"
+          },
+          "404": {
+            "description": "No such link, or not a link to records"
+          },
+          "410": {
+            "description": "Expired"
+          },
+          "423": {
+            "description": "Locked after too many wrong PINs"
+          }
+        }
+      }
+    },
+    "/api/v1/shared/{token}/records/xrays/{id}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: streams an X-ray through the signed `url` an opened link returned. Works\nwhile the link does and for ten minutes at most; each download is written to the access\nrecord.",
+        "operationId": "getSharedXrayContent",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The link's token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The X-ray",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sig",
+            "in": "query",
+            "description": "The signed token from the X-ray's url",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, with its media type"
+          },
+          "403": {
+            "description": "The signed token or the link has expired; open the link again"
+          },
+          "404": {
+            "description": "Not a valid link, token or X-ray of this clinic"
           }
         }
       }
@@ -13713,6 +14102,9 @@
           "chairs",
           "buckets",
           "patients",
+          "procedures_by_category",
+          "chair_time",
+          "visit_sources",
           "busy_hours",
           "lab_turnaround"
         ],
@@ -13734,6 +14126,10 @@
               "$ref": "#/components/schemas/BusyHour"
             },
             "description": "Visits by weekday and hour; only non-zero cells."
+          },
+          "chair_time": {
+            "$ref": "#/components/schemas/ChairTimeSplit",
+            "description": "Booked chair minutes by what they were spent on, from the appointment kind."
           },
           "chairs": {
             "type": "array",
@@ -13763,9 +14159,20 @@
             "$ref": "#/components/schemas/PatientBreakdown",
             "description": "Who the patients are."
           },
+          "procedures_by_category": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyCount"
+            },
+            "description": "Procedures done in the range by the category of the bill line that charged them\n(`uncategorised` when not billed or without a category), most first. Counts only."
+          },
           "to": {
             "type": "string",
             "description": "Last day, included."
+          },
+          "visit_sources": {
+            "$ref": "#/components/schemas/VisitSources",
+            "description": "Booked appointments against walk-ins."
           }
         }
       },
@@ -14475,6 +14882,54 @@
           }
         }
       },
+      "Avatar": {
+        "type": "object",
+        "description": "A member's avatar: a preset the apps draw, or a photo to fetch.",
+        "properties": {
+          "photo_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When `photo_url` stops working (RFC 3339); load the list again for a new link."
+          },
+          "photo_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A signed path on the clinic's host for the photo (`GET /api/v1/avatars/{id}/content`)."
+          },
+          "preset": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The preset id, such as `tooth_3`; the apps ship the pictures."
+          }
+        }
+      },
+      "AvatarForm": {
+        "type": "object",
+        "description": "The avatar form: exactly one of `file` and `preset`.",
+        "properties": {
+          "file": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "binary",
+            "description": "A PNG or JPEG photo of at most 2 MB."
+          },
+          "preset": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A preset id: 1 to 32 lower-case letters, digits or underscores, starting with a letter."
+          }
+        }
+      },
       "Badges": {
         "type": "object",
         "description": "The numbers the apps poll every minute.",
@@ -14860,6 +15315,32 @@
           "status": {
             "type": "string",
             "description": "`in_use` while a patient is in it, otherwise `free`."
+          }
+        }
+      },
+      "ChairTimeSplit": {
+        "type": "object",
+        "description": "Booked chair minutes (no-shows included) by what they were spent on.",
+        "required": [
+          "treatment",
+          "consult",
+          "admin"
+        ],
+        "properties": {
+          "admin": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Reserved: no appointment kind maps to it yet, so it is `0` minutes."
+          },
+          "consult": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minutes on new and follow-up consultations."
+          },
+          "treatment": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minutes on procedures and emergencies."
           }
         }
       },
@@ -20145,6 +20626,17 @@
           "branches"
         ],
         "properties": {
+          "avatar": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Avatar",
+                "description": "Their avatar: a preset id or a photo link (on the clinic's host, good for an hour)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "branches": {
             "type": "array",
             "items": {
@@ -20623,6 +21115,17 @@
           "role_name"
         ],
         "properties": {
+          "avatar": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Avatar",
+                "description": "The person's avatar at this clinic; photo links work on the clinic's `host`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "host": {
             "type": [
               "string",
@@ -20886,6 +21389,13 @@
               "null"
             ],
             "description": "A procedure id from the chart's `terms`: seeded (`crown`) or the clinic's own. Not with `sound`."
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Corrects this current entry of the patient, which may be on another tooth or surface:\nit is superseded and the new entry links to it. Leave out to supersede the current entry\nfor the new entry's own tooth and surface."
           },
           "surface": {
             "type": [
@@ -21699,6 +22209,27 @@
           }
         }
       },
+      "NewRecordShare": {
+        "type": "object",
+        "description": "What to share and for how long.",
+        "required": [
+          "record_types",
+          "expires_in"
+        ],
+        "properties": {
+          "expires_in": {
+            "type": "string",
+            "description": "How long the link works: `1h`, `24h` or `7d`."
+          },
+          "record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "One to three different kinds: `chart`, `xrays`, `bills`. Each needs the matching\npermission (`clinical.read` for chart and X-rays, `billing.read` for bills)."
+          }
+        }
+      },
       "NewRegistration": {
         "type": "object",
         "description": "A clinic asking to join.",
@@ -22359,6 +22890,19 @@
           }
         }
       },
+      "OpenRecords": {
+        "type": "object",
+        "description": "The PIN.",
+        "required": [
+          "pin"
+        ],
+        "properties": {
+          "pin": {
+            "type": "string",
+            "description": "The six digits the clinic gave."
+          }
+        }
+      },
       "OpenRequest": {
         "type": "object",
         "description": "The PIN.",
@@ -22963,6 +23507,7 @@
         "description": "Who the patients in the range are.",
         "required": [
           "age_bands",
+          "sex",
           "visit_kinds",
           "referral_sources"
         ],
@@ -22980,6 +23525,13 @@
               "$ref": "#/components/schemas/KeyCount"
             },
             "description": "Patients whose first visit was in the range, by referral source kind: `patient`,\n`doctor`, `online`, `walk_in`, `camp`, `insurance`, `other`, `unknown` (none recorded).\nEvery kind listed."
+          },
+          "sex": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyCount"
+            },
+            "description": "Patients seen, by recorded sex: `female`, `male`, `other`, `unknown`. Every value listed."
           },
           "visit_kinds": {
             "type": "array",
@@ -25181,6 +25733,13 @@
               }
             ]
           },
+          "room_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The chair the patient was seated in, when one was chosen."
+          },
           "status": {
             "type": "string",
             "description": "`waiting`, `in_chair`, `done` or `left`."
@@ -25561,6 +26120,107 @@
           "purpose": {
             "type": "string",
             "description": "`care`, `reminders`, `promotional`, `sharing` or `research`."
+          }
+        }
+      },
+      "RecordShare": {
+        "type": "object",
+        "description": "A new link to records. The token and PIN are shown once.",
+        "required": [
+          "id",
+          "token",
+          "pin",
+          "record_types",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "description": "When it stops working (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The link's id."
+          },
+          "pin": {
+            "type": "string",
+            "description": "Six-digit PIN to tell the patient."
+          },
+          "record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What the link shows."
+          },
+          "token": {
+            "type": "string",
+            "description": "Token for the link: `/shared/{token}` on the clinic's host."
+          }
+        }
+      },
+      "RecordShareItem": {
+        "type": "object",
+        "description": "A link to records as listed: never its token or PIN.",
+        "required": [
+          "id",
+          "record_types",
+          "state",
+          "expires_at",
+          "open_count",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was made."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When it stops working."
+          },
+          "id": {
+            "type": "string",
+            "description": "The link's id."
+          },
+          "open_count": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How many times it was opened."
+          },
+          "opened_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was first opened."
+          },
+          "record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What it shows."
+          },
+          "state": {
+            "type": "string",
+            "description": "`usable`, `expired` (past its expiry or revoked) or `locked` (too many wrong PINs)."
+          }
+        }
+      },
+      "RecordShares": {
+        "type": "object",
+        "description": "The patient's links to records.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordShareItem"
+            },
+            "description": "Newest first."
           }
         }
       },
@@ -26454,6 +27114,17 @@
           "display_name"
         ],
         "properties": {
+          "avatar": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Avatar",
+                "description": "Their avatar at this clinic."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "display_name": {
             "type": "string",
             "description": "Their name."
@@ -26622,6 +27293,87 @@
           }
         }
       },
+      "SharedBill": {
+        "type": "object",
+        "description": "An issued bill.",
+        "required": [
+          "id",
+          "total_paise",
+          "paid_paise"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The bill."
+          },
+          "issued_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was issued."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its number."
+          },
+          "paid_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paid so far, in paise."
+          },
+          "total_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Its total, in paise."
+          }
+        }
+      },
+      "SharedChartEntry": {
+        "type": "object",
+        "description": "One tooth finding on the chart.",
+        "required": [
+          "effective_at"
+        ],
+        "properties": {
+          "effective_at": {
+            "type": "string",
+            "description": "When the finding was made."
+          },
+          "finding": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The finding, such as `caries`."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The note."
+          },
+          "surface": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The surface, such as `O`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "FDI tooth number."
+          }
+        }
+      },
       "SharedPreview": {
         "type": "object",
         "description": "What a link shows before its PIN: no patient data.",
@@ -26640,13 +27392,129 @@
             "type": "string",
             "description": "When it stops working."
           },
+          "record_types": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "For a link to records, what it shows: `chart`, `xrays`, `bills`; open it with\n`POST /shared/{token}/records`. Absent for a prescription."
+          },
           "resource": {
             "type": "string",
-            "description": "`prescription`."
+            "description": "`prescription` or `records`."
           },
           "state": {
             "type": "string",
             "description": "`usable`, `expired` or `locked`."
+          }
+        }
+      },
+      "SharedRecords": {
+        "type": "object",
+        "description": "What an opened link shows; only the kinds the clinic chose are present.",
+        "required": [
+          "patient_name",
+          "record_types",
+          "expires_at"
+        ],
+        "properties": {
+          "bills": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SharedBill"
+            },
+            "description": "Issued bills; absent unless `bills` was shared."
+          },
+          "chart": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SharedChartEntry"
+            },
+            "description": "The current chart; absent unless `chart` was shared."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When the link stops working."
+          },
+          "patient_name": {
+            "type": "string",
+            "description": "The patient's name."
+          },
+          "record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The kinds shown."
+          },
+          "xrays": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SharedXray"
+            },
+            "description": "X-rays, newest first; absent unless `xrays` was shared."
+          }
+        }
+      },
+      "SharedXray": {
+        "type": "object",
+        "description": "An X-ray.",
+        "required": [
+          "id",
+          "taken_at",
+          "mime_type",
+          "url"
+        ],
+        "properties": {
+          "caption": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A caption."
+          },
+          "id": {
+            "type": "string",
+            "description": "The file."
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its label, such as `OPG`."
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "Media type, such as `image/jpeg`."
+          },
+          "taken_at": {
+            "type": "string",
+            "description": "When it was taken, or else uploaded."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The tooth it shows."
+          },
+          "url": {
+            "type": "string",
+            "description": "Where to fetch it: a signed path on the clinic's host, good for ten minutes (never past\nthe link's own expiry). Open the link again for a new one."
           }
         }
       },
@@ -28586,6 +29454,13 @@
           "status"
         ],
         "properties": {
+          "room_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "With `in_chair` only: the chair (a room of the token's branch) to seat the patient in.\nThe token's appointment moves to it too. Sending it again with another chair while in\nthe chair moves the patient."
+          },
           "status": {
             "type": "string",
             "description": "`in_chair`, `done` or `left`."
@@ -28657,6 +29532,45 @@
               "null"
             ],
             "description": "SMS sender header (DLT)."
+          }
+        }
+      },
+      "UpiLink": {
+        "type": "object",
+        "description": "How a patient pays an issued bill by UPI.",
+        "required": [
+          "uri",
+          "qr_data",
+          "upi_id",
+          "payee_name",
+          "invoice_number",
+          "amount_paise"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What is left to pay, in paise."
+          },
+          "invoice_number": {
+            "type": "string",
+            "description": "The bill number sent as the payment note."
+          },
+          "payee_name": {
+            "type": "string",
+            "description": "The payee name shown in the UPI app (the clinic's name)."
+          },
+          "qr_data": {
+            "type": "string",
+            "description": "The same text, to encode in a QR code (no gateway; payments are recorded as usual)."
+          },
+          "upi_id": {
+            "type": "string",
+            "description": "The clinic's UPI ID from settings."
+          },
+          "uri": {
+            "type": "string",
+            "description": "The `upi://pay` link to open in a UPI app."
           }
         }
       },
@@ -29001,6 +29915,26 @@
           "visit_number": {
             "type": "string",
             "description": "The visit's number, such as `V-318`."
+          }
+        }
+      },
+      "VisitSources": {
+        "type": "object",
+        "description": "Visits in the range by how they came.",
+        "required": [
+          "booked",
+          "walk_in"
+        ],
+        "properties": {
+          "booked": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Visits that were booked appointments (not cancelled, no-show or unconfirmed requests)."
+          },
+          "walk_in": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Walk-in tokens issued in the range, not counting those who left unseen."
           }
         }
       },

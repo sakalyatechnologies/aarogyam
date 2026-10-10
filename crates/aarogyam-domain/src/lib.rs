@@ -62,6 +62,7 @@ macro_rules! text_value {
 
 pub mod access;
 pub mod analytics;
+pub mod avatar;
 pub mod billing;
 pub mod booking;
 pub mod chat;
@@ -101,6 +102,7 @@ pub mod setup;
 pub mod share;
 pub mod staff;
 pub mod support;
+pub mod upi;
 pub mod vitals;
 pub mod website;
 pub mod whatsapp;

@@ -2,7 +2,7 @@
 
 use aarogyam_app::staff::{self as app, ChangeMember, InviteStaff, MemberRow};
 use aarogyam_domain::event::Event;
-use aarogyam_domain::ids::MembershipId;
+use aarogyam_domain::ids::{ClinicId, MembershipId};
 use aarogyam_domain::permission::require::{RolesManage, StaffManage};
 use axum::Json;
 use axum::extract::State;
@@ -13,6 +13,7 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use super::avatars::{self, Avatar};
 use super::rfc3339;
 use crate::AppState;
 use crate::extract::{Require, RequireEither};
@@ -49,11 +50,24 @@ pub struct Member {
     pub joined_at: Option<String>,
     /// Branches they work at; empty means every branch.
     pub branches: Vec<MemberBranch>,
+    /// Their avatar: a preset id or a photo link (on the clinic's host, good for an hour).
+    pub avatar: Option<Avatar>,
+}
+
+impl Member {
+    fn new(row: MemberRow, state: &AppState, clinic: ClinicId) -> Self {
+        let avatar = avatars::of(state, clinic, row.avatar_preset.clone(), row.avatar_file_id);
+        Self {
+            avatar,
+            ..Self::from(row)
+        }
+    }
 }
 
 impl From<MemberRow> for Member {
     fn from(row: MemberRow) -> Self {
         Self {
+            avatar: None,
             id: row.id,
             user_id: row.user_id,
             display_name: row.display_name,
@@ -116,7 +130,11 @@ pub(crate) async fn list(
 ) -> Result<Json<Staff>, ApiFailure> {
     let staff = app::list(state.db(), &request.actor, request.request_id).await?;
     Ok(Json(Staff {
-        members: staff.members.into_iter().map(Member::from).collect(),
+        members: staff
+            .members
+            .into_iter()
+            .map(|row| Member::new(row, &state, request.actor.clinic_id))
+            .collect(),
         invitations: staff
             .invitations
             .into_iter()
@@ -263,7 +281,7 @@ pub(crate) async fn change(
         status = %member.status,
         "membership changed"
     );
-    Ok(Json(member.into()))
+    Ok(Json(Member::new(member, &state, request.actor.clinic_id)))
 }
 
 /// A permission a role holds.

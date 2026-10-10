@@ -1632,7 +1632,8 @@
     }
    ],
    "referenced_by": [
-    "appointments.room_id"
+    "appointments.room_id",
+    "queue_tokens.room_id"
    ],
    "sensitivity": "internal",
    "offline": "read_only"
@@ -2050,7 +2051,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize().",
+   "notes": "Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize(). At most one of avatar_preset and avatar_file_id; the member sets their own with PUT /me/avatar, and app.my_clinics returns both for the clinic switcher.",
    "cols": [
     {
      "name": "user_id",
@@ -2086,6 +2087,27 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "avatar_preset",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the staff avatar as a preset id the apps ship (migration 0386)"
+    },
+    {
+     "name": "avatar_file_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "or the member's own PNG or JPEG photo in file storage under the clinic's folder, read through signed links"
+    },
+    {
+     "name": "avatar_mime",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "image/png or image/jpeg, set with avatar_file_id"
     }
    ],
    "referenced_by": [
@@ -3414,6 +3436,13 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "room_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "rooms",
+     "note": "the chair chosen when seated; a room of the token's branch (migration 0384)"
     }
    ],
    "referenced_by": [
@@ -7442,6 +7471,20 @@
      "nullable": true,
      "ref": "memberships",
      "note": ""
+    },
+    {
+     "name": "idempotency_key",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the client's Idempotency-Key; unique per clinic (migration 0385)"
+    },
+    {
+     "name": "request_hash",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "SHA-256 of the request sent with the key"
     }
    ],
    "referenced_by": [
@@ -9525,7 +9568,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self.",
+   "notes": "Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self. A records link (POST /patients/{id}/record-shares) has no document column: it shows the patient's own chart, X-rays and issued bills as chosen, and writes access_log for the share, each open and each X-ray download.",
    "cols": [
     {
      "name": "token_hash",
@@ -9546,7 +9589,14 @@
      "type": "share_resource",
      "nullable": false,
      "ref": null,
-     "note": "prescription, invoice, report, upload_request"
+     "note": "prescription, invoice, report, upload_request, records"
+    },
+    {
+     "name": "record_types",
+     "type": "text[]",
+     "nullable": true,
+     "ref": null,
+     "note": "for resource records: a subset of chart, xrays, bills (migration 0387)"
     },
     {
      "name": "prescription_id",
@@ -9595,7 +9645,7 @@
      "type": "timestamptz",
      "nullable": false,
      "ref": null,
-     "note": "seven days"
+     "note": "seven days; for records the clinic picks 1 hour, 24 hours or 7 days"
     },
     {
      "name": "opened_at",

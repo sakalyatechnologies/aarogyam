@@ -5,6 +5,7 @@ use aarogyam_app::patients as app;
 use aarogyam_app::sessions as sessions_app;
 use aarogyam_dal::lookups;
 use aarogyam_domain::event::Event;
+use aarogyam_domain::ids::ClinicId;
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -13,6 +14,7 @@ use serde::Serialize;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use super::avatars::{self, Avatar};
 use super::rfc3339;
 use crate::AppState;
 use crate::extract::{ClinicRequest, SignedIn};
@@ -34,6 +36,8 @@ pub struct MyClinic {
     pub role_name: String,
     /// The clinic portal's host name.
     pub host: Option<String>,
+    /// The person's avatar at this clinic; photo links work on the clinic's `host`.
+    pub avatar: Option<Avatar>,
 }
 
 /// The signed-in person's clinics.
@@ -76,6 +80,12 @@ pub(crate) async fn me(
                 role_key: clinic.role_key,
                 role_name: clinic.role_name,
                 host: clinic.host,
+                avatar: avatars::of(
+                    &state,
+                    ClinicId::from_uuid(clinic.org_id),
+                    clinic.avatar_preset,
+                    clinic.avatar_file_id,
+                ),
             })
             .collect(),
     }))
@@ -118,6 +128,8 @@ pub struct SessionUser {
     pub id: Uuid,
     /// Their name.
     pub display_name: String,
+    /// Their avatar at this clinic.
+    pub avatar: Option<Avatar>,
 }
 
 /// The current clinic session.
@@ -171,6 +183,12 @@ pub(crate) async fn session(
         user: SessionUser {
             id: actor.user_id.uuid(),
             display_name: session.display_name,
+            avatar: avatars::of(
+                &state,
+                actor.clinic_id,
+                session.avatar.preset,
+                session.avatar.file_id,
+            ),
         },
     }))
 }

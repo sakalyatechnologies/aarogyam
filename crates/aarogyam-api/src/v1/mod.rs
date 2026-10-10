@@ -5,6 +5,7 @@
 pub(crate) mod analytics;
 pub(crate) mod appointments;
 pub(crate) mod auth;
+pub(crate) mod avatars;
 pub(crate) mod billing;
 pub(crate) mod chart;
 pub(crate) mod chat;
@@ -50,6 +51,7 @@ pub(crate) mod quality;
 pub(crate) mod queue;
 pub(crate) mod quick_picks;
 pub(crate) mod recalls;
+pub(crate) mod record_shares;
 pub(crate) mod registrations;
 pub(crate) mod reports;
 pub(crate) mod roles;
@@ -104,6 +106,13 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/me/sessions", get(me::sessions))
         .route("/me/sessions/{id}/revoke", post(me::revoke_session))
         .route("/session", get(me::session))
+        .route(
+            "/me/avatar",
+            put(avatars::put_avatar)
+                .delete(avatars::delete_avatar)
+                .layer(DefaultBodyLimit::max(avatars::MAX_UPLOAD_BODY)),
+        )
+        .route("/avatars/{id}/content", get(avatars::photo_content))
         // The patient app: a signed-in patient's own records, at the clinics that linked them
         // (tests/patient_app.rs). Reads on the app host; booking, cancelling and files on the
         // clinic's host, which must have linked the account.
@@ -469,6 +478,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/invoices/{id}",
             get(billing::get_invoice).patch(billing::edit_invoice),
         )
+        .route("/invoices/{id}/upi-link", get(billing::get_upi_link))
         .route("/invoices/{id}/issue", post(billing::issue_invoice))
         .route("/invoices/{id}/void", post(billing::void_invoice))
         .route(
@@ -595,6 +605,15 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         // Public, no sign-in: on the clinic's host, limited by the link's token and PIN.
         .route("/shared/{token}", get(prescriptions::shared_preview))
         .route("/shared/{token}/open", post(prescriptions::shared_open))
+        .route("/shared/{token}/records", post(record_shares::open))
+        .route(
+            "/shared/{token}/records/xrays/{id}",
+            get(record_shares::xray_content),
+        )
+        .route(
+            "/patients/{id}/record-shares",
+            get(record_shares::list).post(record_shares::create),
+        )
         .route(
             "/verify/prescriptions/{verify_token}",
             get(prescriptions::verify),

@@ -642,6 +642,61 @@ pub(crate) async fn get_invoice(
     Ok(Json(view.into()))
 }
 
+/// How a patient pays an issued bill by UPI.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct UpiLink {
+    /// The `upi://pay` link to open in a UPI app.
+    pub uri: String,
+    /// The same text, to encode in a QR code (no gateway; payments are recorded as usual).
+    pub qr_data: String,
+    /// The clinic's UPI ID from settings.
+    pub upi_id: String,
+    /// The payee name shown in the UPI app (the clinic's name).
+    pub payee_name: String,
+    /// The bill number sent as the payment note.
+    pub invoice_number: String,
+    /// What is left to pay, in paise.
+    pub amount_paise: i64,
+}
+
+/// The UPI payment link and QR text for what is left on an issued bill. Records nothing.
+#[utoipa::path(
+    get,
+    path = "/api/v1/invoices/{id}/upi-link",
+    operation_id = "getInvoiceUpiLink",
+    tag = "billing",
+    params(("id" = String, Path, description = "The bill")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = UpiLink),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks billing.read"),
+        (status = 404, description = "No such bill in this clinic"),
+        (status = 409, description = "Not issued, nothing left to pay, or no UPI ID in settings")
+    )
+)]
+pub(crate) async fn get_upi_link(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<BillingRead>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Json<UpiLink>, ApiFailure> {
+    let link = app::upi_link(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        InvoiceId::from_uuid(id),
+    )
+    .await?;
+    Ok(Json(UpiLink {
+        qr_data: link.uri.clone(),
+        uri: link.uri,
+        upi_id: link.upi_id,
+        payee_name: link.payee_name,
+        invoice_number: link.invoice_number,
+        amount_paise: link.amount.get(),
+    }))
+}
+
 /// Filters for the bill list.
 #[derive(Debug, Deserialize)]
 pub struct InvoiceParams {

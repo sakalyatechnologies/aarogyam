@@ -7,7 +7,7 @@ use aarogyam_domain::ids::ExpenseId;
 use aarogyam_domain::permission::require::{ExpensesWrite, FinanceView};
 use axum::Json;
 use axum::extract::State;
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use sakalya_http::{ApiJson, ApiPath, ApiQuery};
 use sakalya_types::Paise;
 use serde::{Deserialize, Serialize};
@@ -132,28 +132,36 @@ pub struct NewExpense {
     pub note: Option<String>,
 }
 
-/// Records an expense.
+/// Records an expense. Send an `Idempotency-Key` header (a UUID per form) so a retry returns
+/// the first expense (`200`) instead of recording another.
 #[utoipa::path(
     post,
     path = "/api/v1/expenses",
     operation_id = "recordExpense",
     tag = "billing",
     request_body = NewExpense,
+    params(("Idempotency-Key" = Option<String>, Header, description = "Unique per expense, 8 to 100 letters, digits, '-', '_', '.' or ':'; a retry sends the same key")),
     security(("bearer" = [])),
     responses(
-        (status = 201, body = Expense),
-        (status = 400, description = "Invalid input: amount, note, or a day after today"),
+        (status = 201, body = Expense, description = "Recorded"),
+        (status = 200, body = Expense, description = "Already recorded with this key"),
+        (status = 400, description = "Invalid input: amount, note, a day after today, or a malformed key"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks expenses.write")
+        (status = 403, description = "The role lacks expenses.write"),
+        (status = 409, description = "The key was used for a different expense")
     )
 )]
 pub(crate) async fn record(
     State(state): State<AppState>,
     Require { request, .. }: Require<ExpensesWrite>,
+    headers: HeaderMap,
     ApiJson(body): ApiJson<NewExpense>,
 ) -> Result<(StatusCode, Json<Expense>), ApiFailure> {
+    let idempotency_key = headers
+        .get("idempotency-key")
+        .map(|value| value.to_str().unwrap_or_default().to_owned());
     let spent_on = parse_day("spent_on", &body.spent_on)?;
-    let view = app::record(
+    let (view, created) = app::record(
         state.db(),
         &request.actor,
         request.request_id,
@@ -162,10 +170,14 @@ pub(crate) async fn record(
             spent_on,
             amount: Paise::new(body.amount_paise),
             note: body.note,
+            idempotency_key,
         },
         OffsetDateTime::now_utc(),
     )
     .await?;
+    if !created {
+        return Ok((StatusCode::OK, Json(view.into())));
+    }
     tracing::info!(event = Event::ExpenseRecorded.as_str(), expense_id = %view.id.uuid(), "expense recorded");
     Ok((StatusCode::CREATED, Json(view.into())))
 }

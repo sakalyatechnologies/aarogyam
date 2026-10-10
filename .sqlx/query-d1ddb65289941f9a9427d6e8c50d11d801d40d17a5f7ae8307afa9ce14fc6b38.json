@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select c.org_id, c.slug, c.name, c.role_key, c.role_name, c.portal_host,\n                  p.console as \"console_access!\"\n           from (select exists (select 1 from app.platform_access($1)) as console) p\n           left join app.my_clinics($1) c on true",
+  "query": "select c.org_id, c.slug, c.name, c.role_key, c.role_name, c.portal_host,\n                  c.avatar_preset, c.avatar_file_id,\n                  p.console as \"console_access!\"\n           from (select exists (select 1 from app.platform_access($1)) as console) p\n           left join app.my_clinics($1) c on true",
   "describe": {
     "columns": [
       {
@@ -41,6 +41,18 @@
       },
       {
         "ordinal": 6,
+        "name": "avatar_preset",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "avatar_file_id",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
         "name": "console_access!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -58,8 +70,10 @@
       true,
       true,
       true,
+      true,
+      true,
       null
     ]
   },
-  "hash": "0ca50888911408bcbdc809a4c8c2290bdb4c001509702fa07ea53ed3ab1208e0"
+  "hash": "d1ddb65289941f9a9427d6e8c50d11d801d40d17a5f7ae8307afa9ce14fc6b38"
 }

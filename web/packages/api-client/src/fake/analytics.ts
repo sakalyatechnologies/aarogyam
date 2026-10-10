@@ -186,9 +186,13 @@ export function buildAnalytics(input: AnalyticsInput): C.Analytics {
     buckets,
     patients: {
       age_bands: kc([["0_12", 140], ["13_17", 95], ["18_34", 420], ["35_49", 360], ["50_64", 240], ["65_plus", 110], ["unknown", 30]]),
+      sex: kc([["female", 640], ["male", 590], ["other", 5], ["unknown", 160]]),
       visit_kinds: kc([["new", 470], ["follow_up", 1240], ["procedure", 860], ["emergency", 75]]),
       referral_sources: kc([["patient", 180], ["doctor", 45], ["online", 120], ["walk_in", 70], ["camp", 25], ["insurance", 15], ["other", 10], ["unknown", 5]]),
     },
+    procedures_by_category: kc([["endodontics", 210], ["preventive", 180], ["restorative", 150], ["uncategorised", 20]]),
+    chair_time: { treatment: scale(52_000), consult: scale(31_000), admin: 0 },
+    visit_sources: { booked: scale(2_300), walk_in: scale(345) },
     busy_hours,
     lab_turnaround: { orders_received: scale(48), average_days: 6.5 },
   };

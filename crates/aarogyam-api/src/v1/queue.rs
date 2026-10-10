@@ -3,7 +3,7 @@
 use aarogyam_app::Moved;
 use aarogyam_app::queue::{self as app, TokenView, WalkIn};
 use aarogyam_domain::event::Event;
-use aarogyam_domain::ids::{BranchId, PatientId, PractitionerId, QueueTokenId};
+use aarogyam_domain::ids::{BranchId, PatientId, PractitionerId, QueueTokenId, RoomId};
 use aarogyam_domain::permission::require::{AppointmentsRead, AppointmentsWrite, ClinicalWrite};
 use axum::Json;
 use axum::extract::State;
@@ -51,6 +51,9 @@ pub struct QueueToken {
     pub patient: PatientBrief,
     /// The doctor, if known.
     pub practitioner: Option<PractitionerBrief>,
+    /// The chair the patient was seated in, when one was chosen.
+    #[schema(value_type = Option<String>)]
+    pub room_id: Option<Uuid>,
 }
 
 impl From<TokenView> for QueueToken {
@@ -67,6 +70,7 @@ impl From<TokenView> for QueueToken {
             done_at: row.done_at.map(rfc3339),
             wait_minutes: view.wait_minutes,
             appointment_id: row.appointment_id,
+            room_id: row.room_id,
             patient: PatientBrief {
                 id: row.patient_id,
                 number: row.patient_number,
@@ -220,11 +224,16 @@ pub(crate) async fn walk_in(
 pub struct TokenStatusChange {
     /// `in_chair`, `done` or `left`.
     pub status: String,
+    /// With `in_chair` only: the chair (a room of the token's branch) to seat the patient in.
+    /// The token's appointment moves to it too. Sending it again with another chair while in
+    /// the chair moves the patient.
+    #[schema(value_type = Option<String>)]
+    pub room_id: Option<Uuid>,
 }
 
 /// Moves a token along. A token with an appointment moves the appointment too. Asking for the
 /// status the token already has changes nothing and returns it, so a retry after a lost answer
-/// is safe.
+/// is safe. With `room_id` the patient is seated in that chair.
 #[utoipa::path(
     post,
     path = "/api/v1/queue/{id}/status",
@@ -235,11 +244,11 @@ pub struct TokenStatusChange {
     security(("bearer" = [])),
     responses(
         (status = 200, body = QueueToken),
-        (status = 400, description = "Unknown status"),
+        (status = 400, description = "Unknown status, or a `room_id` with another status or not a chair of the token's branch"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks appointments.write"),
         (status = 404, description = "No such token in this clinic"),
-        (status = 409, body = MoveRefused, description = "A move the table doesn't allow; `current` is the token as it is")
+        (status = 409, body = MoveRefused, description = "A move the table doesn't allow (`current` is the token as it is), or the appointment can't take that chair at its time")
     )
 )]
 pub(crate) async fn set_status(
@@ -254,6 +263,7 @@ pub(crate) async fn set_status(
         request.request_id,
         QueueTokenId::from_uuid(id),
         &body.status,
+        body.room_id.map(RoomId::from_uuid),
         OffsetDateTime::now_utc(),
     )
     .await?;

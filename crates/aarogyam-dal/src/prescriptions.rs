@@ -704,6 +704,8 @@ pub struct ShareLinkRow {
     pub expires_at: OffsetDateTime,
     /// When the clinic revoked it.
     pub revoked_at: Option<OffsetDateTime>,
+    /// The kinds a link to records shows (`chart`, `xrays`, `bills`); none for other links.
+    pub record_types: Option<Vec<String>>,
 }
 
 /// The link with this token hash in the current clinic, locked when `for_update`.
@@ -717,7 +719,7 @@ pub async fn share_link(
     let row = sqlx::query_as!(
         ShareLinkRow,
         r#"select id, pin_hash, resource, prescription_id, patient_id, failed_attempts, locked_at,
-                  expires_at, revoked_at
+                  expires_at, revoked_at, record_types
            from aarogyam.share_links where token_hash = $1
            for update"#,
         token_hash

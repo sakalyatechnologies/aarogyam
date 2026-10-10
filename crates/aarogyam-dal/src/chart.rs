@@ -78,6 +78,30 @@ pub async fn current_for_tooth(
     Ok(rows)
 }
 
+/// One of the patient's dental chart entries by id, locked until the transaction ends; none
+/// when it isn't this patient's (or this clinic's).
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn entry_for_update(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    id: Uuid,
+) -> Result<Option<ChartRow>, DbError> {
+    let row = sqlx::query_as!(
+        ChartRow,
+        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by
+           from aarogyam.specialty_records
+           where id = $1 and patient_id = $2 and module = 'dental' and kind = 'tooth'
+           for update"#,
+        id,
+        patient_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
 /// Marks a current entry superseded. The freeze trigger refuses any other change.
 ///
 /// # Errors

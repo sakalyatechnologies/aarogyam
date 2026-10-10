@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select q.id, q.branch_id, q.day, q.token_number, q.status, q.issued_at, q.called_at, q.done_at,\n                  q.patient_id, p.number as patient_number, p.full_name as patient_name,\n                  p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,\n                  p.birth_date_estimated as patient_birth_date_estimated,\n                  ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))\n                    as \"patient_registration_incomplete!\",\n                  q.appointment_id, q.practitioner_id, d.display_name as \"practitioner_name?\"\n           from aarogyam.queue_tokens q\n           join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id\n           left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id\n           where q.day = $1 and ($2::uuid is null or q.branch_id = $2)\n             and app.practitioner_in_reach(q.practitioner_id, $3)\n           order by q.branch_id, q.token_number",
+  "query": "select q.id, q.branch_id, q.day, q.token_number, q.status, q.issued_at, q.called_at, q.done_at,\n                  q.patient_id, p.number as patient_number, p.full_name as patient_name,\n                  p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,\n                  p.birth_date_estimated as patient_birth_date_estimated,\n                  ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))\n                    as \"patient_registration_incomplete!\",\n                  q.appointment_id, q.practitioner_id, d.display_name as \"practitioner_name?\",\n                  q.room_id\n           from aarogyam.queue_tokens q\n           join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id\n           left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id\n           where q.day = $1 and ($2::uuid is null or q.branch_id = $2)\n             and app.practitioner_in_reach(q.practitioner_id, $3)\n           order by q.branch_id, q.token_number",
   "describe": {
     "columns": [
       {
@@ -195,6 +195,17 @@
             "name": "display_name"
           }
         }
+      },
+      {
+        "ordinal": 18,
+        "name": "room_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "room_id"
+          }
+        }
       }
     ],
     "parameters": {
@@ -222,8 +233,9 @@
       null,
       true,
       true,
-      false
+      false,
+      true
     ]
   },
-  "hash": "2491cbcc6e6768e9bd4de5ff82ddc54df6d00617bb120c3c931bbb1d5aa1deab"
+  "hash": "7602f36ba380f0ecde4e0b18a5b30e25c57c96ec9671b9e98bbbacc1173ef9a6"
 }

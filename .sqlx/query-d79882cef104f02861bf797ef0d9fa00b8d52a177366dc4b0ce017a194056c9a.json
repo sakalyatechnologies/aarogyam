@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.queue_tokens q set room_id = r.id\n           from aarogyam.rooms r\n           where q.id = $1 and r.id = $2 and r.branch_id = q.branch_id\n             and r.active and r.deleted_at is null\n           returning q.appointment_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "appointment_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "appointment_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "d79882cef104f02861bf797ef0d9fa00b8d52a177366dc4b0ce017a194056c9a"
+}

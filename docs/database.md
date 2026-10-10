@@ -62,7 +62,7 @@ flowchart LR
   platform -->|3| iam
   platform -->|2| tenancy
   scheduling -->|4| people
-  scheduling -->|3| tenancy
+  scheduling -->|4| tenancy
   tenancy -->|3| iam
   trust -->|1| billing
   trust -->|1| clinical
@@ -637,7 +637,7 @@ Chairs, rooms and labs that appointments can be booked into.
 | `active` | `bool` |  |
 | `sort_order` | `smallint` |  |
 
-Referenced by: `appointments.room_id`
+Referenced by: `appointments.room_id`, `queue_tokens.room_id`
 
 ### `org_modules`
 
@@ -785,8 +785,11 @@ A user's place in a clinic: role, branches, status. The link between users and c
 | `status` | `membership_status` | invited, active, suspended, left |
 | `pin_hash` | `text?` | quick switch on shared PCs |
 | `joined_at` | `timestamptz?` |  |
+| `avatar_preset` | `text?` | the staff avatar as a preset id the apps ship (migration 0386) |
+| `avatar_file_id` | `uuid?` | or the member's own PNG or JPEG photo in file storage under the clinic's folder, read through signed links |
+| `avatar_mime` | `text?` | image/png or image/jpeg, set with avatar_file_id |
 
-Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize().
+Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize(). At most one of avatar_preset and avatar_file_id; the member sets their own with PUT /me/avatar, and app.my_clinics returns both for the clinic switcher.
 
 Referenced by: `allergies.verified_by`, `chat_messages.author_membership_id`, `clinical_notes.author_id`, `clinical_notes.error_by`, `clinical_notes.signed_by`, `conditions.verified_by`, `consent_notices.published_by`, `conversation_members.membership_id`, `daily_closings.closed_by`, `dental_terms.added_by`, `dental_terms.retired_by`, `document_extractions.confirmed_by`, `encounters.clinician_id`, `expenses.recorded_by`, `expenses.voided_by`, `invoices.issued_by`, `invoices.voided_by`, `lab_order_events.actor_id`, `lab_orders.doctor_id`, `lab_orders.last_contacted_by`, `lab_payments.recorded_by`, `lab_payments.voided_by`, `medical_history_items.verified_by`, `member_setup.membership_id`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `patient_consents.recorded_by`, `patient_consents.withdrawn_by`, `patient_duplicates.resolved_by`, `patient_links.decided_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `procedures.clinician_id`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`, `staff_notification_reads.membership_id`, `staff_notifications.handled_by`, `support_grants.granted_by`, `support_grants.revoked_by`, `treatment_plans.clinician_id`
 
@@ -1149,6 +1152,7 @@ Walk-in tokens shown on the waiting-room screen.
 | `issued_at` | `timestamptz` |  |
 | `called_at` | `timestamptz?` |  |
 | `done_at` | `timestamptz?` |  |
+| `room_id` | `uuid?` | → `rooms`. the chair chosen when seated; a room of the token's branch (migration 0384) |
 
 Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done.
 
@@ -2271,6 +2275,8 @@ Money the clinic spends.
 | `void_reason` | `text?` |  |
 | `voided_at` | `timestamptz?` |  |
 | `voided_by` | `uuid?` | → `memberships` |
+| `idempotency_key` | `text?` | the client's Idempotency-Key; unique per clinic (migration 0385) |
+| `request_hash` | `text?` | SHA-256 of the request sent with the key |
 
 Built (migration 0300). Recording needs expenses.write; listing and voiding need finance.view. Never edited: a mistake is voided with a reason (trigger). Stock deliveries are not copied in; the Analytics report counts stock_batches at cost as material. Not built yet: branch, payment method, vendor, receipt file.
 
@@ -2938,19 +2944,20 @@ Expiring links that let a patient open a prescription, bill or report on the cli
 |---|---|---|
 | `token_hash` | `text` | the link holds a 256-bit token; only its hash is stored |
 | `pin_hash` | `text` | SHA-256 of token and the six-digit PIN printed on the paper |
-| `resource` | `share_resource` | prescription, invoice, report, upload_request |
+| `resource` | `share_resource` | prescription, invoice, report, upload_request, records |
+| `record_types` | `text[]?` | for resource records: a subset of chart, xrays, bills (migration 0387) |
 | `prescription_id` | `uuid?` | → `prescriptions` |
 | `invoice_id` | `uuid?` | → `invoices` |
 | `patient_id` | `uuid` | → `patients` |
 | `channel` | `channel` | whatsapp, sms, email, print |
 | `failed_attempts` | `int` | five wrong PINs lock the link |
 | `locked_at` | `timestamptz?` |  |
-| `expires_at` | `timestamptz` | seven days |
+| `expires_at` | `timestamptz` | seven days; for records the clinic picks 1 hour, 24 hours or 7 days |
 | `opened_at` | `timestamptz?` |  |
 | `open_count` | `int` |  |
 | `revoked_at` | `timestamptz?` |  |
 
-Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self.
+Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self. A records link (POST /patients/{id}/record-shares) has no document column: it shows the patient's own chart, X-rays and issued bills as chosen, and writes access_log for the share, each open and each X-ray download.
 
 ### `access_log` (★ foundation, partitioned)
 

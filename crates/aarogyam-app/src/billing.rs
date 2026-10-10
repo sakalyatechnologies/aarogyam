@@ -1024,6 +1024,65 @@ pub async fn get(
     .await
 }
 
+/// A way for the patient to pay an issued bill: the clinic's UPI link for what is left.
+#[derive(Debug, Clone)]
+pub struct UpiLink {
+    /// The `upi://pay` link; also the text to encode in a QR code.
+    pub uri: String,
+    /// The clinic's UPI ID, as set in settings.
+    pub upi_id: String,
+    /// Who the payment goes to (the clinic's name).
+    pub payee_name: String,
+    /// The bill number, sent as the payment note.
+    pub invoice_number: String,
+    /// What is left to pay.
+    pub amount: Paise,
+}
+
+/// The UPI payment link for an issued bill's balance. Nothing is recorded: the front desk
+/// records the payment as usual once it arrives.
+///
+/// # Errors
+/// [`AppError::Denied`] without `billing.read`; [`AppError::NotFound`];
+/// [`AppError::Conflict`] unless the bill is issued with a balance and the clinic has a UPI ID.
+pub async fn upi_link(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: InvoiceId,
+) -> Result<UpiLink, AppError> {
+    actor.require(Permission::BillingRead)?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let view = load(tx, id.uuid()).await?;
+        let (InvoiceStatus::Issued, Some(number)) = (view.status, view.number) else {
+            return Err(AppError::Conflict("only an issued bill can be paid"));
+        };
+        if view.balance <= Paise::ZERO {
+            return Err(AppError::Conflict("the bill has nothing left to pay"));
+        }
+        let clinic = aarogyam_dal::settings::get(tx.conn())
+            .await?
+            .ok_or(AppError::NotFound("clinic"))?;
+        let upi_id = clinic
+            .billing
+            .get("upi_id")
+            .and_then(Value::as_str)
+            .filter(|upi_id| !upi_id.is_empty())
+            .ok_or(AppError::Conflict(
+                "the clinic has no UPI ID in its settings",
+            ))?
+            .to_owned();
+        Ok(UpiLink {
+            uri: aarogyam_domain::upi::pay_link(&upi_id, &clinic.name, view.balance.get(), &number),
+            upi_id,
+            payee_name: clinic.name,
+            invoice_number: number,
+            amount: view.balance,
+        })
+    })
+    .await
+}
+
 /// Which bills to list.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct InvoiceQuery {

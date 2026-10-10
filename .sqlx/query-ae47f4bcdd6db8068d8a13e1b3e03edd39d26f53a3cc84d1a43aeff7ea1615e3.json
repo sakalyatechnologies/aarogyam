@@ -1,0 +1,172 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.id, e.category_id, c.key as category_key, c.name as category_name, e.spent_on,\n                  e.amount_paise, e.note, e.status, e.void_reason, e.voided_at, e.recorded_by,\n                  e.created_at, e.request_hash as \"request_hash!\"\n           from aarogyam.expenses e\n           join aarogyam.expense_categories c on c.org_id = e.org_id and c.id = e.category_id\n           where e.idempotency_key = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "category_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "category_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "category_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expense_categories",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "category_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expense_categories",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "spent_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "spent_on"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "amount_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "amount_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "void_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "void_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "voided_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "voided_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "recorded_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "recorded_by"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "request_hash!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expenses",
+            "name": "request_hash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "ae47f4bcdd6db8068d8a13e1b3e03edd39d26f53a3cc84d1a43aeff7ea1615e3"
+}

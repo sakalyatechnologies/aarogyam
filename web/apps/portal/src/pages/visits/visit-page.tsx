@@ -524,7 +524,7 @@ function NoteSection({ label, value }: { label: string; value: string | null | u
   );
 }
 
-function VitalsCard({
+export function VitalsCard({
   visitId,
   observations,
   canWrite,
@@ -600,7 +600,7 @@ function VitalsCard({
   );
 }
 
-function ProceduresCard({
+export function ProceduresCard({
   visitId,
   patientId,
   procedures,

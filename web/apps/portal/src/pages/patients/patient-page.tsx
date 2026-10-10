@@ -33,7 +33,7 @@ function parseId(param: string | undefined): PatientId | undefined {
 }
 
 /** Shows a contact detail masked until asked; at a busy front desk, screens are seen by others. */
-function Contact({ icon, label, value, masked, revealable }: { icon: ReactNode; label: string; value: string; masked: string; revealable: boolean }) {
+export function Contact({ icon, label, value, masked, revealable }: { icon: ReactNode; label: string; value: string; masked: string; revealable: boolean }) {
   const [shown, setShown] = useState(false);
   return (
     <div className="mk-kv" style={{ alignItems: "center" }}>
@@ -194,7 +194,7 @@ function PatientView({ patient }: { patient: Patient }) {
 }
 
 /** Whether the patient's consent to care is recorded and still stands (from their consent records). */
-function ConsentLine({ patientId }: { patientId: PatientId }) {
+export function ConsentLine({ patientId }: { patientId: PatientId }) {
   const consents = useConsents(patientId);
   if (consents.data === undefined) {
     return null;
@@ -268,7 +268,7 @@ function Overview({ patient, canSeeClinical, revealable }: { patient: Patient; c
 }
 
 /** The active treatment plan: title, progress and the next items. Read-only; plans are edited on the visit. */
-function CarePlan({ patientId }: { patientId: PatientId }) {
+export function CarePlan({ patientId }: { patientId: PatientId }) {
   const plans = usePlans(patientId);
   if (plans.isPending) {
     return <Skeleton shape="block" style={{ height: 150 }} />;
@@ -314,7 +314,7 @@ function CarePlan({ patientId }: { patientId: PatientId }) {
 }
 
 /** The last few events on the patient's timeline. */
-function RecentHistory({ patientId }: { patientId: PatientId }) {
+export function RecentHistory({ patientId }: { patientId: PatientId }) {
   const timeline = useTimeline(patientId);
   return (
     <MkCard title="Recent clinical history">
@@ -339,7 +339,7 @@ function RecentHistory({ patientId }: { patientId: PatientId }) {
   );
 }
 
-function Kv({ label, value }: { label: string; value: string }) {
+export function Kv({ label, value }: { label: string; value: string }) {
   return (
     <div className="mk-kv">
       <dt>{label}</dt>

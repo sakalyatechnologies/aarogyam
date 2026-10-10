@@ -1,5 +1,5 @@
 import { ChevronLeft, Copy, Pill, Printer, RotateCcw, Share2, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
 import {
@@ -226,7 +226,7 @@ const NOT_SENT_REASONS: Record<string, string> = {
 };
 
 /** Shown once after issuing: whether the patient was emailed, and the PIN to tell them. */
-function SentNotice({ message }: { message: PatientMessage }) {
+export function SentNotice({ message }: { message: PatientMessage }) {
   const sent = message.status === "sent";
   return (
     <Card>
@@ -248,7 +248,13 @@ function SentNotice({ message }: { message: PatientMessage }) {
   );
 }
 
-function DraftEditor({ rx, onIssued }: { rx: Prescription; onIssued: (message: PatientMessage) => void }) {
+/** What a parent needs to keep a draft safe: save what is on screen, and know whether anything is unsaved. */
+export interface RxDraftHandle {
+  save: () => Promise<void>;
+  isDirty: () => boolean;
+}
+
+export function DraftEditor({ rx, onIssued, handle }: { rx: Prescription; onIssued: (message: PatientMessage) => void; handle?: Ref<RxDraftHandle> }) {
   const toast = useToast();
   const edit = useEditPrescription(rx.id, rx.patient.id);
   const issue = useIssuePrescription(rx.id, rx.patient.id);
@@ -289,15 +295,34 @@ function DraftEditor({ rx, onIssued }: { rx: Prescription; onIssued: (message: P
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...changes } : item)));
   };
 
+  const snapshot = JSON.stringify([items, diagnosis, advice, followUp]);
+  const saved = useRef(snapshot);
+  const current = useRef(snapshot);
+
   const save = async () => {
     setError(undefined);
+    const sent = snapshot;
     await edit.mutateAsync({
       items,
       diagnosis_text: diagnosis.trim() === "" ? null : diagnosis.trim(),
       advice: advice.trim() === "" ? null : advice.trim(),
       follow_up_on: followUp === "" ? null : followUp,
     });
+    saved.current = sent;
   };
+  const latestSave = useRef(save);
+  useEffect(() => {
+    current.current = snapshot;
+    latestSave.current = save;
+  });
+  useImperativeHandle(handle, () => ({
+    save: async () => {
+      if (current.current !== saved.current) {
+        await latestSave.current();
+      }
+    },
+    isDirty: () => current.current !== saved.current,
+  }));
 
   const onIssue = async (withOverride?: string) => {
     setError(undefined);
@@ -551,7 +576,7 @@ function AlertsDialog({
   );
 }
 
-function ShareDialog({ open, rxId, onClose }: { open: boolean; rxId: Prescription["id"]; onClose: () => void }) {
+export function ShareDialog({ open, rxId, onClose }: { open: boolean; rxId: Prescription["id"]; onClose: () => void }) {
   const create = useCreateShareLink(rxId);
   const toast = useToast();
 

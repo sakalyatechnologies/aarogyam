@@ -22,6 +22,7 @@ struct Patient360Screen: View {
     @State private var sheet: PatientSheet?
     @State private var toast: String?
     @State private var shareRx: String?
+    @State private var visit: VisitRoute?
     @State private var chartModel: ScreenModel<ChartStateHolder, ChartState>?
     @Environment(\.skTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -47,6 +48,7 @@ struct Patient360Screen: View {
             }
         }
         .sheet(item: $sheet) { sheetContent($0) }
+        .navigationDestination(item: $visit) { VisitScreen(graph: graph, clinic: clinic, route: $0) }
         .skToast($toast)
         // A recorded payment changes the balance in the header, so reload the patient.
         .onChange(of: receipt) { _, new in if new != nil { holder.refresh() } }
@@ -105,11 +107,16 @@ struct Patient360Screen: View {
     }
 
     private func footer(_ view: PatientView) -> some View {
-        HStack(spacing: 8) {
+        VStack(spacing: 8) {
+            if clinic.permissions.contains("clinical.write") {
+                SkPillButton(CL("c.visit.start"), variant: .warm, icon: V7Icon.path("tooth"), wide: true) { visit = VisitRoute(patientId: patientId) }
+            }
+            HStack(spacing: 8) {
             if can.issue && can.clinical {
                 SkPillButton(pv("pv.send_rx"), variant: .fill, icon: V7Icon.path("rx"), wide: true) { sheet = .rx }
             }
             SkPillButton(pv("pv.share"), variant: .tonal, icon: V7Icon.path("share"), wide: true) { shareRx = nil; sheet = .share }
+            }
         }
         .padding(.top, 4)
     }
@@ -121,7 +128,7 @@ struct Patient360Screen: View {
         case .share:
             PatientShareSheet(graph: graph, clinic: clinic, patientId: patientId, preselected: shareRx)
         case .rx:
-            RxSheet(graph: graph, clinic: clinic, patientId: patientId, allergies: loaded?.view.flags.allergies ?? [])
+            RxSheet(graph: graph, clinic: clinic, patientId: patientId, allergies: loaded?.view.flags.allergies ?? [], phone: loaded?.view.phone)
         }
     }
 

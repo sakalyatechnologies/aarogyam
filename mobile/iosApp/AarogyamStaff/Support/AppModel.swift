@@ -19,12 +19,13 @@ final class AppModel {
     /// After the person leaves a clinic, the picker waits for a tap even with only one clinic.
     var choseToLeave = false
 
+    @ObservationIgnored private let speech = SpeechDictation()
     @ObservationIgnored private var watchers: [Task<Void, Never>] = []
 
     func start() async {
         guard case .starting = phase else { return }
         let config = BuildSettings.current()
-        guard let graph = try? await IosAppKt.createAppGraph(config: config, dictation: DictationNone.shared) else {
+        guard let graph = try? await IosAppKt.createAppGraph(config: config, dictation: speech) else {
             phase = .notConfigured
             return
         }

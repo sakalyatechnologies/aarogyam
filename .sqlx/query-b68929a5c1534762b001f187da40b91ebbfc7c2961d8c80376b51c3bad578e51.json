@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.dashboard_layouts (membership_id, layout)\n           values ($1, $2::text::jsonb)\n           on conflict (org_id, membership_id) where membership_id is not null\n           do update set layout = excluded.layout",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b68929a5c1534762b001f187da40b91ebbfc7c2961d8c80376b51c3bad578e51"
+}

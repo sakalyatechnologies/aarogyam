@@ -39,6 +39,7 @@ import {
   createdClinic,
   createdInvitation,
   dentalChart,
+  dashboardLayoutView,
   dentalTerm,
   devTokenResponse,
   downloadLink,
@@ -473,6 +474,14 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     createRole: (input, opts) => call({ method: "POST", path: "/api/v1/roles", schema: roleDetail, body: input, signal: opts?.signal }),
     deleteRole: (key, opts) => call({ method: "DELETE", path: `/api/v1/roles/${encodeURIComponent(key)}`, schema: voidResponse, signal: opts?.signal }),
 
+    getMyDashboardLayout: (opts) => call({ method: "GET", path: "/api/v1/me/dashboard-layout", schema: dashboardLayoutView, signal: opts?.signal }),
+    saveMyDashboardLayout: (layout, opts) =>
+      call({ method: "PUT", path: "/api/v1/me/dashboard-layout", schema: dashboardLayoutView, body: layout, signal: opts?.signal }),
+    resetMyDashboardLayout: (opts) => call({ method: "DELETE", path: "/api/v1/me/dashboard-layout", schema: dashboardLayoutView, signal: opts?.signal }),
+    getDashboardLayout: (opts) => call({ method: "GET", path: "/api/v1/settings/dashboard-layout", schema: dashboardLayoutView, signal: opts?.signal }),
+    saveDashboardLayout: (layout, opts) =>
+      call({ method: "PUT", path: "/api/v1/settings/dashboard-layout", schema: dashboardLayoutView, body: layout, signal: opts?.signal }),
+    resetDashboardLayout: (opts) => call({ method: "DELETE", path: "/api/v1/settings/dashboard-layout", schema: dashboardLayoutView, signal: opts?.signal }),
     getClinicSettings: (opts) => call({ method: "GET", path: "/api/v1/settings/clinic", schema: clinicSettings, signal: opts?.signal }),
     updateClinicSettings: (changes, opts) =>
       call({ method: "PATCH", path: "/api/v1/settings/clinic", schema: clinicSettings, body: changes, signal: opts?.signal }),

@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select membership_id, layout::text as \"layout!\"\n           from aarogyam.dashboard_layouts\n           where membership_id is null or membership_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "membership_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.dashboard_layouts",
+            "name": "membership_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "layout!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      null
+    ]
+  },
+  "hash": "a55b933bc113255309b97fd60127cb7638ef5c5162604c01c660690e384f879d"
+}

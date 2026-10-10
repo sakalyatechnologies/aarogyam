@@ -2120,6 +2120,7 @@
     "consent_notices.published_by",
     "conversation_members.membership_id",
     "daily_closings.closed_by",
+    "dashboard_layouts.membership_id",
     "dental_terms.added_by",
     "dental_terms.retired_by",
     "document_extractions.confirmed_by",
@@ -2161,6 +2162,36 @@
    ],
    "sensitivity": "internal",
    "offline": "read_only"
+  },
+  {
+   "name": "dashboard_layouts",
+   "domain": "tenancy",
+   "purpose": "The Today board's layout: the clinic's default (no membership) and each member's own.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0605). One clinic row and one row per member (partial unique indexes). A member's layout wins, then the clinic's, then the MedSync template; a reset deletes the row. GET/PUT/DELETE /me/dashboard-layout and /settings/dashboard-layout (settings.manage). No patient data.",
+   "cols": [
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": "null for the clinic's default"
+    },
+    {
+     "name": "layout",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "versioned JSON v2: template, density, card, rail and widgets with zone, size and options; checked against the widget registry in aarogyam-domain"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
   },
   {
    "name": "membership_branches",

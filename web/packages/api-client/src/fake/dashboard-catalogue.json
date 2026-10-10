@@ -1,0 +1,879 @@
+{
+  "version": 2,
+  "templates": [
+    {
+      "key": "medsync",
+      "label": "MedSync",
+      "description": "Key numbers, the day's appointments and chairs, next patients on the side.",
+      "layout": {
+        "v": 2,
+        "tpl": "medsync",
+        "density": "cozy",
+        "card": "soft",
+        "rail": {
+          "side": "right",
+          "width": "medium"
+        },
+        "items": [
+          {
+            "key": "kpis",
+            "zone": "top",
+            "size": "full",
+            "opts": {
+              "metrics": [
+                "appointments",
+                "completed",
+                "waiting",
+                "collected"
+              ]
+            }
+          },
+          {
+            "key": "appointments",
+            "zone": "main",
+            "size": "L",
+            "opts": {
+              "view": "table"
+            }
+          },
+          {
+            "key": "attention",
+            "zone": "main",
+            "size": "S",
+            "opts": {}
+          },
+          {
+            "key": "chairs",
+            "zone": "main",
+            "size": "M",
+            "opts": {
+              "show_chart": true
+            }
+          },
+          {
+            "key": "labs",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "collections",
+            "zone": "main",
+            "size": "full",
+            "opts": {
+              "weeks": 8
+            }
+          },
+          {
+            "key": "nextup",
+            "zone": "rail",
+            "size": "S",
+            "opts": {
+              "count": 3
+            }
+          },
+          {
+            "key": "calendar",
+            "zone": "rail",
+            "size": "S",
+            "opts": {}
+          },
+          {
+            "key": "queue",
+            "zone": "rail",
+            "size": "S",
+            "opts": {}
+          }
+        ]
+      }
+    },
+    {
+      "key": "executive",
+      "label": "Executive",
+      "description": "Money first: collections, revenue mix, what is still unpaid.",
+      "layout": {
+        "v": 2,
+        "tpl": "executive",
+        "density": "cozy",
+        "card": "outline",
+        "rail": {
+          "side": "right",
+          "width": "narrow"
+        },
+        "items": [
+          {
+            "key": "kpis",
+            "zone": "top",
+            "size": "full",
+            "opts": {
+              "metrics": [
+                "appointments",
+                "completed",
+                "collected",
+                "outstanding",
+                "new_patients",
+                "chairs_busy"
+              ]
+            }
+          },
+          {
+            "key": "collections",
+            "zone": "main",
+            "size": "L",
+            "opts": {
+              "weeks": 12
+            }
+          },
+          {
+            "key": "revenue_mix",
+            "zone": "main",
+            "size": "S",
+            "opts": {}
+          },
+          {
+            "key": "busy_hours",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "pending_payments",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "chairs",
+            "zone": "main",
+            "size": "M",
+            "opts": {
+              "show_chart": true
+            }
+          },
+          {
+            "key": "team_today",
+            "zone": "rail",
+            "size": "S",
+            "opts": {}
+          },
+          {
+            "key": "attention",
+            "zone": "rail",
+            "size": "S",
+            "opts": {}
+          },
+          {
+            "key": "labs",
+            "zone": "rail",
+            "size": "S",
+            "opts": {}
+          }
+        ]
+      }
+    },
+    {
+      "key": "care",
+      "label": "Care",
+      "description": "Patients first: the queue, recent patients and the day's timeline.",
+      "layout": {
+        "v": 2,
+        "tpl": "care",
+        "density": "cozy",
+        "card": "soft",
+        "rail": {
+          "side": "left",
+          "width": "medium"
+        },
+        "items": [
+          {
+            "key": "kpis",
+            "zone": "top",
+            "size": "full",
+            "opts": {
+              "metrics": [
+                "appointments",
+                "completed",
+                "waiting",
+                "new_patients"
+              ]
+            }
+          },
+          {
+            "key": "queue",
+            "zone": "main",
+            "size": "L",
+            "opts": {}
+          },
+          {
+            "key": "appointments",
+            "zone": "main",
+            "size": "L",
+            "opts": {
+              "view": "list"
+            }
+          },
+          {
+            "key": "recent_patients",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "timeline",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "attention",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "calendar",
+            "zone": "rail",
+            "size": "S",
+            "opts": {}
+          },
+          {
+            "key": "nextup",
+            "zone": "rail",
+            "size": "S",
+            "opts": {
+              "count": 3
+            }
+          },
+          {
+            "key": "labs",
+            "zone": "rail",
+            "size": "S",
+            "opts": {}
+          }
+        ]
+      }
+    },
+    {
+      "key": "focus",
+      "label": "Focus",
+      "description": "Only the next patient and the queue, with room to breathe.",
+      "layout": {
+        "v": 2,
+        "tpl": "focus",
+        "density": "cozy",
+        "card": "flat",
+        "rail": {
+          "side": "right",
+          "width": "narrow"
+        },
+        "items": [
+          {
+            "key": "nextup",
+            "zone": "top",
+            "size": "full",
+            "opts": {
+              "count": 1
+            }
+          },
+          {
+            "key": "queue",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "appointments",
+            "zone": "main",
+            "size": "L",
+            "opts": {
+              "view": "list"
+            }
+          },
+          {
+            "key": "attention",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "calendar",
+            "zone": "rail",
+            "size": "S",
+            "opts": {}
+          }
+        ]
+      }
+    },
+    {
+      "key": "compact",
+      "label": "Compact",
+      "description": "Dense and flat, so everything fits on one screen.",
+      "layout": {
+        "v": 2,
+        "tpl": "compact",
+        "density": "compact",
+        "card": "flat",
+        "rail": {
+          "side": "right",
+          "width": "narrow"
+        },
+        "items": [
+          {
+            "key": "kpis",
+            "zone": "top",
+            "size": "full",
+            "opts": {
+              "metrics": [
+                "appointments",
+                "completed",
+                "waiting",
+                "new_patients",
+                "collected",
+                "chairs_busy"
+              ]
+            }
+          },
+          {
+            "key": "appointments",
+            "zone": "main",
+            "size": "full",
+            "opts": {
+              "view": "table"
+            }
+          },
+          {
+            "key": "queue",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "chairs",
+            "zone": "main",
+            "size": "M",
+            "opts": {
+              "show_chart": false
+            }
+          },
+          {
+            "key": "attention",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "labs",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "busy_hours",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "calendar",
+            "zone": "rail",
+            "size": "S",
+            "opts": {}
+          },
+          {
+            "key": "team_today",
+            "zone": "rail",
+            "size": "S",
+            "opts": {}
+          },
+          {
+            "key": "nextup",
+            "zone": "rail",
+            "size": "S",
+            "opts": {
+              "count": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": "front_desk",
+      "label": "Front desk",
+      "description": "Queue, bookings and payments to collect, for the desk.",
+      "layout": {
+        "v": 2,
+        "tpl": "front_desk",
+        "density": "compact",
+        "card": "outline",
+        "rail": {
+          "side": "right",
+          "width": "medium"
+        },
+        "items": [
+          {
+            "key": "kpis",
+            "zone": "top",
+            "size": "full",
+            "opts": {
+              "metrics": [
+                "appointments",
+                "completed",
+                "waiting",
+                "new_patients"
+              ]
+            }
+          },
+          {
+            "key": "queue",
+            "zone": "main",
+            "size": "L",
+            "opts": {}
+          },
+          {
+            "key": "appointments",
+            "zone": "main",
+            "size": "L",
+            "opts": {
+              "view": "table"
+            }
+          },
+          {
+            "key": "pending_payments",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "attention",
+            "zone": "main",
+            "size": "M",
+            "opts": {}
+          },
+          {
+            "key": "calendar",
+            "zone": "rail",
+            "size": "S",
+            "opts": {}
+          },
+          {
+            "key": "nextup",
+            "zone": "rail",
+            "size": "S",
+            "opts": {
+              "count": 5
+            }
+          },
+          {
+            "key": "recent_patients",
+            "zone": "rail",
+            "size": "S",
+            "opts": {}
+          },
+          {
+            "key": "labs",
+            "zone": "rail",
+            "size": "S",
+            "opts": {}
+          }
+        ]
+      }
+    }
+  ],
+  "widgets": [
+    {
+      "key": "kpis",
+      "label": "Key numbers",
+      "description": "A row of headline numbers for the day.",
+      "zones": [
+        "top",
+        "main"
+      ],
+      "sizes": [
+        "L",
+        "full"
+      ],
+      "default_zone": "top",
+      "default_size": "full",
+      "requires": null,
+      "options": [
+        {
+          "key": "metrics",
+          "label": "Numbers to show",
+          "kind": "metrics",
+          "default": [
+            "appointments",
+            "completed",
+            "waiting",
+            "new_patients"
+          ],
+          "choices": null,
+          "min": 4,
+          "max": 6
+        }
+      ]
+    },
+    {
+      "key": "nextup",
+      "label": "Next up",
+      "description": "The next patients to be seen.",
+      "zones": [
+        "top",
+        "main",
+        "rail"
+      ],
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "full"
+      ],
+      "default_zone": "rail",
+      "default_size": "S",
+      "requires": "appointments.read",
+      "options": [
+        {
+          "key": "count",
+          "label": "Patients to show",
+          "kind": "int_range",
+          "default": 3,
+          "choices": null,
+          "min": 1,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "key": "chairs",
+      "label": "Chairs",
+      "description": "Each chair, who is in it and how busy it is.",
+      "zones": [
+        "main"
+      ],
+      "sizes": [
+        "M",
+        "L",
+        "full"
+      ],
+      "default_zone": "main",
+      "default_size": "M",
+      "requires": "appointments.read",
+      "options": [
+        {
+          "key": "show_chart",
+          "label": "Show the use chart",
+          "kind": "bool",
+          "default": true,
+          "choices": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "key": "appointments",
+      "label": "Appointments",
+      "description": "The day's appointments, as a table or a list.",
+      "zones": [
+        "main"
+      ],
+      "sizes": [
+        "L",
+        "full"
+      ],
+      "default_zone": "main",
+      "default_size": "L",
+      "requires": "appointments.read",
+      "options": [
+        {
+          "key": "view",
+          "label": "Show as",
+          "kind": "choice",
+          "default": "table",
+          "choices": [
+            "table",
+            "list"
+          ],
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "key": "attention",
+      "label": "Needs attention",
+      "description": "Booking requests to confirm and other things waiting on a person.",
+      "zones": [
+        "main",
+        "rail"
+      ],
+      "sizes": [
+        "S",
+        "M",
+        "L"
+      ],
+      "default_zone": "main",
+      "default_size": "S",
+      "requires": "appointments.read",
+      "options": []
+    },
+    {
+      "key": "labs",
+      "label": "Lab work",
+      "description": "Open lab orders by stage, with the late ones marked.",
+      "zones": [
+        "main",
+        "rail"
+      ],
+      "sizes": [
+        "S",
+        "M",
+        "L"
+      ],
+      "default_zone": "main",
+      "default_size": "S",
+      "requires": "labs.read",
+      "options": []
+    },
+    {
+      "key": "calendar",
+      "label": "Calendar",
+      "description": "A small month calendar; picking a day shows that day on the board.",
+      "zones": [
+        "main",
+        "rail"
+      ],
+      "sizes": [
+        "S",
+        "M"
+      ],
+      "default_zone": "rail",
+      "default_size": "S",
+      "requires": "appointments.read",
+      "options": []
+    },
+    {
+      "key": "queue",
+      "label": "Queue",
+      "description": "Who is waiting and for how long.",
+      "zones": [
+        "main",
+        "rail"
+      ],
+      "sizes": [
+        "S",
+        "M",
+        "L"
+      ],
+      "default_zone": "main",
+      "default_size": "M",
+      "requires": "appointments.read",
+      "options": []
+    },
+    {
+      "key": "collections",
+      "label": "Collections",
+      "description": "Money collected, week by week.",
+      "zones": [
+        "main"
+      ],
+      "sizes": [
+        "M",
+        "L",
+        "full"
+      ],
+      "default_zone": "main",
+      "default_size": "L",
+      "requires": "finance.view",
+      "options": [
+        {
+          "key": "weeks",
+          "label": "Weeks to show",
+          "kind": "int_choice",
+          "default": 8,
+          "choices": [
+            4,
+            8,
+            12
+          ],
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "key": "timeline",
+      "label": "Timeline",
+      "description": "The day hour by hour.",
+      "zones": [
+        "main",
+        "rail"
+      ],
+      "sizes": [
+        "S",
+        "M",
+        "L"
+      ],
+      "default_zone": "main",
+      "default_size": "M",
+      "requires": "appointments.read",
+      "options": []
+    },
+    {
+      "key": "recent_patients",
+      "label": "Recent patients",
+      "description": "Patients seen lately.",
+      "zones": [
+        "main",
+        "rail"
+      ],
+      "sizes": [
+        "S",
+        "M",
+        "L"
+      ],
+      "default_zone": "rail",
+      "default_size": "S",
+      "requires": "patients.read",
+      "options": []
+    },
+    {
+      "key": "team_today",
+      "label": "Team today",
+      "description": "Who is working today.",
+      "zones": [
+        "main",
+        "rail"
+      ],
+      "sizes": [
+        "S",
+        "M"
+      ],
+      "default_zone": "rail",
+      "default_size": "S",
+      "requires": "appointments.read",
+      "options": []
+    },
+    {
+      "key": "revenue_mix",
+      "label": "Revenue mix",
+      "description": "Where the money came from: procedures, consults, products.",
+      "zones": [
+        "main",
+        "rail"
+      ],
+      "sizes": [
+        "S",
+        "M"
+      ],
+      "default_zone": "main",
+      "default_size": "S",
+      "requires": "finance.view",
+      "options": []
+    },
+    {
+      "key": "pending_payments",
+      "label": "Pending payments",
+      "description": "Bills with money still due.",
+      "zones": [
+        "main",
+        "rail"
+      ],
+      "sizes": [
+        "S",
+        "M",
+        "L"
+      ],
+      "default_zone": "main",
+      "default_size": "M",
+      "requires": "billing.read",
+      "options": []
+    },
+    {
+      "key": "busy_hours",
+      "label": "Busy hours",
+      "description": "The hours of the day that fill up.",
+      "zones": [
+        "main"
+      ],
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "default_zone": "main",
+      "default_size": "M",
+      "requires": "appointments.read",
+      "options": []
+    }
+  ],
+  "metrics": [
+    {
+      "key": "appointments",
+      "label": "Appointments",
+      "requires": "appointments.read"
+    },
+    {
+      "key": "completed",
+      "label": "Completed",
+      "requires": "appointments.read"
+    },
+    {
+      "key": "waiting",
+      "label": "Waiting",
+      "requires": "appointments.read"
+    },
+    {
+      "key": "new_patients",
+      "label": "New patients",
+      "requires": "patients.read"
+    },
+    {
+      "key": "collected",
+      "label": "Collected",
+      "requires": "finance.view"
+    },
+    {
+      "key": "outstanding",
+      "label": "Outstanding",
+      "requires": "finance.view"
+    },
+    {
+      "key": "chairs_busy",
+      "label": "Chairs busy",
+      "requires": "appointments.read"
+    },
+    {
+      "key": "lab_due",
+      "label": "Lab work due",
+      "requires": "labs.read"
+    }
+  ],
+  "densities": [
+    "compact",
+    "cozy"
+  ],
+  "cards": [
+    "flat",
+    "soft",
+    "outline"
+  ],
+  "rail_sides": [
+    "left",
+    "right"
+  ],
+  "rail_widths": [
+    "narrow",
+    "medium",
+    "wide"
+  ],
+  "zones": [
+    "top",
+    "main",
+    "rail"
+  ],
+  "sizes": [
+    "S",
+    "M",
+    "L",
+    "full"
+  ]
+}

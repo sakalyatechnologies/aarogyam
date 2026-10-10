@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from aarogyam.dashboard_layouts where membership_id is not distinct from $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c5d73a98df86eda19fbe523d60de9078207d03aa285229a45ccb16abd9018f06"
+}

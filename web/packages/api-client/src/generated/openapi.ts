@@ -1691,6 +1691,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/dashboard-layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's layout for this clinic: their own, else the clinic's default, else `MedSync`;
+         *     with the catalogue. Any member may read it; it is the same on every device.
+         */
+        get: operations["getMyDashboardLayout"];
+        /**
+         * Saves the caller's own layout for this clinic and returns it. It replaces the previous one
+         *     and wins over the clinic's default until reset.
+         */
+        put: operations["putMyDashboardLayout"];
+        post?: never;
+        /**
+         * Resets the caller's layout: deletes their own and returns the one that applies now, the
+         *     clinic's default or `MedSync`. Also fine when they had none.
+         */
+        delete: operations["resetMyDashboardLayout"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/onboarding": {
         parameters: {
             query?: never;
@@ -3691,6 +3719,25 @@ export interface paths {
         head?: never;
         /** Changes the clinic's settings. The change history records each change. */
         patch: operations["updateClinicSettings"];
+        trace?: never;
+    };
+    "/api/v1/settings/dashboard-layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's default layout, or `MedSync` when none was saved; with the catalogue. */
+        get: operations["getDashboardLayout"];
+        /** Saves the clinic's default layout and returns it. Members who saved their own keep it. */
+        put: operations["putDashboardLayout"];
+        post?: never;
+        /** Removes the clinic's default, so `MedSync` applies again to everyone without their own layout. */
+        delete: operations["resetDashboardLayout"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/settings/letterhead/images/{slot}": {
@@ -6026,6 +6073,39 @@ export interface components {
             /** @description The role they will get. */
             role_key: string;
         };
+        /** @description A dashboard layout, version 2. */
+        DashboardLayout: {
+            /** @description `flat`, `soft` or `outline`. */
+            card: string;
+            /** @description `compact` or `cozy`. */
+            density: string;
+            /** @description The widgets, in order within each zone; at most one per widget. */
+            items: components["schemas"]["LayoutItem"][];
+            /** @description The side column. */
+            rail: components["schemas"]["LayoutRail"];
+            /**
+             * @description The template it started from: `medsync`, `executive`, `care`, `focus`, `compact` or
+             *     `front_desk`.
+             */
+            tpl: string;
+            /**
+             * Format: int32
+             * @description The version; 2. May be left out when saving.
+             */
+            v?: number;
+        };
+        /** @description A layout with where it came from and the catalogue. */
+        DashboardLayoutView: {
+            /** @description Templates, widgets and options. */
+            catalogue: components["schemas"]["LayoutCatalogue"];
+            /** @description The layout to show. */
+            layout: components["schemas"]["DashboardLayout"];
+            /**
+             * @description `member` (their own), `clinic` (the clinic's default) or `template` (nothing saved: the
+             *     `MedSync` template).
+             */
+            source: string;
+        };
         /** @description The day's money. Present only for roles with `finance.view`. */
         DayMoneyFigures: {
             /**
@@ -7293,6 +7373,53 @@ export interface components {
             /** @description Phone; +91 is assumed without a country code. */
             phone?: string | null;
         };
+        /** @description Everything the portal needs to draw and edit layouts. */
+        LayoutCatalogue: {
+            /** @description Allowed `card` values. */
+            cards: string[];
+            /** @description Allowed `density` values. */
+            densities: string[];
+            /** @description The headline numbers for `kpis`. */
+            metrics: components["schemas"]["MetricInfo"][];
+            /** @description Allowed `rail.side` values. */
+            rail_sides: string[];
+            /** @description Allowed `rail.width` values. */
+            rail_widths: string[];
+            /** @description Allowed `size` values. */
+            sizes: string[];
+            /** @description The templates. */
+            templates: components["schemas"]["TemplateInfo"][];
+            /**
+             * Format: int32
+             * @description The layout version, 2.
+             */
+            version: number;
+            /** @description The widgets. */
+            widgets: components["schemas"]["WidgetInfo"][];
+            /** @description Allowed `zone` values. */
+            zones: string[];
+        };
+        /** @description One widget on the board. */
+        LayoutItem: {
+            /** @description A widget key from the catalogue; each widget appears at most once. */
+            key: string;
+            /** @description The widget's options. Options left out get their default; unknown ones are refused. */
+            opts?: Record<string, unknown>;
+            /**
+             * @description `S`, `M`, `L` or `full`: 4, 6, 8 or 12 of 12 columns; the widget's `sizes` say which it
+             *     may have. Ignored in the rail.
+             */
+            size: string;
+            /** @description `top`, `main` or `rail`; the widget's `zones` say which it may use. */
+            zone: string;
+        };
+        /** @description Where the rail is and how wide. */
+        LayoutRail: {
+            /** @description `left` or `right`. */
+            side: string;
+            /** @description `narrow`, `medium` or `wide`. */
+            width: string;
+        };
         /** @description Time a doctor is away. */
         Leave: {
             /** @description End (RFC 3339). */
@@ -7688,6 +7815,15 @@ export interface components {
              * @description Share of everything received, in basis points (10000 is all).
              */
             share_bps: number;
+        };
+        /** @description A headline number the `kpis` widget can show. */
+        MetricInfo: {
+            /** @description The key used in `kpis.opts.metrics`. */
+            key: string;
+            /** @description The name staff read. */
+            label: string;
+            /** @description The permission needed to see it, such as `finance.view`; hide the number without it. */
+            requires?: string | null;
         };
         /** @description Billed revenue in one price list category. */
         MixItem: {
@@ -8441,6 +8577,33 @@ export interface components {
              * @description 1 Monday to 7 Sunday.
              */
             weekday: number;
+        };
+        /** @description One option of a widget. */
+        OptionInfo: {
+            /** @description The allowed values, for `choice` and `int_choice`. */
+            choices?: unknown[] | null;
+            /** @description Used when the option is left out. */
+            default: unknown;
+            /** @description The key in `opts`. */
+            key: string;
+            /**
+             * @description `choice` (one of `choices`, words), `int_choice` (one of `choices`, numbers), `int_range`
+             *     (a whole number from `min` to `max`), `bool`, or `metrics` (a list of 4 to 6 distinct
+             *     keys from the metric catalogue; `min` and `max` bound the length).
+             */
+            kind: string;
+            /** @description The name staff read. */
+            label: string;
+            /**
+             * Format: int64
+             * @description The largest value (`int_range`) or list length (`metrics`).
+             */
+            max?: number | null;
+            /**
+             * Format: int64
+             * @description The smallest value (`int_range`) or list length (`metrics`).
+             */
+            min?: number | null;
         };
         /** @description A procedure or material the clinic added. */
         OwnDentalTerm: {
@@ -10935,6 +11098,17 @@ export interface components {
             /** @description Specialty. */
             specialty?: string | null;
         };
+        /** @description A starting layout. */
+        TemplateInfo: {
+            /** @description What it is for. */
+            description: string;
+            /** @description The key, such as `medsync`. */
+            key: string;
+            /** @description The name staff read. */
+            label: string;
+            /** @description The template's layout; "Reset to template" saves this. */
+            layout: components["schemas"]["DashboardLayout"];
+        };
         /** @description A page of a patient's timeline, newest first. */
         Timeline: {
             /** @description The events. */
@@ -11447,6 +11621,30 @@ export interface components {
             template: string;
             /** @description The designs and their palettes. */
             templates: components["schemas"]["SiteTemplate"][];
+        };
+        /** @description A widget the board can hold. */
+        WidgetInfo: {
+            /** @description The size a newly added widget gets. */
+            default_size: string;
+            /** @description The zone a newly added widget goes to. */
+            default_zone: string;
+            /** @description What it shows. */
+            description: string;
+            /** @description The key, such as `kpis`. */
+            key: string;
+            /** @description The name staff read. */
+            label: string;
+            /** @description Its options. */
+            options: components["schemas"]["OptionInfo"][];
+            /**
+             * @description The permission needed to see it, such as `finance.view`; the board hides it without. A
+             *     layout may include widgets a role never sees.
+             */
+            requires?: string | null;
+            /** @description The sizes it may have. */
+            sizes: string[];
+            /** @description The zones it may sit in. */
+            zones: string[];
         };
         /** @description A withdrawal to record. */
         WithdrawConsent: {
@@ -17095,6 +17293,116 @@ export interface operations {
             };
             /** @description The role lacks chat.use */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMyDashboardLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardLayoutView"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    putMyDashboardLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardLayout"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardLayoutView"];
+                };
+            };
+            /** @description An unknown or repeated widget, a zone or size it does not allow, or a bad option */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resetMyDashboardLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardLayoutView"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -23384,6 +23692,116 @@ export interface operations {
             };
             /** @description Not a clinic, or not a member of it */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDashboardLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardLayoutView"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    putDashboardLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardLayout"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardLayoutView"];
+                };
+            };
+            /** @description An unknown or repeated widget, a zone or size it does not allow, or a bad option */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resetDashboardLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardLayoutView"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -396,6 +396,69 @@ export type OnlineBookingChanges = C.OnlineBookingChanges;
 /** Body of `PATCH /api/v1/settings/clinic`. Settings left out stay as they are. */
 export type ClinicSettingsChanges = C.ClinicSettingsChanges;
 
+// Dashboard layout ---------------------------------------------------------------------------
+
+const dashboardLayoutItem = z.object({
+  key: z.string(),
+  zone: z.string(),
+  size: z.string(),
+  opts: z.record(z.string(), z.unknown()).exactOptional(),
+}) satisfies z.ZodType<C.DashboardLayoutItem>;
+
+export const dashboardLayout = z.object({
+  v: z.number().exactOptional(),
+  tpl: z.string(),
+  density: z.string(),
+  card: z.string(),
+  rail: z.object({ side: z.string(), width: z.string() }),
+  items: z.array(dashboardLayoutItem),
+}) satisfies z.ZodType<C.DashboardLayout>;
+export type DashboardLayout = z.output<typeof dashboardLayout>;
+
+const dashboardWidgetOption = z.object({
+  key: z.string(),
+  label: z.string(),
+  kind: z.string(),
+  default: z.unknown(),
+  choices: z.array(z.unknown()).nullable().exactOptional(),
+  min: z.number().nullable().exactOptional(),
+  max: z.number().nullable().exactOptional(),
+}) satisfies z.ZodType<C.DashboardWidgetOption>;
+
+export const dashboardCatalogue = z.object({
+  version: z.number(),
+  templates: z.array(z.object({ key: z.string(), label: z.string(), description: z.string(), layout: dashboardLayout })),
+  widgets: z.array(
+    z.object({
+      key: z.string(),
+      label: z.string(),
+      description: z.string(),
+      zones: z.array(z.string()),
+      sizes: z.array(z.string()),
+      default_zone: z.string(),
+      default_size: z.string(),
+      requires: optionalText,
+      options: z.array(dashboardWidgetOption),
+    }),
+  ),
+  metrics: z.array(z.object({ key: z.string(), label: z.string(), requires: optionalText })),
+  densities: z.array(z.string()),
+  cards: z.array(z.string()),
+  rail_sides: z.array(z.string()),
+  rail_widths: z.array(z.string()),
+  zones: z.array(z.string()),
+  sizes: z.array(z.string()),
+}) satisfies z.ZodType<C.DashboardCatalogue>;
+export type DashboardCatalogue = z.output<typeof dashboardCatalogue>;
+
+/** A layout, where it came from (`member`, `clinic` or `template`) and the catalogue to render and edit it. */
+export const dashboardLayoutView = z.object({
+  layout: dashboardLayout,
+  source: z.string(),
+  catalogue: dashboardCatalogue,
+}) satisfies z.ZodType<C.DashboardLayoutView>;
+export type DashboardLayoutView = z.output<typeof dashboardLayoutView>;
+
 // Sessions -----------------------------------------------------------------------------------
 
 export const mySession = z.object({

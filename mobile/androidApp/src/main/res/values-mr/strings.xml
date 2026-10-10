@@ -27,14 +27,6 @@
     <string name="clinics_empty_message">क्लिनिकच्या मालकांना तुम्हाला आमंत्रित करायला सांगा.</string>
     <string name="clinic_opening">उघडत आहे</string>
     <string name="today_title">आज</string>
-    <string name="greeting_morning">सुप्रभात, %1$s · %2$s</string>
-    <string name="greeting_afternoon">नमस्कार, %1$s · %2$s</string>
-    <string name="greeting_evening">शुभ संध्याकाळ, %1$s · %2$s</string>
-    <string name="stat_visits">आजच्या भेटी</string>
-    <string name="stat_waiting">प्रतीक्षेत</string>
-    <string name="stat_done">झाले</string>
-    <string name="hero_now">खुर्चीत · %1$s</string>
-    <string name="hero_next">पुढचे · %1$s</string>
     <string name="schedule">वेळापत्रक</string>
     <string name="schedule_empty_title">आज अपॉइंटमेंट नाहीत</string>
     <string name="schedule_empty_message">नवीन बुकिंग इथे दिसतील.</string>
@@ -170,7 +162,4 @@
     <string name="pay_cash">रोख</string>
     <string name="pay_upi">UPI</string>
     <string name="pay_card">कार्ड</string>
-    <string name="stat_collected">जमा</string>
-    <string name="stat_dues">येणे बाकी</string>
-    <string name="stat_upi">UPI वाटा</string>
 </resources>

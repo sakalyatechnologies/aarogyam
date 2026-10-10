@@ -30,4 +30,56 @@
         <item quantity="other">%1$s, %2$s: %3$d appointments</item>
     </plurals>
     <string name="v7_soon">Coming in the next update</string>
+    <string name="v7_me_hello">Hello,\n%1$s</string>
+    <string name="v7_me_change_avatar">Change avatar</string>
+    <string name="v7_me_on_leave">On leave today</string>
+    <string name="v7_me_your_day">Your day</string>
+    <plurals name="v7_me_done">
+        <item quantity="one">%1$d of %2$d done</item>
+        <item quantity="other">%1$d of %2$d done</item>
+    </plurals>
+    <plurals name="v7_me_done_until">
+        <item quantity="one">%1$d of %2$d done · until %3$s</item>
+        <item quantity="other">%1$d of %2$d done · until %3$s</item>
+    </plurals>
+    <string name="v7_me_my_schedule">My schedule</string>
+    <string name="v7_me_nothing_left">Nothing else booked for you today.</string>
+    <string name="v7_me_next_at">NEXT · %1$s</string>
+    <plurals name="v7_me_for_you">
+        <item quantity="one">%1$d patient for you</item>
+        <item quantity="other">%1$d patients for you</item>
+    </plurals>
+    <plurals name="v7_me_waiting">
+        <item quantity="one">%1$d waiting</item>
+        <item quantity="other">%1$d waiting</item>
+    </plurals>
+    <string name="v7_stat_visits">visits today</string>
+    <string name="v7_stat_waiting">waiting</string>
+    <string name="v7_stat_done">done</string>
+    <string name="v7_hero_now">In the chair</string>
+    <string name="v7_hero_next">Up next</string>
+    <string name="v7_hero_open">Open record</string>
+    <string name="v7_hero_call_in">Call in</string>
+    <string name="v7_money_today">Money today</string>
+    <string name="v7_money_collected">Collected today</string>
+    <string name="v7_money_dues">%1$s due</string>
+    <string name="v7_money_expenses">Expenses today</string>
+    <string name="v7_money_add_expense">+ Add expense</string>
+    <string name="v7_up_next">Up next</string>
+    <string name="v7_up_next_all">All %1$d</string>
+    <string name="v7_needs_attention">Needs attention</string>
+    <string name="v7_attention_late">Late by %1$d min</string>
+    <string name="v7_attention_wait">Waiting %1$d min</string>
+    <string name="v7_attention_other">Needs a look</string>
+    <string name="v7_notifications">Notifications</string>
+    <string name="v7_pill_done">Done</string>
+    <string name="v7_pill_in_chair">In chair</string>
+    <string name="v7_pill_waiting">Waiting</string>
+    <string name="v7_pill_missed">Missed</string>
+    <string name="v7_pill_booked">Booked</string>
+    <string name="v7_notifications_none">No notifications.</string>
+    <string name="v7_notifications_read_all">Mark all read</string>
+    <string name="v7_notif_requested">Online booking request</string>
+    <string name="v7_notif_confirmed">Booked online</string>
+    <string name="v7_notif_cancelled">Cancelled by the patient</string>
 </resources>

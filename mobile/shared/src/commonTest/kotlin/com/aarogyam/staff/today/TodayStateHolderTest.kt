@@ -294,7 +294,7 @@ class TodayStateHolderTest {
             assertEquals("doctor", me?.roleKey)
             assertEquals(listOf("Meera Shah", "Kavya Reddy", "Rohan Iyer"), me?.mine?.map { it.patientName })
             assertEquals(2, me?.remaining)
-            assertEquals(listOf("Braces"), me?.treatments)
+            assertEquals(listOf(TreatmentCount("Braces", 2)), me?.treatments)
             assertEquals(
                 listOf(ShiftView(LocalTime(9, 0), LocalTime(13, 0)), ShiftView(LocalTime(16, 0), LocalTime(20, 0))),
                 me?.shifts,
@@ -311,5 +311,24 @@ class TodayStateHolderTest {
             val me = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view.me
             assertEquals(null, me?.practitionerId)
             assertEquals(emptyList(), me?.mine)
+        }
+
+    @Test
+    fun late_arrivals_and_long_waits_need_attention() =
+        runTest {
+            val backend = FakeBackend()
+            val body =
+                todayBody().replace(
+                    "\"attention\":[]",
+                    """"attention":[{"kind":"long_wait","message":"x","minutes":42,"queue_token_id":"t1",
+                       "patient":{"id":"p2","number":"SC-102","full_name":"Kavya Reddy"}}]""",
+                )
+            backend.on("$SUNRISE/api/v1/today", { json(body) })
+            val (graph, clinic) = open(backend, this, backgroundScope)
+            val view = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view
+            assertEquals(
+                listOf(AttentionView(AttentionKind.LongWait, 42, "p2", "Kavya Reddy", null, "t1")),
+                view.attention,
+            )
         }
 }

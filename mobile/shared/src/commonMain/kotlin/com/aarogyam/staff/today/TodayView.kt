@@ -27,6 +27,7 @@ data class ScheduleItem(
     val status: VisitStatus,
     val reason: String?,
     val room: String?,
+    val patientId: String = "",
 )
 
 /** The day's numbers shown as tiles. */
@@ -90,6 +91,8 @@ data class TodayView(
     val money: MoneyView? = null,
     /** The signed-in member's own day. */
     val me: MeView? = null,
+    /** Late arrivals and long waits, from the server. */
+    val attention: List<AttentionView> = emptyList(),
 ) {
     /** Done of all today's visits, 0 to 1, for the progress ring. */
     val progress: Float get() = if (counts.visits == 0) 0f else counts.done.toFloat() / counts.visits
@@ -131,6 +134,7 @@ internal fun TodayResponse.toView(
         hero = now ?: next,
         schedule = items,
         me = me(membershipId, memberName, roleKey, zone, items),
+        attention = attentionViews(),
     )
 }
 
@@ -144,6 +148,7 @@ private fun Appointment.toItem(zone: TimeZone): ScheduleItem? {
         status = visitStatus(status),
         reason = reason,
         room = room,
+        patientId = patient.id,
     )
 }
 

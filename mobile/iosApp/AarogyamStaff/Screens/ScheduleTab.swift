@@ -8,7 +8,18 @@ struct ScheduleTab: View {
     let graph: AppGraph
     let clinic: ClinicContext
     let onOpenPatient: (String) -> Void
-    @State private var segment = 0
+    let onWalkIn: () -> Void
+    @State private var segment = ScheduleTab.firstSegment
+    @State private var booking = ScheduleTab.firstBooking
+
+    #if DEBUG && AARO_ENV_Local
+    /// Screenshot runs: `SIMCTL_CHILD_AAROGYAM_DEV_SEGMENT=1` opens Day (0 Queue, 2 Week), `_SHEET=book` the booking sheet.
+    private static var firstSegment: Int { Int(ProcessInfo.processInfo.environment["AAROGYAM_DEV_SEGMENT"] ?? "") ?? 0 }
+    private static var firstBooking: Bool { DevLaunch.sheet == "book" }
+    #else
+    private static var firstSegment: Int { 0 }
+    private static var firstBooking: Bool { false }
+    #endif
 
     var body: some View {
         ScreenHost(make: { graph.schedule(clinic: clinic, screen: $0) }, state: { $0.queue.state }) { schedule, _ in
@@ -26,15 +37,15 @@ struct ScheduleTab: View {
                     switch segment {
                     case 1:
                         ScreenHost(make: { _ in schedule.day }, state: { $0.state }) { holder, state in
-                            CalendarScreen(holder: holder, state: state, onOpenPatient: onOpenPatient)
+                            DayV7Screen(holder: holder, state: state, clinic: clinic, onOpenPatient: onOpenPatient)
                         }
                     case 2:
                         ScreenHost(make: { _ in schedule.week }, state: { $0.state }) { holder, state in
-                            WeekView(holder: holder, state: state)
+                            WeekV7Screen(holder: holder, state: state)
                         }
                     default:
                         ScreenHost(make: { _ in schedule.queue }, state: { $0.state }) { holder, state in
-                            QueueScreen(holder: holder, state: state, onOpenPatient: onOpenPatient)
+                            QueueV7Screen(holder: holder, state: state, clinic: clinic, onOpenPatient: onOpenPatient, onWalkIn: onWalkIn)
                         }
                     }
                 }
@@ -43,56 +54,16 @@ struct ScheduleTab: View {
             }
         }
         .navigationTitle(String(localized: "v7.tab.schedule"))
-    }
-}
-
-/// The week heat map: how busy each clinic hour is, Monday to Sunday.
-struct WeekView: View {
-    let holder: WeekStateHolder
-    let state: WeekState
-    @State private var picked: (row: Int, column: Int)?
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: SkSpacing.m) {
-                switch onEnum(of: state) {
-                case .loading:
-                    SkLoadingIndicator(String(localized: "v7.loading")).frame(maxWidth: .infinity).padding(SkSpacing.xxl)
-                case .notAllowed:
-                    SkEmptyState(String(localized: "today.not_allowed.title"), message: String(localized: "today.not_allowed.message"))
-                case .failed(let failed):
-                    SkEmptyState(
-                        String(localized: "v7.schedule.week"), message: failed.error.message,
-                        actionTitle: String(localized: "try_again"), action: holder.refresh
-                    )
-                case .loaded(let loaded):
-                    weekHeader(loaded)
-                    let grid = WeekGrid(view: loaded.view)
-                    SkHeatmap(
-                        rowLabels: grid.dayLabels, columnLabels: grid.hourLabels, loads: grid.loads, selected: picked,
-                        onSelect: { picked = ($0, $1) },
-                        describe: { grid.describe(row: $0, column: $1) }
-                    )
-                    SkHeatLegend(quiet: String(localized: "v7.week.quiet"), full: String(localized: "v7.week.busy"))
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { booking = true } label: {
+                    Label { Text("t7.book.action", tableName: "TodayV7") } icon: { V7Icon.image("cal") }
                 }
             }
-            .padding(.horizontal, SkSpacing.l)
-            .padding(.bottom, SkSpacing.xxl)
         }
-        .refreshable { holder.refresh() }
-    }
-
-    private func weekHeader(_ loaded: WeekStateLoaded) -> some View {
-        HStack {
-            Button { holder.previous() } label: { V7Icon(name: "back", size: 20, label: String(localized: "v7.week.previous")) }
-            Spacer()
-            Text(ClinicFormat.day(iso: loaded.start.isoText)).skTextStyle(SkTypeScale.titleSmall)
-            Spacer()
-            Button { holder.next() } label: {
-                V7Icon(name: "chev", size: 20, label: String(localized: "v7.week.next"))
-            }
+        .sheet(isPresented: $booking) {
+            BookFlow(graph: graph, clinic: clinic, dateISO: IosDates.todayISO(zone: clinic.session.clinic.timezone), patientId: nil)
         }
-        .buttonStyle(.skPressable)
     }
 }
 
@@ -118,6 +89,15 @@ struct WeekGrid {
         hourLabels = hourList.map { WeekGrid.hourLabel($0) }
         counts = grid
         loads = grid.map { $0.map { Double($0) / peak } }
+    }
+
+    /// The cell with the most appointments (the first on a tie), or nil when the week is empty.
+    func busiest() -> (row: Int, column: Int)? {
+        var best: (row: Int, column: Int, count: Int)?
+        for (row, line) in counts.enumerated() {
+            for (column, count) in line.enumerated() where count > (best?.count ?? 0) { best = (row, column, count) }
+        }
+        return best.map { ($0.row, $0.column) }
     }
 
     func describe(row: Int, column: Int) -> String {

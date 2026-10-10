@@ -18,8 +18,16 @@ final class AppModel {
     private(set) var clinic: ClinicContext?
     /// After the person leaves a clinic, the picker waits for a tap even with only one clinic.
     var choseToLeave = false
+    /// An invitation link (opened as `aarogyam://invite#...` or pasted) waiting for sign-in and Join.
+    var pendingInvite: String?
 
     @ObservationIgnored private var watchers: [Task<Void, Never>] = []
+
+    /// Takes a URL the system opened the app with; only `aarogyam://invite#<token>` links count.
+    func handle(url: URL) {
+        guard url.scheme == "aarogyam", url.host == "invite", InviteLink.shared.parse(text: url.absoluteString) != nil else { return }
+        pendingInvite = url.absoluteString
+    }
 
     func start() async {
         guard case .starting = phase else { return }
@@ -28,6 +36,10 @@ final class AppModel {
             phase = .notConfigured
             return
         }
+        #if DEBUG && AARO_ENV_Local
+        // Screenshot runs: `SIMCTL_CHILD_AAROGYAM_DEV_SIGN_OUT=1` starts from the signed-out screens.
+        if ProcessInfo.processInfo.environment["AAROGYAM_DEV_SIGN_OUT"] != nil { graph.signOut() }
+        #endif
         session = graph.sessionState.value
         clinic = graph.directory.current.value
         phase = .ready(graph)

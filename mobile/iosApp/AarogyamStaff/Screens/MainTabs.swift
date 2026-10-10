@@ -17,6 +17,7 @@ struct MainTabs: View {
     @State private var clinicCount: Int32 = 1
     @State private var selected: NavTab = .today
     @State private var patientsPath: [PatientRoute] = []
+    @State private var todayPath: [PatientRoute] = []
     @State private var schedulePath: [PatientRoute] = []
     @State private var walkIn = false
     @State private var addExpense = false
@@ -50,11 +51,13 @@ struct MainTabs: View {
     @ViewBuilder private func content(_ tab: NavTab, nav: NavModel) -> some View {
         switch tab {
         case .today:
-            NavigationStack {
-                ScreenHost(make: { graph.today(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
-                    TodayScreen(holder: holder, state: state, onSwitchClinic: onSwitchClinic, onSignOut: graph.signOut)
-                }
+            NavigationStack(path: $todayPath) {
+                RoutesA.today(
+                    graph: graph, clinic: clinic, onOpenPatient: { todayPath.append(PatientRoute(id: $0)) },
+                    onOpenSchedule: { selected = .schedule }, onAddExpense: { addExpense = true }
+                )
                 .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense)
+                .patientDestination(graph: graph, clinic: clinic)
             }
         case .patients:
             NavigationStack(path: $patientsPath) {

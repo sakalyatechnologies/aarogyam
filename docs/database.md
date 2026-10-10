@@ -48,15 +48,15 @@ flowchart LR
   iam -->|1| people
   notify -->|1| billing
   notify -->|1| clinical
-  notify -->|2| iam
+  notify -->|1| iam
   notify -->|5| people
-  notify -->|2| scheduling
+  notify -->|3| scheduling
   notify -->|4| tenancy
   onboarding -->|2| people
   ops -->|3| billing
   ops -->|2| clinical
   ops -->|3| people
-  ops -->|8| tenancy
+  ops -->|9| tenancy
   people -->|5| tenancy
   platform -->|3| iam
   platform -->|2| tenancy
@@ -459,7 +459,7 @@ Anyone who signs in: staff, doctors, patients, Sakalya staff.
 | `status` | `user_status` | active, disabled |
 | `last_seen_at` | `timestamptz?` |  |
 
-Referenced by: `auth_handoffs.user_id`, `clinic_applications.decided_by`, `devices.user_id`, `invitations.invited_by`, `memberships.user_id`, `messages.user_id`, `notifications.user_id`, `platform_users.user_id`, `role_changes.changed_by`, `sessions.user_id`
+Referenced by: `auth_handoffs.user_id`, `clinic_applications.decided_by`, `devices.user_id`, `invitations.invited_by`, `memberships.user_id`, `notifications.user_id`, `platform_users.user_id`, `role_changes.changed_by`, `sessions.user_id`
 
 ### `sessions` (★ foundation)
 
@@ -787,7 +787,7 @@ A user's place in a clinic: role, branches, status. The link between users and c
 
 Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize().
 
-Referenced by: `allergies.verified_by`, `chat_messages.author_membership_id`, `clinical_notes.author_id`, `clinical_notes.error_by`, `clinical_notes.signed_by`, `conditions.verified_by`, `consent_notices.published_by`, `conversation_members.membership_id`, `daily_closings.closed_by`, `dental_terms.added_by`, `dental_terms.retired_by`, `document_extractions.confirmed_by`, `encounters.clinician_id`, `expenses.recorded_by`, `expenses.voided_by`, `invoices.issued_by`, `invoices.voided_by`, `lab_order_events.actor_id`, `lab_orders.doctor_id`, `lab_payments.recorded_by`, `lab_payments.voided_by`, `medical_history_items.verified_by`, `member_setup.membership_id`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `patient_consents.recorded_by`, `patient_consents.withdrawn_by`, `patient_duplicates.resolved_by`, `patient_links.decided_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `procedures.clinician_id`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`, `staff_notification_reads.membership_id`, `staff_notifications.handled_by`, `support_grants.granted_by`, `support_grants.revoked_by`, `treatment_plans.clinician_id`
+Referenced by: `allergies.verified_by`, `chat_messages.author_membership_id`, `clinical_notes.author_id`, `clinical_notes.error_by`, `clinical_notes.signed_by`, `conditions.verified_by`, `consent_notices.published_by`, `conversation_members.membership_id`, `daily_closings.closed_by`, `dental_terms.added_by`, `dental_terms.retired_by`, `document_extractions.confirmed_by`, `encounters.clinician_id`, `expenses.recorded_by`, `expenses.voided_by`, `invoices.issued_by`, `invoices.voided_by`, `lab_order_events.actor_id`, `lab_orders.doctor_id`, `lab_orders.last_contacted_by`, `lab_payments.recorded_by`, `lab_payments.voided_by`, `medical_history_items.verified_by`, `member_setup.membership_id`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `patient_consents.recorded_by`, `patient_consents.withdrawn_by`, `patient_duplicates.resolved_by`, `patient_links.decided_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `procedures.clinician_id`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`, `staff_notification_reads.membership_id`, `staff_notifications.handled_by`, `support_grants.granted_by`, `support_grants.revoked_by`, `treatment_plans.clinician_id`
 
 ### `membership_branches` (★ foundation)
 
@@ -1112,7 +1112,7 @@ A booked slot with a doctor, optionally in a room or chair.
 
 Online self-bookings start as requested (or confirmed when the clinic auto-confirms); a unique index on (doctor, start) for active self-bookings backs the per-doctor check. An exclusion constraint on (org_id, room_id, time range) for active rows (not cancelled, not no-show, not deleted) stops two bookings in one chair; a doctor in two chairs at once is a warning, not an error. Status changes follow the transition table in aarogyam_domain::schedule. Visits point at appointments, not the other way round.
 
-Referenced by: `appointment_events.appointment_id`, `booking_requests.appointment_id`, `encounters.appointment_id`, `queue_tokens.appointment_id`, `staff_inbox_messages.appointment_id`, `staff_notifications.appointment_id`, `teleconsult_sessions.appointment_id`
+Referenced by: `appointment_events.appointment_id`, `booking_requests.appointment_id`, `encounters.appointment_id`, `messages.appointment_id`, `queue_tokens.appointment_id`, `staff_inbox_messages.appointment_id`, `staff_notifications.appointment_id`, `teleconsult_sessions.appointment_id`
 
 ### `appointment_events` (★ foundation)
 
@@ -1727,6 +1727,7 @@ erDiagram
   lab_orders |o--o{ lab_orders : "rework_of_id"
   lab_orders ||--o{ lab_order_items : "lab_order_id"
   lab_orders ||--o{ lab_order_events : "lab_order_id"
+  lab_contacts |o--o{ lab_order_events : "contact_id"
   lab_vendors ||--o{ lab_payments : "vendor_id"
   lab_orders |o--o{ lab_payments : "lab_order_id"
   inventory_items ||--o{ stock_batches : "item_id"
@@ -1791,7 +1792,7 @@ The people at a lab: several per lab, each reachable their own way.
 
 Built (migration 0361). Not patients: reminders reach them through the outbox with recipient set. Name, phone and email are masked in the change history; retention class lab_contacts (365 days after removal).
 
-Referenced by: `lab_orders.contact_id`
+Referenced by: `lab_order_events.contact_id`, `lab_orders.contact_id`
 
 ### `lab_orders`
 
@@ -1818,6 +1819,8 @@ Work sent to a lab for a patient, its due date and where it is.
 | `due_soon_reminded_on` | `date?` |  |
 | `due_today_reminded_on` | `date?` |  |
 | `overdue_flagged_on` | `date?` | reminder steps; cleared when due_on changes (trigger) |
+| `last_contacted_at` | `timestamptz?` | contact log or manual reminder (migration 0364) |
+| `last_contacted_by` | `uuid?` | → `memberships` |
 
 Built (migration 0361). Status moves forward only (draft -> sent/cancelled; sent -> in_progress/received/cancelled; in_progress -> received/cancelled; received -> fitted/returned_for_rework). The outbox job emails the lab two days before and on the due date, and flags overdue work, each once per due date (app.run_lab_reminders, migration 0363). Reminders never name the patient. Retention class lab_work (8 years).
 
@@ -1827,7 +1830,7 @@ Referenced by: `attachments.lab_order_id`, `lab_order_events.lab_order_id`, `lab
 
 What the lab makes on an order: a crown on 36 in A2 zirconia.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: health · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: health · offline: server only · lifecycle: ephemeral*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -1840,7 +1843,7 @@ What the lab makes on an order: a crown on 36 in A2 zirconia.
 | `qty` | `int` | 1-100 |
 | `unit_cost_paise` | `bigint?` | seen and set only with finance.view |
 
-Built (migration 0361). Work type, shade and material are masked in the change history.
+Built (migration 0361). Added, changed and removed after creation until the order is final (migration 0364; ephemeral so removal is possible, each change audited and recorded as an event). Work type, shade and material are masked in the change history.
 
 ### `lab_order_events`
 
@@ -1851,16 +1854,20 @@ What happened to a lab order: created, status or stage or due date changed, remi
 | Column | Type | Notes |
 |---|---|---|
 | `lab_order_id` | `uuid` | → `lab_orders` |
-| `kind` | `text` | created, status_changed, stage_changed, due_changed, reminded, reminder_skipped, overdue |
+| `kind` | `text` | created, status_changed, stage_changed, due_changed, reminded, reminder_skipped, overdue, contacted, item_added, item_changed, item_removed |
 | `from_status` | `text?` |  |
 | `to_status` | `text?` |  |
 | `stage` | `text?` |  |
-| `due_on` | `date?` |  |
+| `due_on` | `date?` | for contacted, the date the lab promised |
 | `reminder` | `text?` | due_soon, due_today, manual |
-| `note` | `text?` | masked in the change history |
+| `channel` | `text?` | call, whatsapp, email, visit; set exactly for contacted |
+| `outcome` | `text?` | reached, no_answer, promised_date, other |
+| `contact_id` | `uuid?` | → `lab_contacts`. who at the lab was contacted |
+| `line_no` | `smallint?` | the item, for item events |
+| `note` | `text?` | masked in the change history; cleared on patient erasure |
 | `actor_id` | `uuid?` | → `memberships`. null for the reminder job |
 
-Built (migration 0361).
+Built (migrations 0361, 0364). Also the contact log: POST /lab-orders/{id}/contacts-log.
 
 ### `lab_payments`
 
@@ -2300,11 +2307,11 @@ erDiagram
   audiences ||--o{ campaigns : "audience_id"
   message_templates ||--o{ campaigns : "template_id"
   promo_codes ||--o{ promo_redemptions : "promo_code_id"
-  message_templates ||--o{ messages : "template_id"
-  notification_rules |o--o{ messages : "rule_id"
-  campaigns |o--o{ messages : "campaign_id"
   messages ||--o{ message_events : "message_id"
   contact_preferences {
+    uuid id
+  }
+  notification_rules {
     uuid id
   }
   notifications {
@@ -2336,7 +2343,7 @@ Message text per channel and language. Clinic rows override platform defaults.
 
 org_id is null for platform defaults; this table allows that.
 
-Referenced by: `campaigns.template_id`, `messages.template_id`
+Referenced by: `campaigns.template_id`
 
 ### `notification_rules`
 
@@ -2354,25 +2361,23 @@ When to message: on an event, before an appointment, on birthdays, on recalls.
 | `conditions` | `jsonb?` |  |
 | `active` | `bool` |  |
 
-Referenced by: `messages.rule_id`
-
 ### `contact_preferences`
 
-Per patient and channel: may we message them, and was promotional consent given?
+What a patient asked for per channel and category: an opt-out, and for WhatsApp when they opted in.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
 | `patient_id` | `uuid` | → `patients` |
-| `channel` | `channel` |  |
-| `transactional_ok` | `bool` |  |
-| `promotional_ok` | `bool` |  |
-| `consented_at` | `timestamptz?` |  |
-| `consent_source` | `text?` |  |
+| `channel` | `text` | email, whatsapp, sms |
+| `category` | `text` | all, care, reminders, promotional |
+| `opted_out` | `bool` |  |
 | `opted_out_at` | `timestamptz?` |  |
+| `whatsapp_opt_in_at` | `timestamptz?` | WhatsApp only |
+| `source` | `text` | staff, patient, unsubscribe_link, bounce, complaint, stop_keyword |
 
-Primary key (org_id, patient_id, channel).
+Built (migration 0370). Unique (org_id, patient_id, channel, category). Consent for a purpose is patient_consents (app.may_contact); this is the patient not wanting a channel. Written by staff (POST /patients/{id}/contact-preferences), the unsubscribe link and Resend bounces or complaints (app.contact_opt_out). Erased with the patient.
 
 ### `staff_notifications`
 
@@ -2521,8 +2526,6 @@ A one-off or scheduled send to an audience: health tips, offers.
 | `status` | `campaign_status` | draft, scheduled, sending, sent, cancelled |
 | `cost_estimate_paise` | `bigint?` |  |
 
-Referenced by: `messages.campaign_id`
-
 ### `promo_codes`
 
 Discount codes a clinic can share.
@@ -2579,43 +2582,58 @@ Messages to send because of a change, written in the same transaction as the cha
 
 Guarantees a message is never lost or sent for a change that rolled back. The worker claims due rows across clinics with FOR UPDATE SKIP LOCKED through app.outbox_claim, retries with backoff, gives up after 5 attempts, and deletes rows 30 days after processing.
 
-### `messages` (partitioned)
+### `messages`
 
-Every message scheduled or sent, with its outcome and cost.
+The queue of messages to patients: one row per recipient and channel, addressed and consent-checked when sent.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
-| `patient_id` | `uuid?` | → `patients` |
-| `user_id` | `uuid?` | → `users` |
-| `channel` | `channel` |  |
-| `template_id` | `uuid` | → `message_templates` |
-| `rule_id` | `uuid?` | → `notification_rules` |
-| `campaign_id` | `uuid?` | → `campaigns` |
+| `patient_id` | `uuid` | → `patients` |
+| `channel` | `text` | email, whatsapp, sms |
+| `kind` | `text` | prescription.shared, booking.requested/confirmed/declined, patient_app.invited, appointment.reminder, clinic.message |
+| `purpose` | `text` | care, reminders, promotional (the consent it needs) |
+| `template_key` | `text` | the kind, or care.note, reminder.follow_up, promo.offer |
+| `variables` | `jsonb` | ids and non-patient template values |
+| `body` | `text?` | staff free text, email only |
+| `secret` | `text?` | a one-time link secret, cleared once processed |
+| `appointment_id` | `uuid?` | → `appointments` |
+| `status` | `text` | queued, sending, sent, failed, skipped |
+| `skip_reason` | `text?` | no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed... |
+| `dedupe_key` | `text?` | unique per clinic, e.g. reminder:appt:<id>:24h |
 | `scheduled_for` | `timestamptz` |  |
-| `status` | `message_status` | scheduled, queued, sent, delivered, read, failed, skipped |
-| `skip_reason` | `skip_reason?` | no_consent, quiet_hours, duplicate, quota |
-| `dedupe_key` | `text` | unique, e.g. reminder:appt-id:24h |
-| `provider` | `text?` |  |
-| `provider_message_id` | `text?` |  |
+| `lease_until` | `timestamptz?` | while sending |
+| `attempts` | `int` |  |
+| `last_error` | `text?` |  |
+| `provider` | `text?` | log, resend |
+| `provider_message_id` | `text?` | unique per clinic and provider |
 | `cost_paise` | `bigint?` |  |
+| `unsubscribe_hash` | `text?` | SHA-256 of the email's unsubscribe token |
+| `delivery` | `text?` | latest provider report |
+| `delivery_at` | `timestamptz?` |  |
 | `sent_at` | `timestamptz?` |  |
+| `processed_at` | `timestamptz?` |  |
+
+Built (migrations 0370 to 0373); not partitioned. Never holds an address. The outbox job claims due rows (app.messages_claim, lease and SKIP LOCKED, a daily budget per provider), reads each through app.message_dispatch (address, may_contact, opt-outs, quiet hours, patient state) and sends, skips or reschedules it. The change history masks body, variables, secret, error and the unsubscribe hash. Erased with the patient; retention 365 days from queuing.
 
 Referenced by: `message_events.message_id`
 
-### `message_events` (partitioned)
+### `message_events`
 
-Delivery receipts from providers: sent, delivered, read, failed.
+What providers reported about a sent message: delivered, bounced, complained.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: append only*
 
 | Column | Type | Notes |
 |---|---|---|
 | `message_id` | `uuid` | → `messages` |
-| `kind` | `text` |  |
-| `at` | `timestamptz` |  |
-| `details` | `jsonb?` |  |
+| `provider` | `text` |  |
+| `provider_event_id` | `text` | svix-id; unique per clinic and provider |
+| `kind` | `text` | sent, delivered, delayed, bounced, complained, failed, opened, clicked |
+| `occurred_at` | `timestamptz` |  |
+
+Built (migration 0370). Metadata only, never the payload; written by the Resend webhook through app.message_provider_event, once per event whatever the order.
 
 ### `notifications`
 

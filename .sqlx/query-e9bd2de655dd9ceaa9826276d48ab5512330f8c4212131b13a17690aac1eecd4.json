@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.lab_order_json(o, $3) || jsonb_build_object('events', coalesce(\n                    (select jsonb_agg(jsonb_build_object(\n                              'kind', e.kind, 'from_status', e.from_status, 'to_status', e.to_status,\n                              'stage', e.stage, 'due_on', e.due_on, 'reminder', e.reminder,\n                              'note', e.note, 'channel', e.channel, 'outcome', e.outcome,\n                              'contact_id', e.contact_id, 'line_no', e.line_no,\n                              'actor_id', e.actor_id, 'created_at', e.created_at)\n                            order by e.id)\n                     from aarogyam.lab_order_events e where e.lab_order_id = o.id), '[]'::jsonb))\n                  as \"order!: Json<OrderJson>\"\n           from aarogyam.lab_orders o\n           where o.id = $1 and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "order!: Json<OrderJson>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e9bd2de655dd9ceaa9826276d48ab5512330f8c4212131b13a17690aac1eecd4"
+}

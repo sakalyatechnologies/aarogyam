@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select line_no from aarogyam.lab_order_items where lab_order_id = $1 order by line_no",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "line_no",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_order_items",
+            "name": "line_no"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c8be0bc2f8e460915dcfc354168affff6a33eb217d6b75f6a6828fc0dad04a01"
+}

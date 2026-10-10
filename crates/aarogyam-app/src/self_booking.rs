@@ -25,7 +25,7 @@ use uuid::Uuid;
 use crate::appointments::parse_reason;
 use crate::clock::{clinic_offset, clinic_today, day_bounds};
 use crate::error::AppError;
-use crate::outbox::{PatientEmail, enqueue_patient_email};
+use crate::messaging::{PatientEmail, enqueue_patient_email};
 use crate::patients::parse_phone;
 use crate::schedule::resolve_branch;
 use crate::scope::public_scope;
@@ -286,7 +286,7 @@ fn when_text(at: OffsetDateTime) -> String {
 async fn email_patient(
     tx: &mut ScopedTx,
     kind: MessageKind,
-    to: &Email,
+    patient_id: Uuid,
     appointment_id: Uuid,
     clinic_name: &str,
     doctor_name: &str,
@@ -299,7 +299,7 @@ async fn email_patient(
         tx,
         &PatientEmail {
             kind,
-            to,
+            patient_id: PatientId::from_uuid(patient_id),
             payload: json!({
                 "appointment_id": appointment_id,
                 "clinic_name": clinic_name,
@@ -308,6 +308,7 @@ async fn email_patient(
                 "when": when_text(starts_at),
             }),
             secret: None,
+            appointment_id: Some(appointment_id),
         },
     )
     .await?;
@@ -563,11 +564,11 @@ async fn book_slot(
         } else {
             MessageKind::BookingRequested
         };
-        if let Some(email) = email {
+        if email.is_some() {
             email_patient(
                 tx,
                 message,
-                &email,
+                patient_id,
                 id.uuid(),
                 &profile.name,
                 &doctor.display_name,
@@ -600,17 +601,18 @@ pub(crate) async fn notify_decision(
         AppointmentStatus::Cancelled => MessageKind::BookingDeclined,
         _ => return Ok(()),
     };
-    let Some(email) = patients::get(tx.conn(), row.patient_id, None)
+    let has_email = patients::get(tx.conn(), row.patient_id, None)
         .await?
         .and_then(|patient| patient.email)
         .and_then(|text| Email::parse(&text).ok())
-    else {
+        .is_some();
+    if !has_email {
         return Ok(());
-    };
+    }
     email_patient(
         tx,
         kind,
-        &email,
+        row.patient_id,
         row.id,
         &profile.name,
         &row.practitioner_name,

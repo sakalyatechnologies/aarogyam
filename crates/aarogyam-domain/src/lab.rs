@@ -111,6 +111,42 @@ text_value!(
         ReminderSkipped => "reminder_skipped",
         /// The due date passed with the work still at the lab.
         Overdue => "overdue",
+        /// A member called, messaged, emailed or visited the lab.
+        Contacted => "contacted",
+        /// An item was added after the order was recorded.
+        ItemAdded => "item_added",
+        /// An item was changed.
+        ItemChanged => "item_changed",
+        /// An item was removed.
+        ItemRemoved => "item_removed",
+    }
+);
+
+text_value!(
+    /// How a member got in touch with a lab, for the contact log.
+    ContactLogChannel("channel") {
+        /// A phone call.
+        Call => "call",
+        /// A `WhatsApp` message.
+        Whatsapp => "whatsapp",
+        /// An email.
+        Email => "email",
+        /// In person.
+        Visit => "visit",
+    }
+);
+
+text_value!(
+    /// What came of contacting a lab.
+    ContactOutcome("outcome") {
+        /// Spoke to someone.
+        Reached => "reached",
+        /// Nobody answered.
+        NoAnswer => "no_answer",
+        /// The lab promised a date (`promised_on`).
+        PromisedDate => "promised_date",
+        /// Anything else; see the note.
+        Other => "other",
     }
 );
 

@@ -23,7 +23,7 @@ use uuid::Uuid;
 use crate::billing::PatientRef;
 use crate::clock::clinic_today;
 use crate::error::AppError;
-use crate::outbox::{PatientEmail, enqueue_patient_email};
+use crate::messaging::{PatientEmail, enqueue_patient_email};
 use crate::scope::staff_scope as scope;
 use crate::share;
 use crate::tokens::new_token;
@@ -631,12 +631,14 @@ async fn share_with_patient(
     let patient = patients::get(tx.conn(), patient_id, None)
         .await?
         .ok_or(AppError::NotFound("patient"))?;
-    let Some(email) = patient
+    // The address is read again when the email is sent; here only whether there is one.
+    if patient
         .email
         .and_then(|text| aarogyam_domain::patient::Email::parse(&text).ok())
-    else {
+        .is_none()
+    {
         return Ok(Sharing::NotSent(NotSent::NoEmail));
-    };
+    }
     let Some(host) = aarogyam_dal::staff::portal_host(tx.conn()).await? else {
         return Ok(Sharing::NotSent(NotSent::NoPortal));
     };
@@ -652,7 +654,7 @@ async fn share_with_patient(
         tx,
         &PatientEmail {
             kind: MessageKind::PrescriptionShared,
-            to: &email,
+            patient_id: PatientId::from_uuid(patient_id),
             payload: json!({
                 "prescription_id": id.uuid(),
                 "clinic_name": profile.name,
@@ -661,6 +663,7 @@ async fn share_with_patient(
                 "expires_on": format!("{} {} {}", expires_on.day(), expires_on.month(), expires_on.year()),
             }),
             secret: Some(&link.token),
+            appointment_id: None,
         },
     )
     .await?;

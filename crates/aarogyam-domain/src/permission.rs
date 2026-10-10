@@ -52,6 +52,8 @@ pub enum Permission {
     /// Let a named Sakalya staff member read the clinic's records for up to 7 days, and revoke
     /// that access.
     SupportGrant,
+    /// Send patients email messages from the clinic.
+    MessagesSend,
     /// Chat with other staff of the clinic.
     ChatUse,
     /// See labs, their contacts and lab orders.
@@ -62,7 +64,7 @@ pub enum Permission {
 
 impl Permission {
     /// Every permission, in catalogue order.
-    pub const ALL: [Self; 25] = [
+    pub const ALL: [Self; 26] = [
         Self::PatientsRead,
         Self::PatientsWrite,
         Self::PatientsContact,
@@ -85,6 +87,7 @@ impl Permission {
         Self::AnalyticsView,
         Self::IntakeWrite,
         Self::SupportGrant,
+        Self::MessagesSend,
         Self::ChatUse,
         Self::LabsRead,
         Self::LabsWrite,
@@ -116,6 +119,7 @@ impl Permission {
             Self::AnalyticsView => "analytics.view",
             Self::IntakeWrite => "intake.write",
             Self::SupportGrant => "support.grant",
+            Self::MessagesSend => "messages.send",
             Self::ChatUse => "chat.use",
             Self::LabsRead => "labs.read",
             Self::LabsWrite => "labs.write",
@@ -339,6 +343,7 @@ required!(
     AnalyticsView,
     IntakeWrite,
     SupportGrant,
+    MessagesSend,
     ChatUse,
     LabsRead,
     LabsWrite,

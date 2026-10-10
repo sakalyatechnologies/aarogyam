@@ -2874,7 +2874,7 @@
         "tags": [
           "internal"
         ],
-        "summary": "Makes new portal hosts work, reminds staff of unanswered booking requests (then the\nowners) and labs of work due, then delivers due outbox messages across clinics (local development only; later Cloud\nScheduler with a Google-signed token).",
+        "summary": "Makes new portal hosts work, reminds staff of unanswered booking requests (then the\nowners) and labs of work due, delivers due outbox messages, then queues appointment\nreminders and sends due patient messages across clinics (local development only; later\nCloud Scheduler with a Google-signed token).",
         "operationId": "drainOutbox",
         "responses": {
           "200": {
@@ -3594,6 +3594,113 @@
         ]
       }
     },
+    "/api/v1/lab-order-items/{id}": {
+      "delete": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Removes a lab order item; an order keeps at least one.",
+        "operationId": "removeLabOrderItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab order item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrder"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such item in this clinic or within reach"
+          },
+          "409": {
+            "description": "The order is final, or this is its last item"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Changes a lab order item, with the checks of a new one.",
+        "operationId": "updateLabOrderItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab order item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabOrderItemChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid values"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write, or finance.view for a cost"
+          },
+          "404": {
+            "description": "No such item in this clinic or within reach"
+          },
+          "409": {
+            "description": "The order is fitted, reworked or cancelled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/lab-orders": {
       "get": {
         "tags": [
@@ -3810,6 +3917,128 @@
           },
           "403": {
             "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such lab order in this clinic or within reach"
+          },
+          "409": {
+            "description": "The order is fitted, reworked or cancelled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-orders/{id}/contacts-log": {
+      "post": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Logs a call, `WhatsApp` message, email or visit to the lab about an order: a `contacted`\nevent by the caller, the order's last contact, and a promised date as its due date.",
+        "operationId": "logLabContact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab order",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabContactLogEntry"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A long note, a bad date, or a contact at another lab"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "No such lab order in this clinic or within reach"
+          },
+          "409": {
+            "description": "A promised date on a fitted, reworked or cancelled order"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-orders/{id}/items": {
+      "post": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Adds an item to a lab order that isn't fitted, reworked or cancelled.",
+        "operationId": "addLabOrderItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The lab order",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewLabOrderItem"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid values, or the order has 50 items"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write, or finance.view for a cost"
           },
           "404": {
             "description": "No such lab order in this clinic or within reach"
@@ -5509,6 +5738,53 @@
           },
           "404": {
             "description": "Not a clinic, a member of it, or not a doctor here"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/messages": {
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Queues a message to each patient. Messages go out when the outbox job next runs, after the\nsend-time checks: consent for the template's purpose, opt-outs, quiet hours for reminders and\npromotional messages, and the provider's daily budget.",
+        "operationId": "sendMessages",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessages"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagesQueued"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad patients, channel, template, variables or body"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks messages.send"
+          },
+          "404": {
+            "description": "A patient isn't in this clinic or out of the role's reach; nothing was queued"
           }
         },
         "security": [
@@ -7309,6 +7585,64 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/contact-preferences": {
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Records a contact preference: an opt-out of a channel for some or all messages (queued ones\nit covers are skipped), opting back in, or a `WhatsApp` opt-in. Consent for a purpose is\nseparate (`POST /patients/{id}/consents`).",
+        "operationId": "setPatientContactPreference",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetContactPreference"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactPreferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown channel or category, or a WhatsApp opt-in on another channel"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic, or out of the role's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/dental-chart": {
       "get": {
         "tags": [
@@ -7733,6 +8067,51 @@
           },
           "409": {
             "description": "Already merged, or the record has clinical or billing data"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/messages": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "The patient's newest messages and what became of them: metadata only.",
+        "operationId": "listPatientMessages",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic, or out of the role's reach"
           }
         },
         "security": [
@@ -9655,6 +10034,40 @@
           },
           "429": {
             "description": "Too many requests from this address"
+          }
+        }
+      }
+    },
+    "/api/v1/public/unsubscribe/{token}": {
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "One-click unsubscribe (RFC 8058) from a reminder or promotional email: the patient stops\ngetting email of that kind from the clinic. Safe to repeat.",
+        "operationId": "unsubscribe",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The opaque token from the email",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Unsubscribed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The link is not valid"
           }
         }
       }
@@ -12597,6 +13010,29 @@
             "bearer": []
           }
         ]
+      }
+    },
+    "/api/v1/webhooks/resend": {
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Resend's delivery events, signed by Svix (`svix-id`, `svix-timestamp`, `svix-signature` over\nthe raw body; five minutes' tolerance). A bounce or complaint opts the patient out of email.\nEach event counts once, in any order. Answers 200 quickly for every authentic event, including\nones about email this table doesn't hold (staff email).",
+        "operationId": "resendWebhook",
+        "responses": {
+          "200": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "Authentic but not a Resend event"
+          },
+          "401": {
+            "description": "The signature is missing, wrong or too old"
+          },
+          "413": {
+            "description": "The body is too large"
+          }
+        }
       }
     },
     "/healthz": {
@@ -15631,6 +16067,69 @@
           }
         }
       },
+      "ContactPreference": {
+        "type": "object",
+        "description": "One of a patient's contact preferences.",
+        "required": [
+          "channel",
+          "category",
+          "opted_out",
+          "source",
+          "updated_at"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "`all`, `care`, `reminders` or `promotional`."
+          },
+          "channel": {
+            "type": "string",
+            "description": "`email`, `whatsapp` or `sms`."
+          },
+          "opted_out": {
+            "type": "boolean",
+            "description": "Whether the patient opted out."
+          },
+          "opted_out_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Since when (RFC 3339)."
+          },
+          "source": {
+            "type": "string",
+            "description": "`staff`, `patient`, `unsubscribe_link`, `bounce`, `complaint` or `stop_keyword`."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          },
+          "whatsapp_opt_in_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When they opted in to `WhatsApp` (RFC 3339)."
+          }
+        }
+      },
+      "ContactPreferences": {
+        "type": "object",
+        "description": "The patient's contact preferences.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactPreference"
+            },
+            "description": "One per channel and category recorded."
+          }
+        }
+      },
       "Conversation": {
         "type": "object",
         "description": "A conversation with its active members.",
@@ -16076,6 +16575,14 @@
           "booking_requests_open",
           "booking_requests_reminded",
           "booking_requests_escalated",
+          "reminders_queued",
+          "messages_claimed",
+          "messages_sent",
+          "messages_skipped",
+          "messages_rescheduled",
+          "messages_deferred",
+          "messages_retrying",
+          "messages_failed",
           "lab_reminders_queued",
           "lab_reminders_skipped",
           "lab_orders_overdue"
@@ -16144,10 +16651,50 @@
             "description": "Reminders due to labs with no email address.",
             "minimum": 0
           },
+          "messages_claimed": {
+            "type": "integer",
+            "description": "Patient messages claimed to send now.",
+            "minimum": 0
+          },
+          "messages_deferred": {
+            "type": "integer",
+            "description": "Patient messages moved to tomorrow because the daily email budget was spent.",
+            "minimum": 0
+          },
+          "messages_failed": {
+            "type": "integer",
+            "description": "Patient messages that failed for the last time.",
+            "minimum": 0
+          },
+          "messages_rescheduled": {
+            "type": "integer",
+            "description": "Patient messages put back: quiet hours, or a reminder whose appointment moved.",
+            "minimum": 0
+          },
+          "messages_retrying": {
+            "type": "integer",
+            "description": "Patient messages that failed and will be tried again.",
+            "minimum": 0
+          },
+          "messages_sent": {
+            "type": "integer",
+            "description": "Patient messages sent.",
+            "minimum": 0
+          },
+          "messages_skipped": {
+            "type": "integer",
+            "description": "Patient messages not sent, for a reason (consent, an opt-out, no address).",
+            "minimum": 0
+          },
           "purged": {
             "type": "integer",
             "format": "int64",
             "description": "Old processed messages deleted."
+          },
+          "reminders_queued": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Appointment reminders queued for patients."
           },
           "retrying": {
             "type": "integer",
@@ -17845,6 +18392,71 @@
           "phone"
         ]
       },
+      "LabContactLogChannel": {
+        "type": "string",
+        "description": "How the lab was contacted.",
+        "enum": [
+          "call",
+          "whatsapp",
+          "email",
+          "visit"
+        ]
+      },
+      "LabContactLogEntry": {
+        "type": "object",
+        "description": "A call, message, email or visit to the lab about an order.",
+        "required": [
+          "channel"
+        ],
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/LabContactLogChannel",
+            "description": "How."
+          },
+          "contact_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who at the lab: a contact of the order's lab."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Up to 500 characters."
+          },
+          "outcome": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LabContactLogOutcome",
+                "description": "What came of it."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promised_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The date the lab promised, `YYYY-MM-DD`: becomes the due date and restarts reminders."
+          }
+        }
+      },
+      "LabContactLogOutcome": {
+        "type": "string",
+        "description": "What came of contacting the lab.",
+        "enum": [
+          "reached",
+          "no_answer",
+          "promised_date",
+          "other"
+        ]
+      },
       "LabContactValues": {
         "type": "object",
         "description": "A contact's values. On a change, fields left out stay as they are and an empty string\nclears an optional one.",
@@ -17904,6 +18516,7 @@
           "id",
           "number",
           "vendor_id",
+          "contact_whatsapp",
           "patient_id",
           "patient_number",
           "patient_name",
@@ -17915,6 +18528,13 @@
           "events"
         ],
         "properties": {
+          "contact_email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their email."
+          },
           "contact_id": {
             "type": [
               "string",
@@ -17928,6 +18548,17 @@
               "null"
             ],
             "description": "Their name."
+          },
+          "contact_phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their phone, E.164, for a dialler."
+          },
+          "contact_whatsapp": {
+            "type": "boolean",
+            "description": "Whether they use `WhatsApp` on that phone."
           },
           "costs_visible": {
             "type": "boolean",
@@ -17986,6 +18617,27 @@
               "$ref": "#/components/schemas/LabOrderItem"
             },
             "description": "What to make."
+          },
+          "last_contacted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When a member last contacted the lab about it: the contact log or a manual reminder\n(RFC 3339)."
+          },
+          "last_contacted_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who."
+          },
+          "last_contacted_by_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their name."
           },
           "number": {
             "type": "string",
@@ -18052,6 +18704,13 @@
               "null"
             ],
             "description": "Its name."
+          },
+          "vendor_phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The lab's own phone, E.164, when no contact is named."
           }
         }
       },
@@ -18108,6 +18767,20 @@
             "type": "string",
             "description": "When (RFC 3339)."
           },
+          "channel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How the lab was contacted: call, whatsapp, email or visit (contacted only)."
+          },
+          "contact_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who at the lab was contacted."
+          },
           "due_on": {
             "type": [
               "string",
@@ -18128,7 +18801,15 @@
           },
           "kind": {
             "type": "string",
-            "description": "created, `status_changed`, `stage_changed`, `due_changed`, reminded, `reminder_skipped` or overdue."
+            "description": "created, `status_changed`, `stage_changed`, `due_changed`, reminded, `reminder_skipped`,\noverdue, contacted, `item_added`, `item_changed` or `item_removed`."
+          },
+          "line_no": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The item's line, for an item change."
           },
           "note": {
             "type": [
@@ -18136,6 +18817,13 @@
               "null"
             ],
             "description": "A note."
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "reached, `no_answer`, `promised_date` or other (contacted only)."
           },
           "reminder": {
             "type": [
@@ -18168,12 +18856,17 @@
         "type": "object",
         "description": "An item on a lab order.",
         "required": [
+          "id",
           "line_no",
           "work_type",
           "teeth",
           "qty"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifier, for `PATCH` and `DELETE /lab-order-items/{id}`."
+          },
           "line_no": {
             "type": "integer",
             "format": "int32",
@@ -18217,6 +18910,60 @@
           "work_type": {
             "type": "string",
             "description": "What to make."
+          }
+        }
+      },
+      "LabOrderItemChanges": {
+        "type": "object",
+        "description": "A change to a lab order item. Fields left out stay; an empty shade or material clears.",
+        "properties": {
+          "material": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Material, up to 80 characters."
+          },
+          "qty": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How many, 1 to 100."
+          },
+          "shade": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Shade, up to 20 characters."
+          },
+          "teeth": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "FDI tooth numbers, each once, up to 32."
+          },
+          "unit_cost_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Paise for one; `null` clears. Setting or clearing needs `finance.view`."
+          },
+          "work_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What to make, up to 80 characters."
           }
         }
       },
@@ -19270,6 +20017,128 @@
           "patient_id": {
             "type": "string",
             "description": "The patient that remains."
+          }
+        }
+      },
+      "MessageList": {
+        "type": "object",
+        "description": "A patient's messages, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageSummary"
+            },
+            "description": "Up to 100 messages."
+          }
+        }
+      },
+      "MessageSummary": {
+        "type": "object",
+        "description": "A message as a patient's list shows it: never its text, address or link secret.",
+        "required": [
+          "id",
+          "channel",
+          "kind",
+          "purpose",
+          "template_key",
+          "status",
+          "scheduled_for",
+          "attempts",
+          "created_at"
+        ],
+        "properties": {
+          "attempts": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Delivery attempts."
+          },
+          "channel": {
+            "type": "string",
+            "description": "`email`, `whatsapp` or `sms`."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was queued (RFC 3339)."
+          },
+          "delivery": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the provider last reported: `delivered`, `bounced`, `complained`..."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`prescription.shared`, `booking.confirmed`, `appointment.reminder`, `clinic.message`..."
+          },
+          "purpose": {
+            "type": "string",
+            "description": "The consent purpose it needs: `care`, `reminders` or `promotional`."
+          },
+          "scheduled_for": {
+            "type": "string",
+            "description": "When it is or was due (RFC 3339)."
+          },
+          "sent_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was handed to the provider (RFC 3339)."
+          },
+          "skip_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why it was skipped: `no_consent`, `consent_withdrawn`, `opted_out`, `no_address`..."
+          },
+          "status": {
+            "type": "string",
+            "description": "`queued`, `sending`, `sent`, `failed` or `skipped`."
+          },
+          "template_key": {
+            "type": "string",
+            "description": "Its template."
+          }
+        }
+      },
+      "MessagesQueued": {
+        "type": "object",
+        "description": "What sending queued.",
+        "required": [
+          "batch_id",
+          "requested",
+          "queued",
+          "already_queued"
+        ],
+        "properties": {
+          "already_queued": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Messages an earlier try of the same batch already queued."
+          },
+          "batch_id": {
+            "type": "string",
+            "description": "The batch; send it again to retry safely."
+          },
+          "queued": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Messages queued now."
+          },
+          "requested": {
+            "type": "integer",
+            "description": "Patients asked for, without repeats.",
+            "minimum": 0
           }
         }
       },
@@ -25008,6 +25877,56 @@
           }
         }
       },
+      "SendMessages": {
+        "type": "object",
+        "description": "A message to send to patients.",
+        "required": [
+          "patient_ids",
+          "channel",
+          "template_key"
+        ],
+        "properties": {
+          "batch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Send the same batch id again after a lost answer: nothing is queued twice."
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Free text, email only, up to 5000 characters; blank lines separate paragraphs."
+          },
+          "channel": {
+            "type": "string",
+            "description": "`email` (`WhatsApp` and SMS come later)."
+          },
+          "patient_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "1 to 50 patients; repeats count once."
+          },
+          "template_key": {
+            "type": "string",
+            "description": "`care.note` (care; needs `body` and `subject`), `reminder.follow_up` (reminders; optional\n`due_on`) or `promo.offer` (promotional; needs `body` and `subject`)."
+          },
+          "variables": {
+            "type": "object",
+            "description": "The template's variables, by name; anything else is refused. Values are one line of up\nto 120 characters.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "ServiceMetrics": {
         "type": "object",
         "description": "Service health for the console dashboard.",
@@ -25142,6 +26061,36 @@
           "id": {
             "type": "string",
             "description": "The user."
+          }
+        }
+      },
+      "SetContactPreference": {
+        "type": "object",
+        "description": "A contact preference to record, on the patient's word.",
+        "required": [
+          "channel",
+          "category",
+          "opted_out"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "`all`, `care`, `reminders` or `promotional`."
+          },
+          "channel": {
+            "type": "string",
+            "description": "`email`, `whatsapp` or `sms`."
+          },
+          "opted_out": {
+            "type": "boolean",
+            "description": "True to opt out; false to opt back in."
+          },
+          "whatsapp_opt_in": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "`WhatsApp` only: whether the patient opted in to `WhatsApp` messages."
           }
         }
       },
@@ -27264,6 +28213,19 @@
           }
         }
       },
+      "Unsubscribed": {
+        "type": "object",
+        "description": "The answer to an unsubscribe: nothing about who was unsubscribed.",
+        "required": [
+          "unsubscribed"
+        ],
+        "properties": {
+          "unsubscribed": {
+            "type": "boolean",
+            "description": "Always true."
+          }
+        }
+      },
       "UploadForm": {
         "type": "object",
         "description": "The form an upload sends (`multipart/form-data`).",
@@ -28114,6 +29076,10 @@
     {
       "name": "appointments",
       "description": "The calendar, appointments and Today; clinic host only"
+    },
+    {
+      "name": "messages",
+      "description": "Messages to patients: sending, a patient's message list, contact preferences, unsubscribe links and provider webhooks"
     },
     {
       "name": "chat",

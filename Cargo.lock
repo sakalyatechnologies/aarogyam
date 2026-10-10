@@ -90,6 +90,8 @@ version = "0.1.0"
 dependencies = [
  "aarogyam-dal",
  "aarogyam-domain",
+ "aws-lc-rs",
+ "base64 0.22.1",
  "reqwest",
  "sakalya-db",
  "sakalya-types",

@@ -648,8 +648,9 @@ async fn invitations_need_an_email_and_patients_write_and_stay_in_the_clinic() {
     assert_ne!(first, second);
     // The email carries the newest code; the code is kept only until it is sent.
     let (to, secret, payload): (String, String, Value) = sqlx::query_as(
-        "select recipient, secret, payload from aarogyam.outbox_events
-         where event_key = 'patient_app.invited' order by created_at desc limit 1",
+        "select p.email, m.secret, m.variables from aarogyam.messages m
+         join aarogyam.patients p on p.org_id = m.org_id and p.id = m.patient_id
+         where m.kind = 'patient_app.invited' order by m.created_at desc limit 1",
     )
     .fetch_one(&app.owner)
     .await

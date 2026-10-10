@@ -1,4 +1,4 @@
-//! Aarogyam's notification worker: delivers the outbox.
+//! Aarogyam's notification worker: delivers the outbox and patient messages.
 //!
 //! Use cases queue messages with `aarogyam_app::outbox` in the same transaction as the change
 //! that causes them. [`Notifier::drain`] claims due messages across clinics (`FOR UPDATE SKIP
@@ -10,6 +10,11 @@
 //! the message as delivered and logs its ids only, which is what local development uses.
 //! Logs never carry addresses, names or link secrets.
 //!
+//! Messages to patients have their own queue (`messages`, in `messages.rs`): the same job queues
+//! appointment reminders, then sends due patient messages within a platform-wide daily budget
+//! per provider, deciding each at send time from what `app.message_dispatch` reports (consent,
+//! opt-outs, quiet hours, the patient's state). Provider webhooks are checked with [`svix`].
+//!
 //! The same job makes new clinics' portal addresses work at the edge first ([`PortalAddresses`],
 //! in `addresses.rs`), so an invitation link works by the time its email arrives, and reminds
 //! staff of booking requests nobody has answered, then tells the owners ([`remind`], in
@@ -19,8 +24,11 @@
 mod addresses;
 pub mod cloudflare;
 mod lab;
+mod messages;
+mod patient_templates;
 mod resend;
 mod staff;
+pub mod svix;
 mod templates;
 
 use aarogyam_dal::outbox::{self, Claimed};
@@ -32,6 +40,7 @@ use time::OffsetDateTime;
 
 pub use addresses::{AddressReport, PortalAddresses, WorkersDev};
 pub use lab::{LabReminderReport, remind_labs};
+pub use messages::MessageReport;
 pub use resend::Resend;
 pub use staff::{ReminderReport, StaffAlert, StaffChannel, remind};
 pub use templates::{Email, PortalLinks};
@@ -42,6 +51,9 @@ const BATCH: i32 = 50;
 const LEASE_SECONDS: i32 = 300;
 /// Days a processed message is kept before it is deleted.
 const KEEP_DAYS: i32 = 30;
+/// Patient emails one provider may send a day across the platform, unless configured: Resend's
+/// free tier allows 100 a day.
+pub const DEFAULT_DAILY_BUDGET: i32 = 100;
 
 /// The notification service could not be set up.
 #[derive(Debug, thiserror::Error)]
@@ -53,7 +65,7 @@ pub enum NotifyError {
 
 /// How email leaves.
 #[derive(Debug)]
-enum EmailChannel {
+pub(crate) enum EmailChannel {
     /// Recorded as delivered and logged by id: local development.
     Log,
     /// Sent through Resend.
@@ -98,6 +110,8 @@ pub struct DrainReport {
     pub failed: usize,
     /// Old processed messages deleted.
     pub purged: i64,
+    /// The patient message step.
+    pub messages: MessageReport,
 }
 
 /// Delivers queued messages.
@@ -105,6 +119,8 @@ pub struct DrainReport {
 pub struct Notifier {
     email: EmailChannel,
     links: PortalLinks,
+    daily_budget: i32,
+    resend_webhook_secret: Option<SecretString>,
 }
 
 impl Notifier {
@@ -114,6 +130,8 @@ impl Notifier {
         Self {
             email: EmailChannel::Log,
             links,
+            daily_budget: DEFAULT_DAILY_BUDGET,
+            resend_webhook_secret: None,
         }
     }
 
@@ -129,7 +147,42 @@ impl Notifier {
         Ok(Self {
             email: EmailChannel::Resend(Resend::new(api_key, from)?),
             links,
+            daily_budget: DEFAULT_DAILY_BUDGET,
+            resend_webhook_secret: None,
         })
+    }
+
+    /// Patient emails the provider may send a day across the platform (at least 1); beyond it,
+    /// due messages move to the next day.
+    #[must_use]
+    pub fn with_daily_budget(mut self, budget: u32) -> Self {
+        self.daily_budget = i32::try_from(budget.max(1)).unwrap_or(i32::MAX);
+        self
+    }
+
+    /// The signing secret of the Resend webhook (`whsec_...`); without it every webhook is
+    /// refused.
+    #[must_use]
+    pub fn with_resend_webhook_secret(mut self, secret: SecretString) -> Self {
+        self.resend_webhook_secret = Some(secret);
+        self
+    }
+
+    /// Checks a Resend webhook's Svix signature over its raw body at `now`.
+    ///
+    /// # Errors
+    /// [`svix::SvixError`] when no secret is configured or the request isn't authentic.
+    pub fn verify_resend_webhook(
+        &self,
+        headers: svix::SvixHeaders<'_>,
+        body: &[u8],
+        now: OffsetDateTime,
+    ) -> Result<(), svix::SvixError> {
+        let secret = self
+            .resend_webhook_secret
+            .as_ref()
+            .ok_or(svix::SvixError::Secret)?;
+        svix::verify(secret, headers, body, now)
     }
 
     /// Where links in messages point.
@@ -147,8 +200,8 @@ impl Notifier {
         }
     }
 
-    /// Claims due messages, delivers them, records each outcome, and deletes messages
-    /// processed long ago.
+    /// Claims due outbox messages, delivers them, records each outcome, and deletes messages
+    /// processed long ago; then runs the patient message step ([`Self::drain_messages`]).
     ///
     /// # Errors
     /// [`DbError`] when the database fails; messages already settled stay settled, and a
@@ -215,6 +268,7 @@ impl Notifier {
             }
         }
         report.purged = outbox::purge(pool, KEEP_DAYS).await?;
+        report.messages = self.drain_messages(db, now).await?;
         Ok(report)
     }
 

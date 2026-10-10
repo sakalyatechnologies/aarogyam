@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select o.id from aarogyam.lab_order_items i\n           join aarogyam.lab_orders o on o.org_id = i.org_id and o.id = i.lab_order_id\n           where i.id = $1 and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_orders",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c7a4adf29f637f939777483da646d43604c63ba3c2cae35e466816a0342a6783"
+}

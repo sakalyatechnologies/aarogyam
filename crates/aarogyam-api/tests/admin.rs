@@ -301,6 +301,10 @@ async fn the_outbox_drain_delivers_to_the_log_and_abandons_broken_messages() {
                 // No booking requests waiting (tests/notifications.rs).
                 "booking_requests_open": 0, "booking_requests_reminded": 0,
                 "booking_requests_escalated": 0,
+                // No patient messages queued (tests/messaging.rs).
+                "reminders_queued": 0, "messages_claimed": 0, "messages_sent": 0,
+                "messages_skipped": 0, "messages_rescheduled": 0, "messages_deferred": 0,
+                "messages_retrying": 0, "messages_failed": 0,
                 // No lab work due (tests/labs.rs).
                 "lab_reminders_queued": 0, "lab_reminders_skipped": 0, "lab_orders_overdue": 0 })
     );

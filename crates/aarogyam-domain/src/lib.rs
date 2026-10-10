@@ -78,6 +78,7 @@ pub mod dental_terms;
 pub mod edge;
 pub mod event;
 pub mod expense;
+pub mod family;
 pub mod files;
 pub mod ids;
 pub mod import;

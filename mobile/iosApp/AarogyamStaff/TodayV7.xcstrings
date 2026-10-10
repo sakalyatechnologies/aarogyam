@@ -1197,6 +1197,29 @@
         }
       }
     },
+    "t7.invite.not_now": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not now"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अभी नहीं"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आत्ता नाही"
+          }
+        }
+      }
+    },
     "t7.invite.paste": {
       "extractionState": "manual",
       "localizations": {

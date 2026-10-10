@@ -60,6 +60,10 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         AarogyamEnvironment: $(AAROGYAM_ENVIRONMENT)
         UILaunchScreen: {}
+        # `aarogyam://invite#<token>` opens an invitation (the app handles it in AppModel).
+        CFBundleURLTypes:
+          - CFBundleURLName: com.aarogyam.staff
+            CFBundleURLSchemes: [aarogyam]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: Take photos of teeth and X-rays for the patient's record. Photos are resized on the phone and sent to your clinic only.

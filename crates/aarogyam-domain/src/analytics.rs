@@ -3,7 +3,7 @@
 
 use time::{Date, Duration, Month};
 
-use crate::schedule::Shift;
+use crate::schedule::{AppointmentKind, Shift};
 
 /// Minutes a chair counts as open on each calendar day when its branch has no opening hours
 /// set: nine hours (for example 10:00 to 19:00).
@@ -161,6 +161,29 @@ impl AgeBand {
             Some(35..=49) => Self::Adult,
             Some(50..=64) => Self::MiddleAged,
             Some(_) => Self::Senior,
+        }
+    }
+}
+
+text_value!(
+    /// What a chair's booked minutes were spent on, from the appointment's kind.
+    ChairTime("chair_time") {
+        /// A procedure or an emergency.
+        Treatment => "treatment",
+        /// A new or follow-up consultation.
+        Consult => "consult",
+        /// Reserved: no appointment kind maps to it yet, so it is always zero.
+        Admin => "admin",
+    }
+);
+
+impl ChairTime {
+    /// The class of an appointment kind.
+    #[must_use]
+    pub const fn of(kind: AppointmentKind) -> Self {
+        match kind {
+            AppointmentKind::Procedure | AppointmentKind::Emergency => Self::Treatment,
+            AppointmentKind::New | AppointmentKind::FollowUp => Self::Consult,
         }
     }
 }

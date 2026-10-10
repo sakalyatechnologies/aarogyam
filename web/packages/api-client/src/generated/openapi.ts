@@ -4296,6 +4296,8 @@ export interface components {
             buckets: components["schemas"]["AnalyticsBucketRow"][];
             /** @description Visits by weekday and hour; only non-zero cells. */
             busy_hours: components["schemas"]["BusyHour"][];
+            /** @description Booked chair minutes by what they were spent on, from the appointment kind. */
+            chair_time: components["schemas"]["ChairTimeSplit"];
             /** @description Chairs: the active ones, and any other with bookings in the range, by name. */
             chairs: components["schemas"]["AnalyticsChair"][];
             /** @description First day, `YYYY-MM-DD`. */
@@ -4311,8 +4313,15 @@ export interface components {
             open_minutes_per_day: number;
             /** @description Who the patients are. */
             patients: components["schemas"]["PatientBreakdown"];
+            /**
+             * @description Procedures done in the range by the category of the bill line that charged them
+             *     (`uncategorised` when not billed or without a category), most first. Counts only.
+             */
+            procedures_by_category: components["schemas"]["KeyCount"][];
             /** @description Last day, included. */
             to: string;
+            /** @description Booked appointments against walk-ins. */
+            visit_sources: components["schemas"]["VisitSources"];
         };
         /**
          * @description How the report groups days.
@@ -4761,6 +4770,24 @@ export interface components {
             room_id: string;
             /** @description `in_use` while a patient is in it, otherwise `free`. */
             status: string;
+        };
+        /** @description Booked chair minutes (no-shows included) by what they were spent on. */
+        ChairTimeSplit: {
+            /**
+             * Format: int64
+             * @description Reserved: no appointment kind maps to it yet, so it is `0` minutes.
+             */
+            admin: number;
+            /**
+             * Format: int64
+             * @description Minutes on new and follow-up consultations.
+             */
+            consult: number;
+            /**
+             * Format: int64
+             * @description Minutes on procedures and emergencies.
+             */
+            treatment: number;
         };
         /** @description One chair's use in a period. */
         ChairUtilization: {
@@ -7913,6 +7940,8 @@ export interface components {
              *     Every kind listed.
              */
             referral_sources: components["schemas"]["KeyCount"][];
+            /** @description Patients seen, by recorded sex: `female`, `male`, `other`, `unknown`. Every value listed. */
+            sex: components["schemas"]["KeyCount"][];
             /**
              * @description Visits by appointment kind: `new`, `follow_up`, `procedure`, `emergency`. Every kind
              *     listed.
@@ -10315,6 +10344,19 @@ export interface components {
             visit_id: string;
             /** @description The visit's number, such as `V-318`. */
             visit_number: string;
+        };
+        /** @description Visits in the range by how they came. */
+        VisitSources: {
+            /**
+             * Format: int64
+             * @description Visits that were booked appointments (not cancelled, no-show or unconfirmed requests).
+             */
+            booked: number;
+            /**
+             * Format: int64
+             * @description Walk-in tokens issued in the range, not counting those who left unseen.
+             */
+            walk_in: number;
         };
         /** @description What a walk-in did. */
         WalkIn: {

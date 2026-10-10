@@ -13533,6 +13533,9 @@
           "chairs",
           "buckets",
           "patients",
+          "procedures_by_category",
+          "chair_time",
+          "visit_sources",
           "busy_hours",
           "lab_turnaround"
         ],
@@ -13554,6 +13557,10 @@
               "$ref": "#/components/schemas/BusyHour"
             },
             "description": "Visits by weekday and hour; only non-zero cells."
+          },
+          "chair_time": {
+            "$ref": "#/components/schemas/ChairTimeSplit",
+            "description": "Booked chair minutes by what they were spent on, from the appointment kind."
           },
           "chairs": {
             "type": "array",
@@ -13583,9 +13590,20 @@
             "$ref": "#/components/schemas/PatientBreakdown",
             "description": "Who the patients are."
           },
+          "procedures_by_category": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyCount"
+            },
+            "description": "Procedures done in the range by the category of the bill line that charged them\n(`uncategorised` when not billed or without a category), most first. Counts only."
+          },
           "to": {
             "type": "string",
             "description": "Last day, included."
+          },
+          "visit_sources": {
+            "$ref": "#/components/schemas/VisitSources",
+            "description": "Booked appointments against walk-ins."
           }
         }
       },
@@ -14680,6 +14698,32 @@
           "status": {
             "type": "string",
             "description": "`in_use` while a patient is in it, otherwise `free`."
+          }
+        }
+      },
+      "ChairTimeSplit": {
+        "type": "object",
+        "description": "Booked chair minutes (no-shows included) by what they were spent on.",
+        "required": [
+          "treatment",
+          "consult",
+          "admin"
+        ],
+        "properties": {
+          "admin": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Reserved: no appointment kind maps to it yet, so it is `0` minutes."
+          },
+          "consult": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minutes on new and follow-up consultations."
+          },
+          "treatment": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minutes on procedures and emergencies."
           }
         }
       },
@@ -22604,6 +22648,7 @@
         "description": "Who the patients in the range are.",
         "required": [
           "age_bands",
+          "sex",
           "visit_kinds",
           "referral_sources"
         ],
@@ -22621,6 +22666,13 @@
               "$ref": "#/components/schemas/KeyCount"
             },
             "description": "Patients whose first visit was in the range, by referral source kind: `patient`,\n`doctor`, `online`, `walk_in`, `camp`, `insurance`, `other`, `unknown` (none recorded).\nEvery kind listed."
+          },
+          "sex": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyCount"
+            },
+            "description": "Patients seen, by recorded sex: `female`, `male`, `other`, `unknown`. Every value listed."
           },
           "visit_kinds": {
             "type": "array",
@@ -28654,6 +28706,26 @@
           "visit_number": {
             "type": "string",
             "description": "The visit's number, such as `V-318`."
+          }
+        }
+      },
+      "VisitSources": {
+        "type": "object",
+        "description": "Visits in the range by how they came.",
+        "required": [
+          "booked",
+          "walk_in"
+        ],
+        "properties": {
+          "booked": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Visits that were booked appointments (not cancelled, no-show or unconfirmed requests)."
+          },
+          "walk_in": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Walk-in tokens issued in the range, not counting those who left unseen."
           }
         }
       },

@@ -259,8 +259,9 @@ pub struct NewAppointmentBody {
     pub branch_id: Option<String>,
     /// Start (RFC 3339).
     pub starts_at: String,
-    /// End (RFC 3339), 5 minutes to 12 hours after the start.
-    pub ends_at: String,
+    /// End (RFC 3339), 5 minutes to 12 hours after the start. Left out, the appointment lasts the
+    /// clinic's default visit length (`online_booking.default_visit_minutes`).
+    pub ends_at: Option<String>,
     /// `new`, `follow_up` (default), `procedure` or `emergency`.
     pub kind: Option<String>,
     /// Reason for the visit, up to 200 characters.
@@ -308,7 +309,11 @@ pub(crate) async fn book(
         room_id: optional_id("room_id", body.room_id.as_deref())?.map(RoomId::from_uuid),
         branch_id: optional_id("branch_id", body.branch_id.as_deref())?.map(BranchId::from_uuid),
         starts_at: parse_instant("starts_at", &body.starts_at)?,
-        ends_at: parse_instant("ends_at", &body.ends_at)?,
+        ends_at: body
+            .ends_at
+            .as_deref()
+            .map(|text| parse_instant("ends_at", text))
+            .transpose()?,
         kind: body.kind,
         reason: body.reason,
         notes: body.notes,

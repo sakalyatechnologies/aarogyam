@@ -584,6 +584,16 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             Ok(_) => {}
             Err(error) => tracing::warn!(error = %error, "could not remind labs"),
         }
+        // Follow-ups that fell due and patients who have waited: alert staff once each.
+        match aarogyam_notify::flag_alerts(&db, time::OffsetDateTime::now_utc()).await {
+            Ok(report) if report.recalls + report.waiting > 0 => tracing::info!(
+                recalls = report.recalls,
+                waiting = report.waiting,
+                "staff alerts flagged"
+            ),
+            Ok(_) => {}
+            Err(error) => tracing::warn!(error = %error, "could not flag staff alerts"),
+        }
         match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) => tracing::info!(
                 provider = notifier.email_provider(),

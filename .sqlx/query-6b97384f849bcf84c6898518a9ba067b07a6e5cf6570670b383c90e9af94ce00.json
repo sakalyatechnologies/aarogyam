@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select display_name as \"display_name!\", phone_e164 from app.my_profile($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "display_name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "phone_e164",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "6b97384f849bcf84c6898518a9ba067b07a6e5cf6570670b383c90e9af94ce00"
+}

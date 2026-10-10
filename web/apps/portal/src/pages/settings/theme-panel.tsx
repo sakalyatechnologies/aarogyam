@@ -45,7 +45,8 @@ function ThemeSection({ settings }: { settings: ClinicSettings }) {
   const toast = useToast();
   const value: ThemeChoice = {
     brand: settings.branding.brand ?? String(MOCKUP_BRAND),
-    mode: settings.branding.mode ?? "light",
+    // `auto` (follow the device) has no picker choice yet: shown as light until the New look offers it.
+    mode: settings.branding.mode === "dark" ? "dark" : "light",
   };
   return (
     <ThemePicker

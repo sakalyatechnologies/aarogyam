@@ -586,6 +586,7 @@ pub async fn invite(
                 }),
                 secret: Some(&shown),
                 appointment_id: None,
+                dedupe_key: None,
             },
         )
         .await?;

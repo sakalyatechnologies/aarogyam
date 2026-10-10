@@ -719,7 +719,13 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
                 ? []
                 : [{ org_id: clinic.id, slug: clinic.slug, name: clinic.name, role_key: m.role.key, role_name: m.role.name, host: clinic.host }];
             });
-          return reply({ clinics, console_access: state.platformUsers.some((u) => u.id === user.id), staff_mfa_required: true } satisfies C.Me);
+          return reply({
+            clinics,
+            console_access: state.platformUsers.some((u) => u.id === user.id),
+            staff_mfa_required: true,
+            display_name: user.display_name,
+            phone: ("phone" in user ? user.phone : undefined) ?? null,
+          } satisfies C.Me);
         }),
 
       createHandoff: (input, opts) =>
@@ -1277,7 +1283,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return invalid("practitioner_id", "unknown doctor");
           }
           const startsAt = input.starts_at;
-          const endsAt = input.ends_at;
+          // Left out, an appointment lasts the clinic's default visit length.
+          const endsAt = input.ends_at ?? new Date(Date.parse(startsAt) + bookingSettings(caller.clinic).default_visit_minutes * 60_000).toISOString();
           if (Date.parse(endsAt) <= Date.parse(startsAt)) {
             return invalid("ends_at", "must be after the start");
           }
@@ -3720,6 +3727,165 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             ...(slot !== "logo" && images.logo !== undefined ? { logo: images.logo } : {}),
           };
           return reply(wireLetterhead(caller.clinic) satisfies C.Letterhead);
+        }),
+
+      getNotificationSettings: (opts) =>
+        respond(S.notificationSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(notificationSettings(caller.clinic) satisfies C.NotificationSettings);
+        }),
+
+      updateNotificationSettings: (changes, opts) =>
+        respond(S.notificationSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const next = applyNotificationChanges(caller.clinic, changes);
+          if ("ok" in next) {
+            return next;
+          }
+          caller.clinic.notification_settings = next;
+          return reply(next satisfies C.NotificationSettings);
+        }),
+
+      uploadClinicLogo: (form, opts) =>
+        respond(S.clinicSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const file = form.get("file");
+          if (!(file instanceof File) || file.size === 0) {
+            return invalid("image", "image must be a PNG or JPEG of at most 2 MB");
+          }
+          if (file.size > 2 * 1024 * 1024) {
+            return refuse(413, "payload_too_large", "image: must be at most 2 MB");
+          }
+          if (file.type !== "image/png" && file.type !== "image/jpeg") {
+            return invalid("image", "image must be a PNG or JPEG of at most 2 MB");
+          }
+          const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : `blob:fake/${fakeUuid(random, clock())}`;
+          caller.clinic.letterhead_images = { ...caller.clinic.letterhead_images, logo: url };
+          return reply(wireClinicSettings(caller.clinic) satisfies C.ClinicSettings);
+        }),
+
+      listNotifications: (params, opts) =>
+        respond(S.notificationList, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const permissions = caller.membership.role.permissions;
+          if (!NOTIFICATION_PERMISSIONS.some((permission) => hasPermission(permissions, permission))) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const limit = Math.min(Math.max(params?.limit ?? 30, 1), 100);
+          const items = visibleNotifications(state, caller)
+            .filter((n) => params?.before === undefined || n.id < params.before)
+            .filter((n) => params?.unreadOnly !== true || !(n.read_by ?? []).includes(caller.membership.id))
+            .sort((a, b) => (a.id < b.id ? 1 : -1))
+            .slice(0, limit)
+            .map((n): C.Notification => {
+              const read = (n.read_by ?? []).includes(caller.membership.id);
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the clinic and the readers stay on the server
+              const { clinic_id, read_by, ...wire } = n;
+              return { ...wire, read, read_at: read ? n.created_at : null };
+            });
+          return reply({ items } satisfies C.NotificationList);
+        }),
+
+      countUnreadNotifications: (opts) =>
+        respond(S.unreadCount, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const permissions = caller.membership.role.permissions;
+          if (!NOTIFICATION_PERMISSIONS.some((permission) => hasPermission(permissions, permission))) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const unread = visibleNotifications(state, caller).filter((n) => !(n.read_by ?? []).includes(caller.membership.id)).length;
+          return reply({ unread: Math.min(unread, 100) } satisfies C.UnreadCount);
+        }),
+
+      markNotificationRead: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = visibleNotifications(state, caller).find((n) => n.id === id);
+          if (found === undefined) {
+            return notFound;
+          }
+          found.read_by = [...new Set([...(found.read_by ?? []), caller.membership.id])];
+          return { ok: true, body: undefined };
+        }),
+
+      markAllNotificationsRead: (opts) =>
+        respond(S.markedRead, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const unread = visibleNotifications(state, caller).filter((n) => !(n.read_by ?? []).includes(caller.membership.id));
+          for (const n of unread) {
+            n.read_by = [...(n.read_by ?? []), caller.membership.id];
+          }
+          return reply({ marked: unread.length } satisfies C.MarkedRead);
+        }),
+
+      updateMe: (changes, opts) =>
+        respond(S.profile, opts?.signal, async () => {
+          const id = await subject();
+          const user = state.users.find((u) => u.id === id);
+          if (user === undefined) {
+            return signedOut;
+          }
+          if (changes.display_name != null && (changes.display_name.trim().length < 1 || changes.display_name.length > 200)) {
+            return invalid("display_name", "must be 1 to 200 characters");
+          }
+          let phone: string | null | undefined;
+          if (changes.phone != null) {
+            phone = changes.phone.trim() === "" ? null : normalizeClinicPhone(changes.phone.replace(/\s+/g, ""));
+            if (phone !== null && !(E164.test(phone) && (!phone.startsWith("+91") || INDIAN_MOBILE.test(phone)))) {
+              return invalid("phone", "is not a valid phone number");
+            }
+            if (phone !== null && state.users.some((u) => u.id !== user.id && u.phone === phone)) {
+              return refuse(409, "conflict", "that phone number belongs to another account");
+            }
+          }
+          if (changes.display_name != null) {
+            user.display_name = changes.display_name.trim();
+          }
+          if (phone === null) {
+            delete user.phone;
+          } else if (phone !== undefined) {
+            user.phone = phone;
+          }
+          return reply({ display_name: user.display_name, phone: user.phone ?? null } satisfies C.Profile);
+        }),
+
+      revokeOtherSessions: (opts) =>
+        respond(S.revokedSessions, opts?.signal, async () => {
+          const id = await subject();
+          if (id === undefined) {
+            return signedOut;
+          }
+          const now = clock().toISOString();
+          const mine = state.sessions
+            .filter((s) => s.user_id === id && !s.revoked && s.expires_at > now)
+            .sort((a, b) => b.last_active_at.localeCompare(a.last_active_at));
+          // The current session is the most recently used one, as `listMySessions` says.
+          const others = mine.slice(1);
+          for (const session of others) {
+            session.revoked = true;
+          }
+          return reply({ revoked: others.length } satisfies C.RevokedSessions);
         }),
 
       listMySessions: (opts) =>
@@ -6168,8 +6334,8 @@ function parseMemberStatus(value: string): "invited" | "active" | "suspended" | 
   return value === "invited" || value === "active" || value === "suspended" || value === "left" ? value : undefined;
 }
 
-function parseThemeMode(value: string): "light" | "dark" | undefined {
-  return value === "light" || value === "dark" ? value : undefined;
+function parseThemeMode(value: string): "light" | "dark" | "auto" | undefined {
+  return value === "light" || value === "dark" || value === "auto" ? value : undefined;
 }
 
 /** A membership plus its person's name, status and branches, as the API serves it. */
@@ -6185,6 +6351,14 @@ function wireMember(membership: FakeMembership, state: Fixtures): C.Member {
     branches: [],
     joined_at: membership.joined_at ?? null,
   };
+}
+
+/** The clinic's notifications the caller's role reaches: each kind by the permission that shows it. */
+function visibleNotifications(state: Fixtures, caller: { clinic: FakeClinic; membership: FakeMembership }) {
+  const permissions = caller.membership.role.permissions;
+  return (state.notifications ?? []).filter(
+    (n) => n.clinic_id === caller.clinic.id && hasPermission(permissions, NOTIFICATION_PERMISSION[n.kind] ?? "appointments.read"),
+  );
 }
 
 function wireClinicSettings(clinic: FakeClinic): C.ClinicSettings {
@@ -6340,6 +6514,7 @@ const BOOKING_DEFAULTS: C.OnlineBooking = {
   horizon_days: 30,
   min_notice_minutes: 60,
   reminder_minutes: 15,
+  default_visit_minutes: 30,
 };
 /** Most open self-bookings one verified person may hold in a clinic. */
 const MAX_OPEN_SELF_BOOKINGS = 2;
@@ -6373,6 +6548,9 @@ function validateOnlineBooking(changes: C.OnlineBookingChanges): Outcome | null 
   if (reminder != null && (reminder < 5 || reminder > 240)) {
     return invalid("booking.reminder_minutes", "must be 5 to 240 minutes");
   }
+  if (changes.default_visit_minutes != null && ![15, 30, 45, 60].includes(changes.default_visit_minutes)) {
+    return invalid("booking.default_visit_minutes", "must be 15, 30, 45 or 60 minutes");
+  }
   return null;
 }
 
@@ -6401,8 +6579,69 @@ function validateClinicSettingsChanges(changes: C.ClinicSettingsChanges): Outcom
   if (changes.prescription_footer != null && changes.prescription_footer.length > 500) {
     return invalid("prescription_footer", "must be at most 500 characters");
   }
+  if (changes.branding?.mode != null && parseThemeMode(changes.branding.mode) === undefined) {
+    return invalid("branding.mode", "must be light, dark or auto");
+  }
   return null;
 }
+
+const NOTIFICATION_DEFAULTS: C.NotificationSettings = {
+  reminder_24h: true,
+  reminder_2h: false,
+  receipts: false,
+  recall: true,
+  low_stock: true,
+  lab_due: true,
+  quiet_hours: { enabled: true, start: "21:00", end: "09:00" },
+};
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function notificationSettings(clinic: FakeClinic): C.NotificationSettings {
+  const stored = clinic.notification_settings ?? {};
+  return { ...NOTIFICATION_DEFAULTS, ...stored, quiet_hours: { ...NOTIFICATION_DEFAULTS.quiet_hours, ...stored.quiet_hours } };
+}
+
+/** The switches after `changes`, or the problem the API reports (quiet hours must be `HH:MM` and not empty). */
+function applyNotificationChanges(clinic: FakeClinic, changes: C.NotificationSettingsChanges): C.NotificationSettings | Outcome {
+  const next = notificationSettings(clinic);
+  for (const key of ["reminder_24h", "reminder_2h", "receipts", "recall", "low_stock", "lab_due"] as const) {
+    const value = changes[key];
+    if (value != null) {
+      next[key] = value;
+    }
+  }
+  const quiet = changes.quiet_hours;
+  if (quiet != null) {
+    if (quiet.start != null) {
+      if (!HHMM.test(quiet.start)) {
+        return invalid("quiet_hours.start", "must be a time such as 21:00");
+      }
+      next.quiet_hours.start = quiet.start;
+    }
+    if (quiet.end != null) {
+      if (!HHMM.test(quiet.end)) {
+        return invalid("quiet_hours.end", "must be a time such as 09:00");
+      }
+      next.quiet_hours.end = quiet.end;
+    }
+    if (quiet.enabled != null) {
+      next.quiet_hours.enabled = quiet.enabled;
+    }
+    if (next.quiet_hours.start === next.quiet_hours.end) {
+      return invalid("quiet_hours.start", "must differ from the end");
+    }
+  }
+  return next;
+}
+
+/** The permission that shows each kind of notification, as the API reads it. */
+const NOTIFICATION_PERMISSION: Readonly<Record<string, Permission>> = {
+  lab_overdue: "labs.read",
+  payment_due: "billing.read",
+  collect_payment: "billing.read",
+  recall_due: "patients.read",
+};
+const NOTIFICATION_PERMISSIONS: readonly Permission[] = ["appointments.read", "labs.read", "billing.read", "patients.read"];
 
 function validateNewClinic(input: C.NewClinic, slug: string, clinics: readonly FakeClinic[]): Outcome | null {
   if (input.name.trim().length < 2) {

@@ -5646,6 +5646,48 @@
             "bearer": []
           }
         ]
+      },
+      "patch": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Changes the signed-in person's own name and phone. It is theirs across every clinic they\nbelong to; the change history records them as the actor.",
+        "operationId": "updateMe",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "409": {
+            "description": "Another account holds that phone number"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
       }
     },
     "/api/v1/me/avatar": {
@@ -6547,6 +6589,34 @@
         ]
       }
     },
+    "/api/v1/me/sessions/revoke-others": {
+      "post": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Signs out every other session of the person, keeping the one asking. Their next requests get\n`401`, on every host.",
+        "operationId": "revokeOtherSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokedSessions"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/sessions/{id}/revoke": {
       "post": {
         "tags": [
@@ -7213,7 +7283,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks both appointments.read and labs.read"
+            "description": "The role lacks appointments.read, labs.read, billing.read and patients.read"
           }
         },
         "security": [
@@ -7244,7 +7314,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks both appointments.read and labs.read"
+            "description": "The role lacks appointments.read, labs.read, billing.read and patients.read"
           }
         },
         "security": [
@@ -7275,7 +7345,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks both appointments.read and labs.read"
+            "description": "The role lacks appointments.read, labs.read, billing.read and patients.read"
           }
         },
         "security": [
@@ -7311,7 +7381,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks both appointments.read and labs.read"
+            "description": "The role lacks appointments.read, labs.read, billing.read and patients.read"
           },
           "404": {
             "description": "No such notification in this clinic, or its appointment or lab order is out of the role's reach"
@@ -12406,6 +12476,53 @@
         ]
       }
     },
+    "/api/v1/settings/clinic/logo": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Uploads the clinic logo as `multipart/form-data` field `file`: PNG or JPEG, up to 2 MB,\nchecked by content. Replaces the previous one. The same image the letterhead prints as its\nlogo; returns the clinic's settings.",
+        "operationId": "uploadClinicLogo",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a PNG or JPEG, or empty"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "413": {
+            "description": "Larger than 2 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/settings/dashboard-layout": {
       "get": {
         "tags": [
@@ -12600,6 +12717,85 @@
           },
           "403": {
             "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings/notifications": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The clinic's notification switches and quiet hours.",
+        "operationId": "getNotificationSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Changes the notification switches and quiet hours. The change history records each change.",
+        "operationId": "updateNotificationSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettingsChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the setting"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
           }
         },
         "security": [
@@ -16590,7 +16786,7 @@
               "string",
               "null"
             ],
-            "description": "`light` or `dark`."
+            "description": "`light`, `dark` or `auto` (follow the device)."
           }
         }
       },
@@ -19272,7 +19468,9 @@
           "campaign_recipients_capped",
           "lab_reminders_queued",
           "lab_reminders_skipped",
-          "lab_orders_overdue"
+          "lab_orders_overdue",
+          "recalls_flagged",
+          "waiting_flagged"
         ],
         "properties": {
           "address_provider": {
@@ -19388,6 +19586,11 @@
             "format": "int64",
             "description": "Old processed messages deleted."
           },
+          "recalls_flagged": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Follow-up alerts newly written for staff."
+          },
           "reminders_queued": {
             "type": "integer",
             "format": "int32",
@@ -19402,6 +19605,11 @@
             "type": "integer",
             "description": "Delivered.",
             "minimum": 0
+          },
+          "waiting_flagged": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Waiting-patient alerts newly written for staff."
           }
         }
       },
@@ -22877,6 +23085,20 @@
             "type": "boolean",
             "description": "Whether they are active Sakalya staff who can open the console. Central sign-in sends\nthem there, or offers it first beside their clinics."
           },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The person's own name; absent when it could not be read."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The person's phone in `E.164`, if recorded."
+          },
           "staff_mfa_required": {
             "type": "boolean",
             "description": "Whether the console asks Sakalya staff for an authenticator code (`auth.staff_mfa`). The\nconsole reads this to show or skip its second step."
@@ -23706,8 +23928,7 @@
         "required": [
           "patient_id",
           "practitioner_id",
-          "starts_at",
-          "ends_at"
+          "starts_at"
         ],
         "properties": {
           "branch_id": {
@@ -23718,8 +23939,11 @@
             "description": "Branch; the room's, or the default branch."
           },
           "ends_at": {
-            "type": "string",
-            "description": "End (RFC 3339), 5 minutes to 12 hours after the start."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "End (RFC 3339), 5 minutes to 12 hours after the start. Left out, the appointment lasts the\nclinic's default visit length (`online_booking.default_visit_minutes`)."
           },
           "kind": {
             "type": [
@@ -25061,19 +25285,48 @@
               }
             ]
           },
+          "href": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A path inside the portal that opens what it is about, such as `/queue`; absent for older\nnotifications."
+          },
           "id": {
             "type": "string",
             "description": "Identifier; pass as `before` for the next page."
           },
+          "invoice": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedInvoice",
+                "description": "The bill, for `payment_due` and `collect_payment`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "kind": {
             "type": "string",
-            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient` or\n`lab_overdue`."
+            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,\n`lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in` or\n`collect_payment`."
           },
           "lab_order": {
             "oneOf": [
               {
                 "$ref": "#/components/schemas/NotifiedLabOrder",
                 "description": "The lab order, for `lab_overdue`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "queue_token": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedQueueToken",
+                "description": "The queue token, for `patient_waiting` and `send_in`."
               },
               {
                 "type": "null"
@@ -25090,6 +25343,17 @@
               "null"
             ],
             "description": "When the caller read it (RFC 3339)."
+          },
+          "recall": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedRecall",
+                "description": "The follow-up, for `recall_due`."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "reminded_at": {
             "type": [
@@ -25113,6 +25377,108 @@
               "$ref": "#/components/schemas/Notification"
             },
             "description": "The notifications."
+          }
+        }
+      },
+      "NotificationSettings": {
+        "type": "object",
+        "description": "The clinic's notification switches.",
+        "required": [
+          "reminder_24h",
+          "reminder_2h",
+          "receipts",
+          "recall",
+          "low_stock",
+          "lab_due",
+          "quiet_hours"
+        ],
+        "properties": {
+          "lab_due": {
+            "type": "boolean",
+            "description": "Tell staff when lab work is overdue (default on)."
+          },
+          "low_stock": {
+            "type": "boolean",
+            "description": "Show low stock on Today (default on)."
+          },
+          "quiet_hours": {
+            "$ref": "#/components/schemas/QuietHoursView",
+            "description": "Quiet hours for reminders and offers."
+          },
+          "recall": {
+            "type": "boolean",
+            "description": "Tell staff when a patient's follow-up falls due (default on)."
+          },
+          "receipts": {
+            "type": "boolean",
+            "description": "Email patients a receipt when a payment is recorded (default off)."
+          },
+          "reminder_24h": {
+            "type": "boolean",
+            "description": "Remind patients a day before their appointment (default on)."
+          },
+          "reminder_2h": {
+            "type": "boolean",
+            "description": "Remind patients two hours before (default off)."
+          }
+        }
+      },
+      "NotificationSettingsChanges": {
+        "type": "object",
+        "description": "Changes to the notification switches; what is left out stays.",
+        "properties": {
+          "lab_due": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Overdue lab alerts."
+          },
+          "low_stock": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Low stock on Today."
+          },
+          "quiet_hours": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/QuietHoursChangesBody",
+                "description": "Quiet hours."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recall": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Follow-up alerts to staff."
+          },
+          "receipts": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Receipts by email."
+          },
+          "reminder_24h": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The day-before reminder."
+          },
+          "reminder_2h": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The two-hour reminder."
           }
         }
       },
@@ -25154,6 +25520,26 @@
           }
         }
       },
+      "NotifiedInvoice": {
+        "type": "object",
+        "description": "The bill a `payment_due` or `collect_payment` alert is about.",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The bill; open it at `/billing/invoices/{id}`."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its number once issued; absent for a draft."
+          }
+        }
+      },
       "NotifiedLabOrder": {
         "type": "object",
         "description": "The lab order an overdue alert is about.",
@@ -25181,6 +25567,48 @@
           "vendor_name": {
             "type": "string",
             "description": "Its lab's name."
+          }
+        }
+      },
+      "NotifiedQueueToken": {
+        "type": "object",
+        "description": "The queue token a `patient_waiting` or `send_in` alert is about.",
+        "required": [
+          "id",
+          "number"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The token."
+          },
+          "number": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Its number for the day."
+          }
+        }
+      },
+      "NotifiedRecall": {
+        "type": "object",
+        "description": "The follow-up a `recall_due` alert is about. No reason: it can hold health information.",
+        "required": [
+          "id",
+          "kind",
+          "due_on"
+        ],
+        "properties": {
+          "due_on": {
+            "type": "string",
+            "description": "When it falls due (`YYYY-MM-DD`)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The recall."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Its kind, such as `cleaning`."
           }
         }
       },
@@ -25282,7 +25710,8 @@
           "auto_confirm",
           "horizon_days",
           "min_notice_minutes",
-          "reminder_minutes"
+          "reminder_minutes",
+          "default_visit_minutes"
         ],
         "properties": {
           "auto_confirm": {
@@ -25293,6 +25722,12 @@
             "type": "integer",
             "format": "int32",
             "description": "Gap kept free around other appointments, in minutes (0 to 120).",
+            "minimum": 0
+          },
+          "default_visit_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How long an appointment booked by staff lasts when no end is given: 15, 30, 45 or 60\nminutes.",
             "minimum": 0
           },
           "enabled": {
@@ -25343,6 +25778,15 @@
             ],
             "format": "int32",
             "description": "Buffer in minutes.",
+            "minimum": 0
+          },
+          "default_visit_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Default visit length in minutes: 15, 30, 45 or 60.",
             "minimum": 0
           },
           "enabled": {
@@ -28055,6 +28499,46 @@
           }
         }
       },
+      "Profile": {
+        "type": "object",
+        "description": "The person's own name and phone.",
+        "required": [
+          "display_name"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "description": "Their name."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their phone in `E.164`, if recorded."
+          }
+        }
+      },
+      "ProfileUpdate": {
+        "type": "object",
+        "description": "Changes to the person's own profile; what is left out stays.",
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their name, 1 to 200 characters."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their phone; +91 is assumed without a country code, and an empty string clears it."
+          }
+        }
+      },
       "PublishNotice": {
         "type": "object",
         "description": "A new version to publish.",
@@ -28576,6 +29060,56 @@
           }
         }
       },
+      "QuietHoursChangesBody": {
+        "type": "object",
+        "description": "Changes to quiet hours; what is left out stays.",
+        "properties": {
+          "enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Switch them on or off."
+          },
+          "end": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New end, `HH:MM`."
+          },
+          "start": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New start, `HH:MM`."
+          }
+        }
+      },
+      "QuietHoursView": {
+        "type": "object",
+        "description": "Quiet hours: when patient reminders and offers wait.",
+        "required": [
+          "enabled",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether they apply."
+          },
+          "end": {
+            "type": "string",
+            "description": "When they end, `HH:MM`; earlier than `start` means they run overnight."
+          },
+          "start": {
+            "type": "string",
+            "description": "When they begin, `HH:MM` in the clinic's time zone."
+          }
+        }
+      },
       "ReadUpTo": {
         "type": "object",
         "description": "How far the caller has read.",
@@ -28960,6 +29494,20 @@
           "invite_link": {
             "type": "string",
             "description": "The invitation link, with its new one-time secret."
+          }
+        }
+      },
+      "RevokedSessions": {
+        "type": "object",
+        "description": "How many sessions a sign-out-everywhere-else ended.",
+        "required": [
+          "revoked"
+        ],
+        "properties": {
+          "revoked": {
+            "type": "integer",
+            "description": "Sessions signed out; the current one stays.",
+            "minimum": 0
           }
         }
       },

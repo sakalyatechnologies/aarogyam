@@ -54,6 +54,7 @@ pub mod patient_sessions;
 pub mod patients;
 pub mod payments;
 pub mod prescriptions;
+pub mod profile;
 pub mod quality;
 pub mod queue;
 pub mod recalls;

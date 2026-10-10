@@ -408,7 +408,7 @@ async fn a_past_day_shows_what_was_done() {
                 room_id: Some(RoomId::from_uuid(id(&chair))),
                 branch_id: None,
                 starts_at: start,
-                ends_at: start + Duration::minutes(30),
+                ends_at: Some(start + Duration::minutes(30)),
                 kind: None,
                 reason: None,
                 notes: None,

@@ -5,14 +5,19 @@ use aarogyam_domain::event::Event;
 use aarogyam_domain::letterhead::{
     Letterhead as DomainLetterhead, LetterheadChanges as DomainChanges, ShownChanges,
 };
+use aarogyam_domain::notification_prefs::{
+    NotificationChanges, NotificationPrefs, QuietHoursChanges, hhmm,
+};
 use aarogyam_domain::permission::require::SettingsManage;
 use axum::Json;
 use axum::extract::State;
+use axum::extract::multipart::{Multipart, MultipartRejection};
 use sakalya_http::ApiJson;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use super::letterhead::{ImageForm, read_image};
 use crate::AppState;
 use crate::extract::Require;
 use crate::failure::ApiFailure;
@@ -22,7 +27,7 @@ use crate::failure::ApiFailure;
 pub struct Branding {
     /// Brand colour, `#RRGGBB`.
     pub brand: Option<String>,
-    /// `light` or `dark`.
+    /// `light`, `dark` or `auto` (follow the device).
     pub mode: Option<String>,
 }
 
@@ -212,6 +217,9 @@ pub struct OnlineBooking {
     /// Minutes a booking request may wait, in opening hours, before everyone who handles
     /// appointments is reminded (5 to 240, default 15); owners are told after as long again.
     pub reminder_minutes: u16,
+    /// How long an appointment booked by staff lasts when no end is given: 15, 30, 45 or 60
+    /// minutes.
+    pub default_visit_minutes: u16,
 }
 
 /// Changes to online booking; settings left out stay as they are.
@@ -231,6 +239,8 @@ pub struct OnlineBookingChanges {
     pub min_notice_minutes: Option<u16>,
     /// Reminder wait in minutes.
     pub reminder_minutes: Option<u16>,
+    /// Default visit length in minutes: 15, 30, 45 or 60.
+    pub default_visit_minutes: Option<u16>,
 }
 
 /// The clinic's settings.
@@ -292,6 +302,7 @@ impl From<app::ClinicSettings> for ClinicSettings {
                 horizon_days: settings.booking.horizon_days,
                 min_notice_minutes: settings.booking.min_notice_minutes,
                 reminder_minutes: settings.booking.reminder_minutes,
+                default_visit_minutes: settings.booking.default_visit_minutes,
             },
             letterhead: settings.letterhead.into(),
         }
@@ -401,6 +412,7 @@ pub(crate) async fn update_clinic(
                 horizon_days: b.horizon_days,
                 min_notice_minutes: b.min_notice_minutes,
                 reminder_minutes: b.reminder_minutes,
+                default_visit_minutes: b.default_visit_minutes,
             }),
         letterhead: body.letterhead.map(Into::into),
     };
@@ -412,4 +424,194 @@ pub(crate) async fn update_clinic(
         "clinic settings changed"
     );
     Ok(Json(settings.into()))
+}
+
+/// Uploads the clinic logo as `multipart/form-data` field `file`: PNG or JPEG, up to 2 MB,
+/// checked by content. Replaces the previous one. The same image the letterhead prints as its
+/// logo; returns the clinic's settings.
+#[utoipa::path(
+    post,
+    path = "/api/v1/settings/clinic/logo",
+    operation_id = "uploadClinicLogo",
+    tag = "settings",
+    request_body(content = ImageForm, content_type = "multipart/form-data"),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = ClinicSettings),
+        (status = 400, description = "Not a PNG or JPEG, or empty"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks settings.manage"),
+        (status = 413, description = "Larger than 2 MB")
+    )
+)]
+pub(crate) async fn upload_logo(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<SettingsManage>,
+    form: Result<Multipart, MultipartRejection>,
+) -> Result<Json<ClinicSettings>, ApiFailure> {
+    let form = form.map_err(|_| super::files::bad_form("send the image as multipart/form-data"))?;
+    let bytes = read_image(form).await?;
+    aarogyam_app::letterhead::upload_image(
+        state.db(),
+        state.files()?,
+        &request.actor,
+        request.request_id,
+        aarogyam_app::letterhead::Slot::Logo,
+        bytes,
+    )
+    .await?;
+    let settings = app::get(state.db(), &request.actor, request.request_id).await?;
+    tracing::info!(
+        event = Event::SettingsChanged.as_str(),
+        "clinic logo changed"
+    );
+    Ok(Json(settings.into()))
+}
+
+/// Quiet hours: when patient reminders and offers wait.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct QuietHoursView {
+    /// Whether they apply.
+    pub enabled: bool,
+    /// When they begin, `HH:MM` in the clinic's time zone.
+    pub start: String,
+    /// When they end, `HH:MM`; earlier than `start` means they run overnight.
+    pub end: String,
+}
+
+/// The clinic's notification switches.
+#[derive(Debug, Serialize, ToSchema)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "one switch per notification the clinic can turn off"
+)]
+pub struct NotificationSettings {
+    /// Remind patients a day before their appointment (default on).
+    pub reminder_24h: bool,
+    /// Remind patients two hours before (default off).
+    pub reminder_2h: bool,
+    /// Email patients a receipt when a payment is recorded (default off).
+    pub receipts: bool,
+    /// Tell staff when a patient's follow-up falls due (default on).
+    pub recall: bool,
+    /// Show low stock on Today (default on).
+    pub low_stock: bool,
+    /// Tell staff when lab work is overdue (default on).
+    pub lab_due: bool,
+    /// Quiet hours for reminders and offers.
+    pub quiet_hours: QuietHoursView,
+}
+
+impl From<NotificationPrefs> for NotificationSettings {
+    fn from(prefs: NotificationPrefs) -> Self {
+        Self {
+            reminder_24h: prefs.reminder_24h,
+            reminder_2h: prefs.reminder_2h,
+            receipts: prefs.receipts,
+            recall: prefs.recall,
+            low_stock: prefs.low_stock,
+            lab_due: prefs.lab_due,
+            quiet_hours: QuietHoursView {
+                enabled: prefs.quiet_hours.enabled,
+                start: hhmm(prefs.quiet_hours.start),
+                end: hhmm(prefs.quiet_hours.end),
+            },
+        }
+    }
+}
+
+/// Changes to quiet hours; what is left out stays.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct QuietHoursChangesBody {
+    /// Switch them on or off.
+    pub enabled: Option<bool>,
+    /// New start, `HH:MM`.
+    pub start: Option<String>,
+    /// New end, `HH:MM`.
+    pub end: Option<String>,
+}
+
+/// Changes to the notification switches; what is left out stays.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct NotificationSettingsChanges {
+    /// The day-before reminder.
+    pub reminder_24h: Option<bool>,
+    /// The two-hour reminder.
+    pub reminder_2h: Option<bool>,
+    /// Receipts by email.
+    pub receipts: Option<bool>,
+    /// Follow-up alerts to staff.
+    pub recall: Option<bool>,
+    /// Low stock on Today.
+    pub low_stock: Option<bool>,
+    /// Overdue lab alerts.
+    pub lab_due: Option<bool>,
+    /// Quiet hours.
+    pub quiet_hours: Option<QuietHoursChangesBody>,
+}
+
+/// The clinic's notification switches and quiet hours.
+#[utoipa::path(
+    get,
+    path = "/api/v1/settings/notifications",
+    operation_id = "getNotificationSettings",
+    tag = "settings",
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = NotificationSettings),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks settings.manage"),
+        (status = 404, description = "Not a clinic, or not a member of it")
+    )
+)]
+pub(crate) async fn get_notifications(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<SettingsManage>,
+) -> Result<Json<NotificationSettings>, ApiFailure> {
+    let prefs = app::notification_prefs(state.db(), &request.actor, request.request_id).await?;
+    Ok(Json(prefs.into()))
+}
+
+/// Changes the notification switches and quiet hours. The change history records each change.
+#[utoipa::path(
+    patch,
+    path = "/api/v1/settings/notifications",
+    operation_id = "updateNotificationSettings",
+    tag = "settings",
+    request_body = NotificationSettingsChanges,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = NotificationSettings),
+        (status = 400, description = "Invalid input; the message names the setting"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks settings.manage"),
+        (status = 404, description = "Not a clinic, or not a member of it")
+    )
+)]
+pub(crate) async fn update_notifications(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<SettingsManage>,
+    ApiJson(body): ApiJson<NotificationSettingsChanges>,
+) -> Result<Json<NotificationSettings>, ApiFailure> {
+    let changes = NotificationChanges {
+        reminder_24h: body.reminder_24h,
+        reminder_2h: body.reminder_2h,
+        receipts: body.receipts,
+        recall: body.recall,
+        low_stock: body.low_stock,
+        lab_due: body.lab_due,
+        quiet_hours: body.quiet_hours.map(|quiet| QuietHoursChanges {
+            enabled: quiet.enabled,
+            start: quiet.start,
+            end: quiet.end,
+        }),
+    };
+    let prefs =
+        app::update_notification_prefs(state.db(), &request.actor, request.request_id, changes)
+            .await?;
+    tracing::info!(
+        event = Event::SettingsChanged.as_str(),
+        "notification settings changed"
+    );
+    Ok(Json(prefs.into()))
 }

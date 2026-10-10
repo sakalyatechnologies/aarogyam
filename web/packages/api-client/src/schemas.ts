@@ -109,6 +109,10 @@ export const voidResponse = z.undefined();
 export const themeMode = z.enum(["light", "dark"]);
 export type ThemeMode = z.output<typeof themeMode>;
 
+/** What the clinic stores: a fixed mode, or `auto` to follow the device. */
+export const themeModePreference = z.enum(["light", "dark", "auto"]);
+export type ThemeModePreference = z.output<typeof themeModePreference>;
+
 // Errors -------------------------------------------------------------------------------------
 
 export const errorBody = z.object({
@@ -128,7 +132,13 @@ const myClinic = z.object({
 export type ClinicAccess = z.output<typeof myClinic>;
 
 /** `console_access`: active Sakalya staff, whom central sign-in sends to the console (first, beside any clinics). */
-export const meResponse = z.object({ clinics: z.array(myClinic), console_access: z.boolean(), staff_mfa_required: z.boolean() }) satisfies z.ZodType<C.Me>;
+export const meResponse = z.object({
+  clinics: z.array(myClinic),
+  console_access: z.boolean(),
+  staff_mfa_required: z.boolean(),
+  display_name: z.string().nullable().exactOptional(),
+  phone: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.Me>;
 export type Me = z.output<typeof meResponse>;
 
 // Clinic host --------------------------------------------------------------------------------
@@ -313,7 +323,7 @@ export type Address = z.output<typeof address>;
 
 const clinicBranding = z.object({
   brand: optionalText,
-  mode: themeMode.nullable().exactOptional(),
+  mode: themeModePreference.nullable().exactOptional(),
 }) satisfies z.ZodType<C.Branding>;
 
 export const onlineBooking = z.object({
@@ -324,6 +334,7 @@ export const onlineBooking = z.object({
   horizon_days: z.number().int(),
   min_notice_minutes: z.number().int(),
   reminder_minutes: z.number().int(),
+  default_visit_minutes: z.number().int(),
 }) satisfies z.ZodType<C.OnlineBooking>;
 export type OnlineBooking = z.output<typeof onlineBooking>;
 
@@ -389,6 +400,23 @@ export const clinicSettings = z.object({
   letterhead,
 }) satisfies z.ZodType<C.ClinicSettings>;
 export type ClinicSettings = z.output<typeof clinicSettings>;
+
+export const quietHours = z.object({ enabled: z.boolean(), start: z.string(), end: z.string() }) satisfies z.ZodType<C.QuietHoursView>;
+export type QuietHours = z.output<typeof quietHours>;
+
+export const notificationSettings = z.object({
+  reminder_24h: z.boolean(),
+  reminder_2h: z.boolean(),
+  receipts: z.boolean(),
+  recall: z.boolean(),
+  low_stock: z.boolean(),
+  lab_due: z.boolean(),
+  quiet_hours: quietHours,
+}) satisfies z.ZodType<C.NotificationSettings>;
+export type NotificationSettings = z.output<typeof notificationSettings>;
+
+/** Body of `PATCH /api/v1/settings/notifications`. Switches left out stay as they are. */
+export type NotificationSettingsChanges = C.NotificationSettingsChanges;
 
 /** The `online_booking` part of `PATCH /api/v1/settings/clinic`. */
 export type OnlineBookingChanges = C.OnlineBookingChanges;
@@ -473,6 +501,15 @@ export type MySession = z.output<typeof mySession>;
 
 export const mySessionsResponse = z.object({ items: z.array(mySession) }) satisfies z.ZodType<C.MySessions>;
 export type MySessions = z.output<typeof mySessionsResponse>;
+
+export const profile = z.object({ display_name: z.string(), phone: optionalText }) satisfies z.ZodType<C.Profile>;
+export type Profile = z.output<typeof profile>;
+
+/** Body of `PATCH /api/v1/me`: the person's own name and phone. An empty `phone` clears it. */
+export type ProfileUpdate = C.ProfileUpdate;
+
+export const revokedSessions = z.object({ revoked: z.number().int() }) satisfies z.ZodType<C.RevokedSessions>;
+export type RevokedSessions = z.output<typeof revokedSessions>;
 
 /** Body of `PATCH /api/v1/patients/{id}`. Fields left out stay as they are. */
 export type PatientChanges = C.PatientChanges;
@@ -2783,3 +2820,49 @@ export type SavedMedicineSetList = z.output<typeof savedMedicineSetList>;
 
 /** Body of `POST /api/v1/medicine-sets` and `PUT /api/v1/medicine-sets/{id}`. */
 export type MedicineSetInput = C.MedicineSetValues;
+// Staff notifications ------------------------------------------------------------------------
+
+export const notificationKind = z.enum([
+  "booking_requested",
+  "booking_confirmed_auto",
+  "booking_cancelled_by_patient",
+  "lab_overdue",
+  "arrival",
+  "payment_due",
+  "recall_due",
+  "patient_waiting",
+  "send_in",
+  "collect_payment",
+]);
+export type NotificationKind = z.output<typeof notificationKind>;
+
+export const notification = z.object({
+  id: z.string(),
+  kind: z.string(),
+  created_at: timestamp,
+  read: z.boolean(),
+  read_at: optionalText,
+  handled: z.object({ at: timestamp, membership_id: optionalText, name: optionalText }).nullable().exactOptional(),
+  reminded_at: optionalText,
+  escalated_at: optionalText,
+  appointment: z
+    .object({ id: z.string(), starts_at: timestamp, ends_at: timestamp, status: z.string(), practitioner_id: z.string(), practitioner_name: z.string() })
+    .nullable()
+    .exactOptional(),
+  lab_order: z.object({ id: z.string(), number: z.string(), vendor_name: z.string(), due_on: optionalText }).nullable().exactOptional(),
+  /** A path inside the portal that opens what it is about, such as `/queue`. */
+  href: optionalText,
+  queue_token: z.object({ id: z.string(), number: z.number().int() }).nullable().exactOptional(),
+  invoice: z.object({ id: z.string(), number: optionalText }).nullable().exactOptional(),
+  recall: z.object({ id: z.string(), kind: z.string(), due_on: z.string() }).nullable().exactOptional(),
+}) satisfies z.ZodType<C.Notification>;
+export type Notification = z.output<typeof notification>;
+
+export const notificationList = z.object({ items: z.array(notification) }) satisfies z.ZodType<C.NotificationList>;
+export type NotificationList = z.output<typeof notificationList>;
+
+export const unreadCount = z.object({ unread: z.number().int() }) satisfies z.ZodType<C.UnreadCount>;
+export type UnreadCount = z.output<typeof unreadCount>;
+
+export const markedRead = z.object({ marked: z.number().int() }) satisfies z.ZodType<C.MarkedRead>;
+export type MarkedRead = z.output<typeof markedRead>;

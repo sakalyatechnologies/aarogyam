@@ -545,6 +545,7 @@ async fn every_route_requires_sign_in_and_a_permission() {
                 "/api/v1/me",
                 "/api/v1/me/sessions",
                 "/api/v1/me/sessions/{id}/revoke",
+                "/api/v1/me/sessions/revoke-others",
                 "/api/v1/session",
                 // A member's own avatar: theirs, whatever the role (tests/mobile_avatar.rs).
                 "/api/v1/me/avatar",

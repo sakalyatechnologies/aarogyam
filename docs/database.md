@@ -46,12 +46,12 @@ flowchart LR
   clinical -->|2| scheduling
   clinical -->|18| tenancy
   iam -->|1| people
-  notify -->|1| billing
+  notify -->|2| billing
   notify -->|1| clinical
   notify -->|1| iam
   notify -->|1| ops
   notify -->|5| people
-  notify -->|3| scheduling
+  notify -->|4| scheduling
   notify -->|4| tenancy
   onboarding -->|2| people
   ops -->|3| billing
@@ -1170,7 +1170,7 @@ Walk-in tokens shown on the waiting-room screen.
 
 Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done.
 
-Referenced by: `encounters.queue_token_id`
+Referenced by: `encounters.queue_token_id`, `staff_notifications.queue_token_id`
 
 ### `teleconsult_sessions`
 
@@ -2196,7 +2196,7 @@ A bill to a patient. Totals are stored at issue; whether it is paid is derived f
 
 Issued bills never change (a trigger refuses): corrections void and replace. Numbers are never generated offline. Payment state (unpaid, partial, paid) is derived from payment_allocations of payments that are not void.
 
-Referenced by: `invoice_items.invoice_id`, `invoices.replaces_invoice_id`, `payment_allocations.invoice_id`, `promo_redemptions.invoice_id`, `share_links.invoice_id`
+Referenced by: `invoice_items.invoice_id`, `invoices.replaces_invoice_id`, `payment_allocations.invoice_id`, `promo_redemptions.invoice_id`, `share_links.invoice_id`, `staff_notifications.invoice_id`
 
 ### `invoice_items` (★ foundation)
 
@@ -2339,6 +2339,7 @@ Templates, rules, consent, recalls, campaigns, promo codes, the outbox and every
 
 ```mermaid
 erDiagram
+  recalls |o--o{ staff_notifications : "recall_id"
   staff_notifications ||--o{ staff_notification_reads : "notification_id"
   staff_notifications ||--o{ staff_inbox_messages : "notification_id"
   conversations ||--o{ conversation_members : "conversation_id"
@@ -2359,9 +2360,6 @@ erDiagram
     uuid id
   }
   outbox_events {
-    uuid id
-  }
-  recalls {
     uuid id
   }
 ```
@@ -2426,22 +2424,26 @@ Built (migration 0370). Unique (org_id, patient_id, channel, category). Consent 
 
 ### `staff_notifications`
 
-Something clinic staff are told about: an online booking waiting for an answer, one confirmed automatically, one the patient cancelled, or lab work past its due date.
+Something clinic staff are told about: an online booking waiting for an answer, one confirmed automatically, one the patient cancelled, lab work past its due date, a patient who arrived, waited or was sent in, a bill to collect, or a follow-up that fell due.
 
 *Clinic-scoped: org_id + row-level security · sensitivity: internal · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
-| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, lab_overdue |
-| `appointment_id` | `uuid?` | → `appointments`. booking kinds |
-| `lab_order_id` | `uuid?` | → `lab_orders`. lab_overdue; exactly one of the two is set |
+| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment |
+| `appointment_id` | `uuid?` | → `appointments`. booking kinds and arrival |
+| `lab_order_id` | `uuid?` | → `lab_orders`. lab_overdue |
+| `invoice_id` | `uuid?` | → `invoices`. payment_due and collect_payment |
+| `recall_id` | `uuid?` | → `recalls`. recall_due |
+| `queue_token_id` | `uuid?` | → `queue_tokens`. patient_waiting and send_in; exactly one of the five subjects is set |
+| `href` | `text?` | a path inside the portal that opens what it is about, such as /queue; never a name or a diagnosis |
 | `lab_due_on` | `date?` | the due date the order was overdue on; one alert per order and due date |
 | `handled_at` | `timestamptz?` | set when the appointment is confirmed, declined or cancelled |
 | `handled_by` | `uuid?` | → `memberships`. null when the patient cancelled |
 | `reminded_at` | `timestamptz?` | the reminder job reminded everyone |
 | `escalated_at` | `timestamptz?` | the reminder job told the owners |
 
-Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor. Since migration 0395 also lab_overdue, written by a trigger when the reminder job flags an order overdue (overdue_flagged_on) and handled when the work comes back, is cancelled or gets a new due date; seen by members with labs.read whose scope reaches the order (app.clinical_in_reach).
+Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor. Since migration 0395 also lab_overdue, written by a trigger when the reminder job flags an order overdue (overdue_flagged_on) and handled when the work comes back, is cancelled or gets a new due date; seen by members with labs.read whose scope reaches the order (app.clinical_in_reach). Since migration 0617 also arrival (trigger on appointments, handled when the patient moves on; seen with appointments.read), payment_due (trigger when a bill is issued with a balance; handled when paid or voided; billing.read), collect_payment (trigger when a visit closes with its bill in draft; billing.read), recall_due (app.flag_due_recalls from the reminder job unless the clinic switched recall off; handled when the recall is booked, done or dismissed; patients.read within reach), patient_waiting (app.flag_waiting_tokens, a token waiting 15 minutes) and send_in (trigger when a waiting or called token goes in the chair), both seen with appointments.read. Recall alerts go in the patient's erasure.
 
 Referenced by: `staff_inbox_messages.notification_id`, `staff_notification_reads.notification_id`
 
@@ -2543,6 +2545,8 @@ Follow-ups that are due: cleaning in six months, BP review, vaccine.
 | `status` | `recall_status` | due, notified, booked, done, dismissed |
 | `done_at` | `timestamptz?` |  |
 | `source_procedure_id` | `uuid?` | → `procedures` |
+
+Referenced by: `staff_notifications.recall_id`
 
 ### `audiences`
 

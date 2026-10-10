@@ -21,7 +21,7 @@ pub enum SettingsError {
     #[error("brand must be a colour like #0F766E")]
     BrandColor,
     /// The theme mode is not `light` or `dark`.
-    #[error("mode must be light or dark")]
+    #[error("mode must be light, dark or auto")]
     ThemeMode,
     /// The prescription footer is too long.
     #[error("prescription_footer must be at most 500 characters")]
@@ -236,6 +236,8 @@ pub enum ThemeMode {
     Light,
     /// Dark backgrounds.
     Dark,
+    /// Follow the device's setting.
+    Auto,
 }
 
 impl ThemeMode {
@@ -245,10 +247,11 @@ impl ThemeMode {
         match self {
             Self::Light => "light",
             Self::Dark => "dark",
+            Self::Auto => "auto",
         }
     }
 
-    /// Parses `light` or `dark`.
+    /// Parses `light`, `dark` or `auto`.
     ///
     /// # Errors
     /// [`SettingsError::ThemeMode`] for anything else.
@@ -256,6 +259,7 @@ impl ThemeMode {
         match text.trim() {
             "light" => Ok(Self::Light),
             "dark" => Ok(Self::Dark),
+            "auto" => Ok(Self::Auto),
             _ => Err(SettingsError::ThemeMode),
         }
     }
@@ -410,6 +414,8 @@ mod tests {
             assert_eq!(BrandColor::parse(bad), Err(SettingsError::BrandColor));
         }
         assert_eq!(ThemeMode::parse("dark"), Ok(ThemeMode::Dark));
+        assert_eq!(ThemeMode::parse(" auto "), Ok(ThemeMode::Auto));
+        assert_eq!(ThemeMode::Auto.as_str(), "auto");
         assert_eq!(ThemeMode::parse("dim"), Err(SettingsError::ThemeMode));
 
         let address = Address::parse("12 MG Road", "", " Pune ", "Maharashtra", "411 001").unwrap();

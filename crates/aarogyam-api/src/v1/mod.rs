@@ -106,8 +106,12 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/client-errors",
             post(client_errors::report).layer(DefaultBodyLimit::max(client_errors::MAX_BODY)),
         )
-        .route("/me", get(me::me))
+        .route("/me", get(me::me).patch(me::update_me))
         .route("/me/sessions", get(me::sessions))
+        .route(
+            "/me/sessions/revoke-others",
+            post(me::revoke_other_sessions),
+        )
         .route("/me/sessions/{id}/revoke", post(me::revoke_session))
         .route("/session", get(me::session))
         .route(
@@ -473,6 +477,16 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(settings::get_clinic)
                 .layer(from_fn(revalidate))
                 .patch(settings::update_clinic),
+        )
+        .route(
+            "/settings/clinic/logo",
+            post(settings::upload_logo).layer(DefaultBodyLimit::max(letterhead::MAX_UPLOAD_BODY)),
+        )
+        .route(
+            "/settings/notifications",
+            get(settings::get_notifications)
+                .layer(from_fn(revalidate))
+                .patch(settings::update_notifications),
         )
         .route(
             "/console/clinics",

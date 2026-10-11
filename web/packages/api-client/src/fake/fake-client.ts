@@ -442,14 +442,16 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
     }
 
     /** Closes a visit and finishes the queue token it was started from. */
-    function closeFakeVisit(found: FakeVisit): void {
+    function closeFakeVisit(found: FakeVisit, queueStatus: "ready_to_bill" | "done" = "done"): void {
       found.status = "closed";
       found.ended_at = clock().toISOString();
       const linked = state.queueTokens.find((t) => t.id === found.queue_token_id);
-      if (linked !== undefined && (linked.status === "waiting" || linked.status === "in_chair")) {
-        linked.status = "done";
+      if (linked !== undefined && (linked.status === "waiting" || linked.status === "called" || linked.status === "in_chair" || linked.status === "ready_to_bill")) {
+        linked.status = queueStatus;
         linked.called_at ??= found.ended_at;
-        linked.done_at = found.ended_at;
+        if (queueStatus === "done") {
+          linked.done_at = found.ended_at;
+        }
       }
     }
 
@@ -2380,7 +2382,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return refuse(409, "visit_closed", "That visit is already closed.");
           }
           const made = applyWrapUp(caller, found, wrap);
-          closeFakeVisit(found);
+          closeFakeVisit(found, input.queue_status ?? "done");
           const wired = wireVisit(found, state);
           if (wired === undefined) {
             return notFound;
@@ -2458,7 +2460,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             }
           }
           const made = applyWrapUp(caller, found, wrap);
-          closeFakeVisit(found);
+          closeFakeVisit(found, body.queue_status ?? "done");
           const wired = wireVisit(found, state);
           if (wired === undefined) {
             return notFound;

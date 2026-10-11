@@ -5856,6 +5856,11 @@ export interface components {
             /** @description Whether any active allergy is severe. */
             severe_allergy: boolean;
         };
+        /**
+         * @description Where a closed visit's queue token goes.
+         * @enum {string}
+         */
+        CloseQueueStatus: "done" | "ready_to_bill";
         /** @description What closing a visit may also do. Every field is optional, and so is the body. */
         CloseRequest: {
             /**
@@ -5874,6 +5879,7 @@ export interface components {
              *     on the draft bill.
              */
             note?: string | null;
+            queue_status?: components["schemas"]["CloseQueueStatus"] | null;
         };
         /** @description A closed visit and what closing it made. */
         ClosedVisit: components["schemas"]["Visit"] & {
@@ -6693,6 +6699,7 @@ export interface components {
              */
             note?: string | null;
             prescription?: components["schemas"]["FinishPrescription"] | null;
+            queue_status?: components["schemas"]["CloseQueueStatus"] | null;
             /**
              * @description Sign the caller's own draft notes of the visit (default true). Other members' drafts and
              *     empty ones are left, and listed in the answer.

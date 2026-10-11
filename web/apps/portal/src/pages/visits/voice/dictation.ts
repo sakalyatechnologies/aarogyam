@@ -43,6 +43,42 @@ export interface Recognition {
   stop(): void;
   abort(): void;
 }
+/**
+ * Reads recognition events so each spoken phrase lands once. Chrome (notably on Android) re-sends
+ * a final result it already delivered, with the same index or in a later event, and the interim
+ * text of that phrase can still be showing. So a final is taken once per result index and not
+ * again when it repeats the previous final; interim text is only what is not yet final.
+ */
+export function createResultReader(): { read: (event: RecognitionEvent) => { finalText: string; interimText: string }; reset: () => void } {
+  let committed = new Map<number, string>();
+  let lastFinal = "";
+  return {
+    read(event) {
+      let finalText = "";
+      let interimText = "";
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const transcript = (result?.[0]?.transcript ?? "").trim();
+        if (transcript === "") continue;
+        if (result?.isFinal === true) {
+          if (committed.get(index) === transcript || transcript === lastFinal) continue;
+          committed.set(index, transcript);
+          lastFinal = transcript;
+          finalText = finalText === "" ? transcript : `${finalText} ${transcript}`;
+        } else if (transcript !== lastFinal) {
+          interimText = interimText === "" ? transcript : `${interimText} ${transcript}`;
+        }
+      }
+      return { finalText, interimText };
+    },
+    /** A new recognition session numbers its results from 0 again. */
+    reset() {
+      committed = new Map();
+      lastFinal = "";
+    },
+  };
+}
+
 function isRecognition(value: unknown): value is Recognition {
   return typeof value === "object" && value !== null && "start" in value && "abort" in value && "interimResults" in value;
 }

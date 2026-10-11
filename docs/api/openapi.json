@@ -18057,6 +18057,14 @@
           }
         }
       },
+      "CloseQueueStatus": {
+        "type": "string",
+        "description": "Where a closed visit's queue token goes.",
+        "enum": [
+          "done",
+          "ready_to_bill"
+        ]
+      },
       "CloseRequest": {
         "type": "object",
         "description": "What closing a visit may also do. Every field is optional, and so is the body.",
@@ -18082,6 +18090,17 @@
               "null"
             ],
             "description": "The follow-up's reason, up to 300 characters; with a fee and no follow-up, the note printed\non the draft bill."
+          },
+          "queue_status": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloseQueueStatus",
+                "description": "Where the visit's queue token goes: `done` (the default) or `ready_to_bill` (sent for\npayment)."
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -20080,6 +20099,17 @@
               {
                 "$ref": "#/components/schemas/FinishPrescription",
                 "description": "A draft prescription to issue, with the allergy check. Needs `prescriptions.issue`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "queue_status": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloseQueueStatus",
+                "description": "Where the visit's queue token goes: `done` (the default) or `ready_to_bill` (sent for\npayment)."
               },
               {
                 "type": "null"

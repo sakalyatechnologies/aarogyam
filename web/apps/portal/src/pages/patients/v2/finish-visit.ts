@@ -39,6 +39,8 @@ export interface FinishInput {
   feePaise?: number | undefined;
   /** The draft prescription to issue with the visit. Leave out to finish and keep it a draft. */
   rx?: { id: PrescriptionId; overrideReason?: string | undefined } | undefined;
+  /** Where the visit's queue token goes. `ready_to_bill` sends the patient on to payment; leave out for the server's default (`done`). */
+  queueStatus?: "ready_to_bill" | "done" | undefined;
 }
 
 /**
@@ -53,6 +55,7 @@ export async function finishVisit(input: FinishInput, deps: FinishDeps): Promise
   const finished = await deps.finish({
     ...(input.followUp?.days == null ? {} : { follow_up_on: dateAfter(input.followUp.days) }),
     ...(input.feePaise === undefined ? {} : { fee_paise: input.feePaise }),
+    ...(input.queueStatus === undefined ? {} : { queue_status: input.queueStatus }),
     ...(input.rx === undefined ? {} : { prescription: { id: input.rx.id, ...(reason === undefined || reason === "" ? {} : { override_reason: reason }) } }),
   });
   return { noteSigned: finished.signed_note_ids.length > 0 };

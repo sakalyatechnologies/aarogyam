@@ -115,3 +115,10 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
   - Turn on the fee with `VisitStateHolder.SERVER_CLOSE_BODY` once BE5 is merged.
 - **Gates on feat/v9: green.** Both `./gradlew check` and `iosApp/scripts/ios-check.sh` pass.
   - Fixes needed to get there: a `kotlinx.io.IOException` in a desk test, and spotless.
+- ios-desk is merged (047c6dc). It covers the lookup, the waiting board and collect-payment with a proof photo. 10 XCTests; screenshots are in `mobile/docs/screenshots/v9/ios/desk/`.
+  - Still Preview: BE1 (relations), BE2 (Send in) and BE6 (the desk can't attach proof without clinical.write). The be-int worker has been asked to add a kind-based permission for `payment_proof`.
+- Running:
+  - be-int
+  - outbox2: a persistent outbox wired into AppGraph, cleared on sign-out
+  - concepts: the v8.1 HTML mockup of C1–C5
+  - the gates for 047c6dc, run by the coordinator

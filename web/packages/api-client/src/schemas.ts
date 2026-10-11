@@ -154,10 +154,18 @@ export function readBranding(value: Record<string, unknown>): { brand?: string |
   return parsed.success ? parsed.data : {};
 }
 
+/** A member's avatar: a preset the apps draw, or a signed path to a photo. */
+export const avatar = z.object({
+  preset: optionalText,
+  photo_url: optionalText,
+  photo_expires_at: optionalText,
+}) satisfies z.ZodType<C.Avatar>;
+export type Avatar = z.output<typeof avatar>;
+
 export const sessionResponse = z.object({
   clinic: z.object({ id: clinicId, slug: z.string().min(1), name: z.string(), timezone: z.string().min(1), branding: z.record(z.string(), z.unknown()) }),
   membership: z.object({ id: membershipId, role_key: z.string(), permissions: z.array(z.string()) }),
-  user: z.object({ id: userId, display_name: z.string() }),
+  user: z.object({ id: userId, display_name: z.string(), avatar: avatar.nullable().exactOptional() }),
 }) satisfies z.ZodType<C.Session>;
 export type Session = z.output<typeof sessionResponse>;
 

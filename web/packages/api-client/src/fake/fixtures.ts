@@ -27,6 +27,8 @@ export interface FakeUser {
   email?: string;
   /** E.164; served masked. */
   phone?: string;
+  /** Their avatar: a preset id or a photo link. */
+  avatar?: { preset?: string; photo_url?: string };
   /** What signing in as this user shows, for the dev sign-in screen. */
   description: string;
 }

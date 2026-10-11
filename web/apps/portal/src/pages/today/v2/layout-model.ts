@@ -73,9 +73,25 @@ export function inZone(items: readonly ShownItem[], zone: Zone): ShownItem[] {
 
 // Edits ----------------------------------------------------------------------------------------
 
-export function templateLayout(catalogue: DashboardCatalogue, key: string): DashboardLayout | undefined {
-  return catalogue.templates.find((template) => template.key === key)?.layout;
+export function templateLayout(catalogue: Pick<DashboardCatalogue, "templates">, key: string): DashboardLayout | undefined {
+  const found = catalogue.templates.find((template) => template.key === key)?.layout;
+  return found === undefined ? undefined : shownLayout(found);
 }
+
+/** What the Studio no longer offers. The API still accepts both, so a saved layout may hold one. */
+export const RETIRED_CARD: Readonly<Record<string, string>> = { flat: "soft" };
+export const RETIRED_TEMPLATE: Readonly<Record<string, string>> = { focus: "medsync" };
+
+/** The layout as the Studio shows it: a saved `flat` card style reads as `soft`, and a saved `focus` template as `medsync`. */
+export function shownLayout(layout: DashboardLayout): DashboardLayout {
+  const card = RETIRED_CARD[layout.card] ?? layout.card;
+  const tpl = RETIRED_TEMPLATE[layout.tpl] ?? layout.tpl;
+  return card === layout.card && tpl === layout.tpl ? layout : { ...layout, card, tpl };
+}
+
+/** The templates and card styles the Studio offers: the catalogue's, without the retired ones. */
+export const offeredTemplates = (catalogue: Pick<DashboardCatalogue, "templates">) => catalogue.templates.filter((template) => RETIRED_TEMPLATE[template.key] === undefined);
+export const offeredCards = (catalogue: Pick<DashboardCatalogue, "cards">) => catalogue.cards.filter((card) => RETIRED_CARD[card] === undefined);
 
 /** The first size a zone allows for a widget, preferring `wanted`. In the rail the size is ignored but must stay valid. */
 export function fitSize(spec: WidgetSpec, wanted: string): string {

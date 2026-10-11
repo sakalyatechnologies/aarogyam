@@ -170,6 +170,7 @@ describe("Setup wizard", () => {
     expect(screen.getByRole("radiogroup", { name: "Palette" })).toBeTruthy();
     // The same Today board the Studio draws, on sample data, with its widget editor and a template card each.
     expect(await screen.findByRole("group", { name: "Live preview of Today" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "More options" }));
     expect(screen.getByRole("button", { name: "Remove Key numbers" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Executive/ })).toBeTruthy();
     expect(document.querySelectorAll(".tv2-thumb").length).toBeGreaterThan(2);
@@ -367,6 +368,7 @@ describe("step 5, the clinic's Today layout", () => {
       }));
       await screen.findByRole("group", { name: "Live preview of Today" });
       await user.click(screen.getByRole("button", { name: /Executive/ }));
+      await user.click(screen.getByRole("button", { name: "More options" }));
       await user.click(screen.getByRole("button", { name: "Compact" }));
       await user.click(screen.getByRole("button", { name: "Remove Busy hours" }));
       expect(saved).toHaveLength(0);
@@ -388,11 +390,13 @@ describe("step 5, the clinic's Today layout", () => {
       const { user, backend } = await wizard("/setup?step=look");
       await screen.findByRole("group", { name: "Live preview of Today" });
       await user.click(screen.getByRole("button", { name: /Executive/ }));
+      await user.click(screen.getByRole("button", { name: "More options" }));
       await user.click(screen.getByRole("button", { name: "Remove Busy hours" }));
       cleanup();
       renderPortal("/setup?step=look", { as: PEOPLE.asha, backend });
       await screen.findByRole("group", { name: "Live preview of Today" }, { timeout: 5000 });
       expect(screen.getByRole("button", { name: /Executive/ }).getAttribute("aria-pressed")).toBe("true");
+      await user.click(screen.getByRole("button", { name: "More options" }));
       expect(screen.queryByRole("button", { name: "Remove Busy hours" })).toBeNull();
       // Nothing was saved to the clinic before Continue.
       expect(value(await client(backend, PEOPLE.asha).getDashboardLayout()).source).not.toBe("clinic");
@@ -421,6 +425,7 @@ describe("step 5, the clinic's Today layout", () => {
       const { user } = await wizard("/setup?step=look");
       await screen.findByRole("group", { name: "Live preview of Today" });
       await user.click(screen.getByRole("button", { name: /Executive/ }));
+      await user.click(screen.getByRole("button", { name: "More options" }));
       await user.click(screen.getByRole("button", { name: "Compact" }));
       await user.click(screen.getByRole("button", { name: "Continue" }));
       // The other four steps are still open: wait for each one to show before skipping it.

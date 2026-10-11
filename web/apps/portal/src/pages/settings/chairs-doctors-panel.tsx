@@ -44,9 +44,11 @@ const WEEKDAYS = [
 /** Settings -> Chairs and doctors: rooms, practitioners, their weekly hours and leave. Needs `settings.manage`. */
 export function ChairsDoctorsPanel() {
   return (
-    <div className="flex flex-col gap-6">
-      <RoomsSection />
-      <PractitionersSection />
+    <div className="flex flex-col gap-6 st-cd">
+      <div className="st-cd-pair">
+        <RoomsSection />
+        <PractitionersSection />
+      </div>
       <LeaveSection />
     </div>
   );

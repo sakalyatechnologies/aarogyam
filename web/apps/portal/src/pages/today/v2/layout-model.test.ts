@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { DashboardCatalogue, DashboardLayout } from "@aarogyam/api-client";
 
-import { addWidget, allowed, canStep, dropInZone, dropOn, nearestSize, stepSize, stepWidget, moveInZone, removeAt, sameLayout, setOpt, setZone, shownItems, specOf } from "./layout-model.js";
+import { addWidget, allowed, canStep, dropInZone, dropOn, nearestSize, stepSize, stepWidget, moveInZone, removeAt, sameLayout, setOpt, setZone, shownItems, shownLayout, specOf, templateLayout, offeredCards, offeredTemplates } from "./layout-model.js";
 
 const spec = (key: string, zones: string[], sizes: string[], requires: string | null = null) => ({
   key,
@@ -125,5 +125,25 @@ describe("edits on the preview", () => {
     expect(nearestSize(b, 5)).toBe("L");
     expect(nearestSize(b, 11)).toBe("full");
     expect(nearestSize(a, 12)).toBe("M");
+  });
+});
+
+describe("retired choices", () => {
+  const saved = (tpl: string, card: string): DashboardLayout => ({ v: 2, tpl, density: "cozy", card, rail: { side: "right", width: "medium" }, items: [] });
+
+  it("shows a saved flat card as soft and a saved focus template as medsync, and leaves the rest alone", () => {
+    expect(shownLayout(saved("focus", "flat"))).toMatchObject({ tpl: "medsync", card: "soft" });
+    expect(shownLayout(saved("care", "flat"))).toMatchObject({ tpl: "care", card: "soft" });
+    expect(shownLayout(saved("focus", "outline"))).toMatchObject({ tpl: "medsync", card: "outline" });
+    const plain = saved("executive", "soft");
+    expect(shownLayout(plain)).toBe(plain);
+  });
+
+  it("offers neither Focus nor Flat, and a template's own flat card reads as soft", () => {
+    const entry = (key: string) => ({ key, label: key, description: key, layout: saved(key, "flat") });
+    const catalogue = { templates: [entry("focus"), entry("compact")], cards: ["flat", "soft", "outline"] };
+    expect(offeredTemplates(catalogue).map((t) => t.key)).toEqual(["compact"]);
+    expect(offeredCards(catalogue)).toEqual(["soft", "outline"]);
+    expect(templateLayout(catalogue, "compact")?.card).toBe("soft");
   });
 });

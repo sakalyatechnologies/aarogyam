@@ -87,3 +87,26 @@
 .mk-bk-more summary::-webkit-details-marker { display: none; }
 .mk-bk-more[open] summary svg { transform: rotate(180deg); }
 .mk-bk-moreBody { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+
+/* ---- New look: rounded cards like the design. Only under `.cal2`, so the original look is untouched. ---- */
+.cal2 { width: 100%; max-width: none; }
+.cal2-docs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.cal2-docs .mk-chipf { padding: 6px 14px; font-size: 12.5px; }
+.cal2 .mk-ptools { gap: 8px; }
+.cal2 .mk-tg { max-height: min(74vh, 780px); width: 100%; border-radius: 22px; border-color: var(--nl-line, var(--rule)); background: color-mix(in srgb, var(--bg) 55%, var(--surface)); }
+.cal2 .mk-tg-head { background: color-mix(in srgb, var(--bg) 55%, var(--surface)); padding: 8px 8px 6px; gap: 8px; }
+.cal2 .mk-tg-head .mk-dh { border-radius: 16px; background: var(--surface); font-size: 13px; color: var(--ink); }
+.cal2 .mk-tg-head .mk-dh b { font-size: 16px; }
+.cal2 .mk-tg-body { padding: 0 8px 8px; gap: 8px; }
+.cal2 .mk-tg-col { border-left: 0; border-radius: 18px; background-color: color-mix(in srgb, var(--surface) 70%, transparent); overflow: hidden; }
+.cal2 .mk-tg-col.current { background-color: color-mix(in srgb, var(--brand-soft) 55%, var(--surface)); }
+.cal2 .mk-tg-ev { border-radius: 14px; box-shadow: 0 1px 2px rgb(0 0 0 / .06); padding: 4px 8px 4px 14px; background: color-mix(in srgb, var(--bar) 15%, var(--surface)); color: var(--ink); }
+.cal2 .mk-tg-ev::before { left: 5px; top: 6px; bottom: 6px; width: 4px; border-radius: 4px; }
+.cal2 .mk-tg-ev b { font-size: 12px; }
+.cal2 .mk-tg-ev.q { background: transparent; border: 1.5px dashed var(--bar); }
+.cal2 .mk-tg-ev:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgb(0 0 0 / .14); }
+.cal2 .mk-month { gap: 8px; width: 100%; }
+.cal2 .mk-mday { border-radius: 18px; border-color: var(--nl-line, var(--rule)); }
+.cal2 .mk-month .mk-evchip { border-radius: 10px; background: color-mix(in srgb, var(--bar) 15%, var(--surface)); color: var(--ink); }
+.cal2 .mk-tip { border-radius: 14px; }
+.cal2 .mk-legend-chip { background: var(--surface); }

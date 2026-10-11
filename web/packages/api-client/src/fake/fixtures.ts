@@ -206,6 +206,7 @@ export interface FakeQueueToken {
   issued_at: string;
   called_at?: string | null;
   done_at?: string | null;
+  room_id?: string | null;
 }
 
 /** A consent record, server-shaped except for `clinic_id` and `patient_id`. */
@@ -1702,6 +1703,7 @@ function makeClinicDay(
       issued_at: entry.arrivedAt,
       called_at: entry.seatedAt,
       done_at: entry.doneAt,
+      room_id: tokenStatus === "waiting" ? null : (entry.appointment.room_id ?? null),
     };
   });
 

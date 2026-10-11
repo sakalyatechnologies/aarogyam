@@ -133,3 +133,4 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
   - Gaps: only payments have a sender, and there is no 48 h expiry.
   - Gaps: a sign-out after the session expires drops unsent writes. Founder decision: should we warn before sign-out when items are pending?
 - concepts merged (696036c). The v8.1 mockup is published at https://claude.ai/artifact/AEEMPmbSXQfKzK7p21fjzf. 7 questions for the founder are listed in `docs/plans/v9/concepts.md`.
+- outbox3: merged. Offline senders now cover notes, procedures, sign, close and photos, sent in order with no double send; 7 tests. Gaps: the server has no idempotency key for procedures, sign or close (the app checks before retrying, and treats a 409 as done); Android OutboxFiles is not built.

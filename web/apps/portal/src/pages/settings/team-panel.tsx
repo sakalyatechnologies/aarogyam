@@ -7,6 +7,7 @@ import { ApiErrorNotice, formatDate } from "@aarogyam/app-kit";
 import { Avatar, Button, Card, DataTable, Dialog, Field, Menu, Pill, Select, TextInput, useToast, type DataTableColumn, type MenuItem } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
+import { useNewLook } from "../../lib/new-look.js";
 import { useChangeStaffMember, useInviteStaff, useRoles, useStaff } from "../../queries.js";
 import { RolesPanel } from "./roles-panel.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
@@ -143,18 +144,39 @@ function MemberMenu({ member, selfId }: { member: { id: MembershipId; display_na
   return <Menu label={`Actions for ${member.display_name}`} icon={<MoreVertical aria-hidden="true" className="size-4" />} items={items} onSelect={onSelect} />;
 }
 
+/** A phone number (digits, spaces, dashes, an optional leading +) rather than an email. */
+export function looksLikePhone(value: string): boolean {
+  const v = value.trim();
+  return v !== "" && !v.includes("@") && /^\+?[\d\s-]{7,16}$/.test(v);
+}
+
+/** The join link for a fresh invitation. The token rides in the fragment, which browsers never send to a server. */
+function joinLink(token: string): string {
+  return `${window.location.origin}/invite#${token}`;
+}
+
 function InviteDialog({ open, onOpenChange, roles }: { open: boolean; onOpenChange: (open: boolean) => void; roles: readonly Role[] }) {
   const invite = useInviteStaff();
   const toast = useToast();
-  const [email, setEmail] = useState("");
+  const [newLook] = useNewLook();
+  const [contact, setContact] = useState("");
+  const [phoneEmail, setPhoneEmail] = useState("");
   const [roleKey, setRoleKey] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
+  const [sent, setSent] = useState<{ link: string; phone: string; email: string } | undefined>(undefined);
+
+  // New look: one "Phone or email" box. The API signs people in by email, so a phone invite also takes the email
+  // and hands back a link to send on WhatsApp. The old look keeps its email-only form.
+  const byPhone = newLook && looksLikePhone(contact);
+  const email = byPhone ? phoneEmail.trim() : contact.trim();
 
   const close = () => {
     onOpenChange(false);
-    setEmail("");
+    setContact("");
+    setPhoneEmail("");
     setRoleKey("");
     setError(undefined);
+    setSent(undefined);
   };
 
   const submit = () => {
@@ -162,6 +184,10 @@ function InviteDialog({ open, onOpenChange, roles }: { open: boolean; onOpenChan
       { email, role_key: roleKey },
       {
         onSuccess: (created) => {
+          if (byPhone) {
+            setSent({ link: joinLink(created.invite_token), phone: contact.replace(/\D/g, ""), email: created.email });
+            return;
+          }
           toast.show({ title: `Invited ${created.email}`, tone: "success" });
           close();
         },
@@ -172,33 +198,64 @@ function InviteDialog({ open, onOpenChange, roles }: { open: boolean; onOpenChan
     );
   };
 
+  if (sent !== undefined) {
+    const message = `You're invited to join our clinic on Aarogyam. Open this link to join: ${sent.link}`;
+    return (
+      <Dialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Invite ready"
+        description={`${sent.email} can join with this link. It is shown only once.`}
+        footer={<Button onClick={close}>Done</Button>}
+      >
+        <div className="flex flex-col gap-3">
+          <TextInput readOnly aria-label="Invite link" value={sent.link} />
+          <a className="mk-link text-sm font-semibold" href={`https://wa.me/${sent.phone}?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer">
+            Send on WhatsApp
+          </a>
+        </div>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
       title="Invite someone"
-      description="They'll get an email with a link to join."
+      description={newLook ? "Use their phone or email. They join with a link." : "They'll get an email with a link to join."}
       footer={
         <>
           <Button variant="secondary" onClick={close}>
             Cancel
           </Button>
           <Button onClick={submit} disabled={invite.isPending || email === "" || roleKey === ""}>
-            {invite.isPending ? "Sending…" : "Send invite"}
+            {invite.isPending ? "Sending…" : byPhone ? "Create invite" : "Send invite"}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="Email" required>
+        <Field label={newLook ? "Phone or email" : "Email"} required>
           <TextInput
-            type="email"
-            value={email}
+            type={newLook ? "text" : "email"}
+            value={contact}
             onChange={(event) => {
-              setEmail(event.target.value);
+              setContact(event.target.value);
             }}
           />
         </Field>
+        {byPhone ? (
+          <Field label="Their email" required hint="They sign in with it. We give you a link to send on WhatsApp.">
+            <TextInput
+              type="email"
+              value={phoneEmail}
+              onChange={(event) => {
+                setPhoneEmail(event.target.value);
+              }}
+            />
+          </Field>
+        ) : null}
         <Field label="Role" required>
           <Select
             options={roles.map((role) => ({ value: role.key, label: role.name }))}

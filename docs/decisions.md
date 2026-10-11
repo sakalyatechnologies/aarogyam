@@ -536,3 +536,28 @@ A clinic may keep records longer where its profession or a dispute requires; per
 - **Staff notification kinds** (migration 0617, expand only): `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in` and `collect_payment` join the feed, each with `href` (a path inside the portal, never a name or diagnosis) and a subject (`appointment`, `queue_token`, `invoice` or `recall`). Triggers write arrival, bill issued, visit closed with a draft bill and a token sent in; the reminder job writes `recall_due` and `patient_waiting` (a token waiting 15 minutes). Who sees what is decided when reading: appointments.read for arrival and the queue kinds, billing.read for the bill kinds, patients.read (within reach) for recalls. The feed, count and read routes accept any of the four read permissions.
 
 **Why.** The portal's settings and bell need real switches and links, not mock ones. Receipts are opt-in and the 2-hour reminder is off because both send more mail than clinics asked for.
+
+## 2026-10-10: Simple roles matrix (portal new look)
+
+**Decision.** Settings, Team & roles, in the New look, opens on a plain matrix: roles across, ten areas down, one switch per cell. The detailed editor stays one click away under "Advanced" (and the old look shows it alone). No API change: a click sends the existing `PUT /roles/{key}/permissions` with the full expanded key list. The mapping lives in one table, `SIMPLE_AREAS` in `web/apps/portal/src/pages/settings/roles-panel.tsx`:
+
+| Area | Keys |
+|---|---|
+| Patients | `patients.read`, `patients.write` |
+| Clinical notes and chart | `clinical.read`, `clinical.write` |
+| Prescriptions | `prescriptions.issue` |
+| Appointments and queue | `appointments.read`, `appointments.write` |
+| Billing and payments | `billing.read`, `billing.write`, `expenses.write` |
+| Money reports | `finance.view`, `analytics.view`, `reports.export` |
+| Stock | `inventory.read`, `inventory.manage` |
+| Labs | `labs.read`, `labs.write` |
+| Messages | `messages.send`, `chat.use`, `patients.contact`, `campaigns.manage` |
+| Settings and team | `settings.manage`, `staff.manage`, `roles.manage`, `audit.view` |
+
+- **States.** On = the role holds every key of the group, Partial = some, Off = none. Clicking Off or Partial turns the whole group on (new keys get scope `all`, scopes already chosen are kept); clicking On turns it off.
+- **Untouched keys.** `patients.delete`, `support.grant`, `intake.write` and `root.everything` are in no group; the matrix keeps them as they are, so only Advanced changes them.
+- **Locked rules.** The owner column is always On and disabled; your own role and any group holding a key you lack are disabled, each with a tooltip. The API still enforces all of it.
+- **Saving.** Each click saves at once, shows a toast, and an Undo button sends the role's previous list back.
+- **Invites.** New look: one "Phone or email" box and a role picker. The API signs people in by email, so a phone invite also asks for their email and then shows the join link with a WhatsApp share link. The old look keeps the email-only form.
+
+**Why.** The founder found the detailed editor too much for everyday use; most clinics only ever decide "can the front desk see money".

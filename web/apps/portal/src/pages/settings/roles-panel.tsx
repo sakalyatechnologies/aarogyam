@@ -8,12 +8,13 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 
-import { apiErrorOf, type AccessCatalogue, type CataloguePermission, type PermissionScope, type Role, type RoleChange, type RoleDetail, type RolePermission } from "@aarogyam/api-client";
+import { PERMISSIONS, apiErrorOf, type AccessCatalogue, type CataloguePermission, type PermissionScope, type Role, type RoleChange, type RoleDetail, type RolePermission } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDateTime } from "@aarogyam/app-kit";
 import { Button, Dialog, Field, Pill, Select, Skeleton, TextInput, useToast } from "@sakalya/ui";
 
 import { Toggle } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
+import { useNewLook } from "../../lib/new-look.js";
 import { useAccessCatalogue, useCreateRole, useDeleteRole, useRole, useRoles, useSetRolePermissions } from "../../queries.js";
 
 /** The groups the editor shows, in order, and the catalogue modules in each. */
@@ -74,7 +75,38 @@ export function describeChange(before: Draft, after: Draft, catalogue: AccessCat
   return lines;
 }
 
+/**
+ * New look: the plain-language matrix, with the detailed editor one click away under "Advanced".
+ * The old look shows the detailed editor alone, unchanged.
+ */
 export function RolesPanel() {
+  const [newLook] = useNewLook();
+  const [params] = useSearchParams();
+  const [advanced, setAdvanced] = useState(params.has("role"));
+  if (!newLook) {
+    return <AdvancedRoles />;
+  }
+  return (
+    <div className="flex flex-col gap-6">
+      <SimpleRolesMatrix />
+      <div>
+        <button
+          type="button"
+          className="mk-link text-sm font-semibold"
+          aria-expanded={advanced}
+          onClick={() => {
+            setAdvanced((open) => !open);
+          }}
+        >
+          {advanced ? "Hide advanced roles editor" : "Advanced: fine control over each permission"}
+        </button>
+      </div>
+      {advanced ? <AdvancedRoles /> : null}
+    </div>
+  );
+}
+
+function AdvancedRoles() {
   const roles = useRoles();
   const catalogue = useAccessCatalogue();
   const [params, setParams] = useSearchParams();
@@ -482,5 +514,200 @@ function NewRoleForm({ catalogue, onCreated }: { catalogue: AccessCatalogue; onC
         </p>
       )}
     </form>
+  );
+}
+
+/**
+ * The simple matrix's mapping: each plain-language area is a fixed group of detailed permission keys
+ * (documented in docs/decisions.md, "Simple roles matrix"). A cell is On when the role holds every key,
+ * Partial when some, Off when none. Keys in no group (patients.delete, support.grant, intake.write,
+ * root.everything) are never touched by the matrix; they stay as the detailed editor left them.
+ */
+export const SIMPLE_AREAS: readonly { id: string; label: string; keys: readonly string[] }[] = [
+  { id: "patients", label: "Patients", keys: ["patients.read", "patients.write"] },
+  { id: "clinical", label: "Clinical notes and chart", keys: ["clinical.read", "clinical.write"] },
+  { id: "prescriptions", label: "Prescriptions", keys: ["prescriptions.issue"] },
+  { id: "appointments", label: "Appointments and queue", keys: ["appointments.read", "appointments.write"] },
+  { id: "billing", label: "Billing and payments", keys: ["billing.read", "billing.write", "expenses.write"] },
+  { id: "money", label: "Money reports", keys: ["finance.view", "analytics.view", "reports.export"] },
+  { id: "stock", label: "Stock", keys: ["inventory.read", "inventory.manage"] },
+  { id: "labs", label: "Labs", keys: ["labs.read", "labs.write"] },
+  { id: "messages", label: "Messages", keys: ["messages.send", "chat.use", "patients.contact", "campaigns.manage"] },
+  { id: "settings", label: "Settings and team", keys: ["settings.manage", "staff.manage", "roles.manage", "audit.view"] },
+];
+
+export type AreaState = "on" | "partial" | "off";
+type Area = (typeof SIMPLE_AREAS)[number];
+
+/** The area's keys that this clinic's catalogue knows (an unknown key is left out, not guessed). */
+function areaKeys(area: Area, known: ReadonlySet<string>): string[] {
+  return area.keys.filter((key) => known.has(key));
+}
+
+/** How much of an area a set of permissions holds. */
+export function areaState(held: readonly RolePermission[], area: Area, known: ReadonlySet<string>): AreaState {
+  const keys = areaKeys(area, known);
+  const count = keys.filter((key) => held.some((p) => p.key === key)).length;
+  return count === 0 ? "off" : count === keys.length ? "on" : "partial";
+}
+
+/**
+ * The full permission list after switching an area on or off. On adds the missing keys (scope "all", or
+ * the first scope the catalogue allows) and keeps any scope already chosen; off removes the area's keys.
+ * Everything outside the area is kept exactly.
+ */
+export function setArea(held: readonly RolePermission[], area: Area, on: boolean, catalogue: AccessCatalogue): RolePermission[] {
+  const known = new Set(catalogue.permissions.map((p) => p.key));
+  const keys = new Set(areaKeys(area, known));
+  const rest = held.filter((p) => !keys.has(p.key) || on);
+  if (!on) return rest;
+  const added = [...keys]
+    .filter((key) => !held.some((p) => p.key === key))
+    .map((key): RolePermission => {
+      const scopes = catalogue.permissions.find((p) => p.key === key)?.scopes ?? [];
+      return { key, scope: scopes.includes("all") ? "all" : (scopes[0] ?? "all") };
+    });
+  return [...rest, ...added].sort((a, b) => a.key.localeCompare(b.key));
+}
+
+const STATE_TEXT: Record<AreaState, string> = { on: "On", partial: "Partial", off: "Off" };
+const STATE_STYLE: Record<AreaState, string> = {
+  on: "bg-primary text-on-primary",
+  partial: "bg-warning-soft text-text border border-warning",
+  off: "bg-surface-muted text-muted",
+};
+
+type Undo = { roleKey: string; roleName: string; text: string; before: readonly RolePermission[] };
+
+/** Roles across, plain-language areas down, one switch per cell. Each change saves at once and can be undone. */
+function SimpleRolesMatrix() {
+  const roles = useRoles();
+  const catalogue = useAccessCatalogue();
+  const { session, can } = useClinic();
+  const save = useSetRolePermissions();
+  const toast = useToast();
+  const [undo, setUndo] = useState<Undo | undefined>(undefined);
+
+  if (roles.isPending || catalogue.isPending) {
+    return <Skeleton shape="block" />;
+  }
+  if (roles.isError || catalogue.isError) {
+    return (
+      <ApiErrorNotice
+        title="Couldn't load roles and access"
+        error={roles.error ?? catalogue.error}
+        onRetry={() => {
+          void roles.refetch();
+          void catalogue.refetch();
+        }}
+      />
+    );
+  }
+  const known = new Set(catalogue.data.permissions.map((p) => p.key));
+  const send = (roleKey: string, permissions: readonly RolePermission[], onDone: () => void) => {
+    save.mutate(
+      { key: roleKey, update: { permissions: permissions.map(({ key, scope }) => ({ key, scope })) } },
+      {
+        onSuccess: onDone,
+        onError: (thrown) => {
+          toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't save that. Please try again.", tone: "danger" });
+        },
+      },
+    );
+  };
+  const toggle = (role: Role, area: Area, state: AreaState) => {
+    const on = state !== "on"; // Off and Partial both turn the whole group on.
+    const text = `${role.name}: ${area.label} ${on ? "on" : "off"}`;
+    send(role.key, setArea(role.permissions, area, on, catalogue.data), () => {
+      setUndo({ roleKey: role.key, roleName: role.name, text, before: role.permissions });
+      toast.show({ title: `Saved. ${text}`, tone: "success" });
+    });
+  };
+  const revert = (change: Undo) => {
+    send(change.roleKey, change.before, () => {
+      setUndo(undefined);
+      toast.show({ title: `Undone. ${change.roleName} is back as it was`, tone: "success" });
+    });
+  };
+
+  return (
+    <section aria-labelledby="simple-roles-title" className="flex flex-col gap-3">
+      <div>
+        <h3 id="simple-roles-title" className="text-base font-bold text-text">
+          What each role can do
+        </h3>
+        <p className="text-sm text-muted">Tap a cell to switch an area on or off for everyone with that role. Changes save at once. The owner always has full access.</p>
+      </div>
+      <div role="status" aria-live="polite" className="min-h-8 text-sm text-text">
+        {undo === undefined ? null : (
+          <span className="flex flex-wrap items-center gap-3">
+            <span>{undo.text}</span>
+            <Button
+              variant="secondary"
+              disabled={save.isPending}
+              onClick={() => {
+                revert(undo);
+              }}
+            >
+              Undo
+            </Button>
+          </span>
+        )}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm" aria-label="What each role can do">
+          <thead>
+            <tr>
+              <th scope="col" className="py-2 pr-3 text-left font-semibold text-muted">
+                Area
+              </th>
+              {roles.data.items.map((role) => (
+                <th key={role.key} scope="col" className="px-2 py-2 text-center font-semibold text-text">
+                  {role.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {SIMPLE_AREAS.map((area) => (
+              <tr key={area.id}>
+                <th scope="row" className="py-2 pr-3 text-left font-medium text-text">
+                  {area.label}
+                </th>
+                {roles.data.items.map((role) => {
+                  const locked = role.key === "owner";
+                  const state: AreaState = locked ? "on" : areaState(role.permissions, area, known);
+                  const reason = locked
+                    ? "The owner always has full access."
+                    : role.key === session.membership.role_key
+                      ? "This is your own role. Ask an owner to change it."
+                      : areaKeys(area, known).some((key) => PERMISSIONS.some((p) => p === key && !can(p)))
+                        ? "You can only give access you have yourself."
+                        : undefined;
+                  return (
+                    <td key={role.key} className="px-2 py-2 text-center">
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={state === "partial" ? "mixed" : state === "on"}
+                        aria-disabled={reason !== undefined}
+                        aria-label={`${role.name}: ${area.label}${reason === undefined ? "" : `. ${reason}`}`}
+                        title={reason ?? (state === "partial" ? "Some of this is on. Tap to turn all of it on." : undefined)}
+                        className={`inline-block min-w-16 rounded-full px-3 py-1 text-xs font-semibold ${STATE_STYLE[state]} ${reason === undefined ? "cursor-pointer" : "cursor-not-allowed opacity-70"}`}
+                        onClick={() => {
+                          if (reason === undefined && !save.isPending) toggle(role, area, state);
+                        }}
+                      >
+                        {STATE_TEXT[state]}
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

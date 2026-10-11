@@ -1,9 +1,9 @@
-import { CalendarPlus, ChevronLeft, Mail, Pencil } from "lucide-react";
-import { useEffect, useState } from "react";
+import { CalendarPlus, ChevronLeft, Pencil } from "lucide-react";
+import { useEffect } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatDate, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
+import { ApiErrorNotice, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
 
 import { AppointmentActionButton, isOpenAppointment } from "../../../components/appointment-action.js";
 import { Initials, Skeleton, Tag } from "../../../components/mk/index.js";
@@ -11,16 +11,15 @@ import { SkeletonRows } from "../../../components/skeleton-rows.js";
 import { useClinic } from "../../../clinic.js";
 import { ageSex, displayName, patientPath } from "../../../lib/patients.js";
 import { rememberPatient } from "../../../lib/recent-patients.js";
-import { usePatient, useToday } from "../../../queries.js";
+import { useClinicalFlags, usePatient, useToday } from "../../../queries.js";
 import { NotFoundPage } from "../../not-found-page.js";
-import { AllergyBanner } from "../allergy-banner.js";
 import { ConsentLine } from "../patient-page.js";
-import { ActionBar } from "./action-bar.js";
 import { Celebration } from "./celebration.js";
 import { PillButton, Pills } from "./kit.js";
 import { ConsoleLayout, StageLayout, TabsLayout, type LayoutProps } from "./layouts.js";
 import { P360_LAYOUTS, useP360Layout, type P360Layout } from "./use-layout.js";
-import { VisitSessionProvider, type FinishedVisit } from "./visit-session.js";
+import { VisitBar } from "./visit-bar.js";
+import { VisitSessionProvider, useVisitSession } from "./visit-session.js";
 import "./p360.css";
 
 /** The URL carries the patient's ID, validated before it reaches the API. */
@@ -65,10 +64,10 @@ export function Patient360() {
 }
 
 function Patient360View({ patient }: { patient: Patient }) {
-  const { can, access, session } = useClinic();
+  const { can, access, session: auth } = useClinic();
   const navigate = useNavigate();
-  const [layout, setLayout] = useP360Layout(session.user.id);
-  const [finished, setFinished] = useState<FinishedVisit | undefined>(undefined);
+  const [layout, setLayout] = useP360Layout(auth.user.id);
+  const session = useVisitSession();
   const canClinical = can("clinical.read") || can("clinical.write");
   // ?tab=prescriptions (the command palette and old links) lands on the past prescriptions.
   const [params] = useSearchParams();
@@ -92,17 +91,19 @@ function Patient360View({ patient }: { patient: Patient }) {
         </div>
       </div>
 
+      <VisitBar />
+
       <section className="p360-head" aria-label="Patient summary">
         <Initials name={patient.full_name} size="lg" />
         <div className="p360-head-who">
-          <div className="p360-eyebrow mk-mono">{patient.number}</div>
           <h1>{displayName(patient.full_name)}</h1>
           <p className="p360-line">
+            <span className="mk-mono">{patient.number}</span>
+            {" · "}
             {ageSex(patient.age_years ?? null, patient.sex, patient.birth_date_estimated)}
-            {" · "}Last visit {patient.last_visit_at == null ? "—" : formatDate(patient.last_visit_at)}
-            {" · "}Next {patient.next_appointment == null ? "—" : formatDate(patient.next_appointment.starts_at)}
           </p>
           <div className="p360-tags">
+            <AllergyTag patientId={patient.id} />
             <ConsentLine patientId={patient.id} />
             {patient.status === "active" ? null : <Tag tone="wait">{patient.status === "inactive" ? "Inactive" : patient.status}</Tag>}
             {/* Money only with billing.read; a missing balance shows nothing rather than a made-up zero. */}
@@ -122,10 +123,6 @@ function Patient360View({ patient }: { patient: Patient }) {
               Edit
             </PillButton>
           ) : null}
-          {/* Messaging isn't built yet: disabled, not a button that pretends. */}
-          <PillButton variant="ghost" disabled title="Coming soon" icon={<Mail aria-hidden="true" />}>
-            Message
-          </PillButton>
           <PillButton
             variant="ghost"
             icon={<CalendarPlus aria-hidden="true" />}
@@ -138,20 +135,25 @@ function Patient360View({ patient }: { patient: Patient }) {
         </div>
       </section>
 
-      <AllergyBanner patientId={patient.id} />
-
       {layout === "console" ? <ConsoleLayout {...props} /> : layout === "stage" ? <StageLayout {...props} /> : <TabsLayout {...props} />}
 
-      <ActionBar onFinished={setFinished} />
-      {finished === undefined ? null : (
-        <Celebration
-          finished={finished}
-          patient={patient}
-          onClose={() => {
-            setFinished(undefined);
-          }}
-        />
-      )}
+      {session.celebrating && session.ended !== undefined ? <Celebration finished={session.ended} patient={patient} onClose={session.closeCelebration} /> : null}
     </div>
+  );
+}
+
+/** The allergies as one tag in the header, so nobody prescribes past them. The flags panel under More confirms or edits them. */
+function AllergyTag({ patientId: id }: { patientId: PatientId }) {
+  const flags = useClinicalFlags(id).data;
+  if (flags === undefined || flags.allergy_count === 0) return null;
+  const active = flags.allergies.filter((a) => a.status === "active");
+  const text =
+    flags.details_hidden || active.length === 0
+      ? `${String(flags.allergy_count)} recorded ${flags.allergy_count === 1 ? "allergy" : "allergies"}`
+      : `Allergy: ${active.map((a) => a.substance).join(", ")}`;
+  return (
+    <span role="status" aria-label="Allergies">
+      <Tag tone={flags.severe_allergy ? "down" : "wait"}>{text}</Tag>
+    </span>
   );
 }

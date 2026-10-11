@@ -4786,6 +4786,28 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(wireInvoice(found, state, false) satisfies C.Invoice);
         }),
 
+      getInvoiceUpiLink: (id, opts) =>
+        respond(S.upiLink, opts?.signal, async () => {
+          const caller = await inClinic("billing.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.invoices.find((i) => i.id === id && i.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const wire = wireInvoice(found, state, false);
+          if (found.status !== "issued" || wire.balance_paise <= 0) {
+            return refuse(409, "conflict", "the bill is not issued or has nothing left to pay");
+          }
+          const clinic = caller.clinic;
+          if (clinic.upi_id == null || clinic.upi_id === "") {
+            return refuse(409, "conflict", "the clinic has no UPI ID");
+          }
+          const uri = `upi://pay?pa=${encodeURIComponent(clinic.upi_id)}&pn=${encodeURIComponent(clinic.name)}&am=${(wire.balance_paise / 100).toFixed(2)}&cu=INR&tn=${encodeURIComponent(found.number ?? "")}`;
+          return reply({ uri, qr_data: uri, upi_id: clinic.upi_id, payee_name: clinic.name, invoice_number: found.number ?? "", amount_paise: wire.balance_paise } satisfies C.UpiLink);
+        }),
+
       createInvoice: (input, opts) =>
         respond(S.invoice, opts?.signal, async () => {
           const caller = await inClinic("billing.write");

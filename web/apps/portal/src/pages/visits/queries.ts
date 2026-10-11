@@ -35,7 +35,7 @@ export interface RecordingTarget {
 }
 
 /** Uploads a kept recording as an attachment linked to its note (and addendum). */
-export function useUploadRecording(patientId: PatientId, visitId: VisitId) {
+export function useUploadRecording(patientId: PatientId, visitId: VisitId | undefined) {
   const { api, access } = useClinic();
   const queryClient = useQueryClient();
   return useMutation({
@@ -56,7 +56,7 @@ export function useUploadRecording(patientId: PatientId, visitId: VisitId) {
       return unwrap(api.uploadAttachment(patientId, form));
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] });
+      if (visitId !== undefined) void queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] });
       void queryClient.invalidateQueries({ queryKey: ["attachments", access.org_id, patientId] });
     },
   });

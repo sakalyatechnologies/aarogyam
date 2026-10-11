@@ -71,6 +71,7 @@ import type {
   Invoice,
   InvoiceEdit,
   InvoiceId,
+  UpiLink,
   InvoicePage,
   IssueRequest,
   Leave,
@@ -633,6 +634,8 @@ export interface ApiClient {
   ): Promise<ApiResult<InvoicePage>>;
   /** Clinic host: opens a bill with its lines. Needs `billing.read`. */
   getInvoice(id: InvoiceId, options?: RequestOptions): Promise<ApiResult<Invoice>>;
+  /** Clinic host: the UPI link and QR text for what is left on an issued bill; records nothing. Needs `billing.read`. */
+  getInvoiceUpiLink(id: InvoiceId, options?: RequestOptions): Promise<ApiResult<UpiLink>>;
   /** Clinic host: starts a draft bill for a patient. Needs `billing.write`. */
   createInvoice(input: NewInvoice, options?: RequestOptions): Promise<ApiResult<Invoice>>;
   /** Clinic host: edits a draft bill. Needs `billing.write`. */

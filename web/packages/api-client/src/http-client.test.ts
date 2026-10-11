@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiFailure, createDevTokenSource, createHttpClient, patientId, practitionerId, prescriptionId, queueTokenId, sessionId, unwrap, visitId } from "./index.js";
+import { ApiFailure, createDevTokenSource, createHttpClient, invoiceId, patientId, practitionerId, prescriptionId, queueTokenId, sessionId, unwrap, visitId } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -142,6 +142,20 @@ describe("createHttpClient errors", () => {
 });
 
 describe("createHttpClient requests", () => {
+  it("reads the UPI link of a bill from its own path and checks the body against the contract", async () => {
+    const body = { uri: "upi://pay?pa=a@b", qr_data: "upi://pay?pa=a@b", upi_id: "a@b", payee_name: "Sunrise Dental", invoice_number: "INV-1", amount_paise: 50000 };
+    const { fetch, calls } = stubFetch(json(200, body));
+    const client = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch });
+
+    const result = await client.getInvoiceUpiLink(invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170"));
+
+    expect(calls[0]?.url).toBe("http://sunrise.localtest.me/api/v1/invoices/0192f1c4-7a10-7c3e-9b2a-1d2e3f405170/upi-link");
+    expect(calls[0]?.init?.method).toBe("GET");
+    expect(result.ok && result.value.amount_paise).toBe(50000);
+    const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { uri: 1 })).fetch });
+    expect((await bad.getInvoiceUpiLink(invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170"))).ok).toBe(false);
+  });
+
   it("searches with a POST body, so the search term never appears in a URL", async () => {
     const { fetch, calls } = stubFetch(json(200, { items: [] }));
     const client = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch });

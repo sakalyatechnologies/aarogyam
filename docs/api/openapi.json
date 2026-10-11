@@ -15959,6 +15959,7 @@
           "has_notes",
           "source",
           "row_version",
+          "patient_type",
           "patient",
           "practitioner"
         ],
@@ -16014,6 +16015,10 @@
           "patient": {
             "$ref": "#/components/schemas/PatientBrief",
             "description": "The patient."
+          },
+          "patient_type": {
+            "type": "string",
+            "description": "`new` when the patient has no earlier completed visit or appointment at this clinic,\notherwise `follow_up`."
           },
           "practitioner": {
             "$ref": "#/components/schemas/PractitionerBrief",

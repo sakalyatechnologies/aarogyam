@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select a.id, a.branch_id, a.room_id, r.name as \"room_name?\", a.starts_at, a.ends_at,\n                  a.status, a.kind, a.reason, a.notes, a.source, a.cancel_reason, a.arrived_at,\n                  a.seated_at, a.completed_at, a.row_version,\n                  a.patient_id, p.number as patient_number, p.full_name as patient_name,\n                  p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,\n                  p.birth_date_estimated as patient_birth_date_estimated,\n                  ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))\n                    as \"patient_registration_incomplete!\",\n                  a.practitioner_id, d.display_name as practitioner_name,\n                  d.calendar_color as practitioner_color, q.token_number as \"token_number?\", q.id as \"token_id?\"\n           from aarogyam.appointments a\n           join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id\n           join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id\n           left join aarogyam.rooms r on r.org_id = a.org_id and r.id = a.room_id\n           left join aarogyam.queue_tokens q on q.org_id = a.org_id and q.appointment_id = a.id\n           where a.deleted_at is null and a.starts_at >= $1 and a.starts_at < $2\n             and ($3::uuid is null or a.room_id = $3)\n             and ($4::uuid is null or a.practitioner_id = $4)\n             and app.practitioner_in_reach(a.practitioner_id, $5)\n           order by a.starts_at, r.name, a.id",
+  "query": "select a.id, a.branch_id, a.room_id, r.name as \"room_name?\", a.starts_at, a.ends_at,\n                  a.status, a.kind, a.reason, a.notes, a.source, a.cancel_reason, a.arrived_at,\n                  a.seated_at, a.completed_at, a.row_version,\n                  case when exists (select 1 from aarogyam.appointments e\n                                    where e.org_id = a.org_id and e.patient_id = a.patient_id\n                                      and e.id <> a.id and e.deleted_at is null\n                                      and e.status = 'completed' and e.starts_at < a.starts_at)\n                         or exists (select 1 from aarogyam.encounters v\n                                    where v.org_id = a.org_id and v.patient_id = a.patient_id\n                                      and v.status = 'closed' and v.started_at < a.starts_at\n                                      and v.appointment_id is distinct from a.id)\n                       then 'follow_up' else 'new' end as \"patient_type!\",\n                  a.patient_id, p.number as patient_number, p.full_name as patient_name,\n                  p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,\n                  p.birth_date_estimated as patient_birth_date_estimated,\n                  ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))\n                    as \"patient_registration_incomplete!\",\n                  a.practitioner_id, d.display_name as practitioner_name,\n                  d.calendar_color as practitioner_color, q.token_number as \"token_number?\", q.id as \"token_id?\"\n           from aarogyam.appointments a\n           join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id\n           join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id\n           left join aarogyam.rooms r on r.org_id = a.org_id and r.id = a.room_id\n           left join aarogyam.queue_tokens q on q.org_id = a.org_id and q.appointment_id = a.id\n           where a.deleted_at is null and a.starts_at >= $1 and a.starts_at < $2\n             and ($3::uuid is null or a.room_id = $3)\n             and ($4::uuid is null or a.practitioner_id = $4)\n             and app.practitioner_in_reach(a.practitioner_id, $5)\n           order by a.starts_at, r.name, a.id",
   "describe": {
     "columns": [
       {
@@ -181,6 +181,12 @@
       },
       {
         "ordinal": 16,
+        "name": "patient_type!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 17,
         "name": "patient_id",
         "type_info": "Uuid",
         "origin": {
@@ -191,7 +197,7 @@
         }
       },
       {
-        "ordinal": 17,
+        "ordinal": 18,
         "name": "patient_number",
         "type_info": "Text",
         "origin": {
@@ -202,7 +208,7 @@
         }
       },
       {
-        "ordinal": 18,
+        "ordinal": 19,
         "name": "patient_name",
         "type_info": "Text",
         "origin": {
@@ -213,7 +219,7 @@
         }
       },
       {
-        "ordinal": 19,
+        "ordinal": 20,
         "name": "patient_sex",
         "type_info": "Text",
         "origin": {
@@ -224,7 +230,7 @@
         }
       },
       {
-        "ordinal": 20,
+        "ordinal": 21,
         "name": "patient_date_of_birth",
         "type_info": "Date",
         "origin": {
@@ -235,7 +241,7 @@
         }
       },
       {
-        "ordinal": 21,
+        "ordinal": 22,
         "name": "patient_birth_date_estimated",
         "type_info": "Bool",
         "origin": {
@@ -246,13 +252,13 @@
         }
       },
       {
-        "ordinal": 22,
+        "ordinal": 23,
         "name": "patient_registration_incomplete!",
         "type_info": "Bool",
         "origin": "Expression"
       },
       {
-        "ordinal": 23,
+        "ordinal": 24,
         "name": "practitioner_id",
         "type_info": "Uuid",
         "origin": {
@@ -263,7 +269,7 @@
         }
       },
       {
-        "ordinal": 24,
+        "ordinal": 25,
         "name": "practitioner_name",
         "type_info": "Text",
         "origin": {
@@ -274,7 +280,7 @@
         }
       },
       {
-        "ordinal": 25,
+        "ordinal": 26,
         "name": "practitioner_color",
         "type_info": "Text",
         "origin": {
@@ -285,7 +291,7 @@
         }
       },
       {
-        "ordinal": 26,
+        "ordinal": 27,
         "name": "token_number?",
         "type_info": "Int4",
         "origin": {
@@ -296,7 +302,7 @@
         }
       },
       {
-        "ordinal": 27,
+        "ordinal": 28,
         "name": "token_id?",
         "type_info": "Uuid",
         "origin": {
@@ -333,6 +339,7 @@
       true,
       true,
       false,
+      null,
       false,
       false,
       false,
@@ -347,5 +354,5 @@
       false
     ]
   },
-  "hash": "3d80454f4db5476a804bc215f40516e8415cc3de14ed8dd839a6da3d66775251"
+  "hash": "c84efcb16bb874c1ae97f4fa4e01cc27989e2019a5af65260fb130dc2b8b3943"
 }

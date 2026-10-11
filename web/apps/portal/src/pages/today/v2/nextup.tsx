@@ -21,6 +21,8 @@ function numberOpt(opts: WidgetProps["opts"], key: string, fallback: number): nu
   return typeof value === "number" ? value : fallback;
 }
 
+const TYPE_LABEL: Readonly<Record<Appointment["patient_type"], string>> = { new: "New", follow_up: "Follow-up" };
+
 const detailOf = (a: Appointment) => [KIND_LABEL[a.kind], a.reason, a.room].filter((part) => part != null && part !== "").join(" · ");
 
 function eyebrowOf(a: Appointment, index: number, zone: string): string {
@@ -88,7 +90,7 @@ function Hero({ today, count, label }: { today: Today; count: number; label: str
             <div className="tv2-hero-text">
               <p className="tv2-hero-name">
                 <span>{displayName(a.patient.full_name)}</span>
-                <span className="tv2-hero-badge">{KIND_LABEL[a.kind]}</span>
+                <span className="tv2-hero-badge">{TYPE_LABEL[a.patient_type]}</span>
               </p>
               <p className="tv2-hero-sub">
                 {[a.patient.age_years == null ? null : `${String(a.patient.age_years)} yrs`, a.patient.number, a.reason].filter((part) => part != null && part !== "").join(" · ")}

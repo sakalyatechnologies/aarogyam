@@ -7450,6 +7450,16 @@ function wireAppointment(appt: FakeAppointment, state: Fixtures, now: Date): C.A
     completed_at: appt.completed_at ?? null,
     cancel_reason: appt.cancel_reason ?? null,
     token_number: appt.token_number ?? null,
+    patient_type: state.appointments.some(
+      (other) =>
+        other.id !== appt.id &&
+        other.clinic_id === appt.clinic_id &&
+        other.patient_id === appt.patient_id &&
+        other.status === "completed" &&
+        other.starts_at < appt.starts_at,
+    )
+      ? "follow_up"
+      : "new",
   };
 }
 

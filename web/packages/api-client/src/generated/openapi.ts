@@ -5036,6 +5036,11 @@ export interface components {
             notes?: string | null;
             /** @description The patient. */
             patient: components["schemas"]["PatientBrief"];
+            /**
+             * @description `new` when the patient has no earlier completed visit or appointment at this clinic,
+             *     otherwise `follow_up`.
+             */
+            patient_type: string;
             /** @description The doctor. */
             practitioner: components["schemas"]["PractitionerBrief"];
             /** @description Reason for the visit. */

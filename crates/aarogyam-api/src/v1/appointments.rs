@@ -95,6 +95,9 @@ pub struct Appointment {
     /// Goes up when the appointment changes. Send it back in `If-Match` (it is also the `ETag`)
     /// to edit only if the appointment is unchanged since you read it.
     pub row_version: i64,
+    /// `new` when the patient has no earlier completed visit or appointment at this clinic,
+    /// otherwise `follow_up`.
+    pub patient_type: String,
     /// The patient.
     pub patient: PatientBrief,
     /// The doctor.
@@ -123,6 +126,7 @@ impl From<AppointmentView> for Appointment {
             completed_at: row.completed_at.map(rfc3339),
             token_number: row.token_number,
             row_version: row.row_version,
+            patient_type: row.patient_type,
             patient: PatientBrief {
                 id: row.patient_id,
                 number: row.patient_number,

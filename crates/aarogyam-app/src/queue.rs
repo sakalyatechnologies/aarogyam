@@ -431,6 +431,31 @@ pub(crate) async fn move_token(
     Ok(None)
 }
 
+/// Takes a locked, open token to `target` (`ready_to_bill` or `done`) at the end of its visit,
+/// seating it first when it is still waiting or called, as the table requires.
+pub(crate) async fn finish_token(
+    tx: &mut ScopedTx,
+    timezone: &str,
+    token: &TokenState,
+    target: QueueStatus,
+    by: MembershipId,
+    now: OffsetDateTime,
+) -> Result<(), AppError> {
+    let mut state = token.clone();
+    if matches!(state.status.as_str(), "waiting" | "called") {
+        if move_token(tx, timezone, &state, QueueStatus::InChair, by, now)
+            .await?
+            .is_some()
+        {
+            return Ok(());
+        }
+        state.status = QueueStatus::InChair.as_str().to_owned();
+    }
+    // Refusals (an appointment that can't complete) leave the token where it is.
+    move_token(tx, timezone, &state, target, by, now).await?;
+    Ok(())
+}
+
 /// A visit started from the queue, and the token as it is now.
 #[derive(Debug, Clone)]
 pub struct StartedVisit {
@@ -474,7 +499,7 @@ pub async fn start_visit(
                 "the patient left without being seen; issue a new token",
             ));
         }
-        if status == QueueStatus::Waiting
+        if matches!(status, QueueStatus::Waiting | QueueStatus::Called)
             && move_token(
                 tx,
                 &actor.timezone,

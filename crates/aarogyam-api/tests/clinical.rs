@@ -302,10 +302,12 @@ async fn notes_are_drafted_signed_frozen_and_amended() {
     assert_eq!(status, StatusCode::OK, "{closed}");
     assert_eq!(closed["status"], "closed");
     assert!(closed["ended_at"].is_string());
-    assert_eq!(
-        status_of(&app, Method::POST, ALPHA, &close_path, &owner, None).await,
-        StatusCode::CONFLICT
-    );
+    // Closing again is a retry: 200 with the same body.
+    let (status, again) = app
+        .send(Method::POST, ALPHA, &close_path, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert_eq!(again, closed);
     assert_eq!(
         status_of(
             &app,

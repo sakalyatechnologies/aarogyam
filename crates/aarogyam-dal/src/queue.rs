@@ -246,6 +246,62 @@ pub async fn lock(conn: &mut PgConnection, id: Uuid) -> Result<Option<TokenState
     Ok(row)
 }
 
+/// Whether the visit has a bill (not void) that still has a balance.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn visit_has_balance(
+    conn: &mut PgConnection,
+    encounter_id: Uuid,
+) -> Result<bool, DbError> {
+    let found = sqlx::query_scalar!(
+        r#"select exists (
+             select 1 from aarogyam.invoices i
+             where i.encounter_id = $1 and i.status <> 'void'
+               and (case when i.status = 'draft' then (select coalesce(sum(it.quantity::bigint * it.unit_price_paise - it.discount_paise), 0) from aarogyam.invoice_items it where it.org_id = i.org_id and it.invoice_id = i.id) else i.total_paise end) > coalesce((select sum(a.amount_paise)
+                    from aarogyam.payment_allocations a
+                    join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id
+                    where a.org_id = i.org_id and a.invoice_id = i.id and m.status = 'received'), 0)
+           ) as "found!""#,
+        encounter_id
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(found)
+}
+
+/// The `ready_to_bill` tokens (locked) of the visits behind these bills whose visit has no bill
+/// with a balance left: the payment cleared what the desk was to collect.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn settled_by_invoices(
+    conn: &mut PgConnection,
+    invoice_ids: &[Uuid],
+) -> Result<Vec<TokenState>, DbError> {
+    let rows = sqlx::query_as!(
+        TokenState,
+        r#"select t.id, t.status, t.appointment_id from aarogyam.queue_tokens t
+           where t.status = 'ready_to_bill'
+             and exists (select 1 from aarogyam.encounters e
+                         join aarogyam.invoices i on i.org_id = e.org_id and i.encounter_id = e.id
+                         where e.queue_token_id = t.id and i.id = any($1))
+             and not exists (
+               select 1 from aarogyam.encounters e
+               join aarogyam.invoices i on i.org_id = e.org_id and i.encounter_id = e.id
+               where e.queue_token_id = t.id and i.status <> 'void'
+                 and (case when i.status = 'draft' then (select coalesce(sum(it.quantity::bigint * it.unit_price_paise - it.discount_paise), 0) from aarogyam.invoice_items it where it.org_id = i.org_id and it.invoice_id = i.id) else i.total_paise end) > coalesce((select sum(a.amount_paise)
+                      from aarogyam.payment_allocations a
+                      join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id
+                      where a.org_id = i.org_id and a.invoice_id = i.id and m.status = 'received'), 0))
+           for update of t"#,
+        invoice_ids
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
 /// The token of an appointment, locked until the transaction ends.
 ///
 /// # Errors

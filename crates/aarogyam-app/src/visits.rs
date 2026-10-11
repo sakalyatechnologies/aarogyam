@@ -494,11 +494,11 @@ async fn bill_visit(
 
 /// Closes a visit. Addenda and corrections still work afterwards. In the same transaction it
 /// plans the follow-up (`follow_up_on`) and starts a draft bill when a fee is given or the
-/// visit has priced procedures; a visit that already has a bill gets no second one.
+/// visit has priced procedures; a visit that already has a bill gets no second one. Closing a
+/// visit that is already closed returns the same result and changes nothing.
 ///
 /// # Errors
-/// [`AppError::NotFound`] when the visit isn't in this clinic; [`AppError::Conflict`] when it
-/// is already closed; [`AppError::Denied`] for a follow-up without `patients.write` or a fee
+/// [`AppError::NotFound`] when the visit isn't in this clinic; [`AppError::Denied`] for a follow-up without `patients.write` or a fee
 /// without `billing.write`; [`AppError::Invalid`] for a past follow-up date, a long reason or
 /// a fee of zero or less.
 pub async fn close(
@@ -534,24 +534,30 @@ pub async fn close(
     }
     let may_bill = actor.require(Permission::BillingWrite).is_ok();
     db.scoped(&scope(actor, request_id), async |tx| {
-        let visit =
-            require_open_visit(tx, visit_id, actor.reach(Permission::ClinicalWrite)).await?;
-        let row = visits::close_encounter(tx.conn(), visit.id, now).await?;
-        // A visit started from the queue finishes its token (and the token's appointment).
-        if let Some(token_id) = visits::token_of(tx.conn(), row.id).await?
-            && let Some(token) = aarogyam_dal::queue::lock(tx.conn(), token_id).await?
-            && matches!(token.status.as_str(), "waiting" | "in_chair")
-        {
-            crate::queue::move_token(
-                tx,
-                &actor.timezone,
-                &token,
-                QueueStatus::Done,
-                actor.membership_id,
-                now,
-            )
-            .await?;
+        let visit = visits::get_encounter(
+            tx.conn(),
+            visit_id.uuid(),
+            true,
+            actor.reach(Permission::ClinicalWrite).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("visit"))?;
+        // A retry of a close that landed returns what closing made, changing nothing.
+        if visit.status != EncounterStatus::Open.as_str() {
+            let names = Names::load(tx, [visit.clinician_id]).await?;
+            let recall_id = aarogyam_dal::recalls::of_visit(tx.conn(), visit.id)
+                .await?
+                .map(RecallId::from_uuid);
+            let invoice_id = visits::invoice_of(tx.conn(), visit.id)
+                .await?
+                .map(InvoiceId::from_uuid);
+            return Ok(ClosedVisit {
+                visit: visit_view(visit, &names)?,
+                recall_id,
+                invoice_id,
+            });
         }
+        let row = visits::close_encounter(tx.conn(), visit.id, now).await?;
         let recall_id = if let Some(due) = input.follow_up_on {
             let id = RecallId::new_v7();
             aarogyam_dal::recalls::insert_from_visit(
@@ -576,6 +582,27 @@ pub async fn close(
             input.note.clone(),
         )
         .await?;
+        // A visit started from the queue finishes its token: to the desk when there is a
+        // balance to collect, otherwise done.
+        if let Some(token_id) = visits::token_of(tx.conn(), row.id).await?
+            && let Some(token) = aarogyam_dal::queue::lock(tx.conn(), token_id).await?
+            && matches!(token.status.as_str(), "waiting" | "called" | "in_chair")
+        {
+            let target = if aarogyam_dal::queue::visit_has_balance(tx.conn(), row.id).await? {
+                QueueStatus::ReadyToBill
+            } else {
+                QueueStatus::Done
+            };
+            crate::queue::finish_token(
+                tx,
+                &actor.timezone,
+                &token,
+                target,
+                actor.membership_id,
+                now,
+            )
+            .await?;
+        }
         let names = Names::load(tx, [row.clinician_id]).await?;
         Ok(ClosedVisit {
             visit: visit_view(row, &names)?,

@@ -135,7 +135,7 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, starting,
       <div className="tc-head">
         <div>
           <h3>{`Tooth ${String(tooth)}, ${kindName(tooth)}`}</h3>
-          <p className="tc-sub">{mode === "view" ? `Treatment record, ${String(rows.length)} ${rows.length === 1 ? "entry" : "entries"}` : "Record treatment, surfaces and materials"}</p>
+          {mode === "view" ? <p className="tc-sub">{`${String(rows.length)} ${rows.length === 1 ? "entry" : "entries"}`}</p> : null}
         </div>
         <button type="button" className="p360-chip" aria-label="Close tooth" onClick={onClose}>
           <X aria-hidden="true" className="size-4" />

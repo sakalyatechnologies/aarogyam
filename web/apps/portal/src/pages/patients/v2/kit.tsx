@@ -3,12 +3,12 @@
  * (the shared kit being built by F1: Bento card, Pills, ribbon, pinned action bar) once it lands. Until then they live here.
  * Move later: Bento, Pills, PillTabs, Fold, Chip.
  */
-import { Plus } from "lucide-react";
-import { useId, useRef, type ComponentProps, type KeyboardEvent, type ReactNode } from "react";
+import { Info, Plus } from "lucide-react";
+import { useEffect, useId, useRef, useState, type ComponentProps, type KeyboardEvent, type ReactNode } from "react";
 
 import "./p360.css";
 
-/** A rounded card with a title and a one-line hint. */
+/** A rounded card with a title and, only where an action is unclear, a short hint. */
 export function Bento({ title, sub, action, children, label, level = 3 }: { title?: ReactNode; sub?: ReactNode; action?: ReactNode; children: ReactNode; label?: string; /** Heading level: 3 under a page section, 2 when the card is itself a section of the page. */ level?: 2 | 3 }) {
   const id = useId();
   const Heading = level === 2 ? "h2" : "h3";
@@ -131,9 +131,9 @@ export function PillTabs<V extends string>({ label, options, value, onChange, pa
 }
 
 /** A collapsible card. */
-export function Fold({ title, children, open = false }: { title: string; children: ReactNode; open?: boolean }) {
+export function Fold({ title, children, open = false, quiet = false }: { title: string; children: ReactNode; open?: boolean; /** No card of its own, for a fold inside a card. */ quiet?: boolean }) {
   return (
-    <details className="p360-fold" open={open}>
+    <details className={quiet ? "p360-fold quiet" : "p360-fold"} open={open}>
       <summary>
         {title}
         <Plus aria-hidden="true" />
@@ -159,5 +159,50 @@ export function PillButton({ variant = "primary", icon, children, className = ""
       {icon}
       {children}
     </button>
+  );
+}
+
+/** A small pill button that opens a floating card (a key, a legend). Escape or a click outside closes it. */
+export function PopoverPill({ label, title, children }: { label: string; title: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const id = useId();
+  useEffect(() => {
+    if (!open) return;
+    const away = (event: MouseEvent) => {
+      if (root.current !== null && event.target instanceof Node && !root.current.contains(event.target)) setOpen(false);
+    };
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      root.current?.querySelector<HTMLElement>("button")?.focus();
+    };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+  return (
+    <div ref={root} className="p360-pop">
+      <button
+        type="button"
+        className="p360-pop-btn"
+        aria-expanded={open}
+        aria-controls={open ? id : undefined}
+        onClick={() => {
+          setOpen(!open);
+        }}
+      >
+        <Info aria-hidden="true" />
+        {label}
+      </button>
+      {open ? (
+        <div id={id} role="group" aria-label={title} className="p360-pop-card">
+          {children}
+        </div>
+      ) : null}
+    </div>
   );
 }

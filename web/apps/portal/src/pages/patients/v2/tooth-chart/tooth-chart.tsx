@@ -3,7 +3,6 @@ import { useMemo } from "react";
 import type { ChartEntry, PlanItem } from "@aarogyam/api-client";
 
 import { ARCHES, FINDING_ORDER, FINDING_STYLE, describeTooth, EMPTY_STATE, headline, kindOf, toothStates, treatmentsByTooth } from "../../../visits/odontogram/model.js";
-import { Pills } from "../kit.js";
 import { inProgressTeeth } from "./model.js";
 import type { ChartDentition, ChartLook } from "./use-chart-prefs.js";
 import "./tooth-chart.css";
@@ -13,15 +12,14 @@ export const LOOKS = [
   { value: "arch", label: "3D arch" },
   { value: "classic", label: "Classic" },
 ] as const satisfies readonly { value: ChartLook; label: string }[];
-const DENTITIONS = [
-  { value: "adult", label: "Adult 32" },
-  { value: "child", label: "Child 20" },
+export const DENTITIONS = [
+  { value: "adult", label: "Adult" },
+  { value: "child", label: "Child" },
 ] as const satisfies readonly { value: ChartDentition; label: string }[];
 
 interface Props {
   look: ChartLook;
   dentition: ChartDentition;
-  onDentition: (next: ChartDentition) => void;
   current: readonly ChartEntry[];
   planItems: readonly PlanItem[];
   selected: number | undefined;
@@ -29,12 +27,10 @@ interface Props {
 }
 
 /** The chart: rows or a 3D arch, adult or child teeth. Tapping a tooth selects it; recording happens in the panel beside it. */
-export function ToothChart({ look, dentition, onDentition, current, planItems, selected, onSelect }: Props) {
+export function ToothChart({ look, dentition, current, planItems, selected, onSelect }: Props) {
   const states = useMemo(() => toothStates(current, treatmentsByTooth(planItems)), [current, planItems]);
   const progress = useMemo(() => inProgressTeeth(current), [current]);
   const arches = ARCHES[dentition];
-  const shown = new Set(FINDING_ORDER.filter((finding) => finding !== "sound" && [...states.values()].some((s) => headline(s) === finding)));
-  const hasPlanned = [...states.values()].some((s) => s.treatments.some((t) => t.state === "planned"));
 
   const tooth = (n: number, style?: React.CSSProperties, className = "tc-tooth") => {
     const state = states.get(n) ?? EMPTY_STATE(n);
@@ -89,29 +85,6 @@ export function ToothChart({ look, dentition, onDentition, current, planItems, s
 
   return (
     <div className="odo tc">
-      <div className="tc-bar">
-        <ul className="tc-legend" aria-label="Legend">
-          {[...shown].map((finding) => (
-            <li key={finding}>
-              <i data-finding={finding} />
-              {FINDING_STYLE[finding].label}
-            </li>
-          ))}
-          {hasPlanned ? (
-            <li>
-              <i data-planned />
-              Planned
-            </li>
-          ) : null}
-          {progress.size > 0 ? (
-            <li>
-              <i data-progress />
-              In progress
-            </li>
-          ) : null}
-        </ul>
-        <Pills label="Dentition" size="sm" options={DENTITIONS} value={dentition} onChange={onDentition} />
-      </div>
       {look === "arch" ? (
         arch()
       ) : (
@@ -123,7 +96,30 @@ export function ToothChart({ look, dentition, onDentition, current, planItems, s
           </div>
         </div>
       )}
-      <p className="tc-hint">Tap a tooth to see its history and record treatment. FDI numbering.</p>
+    </div>
+  );
+}
+
+/** What the colours and marks mean. It sits behind a "Key" button, so the chart itself stays clear. */
+export function ChartKey() {
+  return (
+    <div className="odo tc">
+      <ul className="tc-legend" aria-label="Legend">
+        {FINDING_ORDER.filter((finding) => finding !== "sound").map((finding) => (
+          <li key={finding}>
+            <i data-finding={finding} />
+            {FINDING_STYLE[finding].label}
+          </li>
+        ))}
+        <li>
+          <i data-planned />
+          Planned
+        </li>
+        <li>
+          <i data-progress />
+          In progress
+        </li>
+      </ul>
     </div>
   );
 }

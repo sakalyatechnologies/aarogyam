@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode, type TouchEvent } from "react";
-import { Minus, Plus } from "lucide-react";
+import { Minus, MoreHorizontal, Plus } from "lucide-react";
 
 import type { DentalChart, PatientId, PlanItem, ToothSurface } from "@aarogyam/api-client";
 
@@ -37,10 +37,12 @@ export interface OdontogramProps {
   shownTooth?: number | undefined;
   /** With `panel`: called when a tooth (or one of its surfaces) is picked. */
   onPick?: (tooth: number, surface: ToothSurface | null) => void;
+  /** The New look: no summary strip, legend or hint (the caller offers a Key), and Select several and Zoom sit in an overflow menu. */
+  compact?: boolean;
 }
 
 /** Both arches of one dentition, selectable by mouse, touch and keyboard, with a legend, summary strip and tooth panel. */
-export function Odontogram({ patientId, chart, planItems, onRecord, panel, shownTooth, onPick }: OdontogramProps) {
+export function Odontogram({ patientId, chart, planItems, onRecord, panel, shownTooth, onPick, compact = false }: OdontogramProps) {
   const [dentition, setDentition] = useState<Dentition>(() => {
     const teeth = chart.current.map((e) => e.tooth);
     return teeth.length > 0 && teeth.every((t) => dentitionOf(t) === "child") ? "child" : "adult";
@@ -153,50 +155,7 @@ export function Odontogram({ patientId, chart, planItems, onRecord, panel, shown
 
   const zoomIndex = ZOOMS.indexOf(zoom);
 
-  return (
-    <div className="odo">
-      <OdontogramDefs />
-      <ul className="odo-summary" aria-label="Chart summary">
-        <li>
-          <b>{`${String(summary.present)}/${String(summary.total)}`}</b>
-          <span>teeth present</span>
-        </li>
-        <li>
-          <b>{summary.caries}</b>
-          <span>with caries</span>
-        </li>
-        <li>
-          <b>{summary.restored}</b>
-          <span>restored</span>
-        </li>
-        <li>
-          <b>{summary.missing}</b>
-          <span>missing</span>
-        </li>
-        <li>
-          <b>{summary.planned}</b>
-          <span>planned treatments</span>
-        </li>
-      </ul>
-
-      <div className="odo-toolbar">
-        <div className="odo-seg" role="group" aria-label="Dentition">
-          {(["adult", "child"] as const).map((d) => (
-            <button
-              key={d}
-              type="button"
-              aria-pressed={dentition === d}
-              onClick={() => {
-                setDentition(d);
-                setSelected(undefined);
-                setGroup([]);
-                setFocusTooth(undefined);
-              }}
-            >
-              {d === "adult" ? "Adult" : "Child (primary)"}
-            </button>
-          ))}
-        </div>
+  const selection = (
         <div className="odo-seg" role="group" aria-label="Selection">
           <button
             type="button"
@@ -210,20 +169,8 @@ export function Odontogram({ patientId, chart, planItems, onRecord, panel, shown
             Select several
           </button>
         </div>
-        <div className="odo-seg odo-arch-tabs" role="group" aria-label="Arch">
-          {(["upper", "lower"] as const).map((a) => (
-            <button
-              key={a}
-              type="button"
-              aria-pressed={phoneArch === a}
-              onClick={() => {
-                setPhoneArch(a);
-              }}
-            >
-              {a === "upper" ? "Upper" : "Lower"}
-            </button>
-          ))}
-        </div>
+  );
+  const zoomControl = (
         <div className="odo-zoom" role="group" aria-label="Zoom">
           <button
             type="button"
@@ -247,6 +194,81 @@ export function Odontogram({ patientId, chart, planItems, onRecord, panel, shown
             <Plus aria-hidden="true" className="size-4" />
           </button>
         </div>
+  );
+
+  return (
+    <div className="odo">
+      <OdontogramDefs />
+      {compact ? null : (
+      <ul className="odo-summary" aria-label="Chart summary">
+        <li>
+          <b>{`${String(summary.present)}/${String(summary.total)}`}</b>
+          <span>teeth present</span>
+        </li>
+        <li>
+          <b>{summary.caries}</b>
+          <span>with caries</span>
+        </li>
+        <li>
+          <b>{summary.restored}</b>
+          <span>restored</span>
+        </li>
+        <li>
+          <b>{summary.missing}</b>
+          <span>missing</span>
+        </li>
+        <li>
+          <b>{summary.planned}</b>
+          <span>planned treatments</span>
+        </li>
+      </ul>
+      )}
+
+      <div className="odo-toolbar">
+        <div className="odo-seg" role="group" aria-label="Dentition">
+          {(["adult", "child"] as const).map((d) => (
+            <button
+              key={d}
+              type="button"
+              aria-pressed={dentition === d}
+              onClick={() => {
+                setDentition(d);
+                setSelected(undefined);
+                setGroup([]);
+                setFocusTooth(undefined);
+              }}
+            >
+              {d === "adult" ? "Adult" : "Child (primary)"}
+            </button>
+          ))}
+        </div>
+        {compact ? null : selection}
+        <div className="odo-seg odo-arch-tabs" role="group" aria-label="Arch">
+          {(["upper", "lower"] as const).map((a) => (
+            <button
+              key={a}
+              type="button"
+              aria-pressed={phoneArch === a}
+              onClick={() => {
+                setPhoneArch(a);
+              }}
+            >
+              {a === "upper" ? "Upper" : "Lower"}
+            </button>
+          ))}
+        </div>
+        {compact ? null : zoomControl}
+        {compact ? (
+          <details className="odo-more">
+            <summary aria-label="More chart options">
+              <MoreHorizontal aria-hidden="true" className="size-4" />
+            </summary>
+            <div className="odo-more-pop">
+              {selection}
+              {zoomControl}
+            </div>
+          </details>
+        ) : null}
       </div>
 
       <div className="odo-layout">
@@ -290,7 +312,7 @@ export function Odontogram({ patientId, chart, planItems, onRecord, panel, shown
               })}
             </div>
           </div>
-          <p className="odo-hint">Tap a surface to select it, or the tooth for all five. Swipe on a phone for the other arch.</p>
+          {compact ? null : <p className="odo-hint">Tap a surface to select it, or the tooth for all five. Swipe on a phone for the other arch.</p>}
         </div>
         {panel ?? (
         <ToothPanel
@@ -307,6 +329,8 @@ export function Odontogram({ patientId, chart, planItems, onRecord, panel, shown
         )}
       </div>
 
+      {compact ? null : (
+        <>
       <div>
         <p className="odo-legend-title">Findings</p>
         <ul className="odo-legend" aria-label="Findings legend">
@@ -345,6 +369,8 @@ export function Odontogram({ patientId, chart, planItems, onRecord, panel, shown
           </li>
         </ul>
       </div>
+        </>
+      )}
     </div>
   );
 }

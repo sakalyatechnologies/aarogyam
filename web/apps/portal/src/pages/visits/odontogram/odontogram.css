@@ -128,3 +128,10 @@
 .odo-details td { padding: 7px 8px; border-bottom: 1px solid var(--odo-border); vertical-align: top; }
 .odo-details td:first-child { font-weight: 700; font-variant-numeric: tabular-nums; }
 .odo-details-wrap { overflow-x: auto; }
+
+/* The New look: Select several and Zoom live in an overflow menu. */
+.odo-more { position: relative; margin-left: auto; }
+.odo-more > summary { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--odo-border); border-radius: 999px; cursor: pointer; list-style: none; color: var(--odo-muted); }
+.odo-more > summary::-webkit-details-marker { display: none; }
+.odo-more > summary:focus-visible { outline: 2px solid var(--odo-focus); outline-offset: 2px; }
+.odo-more-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; display: grid; gap: 8px; padding: 10px; border: 1px solid var(--odo-border); border-radius: 14px; background: var(--odo-surface); box-shadow: 0 12px 30px -12px rgba(0, 0, 0, .3); white-space: nowrap; }

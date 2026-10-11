@@ -1,5 +1,5 @@
 /* The New look tooth chart. Colours come from the odontogram's finding variables (--odo-*), so one palette serves both charts. */
-.tc { gap: 12px; }
+.tc { gap: 8px; }
 /* The finding sets the colour: the same variables as the odontogram's FINDING_STYLE. */
 .tc [data-finding="sound"] { --tc: var(--odo-muted); }
 .tc [data-finding="caries"] { --tc: var(--odo-danger); }
@@ -20,8 +20,8 @@
 .tc-legend i[data-planned] { background: transparent; border: 1.5px dashed var(--odo-primary); }
 .tc-legend i[data-progress] { background: var(--odo-warning); }
 
-.tc-rows { overflow-x: auto; border-radius: 20px; background: color-mix(in srgb, var(--odo-text) 3%, var(--odo-surface)); padding: 18px 8px; }
-.tc-rows-inner { min-width: 520px; display: grid; gap: 12px; }
+.tc-rows { overflow-x: auto; border-radius: 18px; background: color-mix(in srgb, var(--odo-text) 3%, var(--odo-surface)); padding: 10px 8px; }
+.tc-rows-inner { min-width: 520px; display: grid; gap: 8px; }
 .tc-rows hr { width: 80%; height: 1px; margin: 0 auto; border: 0; background: var(--odo-border); }
 .tc-row { display: flex; justify-content: center; gap: 3px; }
 .tc-tooth { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 28px; min-height: 44px; padding: 2px 1px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; color: var(--odo-text); transition: transform .15s, background-color .15s; font: inherit; }

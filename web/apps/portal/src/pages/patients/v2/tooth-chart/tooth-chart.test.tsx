@@ -69,7 +69,7 @@ async function openTooth(user: ReturnType<typeof userEvent.setup>, n: number) {
 }
 
 describe("the chart", () => {
-  it("shows Rows or the 3D arch, Adult 32 or Child 20, and remembers the choice per person", async () => {
+  it("shows Rows or the 3D arch, Adult or Child, and remembers the choice per person", async () => {
     const user = userEvent.setup();
     const { path, backend } = patient();
     renderPortal(path, { as: PEOPLE.asha, backend });
@@ -77,7 +77,7 @@ describe("the chart", () => {
     expect(screen.getAllByRole("button", { name: /^Tooth \d+,/ })).toHaveLength(32);
     expect(tooth(18)).toBeTruthy();
 
-    await user.click(screen.getByRole("radio", { name: "Child 20" }));
+    await user.click(screen.getByRole("radio", { name: "Child" }));
     expect(screen.getAllByRole("button", { name: /^Tooth \d+,/ })).toHaveLength(20);
     expect(tooth(55)).toBeTruthy();
 
@@ -90,6 +90,21 @@ describe("the chart", () => {
     await ready();
     expect(screen.getByRole("radio", { name: "3D arch" }).getAttribute("aria-checked")).toBe("true");
     expect(screen.getAllByRole("button", { name: /^Tooth \d+,/ })).toHaveLength(20);
+  });
+
+  it("keeps the legend behind a Key button, and shows it on demand", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = patient();
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await ready();
+    expect(screen.queryByRole("list", { name: "Legend" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Chart summary" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Key" }));
+    const legend = screen.getByRole("list", { name: "Legend" });
+    expect(within(legend).getByText("Caries")).toBeTruthy();
+    expect(within(legend).getByText("Planned")).toBeTruthy();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("list", { name: "Legend" })).toBeNull();
   });
 
   it.each(LAYOUTS)("is in the %s layout", async (layout) => {
@@ -111,8 +126,10 @@ describe("the Classic view", () => {
     await ready();
     await user.click(screen.getByRole("radio", { name: "Classic" }));
     expect(JSON.parse(localStorage.getItem(chartPrefsKey(PEOPLE.asha)) ?? "null")).toMatchObject({ look: "classic" });
-    // The odontogram's own toolbar and legend are there.
-    expect(screen.getByRole("group", { name: "Zoom" })).toBeTruthy();
+    // The odontogram's zoom and Select several sit in its overflow menu; no summary strip or legend under the chart.
+    expect(screen.getByRole("group", { name: "Zoom" }).closest("details.odo-more")).not.toBeNull();
+    expect(screen.queryByRole("list", { name: "Chart summary" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Findings legend" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Record a finding" })).toBeNull();
 
     const surface = document.querySelector('[data-tooth="16"]');

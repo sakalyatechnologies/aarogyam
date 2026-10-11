@@ -25,7 +25,6 @@ import {
   DoneTodayBlock,
   FlagsBlock,
   HistoryBlock,
-  ImagesBlock,
   PastRxBlock,
   PlanBlock,
   RxBlock,
@@ -45,13 +44,65 @@ export interface LayoutProps {
   showPastRx: boolean;
 }
 
-/** What is not needed during a visit, each in its own fold. */
-function MoreFolds({ patient, canClinical, pastRx, open = false }: { patient: LayoutProps["patient"]; canClinical: boolean; pastRx: boolean; open?: boolean }) {
+/** What is not needed during a visit, each in its own collapsed fold. */
+function MoreFolds({
+  patient,
+  canClinical,
+  history = false,
+  pastRx = false,
+  openPastRx = false,
+  nested = false,
+  photos = true,
+}: {
+  patient: LayoutProps["patient"];
+  canClinical: boolean;
+  /** Include the visit history (a drawer or tab shows it already in the other layouts). */
+  history?: boolean;
+  pastRx?: boolean;
+  openPastRx?: boolean;
+  /** The rarely used folds (files, notes, flags, details, billing) go inside one "More" fold. */
+  nested?: boolean;
+  /** The X-rays and photos fold (the Tabs layout shows them under History). */
+  photos?: boolean;
+}) {
   const { can } = useClinic();
+  const session = useVisitSession();
+  const visits = useVisits(canClinical && history ? patient.id : undefined);
+  const count = visits.data?.items.length;
+  const rare = (
+    <>
+      {canClinical ? (
+        <>
+          <Fold title="Files" quiet={nested}>
+            <FilesPanel patientId={patient.id} />
+          </Fold>
+          <Fold title="Notes" quiet={nested}>
+            <NotesPanel patientId={patient.id} />
+          </Fold>
+          <Fold title="Clinical flags" quiet={nested}>
+            <ClinicalFlagsPanel patientId={patient.id} />
+          </Fold>
+          <Fold title="Details" quiet={nested}>
+            <DetailsBlock patient={patient} />
+          </Fold>
+        </>
+      ) : null}
+      {can("billing.read") ? (
+        <Fold title="Billing" quiet={nested}>
+          <BillsPanel patientId={patient.id} />
+        </Fold>
+      ) : null}
+    </>
+  );
   return (
     <>
+      {canClinical && history ? (
+        <Fold title={count === undefined ? "Visit history" : `Visit history · ${String(count)}`}>
+          <HistoryBlock />
+        </Fold>
+      ) : null}
       {canClinical && pastRx ? (
-        <Fold title="Past prescriptions" open={open}>
+        <Fold title="Past prescriptions" open={openPastRx}>
           <PastRxBlock />
         </Fold>
       ) : null}
@@ -60,70 +111,53 @@ function MoreFolds({ patient, canClinical, pastRx, open = false }: { patient: La
           <PlanBlock />
         </Fold>
       ) : null}
+      {canClinical && photos ? (
+        <Fold title="X-rays and photos">
+          <GalleryBlock patientId={patient.id} canUpload={can("clinical.write")} visitId={session.visit?.id} />
+        </Fold>
+      ) : null}
       <Fold title="Consent forms">
         <ConsentPanel patientId={patient.id} />
       </Fold>
-      {canClinical ? (
-        <>
-          <Fold title="Files">
-            <FilesPanel patientId={patient.id} />
-          </Fold>
-          <Fold title="Notes">
-            <NotesPanel patientId={patient.id} />
-          </Fold>
-          <Fold title="Clinical flags">
-            <ClinicalFlagsPanel patientId={patient.id} />
-          </Fold>
-          <Fold title="Details">
-            <DetailsBlock patient={patient} />
-          </Fold>
-        </>
-      ) : null}
-      {can("billing.read") ? (
-        <Fold title="Billing">
-          <BillsPanel patientId={patient.id} />
-        </Fold>
-      ) : null}
+      {nested ? <Fold title="More">{rare}</Fold> : rare}
     </>
   );
 }
 
-/** Console: the chart and what the patient says on the left; today's notes, prescription and wrap up on a sticky rail. */
+/** Console: the chart and what the patient says on the left; today's notes and the prescription on a sticky rail; the rest folded below. */
 export function ConsoleLayout({ patient, canClinical, showPastRx }: LayoutProps) {
   const session = useVisitSession();
-  const visits = useVisits(canClinical ? patient.id : undefined);
-  const count = visits.data?.items.length;
   return (
-    <div className="p360-console">
-      <div className="p360-stack">
-        {canClinical ? (
-          <>
-            <ToothBlock patientId={patient.id} />
-            <SaysBlock />
-            <DoneTodayBlock />
-            <ImagesBlock patientId={patient.id} />
-          </>
-        ) : (
-          <>
-            <DetailsBlock patient={patient} />
-            <FlagsBlock patientId={patient.id} />
-          </>
-        )}
+    <>
+      <div className="p360-console">
+        <div className="p360-stack">
+          {canClinical ? (
+            <>
+              <ToothBlock patientId={patient.id} />
+              <SaysBlock />
+              <DoneTodayBlock />
+            </>
+          ) : (
+            <>
+              <DetailsBlock patient={patient} />
+              <FlagsBlock patientId={patient.id} />
+            </>
+          )}
+        </div>
+        <div className="p360-rail">
+          {session.canWrite ? <VoiceBlock /> : null}
+          <RxBlock />
+          {session.canWrite ? (
+            <Fold title="Wrap up">
+              <WrapBlock />
+            </Fold>
+          ) : null}
+        </div>
       </div>
-      <div className="p360-rail">
-        {session.canWrite ? <VoiceBlock /> : null}
-        <RxBlock />
-        {session.canWrite ? <WrapBlock /> : null}
-        {canClinical ? (
-          <Fold title={count === undefined ? "Visit history" : `Visit history · ${String(count)}`}>
-            <HistoryBlock />
-          </Fold>
-        ) : null}
-        <Fold title="More" open={showPastRx && canClinical}>
-          <MoreFolds patient={patient} canClinical={canClinical} pastRx open={showPastRx && canClinical} />
-        </Fold>
+      <div className="p360-folds">
+        <MoreFolds patient={patient} canClinical={canClinical} history pastRx openPastRx={showPastRx && canClinical} nested />
       </div>
-    </div>
+    </>
   );
 }
 
@@ -178,12 +212,13 @@ export function StageLayout({ patient, canClinical, showPastRx }: LayoutProps) {
       {canClinical ? <ToothBlock patientId={patient.id} /> : <DetailsBlock patient={patient} />}
       {canClinical ? (
         <>
-          <div className="p360-grid2">
-            <SaysBlock />
-            {session.canWrite ? <WrapBlock /> : null}
-          </div>
+          <SaysBlock />
           <DoneTodayBlock />
-          <ImagesBlock patientId={patient.id} />
+          {session.canWrite ? (
+            <Fold title="Wrap up">
+              <WrapBlock />
+            </Fold>
+          ) : null}
         </>
       ) : (
         <FlagsBlock patientId={patient.id} />
@@ -209,7 +244,7 @@ export function StageLayout({ patient, canClinical, showPastRx }: LayoutProps) {
               </Bento>
             </>
           ) : null}
-          {drawer === "more" ? <MoreFolds patient={patient} canClinical={canClinical} pastRx={false} /> : null}
+          {drawer === "more" ? <MoreFolds patient={patient} canClinical={canClinical} /> : null}
         </div>
       </Drawer>
     </>
@@ -302,11 +337,14 @@ export function TabsLayout({ patient, canClinical, showPastRx }: LayoutProps) {
                 </div>
                 <div className="p360-stack">
                   <RxBlock />
-                  {session.canWrite ? <WrapBlock /> : null}
+                  {session.canWrite ? (
+                    <Fold title="Wrap up">
+                      <WrapBlock />
+                    </Fold>
+                  ) : null}
                 </div>
               </div>
               <DoneTodayBlock />
-              <ImagesBlock patientId={patient.id} />
             </div>
           ) : null,
           history: (
@@ -328,7 +366,11 @@ export function TabsLayout({ patient, canClinical, showPastRx }: LayoutProps) {
               <FlagsBlock patientId={patient.id} />
             </div>
           ),
-          more: <MoreFolds patient={patient} canClinical={canClinical} pastRx={false} />,
+          more: (
+            <div className="p360-stack">
+              <MoreFolds patient={patient} canClinical={canClinical} photos={false} />
+            </div>
+          ),
         }}
       />
     </>

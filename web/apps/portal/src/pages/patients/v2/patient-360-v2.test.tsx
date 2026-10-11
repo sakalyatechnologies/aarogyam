@@ -91,7 +91,7 @@ describe("Patient 360 in the new look: three layouts, one set of data", () => {
       await user.click(screen.getByText("Consent forms"));
     } else if (layout === "stage") {
       await user.keyboard("{Escape}");
-      await user.click(await screen.findByRole("button", { name: "More" }));
+      await user.click(within(screen.getByRole("toolbar", { name: "Open a panel" })).getByRole("button", { name: "More" }));
       await user.click(await screen.findByText("Consent forms"));
     } else {
       await user.click(screen.getByRole("tab", { name: "More" }));

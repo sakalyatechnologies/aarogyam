@@ -46,7 +46,7 @@ export function StartVisitPrompt({ what }: { what: string }) {
   }
   return (
     <p className="mk-hint" style={{ margin: 0 }}>
-      {session.canWrite ? `Start the visit above to ${what}.` : "There is no open visit."}
+      {session.canWrite ? `Start a visit to ${what}.` : "There is no open visit."}
     </p>
   );
 }
@@ -60,7 +60,7 @@ export function ToothBlock({ patientId }: { patientId: Patient["id"] }) {
 export function SaysBlock() {
   const session = useVisitSession();
   return (
-    <Bento title="What the patient says" sub="Tap to add a line to today's note">
+    <Bento title="What the patient says">
       {session.visit === undefined ? (
         <StartVisitPrompt what="take notes" />
       ) : !session.canWrite ? (
@@ -84,9 +84,9 @@ export function DoneTodayBlock() {
   const session = useVisitSession();
   if (session.visit === undefined || session.visitLoading) return null;
   return (
-    <div className="p360-bento" aria-label="Done today">
+    <Fold title={session.procedures.length === 0 ? "Done today" : `Done today · ${String(session.procedures.length)}`}>
       <ProceduresCard visitId={session.visit.id} patientId={session.patientId} procedures={session.procedures} canWrite={session.canWrite} />
-    </div>
+    </Fold>
   );
 }
 
@@ -115,7 +115,7 @@ export function VoiceBlock() {
   const parts = splitNote(note.values);
   const active = voice.phase === "recording" || voice.phase === "paused";
   return (
-    <Bento title="Today's notes" sub="Record a voice note and it types for you. Add as many as you need.">
+    <Bento title="Today's notes">
       {visit === undefined ? (
         <StartVisitPrompt what="take notes" />
       ) : !session.canWrite ? (
@@ -210,7 +210,7 @@ export function VoiceBlock() {
               ))}
             </div>
           )}
-          <Fold title="Edit the note">
+          <Fold title="Edit the note" quiet>
             <NoteEditor />
           </Fold>
         </div>
@@ -284,7 +284,7 @@ export function RxBlock() {
   const [sharing, setSharing] = useState(false);
   if (!session.canRx) return null;
   return (
-    <Bento title="Prescription" sub="Sets, search, or type any medicine. Every field is editable.">
+    <Bento title="Prescription">
       {rx.issued !== undefined && rx.draft === undefined ? (
         <div className="flex flex-col gap-3">
           <SentNotice message={rx.issued.message} />
@@ -356,12 +356,12 @@ export function RxBlock() {
   );
 }
 
-/** Follow-up and what the patient link will do. */
+/** Follow-up and the fee. */
 export function WrapBlock() {
   const session = useVisitSession();
   const { can } = useClinic();
   return (
-    <Bento title="Wrap up">
+    <div className="p360-wrap">
       <p className="p360-label">Follow-up</p>
       <div className="p360-chips" role="group" aria-label="Follow-up">
         {FOLLOW_UPS.map((option) => (
@@ -378,7 +378,7 @@ export function WrapBlock() {
         ))}
       </div>
       {can("billing.write") ? (
-        <Field label="Fee (₹)" hint="Starts the bill when the visit ends. Leave blank to bill later." className="mt-3">
+        <Field label="Fee (₹)" hint="Leave blank to bill later." className="mt-3">
           <TextInput
             inputMode="decimal"
             value={session.fee}
@@ -388,12 +388,7 @@ export function WrapBlock() {
           />
         </Field>
       ) : null}
-      {session.canRx ? (
-        <p className="p360-pill-note">
-          The prescription link works for 7 days and needs a PIN, which is shown once. You create it after you issue the prescription.
-        </p>
-      ) : null}
-    </Bento>
+    </div>
   );
 }
 

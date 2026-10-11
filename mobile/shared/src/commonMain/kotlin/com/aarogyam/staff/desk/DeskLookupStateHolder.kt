@@ -7,6 +7,7 @@ import com.aarogyam.staff.api.model.WalkInRequest
 import com.aarogyam.staff.api.queue
 import com.aarogyam.staff.api.registerWalkIn
 import com.aarogyam.staff.clinic.ClinicContext
+import com.aarogyam.staff.patients.Sex
 import com.aarogyam.staff.patients.sexOf
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
@@ -97,7 +98,7 @@ class DeskLookupStateHolder(
                     return
                 }
                 val today = todaysStates()
-                val profiles =
+                val matched =
                     found.value.items.map {
                         val state = today[it.id]
                         DeskProfile(
@@ -109,11 +110,33 @@ class DeskLookupStateHolder(
                             null,
                             state != null,
                             state,
+                            name = it.fullName,
                         )
+                    }
+                // Relatives sit right under the person they are linked to, with what they are to them.
+                val profiles =
+                    matched.flatMap { person ->
+                        listOf(person) +
+                            found.value.familyGroup.filter { it.ofPatientId == person.id }.map {
+                                val state = today[it.id]
+                                DeskProfile(
+                                    it.id,
+                                    it.number,
+                                    initialsOf(it.fullName),
+                                    null,
+                                    Sex.Unknown,
+                                    null,
+                                    state != null,
+                                    state,
+                                    relation = it.relation,
+                                    name = it.fullName,
+                                    familyOf = person.id,
+                                )
+                            }
                     }
                 val actions =
                     profiles.filter { !it.checkedInToday }.map { DeskAction.CheckIn(it.id) } +
-                        listOf(DeskAction.AddFamilyMember(phone), DeskAction.NewPatient(phone))
+                        listOf(DeskAction.AddFamilyMember(phone, matched.first().id), DeskAction.NewPatient(phone))
                 mutableState.value = DeskLookupState.Matches(phone, profiles, actions)
             }
         }
@@ -124,7 +147,7 @@ class DeskLookupStateHolder(
         (clinic.api.queue() as? Outcome.Success)
             ?.value
             ?.items
-            ?.mapNotNull { t -> patientState(t.status)?.let { t.patient.id to it } }
+            ?.mapNotNull { t -> patientState(t.status, t.calledAt)?.let { t.patient.id to it } }
             ?.toMap()
             .orEmpty()
 

@@ -90,7 +90,7 @@ class DeskLookupStateHolderTest {
     fun no_match_offers_only_a_new_patient() =
         runTest {
             val backend = FakeBackend()
-            backend.on(LOOKUP, { json("""{"items":[]}""") })
+            backend.on(LOOKUP, { json("""{"items":[],"family_group":[]}""") })
             val holder = holder(backend)
             holder.search("09876543210")
             val none = assertIs<DeskLookupState.NoMatch>(holder.settled())

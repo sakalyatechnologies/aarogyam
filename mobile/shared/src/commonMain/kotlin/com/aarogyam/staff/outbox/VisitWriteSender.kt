@@ -1,7 +1,6 @@
 package com.aarogyam.staff.outbox
 
 import com.aarogyam.staff.api.ClinicApi
-import com.aarogyam.staff.api.CloseBody
 import com.aarogyam.staff.api.addProcedure
 import com.aarogyam.staff.api.closeVisit
 import com.aarogyam.staff.api.createNote
@@ -10,7 +9,7 @@ import com.aarogyam.staff.api.signNote
 import com.aarogyam.staff.api.visit
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.files.kindFor
-import com.aarogyam.staff.visit.createRecallFor
+import com.aarogyam.staff.visit.closeBody
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.ErrorCode
 import com.sakalya.mobile.core.Logger
@@ -162,15 +161,12 @@ internal class VisitWriteSender(
     private suspend fun close(entry: OutboxEntry): SendResult {
         val job = queueJson.decodeFromString<CloseJob>(entry.payload)
         val clinic = opened(job.clinicSlug) ?: return SendResult.Retry("clinic_not_open")
-        val closed = clinic.api.closeVisit(job.visitId)
-        // Closed already: an earlier attempt got through (or its follow-up failed); carry on to the follow-up.
+        val closed = clinic.api.closeVisit(job.visitId, closeBody(job.followUpOn, job.reason, job.feePaise))
+        // Closed already: an earlier attempt got through and its answer was lost.
         if (closed is Outcome.Failure && !(entry.attempts > 0 && closed.error.status == CONFLICT)) {
             return fail("write.close_failed", closed)
         }
-        val due = job.followUpOn ?: return SendResult.Delivered
-        val failure =
-            createRecallFor(clinic, job.patientId, due, job.reason ?: "follow_up") ?: return SendResult.Delivered
-        return fail("write.follow_up_failed", Outcome.Failure(failure))
+        return SendResult.Delivered
     }
 
     private suspend fun photo(entry: OutboxEntry): SendResult {

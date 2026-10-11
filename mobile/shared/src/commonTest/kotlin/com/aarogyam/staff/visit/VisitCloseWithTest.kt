@@ -40,56 +40,48 @@ class VisitCloseWithTest {
 
     private fun VisitStateHolder.view() = (state.value as VisitState.Open).view
 
-    @Test
-    fun closing_without_a_date_makes_no_recall() =
-        runTest {
-            val backend = FakeBackend()
-            val holder = open(backend)
-            holder.state.first { it is VisitState.Open }
-            holder.closeWith(null, null, 150000)
-            holder.state.first { (it as? VisitState.Open)?.view?.let { v -> v.closed && !v.closing } == true }
-            assertEquals(0, backend.count(recalls))
-            assertEquals(150000L, holder.view().pendingFeePaise)
-        }
+    private fun FakeBackend.closeBody() = (requests.last { it.url.encodedPath.endsWith("/close") }.body as TextContent).text
 
     @Test
-    fun a_date_creates_the_recall_after_the_close() =
+    fun closing_without_a_follow_up_or_fee_sends_no_body_and_makes_no_recall() =
         runTest {
             val backend = FakeBackend()
             val holder = open(backend)
             holder.state.first { it is VisitState.Open }
-            holder.closeWith("2026-10-20", "Review the filling", null)
+            holder.close()
             holder.state.first { (it as? VisitState.Open)?.view?.let { v -> v.closed && !v.closing } == true }
             assertEquals(1, backend.count(close))
-            val body = (backend.requests.last { it.url.encodedPath.endsWith("/recalls") }.body as TextContent).text
-            assertTrue(""""due_on":"2026-10-20"""" in body && "Review the filling" in body, body)
-            assertTrue(!holder.view().followUpFailed)
+            assertEquals(0, backend.count(recalls))
+            assertTrue(backend.requests.last { it.url.encodedPath.endsWith("/close") }.body !is TextContent)
         }
 
     @Test
-    fun a_recall_failure_keeps_the_visit_closed_and_a_retry_only_resends_the_recall() =
+    fun the_close_carries_the_follow_up_reason_and_fee_and_the_client_makes_no_recall() =
         runTest {
             val backend = FakeBackend()
             val holder = open(backend)
-            backend.on(recalls, {
-                apiError(HttpStatusCode.InternalServerError, "internal")
-            }, { json(recall, HttpStatusCode.Created) })
             holder.state.first { it is VisitState.Open }
-            holder.closeWith("2026-10-20", null, null)
-            val failed =
-                (
-                    holder.state.first {
-                        (it as? VisitState.Open)?.view?.followUpFailed == true
-                    } as VisitState.Open
-                ).view
-            assertTrue(failed.closed && failed.error != null)
-            holder.closeWith("2026-10-20", null, null)
-            holder.state.first {
-                (it as? VisitState.Open)?.view?.let { v -> v.closed && !v.followUpFailed && !v.closing } ==
-                    true
-            }
-            assertEquals(1, backend.count(close), "the visit is not closed twice")
-            assertEquals(2, backend.count(recalls))
+            holder.closeWith("2026-10-20", "Review the filling", 150000)
+            holder.state.first { (it as? VisitState.Open)?.view?.let { v -> v.closed && !v.closing } == true }
+            val body = backend.closeBody()
+            assertTrue(""""follow_up_on":"2026-10-20"""" in body, body)
+            assertTrue(""""follow_up_reason":"Review the filling"""" in body, body)
+            assertTrue(""""fee_paise":150000""" in body, body)
+            assertEquals(1, backend.count(close))
+            assertEquals(0, backend.count(recalls))
+        }
+
+    @Test
+    fun a_refused_close_keeps_the_visit_open_and_shows_the_error() =
+        runTest {
+            val backend = FakeBackend()
+            val holder = open(backend)
+            backend.on(close, { apiError(HttpStatusCode.BadRequest, "invalid_input") })
+            holder.state.first { it is VisitState.Open }
+            holder.closeWith("2020-01-01", null, null)
+            val view = (holder.state.first { (it as? VisitState.Open)?.view?.error != null } as VisitState.Open).view
+            assertTrue(!view.closed && !view.closing)
+            assertEquals(0, backend.count(recalls))
         }
 
     @Test

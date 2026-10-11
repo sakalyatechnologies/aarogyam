@@ -56,13 +56,21 @@ data class StockRow(
     val nextExpiry: String?,
 )
 
-/** One notification or inbox message about a booking. */
+/**
+ * One notification or inbox message. A booking one carries [appointmentId]; the queue kinds
+ * (`patient_waiting`, `send_in`, `collect_payment`) carry the token, with the patient's clinic
+ * number and never the name.
+ */
 data class AlertRow(
     val id: String,
     val kind: String,
     val read: Boolean,
     val at: String,
     val appointmentId: String,
+    val tokenId: String? = null,
+    val tokenNumber: Int? = null,
+    val patientNumber: String? = null,
+    val doctor: String? = null,
 )
 
 /** Loads one list once (again on [refresh]) when [permission] is held. */
@@ -72,6 +80,8 @@ abstract class SimpleListHolder<T>(
     private val permission: String,
     private val log: Logger,
     private val event: String,
+    /** Other permissions that also open the list (the queue alerts reach doctors and billing). */
+    private val orPermissions: List<String> = emptyList(),
 ) {
     private val mutableState = MutableStateFlow<ListState<T>>(ListState.Loading)
     val state: StateFlow<ListState<T>> = mutableState.asStateFlow()
@@ -79,7 +89,7 @@ abstract class SimpleListHolder<T>(
     protected abstract suspend fun fetch(): Outcome<List<T>, com.sakalya.mobile.core.ApiError>
 
     fun refresh() {
-        if (permission !in clinic.permissions) {
+        if (permission !in clinic.permissions && orPermissions.none { it in clinic.permissions }) {
             mutableState.value = ListState.NotAllowed
             return
         }
@@ -193,7 +203,14 @@ class NotificationsStateHolder(
     clinic: ClinicContext,
     private val scope: CoroutineScope,
     log: Logger = Logger("aarogyam.notifications"),
-) : SimpleListHolder<AlertRow>(clinic, scope, "appointments.read", log, "notifications.load_failed") {
+) : SimpleListHolder<AlertRow>(
+        clinic,
+        scope,
+        "appointments.read",
+        log,
+        "notifications.load_failed",
+        listOf("labs.read", "billing.write", "finance.view", "clinical.write"),
+    ) {
     init {
         refresh()
     }
@@ -203,7 +220,18 @@ class NotificationsStateHolder(
             is Outcome.Success -> {
                 Outcome.Success(
                     answer.value.items.map {
-                        AlertRow(it.id, it.kind, it.read, it.createdAt, it.appointment.id)
+                        val token = it.queueToken
+                        AlertRow(
+                            it.id,
+                            it.kind,
+                            it.read,
+                            it.createdAt,
+                            it.appointment?.id.orEmpty(),
+                            tokenId = token?.id,
+                            tokenNumber = token?.tokenNumber,
+                            patientNumber = token?.patientNumber,
+                            doctor = token?.practitionerName,
+                        )
                     },
                 )
             }

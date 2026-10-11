@@ -14,8 +14,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.encodeURLPathPart
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 
 /** `GET /api/v1/recalls` (`listRecallsDue`): open follow-ups, soonest first. There is no per-patient route. */
 suspend fun ClinicApi.listRecalls(): Outcome<RecallList, ApiError> =
@@ -46,27 +44,4 @@ suspend fun ClinicApi.updatePrescription(
         url("api/v1/prescriptions/${id.encodeURLPathPart()}")
         contentType(ContentType.Application.Json)
         setBody(values)
-    }
-
-/**
- * The close body the server will take (BE5). Not in the committed OpenAPI yet, so it is written by
- * hand; `VisitStateHolder.SERVER_CLOSE_BODY` decides whether it is sent.
- */
-@Serializable
-data class CloseBody(
-    @SerialName("follow_up_on") val followUpOn: String? = null,
-    @SerialName("fee_paise") val feePaise: Long? = null,
-    val note: String? = null,
-)
-
-/** `POST /api/v1/visits/{id}/close` with the BE5 body. */
-suspend fun ClinicApi.closeVisit(
-    visitId: String,
-    body: CloseBody,
-): Outcome<com.aarogyam.staff.api.model.Visit, ApiError> =
-    client.call {
-        method = HttpMethod.Post
-        url("api/v1/visits/${visitId.encodeURLPathPart()}/close")
-        contentType(ContentType.Application.Json)
-        setBody(body)
     }

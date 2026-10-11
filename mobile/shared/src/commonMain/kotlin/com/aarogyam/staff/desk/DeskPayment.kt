@@ -32,7 +32,7 @@ sealed interface DeskPayState {
         val error: ScreenError,
     ) : DeskPayState
 
-    /** [canAttachProof] needs `clinical.write` until BE6 gives payments their own proof upload. */
+    /** [canAttachProof] needs `billing.write` (the `payment_proof` upload). */
     data class Ready(
         val dues: List<DueBill>,
         val canAttachProof: Boolean,
@@ -65,8 +65,8 @@ sealed interface DeskPayOutcome {
  * Collect payment for one patient: their issued bills with a balance, then `POST /payments` with an
  * Idempotency-Key kept across retries of one submission. When the phone is offline, or the network
  * drops mid-send, the payment goes to the app outbox ([AppGraph.outbox], kept on the phone) with the same key and the
- * sheet shows "Saved, will send". An optional proof photo is uploaded as a patient attachment
- * labelled Report or Other until BE6 adds `attachment_id` to payments.
+ * sheet shows "Saved, will send". An optional proof photo is uploaded as a `payment_proof` file and
+ * named by `attachment_id` on the payment.
  */
 class DeskPaymentStateHolder(
     private val clinic: ClinicContext,
@@ -76,7 +76,7 @@ class DeskPaymentStateHolder(
     private val log: Logger = Logger("aarogyam.deskpay"),
 ) {
     private val allowed = BILLING_READ in clinic.permissions && BILLING_WRITE in clinic.permissions
-    private val canProof = CLINICAL_WRITE in clinic.permissions
+    private val canProof = BILLING_WRITE in clinic.permissions
     private val runner = graph.outbox
     private val mutableState =
         MutableStateFlow<DeskPayState>(if (allowed) DeskPayState.Loading else DeskPayState.NotAllowed)
@@ -134,7 +134,6 @@ class DeskPaymentStateHolder(
         amountPaise: Long,
         method: PayMethod,
         proofJpeg: ByteArray?,
-        proofLabel: String?,
     ) {
         if (!allowed || amountPaise <= 0 || mutableOutcome.value == DeskPayOutcome.Sending) return
         val proof = proofJpeg?.takeIf { canProof && it.isNotEmpty() }
@@ -147,10 +146,9 @@ class DeskPaymentStateHolder(
                 invoiceId = invoiceId,
                 allocatedPaise = invoiceId?.let { id -> minOf(amountPaise, dueOf(id)) } ?: 0,
                 proofId = proof?.let { IdempotencyKey.generate().toString() },
-                proofLabel = proofLabel?.takeIf { proof != null },
                 proofJpegBase64 = proof?.let(::encodeProof),
             )
-        val fingerprint = "$invoiceId|$amountPaise|${method.name}|${proof?.size}|${job.proofLabel}"
+        val fingerprint = "$invoiceId|$amountPaise|${method.name}|${proof?.size}"
         val key =
             keyed?.takeIf { it.first == fingerprint }?.second
                 ?: IdempotencyKey.generate().toString().also { keyed = fingerprint to it }
@@ -195,6 +193,5 @@ class DeskPaymentStateHolder(
     private companion object {
         const val BILLING_READ = "billing.read"
         const val BILLING_WRITE = "billing.write"
-        const val CLINICAL_WRITE = "clinical.write"
     }
 }

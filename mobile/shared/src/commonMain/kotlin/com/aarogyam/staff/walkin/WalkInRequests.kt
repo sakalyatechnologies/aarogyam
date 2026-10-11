@@ -1,6 +1,7 @@
 package com.aarogyam.staff.walkin
 
 import com.aarogyam.staff.api.model.DeskConsentFields
+import com.aarogyam.staff.api.model.FamilyOfFields
 import com.aarogyam.staff.api.model.NewPatient
 import com.aarogyam.staff.api.model.WalkInRequest
 import com.aarogyam.staff.patients.Sex
@@ -62,6 +63,7 @@ internal fun walkInRequest(form: WalkInForm): Result<WalkInRequest> {
                     phone = form.mobile.takeIf { it.isNotEmpty() }?.let { "+91$it" },
                     sex = form.sex?.wire(),
                 ),
+            familyOf = form.familyOf?.let { FamilyOfFields(patientId = it.patientId, relation = it.relation) },
         ),
     )
 }

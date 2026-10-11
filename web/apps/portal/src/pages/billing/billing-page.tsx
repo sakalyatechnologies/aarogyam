@@ -17,6 +17,8 @@ import { ExpensesPanel } from "./expenses-panel.js";
 import { SortHeader } from "../../components/sort-header.js";
 import { useSortable, type SortColumn } from "../../components/use-sortable.js";
 import { invoiceStatus, type InvoiceStatusKey } from "../../lib/invoice-status.js";
+import { useNewLook } from "../../lib/new-look.js";
+import { BillingV2 } from "./billing-v2.js";
 
 const plural = (n: number, word: string) => `${String(n)} ${word}${n === 1 ? "" : "s"}`;
 
@@ -62,7 +64,7 @@ function exportCsv(rows: readonly Invoice[]) {
  * Billing: this month's money, the weekly collections chart, and every bill. Needs `billing.read`.
  * With `finance.view` it has a second tab, Expenses (`?tab=expenses`).
  */
-export function BillingPage() {
+function BillingClassic() {
   const { can } = useClinic();
   const [params, setParams] = useSearchParams();
   useDocumentTitle("Billing", "Aarogyam");
@@ -247,4 +249,10 @@ export function BillingPage() {
       )}
     </div>
   );
+}
+
+/** Billing: the New look screen when the switch is on, otherwise the classic one. */
+export function BillingPage() {
+  const [newLook] = useNewLook();
+  return newLook ? <BillingV2 /> : <BillingClassic />;
 }

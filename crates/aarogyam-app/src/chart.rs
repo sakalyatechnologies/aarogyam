@@ -56,6 +56,8 @@ pub struct ChartEntryView {
     pub canals: Vec<Canal>,
     /// A root canal's sitting: which visit of the treatment this entry belongs to.
     pub sitting: Option<u8>,
+    /// The treatment is started but not finished.
+    pub in_progress: bool,
 }
 
 /// A procedure or material: seeded, or one the clinic added.
@@ -146,6 +148,7 @@ fn view(row: ChartRow, own: &[TermView]) -> Result<ChartEntryView, AppError> {
         recorded_by: row.verified_by.map(MembershipId::from_uuid),
         canals: data.canals,
         sitting: data.sitting,
+        in_progress: data.in_progress,
     })
 }
 
@@ -277,6 +280,9 @@ pub struct EntryInput {
     pub canals: Vec<Canal>,
     /// A root canal's sitting, 1 to 20 (only with the `root_canal` finding).
     pub sitting: Option<i64>,
+    /// Treatment started, not finished. Left out when false so older retries keep their hash.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub in_progress: bool,
 }
 
 /// Entries recorded together, as received.
@@ -394,6 +400,7 @@ pub async fn record(
                     note: entry.note.as_deref(),
                     canals: &entry.canals,
                     sitting: entry.sitting,
+                    in_progress: entry.in_progress,
                 },
             )
         })

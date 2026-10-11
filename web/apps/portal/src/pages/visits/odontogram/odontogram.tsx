@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type TouchEvent } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactNode, type TouchEvent } from "react";
 import { Minus, Plus } from "lucide-react";
 
 import type { DentalChart, PatientId, PlanItem, ToothSurface } from "@aarogyam/api-client";
@@ -31,15 +31,23 @@ export interface OdontogramProps {
   planItems: readonly PlanItem[];
   /** Undefined when the caller may not record findings: the chart then reads but does not offer the dialog. */
   onRecord: ((teeth: readonly number[], surface: ToothSurface | null) => void) | undefined;
+  /** The New look chart shows its own tooth panel in place of this one (history, Edit, Add treatment). */
+  panel?: ReactNode;
+  /** With `panel`: the tooth that panel is showing, so closing it there clears the selection here. */
+  shownTooth?: number | undefined;
+  /** With `panel`: called when a tooth (or one of its surfaces) is picked. */
+  onPick?: (tooth: number, surface: ToothSurface | null) => void;
 }
 
 /** Both arches of one dentition, selectable by mouse, touch and keyboard, with a legend, summary strip and tooth panel. */
-export function Odontogram({ patientId, chart, planItems, onRecord }: OdontogramProps) {
+export function Odontogram({ patientId, chart, planItems, onRecord, panel, shownTooth, onPick }: OdontogramProps) {
   const [dentition, setDentition] = useState<Dentition>(() => {
     const teeth = chart.current.map((e) => e.tooth);
     return teeth.length > 0 && teeth.every((t) => dentitionOf(t) === "child") ? "child" : "adult";
   });
-  const [selected, setSelected] = useState<{ tooth: number; surface: ToothSurface | null } | undefined>(undefined);
+  const [picked, setSelected] = useState<{ tooth: number; surface: ToothSurface | null } | undefined>(undefined);
+  // With a panel of its own the caller owns which tooth is open; otherwise this chart does.
+  const selected = panel === undefined || shownTooth === picked?.tooth ? picked : shownTooth === undefined ? undefined : { tooth: shownTooth, surface: null };
   // "Select several": taps add and remove teeth, so one finding can be recorded on all of them.
   const [several, setSeveral] = useState(false);
   const [group, setGroup] = useState<readonly number[]>([]);
@@ -68,6 +76,7 @@ export function Odontogram({ patientId, chart, planItems, onRecord }: Odontogram
       setSelected({ tooth, surface });
     }
     setFocusTooth(tooth);
+    onPick?.(tooth, surface);
   };
   const focusOn = (tooth: number | undefined) => {
     if (tooth === undefined) return;
@@ -283,6 +292,7 @@ export function Odontogram({ patientId, chart, planItems, onRecord }: Odontogram
           </div>
           <p className="odo-hint">Tap a surface to select it, or the tooth for all five. Swipe on a phone for the other arch.</p>
         </div>
+        {panel ?? (
         <ToothPanel
           patientId={patientId}
           group={several ? group : []}
@@ -294,6 +304,7 @@ export function Odontogram({ patientId, chart, planItems, onRecord }: Odontogram
           }}
           onRecord={onRecord}
         />
+        )}
       </div>
 
       <div>

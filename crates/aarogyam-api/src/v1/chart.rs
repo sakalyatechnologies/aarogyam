@@ -81,6 +81,8 @@ pub struct ChartEntry {
     pub canals: Vec<RootCanal>,
     /// For a root canal: which sitting (visit) of the treatment this entry belongs to.
     pub sitting: Option<u8>,
+    /// The treatment is started but not finished (for example a root canal between sittings).
+    pub in_progress: bool,
 }
 
 impl From<ChartEntryView> for ChartEntry {
@@ -100,6 +102,7 @@ impl From<ChartEntryView> for ChartEntry {
             recorded_by: view.recorded_by.map(MembershipId::uuid),
             canals: view.canals.into_iter().map(RootCanal::from).collect(),
             sitting: view.sitting,
+            in_progress: view.in_progress,
         }
     }
 }
@@ -221,6 +224,9 @@ pub struct NewChartEntry {
     pub canals: Vec<RootCanal>,
     /// Only with `root_canal`: the sitting (visit) of the treatment, 1 to 20.
     pub sitting: Option<i64>,
+    /// The treatment is started but not finished. Defaults to false; ignored with `sound`.
+    #[serde(default)]
+    pub in_progress: bool,
 }
 
 /// Findings recorded together.
@@ -282,6 +288,7 @@ pub(crate) async fn record(
                 supersedes_id: entry.supersedes_id,
                 canals: entry.canals.into_iter().map(Canal::from).collect(),
                 sitting: entry.sitting,
+                in_progress: entry.in_progress,
             })
             .collect(),
     };

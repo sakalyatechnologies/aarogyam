@@ -3084,6 +3084,18 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
                 c.tooth === entry.tooth &&
                 (c.surface ?? null) === surface,
             );
+            let replaced = existing;
+            if (entry.supersedes_id != null) {
+              const named = state.chartEntries.find((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.id === entry.supersedes_id);
+              if (named === undefined) {
+                return invalid("supersedes_id", "not a chart entry of this patient");
+              }
+              if (named.status !== "current") {
+                return refuse(409, "conflict", "the entry being corrected is no longer current; reload the chart");
+              }
+              named.status = "superseded";
+              replaced = named;
+            }
             if (existing !== undefined) {
               existing.status = "superseded";
             }
@@ -3099,8 +3111,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               note: entry.note ?? null,
               status: "current",
               recorded_by: caller.membership.id,
-              supersedes_id: existing?.id ?? null,
+              supersedes_id: replaced?.id ?? null,
               visit_id: input.visit_id ?? null,
+              in_progress: findingParsed.data !== "sound" && entry.in_progress === true,
               effective_at: now,
               canals: canals.map((c) => ({ name: c.name.trim(), working_length_mm: c.working_length_mm ?? null })),
               sitting: entry.sitting ?? null,
@@ -7024,6 +7037,7 @@ function wireChartEntry(c: FakeChartEntry, state: Fixtures): C.ChartEntry {
     effective_at: c.effective_at,
     canals: c.canals ?? [],
     sitting: c.sitting ?? null,
+    in_progress: c.in_progress ?? false,
   };
 }
 

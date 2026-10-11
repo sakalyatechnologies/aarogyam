@@ -363,6 +363,8 @@ export interface FakeChartEntry {
   /** A root canal's canals, and its sitting. */
   canals?: C.RootCanal[];
   sitting?: number | null;
+  /** Started but not finished. */
+  in_progress?: boolean;
 }
 
 export interface FakeAttachment {

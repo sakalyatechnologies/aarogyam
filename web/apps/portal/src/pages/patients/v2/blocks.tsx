@@ -27,7 +27,6 @@ import { insertAt } from "../../visits/voice/dictation.js";
 import { VoiceRecorder } from "../../visits/voice/voice-recorder.js";
 import { ClinicalFlagsPanel } from "../clinical-flags-panel.js";
 import { ConsentPanel } from "../consent-panel.js";
-import { DentalChartPanel } from "../dental-chart-panel.js";
 import { FilesPanel } from "../files-panel.js";
 import { NotesPanel } from "../notes-panel.js";
 import { PatientAppCard } from "../patient-app-card.js";
@@ -35,6 +34,7 @@ import { CarePlan, Contact, Kv } from "../patient-page.js";
 import { BillsPanel } from "../records-panels.js";
 import { FOLLOW_UPS } from "./finish-visit.js";
 import { Bento, Chip } from "./kit.js";
+import { ToothChartBlock } from "./tooth-chart/tooth-block.js";
 import { NOTE_SECTIONS, useVisitSession, type SectionKey } from "./visit-session.js";
 import { Phone, Mail } from "lucide-react";
 
@@ -60,11 +60,7 @@ export function StartVisitPrompt({ what }: { what: string }) {
 
 /** The odontogram with its tooth panel and record dialog. Append-only: a correction is a new entry that supersedes the old one. */
 export function ToothBlock({ patientId }: { patientId: Patient["id"] }) {
-  return (
-    <div className="p360-bento">
-      <DentalChartPanel patientId={patientId} />
-    </div>
-  );
+  return <ToothChartBlock patientId={patientId} />;
 }
 
 /** Quick picks that add one-line complaints, findings and advice to the visit note. */

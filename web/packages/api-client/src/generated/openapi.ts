@@ -5546,6 +5546,8 @@ export interface components {
             finding: string;
             /** @description Identifier. */
             id: string;
+            /** @description The treatment is started but not finished (for example a root canal between sittings). */
+            in_progress: boolean;
             material?: components["schemas"]["DentalTerm"] | null;
             /** @description The clinician's remark. */
             note?: string | null;
@@ -8271,6 +8273,8 @@ export interface components {
             canals?: components["schemas"]["RootCanal"][];
             /** @description `sound` (clears an earlier finding), `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`. */
             finding: string;
+            /** @description The treatment is started but not finished. Defaults to false; ignored with `sound`. */
+            in_progress?: boolean;
             /** @description A material id from the chart's `terms`: seeded (`zirconia`) or the clinic's own. Not with `sound`. */
             material?: string | null;
             /** @description A remark, up to 500 characters. */

@@ -615,6 +615,63 @@ async fn medicine_sets_are_created_edited_listed_and_deleted_per_clinic() {
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
+async fn chart_entries_can_be_in_progress() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(&app, &owner).await;
+    let path = format!("/api/v1/patients/{patient}/dental-chart");
+
+    let (status, chart) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &path,
+        Some(json!({ "entries": [{
+            "tooth": 46, "finding": "root_canal", "sitting": 2, "in_progress": true,
+            "procedure": "root_canal", "material": "calcium_hydroxide",
+            "canals": [{ "name": "MB", "working_length_mm": 21 }]
+        }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    assert_eq!(chart["current"][0]["in_progress"], true);
+    assert_eq!(
+        chart["current"][0]["material"]["label"],
+        "Calcium hydroxide"
+    );
+
+    // The finished sitting corrects it: the old entry is superseded and still says in progress.
+    let old = chart["current"][0]["id"].as_str().unwrap().to_owned();
+    let (status, chart) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &path,
+        Some(json!({ "entries": [{
+            "tooth": 46, "finding": "root_canal", "sitting": 3, "supersedes_id": old,
+            "procedure": "root_canal", "material": "gutta_percha"
+        }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    assert_eq!(chart["current"][0]["in_progress"], false);
+    assert_eq!(chart["current"][0]["supersedes_id"], old);
+
+    // Another clinic's member can't reach the chart.
+    let beta = app.token(BETA_OWNER);
+    let (status, _) = post(
+        &app,
+        BETA,
+        &beta,
+        &path,
+        Some(json!({ "entries": [{ "tooth": 46, "finding": "root_canal", "in_progress": true }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
 async fn root_canal_entries_carry_canals_and_a_sitting() {
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);

@@ -16,7 +16,8 @@
     { "id": "implant", "label": "Implant" },
     { "id": "extraction", "label": "Extraction" },
     { "id": "sealant", "label": "Pit and fissure sealant" },
-    { "id": "scaling", "label": "Scaling" }
+    { "id": "scaling", "label": "Scaling" },
+    { "id": "bridge", "label": "Bridge" }
   ],
   "materials": [
     { "id": "zirconia", "label": "Zirconia" },
@@ -28,6 +29,21 @@
     { "id": "emax", "label": "e.max (lithium disilicate)" },
     { "id": "gold", "label": "Gold" },
     { "id": "ceramic", "label": "Ceramic" },
-    { "id": "temporary", "label": "Temporary" }
+    { "id": "temporary", "label": "Temporary" },
+    { "id": "flowable_composite", "label": "Flowable composite" },
+    { "id": "inlay_onlay", "label": "Inlay / onlay" },
+    { "id": "layered_zirconia", "label": "Layered zirconia" },
+    { "id": "gutta_percha", "label": "Gutta percha" },
+    { "id": "calcium_hydroxide", "label": "Calcium hydroxide" },
+    { "id": "bioceramic_sealer", "label": "Bioceramic sealer" },
+    { "id": "mta", "label": "MTA" },
+    { "id": "ah_plus_sealer", "label": "AH Plus sealer" },
+    { "id": "titanium_4_2x10", "label": "Titanium 4.2×10" },
+    { "id": "titanium_3_5x11_5", "label": "Titanium 3.5×11.5" },
+    { "id": "zirconia_abutment", "label": "Zirconia abutment" },
+    { "id": "ultrasonic", "label": "Ultrasonic" },
+    { "id": "resin_sealant", "label": "Resin sealant" },
+    { "id": "gic_sealant", "label": "GIC sealant" },
+    { "id": "composite_veneer", "label": "Composite veneer" }
   ]
 }

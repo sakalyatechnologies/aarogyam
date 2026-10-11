@@ -10,6 +10,7 @@ use aarogyam_domain::billing::{
 use aarogyam_domain::clinical::AttachmentKind;
 use aarogyam_domain::ids::{InvoiceId, PatientId, PaymentId};
 use aarogyam_domain::permission::Permission;
+use aarogyam_domain::schedule::QueueStatus;
 use sakalya_db::{Db, ScopedTx};
 use sakalya_types::Paise;
 use time::{Date, OffsetDateTime};
@@ -372,6 +373,20 @@ pub async fn record(
                     *amount,
                 )
                 .await?;
+            }
+            // A payment that clears a visit's balance finishes its token at the desk.
+            if !ids.is_empty() {
+                for token in aarogyam_dal::queue::settled_by_invoices(tx.conn(), &ids).await? {
+                    crate::queue::move_token(
+                        tx,
+                        &actor.timezone,
+                        &token,
+                        QueueStatus::Done,
+                        actor.membership_id,
+                        now,
+                    )
+                    .await?;
+                }
             }
             Ok((load_one(tx, id).await?, true))
         })

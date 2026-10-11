@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select t.id, t.status, t.appointment_id from aarogyam.queue_tokens t\n           where t.status = 'ready_to_bill'\n             and exists (select 1 from aarogyam.encounters e\n                         join aarogyam.invoices i on i.org_id = e.org_id and i.encounter_id = e.id\n                         where e.queue_token_id = t.id and i.id = any($1))\n             and not exists (\n               select 1 from aarogyam.encounters e\n               join aarogyam.invoices i on i.org_id = e.org_id and i.encounter_id = e.id\n               where e.queue_token_id = t.id and i.status <> 'void'\n                 and (case when i.status = 'draft' then (select coalesce(sum(it.quantity::bigint * it.unit_price_paise - it.discount_paise), 0) from aarogyam.invoice_items it where it.org_id = i.org_id and it.invoice_id = i.id) else i.total_paise end) > coalesce((select sum(a.amount_paise)\n                      from aarogyam.payment_allocations a\n                      join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id\n                      where a.org_id = i.org_id and a.invoice_id = i.id and m.status = 'received'), 0))\n           for update of t",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "appointment_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "appointment_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "c4d53ff22ee19eb4e09c855a7a2e35533e7e8e3c809072fe0c31b3188304471b"
+}

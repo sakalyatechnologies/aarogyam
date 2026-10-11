@@ -406,7 +406,6 @@ pub struct ClosedVisit {
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write, or patients.write for a follow-up, or billing.write for a fee"),
         (status = 404, description = "No such visit in this clinic"),
-        (status = 409, description = "Already closed")
     )
 )]
 pub(crate) async fn close(

@@ -223,12 +223,19 @@ async fn finish_item(tx: &mut ScopedTx, row: &ProcedureRow) -> Result<(), AppErr
 /// # Errors
 /// [`AppError::Invalid`] for bad input or a plan item of another patient;
 /// [`AppError::NotFound`] when the visit isn't in this clinic; [`AppError::Conflict`] when the
-/// visit is closed, the plan item isn't accepted, or it already has a procedure.
+/// visit is closed, the plan item isn't accepted, or it already has a procedure;
+/// [`AppError::IdConflict`] when the client's `id` belongs to a different procedure. A retry with
+/// the same `id` returns the procedure that exists, even after its visit closed.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one transaction: lookup, checks and the writes it makes"
+)]
 pub async fn record_procedure(
     db: &Db,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     visit_id: EncounterId,
+    id: Option<ProcedureId>,
     input: ProcedureInput,
     now: OffsetDateTime,
 ) -> Result<ProcedureView, AppError> {
@@ -247,6 +254,33 @@ pub async fn record_procedure(
         .map_err(invalid("price_paise"))?;
     let note = optional_text(input.note.as_deref(), 1000).map_err(invalid("note"))?;
     db.scoped(&scope(actor, request_id), async |tx| {
+        if let Some(id) = id {
+            aarogyam_dal::visits::lock_client_id(tx.conn(), id.uuid()).await?;
+            let reach = actor.reach(Permission::ClinicalWrite).member();
+            if let Some(row) =
+                treatment::get_procedure_for_update(tx.conn(), id.uuid(), reach).await?
+            {
+                let same = row.encounter_id == visit_id.uuid()
+                    && row.clinician_id == actor.membership_id.uuid()
+                    && input
+                        .work
+                        .name
+                        .as_deref()
+                        .is_none_or(|name| name.trim() == row.name)
+                    && input
+                        .price_paise
+                        .is_none_or(|price| row.price_paise == Some(price))
+                    && input
+                        .plan_item_id
+                        .is_none_or(|item| row.treatment_plan_item_id == Some(item));
+                return if same {
+                    let names = Names::load(tx, [row.clinician_id]).await?;
+                    procedure_view(row, &names)
+                } else {
+                    Err(AppError::IdConflict)
+                };
+            }
+        }
         let visit =
             require_open_visit(tx, visit_id, actor.reach(Permission::ClinicalWrite)).await?;
         let item = match input.plan_item_id {
@@ -285,7 +319,7 @@ pub async fn record_procedure(
         let row = treatment::insert_procedure(
             tx.conn(),
             &NewProcedure {
-                id: ProcedureId::new_v7().uuid(),
+                id: id.unwrap_or_else(ProcedureId::new_v7).uuid(),
                 encounter_id: visit.id,
                 patient_id: visit.patient_id,
                 clinician_id: actor.membership_id.uuid(),

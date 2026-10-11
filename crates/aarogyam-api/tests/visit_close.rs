@@ -92,9 +92,10 @@ async fn an_empty_close_changes_nothing_else() {
         count(&app, "select count(*) from aarogyam.invoices").await,
         0
     );
-    // Closing again is refused and makes nothing.
-    let (status, _) = close(&app, &owner, &visit, Some(json!({ "fee_paise": 50_000 }))).await;
-    assert_eq!(status, StatusCode::CONFLICT);
+    // Closing again returns the same body and makes nothing.
+    let (status, again) = close(&app, &owner, &visit, Some(json!({ "fee_paise": 50_000 }))).await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert_eq!(again, closed);
     assert_eq!(
         count(&app, "select count(*) from aarogyam.invoices").await,
         0

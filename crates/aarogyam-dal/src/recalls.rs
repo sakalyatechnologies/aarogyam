@@ -126,3 +126,20 @@ pub async fn done(conn: &mut PgConnection, id: Uuid, at: OffsetDateTime) -> Resu
     .await?;
     Ok(result.rows_affected() > 0)
 }
+
+/// The follow-up planned when a visit closed, if any.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn of_visit(
+    conn: &mut PgConnection,
+    encounter_id: Uuid,
+) -> Result<Option<Uuid>, DbError> {
+    let id = sqlx::query_scalar!(
+        "select id from aarogyam.recalls where source_encounter_id = $1 order by created_at limit 1",
+        encounter_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(id)
+}

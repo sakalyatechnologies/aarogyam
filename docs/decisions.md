@@ -2,6 +2,17 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-11: Live updates over Server-Sent Events (BE3)
+
+**Decision.** `GET /api/v1/events?branch_id=` streams change signals as Server-Sent Events (permission `appointments.read`; a branch of another clinic is `404`). The source is Postgres `LISTEN/NOTIFY`, written by row triggers (migration 0426, `app.live_signal`) on `queue_tokens` (`queue.changed`), `encounters` (`visit.changed`) and `staff_notifications` (`notification.created`). Each instance holds one listener connection, started on the first subscriber, and fans signals out to streams of the same clinic and branch.
+
+- **Why not the outbox.** The outbox is a durable, polled queue for messages to people; it would add latency of a poll and rows for every queue move. NOTIFY fires at commit, costs no rows, and the architecture already keeps the API stateless between requests (a few long streams are the only exception).
+- **Payload.** Clinic id (routing only, never sent), branch id, kind and record id. No names, numbers or clinical detail. Clients refetch the list or record.
+- **No resume.** NOTIFY is not stored, so there is no `Last-Event-ID` replay: clients refetch on every (re)connect, and the server sends `resync` when its listener reconnected or a stream lagged. Polling stays the fallback.
+- **Heartbeat** comment `: hb` every 25 s (Cloud Run and proxies drop idle streams).
+- **Needs a session connection.** LISTEN does not work through a transaction-mode pooler (port 6543); the database URL must be direct or session-mode, as `sakalya-db` already requires for prepared statements.
+- **Reach.** Events are not narrowed to a doctor's own patients: they carry identifiers only and the refetch applies reach.
+
 ## 2026-10-10: Campaigns
 
 **Decision.** An owner can send a promotional offer to an audience (migrations 0380 to 0383), backend only. `campaigns.manage` goes to owners (backfilled); direct sends to a few patients keep `messages.send`. Support never reads these tables (`no_support`), and campaigns write ordinary `messages`, so consent, opt-out and quiet hours stay in `app.message_dispatch` and are not repeated.

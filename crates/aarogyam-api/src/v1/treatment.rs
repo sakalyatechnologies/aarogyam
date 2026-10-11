@@ -20,6 +20,7 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use super::client_id;
 use super::facts::Code;
 use super::rfc3339;
 use super::visits::{EnteredInError, MemberRef};
@@ -137,6 +138,8 @@ impl From<WorkFields> for WorkInput {
 /// A procedure to record.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct NewProcedure {
+    /// A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out.
+    pub id: Option<String>,
     /// What and where; taken from the plan item when left out.
     #[serde(flatten)]
     pub work: WorkFields,
@@ -166,7 +169,7 @@ pub struct NewProcedure {
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
         (status = 404, description = "No such visit in this clinic"),
-        (status = 409, description = "The visit is closed, or the plan item isn't accepted or already has a procedure")
+        (status = 409, description = "The visit is closed, or the plan item isn't accepted or already has a procedure, or `id_conflict`: the id belongs to a different procedure")
     )
 )]
 pub(crate) async fn record_procedure(
@@ -175,11 +178,17 @@ pub(crate) async fn record_procedure(
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<NewProcedure>,
 ) -> Result<(StatusCode, Json<Procedure>), ApiFailure> {
+    let procedure_id = body
+        .id
+        .as_deref()
+        .map(|text| client_id("id", text))
+        .transpose()?;
     let view = app::record_procedure(
         state.db(),
         &request.actor,
         request.request_id,
         EncounterId::from_uuid(id),
+        procedure_id,
         ProcedureInput {
             work: body.work.into(),
             status: body.status,

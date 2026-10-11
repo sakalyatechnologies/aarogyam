@@ -3,6 +3,7 @@ package com.aarogyam.staff.desk
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.ClinicApi
+import com.aarogyam.staff.api.issueInvoice
 import com.aarogyam.staff.api.model.Allocation
 import com.aarogyam.staff.api.model.NewPayment
 import com.aarogyam.staff.billing.PayMethod
@@ -11,6 +12,7 @@ import com.aarogyam.staff.outbox.OutboxKind
 import com.aarogyam.staff.outbox.OutboxSender
 import com.aarogyam.staff.outbox.SendResult
 import com.aarogyam.staff.outbox.toSendResult
+import com.sakalya.mobile.core.ApiErrorKind
 import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
@@ -44,6 +46,8 @@ internal data class PaymentJob(
     val allocatedPaise: Long = 0,
     val proofId: String? = null,
     val proofJpegBase64: String? = null,
+    /** The bill is a draft: issue it first (`POST /invoices/{id}/issue`), then pay, in this order. */
+    val issueFirst: Boolean = false,
 )
 
 internal fun encodeJob(job: PaymentJob): String = jobJson.encodeToString(job)
@@ -83,6 +87,27 @@ internal suspend fun deliver(
     val method =
         PayMethod.entries.firstOrNull { it.name == job.method }
             ?: return Delivery.Rejected(ScreenError.Unknown, "bad_method")
+    // A draft is issued before it can take a payment. Already issued (409) is fine: a retry or the
+    // server issued it. The payment is then allocated to what the issued bill really owes.
+    var allocated = job.allocatedPaise
+    if (job.issueFirst && job.invoiceId != null) {
+        when (val issued = api.issueInvoice(job.invoiceId)) {
+            is Outcome.Success -> {
+                allocated = minOf(job.amountPaise, issued.value.balancePaise)
+            }
+
+            is Outcome.Failure -> {
+                if (issued.error.kind != ApiErrorKind.Conflict) {
+                    log.warn("deskpay.issue_failed") { code("error", issued.error.code.value) }
+                    return when (val send = issued.toSendResult()) {
+                        is SendResult.Retry -> Delivery.Retry(send.code)
+                        is SendResult.Rejected -> Delivery.Rejected(ScreenError.of(issued.error), send.code)
+                        SendResult.Delivered -> Delivery.Retry("unexpected")
+                    }
+                }
+            }
+        }
+    }
     // The proof goes first so the payment can name it. Its id is the client's, so a retry is safe.
     var attachmentId: String? = null
     var proof = ProofStatus.None
@@ -111,7 +136,7 @@ internal suspend fun deliver(
             method = method.wire,
             amountPaise = job.amountPaise,
             allocations =
-                job.invoiceId?.let { listOf(Allocation(invoiceId = it, amountPaise = job.allocatedPaise)) }
+                job.invoiceId?.let { listOf(Allocation(invoiceId = it, amountPaise = allocated)) }
                     ?: emptyList(),
             attachmentId = attachmentId,
         )

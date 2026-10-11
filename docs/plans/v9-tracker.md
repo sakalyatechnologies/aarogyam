@@ -99,3 +99,8 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
 - be-int: blocked because the disk was full. Only the be-queue merge is in (f92a745), not compiled yet. The handoff is in `be-int.md` (73cd962). Before resuming, recreate the `aarogyam_v9be` database.
 - Cleanup: freed my own build caches (about 11 GB free now). The large caches that belong to other sessions were left for the founder to decide on.
 - Started: ios-patient and ios-visit, on branches from feat/v9.
+- ios-visit is done and merged (9c001e4). Its `ios-check.sh` run passed, with 15 XCTests. The screenshots are in `mobile/docs/screenshots/v9/ios/visit/`. Its gaps went to sh-gaps.
+- Running now (3 workers):
+  - ios-patient
+  - sh-gaps: Rx timing, Save draft, recalls and `closeWith`, plus wiring them into V9Visit
+  - be-int, resumed after the disk freed up (52 GB free)

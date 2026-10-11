@@ -131,6 +131,20 @@ import {
   type RequestId,
 } from "./schemas.js";
 import { phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
+import {
+  audience,
+  audiencePreview,
+  badges,
+  campaign,
+  campaigns,
+  chatMessage,
+  chatMessageList,
+  conversationList,
+  conversationStarted,
+  messageList,
+  messageTemplates,
+  messagesQueued,
+} from "./schemas.js";
 import { markedRead, notificationList, notificationSettings, profile, revokedSessions, unreadCount } from "./schemas.js";
 
 /** Returns the current access token, or `null` when signed out. */
@@ -484,6 +498,48 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/app-invitations`, schema: patientAppInvitation, signal: opts?.signal }),
     decidePatientLink: (id, decision, opts) =>
       call({ method: "POST", path: `/api/v1/patient-links/${encodeURIComponent(id)}/${decision}`, schema: patientLinkDecided, signal: opts?.signal }),
+
+    getBadges: (opts) => call({ method: "GET", path: "/api/v1/me/badges", schema: badges, signal: opts?.signal }),
+    sendMessages: (input, opts) => call({ method: "POST", path: "/api/v1/messages", schema: messagesQueued, body: input, signal: opts?.signal }),
+    listPatientMessages: (patientId, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(patientId)}/messages`, schema: messageList, signal: opts?.signal }),
+    listMessageTemplates: (opts) => call({ method: "GET", path: "/api/v1/templates", schema: messageTemplates, signal: opts?.signal }),
+    createAudience: (input, opts) => call({ method: "POST", path: "/api/v1/audiences", schema: audience, body: input, signal: opts?.signal }),
+    previewAudience: (filter, opts) =>
+      call({ method: "POST", path: "/api/v1/audiences/preview", schema: audiencePreview, body: { filter }, signal: opts?.signal }),
+    listCampaigns: (opts) => call({ method: "GET", path: "/api/v1/campaigns", schema: campaigns, signal: opts?.signal }),
+    getCampaign: (id, opts) => call({ method: "GET", path: `/api/v1/campaigns/${encodeURIComponent(id)}`, schema: campaign, signal: opts?.signal }),
+    createCampaign: (input, opts) => call({ method: "POST", path: "/api/v1/campaigns", schema: campaign, body: input, signal: opts?.signal }),
+    scheduleCampaign: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/campaigns/${encodeURIComponent(id)}/schedule`, schema: campaign, body: input, signal: opts?.signal }),
+    cancelCampaign: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/campaigns/${encodeURIComponent(id)}/cancel`, schema: campaign, signal: opts?.signal }),
+    listConversations: (limit, opts) =>
+      call({ method: "GET", path: "/api/v1/conversations", schema: conversationList, query: { limit }, signal: opts?.signal }),
+    startConversation: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/conversations", schema: conversationStarted, body: input, signal: opts?.signal }),
+    listChatMessages: (id, query, opts) =>
+      call({
+        method: "GET",
+        path: `/api/v1/conversations/${encodeURIComponent(id)}/messages`,
+        schema: chatMessageList,
+        query: { after: query?.after, before: query?.before, limit: query?.limit },
+        signal: opts?.signal,
+      }),
+    postChatMessage: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/conversations/${encodeURIComponent(id)}/messages`, schema: chatMessage, body: input, signal: opts?.signal }),
+    markConversationRead: (id, messageId, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/conversations/${encodeURIComponent(id)}/read`,
+        schema: voidResponse,
+        body: { message_id: messageId },
+        signal: opts?.signal,
+      }),
+    muteConversation: (id, muted, opts) =>
+      call({ method: "PUT", path: `/api/v1/conversations/${encodeURIComponent(id)}/mute`, schema: voidResponse, body: { muted }, signal: opts?.signal }),
+    leaveConversation: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/conversations/${encodeURIComponent(id)}/leave`, schema: voidResponse, signal: opts?.signal }),
 
     listStaff: (opts) => call({ method: "GET", path: "/api/v1/staff", schema: staffResponse, signal: opts?.signal }),
     inviteStaff: (input, opts) =>

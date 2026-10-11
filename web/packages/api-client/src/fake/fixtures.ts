@@ -665,6 +665,15 @@ export interface Fixtures {
   /** First-run setup per clinic and member; with no entry, a person counts as set up already (dismissed). */
   setups?: import("./setup.js").FakeSetup[];
   quality: C.QualityReport;
+  /** Staff chat, patient messages and campaigns, made on first use (see `messaging.ts`). */
+  conversations?: import("./messaging.js").FakeConversation[];
+  chatMessages?: import("./messaging.js").FakeChatMessage[];
+  chatSeq?: number;
+  sentMessages?: import("./messaging.js").FakeSentMessage[];
+  messageTemplates?: import("./messaging.js").FakeTemplate[];
+  audiences?: import("./messaging.js").FakeAudience[];
+  campaigns?: import("./messaging.js").FakeCampaign[];
+  previewTokens?: Record<string, import("./messaging.js").FakePreviewToken>;
 }
 
 export interface FixtureOptions {
@@ -681,6 +690,8 @@ export const ROLES = {
     permissions: [
       "support.grant",
       "messages.send",
+      "chat.use",
+      "campaigns.manage",
       "patients.read",
       "patients.write",
       "patients.contact",
@@ -708,6 +719,8 @@ export const ROLES = {
     key: "doctor",
     name: "Doctor",
     permissions: [
+      "messages.send",
+      "chat.use",
       "patients.read",
       "patients.write",
       "patients.contact",
@@ -724,6 +737,8 @@ export const ROLES = {
     key: "front_desk",
     name: "Front desk",
     permissions: [
+      "messages.send",
+      "chat.use",
       "patients.read",
       "patients.write",
       "patients.contact",
@@ -736,12 +751,12 @@ export const ROLES = {
       "inventory.manage",
     ],
   },
-  assistant: { key: "assistant", name: "Assistant", permissions: ["patients.read", "intake.write", "appointments.read", "clinical.read", "inventory.read"] },
-  consultant: { key: "consultant", name: "Visiting consultant", permissions: ["appointments.read", "clinical.read"] },
+  assistant: { key: "assistant", name: "Assistant", permissions: ["chat.use", "patients.read", "intake.write", "appointments.read", "clinical.read", "inventory.read"] },
+  consultant: { key: "consultant", name: "Visiting consultant", permissions: ["chat.use", "appointments.read", "clinical.read"] },
   finance: {
     key: "finance",
     name: "Finance",
-    permissions: ["patients.read", "billing.read", "billing.write", "finance.view", "reports.export", "expenses.write"],
+    permissions: ["chat.use", "patients.read", "billing.read", "billing.write", "finance.view", "reports.export", "expenses.write"],
   },
 } as const satisfies Record<string, FakeRole>;
 
@@ -765,6 +780,8 @@ export const PERMISSION_CATALOGUE: readonly { key: Permission; module: string; d
   { key: "patients.write", module: "patients", description: "Register and edit patients", scopes: ["all"] },
   { key: "prescriptions.issue", module: "prescriptions", description: "Issue and cancel prescriptions", scopes: ["all", "own", "assigned"] },
   { key: "reports.export", module: "reports", description: "Export data to Excel", scopes: ["all"] },
+  { key: "chat.use", module: "chat", description: "Chat with other staff of the clinic", scopes: ["all"] },
+  { key: "campaigns.manage", module: "campaigns", description: "Save audiences and run campaigns to patients", scopes: ["all"] },
   { key: "messages.send", module: "messages", description: "Send patients email messages from the clinic", scopes: ["all"] },
   { key: "roles.manage", module: "roles", description: "Choose what each role can see and do", scopes: ["all"] },
   { key: "settings.manage", module: "settings", description: "Change clinic settings, branding and templates", scopes: ["all"] },

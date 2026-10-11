@@ -1,6 +1,21 @@
 /** The one interface both the HTTP client and the fake client implement. */
 
 import type { ApiResult } from "./result.js";
+import type {
+  Audience,
+  AudiencePreview,
+  Badges,
+  Campaign,
+  Campaigns,
+  ChatMessage,
+  ChatMessageList,
+  ConversationList,
+  ConversationStarted,
+  MessageList,
+  MessageTemplates,
+  MessagesQueued,
+} from "./schemas.js";
+import type { AudienceFilter, NewAudience, NewCampaign, NewChatMessage, NewConversation, ScheduleCampaign, SendMessages } from "./contract.js";
 import type { FileSharing, PatientAppAccess, PatientAppInvitation, PatientLinkDecided } from "./contract.js";
 import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
 import type {
@@ -372,6 +387,43 @@ export interface ApiClient {
   listIncompletePatients(options?: RequestOptions): Promise<ApiResult<IncompleteList>>;
   /** Clinic host: takes a patient off the to-do list. Needs `patients.write`. */
   dismissIncompletePatient(id: PatientGapId, options?: RequestOptions): Promise<ApiResult<void>>;
+
+  /** Clinic host: unread chat messages and notifications, for the minute poll. Needs `chat.use`. */
+  getBadges(options?: RequestOptions): Promise<ApiResult<Badges>>;
+  /** Clinic host: queues a message to 1 to 50 patients from an approved template; consent is checked per patient. Needs `messages.send`. */
+  sendMessages(input: SendMessages, options?: RequestOptions): Promise<ApiResult<MessagesQueued>>;
+  /** Clinic host: the messages sent to one patient, newest first, with their status. Needs `messages.send`. */
+  listPatientMessages(patientId: string, options?: RequestOptions): Promise<ApiResult<MessageList>>;
+  /** Clinic host: the clinic's message templates; only approved ones are sent. Needs `messages.send`. */
+  listMessageTemplates(options?: RequestOptions): Promise<ApiResult<MessageTemplates>>;
+  /** Clinic host: saves an audience (a name and one filter). Needs `campaigns.manage`. */
+  createAudience(input: NewAudience, options?: RequestOptions): Promise<ApiResult<Audience>>;
+  /** Clinic host: counts the patients a filter reaches and returns the `count_token` a campaign needs to be scheduled. Needs `campaigns.manage`. */
+  previewAudience(filter: AudienceFilter, options?: RequestOptions): Promise<ApiResult<AudiencePreview>>;
+  /** Clinic host: the clinic's campaigns with per-status counts. Needs `campaigns.manage`. */
+  listCampaigns(options?: RequestOptions): Promise<ApiResult<Campaigns>>;
+  /** Clinic host: one campaign with its counts. Needs `campaigns.manage`. */
+  getCampaign(id: string, options?: RequestOptions): Promise<ApiResult<Campaign>>;
+  /** Clinic host: makes a draft campaign. Needs `campaigns.manage`. */
+  createCampaign(input: NewCampaign, options?: RequestOptions): Promise<ApiResult<Campaign>>;
+  /** Clinic host: schedules a campaign; it sends only with the `count_token` from a fresh preview of its audience. Needs `campaigns.manage`. */
+  scheduleCampaign(id: string, input: ScheduleCampaign, options?: RequestOptions): Promise<ApiResult<Campaign>>;
+  /** Clinic host: cancels a campaign that has not finished sending. Needs `campaigns.manage`. */
+  cancelCampaign(id: string, options?: RequestOptions): Promise<ApiResult<Campaign>>;
+  /** Clinic host: the caller's conversations with unread counts. Needs `chat.use`. */
+  listConversations(limit?: number, options?: RequestOptions): Promise<ApiResult<ConversationList>>;
+  /** Clinic host: starts a direct or group chat; a direct one that exists is returned (`created` false). Needs `chat.use`. */
+  startConversation(input: NewConversation, options?: RequestOptions): Promise<ApiResult<ConversationStarted>>;
+  /** Clinic host: a conversation's messages, oldest first. `after` returns only newer ones, for polling. Needs `chat.use`. */
+  listChatMessages(id: string, query?: { after?: string; before?: string; limit?: number }, options?: RequestOptions): Promise<ApiResult<ChatMessageList>>;
+  /** Clinic host: posts a message; repeating a `client_id` returns the same message. Needs `chat.use`. */
+  postChatMessage(id: string, input: NewChatMessage, options?: RequestOptions): Promise<ApiResult<ChatMessage>>;
+  /** Clinic host: marks a conversation read up to a message. Needs `chat.use`. */
+  markConversationRead(id: string, messageId: string, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: mutes or unmutes a conversation for the caller (a muted one is not counted in the badge). Needs `chat.use`. */
+  muteConversation(id: string, muted: boolean, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: leaves a conversation. Needs `chat.use`. */
+  leaveConversation(id: string, options?: RequestOptions): Promise<ApiResult<void>>;
 
   /** Clinic host: members, their roles and status, and pending invitations. Needs `staff.manage`. */
   listStaff(options?: RequestOptions): Promise<ApiResult<Staff>>;

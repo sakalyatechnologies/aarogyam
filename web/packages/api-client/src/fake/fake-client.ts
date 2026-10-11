@@ -64,6 +64,7 @@ import { createMetrics } from "./metrics.js";
 import { QUICK_PICKS } from "./quick-picks.js";
 import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photosOf, siteOf, wirePhoto, wireSettings, type FakePhoto } from "./website.js";
 import { createRandom, fakeUuid } from "./random.js";
+import * as M from "./messaging.js";
 import { CLINIC_STEPS, MEMBER_STEPS, applySetup, setupOf, wireSetup } from "./setup.js";
 import { MAX_MOVEMENT, addDays, byUrgency, daysBetween, isExpired, isStockUnit, levelOf, pickFefo, wireItem } from "./stock.js";
 import { readCsv, readRow, suggestColumns, type CsvTable } from "./smart-import.js";
@@ -701,6 +702,19 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           (filter.newThisMonth !== true || localClock(new Date(p.created_at), caller.clinic.timezone).date.slice(0, 7) === month),
       );
     };
+
+    /** Runs a messaging rule for the signed-in member; a refusal becomes the API's error, `null` a 204. */
+    async function withWho(permission: Permission, run: (who: M.Who) => unknown): Promise<Outcome> {
+      const caller = await inClinic(permission);
+      if (!isCaller(caller)) {
+        return caller;
+      }
+      const result = run({ clinic_id: caller.clinic.id, membership_id: caller.membership.id });
+      if (M.isRefusal(result)) {
+        return refuse(result.status, result.code, result.message);
+      }
+      return reply(result === null ? undefined : result);
+    }
 
     const clinicPatients = (caller: Caller) => state.patients.filter((p) => p.clinic_id === caller.clinic.id && p.status !== "merged");
 
@@ -3315,6 +3329,57 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           return notFound;
         }),
+
+      getBadges: (opts) =>
+        respond(S.badges, opts?.signal, async () => withWho("chat.use", (who) => M.badges(state, who, clock()))),
+      sendMessages: (input, opts) =>
+        respond(S.messagesQueued, opts?.signal, async () =>
+          withWho("messages.send", (who) => M.sendMessages(state, who, input, clock())),
+        ),
+      listPatientMessages: (patientId, opts) =>
+        respond(S.messageList, opts?.signal, async () => withWho("messages.send", (who) => M.patientMessages(state, who, patientId, clock()))),
+      listMessageTemplates: (opts) =>
+        respond(S.messageTemplates, opts?.signal, async () =>
+          withWho("messages.send", (who) => ({ items: M.templatesOf(state, who.clinic_id, clock()).map(M.wireTemplate) })),
+        ),
+      createAudience: (input, opts) =>
+        respond(S.audience, opts?.signal, async () => withWho("campaigns.manage", (who) => M.createAudience(state, who, input, clock()))),
+      previewAudience: (filter, opts) =>
+        respond(S.audiencePreview, opts?.signal, async () => withWho("campaigns.manage", (who) => M.previewAudience(state, who, filter, clock()))),
+      listCampaigns: (opts) =>
+        respond(S.campaigns, opts?.signal, async () => withWho("campaigns.manage", (who) => M.campaignsOf(state, who, clock()))),
+      getCampaign: (id, opts) =>
+        respond(S.campaign, opts?.signal, async () =>
+          withWho("campaigns.manage", (who) => {
+            const row = M.campaignOf(state, who, id);
+            return M.isRefusal(row) ? row : M.wireCampaign(row, clock());
+          }),
+        ),
+      createCampaign: (input, opts) =>
+        respond(S.campaign, opts?.signal, async () => withWho("campaigns.manage", (who) => M.createCampaign(state, who, input, clock()))),
+      scheduleCampaign: (id, input, opts) =>
+        respond(S.campaign, opts?.signal, async () => withWho("campaigns.manage", (who) => M.scheduleCampaign(state, who, id, input, clock()))),
+      cancelCampaign: (id, opts) =>
+        respond(S.campaign, opts?.signal, async () => withWho("campaigns.manage", (who) => M.cancelCampaign(state, who, id, clock()))),
+      listConversations: (limit, opts) =>
+        respond(S.conversationList, opts?.signal, async () => withWho("chat.use", (who) => M.listConversations(state, who, clock(), limit))),
+      startConversation: (input, opts) =>
+        respond(S.conversationStarted, opts?.signal, async () =>
+          withWho("chat.use", (who) => {
+            const made = M.startConversation(state, who, input, clock());
+            return M.isRefusal(made) ? made : made.body;
+          }),
+        ),
+      listChatMessages: (id, query, opts) =>
+        respond(S.chatMessageList, opts?.signal, async () => withWho("chat.use", (who) => M.chatMessages(state, who, id, query ?? {}))),
+      postChatMessage: (id, input, opts) =>
+        respond(S.chatMessage, opts?.signal, async () => withWho("chat.use", (who) => M.postChatMessage(state, who, id, input, clock()))),
+      markConversationRead: (id, messageId, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => withWho("chat.use", (who) => M.markRead(state, who, id, messageId))),
+      muteConversation: (id, muted, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => withWho("chat.use", (who) => M.muteConversation(state, who, id, muted))),
+      leaveConversation: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => withWho("chat.use", (who) => M.leaveConversation(state, who, id))),
 
       listStaff: (opts) =>
         respond(S.staffResponse, opts?.signal, async () => {

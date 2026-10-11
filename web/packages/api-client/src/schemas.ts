@@ -2891,3 +2891,134 @@ export const badges = z.object({
   notifications_unread: z.number().int().nullable().exactOptional(),
 }) satisfies z.ZodType<C.Badges>;
 export type Badges = z.output<typeof badges>;
+
+// Patient messages, campaigns and staff chat -------------------------------------------------------
+
+export const messagesQueued = z.object({
+  batch_id: z.string(),
+  requested: count,
+  queued: count,
+  already_queued: count,
+}) satisfies z.ZodType<C.MessagesQueued>;
+export type MessagesQueued = z.output<typeof messagesQueued>;
+
+const messageSummary = z.object({
+  id: z.string(),
+  kind: z.string(),
+  channel: z.string(),
+  purpose: z.string(),
+  template_key: z.string(),
+  status: z.string(),
+  attempts: count,
+  created_at: timestamp,
+  scheduled_for: timestamp,
+  sent_at: optionalTimestamp,
+  delivery: optionalText,
+  skip_reason: optionalText,
+}) satisfies z.ZodType<C.MessageSummary>;
+export const messageList = z.object({ items: z.array(messageSummary) }) satisfies z.ZodType<C.MessageList>;
+export type MessageList = z.output<typeof messageList>;
+
+const messageTemplate = z.object({
+  id: z.string(),
+  key: z.string(),
+  channel: z.string(),
+  language: z.string(),
+  category: z.string(),
+  status: z.string(),
+  body: z.string(),
+  updated_at: timestamp,
+  dlt_template_id: optionalText,
+  provider_template_ref: optionalText,
+  reviewed_at: optionalTimestamp,
+  sender_header: optionalText,
+  submitted_at: optionalTimestamp,
+}) satisfies z.ZodType<C.MessageTemplate>;
+export const messageTemplates = z.object({ items: z.array(messageTemplate) }) satisfies z.ZodType<C.MessageTemplates>;
+export type MessageTemplates = z.output<typeof messageTemplates>;
+export type MessageTemplate = z.output<typeof messageTemplate>;
+
+export const audienceFilter = z.object({
+  kind: z.string(),
+  after: optionalText,
+  before: optionalText,
+  max: z.number().int().nullable().exactOptional(),
+  min: z.number().int().nullable().exactOptional(),
+  month: z.number().int().nullable().exactOptional(),
+  sex: optionalText,
+  tag: optionalText,
+}) satisfies z.ZodType<C.AudienceFilter>;
+export type AudienceFilter = z.output<typeof audienceFilter>;
+
+export const audiencePreview = z.object({
+  count: count,
+  count_token: z.string(),
+  expires_at: timestamp,
+}) satisfies z.ZodType<C.AudiencePreview>;
+export type AudiencePreview = z.output<typeof audiencePreview>;
+
+export const audience = z.object({
+  id: z.string(),
+  name: z.string(),
+  filter: audienceFilter,
+  created_at: timestamp,
+  updated_at: timestamp,
+}) satisfies z.ZodType<C.Audience>;
+export type Audience = z.output<typeof audience>;
+
+export const campaign = z.object({
+  id: z.string(),
+  name: z.string(),
+  audience_id: z.string(),
+  template_id: z.string(),
+  channel: z.string(),
+  offer_text: z.string(),
+  status: z.string(),
+  counts: z.array(z.object({ status: z.string(), count: z.number().int(), skip_reason: optionalText })),
+  created_at: timestamp,
+  updated_at: timestamp,
+  created_by: optionalText,
+  scheduled_at: optionalTimestamp,
+  scheduled_count: z.number().int().nullable().exactOptional(),
+  cancelled_at: optionalTimestamp,
+  fan_out_started_at: optionalTimestamp,
+  fan_out_done_at: optionalTimestamp,
+}) satisfies z.ZodType<C.Campaign>;
+export type Campaign = z.output<typeof campaign>;
+export const campaigns = z.object({ items: z.array(campaign) }) satisfies z.ZodType<C.Campaigns>;
+export type Campaigns = z.output<typeof campaigns>;
+
+const conversationItem = z.object({
+  id: z.string(),
+  kind: z.string(),
+  role: z.string(),
+  muted: z.boolean(),
+  unread: z.number().int(),
+  created_at: timestamp,
+  title: optionalText,
+  archived_at: optionalTimestamp,
+  last_message_at: optionalTimestamp,
+  last_message_id: optionalText,
+  last_read_message_id: optionalText,
+  with: z.object({ membership_id: z.string(), name: z.string() }).nullable().exactOptional(),
+}) satisfies z.ZodType<C.ConversationItem>;
+export type ConversationItem = z.output<typeof conversationItem>;
+export const conversationList = z.object({ items: z.array(conversationItem) }) satisfies z.ZodType<C.ConversationList>;
+export type ConversationList = z.output<typeof conversationList>;
+export const conversationStarted = z.object({ id: z.string(), created: z.boolean() }) satisfies z.ZodType<C.ConversationStarted>;
+export type ConversationStarted = z.output<typeof conversationStarted>;
+
+export const chatMessage = z.object({
+  id: z.string(),
+  conversation_id: z.string(),
+  author_membership_id: z.string(),
+  client_id: z.string(),
+  created_at: timestamp,
+  deleted: z.boolean(),
+  author_name: optionalText,
+  body: optionalText,
+  patient_id: optionalText,
+}) satisfies z.ZodType<C.ChatMessage>;
+export type ChatMessage = z.output<typeof chatMessage>;
+export const chatMessageList = z.object({ items: z.array(chatMessage) }) satisfies z.ZodType<C.ChatMessageList>;
+export type ChatMessageList = z.output<typeof chatMessageList>;

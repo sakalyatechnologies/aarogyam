@@ -1,6 +1,9 @@
-import AarogyamShared
 import Observation
 import SwiftUI
+// Named imports: the shared `Observation` model would otherwise hide Swift's `Observation` module
+// from the `@Observable` macro.
+import class AarogyamShared.ScreenScope
+import class AarogyamShared.SkieSwiftStateFlow
 
 /// One screen's state holder and its latest state, alive while the screen is shown.
 @MainActor

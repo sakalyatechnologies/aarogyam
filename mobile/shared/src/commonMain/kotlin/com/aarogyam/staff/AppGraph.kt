@@ -18,6 +18,7 @@ import com.aarogyam.staff.expenses.ExpensesStateHolder
 import com.aarogyam.staff.files.FilesStateHolder
 import com.aarogyam.staff.labs.LabsStateHolder
 import com.aarogyam.staff.labs.NewLabCaseStateHolder
+import com.aarogyam.staff.consents.ConsentsStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
@@ -138,6 +139,12 @@ class AppGraph private constructor(
         patientId: String,
         scope: CoroutineScope,
     ): PatientNotesStateHolder = PatientNotesStateHolder(clinic, patientId, scope, logger("aarogyam.patientnotes"))
+
+    fun consents(
+        clinic: ClinicContext,
+        patientId: String,
+        scope: CoroutineScope,
+    ): ConsentsStateHolder = ConsentsStateHolder(clinic, patientId, scope, logger("aarogyam.consents"))
 
     fun rxList(
         clinic: ClinicContext,

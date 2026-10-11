@@ -21,6 +21,7 @@ import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.outbox.JsonOutboxPersistence
 import com.aarogyam.staff.outbox.PersistentOutboxStore
 import com.aarogyam.staff.outbox.ProtectedOutboxFile
+import com.aarogyam.staff.outbox.ProtectedOutboxFiles
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
 import com.aarogyam.staff.patients.PatientsStateHolder
@@ -75,6 +76,7 @@ suspend fun createAppGraph(
             preferences = UserDefaultsPreferences(),
             dictation = dictation,
             outboxStore = PersistentOutboxStore(JsonOutboxPersistence(ProtectedOutboxFile())),
+            outboxFiles = ProtectedOutboxFiles(),
         )?.also { it.registerDeskPayments() }
 
 /** One screen's coroutine scope: the SwiftUI view that owns a state holder closes it when it goes. */

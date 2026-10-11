@@ -29,6 +29,9 @@ private class EntryDto(
     val nextAttemptAt: Long = 0,
     val status: String = "Pending",
     val lastError: String? = null,
+    val orderKey: String? = null,
+    val coalesceKey: String? = null,
+    val fileName: String? = null,
 )
 
 @Serializable
@@ -74,6 +77,9 @@ class JsonOutboxPersistence(
                     nextAttemptAt = it.nextAttemptAt,
                     status = OutboxStatus.valueOf(it.status),
                     lastError = it.lastError,
+                    orderKey = it.orderKey,
+                    coalesceKey = it.coalesceKey,
+                    fileName = it.fileName,
                 )
             }
         } catch (_: Exception) {
@@ -97,6 +103,9 @@ class JsonOutboxPersistence(
                             it.nextAttemptAt,
                             it.status.name,
                             it.lastError,
+                            it.orderKey,
+                            it.coalesceKey,
+                            it.fileName,
                         )
                     },
             )

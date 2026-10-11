@@ -42,3 +42,14 @@ fun Outcome<*, ApiError>.toSendResult(): SendResult =
             if (retry) SendResult.Retry(error.code.value) else SendResult.Rejected(error.code.value)
         }
     }
+
+/** What asking to sign out found. */
+sealed interface SignOutResult {
+    /** Nothing was waiting; the sign-out has started. */
+    data object SignedOut : SignOutResult
+
+    /** [pendingCount] writes are not sent yet; nothing was done. Ask the person, then call `signOut()` to go anyway. */
+    data class SignOutBlocked(
+        val pendingCount: Int,
+    ) : SignOutResult
+}

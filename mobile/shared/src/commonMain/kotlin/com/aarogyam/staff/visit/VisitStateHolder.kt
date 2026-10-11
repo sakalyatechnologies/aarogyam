@@ -17,6 +17,9 @@ import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.DictationEvent
 import com.aarogyam.staff.device.DictationLanguage
+import com.aarogyam.staff.outbox.Queued
+import com.aarogyam.staff.outbox.WriteQueue
+import com.aarogyam.staff.outbox.shouldQueue
 import com.aarogyam.staff.today.parseInstant
 import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Logger
@@ -45,6 +48,8 @@ class VisitStateHolder(
     private val dictation: Dictation,
     private val scope: CoroutineScope,
     private val log: Logger = Logger("aarogyam.visit"),
+    /** Saves writes for later when offline; null keeps every write online-only. */
+    private val writes: WriteQueue? = null,
 ) {
     private val mutableState = MutableStateFlow<VisitState>(VisitState.Starting)
     val state: StateFlow<VisitState> = mutableState.asStateFlow()
@@ -55,6 +60,11 @@ class VisitStateHolder(
     private var saveJob: Job? = null
     private var listenJob: Job? = null
 
+    // Once any note write went through the outbox, the rest do too: its row version is the sender's to know.
+    private var noteViaQueue = false
+    private val noteEntryIds = mutableSetOf<String>()
+    private var closeEntryId: String? = null
+
     init {
         if (CLINICAL_WRITE in
             clinic.permissions
@@ -63,7 +73,29 @@ class VisitStateHolder(
         } else {
             mutableState.value = VisitState.NotAllowed
         }
+        writes?.let { w ->
+            scope.launch { w.runner.ids.collect { syncFlags(it) } }
+            scope.launch { w.runner.pendingByKey.collect { syncFlags(w.runner.ids.value) } }
+        }
     }
+
+    private fun syncFlags(ids: Set<String>) {
+        val view = open() ?: return
+        val unsent =
+            writes
+                ?.runner
+                ?.pendingByKey
+                ?.value
+                ?.get(writes.visitKey(view.visitId)) ?: 0
+        val note = noteEntryIds.any { it in ids }
+        val close = closeEntryId?.let { it in ids } == true
+        if (view.noteSync != note || view.closeSync != close || view.unsent != unsent) {
+            update { it.copy(noteSync = note, closeSync = close, unsent = unsent) }
+        }
+    }
+
+    private fun mustQueue(visitId: String): Boolean =
+        writes != null && (!writes.online || noteViaQueue || writes.visitHasUnsent(visitId))
 
     fun addBullet(
         kind: BulletKind,
@@ -130,9 +162,21 @@ class VisitStateHolder(
         scope.launch {
             if (!save()) return@launch
             val id = noteId ?: return@launch
+            if (mustQueue(view.visitId)) return@launch queueSign(view.visitId, id)
             when (val answer = clinic.api.signNote(id)) {
-                is Outcome.Success -> update { it.copy(save = NoteSave.Signed) }
-                is Outcome.Failure -> failed("visit.sign_failed", answer.error)
+                is Outcome.Success -> {
+                    update { it.copy(save = NoteSave.Signed) }
+                }
+
+                is Outcome.Failure -> {
+                    if (answer.error.shouldQueue() &&
+                        writes != null
+                    ) {
+                        queueSign(view.visitId, id)
+                    } else {
+                        failed("visit.sign_failed", answer.error)
+                    }
+                }
             }
         }
     }
@@ -159,6 +203,7 @@ class VisitStateHolder(
             if (!view.closed) {
                 if (view.save == NoteSave.Unsaved && !save()) return@launch update { it.copy(closing = false) }
                 // BE5 switch point: with SERVER_CLOSE_BODY the server takes the follow-up and fee.
+                if (mustQueue(view.visitId)) return@launch queueClose(view, followUpOn, reason, feePaise)
                 val body = CloseBody(followUpOn, feePaise, reason)
                 val answer =
                     if (SERVER_CLOSE_BODY) {
@@ -169,6 +214,9 @@ class VisitStateHolder(
                     } else {
                         clinic.api.closeVisit(view.visitId)
                     }
+                if (answer is Outcome.Failure && writes != null && answer.error.shouldQueue()) {
+                    return@launch queueClose(view, followUpOn, reason, feePaise)
+                }
                 if (answer is Outcome.Failure) {
                     failed("visit.close_failed", answer.error)
                     return@launch update { it.copy(closing = false) }
@@ -220,6 +268,7 @@ class VisitStateHolder(
         update { it.copy(save = NoteSave.Saving) }
         val sections = sectionsOf(view.bullets)
         val id = noteId
+        if (mustQueue(view.visitId)) return queueNote(view, sections)
         val answer =
             if (id == null) {
                 clinic.api.createNote(view.visitId, NewNote(id = noteClientId, kind = SOAP, sections = sections))
@@ -235,9 +284,80 @@ class VisitStateHolder(
             }
 
             is Outcome.Failure -> {
+                if (writes != null && answer.error.shouldQueue()) return queueNote(view, sections)
                 failed("visit.note_failed", answer.error)
                 update { it.copy(save = NoteSave.Failed) }
                 false
+            }
+        }
+    }
+
+    /** Saves the note on the phone; the screen shows it as saved, with `noteSync` until it is sent. */
+    private fun queueNote(
+        view: VisitView,
+        sections: com.aarogyam.staff.api.model.NoteSections,
+    ): Boolean {
+        val w = writes ?: return false
+        val existing = noteId
+        val queued =
+            if (existing == null) {
+                w.noteCreate(clinic.slug, view.visitId, NewNote(id = noteClientId, kind = SOAP, sections = sections))
+            } else {
+                w.noteEdit(clinic.slug, view.visitId, existing, NoteContent(kind = SOAP, sections = sections))
+            }
+        return when (queued) {
+            is Queued.Saved -> {
+                noteViaQueue = true
+                noteId = existing ?: noteClientId
+                noteEntryIds += queued.id
+                update { it.copy(save = if (it.bullets == view.bullets) NoteSave.Saved else NoteSave.Unsaved) }
+                syncFlags(w.runner.ids.value)
+                true
+            }
+
+            is Queued.Refused -> {
+                log.warn("visit.note_not_saved") { code("why", queued.why.name) }
+                update { it.copy(save = NoteSave.Failed, error = ScreenError.Unknown) }
+                false
+            }
+        }
+    }
+
+    private fun queueSign(
+        visitId: String,
+        id: String,
+    ) {
+        val w = writes ?: return
+        when (val queued = w.noteSign(clinic.slug, visitId, id)) {
+            is Queued.Saved -> {
+                noteViaQueue = true
+                noteEntryIds += queued.id
+                update { it.copy(save = NoteSave.Signed) }
+                syncFlags(w.runner.ids.value)
+            }
+
+            is Queued.Refused -> {
+                update { it.copy(error = ScreenError.Unknown) }
+            }
+        }
+    }
+
+    private fun queueClose(
+        view: VisitView,
+        followUpOn: String?,
+        reason: String?,
+        feePaise: Long?,
+    ) {
+        val w = writes ?: return
+        when (val queued = w.close(clinic.slug, view.visitId, patientId, followUpOn, reason, feePaise)) {
+            is Queued.Saved -> {
+                closeEntryId = queued.id
+                update { it.copy(closing = false, closed = true, followUpFailed = false) }
+                syncFlags(w.runner.ids.value)
+            }
+
+            is Queued.Refused -> {
+                update { it.copy(closing = false, error = ScreenError.Unknown) }
             }
         }
     }

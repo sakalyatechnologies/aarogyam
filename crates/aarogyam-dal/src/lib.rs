@@ -43,6 +43,7 @@ pub mod lab_orders;
 pub mod lab_payments;
 pub mod labs;
 pub mod legal_hold;
+pub mod live;
 pub mod lookups;
 pub mod merge;
 pub mod message_templates;

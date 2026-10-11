@@ -44,6 +44,28 @@ pub(crate) async fn resolve_branch(
     }
 }
 
+/// Checks that a branch belongs to the caller's clinic, for a live stream that follows it.
+///
+/// # Errors
+/// [`AppError::Denied`] without `appointments.read`; [`AppError::NotFound`] when the branch isn't
+/// in this clinic (another clinic's branch looks the same as none).
+pub async fn require_branch(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    branch_id: BranchId,
+) -> Result<(), AppError> {
+    actor.require(Permission::AppointmentsRead)?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        if dal::branch_exists(tx.conn(), branch_id.uuid()).await? {
+            Ok(())
+        } else {
+            Err(AppError::NotFound("branch"))
+        }
+    })
+    .await
+}
+
 /// The clinic's chairs and rooms, in list order.
 ///
 /// # Errors

@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::scope::staff_scope as scope;
 
-use crate::visits::{invalid, require_patient};
+use crate::visits::require_patient;
 
 /// A family link as listed.
 #[derive(Debug, Clone)]
@@ -39,7 +39,8 @@ fn view(row: RelationRow) -> Result<RelationView, AppError> {
         related_patient_id: PatientId::from_uuid(row.related_patient_id),
         number: row.number,
         full_name: row.full_name,
-        relation: Relation::parse(&row.relation).map_err(invalid("relation"))?,
+        relation: Relation::parse(&row.relation)
+            .map_err(|_| AppError::Internal("unknown family relation"))?,
         is_primary_contact: row.is_primary_contact,
     })
 }

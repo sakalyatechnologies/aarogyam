@@ -847,8 +847,8 @@ erDiagram
   patients |o--o{ patients : "referred_by_patient_id"
   patients |o--o{ patients : "merged_into_id"
   patients ||--o{ patient_identifiers : "patient_id"
-  patients ||--o{ family_links : "patient_id"
-  patients ||--o{ family_links : "related_patient_id"
+  patients ||--o{ patient_relations : "patient_id"
+  patients ||--o{ patient_relations : "related_patient_id"
   patients ||--o{ medical_history_items : "patient_id"
   patients ||--o{ patient_links : "patient_id"
   patient_accounts ||--o{ patient_links : "account_id"
@@ -896,7 +896,7 @@ A clinic's own record of a patient. Two clinics never share this row.
 
 A phone number is contact information, never identity: families share numbers and numbers change. A merge only sets merged_into_id; records stay on the original patient and reads resolve to the canonical one, so a wrong merge can be undone. Number, phone and name-prefix search use plain indexes; fuzzy name search goes through app.search_patients(), because trigram matching can't use an index under row-level security. Same-phone registrations get a duplicate warning, never an automatic merge.
 
-Referenced by: `allergies.patient_id`, `appointments.patient_id`, `attachments.patient_id`, `care_episodes.patient_id`, `chat_messages.patient_id`, `clinical_notes.patient_id`, `conditions.patient_id`, `consent_forms.patient_id`, `contact_preferences.patient_id`, `data_requests.patient_id`, `document_extractions.patient_id`, `encounters.patient_id`, `family_links.patient_id`, `family_links.related_patient_id`, `import_rows.patient_id`, `invoices.patient_id`, `lab_orders.patient_id`, `medical_history_items.patient_id`, `messages.patient_id`, `observations.patient_id`, `patient_consents.patient_id`, `patient_duplicates.candidate_id`, `patient_duplicates.patient_id`, `patient_gaps.patient_id`, `patient_identifiers.patient_id`, `patient_link_codes.patient_id`, `patient_links.patient_id`, `patient_notes.patient_id`, `patients.merged_into_id`, `patients.referred_by_patient_id`, `payment_allocations.patient_id`, `payments.patient_id`, `prescriptions.patient_id`, `procedures.patient_id`, `promo_redemptions.patient_id`, `queue_tokens.patient_id`, `recalls.patient_id`, `share_links.patient_id`, `specialty_records.patient_id`, `treatment_plan_items.patient_id`, `treatment_plans.patient_id`
+Referenced by: `allergies.patient_id`, `appointments.patient_id`, `attachments.patient_id`, `care_episodes.patient_id`, `chat_messages.patient_id`, `clinical_notes.patient_id`, `conditions.patient_id`, `consent_forms.patient_id`, `contact_preferences.patient_id`, `data_requests.patient_id`, `document_extractions.patient_id`, `encounters.patient_id`, `import_rows.patient_id`, `invoices.patient_id`, `lab_orders.patient_id`, `medical_history_items.patient_id`, `messages.patient_id`, `observations.patient_id`, `patient_consents.patient_id`, `patient_duplicates.candidate_id`, `patient_duplicates.patient_id`, `patient_gaps.patient_id`, `patient_identifiers.patient_id`, `patient_link_codes.patient_id`, `patient_links.patient_id`, `patient_notes.patient_id`, `patient_relations.patient_id`, `patient_relations.related_patient_id`, `patients.merged_into_id`, `patients.referred_by_patient_id`, `payment_allocations.patient_id`, `payments.patient_id`, `prescriptions.patient_id`, `procedures.patient_id`, `promo_redemptions.patient_id`, `queue_tokens.patient_id`, `recalls.patient_id`, `share_links.patient_id`, `specialty_records.patient_id`, `treatment_plan_items.patient_id`, `treatment_plans.patient_id`
 
 ### `patient_identifiers` (★ foundation)
 
@@ -912,18 +912,20 @@ Extra IDs for a patient: the clinic's file number, smart card, ABHA, legacy impo
 
 Unique (org_id, kind, value).
 
-### `family_links`
+### `patient_relations`
 
-Relationships between patients in the same clinic: parent, child, spouse, guardian.
+Family under one mobile number: how two patients of a clinic are related. Each link has an inverse row written and removed with it.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: ephemeral*
 
 | Column | Type | Notes |
 |---|---|---|
 | `patient_id` | `uuid` | → `patients` |
 | `related_patient_id` | `uuid` | → `patients` |
-| `relation` | `relation_kind` | parent, child, spouse, guardian, other |
-| `can_manage` | `bool` | guardian may act for this patient |
+| `relation` | `text` | guardian, child, spouse, parent, sibling, other (what the related patient is to patient_id) |
+| `is_primary_contact` | `bool` | the contact person for patient_id |
+
+Unique (org_id, patient_id, related_patient_id); a patient is never related to themselves. Erasure deletes both directions.
 
 ### `referral_sources` (★ foundation)
 

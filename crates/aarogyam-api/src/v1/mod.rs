@@ -20,6 +20,7 @@ pub(crate) mod dental_terms;
 pub(crate) mod duplicates;
 pub(crate) mod expenses;
 pub(crate) mod facts;
+pub(crate) mod family;
 pub(crate) mod files;
 pub(crate) mod health;
 pub(crate) mod imports;
@@ -146,6 +147,8 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/auth/handoff/redeem", post(auth::redeem))
         .route("/invitations/accept", post(invitations::accept))
         .route("/patients", get(patients::recent).post(patients::register))
+        .route("/patients/{id}/family", get(family::list).post(family::add))
+        .route("/patients/{id}/family/{link_id}", delete(family::remove))
         .route("/patients/search", post(patients::search))
         .route("/patients/lookup", post(patients::lookup))
         .route("/patients/{id}", get(patients::open).patch(patients::edit))

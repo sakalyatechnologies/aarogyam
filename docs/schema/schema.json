@@ -2501,8 +2501,6 @@
     "data_requests.patient_id",
     "document_extractions.patient_id",
     "encounters.patient_id",
-    "family_links.patient_id",
-    "family_links.related_patient_id",
     "import_rows.patient_id",
     "invoices.patient_id",
     "lab_orders.patient_id",
@@ -2517,6 +2515,8 @@
     "patient_link_codes.patient_id",
     "patient_links.patient_id",
     "patient_notes.patient_id",
+    "patient_relations.patient_id",
+    "patient_relations.related_patient_id",
     "patients.merged_into_id",
     "patients.referred_by_patient_id",
     "payment_allocations.patient_id",
@@ -2572,15 +2572,15 @@
    "offline": "read_write"
   },
   {
-   "name": "family_links",
+   "name": "patient_relations",
    "domain": "people",
-   "purpose": "Relationships between patients in the same clinic: parent, child, spouse, guardian.",
+   "purpose": "Family under one mobile number: how two patients of a clinic are related. Each link has an inverse row written and removed with it.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "ephemeral",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Unique (org_id, patient_id, related_patient_id); a patient is never related to themselves. Erasure deletes both directions.",
    "cols": [
     {
      "name": "patient_id",
@@ -2598,17 +2598,17 @@
     },
     {
      "name": "relation",
-     "type": "relation_kind",
+     "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "parent, child, spouse, guardian, other"
+     "note": "guardian, child, spouse, parent, sibling, other (what the related patient is to patient_id)"
     },
     {
-     "name": "can_manage",
+     "name": "is_primary_contact",
      "type": "bool",
      "nullable": false,
      "ref": null,
-     "note": "guardian may act for this patient"
+     "note": "the contact person for patient_id"
     }
    ],
    "referenced_by": [],

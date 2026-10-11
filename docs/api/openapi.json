@@ -8510,6 +8510,158 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/family": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "The patient's relatives.",
+        "operationId": "listFamily",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Links a relative to the patient (and the patient back to the relative).",
+        "operationId": "addFamilyLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewFamilyLink"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown relation or a bad id"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "Either patient isn't in this clinic"
+          },
+          "409": {
+            "description": "A patient linked to themselves, or a pair already linked"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/family/{link_id}": {
+      "delete": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Removes a family link and its inverse.",
+        "operationId": "removeFamilyLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "link_id",
+            "in": "path",
+            "description": "The link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed, with its inverse"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such link in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/identifiers": {
       "get": {
         "tags": [
@@ -18892,6 +19044,111 @@
           }
         }
       },
+      "FamilyLink": {
+        "type": "object",
+        "description": "A relative of a patient.",
+        "required": [
+          "id",
+          "patient_id",
+          "number",
+          "full_name",
+          "relation",
+          "is_primary_contact"
+        ],
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "description": "Their full name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The link; pass it to the delete route."
+          },
+          "is_primary_contact": {
+            "type": "boolean",
+            "description": "Whether they are this patient's contact person."
+          },
+          "number": {
+            "type": "string",
+            "description": "Their readable number, such as `SD-1042`."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The relative; open them at `/patients/{id}`."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What they are to this patient: `guardian`, `child`, `spouse`, `parent`, `sibling` or\n`other`."
+          }
+        }
+      },
+      "FamilyList": {
+        "type": "object",
+        "description": "A patient's relatives.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FamilyLink"
+            },
+            "description": "The relatives, by name."
+          }
+        }
+      },
+      "FamilyMember": {
+        "type": "object",
+        "description": "A linked relative of a matched patient.",
+        "required": [
+          "of_patient_id",
+          "id",
+          "number",
+          "full_name",
+          "relation"
+        ],
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "description": "Full name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The relative."
+          },
+          "number": {
+            "type": "string",
+            "description": "Readable number, such as `SD-1043`."
+          },
+          "of_patient_id": {
+            "type": "string",
+            "description": "The matched patient they are linked to."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What they are to the matched patient: `guardian`, `child`, `spouse`, `parent`,\n`sibling` or `other`."
+          }
+        }
+      },
+      "FamilyOfFields": {
+        "type": "object",
+        "description": "Puts the walk-in in an existing patient's family.",
+        "required": [
+          "patient_id",
+          "relation"
+        ],
+        "properties": {
+          "patient_id": {
+            "type": "string",
+            "description": "The existing patient (a patient of this clinic)."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What the walk-in is to that patient: `guardian`, `child`, `spouse`, `parent`, `sibling`\nor `other`. `child` means the walk-in is that patient's child."
+          }
+        }
+      },
       "FileSharing": {
         "type": "object",
         "description": "Whether a file is shared with the patient.",
@@ -22648,6 +22905,28 @@
           }
         }
       },
+      "NewFamilyLink": {
+        "type": "object",
+        "description": "A relative to link.",
+        "required": [
+          "related_patient_id",
+          "relation"
+        ],
+        "properties": {
+          "is_primary_contact": {
+            "type": "boolean",
+            "description": "Whether the relative is this patient's contact person."
+          },
+          "related_patient_id": {
+            "type": "string",
+            "description": "The relative, a patient of this clinic."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What the relative is to this patient: `guardian`, `child`, `spouse`, `parent`, `sibling`\nor `other`. The relative's own page shows the inverse (a guardian's dependant lists\nthem as `child`)."
+          }
+        }
+      },
       "NewHandoff": {
         "type": "object",
         "description": "Where the signed-in person is going.",
@@ -25791,9 +26070,17 @@
         "type": "object",
         "description": "Patients registered with a phone.",
         "required": [
-          "items"
+          "items",
+          "family_group"
         ],
         "properties": {
+          "family_group": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FamilyMember"
+            },
+            "description": "Relatives linked to the matches (`/patients/{id}/family`) who are not themselves matches,\nso the desk can offer the whole family. Empty when nothing is linked."
+          },
           "items": {
             "type": "array",
             "items": {
@@ -31222,6 +31509,13 @@
             },
             "description": "The purposes whose consent was recorded."
           },
+          "family_link_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The family link made, from the existing patient's side; absent without `family_of`."
+          },
           "patient": {
             "$ref": "#/components/schemas/Patient",
             "description": "The patient."
@@ -31287,6 +31581,17 @@
               "$ref": "#/components/schemas/DeskConsentFields"
             },
             "description": "Consents given at the desk, each purpose once. Purposes already in force are left as\nthey are."
+          },
+          "family_of": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FamilyOfFields",
+                "description": "Add the walk-in to an existing patient's family (the link is written both ways)."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "no_known_allergies": {
             "type": "boolean",

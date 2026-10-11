@@ -2452,6 +2452,23 @@
         }
       }
     },
+    "outbox.badge": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved, will send · %d"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सहेजा गया, भेजा जाएगा · %d"
+          }
+        }
+      }
+    },
     "patient.balance": {
       "extractionState": "manual",
       "localizations": {

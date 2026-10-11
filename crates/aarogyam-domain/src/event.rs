@@ -102,6 +102,10 @@ pub enum Event {
     NoteAmended,
     /// A patient's summary note was saved.
     PatientNoteSaved,
+    /// Two patients were linked as family.
+    FamilyLinked,
+    /// A family link was removed.
+    FamilyUnlinked,
     /// A patient's consent was recorded.
     ConsentRecorded,
     /// A patient withdrew a consent.
@@ -244,6 +248,8 @@ impl Event {
             Self::NoteSigned => "note.signed",
             Self::NoteAmended => "note.amended",
             Self::PatientNoteSaved => "patient_note.saved",
+            Self::FamilyLinked => "family.linked",
+            Self::FamilyUnlinked => "family.unlinked",
             Self::ConsentRecorded => "consent.recorded",
             Self::ConsentWithdrawn => "consent.withdrawn",
             Self::RecordRetracted => "record.retracted",

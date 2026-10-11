@@ -25,6 +25,7 @@ pub mod erasure;
 pub mod error;
 pub mod expenses;
 pub mod facts;
+pub mod family;
 pub mod files;
 pub mod handoff;
 pub mod identifiers;

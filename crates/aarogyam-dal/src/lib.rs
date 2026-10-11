@@ -30,6 +30,7 @@ pub mod edge;
 pub mod erasure;
 pub mod expenses;
 pub mod facts;
+pub mod family;
 pub mod handoff;
 pub mod identifiers;
 pub mod import_sessions;

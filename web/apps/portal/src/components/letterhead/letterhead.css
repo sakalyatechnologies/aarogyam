@@ -285,6 +285,323 @@
   flex-wrap: wrap;
 }
 
+/* ---- Premium designs. Fonts come from the Google Fonts link in index.html; each stack falls back
+   to a system serif or sans, so print never depends on the network. ---- */
+.lh-heritage,
+.lh-bie,
+.lh-clin,
+.lh-sig,
+.lh-mg,
+.lh-split {
+  --lh-tint: color-mix(in srgb, var(--lh-accent) 8%, #fff);
+  --lh-hair: color-mix(in srgb, var(--lh-accent) 28%, #fff);
+}
+.lh-orn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  margin: 0.6em auto;
+  width: 60%;
+}
+.lh-orn i {
+  flex: 1;
+  height: 0;
+  border-top: 0.06em solid var(--lh-accent);
+}
+.lh-orn b {
+  width: 0.5em;
+  height: 0.5em;
+  background: var(--lh-accent);
+  transform: rotate(45deg);
+}
+
+/* 7. Heritage serif */
+.lh-heritage {
+  text-align: center;
+  font-family: "Fraunces", "Cormorant Garamond", "Noto Serif", Georgia, serif;
+  padding: 0.4em 0 0.9em;
+  border-top: 0.06em solid var(--lh-accent);
+  border-bottom: 0.06em solid var(--lh-accent);
+  outline: 0.06em solid var(--lh-accent);
+  outline-offset: 0.3em;
+  background: radial-gradient(ellipse at 50% 0, var(--lh-tint), transparent 70%);
+}
+.lh-heritage .lh-logo,
+.lh-heritage .lh-mono {
+  margin: 0.4em auto 0.4em;
+}
+.lh-heritage .lh-name {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 600;
+  font-size: 2.05em;
+  letter-spacing: 0.01em;
+}
+.lh-heritage .lh-docs {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.2em 2.4em;
+}
+.lh-heritage .lh-doc b {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.25em;
+  font-weight: 700;
+}
+.lh-heritage .lh-contact {
+  margin-top: 0.3em;
+}
+
+/* 8. Modern split */
+.lh-split {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  font-family: "Manrope", "Plus Jakarta Sans", "Noto Sans", system-ui, sans-serif;
+}
+.lh-split .lh-side {
+  background: var(--lh-accent);
+  color: var(--lh-on-accent);
+  padding: 1.5em 1.6em 1.5em 2.4em;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.7em;
+  border-bottom-right-radius: 2.2em;
+}
+.lh-split .lh-name {
+  color: var(--lh-on-accent);
+  font-weight: 800;
+  font-size: 1.7em;
+}
+.lh-split .lh-local {
+  color: var(--lh-on-accent);
+  opacity: 0.92;
+}
+.lh-split .lh-tile {
+  align-self: flex-start;
+  background: #fff;
+  border-radius: 0.6em;
+  padding: 0.4em 0.6em;
+}
+.lh-split .lh-main {
+  padding: 1.3em 2.4em 0.6em 1.6em;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.7em;
+  border-bottom: 0.08em solid var(--lh-hair);
+}
+.lh-split .lh-doc b {
+  font-weight: 800;
+}
+.lh-split .lh-doc {
+  margin-bottom: 0.35em;
+}
+.lh-split .lh-contact {
+  border-top: 0.06em solid var(--lh-hair);
+  padding-top: 0.5em;
+}
+
+/* 9. Monogram */
+.lh-mg {
+  position: relative;
+  overflow: hidden;
+  padding-bottom: 0.9em;
+  border-bottom: 0.08em solid var(--lh-accent);
+  font-family: "Inter", "Noto Sans", system-ui, sans-serif;
+}
+.lh-water {
+  position: absolute;
+  right: -0.05em;
+  top: -0.22em;
+  font-family: "Playfair Display", "Noto Serif", Georgia, serif;
+  font-weight: 700;
+  font-size: 11em;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--lh-accent);
+  opacity: 0.09;
+  user-select: none;
+  pointer-events: none;
+}
+.lh-mg > :not(.lh-water) {
+  position: relative;
+}
+.lh-mg .lh-id {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+}
+.lh-mg .lh-name {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 700;
+  font-size: 2em;
+}
+.lh-mg-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.2em;
+  margin-top: 0.8em;
+  padding-top: 0.6em;
+  border-top: 0.06em solid var(--lh-hair);
+}
+.lh-mg-cols .lh-docs {
+  border-left: 0.06em solid var(--lh-hair);
+  padding-left: 1.2em;
+}
+
+/* 10. Clinical clean */
+.lh-clin {
+  font-family: "Inter", "Noto Sans", system-ui, sans-serif;
+  border-top: 0.3em solid var(--lh-accent);
+  padding-top: 0.9em;
+}
+.lh-clin-top {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  padding-bottom: 0.8em;
+}
+.lh-clin .lh-name {
+  font-weight: 700;
+  font-size: 1.7em;
+  letter-spacing: -0.02em;
+}
+.lh-clin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10em, 1fr));
+  border-top: 0.06em solid var(--lh-hair);
+  border-bottom: 0.06em solid var(--lh-hair);
+}
+.lh-clin-grid > div {
+  padding: 0.6em 0.9em 0.6em 0;
+}
+.lh-clin-grid > div + div {
+  border-left: 0.06em solid var(--lh-hair);
+  padding-left: 0.9em;
+}
+.lh-cap {
+  margin: 0 0 0.3em;
+  font-size: 0.74em;
+  font-weight: 700;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lh-accent);
+}
+.lh-clin .lh-doc {
+  margin: 0 0 0.3em;
+}
+
+/* 11. Bilingual elegant */
+.lh-bie {
+  text-align: center;
+  font-family: "DM Serif Display", "Noto Serif", Georgia, serif;
+  padding-bottom: 0.8em;
+  border-bottom: 0.06em solid var(--lh-accent);
+  background: linear-gradient(to bottom, transparent 70%, var(--lh-tint));
+}
+.lh-bie .lh-logo,
+.lh-bie .lh-mono {
+  margin: 0 auto 0.4em;
+}
+.lh-bie .lh-name {
+  font-family: "DM Serif Display", Georgia, serif;
+  font-weight: 400;
+  font-size: 2.1em;
+  letter-spacing: 0.01em;
+}
+.lh-bie .lh-local {
+  font-family: "Tiro Devanagari Hindi", "Noto Serif Devanagari", "Noto Sans Devanagari", serif;
+  font-weight: 400;
+  font-size: 1.5em;
+  line-height: 1.5;
+}
+.lh-bie .lh-docs {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.2em 2.4em;
+  font-family: "Inter", "Noto Sans", system-ui, sans-serif;
+}
+.lh-bie .lh-contact {
+  margin-top: 0.3em;
+  font-family: "Inter", "Noto Sans", system-ui, sans-serif;
+}
+
+/* 12. Signature */
+.lh-sig {
+  font-family: "Fraunces", "Noto Serif", Georgia, serif;
+  border-bottom: 0.08em solid var(--lh-accent);
+  padding-bottom: 0.7em;
+}
+.lh-sig-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.4em;
+  flex-wrap: wrap;
+}
+.lh-sig-lead {
+  flex: 1 1 14em;
+  min-width: 0;
+}
+.lh-sig-lead > .lh-doc {
+  margin: 0 0 0.4em;
+}
+.lh-sig-lead > .lh-doc b {
+  font-size: 1.9em;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--lh-accent);
+}
+.lh-sig-lead > .lh-doc span {
+  font-family: "Inter", "Noto Sans", system-ui, sans-serif;
+  font-size: 0.88em;
+  margin-top: 0.2em;
+}
+.lh-sig-more {
+  font-family: "Inter", "Noto Sans", system-ui, sans-serif;
+  font-size: 0.9em;
+}
+.lh-sig-clinic {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  text-align: right;
+  flex-direction: row-reverse;
+  padding-left: 1em;
+  border-left: 0.06em solid var(--lh-hair);
+}
+.lh-sig .lh-name {
+  font-size: 1.15em;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.lh-sig .lh-local {
+  font-size: 0.95em;
+}
+.lh-sig .lh-contact {
+  margin-top: 0.5em;
+  font-family: "Inter", "Noto Sans", system-ui, sans-serif;
+}
+.lh-signoff {
+  margin: 1.2em 2.4em 0;
+  padding-top: 2.4em;
+  display: flex;
+  justify-content: flex-end;
+}
+.lh-signoff span {
+  min-width: 13em;
+  border-top: 0.06em solid #1a1a1a;
+  padding-top: 0.25em;
+  text-align: center;
+  font-size: 0.78em;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.14em;
+  color: #555;
+}
+
 .lh-foot {
   border-top: 0.08em solid var(--lh-accent);
   margin: 0 2.4em;
@@ -297,6 +614,12 @@
   margin: 0;
   border: 0;
   padding: 0;
+}
+
+@media (max-width: 480px) {
+  .lh-split {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media print {

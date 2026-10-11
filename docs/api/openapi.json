@@ -22670,7 +22670,7 @@
           },
           "template": {
             "type": "string",
-            "description": "`logo_left`, `classic`, `modern_band`, `minimal_line`, `two_doctor` or `bilingual`."
+            "description": "`logo_left`, `classic`, `modern_band`, `minimal_line`, `two_doctor`, `bilingual`, `heritage_serif`, `modern_split`,\n`monogram`, `clinical_clean`, `bilingual_elegant` or `signature`."
           },
           "timings": {
             "type": [

@@ -7723,7 +7723,10 @@ export interface components {
             mode: string;
             /** @description Which details the design prints. */
             show: components["schemas"]["LetterheadShown"];
-            /** @description `logo_left`, `classic`, `modern_band`, `minimal_line`, `two_doctor` or `bilingual`. */
+            /**
+             * @description `logo_left`, `classic`, `modern_band`, `minimal_line`, `two_doctor`, `bilingual`, `heritage_serif`, `modern_split`,
+             *     `monogram`, `clinical_clean`, `bilingual_elegant` or `signature`.
+             */
             template: string;
             /** @description Opening hours printed on the letterhead. */
             timings?: string | null;

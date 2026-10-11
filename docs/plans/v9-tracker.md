@@ -93,3 +93,9 @@ All work stopped at 12:50, at the founder's request. Each worker was told to com
 | C5 | Doctor ↔ front desk role flip card | More menu → "Switch view", only for members holding both roles | Permissions still come from the server; the flip changes the layout, not access. |
 
 C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the founder, then built.
+
+**11 Oct update**
+- feat/v9: `:shared:jvmTest` passes on the merged branch (exit 0).
+- be-int: blocked because the disk was full. Only the be-queue merge is in (f92a745), not compiled yet. The handoff is in `be-int.md` (73cd962). Before resuming, recreate the `aarogyam_v9be` database.
+- Cleanup: freed my own build caches (about 11 GB free now). The large caches that belong to other sessions were left for the founder to decide on.
+- Started: ios-patient and ios-visit, on branches from feat/v9.

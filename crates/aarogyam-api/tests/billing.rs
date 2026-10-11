@@ -164,7 +164,8 @@ async fn bills_charge_gst_per_line_and_freeze_when_issued() {
         )
         .await;
     assert_eq!(status, StatusCode::CONFLICT);
-    let (status, _) = app
+    // Issuing again is a retry: 200 with the same bill, nothing changes or is numbered.
+    let (status, again) = app
         .send(
             Method::POST,
             ALPHA,
@@ -173,7 +174,8 @@ async fn bills_charge_gst_per_line_and_freeze_when_issued() {
             None,
         )
         .await;
-    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert_eq!(again, bill);
     let frozen = sqlx::query("update aarogyam.invoices set total_paise = 1 where id = $1::uuid")
         .bind(&id)
         .execute(&app.owner)
@@ -836,5 +838,143 @@ async fn reports_show_collections_revenue_mix_and_dues() {
         ),
         (Some(0), Some(0))
     );
+    app.finish().await;
+}
+
+/// Lets Arun Assistant (Alpha, no billing rights) into Beta with Beta's assistant role.
+async fn arun_joins_beta(app: &TestApp) {
+    sqlx::raw_sql(
+        "insert into aarogyam.memberships (org_id, user_id, role_id, status)
+         select o.id, '01900000-0000-7000-8000-0000000000a2', r.id, 'active'
+         from aarogyam.organizations o join aarogyam.roles r on r.org_id = o.id and r.key = 'assistant'
+         where o.slug = 'beta'",
+    )
+    .execute(&app.owner)
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_member_without_billing_rights_gets_404_for_another_clinics_bill_and_payment() {
+    let app = TestApp::start().await;
+    arun_joins_beta(&app).await;
+    let owner = app.token(ALPHA_OWNER);
+    let arun = app.token(ALPHA_ASSISTANT);
+    let patient = patient(&app, ALPHA, &owner).await;
+    let bill = issued_bill(&app, &owner, &patient).await;
+    let bill_id = bill["id"].as_str().unwrap();
+    let body = json!({ "patient_id": patient, "method": "cash", "amount_paise": 100,
+                       "allocations": [{ "invoice_id": bill_id, "amount_paise": 100 }] });
+    let (_, paid) = pay(&app, &owner, "key-d2-0000001", body).await;
+    let payment_id = paid["id"].as_str().unwrap();
+    let reason = json!({ "reason": "Not ours" });
+    let cases = [
+        (Method::GET, format!("/api/v1/invoices/{bill_id}"), None),
+        (
+            Method::GET,
+            format!("/api/v1/invoices/{bill_id}/upi-link"),
+            None,
+        ),
+        (
+            Method::PATCH,
+            format!("/api/v1/invoices/{bill_id}"),
+            Some(json!({})),
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/invoices/{bill_id}/issue"),
+            None,
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/invoices/{bill_id}/void"),
+            Some(reason.clone()),
+        ),
+        (Method::GET, format!("/api/v1/payments/{payment_id}"), None),
+        (
+            Method::POST,
+            format!("/api/v1/payments/{payment_id}/void"),
+            Some(reason),
+        ),
+    ];
+    for (method, path, body) in cases {
+        // Another clinic's record: 404 whatever the role. In its own clinic the role decides.
+        let (status, _) = app
+            .send(method.clone(), BETA, &path, Some(&arun), body.clone())
+            .await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "beta {method} {path}");
+        let (status, _) = app
+            .send(method.clone(), ALPHA, &path, Some(&arun), body)
+            .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "alpha {method} {path}");
+    }
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn list_filters_by_patient_and_drafts_report_their_total_and_balance() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let first = patient(&app, ALPHA, &owner).await;
+    let second = patient(&app, ALPHA, &owner).await;
+    let first_bill = issued_bill(&app, &owner, &first).await;
+    let items = json!([{ "description": "Crown", "unit_price_paise": 240_000 }]);
+    let draft_bill = draft(&app, ALPHA, &owner, &second, items).await;
+    let draft_id = draft_bill["id"].as_str().unwrap();
+    for (key, who, bill) in [("key-d3-0000001", &first, &first_bill)] {
+        let body = json!({ "patient_id": who, "method": "cash", "amount_paise": 100,
+                           "allocations": [{ "invoice_id": bill["id"], "amount_paise": 100 }] });
+        pay(&app, &owner, key, body).await;
+    }
+    pay(
+        &app,
+        &owner,
+        "key-d3-0000002",
+        json!({ "patient_id": second, "method": "cash", "amount_paise": 500 }),
+    )
+    .await;
+
+    let (_, all) = app
+        .send(Method::GET, ALPHA, "/api/v1/payments", Some(&owner), None)
+        .await;
+    assert_eq!(all["items"].as_array().unwrap().len(), 2);
+    for (who, expected) in [(&first, 100), (&second, 500)] {
+        let path = format!("/api/v1/payments?patient_id={who}");
+        let (status, list) = app
+            .send(Method::GET, ALPHA, &path, Some(&owner), None)
+            .await;
+        assert_eq!(status, StatusCode::OK);
+        let items = list["items"].as_array().unwrap();
+        assert_eq!(items.len(), 1, "{list}");
+        assert_eq!(items[0]["amount_paise"], expected);
+        assert_eq!(items[0]["patient"]["id"].as_str().unwrap(), who);
+    }
+    let path = format!("/api/v1/invoices?patient_id={second}");
+    let (_, list) = app
+        .send(Method::GET, ALPHA, &path, Some(&owner), None)
+        .await;
+    let items = list["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    // The draft's real total and balance, in the list and the detail.
+    assert_eq!(items[0]["status"], "draft");
+    assert_eq!(items[0]["total_paise"], 240_000);
+    assert_eq!(items[0]["balance_paise"], 240_000);
+    let (_, detail) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/invoices/{draft_id}"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(detail["total_paise"], 240_000);
+    assert_eq!(detail["balance_paise"], 240_000);
+    // Issuing changes nothing about what is owed.
+    let issued = issue(&app, &owner, draft_id).await;
+    assert_eq!(issued["total_paise"], 240_000);
+    assert_eq!(issued["balance_paise"], 240_000);
     app.finish().await;
 }

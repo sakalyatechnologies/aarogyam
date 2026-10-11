@@ -377,6 +377,7 @@ pub async fn book(
             },
         )
         .await?;
+        crate::auto_messages::follow_up_booked(tx, input.patient_id.uuid()).await?;
         let warnings = warnings(
             tx,
             &profile.timezone,

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select m.id, m.number, m.patient_id, p.full_name as patient_name, p.number as patient_number,\n                  m.received_at, m.amount_paise, m.method, m.reference, m.status, m.void_reason,\n                  m.request_hash, m.attachment_id,\n                  coalesce((select sum(a.amount_paise) from aarogyam.payment_allocations a\n                            where a.org_id = m.org_id and a.payment_id = m.id), 0)::bigint as \"allocated_paise!\"\n           from aarogyam.payments m\n           join aarogyam.patients p on p.org_id = m.org_id and p.id = m.patient_id\n           where ($1::uuid is null or m.id = $1)\n             and ($2::text is null or m.idempotency_key = $2)\n             and ($3::timestamptz is null or m.received_at >= $3)\n             and ($4::timestamptz is null or m.received_at < $4)\n           order by m.received_at desc, m.id desc\n           limit $5",
+  "query": "select m.id, m.number, m.patient_id, p.full_name as patient_name, p.number as patient_number,\n                  m.received_at, m.amount_paise, m.method, m.reference, m.status, m.void_reason,\n                  m.request_hash, m.attachment_id,\n                  coalesce((select sum(a.amount_paise) from aarogyam.payment_allocations a\n                            where a.org_id = m.org_id and a.payment_id = m.id), 0)::bigint as \"allocated_paise!\"\n           from aarogyam.payments m\n           join aarogyam.patients p on p.org_id = m.org_id and p.id = m.patient_id\n           where ($1::uuid is null or m.id = $1)\n             and ($2::text is null or m.idempotency_key = $2)\n             and ($3::timestamptz is null or m.received_at >= $3)\n             and ($4::timestamptz is null or m.received_at < $4)\n             and ($5::uuid is null or m.patient_id = $5)\n           order by m.received_at desc, m.id desc\n           limit $6",
   "describe": {
     "columns": [
       {
@@ -159,6 +159,7 @@
         "Text",
         "Timestamptz",
         "Timestamptz",
+        "Uuid",
         "Int8"
       ]
     },
@@ -179,5 +180,5 @@
       null
     ]
   },
-  "hash": "506a79845482791349e389c5ea558ceae4db7e2dec0cdb7ae45580485c5039fb"
+  "hash": "2ce38aec0bf6dff8e10667c239cb42ea9a676768eec80cdc0d39c25e8cdace51"
 }

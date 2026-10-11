@@ -559,6 +559,7 @@ async fn book_slot(
             AppError::on_constraint(error, "appointments_self_booking_slot", SLOT_TAKEN)
         })?;
         record_booked(tx, id, settings.auto_confirm, now).await?;
+        crate::auto_messages::follow_up_booked(tx, patient_id).await?;
         let message = if settings.auto_confirm {
             MessageKind::BookingConfirmed
         } else {

@@ -529,6 +529,111 @@ async fn the_follow_up_message_waits_until_two_days_before_and_needs_reminder_co
     app.finish().await;
 }
 
+/// The follow-up booking message of the patient's latest visit: status and skip reason.
+async fn follow_up_state(app: &TestApp, patient: &str) -> (String, Option<String>) {
+    sqlx::query_as(
+        "select status, skip_reason from aarogyam.messages
+         where patient_id = $1::uuid and kind = 'visit.follow_up_booking'
+         order by created_at desc limit 1",
+    )
+    .bind(patient)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_booking_or_a_finished_recall_cancels_the_queued_follow_up_message() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    set_switches(&app, &owner, json!({ "follow_up_booking": true })).await;
+    let due = (OffsetDateTime::now_utc().date() + Duration::days(10)).to_string();
+    let consent = |id: String| {
+        let owner = owner.clone();
+        let app = &app;
+        async move {
+            let (status, _) = post(
+                app,
+                ALPHA,
+                &owner,
+                &format!("/api/v1/patients/{id}/consents"),
+                json!({ "purpose": "reminders", "method": "verbal" }),
+            )
+            .await;
+            assert_eq!(status, StatusCode::CREATED);
+        }
+    };
+
+    // The recall is marked done before the message goes out.
+    let first = patient(&app, &owner, "Meera Shah", "meera@example.in").await;
+    consent(first.clone()).await;
+    let visit_id = visit(&app, &owner, &first).await;
+    let (status, closed) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &format!("/api/v1/visits/{visit_id}/close"),
+        json!({ "follow_up_on": due }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{closed}");
+    assert_eq!(follow_up_state(&app, &first).await, ("queued".into(), None));
+    let recall = closed["recall_id"].as_str().unwrap();
+    let (status, _) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &format!("/api/v1/recalls/{recall}/done"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        follow_up_state(&app, &first).await,
+        ("skipped".into(), Some("follow_up_resolved".into()))
+    );
+
+    // The patient is booked by the desk before it goes out.
+    let second = patient(&app, &owner, "Tara Nair", "tara@example.in").await;
+    consent(second.clone()).await;
+    let visit_id = visit(&app, &owner, &second).await;
+    close(
+        &app,
+        &owner,
+        ALPHA,
+        &visit_id,
+        json!({ "follow_up_on": due }),
+    )
+    .await;
+    assert_eq!(follow_up_state(&app, &second).await.0, "queued");
+    let (status, doctor) = post(
+        &app,
+        ALPHA,
+        &owner,
+        "/api/v1/practitioners",
+        json!({ "display_name": "Dr Asha" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{doctor}");
+    let (status, saved) = post(
+        &app,
+        ALPHA,
+        &owner,
+        "/api/v1/appointments",
+        json!({ "patient_id": second, "practitioner_id": doctor["id"],
+                "starts_at": "2030-01-07T10:00:00+05:30",
+                "ends_at": "2030-01-07T10:30:00+05:30" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{saved}");
+    assert_eq!(
+        follow_up_state(&app, &second).await,
+        ("skipped".into(), Some("follow_up_resolved".into()))
+    );
+    app.finish().await;
+}
+
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
 async fn whatsapp_needs_opt_in_and_an_approved_template_and_stays_off_without_credentials() {

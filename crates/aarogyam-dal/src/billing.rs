@@ -704,6 +704,8 @@ pub struct PaymentFilter<'a> {
     pub from: Option<OffsetDateTime>,
     /// Received before.
     pub to: Option<OffsetDateTime>,
+    /// One patient's payments.
+    pub patient_id: Option<Uuid>,
     /// Most rows.
     pub limit: i64,
 }
@@ -729,12 +731,14 @@ pub async fn payments(
              and ($2::text is null or m.idempotency_key = $2)
              and ($3::timestamptz is null or m.received_at >= $3)
              and ($4::timestamptz is null or m.received_at < $4)
+             and ($5::uuid is null or m.patient_id = $5)
            order by m.received_at desc, m.id desc
-           limit $5"#,
+           limit $6"#,
         filter.id,
         filter.idempotency_key,
         filter.from,
         filter.to,
+        filter.patient_id,
         filter.limit
     )
     .fetch_all(conn)

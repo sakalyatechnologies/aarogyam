@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.messages\n             set status = 'skipped', skip_reason = 'follow_up_resolved', processed_at = now(),\n                 secret = null\n           where patient_id = $1 and kind = 'visit.follow_up_booking' and status = 'queued'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f7ba13b2e02b1b0b465ddbce2b79474895c87ba962736343034c3fa76001340e"
+}

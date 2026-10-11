@@ -612,3 +612,32 @@ async fn a_recording_uploaded_again_with_the_same_id_is_kept_once() {
     assert_eq!(rows(&app, "attachments", &fresh).await, 0);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_procedure_retried_with_the_same_id_is_200_with_the_existing_row() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let beta_owner = app.token(BETA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let visit = start_visit(&app, &owner, &patient).await;
+    let id = new_id();
+    let path = format!("/api/v1/visits/{visit}/procedures");
+    let body = json!({ "id": id, "name": "Scaling", "price_paise": 80_000 });
+
+    // The first create is 201; a retry is 200 with the same row and makes no second one.
+    let (status, first) = post(&app, ALPHA, &owner, &path, body.clone()).await;
+    assert_eq!(status, StatusCode::CREATED, "{first}");
+    assert_eq!(first["id"], id);
+    let (status, again) = post(&app, ALPHA, &owner, &path, body.clone()).await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert_eq!(again, first);
+    assert_eq!(rows(&app, "procedures", &id).await, 1);
+
+    // Other content under the same id is refused; another clinic can't see it.
+    let changed = json!({ "id": id, "name": "Scaling", "price_paise": 90_000 });
+    assert_id_conflict(&post(&app, ALPHA, &owner, &path, changed).await, "price");
+    let (status, _) = post(&app, BETA, &beta_owner, &path, body).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    app.finish().await;
+}

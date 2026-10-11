@@ -109,3 +109,9 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
   - It added `IosPatientV9.kt` and an Observation shim. The shared `Observation` model hides Swift's Observation, so renaming the model later is cleaner.
 - Spotless ran on the merged shared code. The kit link now points at wt-sakalya-pin2 (v0.2.0-dev.2), because SkPillButton needs it.
 - In progress: the full `gradlew check` and `ios-check.sh` on feat/v9. Next is ios-desk, once the simulator is free.
+- sh-gaps: merged.
+  - Rx timing and Save draft now go to the server.
+  - Follow-up at close creates a recall.
+  - Turn on the fee with `VisitStateHolder.SERVER_CLOSE_BODY` once BE5 is merged.
+- **Gates on feat/v9: green.** Both `./gradlew check` and `iosApp/scripts/ios-check.sh` pass.
+  - Fixes needed to get there: a `kotlinx.io.IOException` in a desk test, and spotless.
